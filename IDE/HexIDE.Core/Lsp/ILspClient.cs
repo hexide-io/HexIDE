@@ -4,6 +4,9 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>Rechecks the workspace root and reopens held documents if it moved.</summary>
+    Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 

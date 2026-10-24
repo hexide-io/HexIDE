@@ -18,12 +18,12 @@ namespace HexIDE.Runtime.Tests;
 /// did not author is a violation of the round-trip guarantee ("open any VB6 project, save it, lose nothing")
 /// by definition — no oracle round-trip is needed to call it a defect, because VB6 wrote the input.
 ///
-/// Corpus roots, in order of preference:
+/// corpus/designer and corpus/member-attributes are always required. Additional roots:
 ///   1. HEXIDE_ROUNDTRIP_CORPUS — ';'-separated absolute paths.
 ///   2. The VB6 install's Template tree (Windows dev machines only) — genuinely Microsoft-authored.
-///   3. demo/ in this repo — always present, so the harness is never vacuous on CI.
+///   3. demo/ in this repo — required unless HEXIDE_ROUNDTRIP_CORPUS replaces the defaults.
 ///
-/// CI is Linux and has no VB6 install, so absent roots are skipped rather than failed.
+/// An absent VB6 Template tree is skipped; missing repository roots fail the lane.
 /// </summary>
 public class SerializationCorpusTests
 {
@@ -50,22 +50,24 @@ public class SerializationCorpusTests
     /// below is case-insensitive by virtue of running on Windows, so anything that re-implements it
     /// elsewhere — a script, a CI step, a doc's claim — has to be checked against that.
     /// </summary>
-    private static IEnumerable<string> CorpusRoots()
+    private static IEnumerable<string> CorpusRoots(Func<string, string?>? findRoot = null)
     {
+        findRoot ??= FindUpwards;
         // Always, ahead of the priority order below rather than inside it. This is the only project in the
         // corpus with a UserControl and a PropertyPage in it, and it is how hexide-io/HexIDE#483 was found:
         // the .vbp item-line shape for those two keys was wrong, and no project that used them had ever
         // round-tripped. An explicit HEXIDE_ROUNDTRIP_CORPUS means a developer is pointing at more VB6
         // files; it is not an instruction to stop checking the repository's own.
-        var designer = FindUpwards(Path.Join("corpus", "designer"));
-        if (designer is not null) yield return designer;
+        var designer = findRoot(Path.Join("corpus", "designer"));
+        designer.Should().NotBeNull("corpus/designer ships with the repository");
+        yield return designer!;
 
         // Always too, for the same reason: the only files anywhere that carry members' attribute lines, every one
         // written by VB6's own IDE (#273 task 4.6). The round-trip half, which its dialog wrote, and the output VB6
         // saved for each hand-written project of the evidence half; not those inputs, which are not VB6's bytes.
         // Required, not skipped when absent: the folder ships with the repository, and losing it would leave this
         // lane passing on the rest without a word.
-        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
+        var memberAttributes = findRoot(Path.Join("corpus", "member-attributes"));
         memberAttributes.Should().NotBeNull("corpus/member-attributes ships with the repository");
         var roundTrip = Path.Join(memberAttributes!, "round-trip");
         Directory.Exists(roundTrip).Should().BeTrue("its round-trip half is this lane's proof for members' attribute lines");
@@ -86,8 +88,20 @@ public class SerializationCorpusTests
                    ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
         if (Directory.Exists(vb98)) yield return vb98;
 
-        var repoDemo = FindUpwards("demo");
-        if (repoDemo is not null) yield return repoDemo;
+        var repoDemo = findRoot("demo");
+        repoDemo.Should().NotBeNull("demo/ ships with the repository");
+        yield return repoDemo!;
+    }
+
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("corpus/designer")]
+    public void MissingRepositoryRootFailsTheLane(string missing)
+    {
+        string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
+        Action enumerate = () => CorpusRoots(FindRoot).ToList();
+
+        enumerate.Should().Throw<Exception>().WithMessage("*" + missing + "*ships with the repository*");
     }
 
     private static string? FindUpwards(string folderName)
@@ -198,7 +212,8 @@ public class SerializationCorpusTests
     public void Forms_and_controls_round_trip_byte_for_byte()
     {
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return; // no VB6 install and no demo/ — nothing to check (CI)
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var report = new StringBuilder();
         report.AppendLine($"Round-trip corpus report — {files.Count} form/control files");
@@ -370,7 +385,8 @@ public class SerializationCorpusTests
         var expected = new Dictionary<string, UnfaithfulSaveCause>();
 
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         // Every name above is a VB6-authored file from the Template tree, which CI does not have — there
         // the corpus falls back to demo/, whose files are HexIDE's own and gated by nothing. Comparing the
@@ -468,7 +484,8 @@ public class SerializationCorpusTests
         // general rule is (Width - ScaleWidth) / 2. Where a file states both in twips, the two must agree —
         // and that is what makes the border table a measurement rather than a guess.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var compared = 0;
         foreach (var path in files)
@@ -536,7 +553,8 @@ public class SerializationCorpusTests
         // project it cannot demo. This is a separate, stricter property than byte-identity, and unlike
         // that one it is fully achieved, so it gates at zero.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var unopenable = new List<string>();
         var detail = new StringBuilder();
@@ -578,7 +596,8 @@ public class SerializationCorpusTests
         // through HexIDE produces one large diff; if HexIDE is then idempotent, that is the end of it
         // until VB6 touches the file again. If it is not, the file churns forever on its own.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var report = new StringBuilder();
         var drifting = new List<string>();
@@ -662,7 +681,8 @@ public class SerializationCorpusTests
         // entirely ComboBox/ListBox List and ItemData, which use a different record layout (a 2-byte
         // count, not a 4-byte length). Fixing that needs one oracle experiment, not a rewrite.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var cite = new Regex(@"^\s*(\w+)\s*=\s*""[^""]+\.(?:frx|ctx|pgx)"":([0-9A-Fa-f]+)",
                              RegexOptions.IgnoreCase | RegexOptions.Multiline);
@@ -713,7 +733,8 @@ public class SerializationCorpusTests
         // `Startup=` survived: no corpus file was ever compared against what came back out. Every project
         // has one of these, so it is the file most likely to show a spurious diff.
         var files = CorpusFiles(".vbp");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var report = new StringBuilder();
         report.AppendLine($"Project round-trip report — {files.Count} .vbp files");
@@ -801,7 +822,8 @@ public class SerializationCorpusTests
     public void Standard_and_class_modules_round_trip_byte_for_byte()
     {
         var files = CorpusFiles(".bas", ".cls");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var failures = new List<string>();
         var report = new StringBuilder();

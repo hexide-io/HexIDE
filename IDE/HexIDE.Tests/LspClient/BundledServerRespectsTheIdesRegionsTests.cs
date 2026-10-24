@@ -345,27 +345,32 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
     /// That folder is read whole, its evidence half included: this compares the two copies of the rule and is no
     /// round trip, and the evidence's inputs are the misplaced runs VB6 itself loaded (#273 task 4.6).
     /// </remarks>
-    private static IEnumerable<(string Name, string Text)> Inputs()
+    private static IEnumerable<(string Name, string Text)> Inputs(Func<string, string?>? findRoot = null)
     {
+        findRoot ??= FindUpwards;
         yield return ("inline form", Form);
         yield return ("inline class", Class);
         yield return ("inline class with orphans", ClassWithOrphans);
         yield return ("inline form with the reader's shapes", FormWithReaderShapes);
 
-        // The member-attribute corpus is required, where the other roots are taken if found: it is the only whole-file
+        // The member-attribute corpus is required too: it is the only whole-file
         // source of runs VB6 wrote and of the misplaced ones it loaded, and without it the comparison would go on
         // passing over the inline files and the demos alone.
-        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
+        var memberAttributes = findRoot(Path.Join("corpus", "member-attributes"));
         memberAttributes.Should().NotBeNull("corpus/member-attributes ships with the repository");
         new[] { "round-trip", "evidence" }.Where(half => !Directory.Exists(Path.Join(memberAttributes!, half)))
             .Should().BeEmpty("both halves are read: the runs VB6 wrote, and the misplaced ones it loaded");
-        var roots = new List<string?> { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), memberAttributes };
+        var demo = findRoot("demo");
+        demo.Should().NotBeNull("demo/ ships with the repository");
+        var designer = findRoot(Path.Join("corpus", "designer"));
+        designer.Should().NotBeNull("corpus/designer ships with the repository");
+        var roots = new List<string> { demo!, designer!, memberAttributes! };
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
             roots.AddRange(env.Split(';', StringSplitOptions.RemoveEmptyEntries).Where(Directory.Exists));
 
         string[] extensions = [".frm", ".cls", ".bas", ".ctl", ".pag", ".dob", ".dsr"];
-        foreach (var root in roots.OfType<string>())
+        foreach (var root in roots)
         {
             foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
             {
@@ -373,6 +378,17 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     yield return (Path.GetRelativePath(root, file), File.ReadAllText(file));
             }
         }
+    }
+
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("corpus/designer")]
+    public void MissingRepositoryRootFailsTheLane(string missing)
+    {
+        string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
+        Action enumerate = () => Inputs(FindRoot).ToList();
+
+        enumerate.Should().Throw<Exception>().WithMessage("*" + missing + "*ships with the repository*");
     }
 
     private static string? FindUpwards(string relative)

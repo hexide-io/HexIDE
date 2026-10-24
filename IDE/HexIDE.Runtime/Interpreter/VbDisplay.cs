@@ -44,6 +44,7 @@ public static class VbDisplay
         // An object stands for its default member: Err its Number, and one with none is 438 (ObjectAsValue). Its CLR
         // type name, which the last arm gave, is never right (#436).
         VbObject or ICSharpProxy => ToText(ObjectAsValue.Scalar(value, null), culture),
+        VBArray => throw new VBRunTimeException(VBStandardError.TypeMismatch),
         string s => s,
         float f => Floating(f, 7, culture),
         double d => Floating(d, 15, culture),

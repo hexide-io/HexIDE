@@ -10,6 +10,18 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Start automation with an unsaved project** (#502). `--newproject-unsaved` skips the startup dialog without
+  writing project or component files, so `untitled:` language-server URIs can be exercised from launch.
+  `--newproject` still saves to a temporary directory; `add_file` already leaves new documents pathless (#500).
+
+- **A Type field declared `As New C1` makes its object on first use** (#1488), as measured in VB6. Declaring the Type and writing another field make nothing; copying it shares the object, which terminates when the procedure exits.
+
+- **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
+  placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
+
+- **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
+  request position, and parameter info being open before the typing reply when the server answers after a delay.
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;
@@ -138,6 +150,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Changed
 
+- **The automation server’s loopback gate is exercised through real HTTP requests** (#773). The IDE and
+  the Kestrel test server share its middleware wiring; foreign Host and Origin headers are refused on
+  `/mcp`, and a foreign Host is refused on `/health`, while loopback clients are answered.
+
 - **The code window shows the whole file, header included, and one line number now means the same thing
   everywhere** - to the editor, to a language server, to the interpreter and to the debugger. A form's
   designer block and a module's `Attribute` header are no longer hidden from the code window.
@@ -252,6 +268,130 @@ there isn't one yet. Anything may change between 0.x releases.
 - **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
   the test assembly, so separate checkouts and build output directories no longer overwrite each other's
   reports or contend for a shared temp file.
+
+- **Corpus lanes fail when repository roots are missing** (#1016). The round-trip, grammar, header and
+  region-parity checks now require `demo/` and `corpus/designer`, so losing either cannot silently reduce coverage.
+  An explicit round-trip corpus still replaces the default demo root.
+
+- **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
+  the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
+
+- **Editing bundled-server tests no longer makes the server look stale** (#1017). The IDE test harness
+  checks C# and grammar files in the server project only, so test edits keep the parity checks running
+  and grammar edits require a rebuild.
+
+- **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
+  the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
+
+- **Unavailable tests report a skip** (#693). Windows-only path and file-lock checks, empty serialization
+  corpus selections, and the opt-in VB6 build oracle no longer report an unearned pass. The documented
+  oracle commands now use the MTP method filter.
+
+- **The design-record guard recognises renamed requirements** (#1050). It reads the CLI’s `FROM` and `TO`
+  list items, so an archived rename retires the old name and requires the new name in the live spec.
+
+- **Foreground-window tests close their windows** (#1319). Dialogs close before their owners, so later
+  headless tests no longer inherit these tests' modal dialogs.
+
+- **Repaired three corrupted comment banners in `PropertyTextTests.cs`** (#1312). The tree-hygiene guard now
+  rejects C1 control characters in text files, with a planted selftest case to catch encoding accidents.
+
+- **The Gregorian locale test follows the platform's calendar data** (#1045). It no longer assumes ar-SA's
+  first month differs from January, which failed under WSL's ICU 78 even though the program's output was correct.
+
+- **Forced-exit cleanup order is regression-tested** (#563). A server startup failure disposes the add-in loader
+  before closing consent dialogs, exits even if cleanup throws, and closes the log after the windows close.
+
+- **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
+  ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
+  for a later genuine failure.
+
+- **Project saves and startup-project changes immediately move language servers to the new workspace root**
+  (#1051), reopening every held document with its latest text even when no editor opens a new file.
+
+- **Document changes keep rising versions** (#720). A debounced change overtaken by a flush is dropped,
+  so it cannot reach the language server afterwards or replace the newer text and version replayed on reconnect.
+
+- **An index on a class's Variant field runs** (#1435). `k.V(1)` reads the array element through a variable declared as
+  the class, with error 9 past its bounds; through `As Object` the read raises 451. An in-bounds assignment leaves the
+  field unchanged without error, as measured on VB6. These operations were refused as not implemented.
+
+- **A bare `Reset` calls the module's own Sub named `Reset`** (#851), including a private sibling called from
+  `Class_Initialize`, as measured on vb6.exe. It previously stopped with "Reset not implemented".
+
+- **Library-qualified calls to missing intrinsics stop the run** (#867). `VBA.CallByName` and unknown names such as `VBA.Frobnicate`, including explicit `Call` statements, can no longer be swallowed by `On Error Resume Next` as error 461.
+
+- **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date
+  and Boolean. Strings and Variants keep their text lengths. Numeric literals and arithmetic expressions are refused
+  with VB6’s measured “Variable required” compile error when executed.
+
+- **Interpreter errors no longer print `Right(Control)` and other internal Either wrappers** (#935). Missing-member errors omit the receiver type; other type diagnostics retain the inner name and array suffix.
+
+- **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
+  elements, direct class methods and Property Gets, and module-qualified Functions now run the body once and raise
+  92 at Next, preserving the element only for a declared array. Unavailable declarations still stop with an explanation.
+
+- **`Val("1E+400")` raises Overflow (6)** instead of returning infinity, as measured on vb6.exe (#782).
+
+- **An omitted `Optional o As Variant` is Missing** (#866). `IsMissing`, `TypeName` and `VarType` now
+  report True, Error and 10, as measured on vb6.exe, so an `IsMissing` defaulting guard runs. Explicit
+  Empty and a declared default keep their values.
+
+- **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
+
+- **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
+  5 and Filter 13, as measured in VB6. Long arrays gave values, and 2-D String arrays raised 9. Unallocated arrays
+  still give an empty string or an unallocated String array.
+
+- **Arithmetic uses VB6's per-operator result tables** (#230). Long with Single computes as Double;
+  Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
+  first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.
+
+- **String function error precedence** (#959): Left, Mid, Replace, Split and InStr check the measured typed value argument before reading a class object, so its error 13 (or Left's 94 for a Null length) wins over the object's 438 or default-member refusal.
+
+- **MCP sets a non-editable dropdown by item text** (#1672). `interact set_value` uses the same case-insensitive selection as `select`, closes the dropdown and reports the selection. A miss names the available items, with a count when the list is capped. `inspect_element` reports `isReadOnly` for value providers, and other read-only values are refused with an explanation rather than a provider exception.
+
+- **Yearless dates followed by a time** (#1445) now use the current year through `CDate`, a store into a Date and `IsDate`. Measured under en-GB with comma, slash and hyphen separators, seconds and PM; a full stop remains refused.
+
+- **Whole-file replacement refusals report every protected region changed** (#1054). When the header and a
+  member's Attribute lines differ, `set_file_content` and an add-in's `TrySetContent` now name both in one reply.
+
+- **An empty one-line For Each over Nothing follows p-code** (#1486). Under On Error Resume Next it raises 424, keeps the loop variable and skips Next; a statement after Next on the line still runs. Other loop forms keep their measured behaviour.
+
+- **Compiler test sockets are disposed when peer creation fails** (#1333). Loopback test helpers now own
+  resources until creation succeeds, and each socket-using test checks for open handles at teardown so a leak
+  fails where it occurs. Production transport is unchanged.
+
+- **For Each locks its array until the loop ends** (#1460). ReDim, ReDim Preserve and Erase inside the loop now raise 10 and leave the array unchanged. Every way out releases the lock, so a later ReDim can succeed.
+
+- **An Enum member named like its Enum reads qualified** (#1637): `E.E` now works in modules and classes, including across modules. Bare `E` as a value raises VB6's "Expected variable or procedure, not enum type" at use; assigning `E.E` raises "Assignment to constant not permitted".
+
+- **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
+  now gives 1.52003 under en-GB, as measured on vb6.exe SP6, native and p-code. Long, Currency,
+  IsNumeric and arithmetic read these Strings too; a leading separator is refused and Val still stops at it.
+
+- **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
+  The dump reaches the description popup under the completion list; `double_click` uses the list's own
+  insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
+  still needs a live check.
+
+- **Automation saves explain rewritten member Attribute qualifiers** (#1043). `set_file_content`,
+  `set_control_property` and `add_control` now name the old and new qualifiers in their successful reply,
+  explaining why a save can write text different from what the caller supplied.
+
+- **Named automation controls expose their visible labels** (#948). Dumps and inspection keep stable x:Name paths and add a distinct `label`; discovery searches and interaction replies use that text too.
+
+- **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
+  `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
+  after the error. A program variable still leaves it alone, and a String destination keeps its value.
+
+- **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
+  Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
+  "Duplicate declaration in current scope"; shadowing without that earlier read still works.
+
+- **An array used as text raises Type mismatch (13)** (#879): concatenation, CStr, a store into a String, Len,
+  UCase and Print # no longer use its CLR type name. A String store leaves its target unchanged. The debugger's
+  own array display is preserved; a typed Long array in concatenation is refused at runtime.
 
 - **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
   items are selected and explains that Align and Make Same measure against it, including the replacement

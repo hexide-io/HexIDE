@@ -23,14 +23,17 @@ cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*SerializationCor
 There is no test category or trait to filter on — `[Trait]` is not used anywhere in `IDE/`, so filter by
 type name.
 
-The corpus is discovered rather than configured. `HEXIDE_ROUNDTRIP_CORPUS` (a `;`-separated list of
-directories) replaces it outright; otherwise the roots are the VB98 template tree — `VB6_TEMPLATES`, or
-`C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template` — plus the repository's own `demo/`. The tests
-that read named Template files instead go through `Vb6Template` (#1440): `VB6_TEMPLATES` may name the
-`Template` folder or the one above it, a set variable under which a test's file is not found fails the test, naming what it tried, and
-only an unset one on a machine without VB6 skips. CI is
-Linux and has no VB6, so there the corpus is `demo/` alone: HexIDE's own output, which proves nothing about
-fidelity. Read the report, not the pass.
+The corpus is discovered rather than configured. `corpus/designer` and `corpus/member-attributes` are
+required even with `HEXIDE_ROUNDTRIP_CORPUS` (a `;`-separated list of directories). That variable replaces
+the default additional roots: the optional VB98 template tree (`VB6_TEMPLATES`, or the standard VB98
+`Template` folder) and the required repository `demo/`. Missing required roots fail the lane (#1016).
+The two whole-file grammar lanes, the header check and the IDE/server region-parity check always require
+both `demo/` and `corpus/designer`, even with an explicit corpus.
+
+Tests that read named Template files instead go through `Vb6Template` (#1440): `VB6_TEMPLATES` may name
+the `Template` folder or the one above it. A set variable under which a test's file is not found fails the
+test, naming what it tried; only an unset one on a machine without VB6 skips. CI has no VB6 install, but
+still reads the repository corpora, including VB6-authored designer and member-attribute files.
 
 The run writes a per-file report to `hexide-roundtrip-report.txt` beside the test assembly
 (`AppContext.BaseDirectory`, normally `IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/`), listing
