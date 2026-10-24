@@ -76,6 +76,12 @@ public class SerializationCorpusTests
                      .Order(StringComparer.Ordinal))
             yield return saved;
 
+        // The repository's own demo/ is checked whatever else is configured: HEXIDE_ROUNDTRIP_CORPUS adds a corpus,
+        // it does not replace the repository's files (#1016).
+        var repoDemo = findRoot("demo");
+        repoDemo.Should().NotBeNull("demo/ ships with the repository");
+        yield return repoDemo!;
+
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
         {
@@ -88,9 +94,6 @@ public class SerializationCorpusTests
                    ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
         if (Directory.Exists(vb98)) yield return vb98;
 
-        var repoDemo = findRoot("demo");
-        repoDemo.Should().NotBeNull("demo/ ships with the repository");
-        yield return repoDemo!;
     }
 
     [Theory]
