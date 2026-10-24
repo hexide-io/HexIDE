@@ -2475,6 +2475,7 @@ public static class UiAutomationDriver
             // A standing selection is what the typing writes over, so it is the span judged, as press_key judges a key. A box
             // is judged where it is written, a line at a time, by the read-only sections, as a person's typing over one is.
             if (AreaOf(surface) is { } typedInto
+                && PartialSelection(typedInto, deletes: false) is null
                 && RefusedInReadOnlyRegion(typedInto, typedInto.Selection is not RectangleSelection && typedInto.Selection.SurroundingSegment is { Length: > 0 } over
                     ? new EditedSpan(over.Offset, over.Length, Deletes: false)
                     : new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
@@ -2484,6 +2485,19 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, TypedMechanism, null,
                     $"{surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
                     + $"{refusal}, so a person could not type there either; nothing was inserted");
+
+            // AvaloniaEdit replaces the last deletable segment and removes the others in one update.
+            // Keep that placement (including when the selection starts in the header), rather than
+            // taking the selection and inserting at its original, possibly protected, start.
+            if (AreaOf(surface) is { } replacementArea
+                && PartialSelection(replacementArea, deletes: false) is { } replacement)
+            {
+                surface.Focus();
+                replacementArea.Selection.ReplaceSelectionWithText(text);
+                return new InteractOutcome(true, TypedMechanism,
+                    $"typed {text.Length} char(s), replacing {replacement.Deletable} selected char(s); "
+                    + replacement.Left + SelectionState(replacementArea), null);
+            }
 
             surface.Focus();
 
@@ -2601,10 +2615,12 @@ public static class UiAutomationDriver
             {
                 if (AreaOf(at) is not { } area)
                     return null;
-                var (key, mods, _) = keys[i];
+                var (key, mods, typed) = keys[i];
                 var span = EditSpan(area, key, mods) ?? (area.Selection.IsEmpty
                     ? new EditedSpan(area.Caret.Offset, 0, Deletes: false)
                     : new EditedSpan(area.Selection.SurroundingSegment.Offset, area.Selection.SurroundingSegment.Length, Deletes: false));
+                if (typed is not null && PartialSelection(area, deletes: false) is not null)
+                    return null;
                 return RefusedInReadOnlyRegion(area, span, "type_text", KeyboardMechanism, i == 0 ? null
                     : $"Key {i + 1} of {keys.Count} wrote nothing, and the rest were not sent; the {i} before it went in.");
             }
@@ -2620,6 +2636,7 @@ public static class UiAutomationDriver
             if (TopLevel.GetTopLevel(start) is not { } top)
                 return new InteractOutcome(false, KeyboardMechanism, null, $"'{Describe(start)}' is not in a window; nothing was typed");
 
+            var replacedSelection = AreaOf(start) is { } initialArea ? PartialSelection(initialArea, deletes: false) : null;
             start.Focus();
             // Every window's dialogs, not the typing window's alone: a program's own MsgBox may open over its form as the keys
             // go in, and a person's next key would go to it, as to the reset prompt over this window, so the typing stops for
@@ -2669,8 +2686,10 @@ public static class UiAutomationDriver
             var slow = unanswered == 0 ? ""
                 : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
                   + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
+            var selectionNote = replacedSelection is not null && AreaOf(start) is { } finalArea
+                ? "; " + replacedSelection.Left + SelectionState(finalArea) : "";
             return new InteractOutcome(true, KeyboardMechanism,
-                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}", null);
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}{selectionNote}", null);
         }
         catch (OperationCanceledException)
         {
@@ -2754,12 +2773,18 @@ public static class UiAutomationDriver
         if (!surface.IsEffectivelyEnabled) return "is disabled";
         return surface switch
         {
-            TextEditor editor when !editor.TextArea.ReadOnlySectionProvider.CanInsert(editor.CaretOffset) => "is read-only",
-            TextArea area when !area.ReadOnlySectionProvider.CanInsert(area.Caret.Offset) => "is read-only",
+            TextEditor editor when !CanTypeInto(editor.TextArea) => "is read-only",
+            TextArea area when !CanTypeInto(area) => "is read-only",
             TextBox { IsReadOnly: true } => "is read-only",
             _ => null,
         };
     }
+
+    // SimpleSelection replaces deletable segments without asking CanInsert at the caret. That
+    // caret may be in a protected run even though part of the standing selection is editable.
+    private static bool CanTypeInto(TextArea area) => area.Selection.IsEmpty || area.Selection is RectangleSelection
+        ? area.ReadOnlySectionProvider.CanInsert(area.Caret.Offset)
+        : area.Selection.Segments.Any(s => area.ReadOnlySectionProvider.GetDeletableSegments(s).Any());
 
     /// <summary>Presses a key (optionally with modifiers) through the window input path, with a routed
     /// KeyDown/KeyUp fallback — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
@@ -2799,10 +2824,18 @@ public static class UiAutomationDriver
 
             if (KeysTakenBy(target, Describe(target), "pressed") is { } held)
                 return new InteractOutcome(false, "keyboard", null, held);
+            var deletionArea = AreaOf(target);
+            var selectionDelete = parsedKey is Key.Delete or Key.Back
+                && mods is KeyModifiers.None or KeyModifiers.Control;
+            var partial = selectionDelete && deletionArea is not null
+                ? PartialSelection(deletionArea, deletes: true) : null;
+            var lengthBefore = deletionArea?.Document.TextLength ?? 0;
             if (AreaOf(target) is { } pressedIn
                 && EditSpan(pressedIn, parsedKey, mods) is { } span
+                && partial is null
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
-                return refused;
+                return selectionDelete && !pressedIn.Selection.IsEmpty
+                    ? refused with { Error = refused.Error + SelectionState(pressedIn) } : refused;
 
             var beforePath = before is null ? "nothing"
                 : PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
@@ -2827,7 +2860,11 @@ public static class UiAutomationDriver
             var where = ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}", null);
+            var changed = partial is not null && deletionArea is not null
+                ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
+                  + partial.Left + SelectionState(deletionArea)
+                : string.Empty;
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -2932,6 +2969,43 @@ public static class UiAutomationDriver
             _ => new EditedSpan(caret, 0, deletes),
         };
     }
+
+    private sealed record PartialEdit(int Deletable, string Left);
+
+    // This only observes the provider's answer. The actual edit still goes through the key handler
+    // (including the code window's widening) or Selection.ReplaceSelectionWithText for typing.
+    private static PartialEdit? PartialSelection(TextArea area, bool deletes)
+    {
+        if (area.Selection is RectangleSelection || area.Selection.IsEmpty
+            || CodeWindowOf(area) is not { IsReadOnly: false } editor)
+            return null;
+        var selected = area.Selection.SurroundingSegment;
+        var (offset, length) = deletes
+            ? editor.ReadOnlySections.WidenDeletion(selected.Offset, selected.Length)
+            : (selected.Offset, selected.Length);
+        var segments = area.ReadOnlySectionProvider.GetDeletableSegments(
+            new AvaloniaEdit.Document.SimpleSegment(offset, length)).ToList();
+        var deletable = segments.Sum(s => s.Length);
+        if (deletable == 0)
+            return null;
+        if (deletable == length)
+            return !deletes && editor.IsReadOnlyRegion(offset, length)
+                ? new PartialEdit(deletable, "no protected text was left in the replaced span. ") : null;
+        var names = editor.ReadOnlyRegionsNow.Where(r =>
+        {
+            var from = Math.Max(offset, r.EditStart);
+            var to = Math.Min(offset + length, r.End);
+            return to > from && segments.Sum(s => Math.Max(0, Math.Min(to, s.EndOffset) - Math.Max(from, s.Offset))) < to - from;
+        }).Select(r => editor.MemberNamedBy(r) is { } name
+            ? "the Attribute lines describing " + name : "the file's header").Distinct();
+        return new PartialEdit(deletable,
+            $"left {length - deletable} char(s) from the original selection in {string.Join(" and ", names)}, which only the IDE changes (the designer, a save, a rename). ");
+    }
+
+    private static string SelectionState(TextArea area) =>
+        $" The caret is now at offset {area.Caret.Offset}; " + (area.Selection.IsEmpty
+            ? "no selection remains."
+            : $"selection remains from offset {area.Selection.SurroundingSegment.Offset} to {area.Selection.SurroundingSegment.EndOffset}.");
 
     /// <summary>What a key would change: <see cref="Length"/> characters at <see cref="Offset"/>, deleted or written over.</summary>
     private readonly record struct EditedSpan(int Offset, int Length, bool Deletes);

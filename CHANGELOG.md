@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
+  The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
+  the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
+  uses the editor's selection replacement for these spans. A wholly protected selection still refuses.
+
 - **MCP inspection reports a window's frame state** (#1595, part 1). `inspect_element` on a Window now reports
   resizing, decorations, minimize/maximize buttons, taskbar visibility and window state from Avalonia, so a running
   form's BorderStyle mapping can be checked. Native styles are explicitly unreported. Snapshot frame capture remains open.
