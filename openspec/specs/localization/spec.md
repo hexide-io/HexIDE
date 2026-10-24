@@ -61,6 +61,20 @@ three separate things, and translating the IDE cannot change what a program comp
 - **WHEN** the IDE language is changed and a VB6 program is run
 - **THEN** the program's numeric parsing and formatting are unchanged
 
+### Requirement: System default SHALL follow the OS UI language
+The `system` language selection SHALL resolve from the OS UI culture captured before the invariant thread
+culture pin at startup ([#799](https://github.com/hexide-io/HexIDE/issues/799)). Resolution SHALL try an exact neutral-language match, an exact shipped
+region match, a neutral-language match on the two-letter code, then canonical `en`. The invariant pin
+SHALL remain in place, and the persisted selection SHALL remain `system`.
+
+#### Scenario: British English system language
+- **WHEN** the startup UI culture is `en-GB` and System default is selected
+- **THEN** the IDE uses the British English overrides, including Colour Palette and Centre in Form
+
+#### Scenario: A region without a shipped regional entry
+- **WHEN** the startup UI culture is `fr-CD` and System default is selected
+- **THEN** the IDE uses the neutral French pack
+
 ### Requirement: Changing language SHALL take effect immediately
 Selecting a language SHALL update the interface without restarting the IDE, including windows already open.
 

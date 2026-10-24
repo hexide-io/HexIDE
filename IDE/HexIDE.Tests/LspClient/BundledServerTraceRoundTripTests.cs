@@ -192,12 +192,18 @@ internal static class BundledServer
     {
         if (Find() is not { } exe) return null;
 
+        return StaleReason(RepoRoot(), exe);
+    }
+
+    internal static string? StaleReason(string repoRoot, string exe)
+    {
         var built = File.GetLastWriteTimeUtc(exe);
-        var sources = new DirectoryInfo(Path.Combine(RepoRoot(), "LspServer"));
+        var sources = new DirectoryInfo(Path.Combine(repoRoot, "LspServer", "HexIDE.VbLspServer"));
         if (!sources.Exists) return null;
 
         var newest = sources
-            .EnumerateFiles("*.cs", SearchOption.AllDirectories)
+            .EnumerateFiles("*", SearchOption.AllDirectories)
+            .Where(f => f.Extension is ".cs" or ".g4")
             .Where(f => !f.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                      && !f.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
             .Select(f => f.LastWriteTimeUtc)

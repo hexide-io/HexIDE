@@ -912,10 +912,12 @@ and returns `"[" & Hits & "]"`.
 | N2 | `Public WithEvents B As Long` (control) | `Expected: identifier` | |
 
 So a `WithEvents` may stand before any declarator of a comma list, makes that declarator alone a sink, and is held
-to the same rule behind a comma as at the front (N1 against N2). The obvious reading, and HexIDE's, was that it
-qualifies the statement the way `Public` does: both grammars take it once, straight after `Dim`, `Static` or the
-visibility, so R1, R2, R3 and R5 are syntax errors here, and the interpreter, read from its code rather than run,
-makes every declarator of R4 a sink, which would print `[AB]` where VB6 prints `[A]`. Both compile errors report `Line 0`, which nothing here explains.
+to the same rule behind a comma as at the front (N1 against N2). HexIDE previously treated it as a statement
+modifier: both grammars took it once after the visibility or `Dim`,
+refusing R1–R3 and R5 and making both names in R4 sinks. Both grammars now take it per declarator, and the
+interpreter records and seeds only marked names as sinks (#1021). Both compile errors report `Line 0`, which nothing
+here explains. The non-object-type refusals (N1/N2) remain unimplemented; no new type validation is added here.
+Whether VB6 accepts a variable named `WithEvents` is unmeasured; HexIDE's existing parse is preserved.
 
 ## `End` fires no `Class_Terminate` (interpreter-debugger reset)
 
@@ -1636,7 +1638,7 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
 `AvaloniaInteroperability.ConvertForAssignment` (and `CheckScrollBarValue` for a scroll bar's `Value`).
 `HexIDE.Integration.Tests` `PropertyAssignmentTests` covers, through real controls and the interpreter:
 - the String-property rows, the Single, Double, Currency and Decimal ones included, since #779;
-- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (error only, #769) and
+- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (read-back and errors, since #769) and
   `BackColor` rows, the colour checked as stored and as left unchanged;
 - copying a colour from one control to another, through a Variant, and into a caption;
 - Null into `Tag`, and the two `Tag` idioms below.
@@ -2389,14 +2391,29 @@ them separately.
 
 **Two guesses the measurements overturned**, both of which would have shipped wrong:
 
-- An `Optional` with a **declared type** is never missing. There is nowhere in an `Integer` to put a
+- An `Optional n As Integer` is never missing. There is nowhere in an `Integer` to put a
   `vbError` Variant, so an omitted `Optional n As Integer` simply gets `0`.
 - An `Optional` with a **default** is never missing either — the default supplies it, so `IsMissing` is
   False and the value is the default.
 
-So `IsMissing` is True in exactly one situation: an `Optional` with neither a declared type nor a default,
-left out by the caller (or left blank in the middle of the list — the last row ties this to #135, where a
-blank argument keeps its position).
+So `IsMissing` is True for an `Optional` Variant, untyped or explicitly `As Variant`, without a default,
+left out by the caller (or left blank in the middle of the list — the blank-argument row ties this to #135,
+where a blank argument keeps its position).
+
+**Correction from [#866](https://github.com/hexide-io/HexIDE/issues/866):** the original account generalised
+from `As Integer` to every declared type. The issue records these probes on vb6.exe, native and in the IDE;
+`F` returns `IsMissing(o) & "|" & TypeName(o) & "|" & VarType(o)`:
+
+| Declaration | Call | Result |
+|---|---|---|
+| `Optional o As Variant` | `F()` | `True\|Error\|10` |
+| `Optional o As Variant` | `F(Empty)` | `False\|Empty\|0` |
+| `Optional o` | `F()` | `True\|Error\|10` |
+| `Optional o As Variant = 5` | `F()` | `False\|Integer\|2` |
+| `Optional o As Integer` | `F()` | `False\|Integer\|2` |
+
+An explicit Variant can hold Missing; its `As Variant` clause does not supply Empty. A default still supplies
+its value instead.
 
 **Measured but not implemented:** using a missing value in a string concatenation raises **Error 13, Type
 mismatch**. Recorded so the next person does not have to re-derive it; HexIDE currently lets such a value
@@ -5898,6 +5915,10 @@ agree with writing. `VbLocale.ForProgram` gives the program the user's culture w
   ar-SA's Gregorian date pattern also ends in an era that ICU writes as U+0645, which is also its PM designator. So
   a written date read back as noon until the era was dropped from the patterns. This is ICU's data, not VB6's, and
   nothing here measured VB6 under a non-Gregorian locale.
+  **Platform-data correction (#1045):** the issue records ar-SA's first month as January (`يناير`) on WSL,
+  Ubuntu 26.04 with ICU 78, observed 2026-10-14 and reproduced 2026-10-24. Its default calendar there is
+  Gregorian, so the locale test now compares the platform's own and Gregorian month names before asserting
+  they differ. This corrects a test premise, not a VB6 measurement or runtime behaviour.
 - **A sign is always ASCII.** ICU puts a bidi mark before the minus sign for 43 cultures, so `IsNumeric("-5")` was
   False there. Windows' locale data, which VB6 reads, has no such mark.
 
@@ -6266,9 +6287,8 @@ replaces `BackColor` with that appearance's default. The border is redrawn to ma
   among them.
 - A Label's `BackStyle` can be set at run time, so both orders in the table above behave as measured, and
   `BackStyle = 2` is 380 (measured, below).
-- **Refused, as not implemented:** setting a Label's `Appearance`, because VB6 resets `BackColor` with it (#796).
-  It is refused untrappably: a trappable error swallowed by `On Error Resume Next` would leave the old `BackColor`,
-  a wrong value. Reading it works.
+- Since #796, setting a Label's `Appearance` at run time resets `BackColor` to the measured default above
+  and redraws the border. `LabelColourTests` checks both transitions, read-back and painted pixels.
 
 ### Measured with it: defaults, BackStyle 2, and a system colour past the palette (2026-10-12, #802)
 
@@ -7220,11 +7240,12 @@ The IDE's status bar counts the same way, 1-based where `Line N` is 0-based: C1'
 hidden run, read `Ln 7`, and V1's read `Ln 4` on the blank line under a described variable. A pasted attribute line,
 which the IDE holds as code until a reload, is counted (V4, below).
 
-HexIDE's `Vb6ToolchainService.IsHiddenFromVb6LineCount` tests each physical line for `Attribute `, which is (b):
-one line off below p11a, p11b and p07c, and on p07's own error. VB6 printed `Line 2` for p07's attribute line,
-which continues the declaration and so is counted; `EditorLineOf` skips that line as hidden and puts `Line 2` on
+Before #968, HexIDE's `Vb6ToolchainService.IsHiddenFromVb6LineCount` tested each physical line for `Attribute `, which is
+(b): one line off below p11a, p11b and p07c, and on p07's own error. VB6 printed `Line 2` for p07's attribute line,
+which continues the declaration and so is counted; `EditorLineOf` skipped that line as hidden and put `Line 2` on
 `ByVal b As Long)`, the line after it. All four are hand-made shapes, and VB6's dialog was not seen to write any of
-them. Filed as hexide-io/HexIDE#968.
+them. Fixed in hexide-io/HexIDE#968: the mapper inherits the first physical line's hidden verdict across
+continuations, using the same continuation rule as `ReadOnlyRegions`.
 
 ### What the IDE writes
 
@@ -7643,9 +7664,9 @@ not: VB6 attaches nothing across either (p01, p02) and drops the line at its nex
 The draft's rule, that such a run is an orphan, stands. Its "nothing the IDE does removes or moves it" stands too,
 as a recorded divergence from VB6, which removes or moves one at every save.
 
-**Ours, in the code.** `Vb6ToolchainService` counts physical lines starting `Attribute`, not logical ones (#968,
-above). Task 4.1 was first built judging whether a run describes its member by matching every qualifier against the
-line above, the first draft's rule, and was rebuilt to the revised rules before the rest of phase 4 (*HexIDE, after
+**Ours, in the code before #968.** `Vb6ToolchainService` counted physical lines starting `Attribute`, not logical ones
+(fixed as described above). Task 4.1 was first built judging whether a run describes its member by matching every
+qualifier against the line above, the first draft's rule, and was rebuilt to the revised rules before the rest of phase 4 (*HexIDE, after
 #273*, below).
 
 **The first IDE session's, by the second.**
@@ -8018,8 +8039,9 @@ was normal and the second raised. All three modes agreed:
 counter is left as it was, in all builds: `For vi = 1 To Boom()` with `vi` 7 gives one pass, then 7, and error 92.
 
 **Measured with it:** VB6's `Next` reads the counter back, so a body that changes the counter changes the loop. This
-matches the model above, and holds in both builds. HexIDE does not do this, which is #841:
+matches the model above, and holds in both builds. HexIDE reads an integral numeric counter back at `Next` since #841:
 - `For i = 1 To 10` with `i = i + 1` in the body runs 5 passes: 1 3 5 7 9, ending at 11.
+  This was measured for both a Long and a Variant counter (#839, fifth probe, counter rows M1–M3; also recorded in #841).
 - `If i = 3 Then i = 0` in `For i = 1 To 3` starts the loop again, for ever.
 
 **For Each.** In each case `x` started as `"pre"`, and the errors were logged in the order raised, under an
@@ -8214,9 +8236,12 @@ P-code does not do it, and HexIDE follows p-code.
 - An unallocated array raises 92, Nothing 424, and any other non-object value 13, each at the statement. The first used
   to run no passes and say nothing. The others used to raise 13 with a note that Collections were not implemented.
 - Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is an array.
-- Where the collection itself raised, HexIDE cannot see its declared type without its value. It answers that only for a
-  call of one of the project's own Functions, from that Function's declaration, and not where a variable in scope
-  shadows the Function's name (review round one). Anything else is refused, naming #969.
+- Where the collection itself raised, #969 reads its declaration from existing runtime slots and member tables:
+  parentheses unwrap, an array element is not declared as an array, and direct class methods/Property Gets and
+  module-qualified Functions use their return declarations. A variable shadows a same-named Function.
+  This applies the measured declared-array rule above; it adds no new VB6 measurement.
+  Unavailable declarations still refuse, naming the expression and #969; the remaining shapes are recorded in
+  interpreter-gaps.md under Resume granularity.
 - For Each over an object is refused as not implemented, where it used to raise a trappable 13.
 
 **With.** A target that raises leaves the body with no object, so each leading-dot member raises 91.
@@ -9451,8 +9476,9 @@ while `Class_Initialize` runs, and hands it back at whatever count `Initialize` 
 
 **Two by-products.**
 - **A Sub can be named `Reset`.** The probe's private sibling is called `Reset`, which is also a VB6 statement.
-  vb6.exe compiled it and called the Sub. HexIDE parses the call as the `Reset` statement, which it does not
-  implement (#851).
+  vb6.exe compiled it and called the Sub, measured native and in the IDE in the #850 probe (also recorded in
+  #851). HexIDE still parses the bare call as a `Reset` statement, but now dispatches it to the module's own
+  Sub when one exists (#851). With no such Sub, the file-closing statement remains unimplemented.
 - **`mE` is `Me`.** The constant-bound probe first declared `Private mE(N - 1)`, and vb6.exe refused it: "Expected:
   identifier". Identifiers are matched without regard to case (#811), and so are reserved words, so `mE` is the
   reserved word `Me`. The row was renamed `mH`.
@@ -11555,7 +11581,7 @@ Load goes on once Form2 has unloaded, and Form1 is then shown as any startup for
 **13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
 and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
 shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
-a file written elsewhere gets. HexIDE's grammar refused both (#1064).
+a file written elsewhere gets. HexIDE's grammar refused both; #1064 now accepts them in the interpreter and language server.
 
 ## An unhandled run-time error (2026-10-14, #1011)
 
@@ -12872,8 +12898,10 @@ End Function
 **HexIDE's supported slice:** the Clipboard object, Clear, default/vbCFText GetText and SetText, and GetFormat(vbCFText).
 Its methods await the host under the event pump's suspension boundary. The desktop and IDE hosts use Avalonia's
 window clipboard. RTF, Link, image/data methods and other format queries are explicitly refused, not reported absent.
-Since Avalonia's SetText clears other formats, the host refuses SetText while non-text formats exist until those can
-be preserved. Clear followed by SetText works; that is what the Notepad demo does.
+The host snapshots readable non-text formats before replacing text and writes them back with the new text (#1246).
+If a format cannot be read, it refuses before writing. Clear removes all formats, as the Notepad demo requires.
+The measurement above covers program-supplied RTF; preservation of external HTML and Windows-synthesized text
+formats has not been measured against VB6.
 
 **Live Windows follow-up, 2026-10-18:** built the PR's desktop application at `905e3506` and launched it with an
 isolated user-data directory and copies of the unmodified Notepad demo forms. HexIDE MCP was now available.
@@ -12892,8 +12920,8 @@ the TextBox's native editing commands. The following checks passed with no runti
   and Exit ended the run. Breakpoints and pending picker answers were cleared afterwards.
 
 The Windows native clipboard is verified; Linux host tests remain headless, and no native Linux/macOS clipboard
-verification is claimed. Headless tests also cover preservation refusal when non-text formats exist. The existing
-grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
+verification is claimed. Headless tests now cover replacing text while preserving non-text string and byte payloads
+(#1246). The existing grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
 `Call Clipboard.SetText("hello")` are covered. That pre-existing grammar restriction is outside this clipboard slice.
 
 A function also shadows Clipboard when it supplies the object of a member chain. With class `Box` containing
@@ -13496,8 +13524,7 @@ Variant`. Made native and p-code, and run in the guest's session 0. The two logs
 - **340's message names the index** it was given, read, written or unloaded. "Control arrays" above recorded the number
   alone.
 - **A class's Variant field holding an array is indexed only early-bound.** Through an Object, the index goes to the
-  property itself, which takes none: 451. Assigning an element writes into a copy, and nothing says so. HexIDE can't tell
-  the two bindings apart, so it refuses the index (#1435) rather than give one answer for both.
+  property itself, which takes none: 451. Assigning an element writes into a copy, and nothing says so.
 
 ### A `?` line in the VB6 IDE's Immediate window
 
@@ -13543,7 +13570,9 @@ MDI area gave the IDE the keyboard.
 - **A `?` line prints as Print does,** single items and lists. A bare expression, with no `?`, still answers the value
   alone, as it did. That's HexIDE's own, since VB6's Immediate window has no bare expression.
 - **A `?` line ending in `;` prints its items,** and the next line still starts a line of its own (debugger divergence D28).
-- **`k.V(1)` is refused as not implemented** (#1435). It used to read the whole array.
+- **`k.V(1)` reads the element through its declared class** (#1435), with 9 past the bounds; through `As Object` it
+  raises 451. An in-bounds indexed assignment leaves the field unchanged without error. Other bindings, other fields
+  and out-of-bounds writes remain refused: these probes did not measure them. It used to read the whole array.
 
 ## Another module's Enum members, bare (2026-10-22, #889)
 
@@ -15112,7 +15141,10 @@ So a ByRef parameter reads the Nothing its caller's variable holds: the `As New`
     After `Erase a`, the next use makes a new one.
   - An object loop variable over an array does not compile: "For Each control variable on arrays must be Variant".
 - **A Type's field `m As New C1`** compiles. `t.m.Go` makes it, and `t.m Is Nothing` is False. `u = t` copies the
-  reference, so `u.m Is t.m` is True and one object terminates.
+  reference, so `u.m Is t.m` is True and one object terminates. The #1488 issue records the same
+  native/p-code probe from #435: `Dim t As T` and `t.n = 1` make nothing; `t.m.Go` initialises C1 before Go,
+  and the shared object terminates on leaving the procedure. `AsNewTests` now covers this with and without
+  the copy. Other field-specific edges were not measured there.
 - **`Static s As New C1`** in a Sub called twice makes one object, which terminates when the program ends.
 - **In a class method, `Static s As New Collection`** is per instance: on one instance it counts 1 then 2, and on a second
   instance 1.
@@ -15161,7 +15193,7 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 
 **Refused, by issue:**
 - an array `As New` (#1482);
-- a Type's field `As New` (#1488);
+- a Type's field `As New`, until #1488 made it run;
 - `Static`, until #1491 made it run;
 - `ReDim` of an undeclared name (#1495);
 - `As New` of a type HexIDE has no class for, such as a form, by #435's own message.
@@ -17772,8 +17804,12 @@ What these show:
 ### In HexIDE (#994)
 
 **Resize.** A form's context raises it when its window first becomes visible since the form loaded, and after that
-only when the window reports a size or state that differs from the one Resize was last raised for. The window system
-reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
+only when a size setter or the window reports a size or state that differs from the one Resize was last raised for.
+Since #1570, Width and Height setters report the requested extent immediately, even during Load while hidden;
+the subsequent layout report finds the same extent and raises nothing. WindowState changes on a shown form
+use the same comparison. Before #1570, hidden assignments raised nothing, and the headless probe
+`Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then Resize.
+The window system reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
 headless two. The size is compared in whole device pixels: a form 4000 twips wide is 266.67 units, which the window
 laid out again at 267 on a later show. Until the window system has sized a window, its size is the `Width` and `Height`
 it is being shown at. Before that, `ClientSize` is still the platform's default, 1024 by 768 headless.
@@ -17793,13 +17829,6 @@ the handler either way, so no headless test can tell.
 - Form2's own Unload button: `f2 unload`, `f1 activate`;
 - Wider: one `f1 resize 5700x4200 ws0`;
 - the same width set again: nothing.
-
-**Not followed** (both #1570, and the layout after them is the same, so a missing or late event, not a wrong value):
-- **A size set while the form is hidden.** Form3's two Resizes from its own Load aren't raised. The window
-  doesn't report a size before it is shown, so the show's one Resize is the only one.
-- **A size set from code after the show** raises its Resize when the window reports the size, after the statement:
-  headless, `Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then the
-  Resize. VB6 raises it inside the statement.
 
 **A form's `Move`** stops the program, refused as not implemented: #1569.
 
@@ -20034,6 +20063,37 @@ raising 13.
   file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
   the same in code page 1252 and not measured in a double-byte one.
 
+## Unknown library statement calls (#867)
+
+Provenance: hexide-io/HexIDE#867 reports that `VBA.Frobnicate 1` is a compile error in VB6.
+The issue supplies no diagnostic number or exact compiler wording; neither is pinned here. HexIDE translates
+this refusal to an untrappable error when the statement executes. Its unsupported `VBA.CallByName` statement
+likewise stops rather than allowing `On Error Resume Next` to skip the missing effect. That last refusal is
+HexIDE's unsupported-feature policy, not a measurement of CallByName's VB6 result.
+
+## Len of declared scalars and numeric expressions (#780)
+
+Provenance: issue #780's body records module-level probes on vb6.exe; its later comment records a repeat during
+#987 with native and p-code agreeing. These are supplied measurements, not new runs for this fix.
+
+| Operand | Len |
+|---|---|
+| Byte variable holding 5 | 1 |
+| Integer variable holding 5 | 2 |
+| Long or Single variable holding 5 | 4 |
+| Double or Currency variable holding 5 | 8 |
+| Date variable holding #1/1/2000# | 8 |
+| Boolean variable holding True | 2 |
+| String variable holding "12345" | 5 |
+| Empty Variant | 0 |
+| Variant holding Integer 5; holding 12345 | 1; 5 |
+
+The body's zero-initialised Single, Double, Currency, Integer and Date variables returned 4, 8, 8, 2 and 8.
+`Len(12345)`, `Len(i + 0)`, `Len(1 / 3)` and `Len(CSng(1) / 3)` fail compilation with
+"Variable required - can't assign to this expression". HexIDE raises that compile error when the call executes.
+The comment also measured `LenB(i)` for Integer as 2 and `LenB(s)` for String "12345" as 10; LenB remains unimplemented.
+No inference about fields, array elements, qualified or parenthesised variables is made from these probes.
+
 ### Procedure declarations reading a later Const (#894)
 
 Provenance: hexide-io/HexIDE#894 records two independent vb6.exe SP6 `/make` measurements with identical
@@ -20148,3 +20208,21 @@ counter there splits native from p-code as in the table above.
 - **Waiting on #966:** a Currency counter whose step is a Double tie, `Step 0.00005`, is 0 here until a Double becomes a
   Currency by its binary value. Until then that loop runs for ever at its start where vb6.exe counts in steps of 0.0001.
   It isn't pinned yet.
+
+## Data-bound TextBox startup value (#859, #856)
+
+Provenance: the oracle VM probe reported in hexide-io/HexIDE#859, using VB6 6.0 SP6's
+saved form and an EXE built with `vb6 /make`, at HexIDE fc9f790. This is a **native-code
+measurement only**: neither VB6 F5 nor p-code was measured (#842).
+
+The form had Data1 opening BIBLIO.MDB's Authors, Text1 with `DataSource = "Data1"`,
+`DataField = "Author"` and design-time `Text = "Text1"`, and a Timer at Interval 1500.
+`Form_Load` read Text1.Text as `Text1`. Data1_Reposition ran once after Load and also
+read `Text1`. By the first Timer tick Text1.Text was `Jacobs, Russell`, the Authors
+record with Au_ID 1. Reposition also fired on the probe's MoveNext and Refresh.
+Both Data controls on the original form displayed navigation arrows; the second,
+Data2, opened NWIND.MDB's Customers and had no bound control.
+
+This establishes why retaining the design-time value silently is wrong; HexIDE refuses
+data-bound forms rather than implementing binding. No behaviour for a UserControl or
+Data Environment source was measured in this probe.
