@@ -281,6 +281,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Feature catalogue corrections** (#862): distinguish unbuilt COM features from platform gates, describe refused ActiveX templates and unmodelled controls at open, save and F5, and explain the DAO Data control exclusion.
+
 - **Unimplemented constructs name the failing statement** (#758). The runtime-error dialog now appends
   `at <statement>`, including failures inside nested blocks or called procedures, without making them trappable.
 
