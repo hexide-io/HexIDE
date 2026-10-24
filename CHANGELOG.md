@@ -146,6 +146,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Changed
 
+- **Updated GitHub Actions in the build and release workflows** (#1742): checkout v7, setup-dotnet v6,
+  cache v6, setup-node v7, upload-artifact v7, download-artifact v8 and action-gh-release v3. These use
+  Node 24 on GitHub-hosted runners. Release artifacts retain their zipped upload and merged download;
+  download digest mismatches now fail the job.
+
 - **The code window shows the whole file, header included, and one line number now means the same thing
   everywhere** - to the editor, to a language server, to the interpreter and to the debugger. A form's
   designer block and a module's `Attribute` header are no longer hidden from the code window.
