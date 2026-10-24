@@ -52,7 +52,7 @@ public partial class VB6BuiltIns
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
-    public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
+    public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args, bool compareText = false)
     {
         CheckIntrinsicArgumentCount(name, args);
 
@@ -73,7 +73,7 @@ public partial class VB6BuiltIns
             return await MsgBox(args);
         if (string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase))
             return await InputBox(args);
-        return fn!(this, args, null);
+        return fn!(this, args, compareText);
     }
 
     // Measured (#959, p41): these typed value arguments convert before a class in the text slot is read.
@@ -147,9 +147,9 @@ public partial class VB6BuiltIns
     // ---- Built-in function registry ----
     // Per-group partial files (VB6BuiltIns.Strings.cs, .Math.cs, …) register into this table. It is consulted
     // strictly LAST in name resolution (after local vars/arrays and user procedures), so a user `Function Left()`
-    // shadows the intrinsic. The delegate carries `self` (for stateful builtins like Rnd) and the call-site parse
-    // context (for error locations); either may be unused.
-    internal delegate Vb6Value BuiltinFn(VB6BuiltIns self, IReadOnlyList<Vb6Value> args, ParserRuleContext? ctx);
+    // shadows the intrinsic. The delegate carries `self` (for stateful builtins like Rnd) and the calling
+    // module's Option Compare; either may be unused.
+    internal delegate Vb6Value BuiltinFn(VB6BuiltIns self, IReadOnlyList<Vb6Value> args, bool compareText);
 
     private static readonly Dictionary<string, BuiltinFn> Builtins = BuildRegistry();
 
