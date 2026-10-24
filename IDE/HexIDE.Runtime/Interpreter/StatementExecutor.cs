@@ -2020,6 +2020,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (membersCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dict not supported yet");
 
+            // Enum members are constants, including the shared-name E.E (#1637).
+            if (membersCall.iCS_S_VariableOrProcedureCall() is { } enumLead
+                && interpreter.EnumIsQualifier(enumLead.GetText(), currentEnv, currentModule)
+                && interpreter.TryResolveEnum(enumLead.GetText(), currentModule, out var enumMembers)
+                && membersCall.iCS_S_MemberCall() is { Length: 1 } enumTail
+                && enumMembers.ContainsKey(ExpressionExecutor.MemberName(enumTail[0])))
+                throw new VBCompileErrorException("Assignment to constant not permitted");
+
             if (await TryStoreModuleMember(membersCall, value, false, context))
                 return default;
 
