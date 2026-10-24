@@ -102,7 +102,7 @@ public class PropertyTextTests
         PropertyText.Display(null).Should().Be("(none)");
     }
 
-    // ââ read back as the Properties window shows it, and set again from that text (#923) ââââââââââââââââââââââââ
+    // ── read back as the Properties window shows it, and set again from that text (#923) ────────────────────────
 
     [Fact]
     public void A_label_s_rows_are_every_property_the_properties_window_shows()
@@ -192,7 +192,7 @@ public class PropertyTextTests
         }
     }
 
-    // ââ what the window's rows alone would hide (#923 review) âââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── what the window's rows alone would hide (#923 review) ───────────────────────────────────────────────────
 
     private sealed class NullSink : HexIDE.Runtime.Serialization.IDeserializeErrorSink
     {
@@ -390,7 +390,7 @@ public class PropertyTextTests
             .Should().Be("Arial, 10 pt, weight 600, charset 204");
     }
 
-    // ââ a font set from text, as get_form_controls shows it (#952) âââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── a font set from text, as get_form_controls shows it (#952) ───────────────────────────────────────────────
 
     private static readonly VBFont Tahoma = new("Tahoma", 9.75, bold: true, italic: true, charset: 204);
 
