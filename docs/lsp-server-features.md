@@ -132,6 +132,14 @@ straight from the value to the end of the line. Every `.cls` VB6 ever wrote fail
 [`vb6-grammar-fixes.md`](./vb6-grammar-fixes.md) is the repair, and `WholeFileGrammarTests` in each half now
 parses the corpus whole.
 
+Statement-level LL recovery stops before the next newline, colon or end of file, and the listener reports
+at most one syntax diagnostic per offending token (#938). A broken assignment such as `x = = 1` therefore
+leaves the next line's error visible and later procedures in the tree. The SLL fast path is unchanged.
+Recovery is still partial: an extraneous token that ends the block loop early (such as `List0.` before
+more statements), an error between procedures, or an Option line directly before a broken procedure can
+still mask later errors and procedures. `Sync` retains ANTLR's default behaviour; overriding it introduced
+a false error in VB6's Tip of the Day template.
+
 ### Conditional compilation
 
 **Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's
@@ -255,9 +263,12 @@ the procedure's fold ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 
 **`textDocument/completion`**
 
-Returns a static list of 88 keywords and 42 common built-ins, plus every procedure, variable, constant,
-parameter, enum member and UDT name declared in the current file. Case-insensitive; filtered client-side as
-you type.
+Returns a static list of 87 keywords and 42 common built-ins, plus every procedure, variable, constant,
+parameter, enum and UDT name, and enum member declared in the current file. Labels are unique
+case-insensitively, with declared names taking precedence over static entries; `Date` is a Function.
+Declared names carry their syntactic completion kind: Sub → Method, Function → Function, Property →
+Property, Const → Constant, Enum → Enum, enum member → EnumMember, Type → Struct, and variables and
+parameters → Variable. Filtered client-side as you type.
 
 - ◐ No position awareness — the full list comes back regardless of cursor context.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each

@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **CI keeps test-host crash logs** (#1309). Failed test jobs upload their `TestResults` directories
+  as artifacts named for the job and operating system, retained for seven days.
+
 - **Start automation with an unsaved project** (#502). `--newproject-unsaved` skips the startup dialog without
   writing project or component files, so `untitled:` language-server URIs can be exercised from launch.
   `--newproject` still saves to a temporary directory; `add_file` already leaves new documents pathless (#500).
@@ -268,6 +271,27 @@ there isn't one yet. Anything may change between 0.x releases.
 - **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
   the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
   into the full-size or inline image.
+
+- **A broken assignment no longer hides later syntax errors and procedures** (#938). The bundled language
+  server recovers at the next statement separator and reports each offending token once. Recovery from
+  extraneous tokens and errors between procedures remains partial.
+
+- **Bundled-server completion labels are unique and carry declaration kinds** (#940). `Date` appears once as a function; declared names take precedence over keywords and built-ins, and procedures, properties, constants, enums, enum members and types no longer appear as variables.
+
+- **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
+  the test assembly, so separate checkouts and build output directories no longer overwrite each other's
+  reports or contend for a shared temp file.
+
+- **Corpus lanes fail when repository roots are missing** (#1016). The round-trip, grammar, header and
+  region-parity checks now require `demo/` and `corpus/designer`, so losing either cannot silently reduce coverage.
+  An explicit round-trip corpus still replaces the default demo root.
+
+- **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
+  the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
+
+- **Editing bundled-server tests no longer makes the server look stale** (#1017). The IDE test harness
+  checks C# and grammar files in the server project only, so test edits keep the parity checks running
+  and grammar edits require a rebuild.
 
 - **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
   the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
