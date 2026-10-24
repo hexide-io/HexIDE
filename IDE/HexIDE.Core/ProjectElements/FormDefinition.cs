@@ -343,6 +343,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// lets a resize in the designer move both together without HexIDE having to compute a frame size —
     /// which it could not do honestly anyway, since the frame belongs to whichever machine opens the
     /// form, not to the machine that saved it.
+    ///
+    /// A frame IS computed elsewhere, from the form's BorderStyle, caption bar and menu: the one a running form
+    /// has on the themed desktop (FormFrame, measured, #1072), which VB6's Properties window adds to the client
+    /// rectangle at design time too (#1636). That frame is VB6's own, not the file's, so it does not replace this.
     /// </summary>
     public RootOuterRect? OuterRect { get; set; }
 

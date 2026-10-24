@@ -323,6 +323,7 @@
 | Property search / filter | Missing | |
 | Object dropdown (select component) | Done | ComboBox lists all components on the active form; selection synced bidirectionally with the designer |
 | Help description panel | Done | Description panel at bottom shows selected property name and description text |
+| Left, Top, Width and Height in VB6's units | Done | As VB6's window shows them (#1636): a control's in its container's ScaleMode (twips inside a Frame), a form's own size with its frame, three decimals at most; typed values in the same units, rounded to whole twips. A form with a menu shows Left and Top by the rule where VB6 read 105, 105, unexplained. The toolbar's readout is still pixels ([#1641](https://github.com/hexide-io/HexIDE/issues/1641)) |
 
 ---
 

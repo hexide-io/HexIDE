@@ -292,6 +292,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
 
+- **The Properties window shows Left, Top, Width and Height in VB6's units** (#1636). It showed the pixels HexIDE
+  keeps them in, so a new form read 312 by 206 where VB6's reads 4920 by 3675. A control's position is now in its
+  container's ScaleMode, twips by default and twips inside a Frame, and a form's own size is twips with its frame, as
+  VB6's window shows them. A value typed in is in the same units. `get_form_controls`' rows and `set_control_property`
+  follow the window, each row naming its unit; the summary and `move_control` stay in pixels.
+
 - **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
   so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
   it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
