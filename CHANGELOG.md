@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
+  5 and Filter 13, as measured in VB6. Long arrays gave values, and 2-D String arrays raised 9. Unallocated arrays
+  still give an empty string or an unallocated String array.
+
 - **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
   content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
   node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the

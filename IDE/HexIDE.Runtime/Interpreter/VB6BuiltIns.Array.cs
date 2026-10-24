@@ -114,6 +114,10 @@ public partial class VB6BuiltIns
         if (a.Count < 1) throw InvalidCall();
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (arr.Rank == 0 || arr.UpperBound(1) < arr.LowerBound(1)) return new Vb6Value("");
+        // Allocated arrays must be one-dimensional String or Variant arrays (measured, #875).
+        if (arr.Rank != 1 || (arr.ElementType is { } type
+            && type != Vb6Value.ValueType.String && type != Vb6Value.ValueType.EmptyVariant))
+            throw InvalidCall();
         string delim = Supplied(a, 1) ? ArgumentText(a[1]) : " ";
         var sb = new StringBuilder();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
@@ -150,6 +154,10 @@ public partial class VB6BuiltIns
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (arr.Rank == 0 || arr.UpperBound(1) < arr.LowerBound(1))
             return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
+
+        if (arr.Rank != 1 || (arr.ElementType is { } type
+            && type != Vb6Value.ValueType.String && type != Vb6Value.ValueType.EmptyVariant))
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
 
         var elements = new List<string>();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
