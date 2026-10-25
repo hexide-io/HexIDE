@@ -398,8 +398,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
     public void TextReplacingADescribedDeclarationWholeThatDeclaresOnItsFirstLineKeepsTheRunForIt()
     {
         // A declaration and the lines after it, pasted over the selected declaration: the first line joins the row, the
-        // run stays under it and describes what it declares, as a retype's run does (IDE probe C8). Text whose first
-        // line declares nothing is an open question in design.md (#273 task 4.5 review).
+        // run stays under it and describes what it declares, as a retype's run does (IDE probe C8).
         var vm = OpenCode();
         var declaration = LineOf(vm, "Public Sub Go()");
 
@@ -408,6 +407,71 @@ public class MemberRunFollowsItsLineTests : IDisposable
 
         vm.Document.Text.Should().Contain("Public Sub Leave()\r\nAttribute Go.VB_Description");
         RunOf(vm, "Leave").Kind.Should().Be(MemberRunKind.Procedure);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("' note\nPublic Sub Go()", "Public Sub Go()")]
+    [InlineData("\nPublic Sub Go()", "Public Sub Go()")]
+    [InlineData("' note\nPublic Sub Go( _\n    ByVal x As Long)\n    Debug.Print x", "    ByVal x As Long)")]
+    public void WholeDeclarationReplacementKeepsTheRunUnderTheFirstCompatibleLogicalLine(string text, string lastLine)
+    {
+        var vm = OpenCode();
+        var declaration = LineOf(vm, "Public Sub Go()");
+
+        var placed = vm.InsertLineBreakPastRun(declaration.Offset, declaration.Length, text)!;
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Contain(lastLine + "\nAttribute Go.VB_Description");
+        RunOf(vm, "Go").Kind.Should().Be(MemberRunKind.Procedure);
+        placed.End.Should().Be(text.EndsWith("Debug.Print x", StringComparison.Ordinal)
+            ? LineOf(vm, "    Debug.Print x").EndOffset : LineOf(vm, lastLine).EndOffset);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Public Count As Long")]
+    [InlineData("Public Const Count = 1")]
+    public void WholeVariableReplacementSkipsDeclarationsItsRunCannotDescribe(string declarationText)
+    {
+        var vm = OpenCode();
+        var declaration = LineOf(vm, "Public Count As Long");
+
+        vm.InsertLineBreakPastRun(declaration.Offset, declaration.Length,
+            "' note\nPublic Event Other()\nPublic Wrong As Long\n" + declarationText + "\n' tail");
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Contain(declarationText + "\nAttribute Count.VB_VarDescription");
+        RunOf(vm, "Count").Kind.Should().Be(MemberRunKind.Variable);
+    }
+
+    [AvaloniaFact]
+    public void WholeDeclarationReplacementWithoutADeclarationKeepsTheFirstBreakSplit()
+    {
+        var vm = OpenCode();
+        var declaration = LineOf(vm, "Public Sub Go()");
+
+        vm.InsertLineBreakPastRun(declaration.Offset, declaration.Length, "' note\n    x = 1");
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Contain("' note\nAttribute Go.VB_Description");
+        vm.MemberRunsNow.Single(r => r.Region.Start == At(vm, "Attribute Go.VB_Description")).Kind.Should().Be(MemberRunKind.Orphan);
+    }
+
+    [AvaloniaFact]
+    public async Task InsertFileReplacingAWholeDeclarationKeepsItsRun()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"hexide-insert-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(path, "' note\nPublic Sub Go()", TestContext.Current.CancellationToken);
+        try
+        {
+            windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+                .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
+            var vm = OpenCode();
+            var declaration = LineOf(vm, "Public Sub Go()");
+
+            await vm.InsertFileAsync(declaration.Offset, declaration.Length);
+
+            vm.Document.Text.ReplaceLineEndings("\n").Should().Contain("Public Sub Go()\nAttribute Go.VB_Description");
+            RunOf(vm, "Go").Kind.Should().Be(MemberRunKind.Procedure);
+            vm.CaretOffset.Should().Be(LineOf(vm, "Public Sub Go()").EndOffset);
+        }
+        finally { File.Delete(path); }
     }
 
     [AvaloniaFact]

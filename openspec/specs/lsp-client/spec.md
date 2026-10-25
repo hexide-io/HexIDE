@@ -10,11 +10,6 @@ contract rather than direct calls into a parser is that the backend is expected 
 own syntactic server today, and the seam exists so an external backend with deeper analysis can take over
 later without the editor noticing.
 
-> **Known divergences.** The requirements below state intended behaviour. One is not always met: full
-> synchronization requires a document's versions to rise from its open, and one path can still send one that
-> does not: a debounced change crossing the flush that superseded it. Tracked in
-> [#720](https://github.com/hexide-io/HexIDE/issues/720).
-
 ## Requirements
 
 ### Requirement: The IDE SHALL depend only on the language-service contract
@@ -63,6 +58,11 @@ running.
 - **WHEN** a language request fails or times out
 - **THEN** the caller receives the empty or absent result for that request
 - **AND** the connection remains usable for subsequent requests
+
+#### Scenario: The server cancels a superseded request
+- **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
+- **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed
+- **AND** a later genuine failure SHALL still receive the method's once-per-connection warning
 
 #### Scenario: The server exits unexpectedly
 - **WHEN** the language server process exits while the IDE is running
@@ -127,6 +127,11 @@ document for both (hexide-io/HexIDE#721).
 - **THEN** the server has been opened on the document once, and every change carries a later version than the one
   before, whichever editor it came from
 - **AND** closing one editor leaves the document open for the other, and closing the last closes it
+
+#### Scenario: A debounced change overtaken by a flush
+- **WHEN** a change arrives with a version no later than the one the client already tracks
+- **THEN** it is not sent to the server
+- **AND** the newer tracked text and version are kept for reconnect replay
 
 #### Scenario: Closing a document
 - **WHEN** a document is closed
@@ -376,8 +381,9 @@ without it points at the executable for a fault that has nothing to do with it.
 
 #### Scenario: The root moves while documents are open
 - **GIVEN** two documents open in editors
-- **WHEN** the project's directory changes and the running servers are restarted
-- **THEN** each restarted server is told both documents are open before it is sent a change to either
+- **WHEN** a project save or startup-project change moves the workspace root
+- **THEN** the running servers SHALL restart at the new root without waiting for another document to open
+- **AND** each restarted server is told both documents are open with their latest text before it is sent a change to either
 
 ### Requirement: A malformed entry SHALL fail alone, and visibly
 An entry that cannot be used SHALL NOT prevent other entries from being used, and SHALL NOT prevent the IDE
@@ -875,3 +881,14 @@ that line (hexide-io/HexIDE#1363).
 - **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
   alone
 - **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+
+### Requirement: A launched pipe server can be told its owner's process ID
+For a launched pipe server, the client SHALL replace every `{pid}` in the configured arguments with
+HexIDE's process ID as invariant decimal digits. This substitution SHALL work without an open workspace.
+The server is responsible for watching that process; the placeholder does not enforce process-tree cleanup
+after an unclean IDE shutdown.
+
+#### Scenario: A server accepts an owner-process argument
+- **WHEN** a pipe entry launches a command with `--owner {pid}` in its arguments
+- **THEN** the launched process receives `--owner` followed by HexIDE's process ID
+- **AND** no open project is required for that substitution

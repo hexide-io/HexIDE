@@ -17,7 +17,8 @@ most people will type today.
 | Option | Argument | What it does |
 |---|---|---|
 | `--help` | — | Prints usage and exits without starting the IDE. Also `-h`, `/?` and `-?`. |
-| `--newproject` | — | Creates a Standard EXE and skips the startup dialog. |
+| `--newproject` | — | Creates a Standard EXE, saves it in a unique temporary directory and skips the startup dialog. |
+| `--newproject-unsaved` | — | Creates a Standard EXE without writing project or component files and skips the startup dialog. Save Project asks where to put them. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
 | `--user-data-dir` | a directory | Keeps this session's settings and other per-user files there instead of the usual place. See below. |
 | `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
@@ -68,7 +69,9 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
   VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
   directory.
-- **Logs are not per-user files** and stay in their usual place.
+- **Logs are not per-user files** and stay in their usual place. IDE log pruning keeps at least the seven
+  most recent sessions and deletes an older session only when all its parts were last modified more than
+  seven days ago. Frequent launches across profiles do not shorten that window.
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.
 - **A malformed one refuses to start, as a malformed `--server-port` does.** Given with nothing after it —
@@ -76,8 +79,8 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   arguments are skipped when HexIDE cannot use them, but starting normally here would put the session on
   exactly the settings you asked it to stay away from.
 
-**`--newproject` wins.** If you pass both `--newproject` and a project path, the new project is created and
-the path is ignored.
+**New-project flags win.** `--newproject-unsaved` takes precedence over `--newproject`, regardless of their
+order. With either flag and a project path, the new project is created and the path is ignored.
 
 **`--server-port` needs its value as the next argument**, and that value must be a port number from 1 to
 65535. `--server-port 5123` works; `--server-port=5123` does not. In a Debug build, anything else stops
@@ -126,6 +129,9 @@ looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 **`--help` is answered before anything starts.** No window, no project, no port — it prints and exits. On
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
+An inherited file or pipe is used directly, before trying to attach to a console. In particular, a
+Windows batch file can capture help and refusals with `HexIDE.Desktop.exe --help > out.txt 2>&1`,
+even when the batch file's cmd has no console window.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
 terminal rather than a file or pipe, `NO_COLOR` unset, `TERM` not set to `dumb`, and a terminal that takes
@@ -168,7 +174,7 @@ that the rendered row stays inside 94 columns, so the mark still fits beside it 
 HexIDE.Desktop C:\src\Battleship\Battleship.vbp
 
 # Straight into an empty Standard EXE
-HexIDE.Desktop --newproject
+HexIDE.Desktop --newproject-unsaved
 
 # Record every language-server conversation from its first handshake
 HexIDE.Desktop --capture-lsp C:\src\Battleship\Battleship.vbp

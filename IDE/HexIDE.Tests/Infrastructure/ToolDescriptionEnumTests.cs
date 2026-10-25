@@ -35,6 +35,8 @@ public class ToolDescriptionEnumTests
         new[] { "HexIDE", "HexIDE.Core", "HexIDE.Runtime" }
             .Select(Assembly.Load)
             .SelectMany(a => a.GetTypes())
+            // inspect_element renders these Avalonia window enums as names too.
+            .Concat([typeof(Avalonia.Controls.WindowDecorations), typeof(Avalonia.Controls.WindowState)])
             .Where(t => t.IsEnum)
             .GroupBy(t => t.Name)
             .ToDictionary(g => g.Key, g => g.ToList()));
@@ -42,7 +44,7 @@ public class ToolDescriptionEnumTests
     private static Type EnumNamed(string name)
     {
         var candidates = Enums.Value.GetValueOrDefault(name) ?? [];
-        candidates.Should().ContainSingle($"[DescribesEnum(typeof({name}))] must name exactly one HexIDE enum");
+        candidates.Should().ContainSingle($"[DescribesEnum(typeof({name}))] must name exactly one known reply enum");
         return candidates[0];
     }
 

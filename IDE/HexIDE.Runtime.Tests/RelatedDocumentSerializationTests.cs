@@ -63,6 +63,7 @@ public class RelatedDocumentSerializationTests
         foreach (var (name, path, line) in read.RelativeRelatedDocPaths)
             project.AddRelatedDocument(
                 new RelatedDocumentDefinition(project, name, Resolve(path), line));
+        project.KnownLineKeys.AddRange(read.KnownLineKeys);
         project.StartsAtSubMain = true;
         foreach (var unknown in read.UnknownPreSectionLines) project.UnknownPreSectionLines.Add(unknown);
 
@@ -70,6 +71,23 @@ public class RelatedDocumentSerializationTests
 
         written.Should().Be(original,
             "an unknown line after a RelatedDoc= entry must not shift, and the entry must not double-emit");
+    }
+
+    [Theory]
+    [InlineData("RelatedDoc=notes.md\r\nModule=Module1; Module1.bas\r\n")]
+    [InlineData("Module=Module1; Module1.bas\r\nModule=Notes; notes.md\r\nModule=Module2; Module2.bas\r\n")]
+    public async Task Carried_lines_keep_their_original_slots(string items)
+    {
+        var original = "Type=Exe\r\n" + items + "Name=\"P\"\r\n";
+        Directory.CreateDirectory(ProjectDir);
+        var path = ProjectFile(Guid.NewGuid().ToString("N") + ".vbp");
+        try
+        {
+            await File.WriteAllTextAsync(path, original, TestContext.Current.CancellationToken);
+            var loaded = await new ProjectLoader().LoadAsync(path, NullSink.Instance);
+            new ProjectSerializer().Serialize(loaded.Project, path).Should().Be(original);
+        }
+        finally { File.Delete(path); }
     }
 
     [Fact]

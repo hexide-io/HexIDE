@@ -251,7 +251,8 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// place. Whatever the text would have put on the next row it now puts on the row after the run, and what it
     /// would have left on the declaration's row stays there. So Enter's line break makes a line of its own after
     /// the run, and a paste of several lines joins its first to the declaration, as it would without one. An insertion
-    /// whose nonblank first line carries an Attribute line instead goes whole after the run (#1041). Trailing
+    /// whose nonblank first line carries an Attribute line instead goes whole after the run (#1041), and a replacement
+    /// of the whole declaration keeps the run under the first compatible logical declaration it pastes. Trailing
     /// whitespace aside: spaces or tabs between the span's end and the anchor stay on the declaration's row, where
     /// with no run there the line break would carry them to the next (#273 task 4.5 review).
     /// </para>
@@ -296,6 +297,30 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
             var pasted = normalized.EndsWith(newline, StringComparison.Ordinal) ? normalized[..^newline.Length] : normalized;
             return new LineBreakPastRun(run, offset, length, string.Empty, run.LastContentEnd, newline + pasted);
         }
+        if (offset <= TextStart(run))
+        {
+            // A whole declaration may be preceded by comments or blank lines (#1039). Keep its run under the
+            // first logical line it can describe, using the same continuation rule as the member reader.
+            var pasted = new TextDocument(normalized);
+            var start = 0;
+            foreach (var line in pasted.Lines)
+            {
+                var content = pasted.GetText(line).AsSpan().TrimEnd();
+                if (line.NextLine is not null && content.Length > 1 && content[^1] == '_' && char.IsWhiteSpace(content[^2]))
+                    continue;
+                var declared = ReadOnlyRegions.NamesDeclaredOn(normalized, start, line.EndOffset);
+                var compatible = run.Kind == MemberRunKind.Procedure
+                    ? declared.Any(d => d.Kind == DeclarationKind.Procedure)
+                    : run.Lines.All(a => declared.Any(d => d.Kind is DeclarationKind.Variable or DeclarationKind.Constant
+                        && string.Equals(d.Name, a.Qualifier, StringComparison.OrdinalIgnoreCase)));
+                if (compatible)
+                {
+                    lineBreak = line.EndOffset;
+                    break;
+                }
+                start = line.Offset + line.TotalLength;
+            }
+        }
         return new LineBreakPastRun(run, offset, length, normalized[..lineBreak], run.LastContentEnd, normalized[lineBreak..]);
     }
 
@@ -335,14 +360,15 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
 /// <param name="Run">The run, as the text stood.</param>
 /// <param name="Offset">The start of the span the text replaces.</param>
 /// <param name="Length">The length of the span the text replaces.</param>
-/// <param name="Head">What replaces that span: the text up to its first line break, perhaps nothing.</param>
+/// <param name="Head">What replaces that span: through the first compatible declaration for a whole-line replacement,
+/// otherwise up to the first line break, perhaps nothing.</param>
 /// <param name="TailAt">Where the rest goes, in the text as it stood: the end of the run's last line's text.</param>
-/// <param name="Tail">The rest, from the first line break on.</param>
+/// <param name="Tail">The rest, including its leading line break; empty when the declaration ends the text.</param>
 internal sealed record LineBreakPastRun(MemberRun Run, int Offset, int Length, string Head, int TailAt, string Tail)
 {
     /// <summary>Where the tail starts once both parts are written.</summary>
     public int TailStart => TailAt - Length + Head.Length;
 
-    /// <summary>Just past the tail once both parts are written: where a paste or a typed line break leaves the caret.</summary>
-    public int End => TailStart + Tail.Length;
+    /// <summary>Where the caret ends: past the tail, or past the head when no tail was pasted.</summary>
+    public int End => Tail.Length == 0 ? Offset + Head.Length : TailStart + Tail.Length;
 }

@@ -60,9 +60,9 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=73
-FAILURES_UNTRACKED=19
-FAILURES_STAGED=21
+EXPECTED_CHECKS=78
+FAILURES_UNTRACKED=20
+FAILURES_STAGED=22
 
 # Built rather than written, so the comparison is against the same bytes the guard emits and this file
 # needs no particular encoding to survive.
@@ -185,6 +185,8 @@ plant() {
   printf 'A note about %s.\n' "$NEIGHBOUR_C"                > "$PROBE/neighbour3.md"
   printf '%s\nours\n%s\ntheirs\n%s\n' "$MARK_OURS" "$MARK_SPLIT" "$MARK_THEIRS" > "$PROBE/conflict.md" # 8
 
+  printf '\xC2\x80\xC2\x94\xC2\x9F\n'                    > "$PROBE/c1.txt"       # 10, both ends and a mojibake control
+
   # The three converted scans again, under a name git C-quotes. Each was blind to this until `-z`.
   printf 'not a real key\n'                                 > "$PROBE/$ACCENTED.pem"
   printf 'MZ not a real binary\n'                           > "$PROBE/$ACCENTED.exe"
@@ -229,6 +231,8 @@ assert_every_scan_reported() {
   seen "1a. ...and sees an accented filename"        "$FAILMARK private key file: $PROBE/$ACCENTED.pem"
   seen "2.  ...and sees an accented filename"        "$FAILMARK build artefact / backup in the tree: $PROBE/$ACCENTED.exe"
   seen "5.  ...and sees an accented filename"        "$FAILMARK dangling relative link: $PROBE/$ACCENTED.md->./no-such-file.md"
+
+  seen "10. C1 control characters FAIL"             "$FAILMARK C1 control character: $PROBE/c1.txt:1:"
 
   # The count is what catches a `note` lost to a subshell: the line is still printed, the increment is not.
   seen "the summary counts every failure"            "check-tree-hygiene: FAILED"
@@ -355,6 +359,17 @@ output="$(cd "$UNREADABLE/clean" && GIT_CEILING_DIRECTORIES="$ceiling" bash scri
 status=$?
 seen   "a readable tree with nothing to report says OK" "check-tree-hygiene: OK"
 absent "...and prints no warning count when there are none" "warning(s)"
+echo
+echo "F. a temp location that cannot hold a file"
+
+# A regular file cannot hold a temp file, even when the selftest runs as root. Unlike chmod,
+# this reliably denies creation on every host without changing permissions on a shared directory.
+printf 'not a directory\n' > "$UNREADABLE/not-a-directory"
+output="$(cd "$UNREADABLE/clean" && TMPDIR="$UNREADABLE/not-a-directory" GIT_CEILING_DIRECTORIES="$ceiling" bash scripts/check-tree-hygiene.sh 2>&1)"
+status=$?
+exited "when temp creation fails, the guard refuses to pass (exit 2)" 2
+seen   "...and explains that it cannot create a temp file" "cannot create a temp file"
+absent "...and never claims the tree is clean" "check-tree-hygiene: OK"
 rm -rf "${UNREADABLE:?}"
 
 echo

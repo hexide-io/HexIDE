@@ -769,7 +769,7 @@ public partial class MainViewViewModel : ObservableObject
         // debounce changes ~400ms, and listen for programmatic open/close. Mouse-driven changes
         // (splitter resize, drag-dock) are funnelled in by the view via ScheduleLayoutSave().
         _layoutSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-        _layoutSaveTimer.Tick += (_, _) => FlushLayoutSaveDebounced();
+        _layoutSaveTimer.Tick += (_, _) => LoggedTimerCallback.Run("dock-layout save", FlushLayoutSaveDebounced);
         _lastSavedLayoutJson = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         dockFactory.LayoutChanged += ScheduleLayoutSave;
 

@@ -205,6 +205,33 @@ public class Vb6CompileLogTests
                             + "procedure's attribute, neither of which VB6 counted");
     }
 
+    // Measured p11a, p11b, p07c and p07 (#968): attributes belong to logical lines.
+    [Theory]
+    [InlineData("Attribute Foo.VB_Description = _\r\n\"p11a\"", 6)]
+    [InlineData("Attribute _\r\nFoo.VB_Description = \"p11b\"", 6)]
+    [InlineData("' a comment _\r\nAttribute Foo.VB_Description = \"p07c\"", 8)]
+    public void ContinuedAttributeShapesMapTheMeasuredError(string shape, int printedLine)
+    {
+        var code = "Option Explicit\r\nPublic Sub Foo()\r\n" + shape
+                 + "\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\nPublic Sub Main()\r\n    zz = 1\r\nEnd Sub\r\n";
+        var (project, module) = AModuleWith(code);
+        var log = $"Compile Error in File '{module.AbsolutePath}', Line {printedLine} : Variable not defined\r\n";
+
+        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+            .Should().Be(9);
+    }
+
+    [Fact]
+    public void AttributeInsideContinuedDeclarationIsCounted()
+    {
+        var (project, module) = AModuleWith("Option Explicit\r\nPublic Sub Foo(ByVal a As Long, _\r\n"
+            + "Attribute Foo.VB_Description = \"p07\"\r\nByVal b As Long)\r\nEnd Sub\r\n");
+        var log = $"Compile Error in File '{module.AbsolutePath}', Line 2 : Expected: identifier\r\n";
+
+        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+            .Should().Be(3);
+    }
+
     [Fact]
     public void ALineBeyondWhatWeHoldIsClampedRatherThanDropped()
     {

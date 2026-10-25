@@ -13,6 +13,7 @@ public interface IComponentClass
 {
     string Name { get; }
     string VBTypeName { get; }
+    string ClassName { get; }
 
     /// <summary>
     /// True for controls with a visual footprint on the form. False for invisible/runtime-only controls

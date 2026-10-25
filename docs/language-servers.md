@@ -173,6 +173,7 @@ only works if you remembered to launch the server first.
 | Placeholder | Becomes |
 |---|---|
 | `{pipe}` | The pipe name. |
+| `{pid}` | The HexIDE process ID, in decimal. |
 | `{workspaceUri}` | The open project as a `file:` URI — the same one sent as `rootUri`. |
 | `{workspaceDir}` | The same directory as a plain path. |
 
@@ -190,6 +191,10 @@ initialize does not fail — it loads one workspace and answers questions about 
 **With no project open, an entry using either workspace placeholder is not launched**, and the reason says
 so. Substituting nothing would hand the server a flag with no value and let it fail in its own vocabulary,
 which the reader then has to translate back into "no project was open".
+
+`{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
+Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
+the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
 
 ### `workingDirectory` is a different question
 

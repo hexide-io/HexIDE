@@ -372,13 +372,19 @@ public class MemberRunFollowsItsLineTests : IDisposable
 
         var run = RunOf(vm, "Go");
         editor.Select(declaration.Offset + 7, run.Region.Start + 5 - declaration.Offset - 7);
-        UiAutomationDriver.PressKey(editor, "Back", null).Success.Should().BeFalse(
-            "part of a declaration and part of its run: the run is not taken, and would be carved");
-        vm.Document.Text.Should().Be(before);
+        var start = declaration.Offset + 7;
+        var length = declaration.EndOffset - start;
+        var partial = UiAutomationDriver.PressKey(editor, "Back", null);
+        partial.Success.Should().BeTrue(partial.Error);
+        vm.Document.Text.Should().Be(before.Remove(start, length),
+            "the provider carves out the run and deletes the editable part (#1055)");
+        editor.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before, "one undo restores the partial deletion");
 
         editor.TextArea.ClearSelection();
-        PutCaret(editor, declaration.Offset + 3);
-        var pressed = UiAutomationDriver.PressKey(editor, "D", "Ctrl");
+        PutCaret(editor, vm.Document.Text.IndexOf("Public Sub Go()", StringComparison.Ordinal) + 3);
+        var gesture = AvaloniaEditCommands.DeleteLine.Gesture!;
+        var pressed = UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString());
 
         pressed.Success.Should().BeTrue(pressed.Error);
         vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, string.Empty));
@@ -508,7 +514,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void TypeTextOverASelectionReachingARunIsRefused()
+    public void TypeTextOverASelectionReachingARunReplacesOnlyTheEditablePart()
     {
         var vm = Open(Procedure);
         var editor = Show(vm);
@@ -516,11 +522,16 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var declaration = LineWith(editor, "Public Sub Go()");
         editor.Select(declaration.Offset, LineWith(editor, "Attribute Go.VB_UserMemId").Offset + 5 - declaration.Offset);
 
+        var start = declaration.Offset;
+        var length = declaration.Length;
         var outcome = UiAutomationDriver.TypeText(editor, "x");
 
-        outcome.Success.Should().BeFalse();
-        outcome.Error.Should().Contain("reaches into").And.Contain("Select less", "it begins where code can be edited; its reach is the trouble");
-        vm.Document.Text.Should().Be(before);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("the Attribute lines describing Go");
+        vm.Document.Text.Should().Be(before.Remove(start, length).Insert(start, "x"));
+        editor.SelectionLength.Should().Be(0);
+        editor.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before, "one undo restores the replacement");
     }
 
     [AvaloniaFact]
@@ -880,6 +891,27 @@ public class MemberRunFollowsItsLineTests : IDisposable
             .Replace("Public Sub Go()\r\n", "Public Sub Go() ' first\r\n")
             .Replace("VB_UserMemId = 0\r\n", "VB_UserMemId = 0\r\n    Debug.Print 0\r\n"));
         editor.TextArea.Caret.Offset.Should().Be(LineWith(editor, "    Debug.Print 0").EndOffset);
+        editor.Undo();
+        Dispatcher.UIThread.RunJobs();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task APasteOfACommentAndAWholeDeclarationKeepsTheRunUnderTheDeclaration()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var line = LineWith(editor, "Public Sub Go()");
+        await SetClipboard(editor, "' note\nPublic Sub Go()");
+        PutCaret(editor, line.EndOffset);
+        editor.TextArea.Selection = AvaloniaEdit.Editing.Selection.Create(editor.TextArea, line.Offset, line.EndOffset);
+
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
+        await UntilChanged(vm, before);
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Contain("' note\nPublic Sub Go()\nAttribute Go.VB_Description");
+        editor.TextArea.Caret.Offset.Should().Be(LineWith(editor, "Public Sub Go()").EndOffset);
         editor.Undo();
         Dispatcher.UIThread.RunJobs();
         vm.Document.Text.Should().Be(before);

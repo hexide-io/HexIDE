@@ -1,3 +1,4 @@
+using System.Globalization;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
@@ -69,6 +70,25 @@ public class NamedPipeWorkspacePlaceholderTests
         }
 
         lock (gate) return [.. seen];
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ThePidPlaceholderGivesTheServerItsOwner(bool withWorkspace)
+    {
+        var project = Path.GetTempPath();
+        var arguments = "--owner {pid} --again {pid} --pipe {pipe}";
+        if (withWorkspace) arguments += " --workspace {workspaceUri}";
+
+        var lines = await StderrFromLaunchAsync(
+            Echoing(arguments), withWorkspace ? new Workspace(project) : null, "hexide-test-pid");
+
+        var pid = Environment.ProcessId.ToString(CultureInfo.InvariantCulture);
+        var expected = $"GOT --owner {pid} --again {pid} --pipe hexide-test-pid";
+        if (withWorkspace) expected += $" --workspace {LspWorkspaceUri.For(project)}";
+        lines.Should().Contain(expected,
+            "the launched process must receive HexIDE's PID, including without an open workspace");
     }
 
     [Fact]
