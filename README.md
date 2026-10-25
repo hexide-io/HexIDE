@@ -138,9 +138,10 @@ Start with `hexide-<platform>-selfcontained.*`, which includes .NET. The smaller
 `hexide-<platform>.*` build needs the plain [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 (`Microsoft.NETCore.App`) installed on every platform.
 
-**Linux:** choose `amd64` if `uname -m` prints `x86_64`, or `arm64` if it prints `aarch64`.
+**Linux:** choose `amd64` if `uname -m` prints `x86_64`, `arm64` if it prints `aarch64`,
+or `arm` for 32-bit Arm (`armv7l`), whose self-contained archive is `hexide-linux-arm-selfcontained.tar.gz`.
 The archives have no top-level folder, so extract into a folder of their own. From the directory
-containing your download (substitute `arm64` in the filename if needed):
+containing your download (substitute `arm64` or `arm` in the filename if needed):
 
 ```sh
 mkdir -p ~/hexide
@@ -150,7 +151,7 @@ tar -xzf hexide-linux-amd64-selfcontained.tar.gz -C ~/hexide
 
 Self-contained builds still need native libraries, including the distro's `libX11`, `libICE`, `libSM`,
 `fontconfig` and ICU. The v0.2.0 amd64 self-contained build started and showed the New Project dialog on
-openSUSE Leap 16.0 with GNOME without adding any libraries; other distros, desktops and the arm64 build
+openSUSE Leap 16.0 with GNOME without adding any libraries; other distros, desktops and the Arm builds
 were not checked.
 
 That openSUSE install had no `tar`. If yours has none, these are alternatives:

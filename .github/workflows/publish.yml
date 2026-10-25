@@ -97,6 +97,7 @@ jobs:
           - { name: windows-amd64, runner: windows-latest,  rid: win-x64,    os: win }
           - { name: windows-arm64, runner: windows-11-arm,  rid: win-arm64,  os: win }
           - { name: linux-amd64,   runner: ubuntu-latest,   rid: linux-x64,  os: linux }
+          - { name: linux-arm,     runner: ubuntu-latest,   rid: linux-arm,  os: linux }
           - { name: linux-arm64,   runner: ubuntu-24.04-arm, rid: linux-arm64, os: linux }
           - { name: macos-arm64,   runner: macos-latest,    rid: osx-arm64,  os: mac }
           # Last x86_64 macOS image on GitHub Actions, retiring Fall 2027 alongside Rosetta 2.
@@ -142,6 +143,16 @@ jobs:
         shell: bash
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
+      # The signing tool runs during the build, so cross-publishing needs a host copy even when the
+      # shipped executables target Arm. Keep it outside the staged payload.
+      - name: Publish host add-in packer
+        if: matrix.rid == 'linux-arm'
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish HexIDE.AddinPacker -f net10.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/
+          echo "ADDIN_PACKER_OVERRIDE=-p:AddinPacker=$PWD/bin/addin-packer-host/HexIDE.AddinPacker.dll" >> "$GITHUB_ENV"
+
       # Output directory names are load-bearing: the staging loop below copies bin/standalone-$flavour
       # into bin/$flavour/standalone, so these suffixes must match the flavour names exactly.
       - name: Publish HexIDE.Standalone (${{ matrix.rid }}, framework-dependent)
@@ -151,10 +162,10 @@ jobs:
         run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone-sc/
 
       - name: Publish HexIDE.Desktop (framework-dependent)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/fdd/
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/fdd/
 
       - name: Publish HexIDE.Desktop (self-contained)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/sc/
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/sc/
 
       - name: Stage both flavours
         shell: bash
@@ -330,7 +341,7 @@ jobs:
           path: ./IDE/bin/hexide-${{ matrix.name }}*.*
           if-no-files-found: error
 
-  # A single release job. Six matrix legs each calling action-gh-release would race to create the same
+  # A single release job. Seven matrix legs each calling action-gh-release would race to create the same
   # release, and the loser can drop its assets.
   release:
     name: Publish release
