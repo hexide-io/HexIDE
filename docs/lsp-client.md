@@ -14,6 +14,8 @@ registered with the `connect` fallback.
 
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).
+A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
+the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
 ---
 
