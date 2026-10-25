@@ -149,12 +149,12 @@ public sealed class MinimapControl : Control
         (byte)(a.G + (b.G - a.G) * t),
         (byte)(a.B + (b.B - a.B) * t));
 
-    private void OnDebounceTick(object? sender, EventArgs e)
+    private void OnDebounceTick(object? sender, EventArgs e) => LoggedTimerCallback.Run("minimap redraw", () =>
     {
         _debounce?.Stop();
         _cacheDirty = true;
         InvalidateVisual();
-    }
+    });
 
     // ── minimap layout: rows, sampling, line ↔ row ↔ Y (single source of truth) ──
     // When the document fits, one line maps to one row. When it's taller than the control can

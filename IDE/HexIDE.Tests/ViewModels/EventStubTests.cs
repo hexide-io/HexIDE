@@ -123,6 +123,47 @@ public class EventStubTests : IDisposable
         vm.CaretOffset.Should().Be(BlankLineIn(vm, "Private Sub Command1_Click()\r\n"));
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_double_click_skips_a_caption_naming_the_handler(bool handlerExists)
+    {
+        var source = FormWithCode.Replace("\"Command1\"", "\"sUb Command1_Click\"");
+        if (handlerExists) source += "\r\nPrivate Sub Command1_Click()\r\n\r\nEnd Sub\r\n";
+        var form = new FormDeserializer().Deserialize(Project, source, NullSink.Instance)!;
+        var vm = Open(form);
+        var before = vm.Document.Text;
+
+        navigate!(new CreateOrNavigateToSubEvent(form, "Command1_Click"));
+
+        vm.CaretOffset.Should().Be(BlankLineIn(vm, "Private Sub Command1_Click()\r\n"));
+        if (handlerExists) vm.Document.Text.Should().Be(before);
+        else vm.Document.Text.Should().EndWith("Private Sub Command1_Click()\r\n\r\nEnd Sub\r\n");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_Procedure_box_skips_a_caption_naming_the_handler(bool handlerExists)
+    {
+        var source = FormWithCode.Replace("\"Command1\"", "\"sUb Command1_Click\"");
+        if (handlerExists) source += "\r\nPrivate Sub Command1_Click()\r\n\r\nEnd Sub\r\n";
+        var form = new FormDeserializer().Deserialize(Project, source, NullSink.Instance)!;
+        var vm = Open(form);
+        var before = vm.Document.Text;
+
+        vm.SelectedObject = "Command1";
+        vm.SelectedProcedure = "Click";
+
+        var declaration = vm.Document.Text.IndexOf("Private Sub Command1_Click()", StringComparison.Ordinal);
+        declaration.Should().BeGreaterThan(0);
+        vm.CaretOffset.Should().Be(handlerExists
+            ? vm.Document.GetLineByOffset(declaration).EndOffset
+            : BlankLineIn(vm, "Private Sub Command1_Click()\r\n"));
+        if (handlerExists) vm.Document.Text.Should().Be(before);
+        else vm.Document.Text.Should().EndWith("Private Sub Command1_Click()\r\n\r\nEnd Sub\r\n");
+    }
+
     // A UserControl's root offers its own events, with the arguments VB6's stubs declare (measured on VB6 SP6, #1632). It
     // offered a form's five. The name before the event is #937's: the code window lists the root under its own name.
     [AvaloniaFact]

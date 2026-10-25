@@ -296,7 +296,7 @@ public class VbProtectedRegionsTests
         // wrong is at the edges -- a header ending a line early leaves its last attribute line to be
         // formatted, a line late takes the first line of code away from the developer.
         var files = CorpusFiles().ToList();
-        files.Should().NotBeEmpty("the demo projects and corpus/designer ship with the repository");
+        files.Should().NotBeEmpty("the repository corpus is the proof");
 
         foreach (var path in files)
         {
@@ -328,10 +328,15 @@ public class VbProtectedRegionsTests
     private static LspRange Range(int startLine, int startCharacter, int endLine, int endCharacter) =>
         new(new LspPosition(startLine, startCharacter), new LspPosition(endLine, endCharacter));
 
-    private static IEnumerable<string> CorpusFiles()
+    private static IEnumerable<string> CorpusFiles(Func<string, string?>? findRoot = null)
     {
+        findRoot ??= FindUpwards;
         string[] extensions = [".frm", ".cls", ".bas", ".ctl", ".pag"];
-        foreach (var dir in new[] { FindUpwards("demo"), FindUpwards(Path.Combine("corpus", "designer")) }.OfType<string>()
+        var demo = findRoot("demo");
+        demo.Should().NotBeNull("demo/ ships with the repository");
+        var designer = findRoot(Path.Combine("corpus", "designer"));
+        designer.Should().NotBeNull("corpus/designer ships with the repository");
+        foreach (var dir in new[] { demo!, designer! }
                      .Concat(MemberAttributeCorpus()))
         {
             foreach (var file in Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
@@ -356,6 +361,17 @@ public class VbProtectedRegionsTests
         yield return Path.Combine(root!, "round-trip");
         foreach (var saved in Directory.EnumerateDirectories(Path.Combine(root!, "evidence"), "saved*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
             yield return saved;
+    }
+
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("corpus/designer")]
+    public void MissingRepositoryRootFailsTheLane(string missing)
+    {
+        string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
+        Action enumerate = () => CorpusFiles(FindRoot).ToList();
+
+        enumerate.Should().Throw<Exception>().WithMessage("*" + missing + "*ships with the repository*");
     }
 
     private static string? FindUpwards(string relative)

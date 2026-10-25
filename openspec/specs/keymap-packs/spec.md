@@ -25,7 +25,9 @@ opinion rather than having to pick the single correct answer.
 - **THEN** it is a data file mapping commands to gestures, with no code change
 
 ### Requirement: A keymap SHALL take effect without restarting
-Applying a keymap SHALL rebind commands in the running IDE.
+Applying a keymap SHALL rebind commands in the running IDE. Command-backed menu items SHALL display the
+first live command gesture, or no shortcut when unbound, immediately after applying the keymap.
+Menu placements SHALL NOT override that gesture with a literal accelerator.
 
 The only way to evaluate a keymap is to use it, and a restart between each adjustment makes tuning one
 impractical. Live rebinding also means a conflict is discovered immediately rather than at the next launch.

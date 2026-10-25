@@ -94,6 +94,43 @@ public class UserControlSaveRoundTripTests : IDisposable
     }
 
     [Fact]
+    public async Task A_UserControl_after_a_module_keeps_its_project_line_in_place()
+    {
+        var vbp = WriteProject("");
+        File.WriteAllText(Path.Join(dir, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\n");
+        var original = "Type=Exe\r\nModule=Module1; Module1.bas\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n";
+        File.WriteAllText(vbp, original);
+        var svc = MakeService(out var project);
+
+        await svc.OpenProject(vbp);
+        await svc.SaveProject(project(), saveAs: false);
+
+        (await File.ReadAllBytesAsync(vbp, TestContext.Current.CancellationToken)).Should().Equal(System.Text.Encoding.ASCII.GetBytes(original));
+    }
+
+    [Fact]
+    public async Task A_missing_form_before_a_loaded_form_keeps_its_slot_when_rebased()
+    {
+        var vbp = Path.Join(dir, "Test.vbp");
+        var scratch = new ProjectDefinition(VBProjectType.EXE, "Test");
+        var form = new FormDefinition(scratch, FormComponentClass.Instance, "Loaded");
+        var (frm, _) = new FormSerializer().Serialize(form, "Loaded.frm");
+        File.WriteAllText(Path.Join(dir, "Loaded.frm"), frm);
+        var original = "Type=Exe\r\nForm=Missing.frm\r\nObject=kept\r\nForm=Loaded.frm\r\nStartup=\"Loaded\"\r\nName=\"Test\"\r\n";
+        File.WriteAllText(vbp, original);
+        var svc = MakeService(out var project);
+
+        await svc.OpenProject(vbp);
+        await svc.SaveProject(project(), saveAs: false);
+        (await File.ReadAllBytesAsync(vbp, TestContext.Current.CancellationToken)).Should().Equal(System.Text.Encoding.ASCII.GetBytes(original));
+
+        var target = Path.Join(dir, "sub", "Test.vbp");
+        var rebased = original.Replace("Form=Missing.frm", @"Form=..\Missing.frm")
+            .Replace("Form=Loaded.frm", @"Form=..\Loaded.frm");
+        new ProjectSerializer().Serialize(project(), target).Should().Be(rebased);
+    }
+
+    [Fact]
     public async Task Saving_a_loaded_UserControl_writes_the_visual_header_exactly_once()
     {
         var vbp = WriteProject("Public Sub Hello()\r\nEnd Sub\r\n");

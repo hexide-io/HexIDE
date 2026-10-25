@@ -28,6 +28,23 @@ public class RunErrorTextTests
         text.Should().Be("Not implemented yet: GoSub not implemented");
     }
 
+    [Theory]
+    [InlineData("AppActivate \"Notepad\"\n")]
+    [InlineData("Sub Probe()\n    AppActivate \"Notepad\"\nEnd Sub\nProbe\n")]
+    [InlineData("Sub Probe()\n    On Error Resume Next\n    If True Then\n        AppActivate \"Notepad\"\n    End If\nEnd Sub\nProbe\n")]
+    [InlineData("Sub Probe()\n    On Error GoTo Handler\n    AppActivate \"Notepad\"\nHandler:\nEnd Sub\nProbe\n")]
+    public async Task An_unimplemented_construct_names_its_innermost_statement(string code)
+    {
+        var interpreter = new BasicInterpreter(Substitute.For<IBasicStandardLibrary>(),
+            new ModuleExecutionContext(), new ExecutionEnvironment(), code);
+        var act = async () => await interpreter.Execute();
+
+        var raised = (await act.Should().ThrowAsync<NotImplementedException>()).Which;
+
+        RunErrorText.ForFault(raised, Localization()).ReplaceLineEndings("\n").Should().Be(
+            "Not implemented yet: AppActivate not implemented\n\nat AppActivate \"Notepad\"");
+    }
+
     [Fact]
     public void Any_other_fault_is_VB6s_internal_error_with_what_a_bug_report_needs()
     {

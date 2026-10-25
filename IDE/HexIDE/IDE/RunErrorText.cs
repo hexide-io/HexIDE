@@ -45,7 +45,8 @@ internal static class RunErrorText
     public static string ForFault(Exception e, ILocalizationService localization)
     {
         if (e is NotImplementedException)
-            return string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"), e.Message);
+            return string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"), e.Message)
+                 + (ErrorLocation.StatementOf(e) is { } statement ? "\n\nat " + statement : "");
 
         var internalError = VBStandardError.InternalError;
         return $"Run-time error '{internalError.ErrNo}':\n\n{internalError.Description}\n\n"
