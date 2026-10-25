@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Hủy bỏ",
     "Str.Dialog.MessageBox.Button.Retry": "Thử lại",
     "Str.Dialog.MessageBox.Button.Ignore": "Bỏ qua",
-    "Str.Addins.Incompatible": "Không thể tải phần bổ trợ: lược đồ yêu cầu {0}, HexIDE tối thiểu {1}; bản dựng này hỗ trợ lược đồ {2}, HexIDE {3}. Yêu cầu lược đồ hoặc phiên bản không được hỗ trợ hoặc không hợp lệ."
+    "Str.Addins.Incompatible": "Không thể tải phần bổ trợ: lược đồ yêu cầu {0}, HexIDE tối thiểu {1}; bản dựng này hỗ trợ lược đồ {2}, HexIDE {3}. Yêu cầu lược đồ hoặc phiên bản không được hỗ trợ hoặc không hợp lệ.",
+    "Str.MakeProject.NoStartup": "Không tìm thấy dự án khởi động.",
+    "Str.MakeProject.Browser": "Không thể tạo chương trình trong trình duyệt. Hãy dùng phiên bản HexIDE dành cho máy tính.",
+    "Str.MakeProject.UnsupportedPlatform": "Không hỗ trợ tạo chương trình trên hệ điều hành này. Hãy dùng HexIDE trên Windows, macOS hoặc Linux.",
+    "Str.MakeProject.MissingRuntime": "Để tạo chương trình, trước tiên hãy biên dịch môi trường thực thi độc lập. Xem hướng dẫn trong README.",
+    "Str.MakeProject.Failed": "Chương trình chưa được tạo. Đã xảy ra lỗi:\n{0}"
   }
 }

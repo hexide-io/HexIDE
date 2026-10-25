@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Keskeytä",
     "Str.Dialog.MessageBox.Button.Retry": "Yritä uudelleen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ohita",
-    "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen."
+    "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen.",
+    "Str.MakeProject.NoStartup": "Käynnistysprojektia ei löytynyt.",
+    "Str.MakeProject.Browser": "Ohjelman koostaminen ei ole käytettävissä selaimessa. Käytä HexIDEn työpöytäversiota.",
+    "Str.MakeProject.UnsupportedPlatform": "Ohjelman koostamista ei tueta tässä käyttöjärjestelmässä. Käytä HexIDEä Windowsissa, macOS:ssä tai Linuxissa.",
+    "Str.MakeProject.MissingRuntime": "Koosta ensin erillinen suoritusympäristö, jotta voit koostaa ohjelman. Katso ohjeet README-tiedostosta.",
+    "Str.MakeProject.Failed": "Ohjelmaa ei koostettu. Tapahtui virhe:\n{0}"
   }
 }

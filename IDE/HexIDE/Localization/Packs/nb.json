@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Avbryt",
     "Str.Dialog.MessageBox.Button.Retry": "Prøv igjen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
-    "Str.Addins.Incompatible": "Kan ikke laste tillegget: påkrevd skjema {0}, minst HexIDE {1}; denne utgaven støtter skjema {2}, HexIDE {3}. Skjema- eller versjonskravet støttes ikke eller er ugyldig."
+    "Str.Addins.Incompatible": "Kan ikke laste tillegget: påkrevd skjema {0}, minst HexIDE {1}; denne utgaven støtter skjema {2}, HexIDE {3}. Skjema- eller versjonskravet støttes ikke eller er ugyldig.",
+    "Str.MakeProject.NoStartup": "Fant ikke noe oppstartsprosjekt.",
+    "Str.MakeProject.Browser": "Det er ikke mulig å lage et program i en nettleser. Bruk skrivebordsversjonen av HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Det er ikke støtte for å lage et program på dette operativsystemet. Bruk HexIDE på Windows, macOS eller Linux.",
+    "Str.MakeProject.MissingRuntime": "For å lage et program må du først bygge det frittstående kjøremiljøet. Se README for instruksjoner.",
+    "Str.MakeProject.Failed": "Programmet ble ikke laget. Det oppstod en feil:\n{0}"
   }
 }

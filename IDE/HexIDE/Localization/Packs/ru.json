@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Прервать",
     "Str.Dialog.MessageBox.Button.Retry": "Повторить",
     "Str.Dialog.MessageBox.Button.Ignore": "Пропустить",
-    "Str.Addins.Incompatible": "Не удалось загрузить надстройку: требуется схема {0}, минимум HexIDE {1}; эта сборка поддерживает схему {2}, HexIDE {3}. Требование к схеме или версии не поддерживается или некорректно."
+    "Str.Addins.Incompatible": "Не удалось загрузить надстройку: требуется схема {0}, минимум HexIDE {1}; эта сборка поддерживает схему {2}, HexIDE {3}. Требование к схеме или версии не поддерживается или некорректно.",
+    "Str.MakeProject.NoStartup": "Стартовый проект не найден.",
+    "Str.MakeProject.Browser": "Создание программы недоступно в браузере. Используйте настольную версию HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Создание программы не поддерживается в этой операционной системе. Используйте HexIDE в Windows, macOS или Linux.",
+    "Str.MakeProject.MissingRuntime": "Чтобы создать программу, сначала соберите автономную среду выполнения. Инструкции приведены в README.",
+    "Str.MakeProject.Failed": "Программа не создана. Произошла ошибка:\n{0}"
   }
 }

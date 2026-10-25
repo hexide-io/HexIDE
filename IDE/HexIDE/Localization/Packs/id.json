@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Batalkan",
     "Str.Dialog.MessageBox.Button.Retry": "Coba Lagi",
     "Str.Dialog.MessageBox.Button.Ignore": "Abaikan",
-    "Str.Addins.Incompatible": "Tidak dapat memuat add-in: skema yang diperlukan {0}, minimum HexIDE {1}; build ini mendukung skema {2}, HexIDE {3}. Persyaratan skema atau versi tidak didukung atau tidak valid."
+    "Str.Addins.Incompatible": "Tidak dapat memuat add-in: skema yang diperlukan {0}, minimum HexIDE {1}; build ini mendukung skema {2}, HexIDE {3}. Persyaratan skema atau versi tidak didukung atau tidak valid.",
+    "Str.MakeProject.NoStartup": "Proyek awal tidak ditemukan.",
+    "Str.MakeProject.Browser": "Pembuatan program tidak tersedia di peramban. Gunakan HexIDE versi desktop.",
+    "Str.MakeProject.UnsupportedPlatform": "Pembuatan program tidak didukung pada sistem operasi ini. Gunakan HexIDE di Windows, macOS, atau Linux.",
+    "Str.MakeProject.MissingRuntime": "Untuk membuat program, bangun runtime mandiri terlebih dahulu. Lihat README untuk petunjuknya.",
+    "Str.MakeProject.Failed": "Program tidak dibuat. Terjadi kesalahan:\n{0}"
   }
 }

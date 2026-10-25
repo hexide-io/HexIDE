@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Перервати",
     "Str.Dialog.MessageBox.Button.Retry": "Повторити",
     "Str.Dialog.MessageBox.Button.Ignore": "Пропустити",
-    "Str.Addins.Incompatible": "Не вдалося завантажити надбудову: потрібна схема {0}, мінімум HexIDE {1}; ця збірка підтримує схему {2}, HexIDE {3}. Вимога до схеми або версії не підтримується або є некоректною."
+    "Str.Addins.Incompatible": "Не вдалося завантажити надбудову: потрібна схема {0}, мінімум HexIDE {1}; ця збірка підтримує схему {2}, HexIDE {3}. Вимога до схеми або версії не підтримується або є некоректною.",
+    "Str.MakeProject.NoStartup": "Стартовий проєкт не знайдено.",
+    "Str.MakeProject.Browser": "Створення програми недоступне в браузері. Використовуйте настільну версію HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Створення програми не підтримується в цій операційній системі. Використовуйте HexIDE у Windows, macOS або Linux.",
+    "Str.MakeProject.MissingRuntime": "Щоб створити програму, спочатку зберіть автономне середовище виконання. Інструкції наведено в README.",
+    "Str.MakeProject.Failed": "Програму не створено. Сталася помилка:\n{0}"
   }
 }

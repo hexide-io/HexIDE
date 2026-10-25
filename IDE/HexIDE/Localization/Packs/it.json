@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Interrompi",
     "Str.Dialog.MessageBox.Button.Retry": "Riprova",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignora",
-    "Str.Addins.Incompatible": "Impossibile caricare il componente aggiuntivo: schema richiesto {0}, HexIDE minimo {1}; questa build supporta lo schema {2}, HexIDE {3}. Il requisito di schema o versione non è supportato o non è valido."
+    "Str.Addins.Incompatible": "Impossibile caricare il componente aggiuntivo: schema richiesto {0}, HexIDE minimo {1}; questa build supporta lo schema {2}, HexIDE {3}. Il requisito di schema o versione non è supportato o non è valido.",
+    "Str.MakeProject.NoStartup": "Nessun progetto di avvio trovato.",
+    "Str.MakeProject.Browser": "La creazione di un programma non è disponibile nel browser. Utilizzare la versione desktop di HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "La creazione di un programma non è supportata su questo sistema operativo. Utilizzare HexIDE su Windows, macOS o Linux.",
+    "Str.MakeProject.MissingRuntime": "Per creare un programma, compilare prima il runtime autonomo. Consultare il README per le istruzioni.",
+    "Str.MakeProject.Failed": "Il programma non è stato creato. Si è verificato un errore:\n{0}"
   }
 }

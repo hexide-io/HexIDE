@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Přerušit",
     "Str.Dialog.MessageBox.Button.Retry": "Opakovat",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorovat",
-    "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný."
+    "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný.",
+    "Str.MakeProject.NoStartup": "Nebyl nalezen žádný spouštěcí projekt.",
+    "Str.MakeProject.Browser": "V prohlížeči nelze vytvořit program. Použijte desktopovou verzi HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Vytváření programu není v tomto operačním systému podporováno. Použijte HexIDE ve Windows, macOS nebo Linuxu.",
+    "Str.MakeProject.MissingRuntime": "Chcete-li vytvořit program, nejprve sestavte samostatné běhové prostředí. Pokyny najdete v souboru README.",
+    "Str.MakeProject.Failed": "Program nebyl vytvořen. Došlo k chybě:\n{0}"
   }
 }

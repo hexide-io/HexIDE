@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Afbryd",
     "Str.Dialog.MessageBox.Button.Retry": "Prøv igen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
-    "Str.Addins.Incompatible": "Tilføjelsen kan ikke indlæses: krævet skema {0}, mindst HexIDE {1}; denne udgave understøtter skema {2}, HexIDE {3}. Skema- eller versionskravet understøttes ikke eller er ugyldigt."
+    "Str.Addins.Incompatible": "Tilføjelsen kan ikke indlæses: krævet skema {0}, mindst HexIDE {1}; denne udgave understøtter skema {2}, HexIDE {3}. Skema- eller versionskravet understøttes ikke eller er ugyldigt.",
+    "Str.MakeProject.NoStartup": "Intet startprojekt fundet.",
+    "Str.MakeProject.Browser": "Det er ikke muligt at bygge et program i en browser. Brug desktopversionen af HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Det understøttes ikke at bygge et program på dette operativsystem. Brug HexIDE på Windows, macOS eller Linux.",
+    "Str.MakeProject.MissingRuntime": "For at bygge et program skal du først bygge det selvstændige kørselsmiljø. Se vejledningen i README.",
+    "Str.MakeProject.Failed": "Programmet blev ikke bygget. Der opstod en fejl:\n{0}"
   }
 }

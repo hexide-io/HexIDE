@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Abbrechen",
     "Str.Dialog.MessageBox.Button.Retry": "Wiederholen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorieren",
-    "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig."
+    "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig.",
+    "Str.MakeProject.NoStartup": "Kein Startprojekt gefunden.",
+    "Str.MakeProject.Browser": "Das Erstellen eines Programms ist im Browser nicht verfügbar. Verwenden Sie die Desktopversion von HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Das Erstellen eines Programms wird auf diesem Betriebssystem nicht unterstützt. Verwenden Sie HexIDE unter Windows, macOS oder Linux.",
+    "Str.MakeProject.MissingRuntime": "Um ein Programm zu erstellen, erstellen Sie zuerst die eigenständige Laufzeitumgebung. Eine Anleitung finden Sie in der README-Datei.",
+    "Str.MakeProject.Failed": "Das Programm wurde nicht erstellt. Ein Fehler ist aufgetreten:\n{0}"
   }
 }

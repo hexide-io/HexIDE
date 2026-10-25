@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "إيقاف",
     "Str.Dialog.MessageBox.Button.Retry": "إعادة المحاولة",
     "Str.Dialog.MessageBox.Button.Ignore": "تجاهل",
-    "Str.Addins.Incompatible": "تعذر تحميل الإضافة: المخطط المطلوب {0}، والحد الأدنى من HexIDE هو {1}؛ يدعم هذا الإصدار المخطط {2} وHexIDE {3}. متطلب المخطط أو الإصدار غير مدعوم أو غير صالح."
+    "Str.Addins.Incompatible": "تعذر تحميل الإضافة: المخطط المطلوب {0}، والحد الأدنى من HexIDE هو {1}؛ يدعم هذا الإصدار المخطط {2} وHexIDE {3}. متطلب المخطط أو الإصدار غير مدعوم أو غير صالح.",
+    "Str.MakeProject.NoStartup": "لم يُعثر على مشروع بدء التشغيل.",
+    "Str.MakeProject.Browser": "إنشاء برنامج غير متاح في المتصفح. استخدم إصدار سطح المكتب من HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "إنشاء برنامج غير مدعوم على نظام التشغيل هذا. استخدم HexIDE على Windows أو macOS أو Linux.",
+    "Str.MakeProject.MissingRuntime": "لإنشاء برنامج، ابنِ أولاً بيئة التشغيل المستقلة. راجع ملف README للاطلاع على التعليمات.",
+    "Str.MakeProject.Failed": "لم يتم إنشاء البرنامج. حدث خطأ:\n{0}"
   }
 }

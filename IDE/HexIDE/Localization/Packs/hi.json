@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "निरस्त करें",
     "Str.Dialog.MessageBox.Button.Retry": "पुनः प्रयास करें",
     "Str.Dialog.MessageBox.Button.Ignore": "अनदेखा करें",
-    "Str.Addins.Incompatible": "ऐड-इन लोड नहीं हो सकता: आवश्यक स्कीमा {0}, न्यूनतम HexIDE {1}; यह बिल्ड स्कीमा {2}, HexIDE {3} का समर्थन करता है। स्कीमा या संस्करण की आवश्यकता असमर्थित या अमान्य है।"
+    "Str.Addins.Incompatible": "ऐड-इन लोड नहीं हो सकता: आवश्यक स्कीमा {0}, न्यूनतम HexIDE {1}; यह बिल्ड स्कीमा {2}, HexIDE {3} का समर्थन करता है। स्कीमा या संस्करण की आवश्यकता असमर्थित या अमान्य है।",
+    "Str.MakeProject.NoStartup": "कोई स्टार्टअप प्रोजेक्ट नहीं मिला।",
+    "Str.MakeProject.Browser": "ब्राउज़र में प्रोग्राम बनाना उपलब्ध नहीं है। HexIDE के डेस्कटॉप संस्करण का उपयोग करें।",
+    "Str.MakeProject.UnsupportedPlatform": "इस ऑपरेटिंग सिस्टम पर प्रोग्राम बनाना समर्थित नहीं है। Windows, macOS या Linux पर HexIDE का उपयोग करें।",
+    "Str.MakeProject.MissingRuntime": "प्रोग्राम बनाने के लिए, पहले स्टैंडअलोन रनटाइम बिल्ड करें। निर्देशों के लिए README देखें।",
+    "Str.MakeProject.Failed": "प्रोग्राम नहीं बना। एक त्रुटि हुई:\n{0}"
   }
 }

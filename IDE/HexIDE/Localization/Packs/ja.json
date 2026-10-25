@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "中止",
     "Str.Dialog.MessageBox.Button.Retry": "再試行",
     "Str.Dialog.MessageBox.Button.Ignore": "無視",
-    "Str.Addins.Incompatible": "アドインを読み込めません。必要なスキーマは {0}、HexIDE の最低バージョンは {1} です。このビルドはスキーマ {2}、HexIDE {3} に対応しています。スキーマまたはバージョンの要件が未対応または無効です。"
+    "Str.Addins.Incompatible": "アドインを読み込めません。必要なスキーマは {0}、HexIDE の最低バージョンは {1} です。このビルドはスキーマ {2}、HexIDE {3} に対応しています。スキーマまたはバージョンの要件が未対応または無効です。",
+    "Str.MakeProject.NoStartup": "スタートアッププロジェクトが見つかりません。",
+    "Str.MakeProject.Browser": "ブラウザーではプログラムを作成できません。デスクトップ版の HexIDE を使用してください。",
+    "Str.MakeProject.UnsupportedPlatform": "このオペレーティングシステムではプログラムの作成はサポートされていません。Windows、macOS、Linux のいずれかで HexIDE を使用してください。",
+    "Str.MakeProject.MissingRuntime": "プログラムを作成するには、まずスタンドアロンランタイムをビルドしてください。手順については README を参照してください。",
+    "Str.MakeProject.Failed": "プログラムは作成されませんでした。エラーが発生しました:\n{0}"
   }
 }

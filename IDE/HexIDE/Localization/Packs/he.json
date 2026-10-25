@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "בטל פעולה",
     "Str.Dialog.MessageBox.Button.Retry": "נסה שוב",
     "Str.Dialog.MessageBox.Button.Ignore": "התעלם",
-    "Str.Addins.Incompatible": "לא ניתן לטעון את התוסף: הסכמה הנדרשת {0}, גרסת HexIDE מזערית {1}; בנייה זו תומכת בסכמה {2}, HexIDE {3}. דרישת הסכמה או הגרסה אינה נתמכת או אינה תקינה."
+    "Str.Addins.Incompatible": "לא ניתן לטעון את התוסף: הסכמה הנדרשת {0}, גרסת HexIDE מזערית {1}; בנייה זו תומכת בסכמה {2}, HexIDE {3}. דרישת הסכמה או הגרסה אינה נתמכת או אינה תקינה.",
+    "Str.MakeProject.NoStartup": "לא נמצא פרויקט אתחול.",
+    "Str.MakeProject.Browser": "יצירת תוכנית אינה זמינה בדפדפן. יש להשתמש בגרסת שולחן העבודה של HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "יצירת תוכנית אינה נתמכת במערכת הפעלה זו. יש להשתמש ב-HexIDE ב-Windows, ב-macOS או ב-Linux.",
+    "Str.MakeProject.MissingRuntime": "כדי ליצור תוכנית, יש לבנות תחילה את סביבת הריצה העצמאית. ההוראות נמצאות בקובץ README.",
+    "Str.MakeProject.Failed": "התוכנית לא נוצרה. אירעה שגיאה:\n{0}"
   }
 }

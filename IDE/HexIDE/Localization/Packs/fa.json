@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "توقف",
     "Str.Dialog.MessageBox.Button.Retry": "تلاش مجدد",
     "Str.Dialog.MessageBox.Button.Ignore": "نادیده گرفتن",
-    "Str.Addins.Incompatible": "افزونه بارگیری نمی‌شود: طرح‌وارهٔ لازم {0}، حداقل HexIDE {1}؛ این ساخت از طرح‌وارهٔ {2} و HexIDE {3} پشتیبانی می‌کند. نیازمندی طرح‌واره یا نسخه پشتیبانی‌نشده یا نامعتبر است."
+    "Str.Addins.Incompatible": "افزونه بارگیری نمی‌شود: طرح‌وارهٔ لازم {0}، حداقل HexIDE {1}؛ این ساخت از طرح‌وارهٔ {2} و HexIDE {3} پشتیبانی می‌کند. نیازمندی طرح‌واره یا نسخه پشتیبانی‌نشده یا نامعتبر است.",
+    "Str.MakeProject.NoStartup": "پروژهٔ آغازین پیدا نشد.",
+    "Str.MakeProject.Browser": "ساخت برنامه در مرورگر در دسترس نیست. از نسخهٔ دسکتاپ HexIDE استفاده کنید.",
+    "Str.MakeProject.UnsupportedPlatform": "ساخت برنامه در این سیستم‌عامل پشتیبانی نمی‌شود. از HexIDE در Windows، macOS یا Linux استفاده کنید.",
+    "Str.MakeProject.MissingRuntime": "برای ساخت برنامه، ابتدا محیط اجرای مستقل را بسازید. برای مشاهدهٔ دستورالعمل‌ها به فایل README مراجعه کنید.",
+    "Str.MakeProject.Failed": "برنامه ساخته نشد. خطایی رخ داد:\n{0}"
   }
 }

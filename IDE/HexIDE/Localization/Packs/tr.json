@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Durdur",
     "Str.Dialog.MessageBox.Button.Retry": "Yeniden Dene",
     "Str.Dialog.MessageBox.Button.Ignore": "Yoksay",
-    "Str.Addins.Incompatible": "Eklenti yüklenemiyor: gerekli şema {0}, en düşük HexIDE {1}; bu derleme şema {2}, HexIDE {3} destekler. Şema veya sürüm gereksinimi desteklenmiyor ya da geçersiz."
+    "Str.Addins.Incompatible": "Eklenti yüklenemiyor: gerekli şema {0}, en düşük HexIDE {1}; bu derleme şema {2}, HexIDE {3} destekler. Şema veya sürüm gereksinimi desteklenmiyor ya da geçersiz.",
+    "Str.MakeProject.NoStartup": "Başlangıç projesi bulunamadı.",
+    "Str.MakeProject.Browser": "Tarayıcıda program oluşturulamaz. HexIDE uygulamasının masaüstü sürümünü kullanın.",
+    "Str.MakeProject.UnsupportedPlatform": "Bu işletim sisteminde program oluşturma desteklenmiyor. HexIDE uygulamasını Windows, macOS veya Linux üzerinde kullanın.",
+    "Str.MakeProject.MissingRuntime": "Program oluşturmak için önce bağımsız çalışma zamanını derleyin. Yönergeler için README dosyasına bakın.",
+    "Str.MakeProject.Failed": "Program oluşturulamadı. Bir hata oluştu:\n{0}"
   }
 }

@@ -56,6 +56,12 @@ own text. The standalone runner, which has no localization service, SHALL retain
 - **WHEN** a program opens a Yes/No message box in an IDE using French
 - **THEN** its buttons read Oui and Non and return the same results as their English counterparts
 
+#### Scenario: Make Project cannot make a program
+- **WHEN** Make Project finds no startup project, runs in a browser or on an unsupported system, lacks the standalone runtime, or encounters an unexpected error
+- **THEN** the message is resolved through the active language pack
+- **AND** the unsupported-system message names supported operating systems rather than asking for a source-code search
+- **AND** an unexpected error uses the Error icon and says the program was not made, followed by the exception detail
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.

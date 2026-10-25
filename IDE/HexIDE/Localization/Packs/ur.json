@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "روکیں",
     "Str.Dialog.MessageBox.Button.Retry": "دوبارہ کوشش کریں",
     "Str.Dialog.MessageBox.Button.Ignore": "نظر انداز کریں",
-    "Str.Addins.Incompatible": "ایڈ اِن لوڈ نہیں ہو سکتا: مطلوبہ اسکیما {0}، کم از کم HexIDE {1}؛ یہ بلڈ اسکیما {2}، HexIDE {3} کو سپورٹ کرتا ہے۔ اسکیما یا ورژن کی شرط غیر معاون یا غلط ہے۔"
+    "Str.Addins.Incompatible": "ایڈ اِن لوڈ نہیں ہو سکتا: مطلوبہ اسکیما {0}، کم از کم HexIDE {1}؛ یہ بلڈ اسکیما {2}، HexIDE {3} کو سپورٹ کرتا ہے۔ اسکیما یا ورژن کی شرط غیر معاون یا غلط ہے۔",
+    "Str.MakeProject.NoStartup": "آغاز کے لیے کوئی پروجیکٹ نہیں ملا۔",
+    "Str.MakeProject.Browser": "براؤزر میں پروگرام بنانا دستیاب نہیں ہے۔ HexIDE کا ڈیسک ٹاپ ورژن استعمال کریں۔",
+    "Str.MakeProject.UnsupportedPlatform": "اس آپریٹنگ سسٹم پر پروگرام بنانے کی سہولت موجود نہیں ہے۔ Windows، macOS یا Linux پر HexIDE استعمال کریں۔",
+    "Str.MakeProject.MissingRuntime": "پروگرام بنانے کے لیے پہلے خودمختار رن ٹائم بلڈ کریں۔ ہدایات کے لیے README دیکھیں۔",
+    "Str.MakeProject.Failed": "پروگرام نہیں بنایا گیا۔ ایک خرابی پیش آئی:\n{0}"
   }
 }

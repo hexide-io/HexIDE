@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Przerwij",
     "Str.Dialog.MessageBox.Button.Retry": "Ponów próbę",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignoruj",
-    "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe."
+    "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe.",
+    "Str.MakeProject.NoStartup": "Nie znaleziono projektu startowego.",
+    "Str.MakeProject.Browser": "Tworzenie programu nie jest dostępne w przeglądarce. Użyj wersji komputerowej HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Tworzenie programu nie jest obsługiwane w tym systemie operacyjnym. Użyj HexIDE w systemie Windows, macOS lub Linux.",
+    "Str.MakeProject.MissingRuntime": "Aby utworzyć program, najpierw skompiluj samodzielne środowisko uruchomieniowe. Instrukcje znajdziesz w pliku README.",
+    "Str.MakeProject.Failed": "Program nie został utworzony. Wystąpił błąd:\n{0}"
   }
 }
