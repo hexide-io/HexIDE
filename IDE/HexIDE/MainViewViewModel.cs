@@ -21,6 +21,7 @@ using HexIDE.Localization;
 using HexIDE.Themes;
 using HexIDE.Projects;
 using HexIDE.Runtime;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -139,6 +140,16 @@ public partial class MainViewViewModel : ObservableObject
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
 
+    private void UpdateRunState()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(WindowTitle));
+        if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
+            StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
+        else
+            StatusBar.ClearMessage();
+    }
+
     public string Title
     {
         get
@@ -146,8 +157,10 @@ public partial class MainViewViewModel : ObservableObject
             var prefix = projectManager.CurrentGroup?.Name
                       ?? FocusedProjectUtil.FocusedOrStartupProject?.Name;
             return prefix == null
-                ? "HexIDE [design]"
-                : $"{prefix} - HexIDE " + (projectRunnerService.IsRunning ? "[run]" : "[design]");
+                ? localization.GetString("Str.MainWindow.NoProjectTitle")
+                : $"{prefix} - HexIDE " + localization.GetString(debugController.State == DebugState.Paused
+                    ? "Str.MainWindow.BreakTag"
+                    : projectRunnerService.IsRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
         }
     }
 
@@ -747,6 +760,8 @@ public partial class MainViewViewModel : ObservableObject
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info => RevealBreak(info.Module);
         StatusBar = statusBarService;
+        debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
+        debugController.Continued += () => Dispatcher.UIThread.Post(UpdateRunState);
         ToolBox = toolBox;
         Properties = properties;
         Immediate = immediate;
@@ -979,12 +994,7 @@ public partial class MainViewViewModel : ObservableObject
             .Subscribe(_ =>
             {
                 StartExternalDebugCommand.RaiseCanExecutedChanged();
-                OnPropertyChanged(nameof(Title));
-                OnPropertyChanged(nameof(WindowTitle));
-                if (projectRunnerService.IsRunning)
-                    StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
-                else
-                    StatusBar.ClearMessage();
+                UpdateRunState();
             });
 
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
@@ -1032,6 +1042,7 @@ public partial class MainViewViewModel : ObservableObject
         {
             RaiseDynamicMenuHeaders();
             UpdateUndoHeaders();
+            UpdateRunState();
         };
 
         // Options → Language → Customize commits-and-closes the modal dialog, then publishes this event so

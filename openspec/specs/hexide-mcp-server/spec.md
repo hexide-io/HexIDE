@@ -109,6 +109,16 @@ day it lands, with nothing to add.
 - **WHEN** a dialog is added to the IDE
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
 
+### Requirement: Icon-only controls SHALL expose localized action names
+The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
+localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
+accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
+dropdown toggles and property color/font picker buttons SHALL likewise have localized names describing their actions.
+
+#### Scenario: Discovering an icon-only dock button
+- **WHEN** a caller discovers a dock pane's close button
+- **THEN** its name describes closing the pane in the active language, rather than naming the glyph's .NET type
+
 ### Requirement: A purpose-built tool SHALL be justified against the generic mechanism
 A new dedicated tool SHALL be added only where the generic mechanism genuinely cannot reach the surface, and
 where the tool reads state the interface does not expose, performs a transaction such as persisting or

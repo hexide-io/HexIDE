@@ -594,7 +594,7 @@ anything, and failed entries remain failed.
 
 ### Transports
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
 Stdio process logs include the configured server ID as a structured `Server` property and in the
@@ -660,6 +660,11 @@ documents run together are not a third one.
 `export_lsp_conversation` writes a line per **frame** rather than per envelope for the same reason: the
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
+
+For folding ranges, document symbols, formatting and rename, the highest-priority claimant that
+advertises the capability supplies the single answer (registration order breaks ties). Each other
+advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
+once per capability per connection. These routing notes also appear in exported conversations.
 
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.

@@ -654,16 +654,22 @@
                 <DockPanel Margin="2,1">
                     <!-- INS/OVR panel (rightmost) -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
-                                            Width="50" Margin="1,0,0,0">
-                        <TextBlock Text="{CompiledBinding StatusBar.InsertMode,
-                                          Converter={x:Static utils:StatusBarConverters.InsertModeConverter}}"
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                            MinWidth="50" Margin="1,0,0,0">
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0"
                                    FontSize="11"
-                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{x:Static utils:StatusBarConverters.InsertModeConverter}">
+                                    <Binding Path="StatusBar.InsertMode" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.Insert" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.Overtype" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
                     </ClassicBorderDecorator>
                     <!-- Ln / Col panel -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
-                                            Width="120" Margin="1,0,0,0">
+                                            MinWidth="120" Margin="1,0,0,0">
                         <TextBlock VerticalAlignment="Center" Margin="4,0"
                                    FontSize="11"
                                    Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
@@ -671,6 +677,7 @@
                                 <MultiBinding Converter="{x:Static utils:StatusBarConverters.LinColConverter}">
                                     <Binding Path="StatusBar.Line" />
                                     <Binding Path="StatusBar.Column" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.LineColumn" />
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>

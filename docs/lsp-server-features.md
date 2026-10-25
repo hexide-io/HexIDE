@@ -156,6 +156,9 @@ An empty `If True Then:` line is accepted without requiring `End If` (#223); the
 an independent statement. Both grammars also accept leading empty colon statements and labels before
 `End If`, using the measured label-name list.
 
+Whitespace-only offending tokens are named `end of line` in unexpected-input and syntax-error-near
+messages, rather than shown as empty quotes (#665). Null, empty and EOF tokens still read `end of file`.
+
 ### Conditional compilation
 
 **Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's
