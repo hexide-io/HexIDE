@@ -288,10 +288,11 @@ done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnu
 
 # 10. C1 controls (U+0080–U+009F) in UTF-8 text indicate an encoding accident (#1312).
 # Scan even the scripts excluded above; tests needing a control must spell it as an escape.
-# Match UTF-8 bytes under C locale so the result does not depend on the host's locale.
+# Explicit UTF mode matches code points on Linux and Git for Windows alike (#1881).
+# Windows git already uses UTF mode under C locale, where a byte pattern misses controls.
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "C1 control character: $hit"
-done < <(LC_ALL=C git grep --untracked -nIP '\xC2[\x80-\x9F]' -- .)
+done < <(LC_ALL=C git grep --untracked -nIP '(*UTF)[\x{80}-\x{9F}]' -- .)
 
 echo
 if [ "$fails" -eq 0 ]; then
