@@ -30,4 +30,18 @@ public class ConsoleOutputTests
         Encoding.UTF8.GetString(output.ToArray()).ReplaceLineEndings("\n")
             .Should().Be("command-line output\n\n");
     }
+
+    // Console.OutputEncoding is Encoding.UTF8, preamble included, once anything in the process sets it so (the
+    // standalone runner does), and the redirected write used to emit that preamble ahead of the text. Which test
+    // ran first decided whether this file's other case saw a byte-order mark.
+    [Fact]
+    public void RedirectedOutputCarriesNoByteOrderMark()
+    {
+        using var output = new MemoryStream();
+
+        ConsoleOutput.Write(_ => "command-line output", () => output, () => false, Encoding.UTF8);
+
+        output.ToArray().Take(3).Should().NotEqual(Encoding.UTF8.GetPreamble());
+        Encoding.UTF8.GetString(output.ToArray()).ReplaceLineEndings("\n").Should().Be("command-line output\n\n");
+    }
 }
