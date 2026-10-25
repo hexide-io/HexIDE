@@ -322,6 +322,14 @@ handler from being generated.
 - **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
 - **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent
 
+### Requirement: New event handlers SHALL keep the caret in their body
+Selecting an event without a handler in the Procedure box SHALL generate its stub and place the caret on the
+blank line inside it. A diagnostics or document-symbol refresh SHALL NOT navigate the caret out of that body.
+
+#### Scenario: Typing after a new handler's diagnostics arrive
+- **WHEN** the developer selects an event with no handler and the language server publishes diagnostics
+- **THEN** typing lands on the blank body line between the declaration and `End Sub`
+
 ### Requirement: Delete SHALL work without a selection
 The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
 forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
