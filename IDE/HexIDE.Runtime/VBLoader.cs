@@ -729,13 +729,16 @@ public class VBLoader
             var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 3)
                 continue;
+            // An in-box control HexIDE will model names the issue that tracks it (#1082).
+            var tracked = Components.InBox.InBoxComponentClass.IssueFor(parts[1]) is { } issue
+                ? $", which isn't implemented yet (#{issue})" : "";
             if (outer is not { } container)
             {
                 outer = (parts[1], parts[2]);
-                lines.Add($"HexIDE cannot create {parts[2]} ({parts[1]}).");
+                lines.Add($"HexIDE cannot create {parts[2]} ({parts[1]}){tracked}.");
             }
             else
-                lines.Add($"HexIDE cannot create {parts[2]}, inside {container.Name} ({container.Type}).");
+                lines.Add($"HexIDE cannot create {parts[2]}, inside {container.Name} ({container.Type}){tracked}.");
         }
     }
 
