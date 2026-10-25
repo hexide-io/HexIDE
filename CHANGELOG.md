@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Unsaved-change markers on document tabs** (#901): designer edits, code edits and carried-file edits now
+  light Dock's modified marker; saving clears it using the existing dirty-state checks.
+
 - **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
   placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
 
