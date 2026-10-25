@@ -31,7 +31,8 @@ internal sealed class VbProjectArguments
 
     private readonly Dictionary<string, (DateTime Written, long Length, Project Project)> cache = new(StringComparer.Ordinal);
 
-    private sealed record Project(IReadOnlyList<string> Items, IReadOnlyDictionary<string, short>? Arguments);
+    private sealed record Project(IReadOnlyList<string> Items, IReadOnlyDictionary<string, short>? Arguments,
+        IReadOnlyCollection<string> Names);
 
     /// <summary>The context for the document at <paramref name="uri"/>, a <c>file:</c> URI; anything else has no project.</summary>
     public VbCompilationContext For(string uri)
@@ -51,17 +52,21 @@ internal sealed class VbProjectArguments
             IReadOnlyDictionary<string, short>? found = null;
             var listed = 0;
             var agree = true;
+            IReadOnlyCollection<string> names = [];
             foreach (var projectPath in ProjectsIn(folder))
             {
                 if (Read(projectPath) is not { } project || !project.Items.Any(i => SamePath(i, document)))
                     continue;
                 listed++;
+                names = project.Names;
                 if (project.Arguments is null || (found is not null && !Same(found, project.Arguments)))
                     agree = false;
                 found ??= project.Arguments;
             }
             if (listed > 0)
-                return agree && found is not null ? new VbCompilationContext(found) : VbCompilationContext.NoProject;
+                return agree && found is not null
+                    ? new VbCompilationContext(found) { BaselineNames = listed == 1 ? names : [] }
+                    : VbCompilationContext.NoProject;
         }
         return VbCompilationContext.NoProject;
     }
@@ -101,6 +106,7 @@ internal sealed class VbProjectArguments
     {
         var folder = Path.GetDirectoryName(projectPath)!;
         var items = new List<string>();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         IReadOnlyDictionary<string, short>? arguments = ConditionalCompilation.TryParseArguments(null, out var none) ? none : null;
         foreach (var raw in text.Split('\n'))
         {
@@ -118,13 +124,16 @@ internal sealed class VbProjectArguments
             {
                 // Module= and Class= name the item before a semicolon; the others give the path alone.
                 var semicolon = value.IndexOf(';');
+                if (semicolon > 0 && (key.Equals("Module", StringComparison.OrdinalIgnoreCase)
+                    || key.Equals("Class", StringComparison.OrdinalIgnoreCase)))
+                    names.Add(value[..semicolon].Trim());
                 var relative = (semicolon >= 0 && (key.Equals("Module", StringComparison.OrdinalIgnoreCase)
                     || key.Equals("Class", StringComparison.OrdinalIgnoreCase)) ? value[(semicolon + 1)..] : value).Trim();
                 if (Resolve(folder, relative) is { } resolved)
                     items.Add(resolved);
             }
         }
-        return new Project(items, arguments);
+        return new Project(items, arguments, names);
     }
 
     private static string Unquoted(string value) =>
