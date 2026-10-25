@@ -95,16 +95,16 @@ public class CaretPlacementTests : IDisposable
         var editor = Show(vm);
 
         var view = (CodeEditorView)windows[^1].Content!;
-        view.FindControl<ComboBox>("ObjectCombo")!.SetCurrentValue(ComboBox.SelectedItemProperty, "Form1");
+        view.FindControl<ComboBox>("ObjectCombo")!.SetCurrentValue(ComboBox.SelectedItemProperty, "Form");
         Dispatcher.UIThread.RunJobs();
-        vm.SelectedObject.Should().Be("Form1");
+        vm.SelectedObject.Should().Be("Form");
         view.FindControl<ComboBox>("ProcedureCombo")!.SetCurrentValue(ComboBox.SelectedItemProperty, "Click");
         Dispatcher.UIThread.RunJobs();
         vm.ProcedureNames.Should().Contain("Click");
         vm.SelectedProcedure.Should().Be("Click");
-        vm.Document.Text.Should().Contain("Private Sub Form1_Click()");
-        editor.CaretOffset.Should().Be(vm.Document.Text.IndexOf("Private Sub Form1_Click()\r\n", StringComparison.Ordinal)
-            + "Private Sub Form1_Click()\r\n".Length);
+        vm.Document.Text.Should().Contain("Private Sub Form_Click()");
+        editor.CaretOffset.Should().Be(vm.Document.Text.IndexOf("Private Sub Form_Click()\r\n", StringComparison.Ordinal)
+            + "Private Sub Form_Click()\r\n".Length);
         lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             lsp, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), []));
         Dispatcher.UIThread.RunJobs();
@@ -114,7 +114,7 @@ public class CaretPlacementTests : IDisposable
 
         typed.Success.Should().BeTrue(typed.Error);
         editor.Document.Text.ReplaceLineEndings("\n").Should()
-            .Contain("Private Sub Form1_Click()\nDebug.Print \"loaded\"\nEnd Sub");
+            .Contain("Private Sub Form_Click()\nDebug.Print \"loaded\"\nEnd Sub");
     }
 
     private static FoldingManager Folds(TextEditor editor) =>
