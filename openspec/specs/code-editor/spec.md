@@ -195,7 +195,11 @@ An add-in's range edits SHALL also be compared as a complete resulting document 
 that result changes, adds or loses a described member run under the same comparison as a whole replacement.
 The refusal SHALL name the members. This includes promoting an orphan, extending a run at its end, mixing a
 run into an orphan and inserting a whole new described member. The existing region check SHALL run first;
-a range edit deleting a run with its declaration remains refused. Developer input and formatting are unchanged.
+an edit explicitly reaching into a run remains refused. An empty range edit deleting a declaration's whole
+text SHALL widen over its run, as a key deletion does. A set whose widened spans overlap another edit
+SHALL be refused without changing the document. Find's Replace and Replace All SHALL likewise widen
+empty replacements over the runs of declarations they empty; non-empty replacements SHALL keep those runs.
+Formatting is unchanged.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
