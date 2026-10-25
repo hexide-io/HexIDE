@@ -281,6 +281,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Pasting a comment and a declaration over a described declaration keeps its attributes** (#1039). Leading
+  blank lines and continued declarations work too, including through Insert File; the run stays under the
+  first compatible declaration.
+
 - **Making a project again to the same path succeeds** (#748). The new project archive is completed beside
   the destination before replacing the previous build, so the second Make includes the current source.
 

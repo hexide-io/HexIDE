@@ -1451,7 +1451,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             CaretOffset = caret;
             return;
         }
-        // At the end of a described line, the file from its first line break on goes after the run (task 4.5).
+        // Keep the described declaration before its run and place the remaining file text after it (task 4.5).
         if (InsertLineBreakPastRun(selectionStart, selectionLength, content) is { } placed)
         {
             CaretOffset = placed.End;
@@ -1491,7 +1491,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Writes text holding a line break that would replace <c>[offset, offset + length)</c> at the end of a line a
-    /// member's run describes, with everything from its first line break on after the run, as one undo step
+    /// member's run describes, keeping its declaration before the run and the remaining text after it, as one undo step
     /// (#273 task 4.5). The section provider decides where (<see cref="CodeWindowReadOnlySections.PlaceLineBreak"/>).
     /// </summary>
     /// <returns>Where the two parts went; or null when the rule does not apply, and nothing was written.</returns>
