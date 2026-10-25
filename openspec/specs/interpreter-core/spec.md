@@ -285,3 +285,16 @@ by the tree-walking execution limit.
 #### Scenario: Fall through a labelled End If
 - **WHEN** a true If prints `T` and closes with `Fin: End If`, followed by a print of `AFTER`
 - **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`
+
+### Requirement: Line continuations preserve name boundaries
+A single line continuation between identifier fragments SHALL preserve their name boundary rather than
+concatenate them. Multi-word keywords
+SHALL continue to accept a continuation between their words.
+
+#### Scenario: A split assignment leaves the declared Long untouched
+- **WHEN** `Dim value As Long` is followed by `val _` and `ue = 5` on successive physical lines
+- **THEN** `Debug.Print value` prints Long 0, as recorded for `continuation-illegal/split-identifier`
+
+#### Scenario: A multi-word keyword spans physical lines
+- **WHEN** `Select _` is followed by `Case n` on the next physical line
+- **THEN** the interpreter executes a Select Case statement
