@@ -29,7 +29,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// These need real headless Avalonia — layout, visual parents, effective enabled-ness — so they live here
 /// rather than in the runtime unit suite.
 /// </summary>
-public class FrameContainerRuntimeTests
+public class FrameContainerRuntimeTests : WindowTestFixture
 {
     // Twips divided by 15 give pixels, so the Frame lands at (20, 10) and is 200x100; Text1 is at (10, 30)
     // INSIDE it, which is (30, 40) on the form. Those are the two numbers this whole phase is about.

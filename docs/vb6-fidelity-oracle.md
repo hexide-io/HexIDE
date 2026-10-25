@@ -3713,9 +3713,11 @@ error raised:
 Two further silent wrong values, unrelated to each other:
 
 - **A line continuation inside an identifier does not join it.** `continuation-illegal/split-identifier`
-  prints `Long 0` under VB6 — the halves are two separate names, so the read is of an undeclared Variant.
-  HexIDE joins them, reads the real variable, and prints `Long 5`. Accepting more than VB6 would be
-  tolerable; returning a different number is not.
+  prints `Long 0` under VB6. The recorded probe is `Dim value As Long`, then `val _` ⏎ `ue = 5`, then
+  `Debug.Print value`: it splits the **assignment**, leaving the declared Long untouched. It does not
+  assign 5 first and split the read, as #224's illustrative snippet does. HexIDE joined the names,
+  assigned to `value`, and printed `Long 5`. **#224 fixed:** both grammar copies emit a continuation between word fragments as
+  whitespace, preserving the name boundary; multi-word keyword tokens still absorb their separator.
 - **`""` inside a string literal is not collapsed.** VB6 prints `he said "hi" _`; HexIDE prints
   `he said ""hi"" _`.
 

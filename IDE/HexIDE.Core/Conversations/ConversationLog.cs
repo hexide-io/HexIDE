@@ -84,6 +84,7 @@ public sealed class ConversationLog : IAsyncDisposable
     private readonly object _connectionsLock = new();
 
     private long _sequence;
+    private long _recorded;
     private long _queueDropped;
 
     /// <param name="limits">What a connection may hold when it has not overridden anything.</param>
@@ -177,6 +178,9 @@ public sealed class ConversationLog : IAsyncDisposable
 
     /// <summary>Frames the capture could not keep up with. Never silent.</summary>
     public long QueueDropped => Interlocked.Read(ref _queueDropped);
+
+    /// <summary>Entries appended since this capture began, including entries since evicted or cleared.</summary>
+    public long Recorded => Interlocked.Read(ref _recorded);
 
     public CaptureLimits Limits => _limits;
 
@@ -549,6 +553,7 @@ public sealed class ConversationLog : IAsyncDisposable
             pending.SizeBytes,
             Detail: pending.Detail,
             Fault: pending.Fault));
+        Interlocked.Increment(ref _recorded);
 
         if (pending.Kind == ConversationEntryKind.Request && pending.CorrelationId is { } id)
             connection.Outstanding[(pending.Direction, id)] = (sequence, Stopwatch.GetTimestamp());

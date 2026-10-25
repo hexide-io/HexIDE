@@ -68,6 +68,10 @@
                               ExecutingCommand="{x:Static vb:ApplicationCommands.DisabledCommand}" />
 
 
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveAsCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormAsCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}"
                               ExecutingCommand="{CompiledBinding SaveProject}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}"
@@ -247,7 +251,7 @@
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Project}">
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}" Command="{CompiledBinding AddFormCommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmodule}" Command="{CompiledBinding AddModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddClassModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" Command="{CompiledBinding AddClassModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddUserControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" Command="{CompiledBinding AddUserControlCommand}" />
@@ -374,7 +378,9 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.LanguageServers}" x:Name="LanguageServersMenuItem" Command="{CompiledBinding OpenLanguageServersCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.ProtocolInspector}" x:Name="ProtocolInspectorMenuItem" Command="{CompiledBinding OpenProtocolInspectorCommand}" />
                         </MenuItem>
-                        <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem" />
+                        <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem">
+                            <MenuItem Header="{DynamicResource Str.Menu.AddIns.Manager}" x:Name="AddInManagerMenuItem" Command="{CompiledBinding OpenAddInManager}" />
+                        </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Window}">
                             <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" IsEnabled="False" />
                             <Separator />
@@ -650,16 +656,22 @@
                 <DockPanel Margin="2,1">
                     <!-- INS/OVR panel (rightmost) -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
-                                            Width="50" Margin="1,0,0,0">
-                        <TextBlock Text="{CompiledBinding StatusBar.InsertMode,
-                                          Converter={x:Static utils:StatusBarConverters.InsertModeConverter}}"
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                            MinWidth="50" Margin="1,0,0,0">
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0"
                                    FontSize="11"
-                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{x:Static utils:StatusBarConverters.InsertModeConverter}">
+                                    <Binding Path="StatusBar.InsertMode" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.Insert" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.Overtype" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
                     </ClassicBorderDecorator>
                     <!-- Ln / Col panel -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
-                                            Width="120" Margin="1,0,0,0">
+                                            MinWidth="120" Margin="1,0,0,0">
                         <TextBlock VerticalAlignment="Center" Margin="4,0"
                                    FontSize="11"
                                    Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
@@ -667,6 +679,7 @@
                                 <MultiBinding Converter="{x:Static utils:StatusBarConverters.LinColConverter}">
                                     <Binding Path="StatusBar.Line" />
                                     <Binding Path="StatusBar.Column" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.LineColumn" />
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>
