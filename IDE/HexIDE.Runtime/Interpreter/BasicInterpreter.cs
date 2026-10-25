@@ -635,6 +635,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
+        BuiltIns.ControlLibraries = info.ControlLibraries ?? [];
         BuiltIns.CommandLine = info.CommandLine;
     }
 
