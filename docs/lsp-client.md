@@ -42,6 +42,13 @@ stale bundled server fail rather than skip.
 
 ---
 
+## Subprocess launch configuration
+
+Subprocess launch configuration accepts `arguments` as a legacy command-line string or an argv array,
+forwarded through `ProcessStartInfo.ArgumentList`. An optional `environment` map overrides individual
+inherited variables. Both apply to stdio and launched pipe servers; pipe placeholders expand per argument.
+Processes have no shell or tty. See [the configuration guide](language-servers.md).
+
 ## The wire contract
 
 **Sent by the client:**
