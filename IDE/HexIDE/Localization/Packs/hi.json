@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "विफल",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "रद्द किया गया",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "छोड़ दिया गया",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "समय सीमा समाप्त",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "अभी तक कोई भाषा सर्वर कनेक्ट नहीं हुआ है, इसलिए कुछ भी रिकॉर्ड नहीं है। सर्वर उस भाषा के पहले दस्तावेज़ पर शुरू होता है जिसका वह दावा करता है — कोई फ़ाइल खोलें और फिर देखें। संदेशों की सूची दिखने के लिए कुछ भी चालू करने की ज़रूरत नहीं है।",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "एक सर्वर संलग्न है और अभी तक कोई संदेश आया-गया नहीं है, या रिकॉर्ड साफ़ कर दिया गया था।",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "संदेश रिकॉर्ड किए गए हैं, और उनमें से कोई भी इस फ़िल्टर से मेल नहीं खाता। जो है उसे देखने के लिए फ़िल्टर साफ़ करें।",

@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Thất bại",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Đã hủy",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Bỏ dở",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Hết thời gian chờ",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Chưa có máy chủ ngôn ngữ nào kết nối, nên chưa có gì được ghi lại. Máy chủ chỉ khởi động khi có tài liệu đầu tiên thuộc ngôn ngữ nó khai báo — hãy mở một tệp rồi xem lại. Thông điệp vẫn được liệt kê mà không cần bật ghi nội dung.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Đã có máy chủ gắn kết nhưng chưa có gì đi qua đường truyền, hoặc bản ghi đã bị xóa.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Có thông điệp được ghi lại, nhưng không cái nào khớp với bộ lọc này. Hãy xóa bộ lọc để xem những gì đang có.",

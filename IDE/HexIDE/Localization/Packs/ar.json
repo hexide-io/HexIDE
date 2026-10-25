@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "فاشلة",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "مُلغاة",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "متروكة",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "انتهت المهلة",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "لم يتصل أي خادم لغة بعد، فلا يوجد شيء مسجَّل. يبدأ الخادم عند أول مستند بلغة يعلن خدمتها — افتح ملفاً ثم انظر مرة أخرى. ولا يلزم تفعيل الالتقاط حتى تُدرَج الرسائل.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "يوجد خادم مرتبط ولم يعبر السلك شيء بعد، أو أن السجل قد مُسح.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "توجد رسائل مسجَّلة، ولا يطابق أي منها هذه التصفية. امسح عوامل التصفية لترى ما هو موجود.",

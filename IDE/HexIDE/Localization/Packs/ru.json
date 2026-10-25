@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Ошибка",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Отменено",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Без ответа",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Время ожидания истекло",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Пока не подключился ни один языковой сервер, поэтому записывать нечего. Сервер запускается при открытии первого документа на языке, который он заявил, — откройте файл и посмотрите снова. Чтобы сообщения попадали в список, включать ничего не нужно.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Сервер подключён, но пока ничего не передавалось, либо записанное было очищено.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Сообщения записаны, но ни одно из них не подходит под этот фильтр. Снимите фильтры, чтобы увидеть, что есть.",

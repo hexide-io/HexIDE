@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Selhalo",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Zrušeno",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Nedokončeno",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Časový limit vypršel",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Zatím se nepřipojil žádný jazykový server, takže není nic zaznamenáno. Server se spustí až s prvním dokumentem jazyka, který obsluhuje — otevřete soubor a podívejte se znovu. Aby se zprávy vypisovaly, není potřeba nic zapínat.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Server je připojen a zatím žádná zpráva neproběhla, nebo byl záznam vymazán.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Zprávy zaznamenány jsou, jen žádná neodpovídá tomuto filtru. Zrušte filtry a uvidíte, co v záznamu je.",

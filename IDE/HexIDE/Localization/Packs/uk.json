@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Збій",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Скасовано",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Покинуто",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Час очікування вичерпано",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Жоден мовний сервер ще не приєднався, тож нічого не записано. Сервер запускається на першому документі мови, яку він обслуговує, — відкрийте файл і подивіться ще раз. Щоб повідомлення потрапляли до списку, вмикати запис не потрібно.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Сервер приєднано, але жодне повідомлення ще не пройшло, або запис було очищено.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Повідомлення записано, але жодне з них не відповідає цьому фільтру. Очистіть фільтри, щоб побачити, що там є.",
