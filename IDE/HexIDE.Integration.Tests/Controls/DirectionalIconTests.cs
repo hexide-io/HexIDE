@@ -93,6 +93,17 @@ public class DirectionalIconTests
         return result;
     }
 
+    // Where the ink sits across its own width, from 0 at its left edge to 1 at its right. A triangle's ink gathers
+    // towards its broad side, so one pointing right weighs left of 0.5 and one pointing left weighs right of it.
+    private static double InkCentre(byte[] pixels)
+    {
+        var points = Enumerable.Range(0, 32 * 32).Where(i => pixels[i * 4] < 128).ToArray();
+        points.Should().NotBeEmpty();
+        var left = points.Min(i => i % 32);
+        var right = points.Max(i => i % 32);
+        return (points.Average(i => i % 32) - left) / Math.Max(1, right - left);
+    }
+
     [AvaloniaFact]
     public void MenuPlay_KeepsItsDirection()
     {
@@ -110,6 +121,9 @@ public class DirectionalIconTests
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
         };
-        InkShape(Render(Glyph("▶"), FlowDirection.RightToLeft)).Should().Equal(InkShape(Render(Glyph("◀"), FlowDirection.LeftToRight)));
+        // Which way it points, not its pixels: a font need not draw ◀ as ▶'s exact mirror (macOS's does not, 10 by 14
+        // against 12 by 13 on CI's runner), and a flipped render is not a flipped bitmap once antialiased.
+        InkCentre(Render(Glyph("▶"), FlowDirection.LeftToRight)).Should().BeLessThan(0.5);
+        InkCentre(Render(Glyph("▶"), FlowDirection.RightToLeft)).Should().BeGreaterThan(0.5);
     }
 }
