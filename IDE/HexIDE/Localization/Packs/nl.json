@@ -786,6 +786,7 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' is al de naam van een formulier, module of klasse in dit project. VB6 plaatst ze in één naamruimte, dus kunnen er geen twee dezelfde naam hebben.",
     "Str.Naming.Msg.ProjectNameTaken": "Er is al een project met de naam '{0}' geladen. Twee projecten in één projectgroep kunnen niet dezelfde naam hebben.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is al de naam van een formulier, module of klasse in dit project.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is geen geldige naam: een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is geen geldige naam: een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens.",
+    "Str.CodeEditor.RangeEditRefused": "Bewerkingen geweigerd: {0}. Er is niets gewijzigd."
   }
 }

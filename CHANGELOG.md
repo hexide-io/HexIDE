@@ -281,6 +281,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Add-in range edits preserve member Attribute runs** (#1012). Edits that add a run, promote an orphan,
+  extend a run or turn it into an orphan are refused together, naming the affected members.
+
 - **Pasting a comment and a declaration over a described declaration keeps its attributes** (#1039). Leading
   blank lines and continued declarations work too, including through Insert File; the run stays under the
   first compatible declaration.

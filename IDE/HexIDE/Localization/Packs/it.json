@@ -786,6 +786,7 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' è già il nome di un form, di un modulo o di una classe in questo progetto. VB6 li raccoglie in un unico spazio dei nomi, quindi due non possono avere lo stesso nome.",
     "Str.Naming.Msg.ProjectNameTaken": "Un progetto di nome '{0}' è già caricato. Due progetti nello stesso gruppo non possono avere lo stesso nome.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' non è stato aggiunto. Si chiama '{0}', che è già il nome di un form, di un modulo o di una classe in questo progetto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' non è stato aggiunto. Si chiama '{0}', che non è un nome valido: un nome inizia con una lettera e prosegue con lettere, cifre e caratteri di sottolineatura."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' non è stato aggiunto. Si chiama '{0}', che non è un nome valido: un nome inizia con una lettera e prosegue con lettere, cifre e caratteri di sottolineatura.",
+    "Str.CodeEditor.RangeEditRefused": "Modifiche rifiutate: {0}. Nulla è stato modificato."
   }
 }
