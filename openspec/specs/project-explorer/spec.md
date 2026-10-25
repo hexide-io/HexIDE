@@ -102,9 +102,29 @@ Routing a carried file to the VB6 code editor is the failure this forbids: that 
 module model and a VB6 language server, and a document rendered with VB6 colouring looks broken in a way a
 reader attributes to the file.
 
+The carried-file editor SHALL decode strictly as UTF-8, falling back to Latin-1 when UTF-8 cannot read
+its bytes, and SHALL save in the encoding used to read it, preserving any UTF-8 byte-order mark.
+It SHALL skip writing when the buffer matches the text last read or saved. An edit the selected encoding
+cannot represent SHALL fail before replacing the original file, log a warning, and show the localized
+source-encoding warning naming the document, code page, character, code point and offending line.
+The buffer SHALL remain unsaved.
+
 #### Scenario: A carried file is opened from the tree
 - **WHEN** a carried file is opened from the tree
 - **THEN** it opens in a plain text editor, with highlighting chosen from its extension
+
+#### Scenario: A carried file contains invalid UTF-8
+- **WHEN** a carried file contains a byte that is not valid UTF-8 and is saved after an edit elsewhere
+- **THEN** that byte survives unchanged in the saved file
+
+#### Scenario: A carried file is saved without a change
+- **WHEN** the buffer matches the text last read or saved
+- **THEN** saving does not write the file
+
+#### Scenario: An edit cannot be saved in the carried file's encoding
+- **WHEN** a carried Latin-1 file is edited to contain ✓ and saved
+- **THEN** a warning notice names the file, code page 28591, ✓, U+2713 and the offending line
+- **AND** the original bytes remain unchanged and the buffer remains unsaved
 
 #### Scenario: A carried file that cannot be read
 - **WHEN** a carried file cannot be read from disk

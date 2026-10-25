@@ -49,7 +49,7 @@ public class FindReplaceViewModelTests
     /// </remarks>
     private static RelatedDocumentEditorViewModel CreateCarriedFileEditor(string text)
     {
-        var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>());
+        var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
         vm.Document.Text = text;
         return vm;
     }
