@@ -26,6 +26,13 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Project-load diagnostics cross the runtime boundary
+- **WHEN** the runtime deserializer reports a form-load warning to the IDE
+- **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language
+- **AND** the project-load heading, remaining-warning count and skipped ActiveX Document notice use localization keys
+- **AND** a runtime host without localization retains an English diagnostic
+- **AND** warnings describe the affected content rather than internal development phases
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.
