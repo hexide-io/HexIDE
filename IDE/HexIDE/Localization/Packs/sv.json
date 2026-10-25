@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Nej",
     "Str.Dialog.MessageBox.Button.Abort": "Avbryt",
     "Str.Dialog.MessageBox.Button.Retry": "Försök igen",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorera"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorera",
+    "Str.Addins.Incompatible": "Kan inte läsa in tillägget: krävt schema {0}, minst HexIDE {1}; denna version stöder schema {2}, HexIDE {3}. Schema- eller versionskravet stöds inte eller är ogiltigt."
   }
 }

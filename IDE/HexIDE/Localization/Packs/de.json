@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Nein",
     "Str.Dialog.MessageBox.Button.Abort": "Abbrechen",
     "Str.Dialog.MessageBox.Button.Retry": "Wiederholen",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorieren"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorieren",
+    "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig."
   }
 }

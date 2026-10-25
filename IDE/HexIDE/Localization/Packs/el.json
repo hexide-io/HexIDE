@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Όχι",
     "Str.Dialog.MessageBox.Button.Abort": "Ματαίωση",
     "Str.Dialog.MessageBox.Button.Retry": "Επανάληψη",
-    "Str.Dialog.MessageBox.Button.Ignore": "Παράβλεψη"
+    "Str.Dialog.MessageBox.Button.Ignore": "Παράβλεψη",
+    "Str.Addins.Incompatible": "Δεν είναι δυνατή η φόρτωση του προσθέτου: απαιτούμενο σχήμα {0}, ελάχιστο HexIDE {1}· αυτή η έκδοση υποστηρίζει σχήμα {2}, HexIDE {3}. Η απαίτηση σχήματος ή έκδοσης δεν υποστηρίζεται ή δεν είναι έγκυρη."
   }
 }

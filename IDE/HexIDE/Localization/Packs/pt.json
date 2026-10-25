@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Não",
     "Str.Dialog.MessageBox.Button.Abort": "Abortar",
     "Str.Dialog.MessageBox.Button.Retry": "Tentar novamente",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorar"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorar",
+    "Str.Addins.Incompatible": "Não é possível carregar o suplemento: esquema necessário {0}, HexIDE mínimo {1}; esta compilação suporta o esquema {2}, HexIDE {3}. O requisito de esquema ou versão não é suportado ou é inválido."
   }
 }

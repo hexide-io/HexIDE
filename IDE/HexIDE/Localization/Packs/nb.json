@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Nei",
     "Str.Dialog.MessageBox.Button.Abort": "Avbryt",
     "Str.Dialog.MessageBox.Button.Retry": "Prøv igjen",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
+    "Str.Addins.Incompatible": "Kan ikke laste tillegget: påkrevd skjema {0}, minst HexIDE {1}; denne utgaven støtter skjema {2}, HexIDE {3}. Skjema- eller versjonskravet støttes ikke eller er ugyldig."
   }
 }

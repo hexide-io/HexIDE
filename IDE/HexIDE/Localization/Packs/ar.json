@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "لا",
     "Str.Dialog.MessageBox.Button.Abort": "إيقاف",
     "Str.Dialog.MessageBox.Button.Retry": "إعادة المحاولة",
-    "Str.Dialog.MessageBox.Button.Ignore": "تجاهل"
+    "Str.Dialog.MessageBox.Button.Ignore": "تجاهل",
+    "Str.Addins.Incompatible": "تعذر تحميل الإضافة: المخطط المطلوب {0}، والحد الأدنى من HexIDE هو {1}؛ يدعم هذا الإصدار المخطط {2} وHexIDE {3}. متطلب المخطط أو الإصدار غير مدعوم أو غير صالح."
   }
 }

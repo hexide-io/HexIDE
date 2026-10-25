@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Nee",
     "Str.Dialog.MessageBox.Button.Abort": "Afbreken",
     "Str.Dialog.MessageBox.Button.Retry": "Opnieuw proberen",
-    "Str.Dialog.MessageBox.Button.Ignore": "Negeren"
+    "Str.Dialog.MessageBox.Button.Ignore": "Negeren",
+    "Str.Addins.Incompatible": "Invoegtoepassing kan niet worden geladen: vereist schema {0}, minimaal HexIDE {1}; deze build ondersteunt schema {2}, HexIDE {3}. De schema- of versievereiste wordt niet ondersteund of is ongeldig."
   }
 }

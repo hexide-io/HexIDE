@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Nie",
     "Str.Dialog.MessageBox.Button.Abort": "Przerwij",
     "Str.Dialog.MessageBox.Button.Retry": "Ponów próbę",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignoruj"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignoruj",
+    "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe."
   }
 }
