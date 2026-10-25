@@ -944,8 +944,10 @@ public record Command(
 /// <remarks>
 /// <b><c>arguments</c> is omitted when there are none, never sent as <c>null</c>.</b> The protocol marks it
 /// optional, so absent is unambiguously valid while <c>null</c> is only probably-tolerated — the same
-/// distinction that made <c>"params": []</c> on <c>shutdown</c> a real defect against two of three foreign
-/// servers (hexide-io/HexIDE#312). Where the two spellings differ only in how strict a reader is, send the
+/// distinction that made <c>"params": []</c> on <c>shutdown</c> a real defect against foreign
+/// servers (hexide-io/HexIDE#312). On shutdown, even <c>"params":null</c> is measured to fail against
+/// rumdl 0.2.64 with -32602, "Unexpected params: null" (#368); no such measurement is recorded for
+/// <c>arguments</c>. Where the two spellings differ only in how strict a reader is, send the
 /// one nothing can object to.
 /// </remarks>
 public record ExecuteCommandParams(

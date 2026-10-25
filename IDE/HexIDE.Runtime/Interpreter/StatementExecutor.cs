@@ -617,7 +617,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var name = sub.ambiguousIdentifier().GetText();
             // What the value reads is checked against VB6's rules for a constant expression first (measured).
-            ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
+            await ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
             var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value, fillingConstant: true))
@@ -1584,16 +1584,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A condition that raised under Resume Next enters its own branch, the Then or the ElseIf it was testing (null; see
         // ConditionMet).
         if (await ConditionMet(context.ifBlockStmt().ifConditionStmt().valueStmt(), context) is not false)
-            return await VisitBranch(context.ifBlockStmt().block());
+            return await VisitBranch(context.ifBlockStmt().ifBlockBody()?.block());
 
         foreach (var elseIf in context.ifElseIfBlockStmt())
         {
             if (await ConditionMet(elseIf.ifConditionStmt().valueStmt(), elseIf) is not false)
-                return await VisitBranch(elseIf.block());
+                return await VisitBranch(elseIf.ifBlockBody()?.block());
         }
 
         if (context.ifElseBlockStmt() is { } elseBlock)
-            return await VisitBranch(elseBlock.block());
+            return await VisitBranch(elseBlock.ifBlockBody()?.block());
 
         return default;
     }
@@ -2290,10 +2290,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
         {
+            if (procedureOrArrayCall.dictionaryCallStmt() != null)
+                throw new NotImplementedException("Bang access (!) in an assignment target is not supported: "
+                    + procedureOrArrayCall.GetText());
             if (procedureOrArrayCall.baseType() != null||
                 procedureOrArrayCall.iCS_S_NestedProcedureCall() != null ||
-                procedureOrArrayCall.typeHint() != null ||
-                procedureOrArrayCall.dictionaryCallStmt() != null)
+                procedureOrArrayCall.typeHint() != null)
                 throw new NotImplementedException();
 
             if (procedureOrArrayCall.argsCall().Length == 0)
@@ -3572,7 +3574,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     isArray = true;
                     if (ownedSlots == null && subStmt.subscripts() is { } bounds)
-                        ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
+                        await ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
                     dimensions = await ExtractDimensions(subStmt.subscripts());
                     // A dimension whose upper bound is below its lower is "Range has no values", at module and procedure
                     // level, from a literal or a Const (measured: `Dim d(-1)`, `Dim d(1 To N)` with N 0, `Dim d(5, 2 To 1)`).
@@ -3582,6 +3584,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
 
                 var asType = subStmt.asTypeClause();
+                if (isArray && asType?.type()?.complexType() is { } elementType)
+                {
+                    var (qualifier, typeName) = SplitTypeName(elementType.GetText());
+                    if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _))
+                        throw new NotImplementedException($"An array of the user-defined type {elementType.GetText()} is not supported (#178)");
+                }
                 Vb6Value value;
                 // The class or interface name a class-typed Dim was declared with, kept because an object slot
                 // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).
@@ -4166,9 +4174,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitImplicitCallStmt_InBlock(VB6Parser.ImplicitCallStmt_InBlockContext context) => await base.VisitImplicitCallStmt_InBlock(context);
 
-    public async Task Execute(VB6Parser.BlockContext block)
+    public async Task Execute(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
-        await ExecuteProcedureBody(block);
+        await ExecuteProcedureBody(block, moduleDeclarations);
     }
 
     // Runs a procedure body's TOP-LEVEL statements with an explicit program counter so On Error GoTo <label>,
@@ -4286,7 +4294,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
-    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block)
+    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
         var stmts = block.blockStmt();
         _bodyStmts = stmts;   // Set Next Statement targets this top-level list
@@ -4303,6 +4311,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         while (pc < stmts.Length)
         {
+            // Execute's harness body runs after its declarations, through the same statement/error/debugger loop.
+            if (moduleDeclarations is { } declarations && BasicInterpreter.IsModuleDeclaration(stmts[pc]) != declarations)
+            {
+                pc++;
+                continue;
+            }
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
@@ -4432,7 +4446,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         currentLine = line;
         ErrorLocation.Note(error, currentModule.Name, line);
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
-        return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
+        return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement

@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.VisualTree;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using HexIDE.IDE;
+using HexIDE.Integration.Tests.Automation;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Projects;
@@ -104,6 +107,31 @@ public class ObjectBrowserViewIntegrationTests
         view.Arrange(new Rect(0, 0, 800, 400));
         view.IsMeasureValid.Should().BeTrue();
         view.IsArrangeValid.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0, "Libraries")]
+    [InlineData(1, "Search")]
+    [InlineData(2, "Search Results")]
+    [InlineData(3, "Classes")]
+    [InlineData(4, "Members")]
+    public void Browser_inputs_and_lists_have_distinct_localized_names(int index, string expected)
+    {
+        var window = ToolbarAutomationNameTests.ShowMainView();
+        try
+        {
+            var view = new ObjectBrowserToolView { DataContext = CreateSutWithProject() };
+            window.Content = view;
+            window.UpdateLayout();
+            var controls = view.GetVisualDescendants()
+                .Where(c => c is ComboBox or TextBox or ListBox && c.TemplatedParent is null).Cast<Control>().ToList();
+            controls.Should().HaveCount(5);
+            ControlAutomationPeer.CreatePeerForElement(controls[index]).GetName().Should().Be(expected);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     // --- Document tab chrome ---

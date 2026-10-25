@@ -37,7 +37,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   - **"This edit requires a Reset"** (OK, Help), which can't be declined, for a duplicate declaration.
   - In run mode the code window takes no typing at all, so neither prompt arises there.
   - This bullet used to quote the prompt as "…Do you want to continue?" with Yes and No. That was never measured, and
-    it is HexIDE's wording, not VB6's. The wording and buttons are #1360.
+    it was HexIDE's wording, not VB6's. Since #1360 HexIDE uses the measured wording and OK/Cancel, without Help
+    because it has no help topic.
 - **Which windows the prompt holds (measured, #1329):**
   - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
     and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
@@ -50,21 +51,27 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
     one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
     IDE's windows further, currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
-  prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
+  prompt (OK = reset + keep the edit; Cancel = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
 - **Why:** honest + muscle-memory-recognisable — VB6's own dialog, surfaced for the whole edit set the interpreter
   can't hot-patch. Reframes the wall as a familiar behaviour.
 - **Status:** **shipped** (commit 1e52d8f, 2026-08-09), live-verified. A genuine live-apply subset (edits to
   procedures NOT on the current call stack) is a possible later refinement. A form's run loads the project's
-  standard and class modules too (#258); `.ctl` and `.pag` are not loaded as free-standing modules by that path.
+  standard and class modules too (#258); stored breakpoints in both stop through `ProjectRunnerService`
+  (`DebuggerLinesAreFileLinesTests`, #10). `.ctl` and `.pag` are not loaded as free-standing modules by that path.
 - **Since #273 task 3.13 (2026-10-02):** the prompt asks only about an edit that lands. A keystroke in the
   file's header or a member's `Attribute` lines writes nothing, and no longer asks to reset the run for it; nor
   does a designer change or a save, each of which rewrites the header as the IDE's own edit (a designer change
   has a cost of its own during a run: D26), nor a reload, which the file watcher holds back until the run ends
   (`FileWatcherService`). Paste, cut and Delete with a selection now ask: their keys are
   bound to code-window commands that took them before the old handler saw them, so until then a paste while
-  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering No restores the
+  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering Cancel restores the
   code only, under whatever header the window shows by then.
+- **Since #1025:** keystroke arming follows AvaloniaEdit's editing bindings and its Delete Line and Indent
+  Selection gestures. Delete Line and word deletion previously landed without asking; headless regression
+  tests now cover all three, No restoring the deletion, and Delete Line refusing the header without asking.
+  This fixes HexIDE's reset affordance; it does not establish new VB6 behaviour. Undo and Redo remain
+  unmeasured and unchanged (#710, #513).
 - **"Every edit" is unmeasured for the routes that are not keystrokes.** Replace All, formatting, Insert File,
   rename, an add-in's `ApplyEdits`/`SetContent` and automation's `set_file_content` while paused have not been
   checked against the prompt. Paste, cut and Delete were assumed covered until they were tested, and were not.
@@ -457,7 +464,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   something else stops it. Set Next Statement from the menu already refuses any line that is not a statement.
 - **A mark can still be on such a line, and can still be removed.** This row used to say that only an older
   sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
-  read-only line, from either format, and logs it (`UserSidecarService.OffReadOnlyLines`). What can still put
+  read-only line, and logs it (`UserSidecarService.OffReadOnlyLines`). Since #884, file-relative header
+  marks from versions 2 and 3 are retained at their file lines; member Attribute marks are still dropped. What can still put
   one there is an edit or a reload, because a breakpoint or a bookmark is a bare line number and does not
   follow its line. Once a project is open, only `HeaderRefresher.ShiftMarks` moves marks, by the header's
   change in length, at a designer change, a save or a reload. A designer change and a save add or remove no
@@ -492,7 +500,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   folded header is one row that starts at the top of the file. Unfolded, F9, Ctrl+F2 or a click in the gutter
   beside the line removes it, as do Clear All Breakpoints, Clear All Bookmarks, and `set_breakpoints` or
   `set_bookmarks` with it left out; a set that keeps it is accepted, so a read-then-write round trip is never
-  refused. Left alone, it lasts until the project is next opened, when the sidecar's load drops it.
+  refused. Left alone, a member Attribute mark lasts until the project is next opened, when the sidecar's load
+  drops it; a header mark saved in version 3 remains counted from the file's top (#884).
 - **Why:** those lines never execute, so a breakpoint there is never hit and Run To Cursor would run to the end;
   and folded, the header is one visible line standing for many, so a mark set there would land on a line the
   developer cannot see.
@@ -523,11 +532,12 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   below a continued `Attribute` line ([#968](https://github.com/hexide-io/HexIDE/issues/968)).
 - **Status:** **by design** (#273 tasks 3.6 and 3.16). A sidecar written before the change counts from the
   first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
-  on (task 3.17). Two ways a sidecar can still restore marks in another numbering are open: a conflicted
-  external change, whose header change never reaches the stores
-  ([#884](https://github.com/hexide-io/HexIDE/issues/884)), and a form HexIDE has just created, whose header
-  first appears at its first designer change, save or reload, so the sidecar cannot tell whether its marks
-  already count it ([#885](https://github.com/hexide-io/HexIDE/issues/885)).
+  on (task 3.17). Sidecar version 3 anchors code marks after the full header, so a conflicted external header
+  change that never reaches the stores no longer moves those marks on reopen (#884). Its stored offsets are
+  converted at the persistence boundary; the stores and every public surface still use file lines. A newly
+  created form's header still first appears at its first designer change, save or reload
+  ([#885](https://github.com/hexide-io/HexIDE/issues/885)); version 3 can now distinguish its code marks from
+  marks already in a header.
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 

@@ -62,6 +62,21 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Cross-module constants SHALL initialise their module on demand
+A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
+declarations first, once, regardless of project list order or startup entry point. Re-entering a module still
+running its declarations SHALL raise "Circular dependencies between modules" as a compile error during execution.
+The dependency check SHALL operate per module, including array bounds, and SHALL NOT treat procedure bodies as
+module declaration dependencies. Within one module, constant expressions SHALL retain source order.
+
+#### Scenario: A declaration reads a later module's constant
+- **WHEN** Module1 declares `Public Const A = Module2.B + 1` and Module2 declares `Public Const B = 2`
+- **THEN** A is 3 in either module list order
+
+#### Scenario: A module cycle without a constant cycle
+- **WHEN** Module1 declares `Public Const A = 1` and `Public Const C = B + 1`, and Module2 declares `Public Const B = A + 1`
+- **THEN** execution refuses the declarations with "Circular dependencies between modules"
+
 ### Requirement: Behaviour SHALL be verified against the real product before it is pinned
 Where the correct behaviour of a language rule is uncertain, it SHALL be established by running the original
 VB6 and observing what it does, and SHALL NOT be settled from documentation or recollection. The verified
@@ -250,3 +265,58 @@ because nothing inside an uncreatable control is read.
 - **THEN** it is refused before any control is placed, naming the control and source and explaining that data
   binding is not implemented
 - **THEN** F5 reports the refusal to the developer, and a made program shows it in its error box
+
+### Requirement: Measured empty statements and labelled End If SHALL run
+
+The interpreter SHALL execute the measured leading-colon and spaced-empty-statement forms from issue #223.
+It SHALL treat `If True Then:` with no statement on that line as an empty single-line If, allowing the next
+line to execute independently. Falling through a label immediately before `End If` SHALL close the block
+without calling the label as a procedure. Jumps to labels sharing a construct terminator remain deferred
+by the tree-walking execution limit.
+
+#### Scenario: Leading empty statements
+- **WHEN** `:  :  : Debug.Print "A"` executes
+- **THEN** it prints `A`
+
+#### Scenario: Empty single-line If
+- **WHEN** `If True Then:` is followed by `Debug.Print "A"` on the next line without an `End If`
+- **THEN** it prints `A`
+
+#### Scenario: Fall through a labelled End If
+- **WHEN** a true If prints `T` and closes with `Fin: End If`, followed by a print of `AFTER`
+- **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`
+
+### Requirement: Line continuations preserve name boundaries
+A single line continuation between identifier fragments SHALL preserve their name boundary rather than
+concatenate them. Multi-word keywords
+SHALL continue to accept a continuation between their words.
+
+#### Scenario: A split assignment leaves the declared Long untouched
+- **WHEN** `Dim value As Long` is followed by `val _` and `ue = 5` on successive physical lines
+- **THEN** `Debug.Print value` prints Long 0, as recorded for `continuation-illegal/split-identifier`
+
+#### Scenario: A multi-word keyword spans physical lines
+- **WHEN** `Select _` is followed by `Case n` on the next physical line
+- **THEN** the interpreter executes a Select Case statement
+
+### Requirement: Expression execution SHALL guard available stack space
+The interpreter SHALL probe available host stack space during expression execution and raise trappable
+run-time error 28 (Out of stack space) before a long operator chain overflows the process stack.
+Module-level constant-expression validation SHALL also probe available stack space and raise error 28
+before its recursive walk overflows.
+Declaration collection SHALL skip expression subtrees, which contain no declarations or attributes.
+This is a host safety bound, not a claim about VB6's acceptance of long physical or continued lines.
+
+#### Scenario: Resuming after a long operator chain exhausts stack space
+- **WHEN** a 10,000-term addition chain executes under `On Error Resume Next`, plain or continued
+- **THEN** stack exhaustion raises error 28 and execution continues at the next statement without terminating the host
+
+#### Scenario: A long chain on a conditional-compilation line
+- **WHEN** an `#If`, `#ElseIf` or `#Const` expression produces a tree deeper than 300 nodes
+- **THEN** an iterative check SHALL refuse it through the existing not-an-expression path before recursive evaluation
+- **AND** the IDE-side project runner SHALL report the load failure without terminating the host
+
+#### Scenario: A long chain in a module constant on a small stack
+- **WHEN** a module-level `Const` holds a 10,000-term addition chain on a 1 MiB thread stack
+- **THEN** its constant-expression validation raises error 28 without terminating the host
+- **AND** the IDE-side project runner reports the failure and stops the run

@@ -165,7 +165,7 @@ never be mistaken for a verified add-in.
 - **THEN** it does not load
 
 #### Scenario: An unsigned build with the opt-in on
-- **WHEN** developer mode and the unsigned opt-in are both active
+- **WHEN** the package is compatible, and developer mode and the unsigned opt-in are both active
 - **THEN** the package loads and is marked as an unsigned developer build wherever it is shown
 
 ### Requirement: The trust surface SHALL show only what the IDE verified
@@ -193,3 +193,31 @@ no harm in a logo on a details page, which is a different moment with different 
 #### Scenario: A package that fails verification
 - **WHEN** an add-in fails to verify
 - **THEN** the surface reports how far the chain got and why it stopped, so the failure can be diagnosed
+
+### Requirement: Manifest compatibility precedes trust
+
+After guarding the entry path, verification SHALL refuse a manifest whose `schema` exceeds the current
+schema (1), whose `minHexideVersion` exceeds the running assembly version, or whose non-null minimum
+version cannot be parsed as a numeric `major.minor[.build[.revision]]` version. Missing components compare
+as zero. Older schemas and an absent minimum SHALL retain their existing behavior. The verdict SHALL be
+`Incompatible`, independent of signature trust, developer mode, unsigned loading and recorded consent.
+Options → Add-Ins SHALL display the required and supported schema and host versions; the log SHALL give
+the refusal reason. Unknown JSON members SHALL be retained as extension data for inspection, without
+changing the behavior of otherwise compatible packages.
+
+#### Scenario: Developer mode cannot override compatibility
+
+- **WHEN** a package requires a newer schema or host version, or supplies an invalid minimum version
+- **THEN** it is not loaded or prompted for consent, even with developer mode and unsigned loading enabled
+- **AND** its compatibility requirements are visible in Options → Add-Ins and the refusal is logged
+
+### Requirement: Package tooling stamps compatibility metadata
+
+The packer SHALL write the current `schema` on every manifest and SHALL accept an optional
+`--min-hexide-version` value, recording it as `minHexideVersion` in the signed manifest. An invalid numeric
+minimum SHALL be rejected before changing the output directory.
+
+#### Scenario: Package declares a minimum host version
+
+- **WHEN** a publisher packs with `--min-hexide-version 1.4`
+- **THEN** the signed manifest records schema 1 and minimum HexIDE version `1.4`

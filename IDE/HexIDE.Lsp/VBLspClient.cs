@@ -5,12 +5,14 @@ using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
 using HexIDE.Conversations;
+using HexIDE.Redaction;
 
 namespace HexIDE.Lsp;
 
 public sealed class VBLspClient : ILspClient
 {
     private readonly ILspTransport _transport;
+    private readonly ConversationRedactor? _workspaceNames;
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
@@ -22,6 +24,7 @@ public sealed class VBLspClient : ILspClient
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
+    private volatile bool _initializeAnswered;
 
     // What the connected server said it supports, kept exactly as it arrived. Raw is the single source of
     // truth: a typed view is one Deserialize away, whereas a summary cannot be turned back into the answer.
@@ -167,20 +170,26 @@ public sealed class VBLspClient : ILspClient
     /// How long to wait for the server's <c>initialize</c> reply before abandoning the handshake. Injected
     /// so tests need not wait out the real one; leave it unset everywhere else.
     /// </param>
+    /// <param name="workspaceNames">
+    /// The session redactor for names this client supplies. URI fields stay real so the server can use
+    /// them; folder display names are assigned their export pseudonym before they reach the wire.
+    /// </param>
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
-        ConversationLog? capture = null, string? connectionId = null)
+        ConversationLog? capture = null, string? connectionId = null,
+        ConversationRedactor? workspaceNames = null)
     {
         _transport = transport;
         _logger = logger;
         _languageId = languageId;
         _workspace = workspace;
-        _initializeTimeout = initializeTimeout ?? DefaultInitializeTimeout;
+        _initializeTimeout = initializeTimeout ?? DefaultRequestTimeout;
         _trace = LspTraceValue.Normalise(trace) ?? LspTraceValue.Off;
         _capture = capture;
         _connectionId = connectionId;
+        _workspaceNames = workspaceNames;
     }
 
     /// <summary>
@@ -219,14 +228,37 @@ public sealed class VBLspClient : ILspClient
     private readonly string _languageId;
     private readonly ILspWorkspace? _workspace;
     private readonly TimeSpan _initializeTimeout;
+    internal TimeSpan RequestTimeout { get; set; } = DefaultRequestTimeout;
 
-    /// <summary>
-    /// Deliberately generous. The cost of waiting too long is a late log line; the cost of waiting too
-    /// little is tearing down a server that was merely slow to start — which would be a worse bug than the
-    /// one this bounds, because it would strike healthy setups on cold or loaded machines. Nothing here is
-    /// on a user-visible path: the handshake runs fire-and-forget from startup.
-    /// </summary>
-    private static readonly TimeSpan DefaultInitializeTimeout = TimeSpan.FromSeconds(30);
+    // Shared with initialize for consistency; a policy budget, not a measured server response time.
+    private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
+
+    private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
+        CancellationToken cancellationToken = default, TimeSpan? timeout = null)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var scope = new RequestCancellation(_capture, _connectionId);
+        var previous = RequestCancellation.Current.Value;
+        Task<T> pending;
+        try
+        {
+            RequestCancellation.Current.Value = scope;
+            pending = rpc.InvokeWithParameterObjectAsync<T>(method, parameters, cancellation.Token);
+        }
+        finally { RequestCancellation.Current.Value = previous; }
+
+        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellationToken); }
+        catch (Exception ex) when (ex is TimeoutException || ex is OperationCanceledException)
+        {
+            if (ex is TimeoutException) scope.Outcome = ConversationOutcome.TimedOut;
+            // Notify best effort, but never wait for the server to acknowledge cancellation.
+            cancellation.Cancel();
+            _ = pending.ContinueWith(t => _ = t.Exception, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            throw;
+        }
+    }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -404,10 +436,12 @@ public sealed class VBLspClient : ILspClient
 
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
     {
+        _initializeAnswered = false;
         ClearProgress();
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
 
@@ -476,6 +510,7 @@ public sealed class VBLspClient : ILspClient
     /// <summary>Unsubscribes and disposes the current JSON-RPC connection (leaving the transport intact).</summary>
     private void DisposeRpc()
     {
+        _initializeAnswered = false;
         var rpc = _rpc;
         _rpc = null;
         if (rpc is not null)
@@ -553,9 +588,8 @@ public sealed class VBLspClient : ILspClient
         attempt.Reached(LanguageConnectionStage.HandshakeSent);
         try
         {
-            raw = await _rpc
-                .InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams, cancellationToken)
-                .WaitAsync(_initializeTimeout, cancellationToken);
+            raw = await InvokeRequestAsync<JsonElement>(_rpc, "initialize", initParams, cancellationToken, _initializeTimeout);
+            _initializeAnswered = true;
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -637,7 +671,13 @@ public sealed class VBLspClient : ILspClient
         {
             try
             {
-                wire.Add(new WorkspaceFolder(new Uri(folder.Directory).AbsoluteUri, folder.Name));
+                var uri = new Uri(folder.Directory).AbsoluteUri;
+                // A name is not a URI, so the textual export pass cannot recognise it. Assign the
+                // same name as the URI's final segment here, using the export's session mapping.
+                var name = _workspaceNames is { IsPseudonymising: true }
+                    ? _workspaceNames.Uri(uri).TrimEnd('/').Split('/')[^1]
+                    : folder.Name;
+                wire.Add(new WorkspaceFolder(uri, name));
             }
             catch (Exception ex)
             {
@@ -1019,7 +1059,7 @@ public sealed class VBLspClient : ILspClient
         JsonElement? raw;
         try
         {
-            raw = await rpc.InvokeWithParameterObjectAsync<JsonElement?>("textDocument/diagnostic", p);
+            raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
         }
         catch (Exception ex)
         {
@@ -1196,7 +1236,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<HoverResult?>(
+            return await InvokeRequestAsync<HoverResult?>(_rpc,
                 "textDocument/hover", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1228,7 +1268,7 @@ public sealed class VBLspClient : ILspClient
         var p = new DocumentSymbolParams(new TextDocumentIdentifier(uri));
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/documentSymbol", p, cancellationToken);
             return ReadDocumentSymbols(raw);
         }
@@ -1335,7 +1375,7 @@ public sealed class VBLspClient : ILspClient
         var p = new FoldingRangeParams(new TextDocumentIdentifier(uri));
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<FoldingRange[]>(
+            return await InvokeRequestAsync<FoldingRange[]>(_rpc,
                 "textDocument/foldingRange", p, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1351,7 +1391,7 @@ public sealed class VBLspClient : ILspClient
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var result = await _rpc.InvokeWithParameterObjectAsync<CompletionList?>(
+            var result = await InvokeRequestAsync<CompletionList?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
             return result?.Items ?? [];
         }
@@ -1368,7 +1408,7 @@ public sealed class VBLspClient : ILspClient
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<SignatureHelp?>(
+            return await InvokeRequestAsync<SignatureHelp?>(_rpc,
                 "textDocument/signatureHelp", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1395,7 +1435,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/definition", p, cancellationToken);
             return ReadLocations(raw);
         }
@@ -1416,7 +1456,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/declaration", p, cancellationToken);
             return ReadLocations(raw);
         }
@@ -1477,7 +1517,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<DocumentHighlight[]?>(
+            return await InvokeRequestAsync<DocumentHighlight[]?>(_rpc,
                 "textDocument/documentHighlight", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1493,7 +1533,7 @@ public sealed class VBLspClient : ILspClient
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<WorkspaceEdit?>(
+            return await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
                 "textDocument/rename", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1511,7 +1551,7 @@ public sealed class VBLspClient : ILspClient
             new FormattingOptions(4, true));
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<TextEdit[]?>(
+            return await InvokeRequestAsync<TextEdit[]?>(_rpc,
                 "textDocument/formatting", p, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1529,7 +1569,7 @@ public sealed class VBLspClient : ILspClient
         CodeLens[] lenses;
         try
         {
-            lenses = await _rpc.InvokeWithParameterObjectAsync<CodeLens[]?>(
+            lenses = await InvokeRequestAsync<CodeLens[]?>(_rpc,
                 "textDocument/codeLens", p, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1567,7 +1607,7 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null) return null;
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<CodeLens?>(
+            return await InvokeRequestAsync<CodeLens?>(_rpc,
                 "codeLens/resolve", lens, cancellationToken);
         }
         catch (Exception ex)
@@ -1594,7 +1634,7 @@ public sealed class VBLspClient : ILspClient
         var p = new ExecuteCommandParams(command, arguments);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<System.Text.Json.JsonElement?>(
+            return await InvokeRequestAsync<System.Text.Json.JsonElement?>(_rpc,
                 "workspace/executeCommand", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1609,7 +1649,7 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null || !_initialized || !CanServeExperimental("vbBuiltinSymbols")) return [];
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<VbaBuiltinSymbol[]>(
+            return await InvokeRequestAsync<VbaBuiltinSymbol[]>(_rpc,
                 "vb/builtinSymbols", EmptyParams.Instance, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1625,7 +1665,7 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null || !_initialized || !CanServe("workspaceSymbolProvider")) return [];
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "workspace/symbol", new WorkspaceSymbolParams(query), cancellationToken);
             return ReadWorkspaceSymbols(raw);
         }
@@ -1703,20 +1743,27 @@ public sealed class VBLspClient : ILspClient
         try { await reconnectTask; } catch { /* loop is best-effort */ }
 
         var rpc = _rpc;
-        if (rpc is not null)
+        if (rpc is not null && _initializeAnswered && !_transport.LeaveServerRunning)
         {
             // Both take NO parameters (LSP 3.17), and the distinction is not pedantry.
             // `InvokeAsync(name)` is StreamJsonRpc's POSITIONAL overload and puts `"params":[]` on
             // the wire, which rumdl (tower-lsp) and an OmniSharp-based server both REJECT; and
-            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. Only omitting the
+            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. `"params":null` is
+            // rejected too: rumdl 0.2.64 answers -32602, "Unexpected params: null" (#368). Only omitting the
             // member is accepted by every server measured, and it is what the specification and
-            // vscode-languageserver-node send. A null argument object is what omits it.
+            // vscode-languageserver-node send. In the parameter-object overload below, a null argument
+            // object omits the member; JSON null on the wire is not equivalent to absence.
             //
             // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
             // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
             // that we never shut it down, and any supervisor reads every clean exit as a crash.
             // See hexide-io/HexIDE#312.
-            try { await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null); } catch { }
+            // A live but wedged server must not hold IDE shutdown indefinitely (#392).
+            try
+            {
+                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: TimeSpan.FromSeconds(2));
+            }
+            catch { }
             try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
         }
         DisposeRpc();
@@ -1728,6 +1775,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
     }
@@ -1762,6 +1810,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
         RaiseStateChanged();
@@ -1867,7 +1916,7 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
-        /// The server's own log output, written through at the severity it declared.
+        /// The server's own log output. Log is retained at Information; Debug goes to Trace.
         ///
         /// <para>
         /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
@@ -2064,9 +2113,8 @@ public sealed class VBLspClient : ILspClient
         /// Maps the protocol's message levels onto the logger's.
         /// </summary>
         /// <remarks>
-        /// <c>Log</c> becomes Debug rather than Information: it is the level a server uses for running
-        /// commentary, and promoting it would bury the two levels that mean something. <c>Debug</c>, added
-        /// in 3.18, is noisier still and goes to Trace.
+        /// <c>Log</c> becomes Information so running commentary reaches the default log.
+        /// <c>Debug</c>, added in 3.18, is noisier and goes to Trace.
         ///
         /// <para>
         /// <b>An unrecognised value goes to Trace, and the arm here previously had that exactly backwards.</b>
@@ -2084,7 +2132,7 @@ public sealed class VBLspClient : ILspClient
             LspMessageType.Error => LogLevel.Error,
             LspMessageType.Warning => LogLevel.Warning,
             LspMessageType.Info => LogLevel.Information,
-            LspMessageType.Log => LogLevel.Debug,
+            LspMessageType.Log => LogLevel.Information,
             LspMessageType.Debug => LogLevel.Trace,
             _ => LogLevel.Trace,
         };
@@ -2213,6 +2261,14 @@ public sealed class VBLspClient : ILspClient
         return false;
     }
 
+    /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
+    public void NotePrioritySkip(string capabilityName, string winnerId)
+    {
+        if (!_prioritySkips.TryAdd(capabilityName, 0)) return;
+        Note(ConversationDirection.Sent, ConversationEntryKind.NeverSent, null,
+            $"not asked: '{winnerId}' has priority for '{capabilityName}'");
+    }
+
     /// <summary>
     /// Says once, at warning, that a wanted capability was not advertised.
     ///
@@ -2293,6 +2349,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever
     /// <see cref="_warnedCapabilities"/> is, so a reconnect to a different server reports afresh.</summary>

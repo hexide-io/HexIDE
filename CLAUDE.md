@@ -73,8 +73,9 @@ The lesson generalises past the one bug: **an assertion that a request did not t
 assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
 protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
 that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
-because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
-all, and those three are not interchangeable to a real server.
+because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, `null`, or not at
+all, and those four are not interchangeable to a real server. Measured against rumdl 0.2.64,
+`"params":null` is refused with `-32602`, `Unexpected params: null` (#368).
 
 Five servers. Four are chosen for **framework** diversity rather than language diversity — interop bugs
 come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
@@ -197,9 +198,9 @@ would present exactly as the original bug class did: green locally, red on CI.
 # $10M+ revenue, and this file is instructions a contributor follows. See hexide-io/HexIDE#253.
 podman machine init && podman machine start
 
-# Any suite, in a container on CI's own Ubuntu version.
+# Any suite, in a container on CI's own Ubuntu version. Replace <clone-root> with your checkout.
 podman run --rm \
-  -v "C:\Repos\GitHub\HexIDE\HexIDE:/repo" \
+  -v "<clone-root>:/repo" \
   -v hexide-nuget:/root/.nuget \
   -w /repo/IDE \
   mcr.microsoft.com/dotnet/sdk:10.0-noble \
@@ -896,7 +897,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`Vb6Value`** is a value type. Always check `Type` before accessing `Value` (it's `object?`).
 - **`ICSharpProxy`**: controls exposed to VB6 implement this; interpreter calls `proxy.Call(methodName, args)`.
 - **LanguageExt** (in `HexIDE.Runtime`): shadows `System.Linq` — `Where`, `Select`, `Map`. Prefer explicit `foreach` over LINQ when `using LanguageExt;` is in scope.
-- **Grammar instability**: the VB6 grammar can produce degenerate parse trees on malformed input. ANTLR visitors traversing expressions need a depth guard (`MaxDepth = 500` in an overridden `Visit()`) and must return early from leaf-node overrides (never recurse into children from a leaf-node visit).
+- **Grammar instability**: the VB6 grammar can produce degenerate parse trees on malformed input. ANTLR visitors traversing expressions need a depth guard (`MaxDepth = 500` in an overridden `VisitChildren()`; generated visitors bypass `Visit()` when descending) and must return early from leaf-node overrides (never recurse into children from a leaf-node visit).
 - **Avoid double-parse**: use `VbDiagnosticsProvider.GetDiagnosticsAndTree(source)` when you need both diagnostics and the parse tree.
 - **Server capabilities are `JsonElement?`, never `bool?` or `int?`.** Most are `boolean | XxxOptions` in the protocol and a conformant server may send either; modelling one narrowly threw during `initialize`, and the swallowing catch turned that into a total silent LSP blackout (#238). `TextDocumentSync` needs the same treatment for a different reason — the bundled server returns it as an object, `{"openClose":true,"change":1}` (Full) — and it is the one field whose two shapes mean *different* things, so it has its own reader rather than going through `IsEnabled`.
 - **`CS0108` suppressed** in `HexIDE.VbLspServer.csproj` — expected artifact from the generated `VisualBasic6Parser.cs` (the ANTLR parser hides an inherited member).
@@ -996,6 +997,10 @@ the PR. Typo-level fixes need no issue.
   `in progress on branch <name>`. The branch name is what a second session can check. And never
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
+
+**A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
+PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);
+`changelog.d/README.md` has the format, and `scripts/changelog-gather.sh` folds them in at release.
 
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 

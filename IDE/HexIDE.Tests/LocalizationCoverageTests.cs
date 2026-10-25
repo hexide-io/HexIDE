@@ -13,6 +13,27 @@ namespace HexIDE.Tests;
 /// </summary>
 public class LocalizationCoverageTests
 {
+    [Fact]
+    public void MenuLabels_DoNotEmbedParenthesizedGestures()
+    {
+        var packsDir = Path.Combine(FindHexIdeProjectDir(), "Localization", "Packs");
+        var gesture = new Regex(@"\((?:(?:(?:Ctrl|Control|Alt|Shift|Cmd|Command|Meta)\+)+[^()]+|F[0-9]{1,2})\)");
+        var embedded = new List<string>();
+
+        foreach (var file in Directory.EnumerateFiles(packsDir, "*.json"))
+        {
+            var pack = JsonSerializer.Deserialize(File.ReadAllText(file),
+                LocalizationJsonContext.Default.LanguagePackRecord);
+            foreach (var (key, value) in pack!.Strings!)
+            {
+                if (key.StartsWith("Str.Menu.", StringComparison.Ordinal) && gesture.IsMatch(value))
+                    embedded.Add($"{Path.GetFileName(file)}: {key} = {value}");
+            }
+        }
+
+        embedded.Should().BeEmpty("menu shortcuts come from the live keymap, not localized labels");
+    }
+
     [AvaloniaFact]
     public void EveryAxamlStrKey_ExistsInEnglishPack()
     {

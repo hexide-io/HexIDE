@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using HexIDE.Desktop.Server;
@@ -24,7 +26,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It did not, through two mechanisms, both of which come from the SDK's default transport being stateful:
+/// It did not, through two mechanisms, both of which come from the SDK's 1.x default transport being stateful:
 /// </para>
 /// <list type="bullet">
 /// <item><b>The session.</b> <c>initialize</c> issues an <c>Mcp-Session-Id</c> that every later request carries,
@@ -124,7 +126,8 @@ public class McpRestartTests
         };
         if (maxReconnectionAttempts is { } attempts)
             options.MaxReconnectionAttempts = attempts;
-        return McpClient.CreateAsync(new HttpClientTransport(options),
+        var transport = new HttpClientTransport(options);
+        return McpClient.CreateAsync(transport,
             cancellationToken: TestContext.Current.CancellationToken);
     }
 
@@ -188,18 +191,69 @@ public class McpRestartTests
     }
 
     [Fact]
-    public async Task A_client_attached_before_a_restart_is_answered_after_it()
+    public async Task Discovery_advertises_the_sessionless_protocol_without_initializing()
     {
         var port = FreePort();
-        var first = await StartAsync(port, McpTransport.Configure);
-        await using var client = await ConnectAsync(port);
-        (await EchoAsync(client, "before")).Should().Be("before");
-
-        await StopAsync(first);
-        var second = await StartAsync(port, McpTransport.Configure);
+        var app = await StartAsync(port, McpTransport.Configure);
         try
         {
-            (await EchoAsync(client, "after")).Should().Be("after", "the restart must be invisible to the client");
+            using var http = new HttpClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:{port}/mcp");
+            request.Headers.Accept.ParseAdd("application/json, text/event-stream");
+            request.Headers.Add("MCP-Protocol-Version", "2026-07-28");
+            request.Headers.Add("Mcp-Method", "server/discover");
+            request.Content = new StringContent(
+                """
+                {"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{},
+                  "io.modelcontextprotocol/clientInfo":{"name":"HexIDE.Tests","version":"1"}
+                }}}
+                """,
+                Encoding.UTF8, "application/json");
+
+            using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+            var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+            response.Headers.Contains("Mcp-Session-Id").Should().BeFalse();
+            var json = response.Content.Headers.ContentType?.MediaType == "text/event-stream"
+                ? body.ReplaceLineEndings("\n").Split('\n').Single(line => line.StartsWith("data: "))[6..]
+                : body;
+            using var reply = JsonDocument.Parse(json);
+            reply.RootElement.TryGetProperty("error", out _).Should().BeFalse(json);
+            reply.RootElement.GetProperty("result").GetProperty("supportedVersions")
+                .EnumerateArray().Select(version => version.GetString()).Should().Contain("2026-07-28");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task A_client_attached_before_a_restart_is_answered_after_it()
+    {
+        var output = TestContext.Current.TestOutputHelper;
+        var trace = new McpRestartDiagnostics((level, message) => output?.WriteLine($"[{level}] {message}"));
+        var port = FreePort();
+        var first = await StartAsync(port, McpTransport.Configure);
+        await using var client = await trace.PhaseAsync("first connect attempt", () => ConnectAsync(port));
+        (await EchoAsync(client, "before")).Should().Be("before");
+
+        await trace.PhaseAsync("stop", () => StopAsync(first));
+        var second = await trace.PhaseAsync("restart", () => StartAsync(port, McpTransport.Configure));
+        try
+        {
+            string after;
+            try
+            {
+                after = await trace.PhaseAsync("call after", () => EchoAsync(client, "after"));
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(trace.Failure(exception), exception);
+            }
+            after.Should().Be("after", "the restart must be invisible to the client");
             (await EchoAsync(client, "again")).Should().Be("again");
         }
         finally

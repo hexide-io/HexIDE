@@ -15,11 +15,13 @@ public sealed class AddinCommandService
     {
         var cmd = new AddinCommand(id, label, onInvoke, gesture, canExecute);
         _commands.Add(cmd);
-        CommandsChanged?.Invoke();
-        return new ActionDisposable(() =>
+        var handle = new ActionDisposable(() =>
         {
             _commands.Remove(cmd);
             CommandsChanged?.Invoke();
         });
+        AddinInitializationScope.Record(handle.Dispose);
+        CommandsChanged?.Invoke();
+        return handle;
     }
 }
