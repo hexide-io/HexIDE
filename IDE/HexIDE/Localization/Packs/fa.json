@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "ماژول جاری",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "همه اسناد باز",
     "Str.FindReplace.Msg.NotFound": "متن جستجوی '{0}' یافت نشد.",
+    "Str.FindReplace.Msg.ProtectedOnly": "متن جستجوی '{0}' فقط در سرآیند فایل یا خطوط Attribute یک رویه وجود دارد. جستجو از این بخش‌ها می‌گذرد زیرا فقط IDE آن‌ها را تغییر می‌دهد.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} جایگزینی انجام شد؛ {1} تطبیق در سرآیند یا خطوط Attribute رویه‌ها که فقط IDE تغییر می‌دهد نادیده گرفته شد.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} جایگزینی انجام شد.",
     "Str.FindReplace.Msg.InvalidRegex": "الگوی عبارت باقاعده نامعتبر است.",
     "Str.FindReplace.Msg.NothingToSearch": "چیزی برای جست‌وجو در اینجا نیست. یافتن در پنجره‌های کد و در فایل‌های متنی همراه پروژه کار می‌کند.",

@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "目前模組",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "所有開啟的文件",
     "Str.FindReplace.Msg.NotFound": "找不到搜尋文字「{0}」。",
+    "Str.FindReplace.Msg.ProtectedOnly": "搜尋文字 '{0}' 僅出現在檔案標頭或程序的 Attribute 行中。這些區域僅由 IDE 變更，因此搜尋會略過它們。",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "已取代 {0} 處；略過了檔案標頭或程序 Attribute 行中的 {1} 處符合項目，這些區域僅由 IDE 變更。",
     "Str.FindReplace.Msg.ReplacementsMade": "已完成 {0} 項取代。",
     "Str.FindReplace.Msg.InvalidRegex": "無效的規則運算式模式。",
     "Str.FindReplace.Msg.NothingToSearch": "這裡沒有可尋找的內容。尋找適用於程式碼視窗和專案隨附的文字檔。",

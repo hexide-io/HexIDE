@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Mô-đun hiện tại",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Tất cả tài liệu đang mở",
     "Str.FindReplace.Msg.NotFound": "Không tìm thấy văn bản tìm kiếm '{0}'.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Văn bản '{0}' chỉ xuất hiện trong phần đầu tệp hoặc các dòng Attribute của thủ tục. Tìm kiếm bỏ qua các vùng này vì chỉ IDE mới thay đổi chúng.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "Đã thay thế {0} lần; bỏ qua {1} kết quả trong phần đầu tệp hoặc các dòng Attribute của thủ tục, nơi chỉ IDE mới thay đổi.",
     "Str.FindReplace.Msg.ReplacementsMade": "Đã thực hiện {0} lần thay thế.",
     "Str.FindReplace.Msg.InvalidRegex": "Mẫu biểu thức chính quy không hợp lệ.",
     "Str.FindReplace.Msg.NothingToSearch": "Không có gì để tìm kiếm ở đây. Tìm kiếm hoạt động trong cửa sổ mã và trong các tệp văn bản mà dự án bao gồm.",

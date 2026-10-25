@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Geçerli Modül",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Tüm Açık Belgeler",
     "Str.FindReplace.Msg.NotFound": "'{0}' arama metni bulunamadı.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Aranan '{0}' metni yalnızca dosya başlığında veya bir yordamın Attribute satırlarında bulunuyor. Yalnızca IDE değiştirdiği için arama bu bölgeleri atlar.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} değiştirme yapıldı; yalnızca IDE'nin değiştirdiği başlık veya yordam Attribute satırlarında {1} eşleşme atlandı.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} değiştirme yapıldı.",
     "Str.FindReplace.Msg.InvalidRegex": "Geçersiz düzenli ifade deseni.",
     "Str.FindReplace.Msg.NothingToSearch": "Burada aranacak bir şey yok. Bul, kod pencerelerinde ve projeye dahil metin dosyalarında çalışır.",
