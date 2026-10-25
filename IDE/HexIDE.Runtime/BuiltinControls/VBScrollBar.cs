@@ -10,14 +10,15 @@ public class VBScrollBar : ScrollBar
 {
     protected override Type StyleKeyOverride => typeof(ScrollBar);
 
-    /// <summary>
-    /// VB6's Min and Max, as the form set them. They can differ from <see cref="RangeBase.Minimum"/> and
-    /// <see cref="RangeBase.Maximum"/>: VB6 lets Min exceed Max, and Avalonia raises Maximum to Minimum (#787).
-    /// </summary>
     public int VbMin { get; init; }
-
-    /// <inheritdoc cref="VbMin"/>
     public int VbMax { get; init; }
+
+    // Keep Avalonia's range ascending; a reversed VB6 bar maps each thumb position the other way (#787).
+    public int VbValue
+    {
+        get => (int)(VbMin > VbMax ? (double)VbMin + VbMax - Value : Value);
+        set => Value = VbMin > VbMax ? (double)VbMin + VbMax - value : value;
+    }
 
     static VBScrollBar()
     {

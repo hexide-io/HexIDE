@@ -788,6 +788,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' đã là tên của một biểu mẫu, mô-đun hoặc lớp trong dự án này. VB6 xếp chúng vào cùng một không gian tên, nên hai mục không thể trùng tên.",
     "Str.Naming.Msg.ProjectNameTaken": "Một dự án có tên '{0}' đã được nạp. Hai dự án trong cùng một nhóm không thể trùng tên.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' không được thêm vào. Nó có tên là '{0}', vốn đã là tên của một biểu mẫu, mô-đun hoặc lớp trong dự án này.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' không được thêm vào. Nó có tên là '{0}', vốn không phải là tên hợp lệ: tên bắt đầu bằng một chữ cái, sau đó là các chữ cái, chữ số và dấu gạch dưới."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' không được thêm vào. Nó có tên là '{0}', vốn không phải là tên hợp lệ: tên bắt đầu bằng một chữ cái, sau đó là các chữ cái, chữ số và dấu gạch dưới.",
+    "Str.ProjectLoad.ParseFailed": "Không thể phân tích tệp biểu mẫu: {0}",
+    "Str.ProjectLoad.InvalidForm": "Đây không phải là tệp biểu mẫu hợp lệ",
+    "Str.ProjectLoad.UnknownControl": "Lớp {0} của điều khiển {1} không phải là lớp điều khiển được hỗ trợ — được giữ lại dưới dạng không xác định.",
+    "Str.ProjectLoad.InvalidValue": "Thuộc tính {0} trong {1} có giá trị không hợp lệ.",
+    "Str.ProjectLoad.MissingOffset": "Thuộc tính {0} trong {1}: không tìm thấy độ lệch .frx.",
+    "Str.ProjectLoad.MissingRecord": "Thuộc tính '{0}' trong '{1}' tham chiếu đến một bản ghi không có trong tệp đi kèm, nên không thể lưu biểu mẫu.",
+    "Str.ProjectLoad.Heading": "Không thể giải tuần tự dự án đúng cách:",
+    "Str.ProjectLoad.MoreWarnings": "...và {0} cảnh báo khác (xem nhật ký để biết danh sách đầy đủ).",
+    "Str.ProjectLoad.ActiveXDocuments": "Dự án này chứa các tệp Tài liệu ActiveX (.dob) không được HexIDE hỗ trợ và đã bị bỏ qua:\n\n{0}\n\nTài liệu ActiveX cần Internet Explorer hoặc Trình đóng tập Office làm môi trường lưu trú, nhưng cả hai về cơ bản đều đã ngừng được sử dụng. Loại dự án này nằm ngoài phạm vi của HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Đã từ chối chỉnh sửa: {0}. Không có gì thay đổi."
   }
 }

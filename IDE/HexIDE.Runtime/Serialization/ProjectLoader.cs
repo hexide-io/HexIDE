@@ -58,8 +58,9 @@ public sealed class ProjectLoader
         project.TextEncoding = projectEncoding;
 
         // Pass 1: .ctl files — load UserControls first so FormParts are available when building the registry
-        foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
+        for (var index = 0; index < serializedProject.RelativeModulePaths.Count; index++)
         {
+            var (moduleName, modulePath, moduleKind) = serializedProject.RelativeModulePaths[index];
             if (moduleKind != ModuleKind.UserControl)
                 continue;
 
@@ -104,15 +105,16 @@ public sealed class ProjectLoader
                 errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
                 // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
                 // line would have the next Save Project remove the member from the project instead.
-                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
+                project.PreserveItemLine(ItemLineFor(moduleKind, moduleName, modulePath), serializedProject.ModuleLineSlots[index]);
             }
         }
 
         var userControlRegistry = BuildUserControlRegistry(project);
 
         // Pass 2: .frm files — load forms using the UC registry
-        foreach (var formPath in serializedProject.RelativeFormPaths)
+        for (var index = 0; index < serializedProject.RelativeFormPaths.Count; index++)
         {
+            var formPath = serializedProject.RelativeFormPaths[index];
             var formAbsolutePath = Path.Join(projectDir, SerializedProject.ToHostPath(formPath));
 
             try
@@ -123,7 +125,7 @@ public sealed class ProjectLoader
                     // Preserve the Form= line so the missing node survives an open->save round-trip
                     // (mirrors modules, which are kept even when their file is absent). Not loaded into
                     // the model — a future project-explorer spec may surface it with a "missing" glyph.
-                    project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
+                    project.PreserveItemLine($"{SerializedProject.FormKey}={formPath}", serializedProject.FormLineSlots[index]);
                     continue;
                 }
 
@@ -143,7 +145,7 @@ public sealed class ProjectLoader
                 else
                 {
                     errorSink.LogError($"Failed to load form {formPath}");
-                    project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
+                    project.PreserveItemLine($"{SerializedProject.FormKey}={formPath}", serializedProject.FormLineSlots[index]);
                 }
             }
             catch (Exception ex)
@@ -151,7 +153,7 @@ public sealed class ProjectLoader
                 Log.Error(ex, "Failed to load form {FormPath}", formPath);
                 errorSink.LogError($"Failed to load form {formPath}: {ex.Message}");
                 // Kept, as a missing form's line is: see the module passes.
-                project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
+                project.PreserveItemLine($"{SerializedProject.FormKey}={formPath}", serializedProject.FormLineSlots[index]);
             }
         }
 
@@ -161,13 +163,17 @@ public sealed class ProjectLoader
         // editor that opens it, not to project load. Reading here would mean loading every README and
         // spec in a project on open, and — worse — would hand a text buffer to machinery built for VB6
         // source, which is precisely how a non-code file ends up with an Attribute header written into it.
-        foreach (var (docName, docPath, originalItemLine) in serializedProject.RelativeRelatedDocPaths)
+        for (var index = 0; index < serializedProject.RelativeRelatedDocPaths.Count; index++)
         {
+            var (docName, docPath, originalItemLine) = serializedProject.RelativeRelatedDocPaths[index];
             try
             {
                 var absolute = Path.Join(projectDir, SerializedProject.ToHostPath(docPath));
                 project.AddRelatedDocument(
-                    new RelatedDocumentDefinition(project, docName, absolute, originalItemLine));
+                    new RelatedDocumentDefinition(project, docName, absolute, originalItemLine)
+                    {
+                        OriginalItemSlot = originalItemLine is null ? null : serializedProject.RelatedDocumentLineSlots[index],
+                    });
             }
             catch (Exception ex)
             {
@@ -177,8 +183,9 @@ public sealed class ProjectLoader
         }
 
         // Pass 3: remaining modules (.bas, .cls, .pag) — UserControls already loaded in pass 1
-        foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
+        for (var index = 0; index < serializedProject.RelativeModulePaths.Count; index++)
         {
+            var (moduleName, modulePath, moduleKind) = serializedProject.RelativeModulePaths[index];
             if (moduleKind == ModuleKind.UserControl)
                 continue;
 
@@ -226,7 +233,7 @@ public sealed class ProjectLoader
                 errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
                 // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
                 // line would have the next Save Project remove the member from the project instead.
-                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
+                project.PreserveItemLine(ItemLineFor(moduleKind, moduleName, modulePath), serializedProject.ModuleLineSlots[index]);
             }
         }
 
@@ -246,7 +253,9 @@ public sealed class ProjectLoader
             project.AddReference(reference);
 
         project.UnknownPreSectionLines.AddRange(serializedProject.UnknownPreSectionLines);
-        project.PreservedItemLines.AddRange(serializedProject.PreservedItemLines);
+        project.KnownLineKeys.AddRange(serializedProject.KnownLineKeys);
+        for (var i = 0; i < serializedProject.PreservedItemLines.Count; i++)
+            project.PreserveItemLine(serializedProject.PreservedItemLines[i], serializedProject.PreservedItemLineSlots[i]);
         project.ExtensionTail = serializedProject.ExtensionTail;
 
         return new Result(project, serializedProject, readByteForByte);

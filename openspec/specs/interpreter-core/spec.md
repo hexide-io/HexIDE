@@ -62,6 +62,21 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Cross-module constants SHALL initialise their module on demand
+A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
+declarations first, once, regardless of project list order or startup entry point. Re-entering a module still
+running its declarations SHALL raise "Circular dependencies between modules" as a compile error during execution.
+The dependency check SHALL operate per module, including array bounds, and SHALL NOT treat procedure bodies as
+module declaration dependencies. Within one module, constant expressions SHALL retain source order.
+
+#### Scenario: A declaration reads a later module's constant
+- **WHEN** Module1 declares `Public Const A = Module2.B + 1` and Module2 declares `Public Const B = 2`
+- **THEN** A is 3 in either module list order
+
+#### Scenario: A module cycle without a constant cycle
+- **WHEN** Module1 declares `Public Const A = 1` and `Public Const C = B + 1`, and Module2 declares `Public Const B = A + 1`
+- **THEN** execution refuses the declarations with "Circular dependencies between modules"
+
 ### Requirement: Behaviour SHALL be verified against the real product before it is pinned
 Where the correct behaviour of a language rule is uncertain, it SHALL be established by running the original
 VB6 and observing what it does, and SHALL NOT be settled from documentation or recollection. The verified
@@ -102,6 +117,11 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: A For body changes its integral numeric counter
+- **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
+- **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
+- **AND** resetting the counter to 0 at 3 in `For i = 1 To 3` repeats 1, 2, 3 until execution exits
+
 ### Requirement: The value model SHALL implement VB6's scalar types with their real ranges
 The runtime SHALL provide VB6's distinct numeric types with their documented ranges and a working date type,
 SHALL type literals as VB6 types them, and SHALL raise a trappable overflow when a result or a store falls
@@ -140,6 +160,10 @@ by value will run such a program to completion while producing the wrong answer.
 #### Scenario: A parameter declared by value
 - **WHEN** a parameter is declared by value and the procedure assigns to it
 - **THEN** the caller's variable is unchanged
+
+#### Scenario: An unspaced parenthesised member-call argument
+- **WHEN** a member call statement puts its parenthesised argument directly after the member name
+- **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
 
 ### Requirement: Name resolution SHALL let user code shadow built-in functions
 A name SHALL be resolved as a local variable or array first, then as a procedure defined in the project, and
@@ -188,6 +212,7 @@ Where the engine does not implement part of the language, it SHALL fail in a way
 missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an
 error handler in the program SHALL NOT be able to trap it. A form holding a control the engine cannot create
 SHALL be refused the same way, before any of its controls is placed, naming each control it cannot create.
+A control carrying DataSource SHALL likewise refuse the form before placement, naming the control and data source and stating that data binding is not implemented (#859).
 
 The engine is deliberately incomplete, so meeting its edge is a normal outcome rather than an exceptional
 one. A clear stop tells the developer they have found the boundary and lets them decide what to do; a silent
@@ -209,11 +234,17 @@ because nothing inside an uncreatable control is read.
 #### Scenario: Using a feature the engine does not implement
 - **WHEN** a program uses a language feature the engine does not implement
 - **THEN** it stops with an error identifying the unimplemented feature
+- **AND** when reached through a statement, the error text SHALL append `at <statement>`, naming the
+  innermost failing statement from its own source rather than its caller (#758)
 
 #### Scenario: Under an error handler
 - **WHEN** a program that has asked to continue at the next statement on error, or that has a handler active,
   uses a language feature the engine does not implement
 - **THEN** it stops just the same, neither skipping the statement nor entering the handler
+
+#### Scenario: Reference cleanup during an unimplemented fault
+- **WHEN** an unimplemented feature fails while statement temporaries or procedure-owned references exist
+- **THEN** cleanup skips Class_Terminate, preserving the original failure even if that hook would raise a trappable error
 
 #### Scenario: In a running IDE
 - **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
@@ -228,3 +259,9 @@ because nothing inside an uncreatable control is read.
   program loads it, under an error handler or not
 - **THEN** it is refused before any of its controls is placed, naming every control it cannot create, nested ones
   included
+
+#### Scenario: A form holding a data-bound control
+- **WHEN** a form containing a control carrying DataSource is built to run, including a control nested in a Frame
+- **THEN** it is refused before any control is placed, naming the control and source and explaining that data
+  binding is not implemented
+- **THEN** F5 reports the refusal to the developer, and a made program shows it in its error box
