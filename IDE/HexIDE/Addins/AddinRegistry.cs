@@ -216,8 +216,24 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             }
 
             var addin = (IAddin)Activator.CreateInstance(addinType)!;
+            InitializeAddin(ctx, addin, status, host);
+        }
+        catch (Exception ex)
+        {
+            ctx.Status = AddinStatus.Error;
+            ctx.ErrorMessage = ex.Message;
+            Log.Warning(ex, "AddinRegistry: failed to load {Dir}", ctx.PackageDirectory);
+        }
+    }
+
+    internal void InitializeAddin(AddinContext ctx, IAddin addin, AddinStatus status, IHexIdeHost host)
+    {
+        try
+        {
+            using var contributions = new AddinInitializationScope();
             ctx.Instance = addin;
             addin.Initialize(host);
+            contributions.Complete();
             ctx.Status = status;
             Log.Information("AddinRegistry: {Title} v{Version} loaded from {Dir} [{Trust}]",
                 ctx.Info.Title, ctx.Info.Version, ctx.PackageDirectory,
@@ -227,7 +243,10 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             ctx.Status = AddinStatus.Error;
             ctx.ErrorMessage = ex.Message;
-            Log.Warning(ex, "AddinRegistry: failed to load {Dir}", ctx.PackageDirectory);
+            Log.Warning(ex, "AddinRegistry: failed to initialize {Dir}", ctx.PackageDirectory);
+            try { addin.Dispose(); }
+            catch (Exception cleanup) { Log.Warning(cleanup, "AddinRegistry: error disposing failed add-in"); }
+            ctx.Instance = null;
         }
     }
 
