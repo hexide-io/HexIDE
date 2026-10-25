@@ -30,6 +30,7 @@ internal static class IdeServer
         builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(port));
 
         builder.Services.AddSingleton(context);
+        builder.Services.AddHttpContextAccessor();
         // A call from another agent session is refused before anything else (#1306), and an exception a tool did not
         // catch is reported with its type and message rather than the SDK's bare "An error occurred invoking" (#603).
         ToolFilters.Register(builder.Services

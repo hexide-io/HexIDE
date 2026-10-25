@@ -12,9 +12,9 @@
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
-# merge-conflict markers, and xUnit assertions in test sources. Warns (exit 0) on TWO things, both
-# expected and neither blocking: key material .gitignore already covers, and the
-# upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
+# merge-conflict markers, xUnit assertions in test sources, and C1 control characters.
+# Warns (exit 0) on TWO things, both expected and neither blocking: key material .gitignore already covers, and the
+# upstream-attribution mention. Exits 2 when git cannot read the tree or the link scan cannot create its temp file.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
 # listings see only TRACKED files, so a brand-new file is invisible until it is staged --
@@ -201,22 +201,33 @@ fi
 
 # 5. Dangling relative links in Markdown. Resolve each link target for real, rather than
 #    assuming a prefix is broken — most of them resolve, and the few that do not are
-#    exactly what this is for.
+#    exactly what this is for. Titles and angle brackets are Markdown syntax, not part of the path.
+links="$(mktemp)" || { echo "check-tree-hygiene: cannot create a temp file; refusing to report a pass." >&2; exit 2; }
+trap 'rm -f "$links"' EXIT
 while IFS= read -r -d '' md; do
   dir="$(dirname "$md")"
-  grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' | while IFS= read -r target; do
+  grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' |
+    sed 's/^<\([^>]*\)>.*$/\1/;t;s/[[:space:]]\{1,\}"[^"]*"[[:space:]]*$//' | while IFS= read -r target; do
     case "$target" in http://*|https://*|\#*|mailto:*|"") continue;; esac
     target="${target%%#*}"
     [ -z "$target" ] && continue
+    # Decode once, after removing the fragment: %23 belongs to a filename, not an anchor.
+    encoded="$target"
+    target=""
+    while [[ "$encoded" =~ ^([^%]*)%([[:xdigit:]]{2})(.*)$ ]]; do
+      printf -v byte '%b' "\\x${BASH_REMATCH[2]}"
+      target+="${BASH_REMATCH[1]}$byte"
+      encoded="${BASH_REMATCH[3]}"
+    done
+    target+="$encoded"
     if [ ! -e "$dir/$target" ] && [ ! -e "$target" ]; then
       printf '%s->%s\n' "$md" "$target"
     fi
   done
-done < <(tree_files '*.md') > /tmp/hexide-linkcheck.$$ 2>/dev/null
+done < <(tree_files '*.md') > "$links"
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "dangling relative link: $hit"
-done < /tmp/hexide-linkcheck.$$
-rm -f /tmp/hexide-linkcheck.$$
+done < "$links"
 
 # 6. Third-party naming. The rule: this repository never asserts anything about another
 #    project's PLANS — no "X will be the backend", no "X's lane". Describing the
@@ -274,6 +285,13 @@ done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "xUnit Assert API in test source (use AwesomeAssertions): $hit"
 done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnum:]_]*' -- ':(glob)**/*.Tests/**/*.cs')
+
+# 10. C1 controls (U+0080–U+009F) in UTF-8 text indicate an encoding accident (#1312).
+# Scan even the scripts excluded above; tests needing a control must spell it as an escape.
+# Match UTF-8 bytes under C locale so the result does not depend on the host's locale.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "C1 control character: $hit"
+done < <(LC_ALL=C git grep --untracked -nIP '\xC2[\x80-\x9F]' -- .)
 
 echo
 if [ "$fails" -eq 0 ]; then

@@ -150,8 +150,16 @@ than calling a tool: three refused calls in a row drop the tools until `/mcp`.
 
 **Retiring this entry** needs the client change named at the top. Everything #765 asked to be checked live has
 been, except what the client does with a 400, which no switch-over has produced yet.
-No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on. #764 records a
-server-side idea that may win back the added-tool case, to measure during the SDK upgrade.
+No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on.
+
+**SDK upgrade (#764).** The server now uses 2.2.0, supporting `server/discover` and revision 2026-07-28;
+legacy clients remain stateless too. The historical Claude Code measurements above are not measurements of
+this SDK. Recheck a fresh connection for the absence of the legacy negotiation fallback, then call an existing
+tool before and after a rebuild/relaunch, including a 40-second downtime, and check that the tools remain
+callable without `/mcp`. Repeat tool-list discovery after adding a tool. The comment on #764 suggests
+`notifications/tools/list_changed` on a call's response stream; no notification or subscription handler has
+been added, and its effect on Claude Code remains unmeasured. Keep this entry open until the client behaviour
+is measured again; the upgrade alone does not retire it.
 
 ---
 
@@ -206,7 +214,13 @@ Linux, and that a real mouse behaves normally after a hover ends.
 > is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
 > with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
 > process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
-> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
+> look in the log. The four IDE-owned timer callbacks named in #652 now catch and log exceptions with
+> their purpose and stack, remaining nonfatal. This covers dock-layout capture, the language revert
+> countdown, the minimap redraw and the designer code-navigation follow-up; the DEBUG crash hook remains
+> an unwrapped framework probe. VB6 Timer events keep their existing interpreter runtime-error handling
+> (checked in the later #652 comment). WSL/Ubuntu headless probes on Avalonia 12 confirm that throwing Tick and Run
+> callbacks execute without reaching `Dispatcher.UIThread.UnhandledException`; the three logging regressions
+> (Tick, Run, RunOnce) each fail with an empty log when the guard is reduced to calling the body directly.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
@@ -296,6 +310,12 @@ the confirmation the tool promises. Either way, do not leave a window up with no
 shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
 what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
 
+**Ordering hardened for #644 (2026-10-25; live verification pending).** The main-window close now waits
+for HTTP response completion, and server/context cleanup waits for desktop `Exit`, rather than the
+cancellable `ShutdownRequested` event. Headless regression coverage checks response ordering and the
+exit subscription. The original trigger remains unknown; keep this entry open until a running IDE check
+confirms a complete reply followed by exit, and a cancelled close leaves `/health` and tools working.
+
 ---
 
 ## An empty reply that does not say why is a defect, not a null result
@@ -354,30 +374,9 @@ by re-reading prose that had just been written. That half is the first-contact e
 
 ---
 
-## Every automation route to a new document saves it, so the pathless state cannot be reached
+## A newly created pathless form initially reads without its header (#885)
 
-**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
-the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
-by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
-`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
-into `%TEMP%` before the first tool call
-(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
-file.
-
-**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
-*ordinary* state: nothing is written until the project is saved. #273 names such a document
-`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
-servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
-through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
-spelling is dead code.
-
-**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
-`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
-`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
-writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
-of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
-
-**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+**Symptom, since #273 task 3.18.** Read in code, not run. `get_file_content`
 returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
 which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
 change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
@@ -385,12 +384,6 @@ its lines count from the top of that header. So a line number read before then i
 it. **Workaround:** read the content again after any designer change or save before using a line number from it.
 Where a created form's first header should come from, so that it holds one from the start, is
 [#885](https://github.com/hexide-io/HexIDE/issues/885).
-
-**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
-leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
-way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
-can reach the state the product will normally be in once #500 lands. Until then, any verification of
-`untitled:` naming through this surface is verifying something the surface itself prevents.
 
 ## Three tools accept a negative control size and report success
 
@@ -507,39 +500,6 @@ returned before the write, which is applied the same way.
 `type_text` give. The issue lists this tool among the writers that still edit such a file.
 [#701](https://github.com/hexide-io/HexIDE/issues/701).
 
-## Replies that report or act on a document without taking its name do not say which project's it is
-
-**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
-loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
-that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
-group holding a `Form1` in each of two projects:
-
-```
-step_over {}               → "note": "Paused at Form1 line 9 (Step)."
-                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
-get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
-invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
-                             as invoke_designer_redo, get_undo_state and invoke_format_command
-get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
-get_open_editors {}        → each editor's title, and 'activeWindow' as a title
-```
-
-None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
-`project`; the run-control notes beside them do not. A tab's title starts with its project's name
-(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
-the IDE's language, and not the `project` and `document` every naming tool takes and returns.
-
-**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
-lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
-designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
-a name.
-
-**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
-locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
-tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
-Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
-SHALL identify it by its project and its name", is only partly met.
-[#886](https://github.com/hexide-io/HexIDE/issues/886).
 
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 

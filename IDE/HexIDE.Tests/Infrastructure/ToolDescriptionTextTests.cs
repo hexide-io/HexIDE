@@ -88,7 +88,7 @@ public class ToolDescriptionTextTests
     public void Interact_explains_the_primary_and_how_to_choose_it()
     {
         ToolSource.Tools.Single(t => t.Name == "interact").Parameters.Single(p => p.Name == "action").Description
-            .Should().Contain("names the primary").And.Contain("select it first");
+            .Should().Contain("names the primary").And.Contain("The primary is the last control added");
     }
 
     [Fact]

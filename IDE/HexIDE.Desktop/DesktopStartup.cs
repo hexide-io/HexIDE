@@ -36,7 +36,9 @@ internal static class DesktopStartup
             Vb6TextEncoding.SimulateHostCodePage(codePage);
 #endif
 
-        if (ServerOptions.NewProject)
+        if (ServerOptions.NewProjectUnsaved)
+            HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);
+        else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);
@@ -114,7 +116,8 @@ internal static class DesktopStartup
                     }
                 });
 
-            desktop.ShutdownRequested += (_, _) =>
+            // ShutdownRequested can be cancelled. Keep automation available while any window survives.
+            desktop.Exit += (_, _) =>
             {
                 ctx.Dispose();
                 cts.Cancel();
