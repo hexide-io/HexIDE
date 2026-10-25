@@ -188,6 +188,7 @@ public partial class ProjectToolViewModel : Tool
 
     private void OnSelectedItemChanged()
     {
+        eventBus.Publish(new ModulePropertiesSelectedEvent(SelectedModule?.ModuleDefinition));
         archives?.SelectTreeEntry(HasArchiveSelection);
         ViewObjectCommand.RaiseCanExecutedChanged();
         ViewCodeCommand.RaiseCanExecutedChanged();

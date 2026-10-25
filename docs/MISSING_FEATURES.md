@@ -73,7 +73,7 @@
 | Watch Window | — | Done (P6a) | Watches window (Expression/Value/Type/Context, expandable tree), re-evaluates each watch on every break, blanks on continue; Add/Edit/Delete + the three VB6 watch types; MCP `add_watch`/`get_watches` |
 | Call Stack… | Ctrl+L | Done (Phase 5) | Dockable Call Stack tool window; lists the running activation chain (Module.Procedure + Line, current frame arrowed) from `IDebugController.GetCallStack()`; rebuilt on each break, cleared on Continue; MCP `get_call_stack`. Additive vs VB6's modal list — D16–D17 |
 | Project Explorer | Ctrl+R | Done | Menu item enabled; opens/focuses Project Explorer tool window |
-| Properties Window | F4 | Done | |
+| Properties Window | F4 | Done | Selecting a module, class, UserControl or PropertyPage in Project Explorer offers `(Name)` with project naming checks; renaming keeps the designer root and `VB_Name` together and leaves the filename unchanged (#493) |
 | Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height) |
 | Property Pages | — | Windows-only | `IPropertyPage`/`IPropertyPageSite` COM runtime display; Windows-only |
 | Toolbox | — | Done | |

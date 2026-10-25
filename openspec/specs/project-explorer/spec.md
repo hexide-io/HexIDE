@@ -201,3 +201,23 @@ open into yet.
 #### Scenario: Expansion survives activation
 - **WHEN** the developer activates an expanded project in the tree
 - **THEN** the project opens and remains expanded
+
+### Requirement: Selecting a module SHALL offer its name in the Properties window
+Selecting a standard module, class module, UserControl or PropertyPage SHALL show a single `(Name)` row.
+A rename SHALL apply the existing VB6 identifier and per-project document-name checks, excluding the document
+itself. A refused edit SHALL report the reason and restore the row. A successful rename SHALL update the
+module name and its `VB_Name`, including an open code window, without changing its file path. For a UserControl
+or PropertyPage, the designer root SHALL follow the module name, and a committed designer root rename or undo
+SHALL keep the module name in step.
+
+#### Scenario: Rename a module selected in the tree
+- **WHEN** the developer selects a module and commits a free valid name in Properties
+- **THEN** the module and its code header use that name and its file path stays unchanged
+
+#### Scenario: Refuse a name another document holds
+- **WHEN** a module is renamed to a name another document in its project holds
+- **THEN** the rename is refused with the existing naming message and the row shows its original name
+
+#### Scenario: Rename a designer root
+- **WHEN** a UserControl or PropertyPage root is renamed in its designer
+- **THEN** its module name and `VB_Name` follow the root, including on designer undo

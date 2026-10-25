@@ -73,6 +73,8 @@ public partial class ComponentInstanceViewModel : ObservableObject
         }
         else if (propertyClass == VBProperties.NameProperty)
         {
+            if (ReferenceEquals(this, parentViewModel.Form) && parentViewModel.FormDefinition?.OwningModule is { } module)
+                module.Name = Name;
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(AddressedName));
         }
