@@ -356,3 +356,13 @@ existing line endings merely because the file is saved (#530).
 #### Scenario: No line ending exists yet
 - **WHEN** a writer introduces line breaks into an empty or single-line buffer
 - **THEN** it writes CRLF on every host
+
+### Requirement: Insert toggles overtype with immediate status feedback
+The code window SHALL toggle between insert and overtype mode when Insert is pressed.
+The status bar SHALL reflect the new mode immediately, without requiring the caret to move.
+
+#### Scenario: Toggle overtype and return to insert
+- **WHEN** the developer presses Insert in a focused code window
+- **THEN** overtype mode is enabled and the status bar displays the localized overtype label
+- **WHEN** the developer presses Insert again
+- **THEN** insert mode is restored and the status bar displays the localized insert label

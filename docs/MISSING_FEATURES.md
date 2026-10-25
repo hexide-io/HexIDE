@@ -438,7 +438,7 @@
 |---|---|---|
 | Message / Ready text | Done | "Ready", "Running…", transient messages |
 | Line, Col display | Done | Updates with editor cursor. The line counts from the top of the file, header included (#273) |
-| INS / OVR mode | Done | Reflects AvaloniaEdit insert mode |
+| INS / OVR mode | Done | Insert toggles insert/overtype in the code window; the localized status cell updates immediately without a caret move (#1870) |
 | Caps Lock / Num Lock indicators | Missing | VB6 shows these; not present |
 
 ---
