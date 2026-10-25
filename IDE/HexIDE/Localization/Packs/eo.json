@@ -2,6 +2,8 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Uzu oblikvajn strekojn (C:/Users/me/...) aŭ duoblajn inversajn oblikvajn strekojn (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "La kampo '{0}' enhavas regsignon el eskapa sekvenco; verŝajne celita vojo kun inversaj oblikvaj strekoj: {1}. La valoro restas senŝanĝa.",
     "Str.Automation.Minimize": "Minimumigi",
     "Str.Automation.MaximizeRestore": "Maksimumigi aŭ restarigi",
     "Str.Automation.ChooseColor": "Elekti koloron",

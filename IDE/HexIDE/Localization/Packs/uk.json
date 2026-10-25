@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Використовуйте прямі скісні риски (C:/Users/me/...) або подвоєні зворотні скісні риски (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Поле '{0}' містить керівний символ з escape-послідовності; імовірно, мався на увазі шлях зі зворотними скісними рисками: {1}. Значення не змінено.",
     "Str.Automation.Minimize": "Згорнути",
     "Str.Automation.MaximizeRestore": "Розгорнути або відновити",
     "Str.Automation.ChooseColor": "Вибрати колір",

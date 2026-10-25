@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Použijte lomítka (C:/Users/me/...) nebo zdvojená zpětná lomítka (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Pole '{0}' obsahuje řídicí znak z escape sekvence; pravděpodobně zamýšlená cesta se zpětnými lomítky: {1}. Hodnota zůstává beze změny.",
     "Str.Automation.Minimize": "Minimalizovat",
     "Str.Automation.MaximizeRestore": "Maximalizovat nebo obnovit",
     "Str.Automation.ChooseColor": "Vybrat barvu",

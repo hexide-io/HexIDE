@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Utilisez des barres obliques (C:/Users/me/...) ou des barres obliques inverses doublées (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Le champ '{0}' contient un caractère de contrôle issu d’une séquence d’échappement ; chemin probablement voulu avec des barres obliques inverses : {1}. La valeur reste inchangée.",
     "Str.Automation.Minimize": "Réduire",
     "Str.Automation.MaximizeRestore": "Agrandir ou restaurer",
     "Str.Automation.ChooseColor": "Choisir une couleur",

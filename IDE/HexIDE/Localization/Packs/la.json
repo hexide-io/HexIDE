@@ -2,6 +2,8 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Utere virgulis obliquis (C:/Users/me/...) vel virgulis obliquis inversis duplicatis (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Campus '{0}' characterem moderantem ex serie effugii continet; via virgulis inversis probabiliter intenta: {1}. Valor immutatus manet.",
     "Str.Automation.Minimize": "Minue",
     "Str.Automation.MaximizeRestore": "Amplifica vel restitue",
     "Str.Automation.ChooseColor": "Colorem elige",

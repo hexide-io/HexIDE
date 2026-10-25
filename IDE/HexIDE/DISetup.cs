@@ -141,12 +141,13 @@ public partial class DISetup
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<ILocalizationService>(out var localization);
 
                 var log = loggerFactory.CreateLogger<DISetup>();
                 var defaults = LanguageServerDefaults.For(locator, log);
 
                 return new LanguageServerConfigLoader(
-                        loggerFactory.CreateLogger<LanguageServerConfigLoader>())
+                        loggerFactory.CreateLogger<LanguageServerConfigLoader>(), localization.GetString)
                     .Load(defaults, new LanguageServerCommandStore());
             })
             // One record for the session, shared by every connection and outliving each of them. A server

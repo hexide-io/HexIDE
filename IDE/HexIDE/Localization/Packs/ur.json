@@ -2,6 +2,8 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "فارورڈ سلیش (C:/Users/me/...) یا دوہرے بیک سلیش (C:\\\\Users\\\\me\\\\...) استعمال کریں۔",
+    "Str.LspConfig.PathControlWarning": "فیلڈ '{0}' میں ایسکیپ ترتیب سے بنا کنٹرول حرف ہے؛ ممکنہ مطلوبہ بیک سلیش راستہ: {1}۔ قدر تبدیل نہیں کی گئی۔",
     "Str.Automation.Minimize": "چھوٹا کریں",
     "Str.Automation.MaximizeRestore": "بڑا کریں یا بحال کریں",
     "Str.Automation.ChooseColor": "رنگ منتخب کریں",

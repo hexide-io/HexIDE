@@ -49,6 +49,16 @@ not; a language server is a process, so it belongs to the second group.
 
 Comments and trailing commas are allowed — this is a file you edit by hand, not a wire format.
 
+For Windows paths, write forward slashes first: `C:/tools/new/server.exe`. Doubled backslashes
+(`C:\\tools\\new\\server.exe`) also work. Single backslashes are JSON escapes: an invalid escape
+rejects the file with repair guidance and the field and position. A valid escape such as `\t` or `\n`
+silently means a tab or newline instead of a backslash and a letter.
+
+HexIDE warns about these control characters in `command`, `arguments`, `workingDirectory`, and
+`workspaceArtifact.path`, naming the field and showing the likely intended backslash path. This warning
+does not rewrite the value or reject the entry; other validation still applies. `cwd` and `environment`
+are not configuration fields HexIDE supports.
+
 ## The fields
 
 | Field | Required | Meaning |
@@ -257,9 +267,10 @@ In order of likelihood:
 
 1. **Check the log** — `%LocalAppData%/HexIDE/logs/ide/`. A malformed entry is reported there with the
    reason, the field, and the line and column. A rejected entry does not stop the others from working.
-2. **Windows paths need doubled backslashes in JSON**, or forward slashes. A path written with single
-   backslashes is not valid JSON at all — the log names the offending field, such as
-   `$.servers[0].command`, with the line and column.
+2. **Use forward slashes for Windows paths**, or double each backslash in JSON. An invalid escape
+   names the offending field, such as `$.servers[0].command`, with the line and position and the two
+   supported forms. Valid escapes can instead produce control characters: the loader warns about those
+   in path fields and shows the likely intended path, leaving the legal value unchanged.
 3. **Have you opened a file it claims?** Servers start lazily, so a server for a language you have not
    opened is *expected* to be absent.
 4. **Does it defer its analysis to save?** HexIDE tells a server about a save only if the server asked to

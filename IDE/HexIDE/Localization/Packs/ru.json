@@ -2,6 +2,8 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Используйте прямые косые черты (C:/Users/me/...) или удвоенные обратные косые черты (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Поле '{0}' содержит управляющий символ из escape-последовательности; вероятно, подразумевался путь с обратными косыми чертами: {1}. Значение не изменено.",
     "Str.Automation.Minimize": "Свернуть",
     "Str.Automation.MaximizeRestore": "Развернуть или восстановить",
     "Str.Automation.ChooseColor": "Выбрать цвет",

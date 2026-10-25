@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "请使用正斜杠 (C:/Users/me/...) 或双反斜杠 (C:\\\\Users\\\\me\\\\...)。",
+    "Str.LspConfig.PathControlWarning": "字段 '{0}' 包含转义序列产生的控制字符；可能原本想写的反斜杠路径：{1}。值保持不变。",
     "Str.Automation.Minimize": "最小化",
     "Str.Automation.MaximizeRestore": "最大化或还原",
     "Str.Automation.ChooseColor": "选择颜色",

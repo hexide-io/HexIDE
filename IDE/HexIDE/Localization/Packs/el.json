@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Χρησιμοποιήστε κάθετους (C:/Users/me/...) ή διπλές ανάστροφες καθέτους (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Το πεδίο '{0}' περιέχει χαρακτήρα ελέγχου από ακολουθία διαφυγής· πιθανή επιθυμητή διαδρομή με ανάστροφες καθέτους: {1}. Η τιμή παραμένει αμετάβλητη.",
     "Str.Automation.Minimize": "Ελαχιστοποίηση",
     "Str.Automation.MaximizeRestore": "Μεγιστοποίηση ή επαναφορά",
     "Str.Automation.ChooseColor": "Επιλογή χρώματος",

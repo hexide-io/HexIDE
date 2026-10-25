@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Use barras (C:/Users/me/...) ou barras invertidas duplas (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "O campo '{0}' contém um caractere de controle produzido por uma sequência de escape; caminho com barras invertidas provavelmente pretendido: {1}. O valor permanece inalterado.",
     "Str.Automation.Minimize": "Minimizar",
     "Str.Automation.MaximizeRestore": "Maximizar ou restaurar",
     "Str.Automation.ChooseColor": "Escolher cor",

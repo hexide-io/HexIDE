@@ -2,6 +2,8 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "फ़ॉरवर्ड स्लैश (C:/Users/me/...) या दोहरे बैकस्लैश (C:\\\\Users\\\\me\\\\...) का उपयोग करें।",
+    "Str.LspConfig.PathControlWarning": "फ़ील्ड '{0}' में एस्केप अनुक्रम से बना नियंत्रण वर्ण है; संभावित इच्छित बैकस्लैश पथ: {1}। मान अपरिवर्तित है।",
     "Str.Automation.Minimize": "छोटा करें",
     "Str.Automation.MaximizeRestore": "बड़ा करें या पुनर्स्थापित करें",
     "Str.Automation.ChooseColor": "रंग चुनें",

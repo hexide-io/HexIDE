@@ -2,6 +2,8 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "از ممیز (C:/Users/me/...) یا ممیز وارون دوتایی (C:\\\\Users\\\\me\\\\...) استفاده کنید.",
+    "Str.LspConfig.PathControlWarning": "فیلد '{0}' شامل نویسهٔ کنترلی حاصل از دنبالهٔ گریز است؛ مسیر مورد نظر احتمالی با ممیز وارون: {1}. مقدار تغییر نکرده است.",
     "Str.Automation.Minimize": "کمینه‌سازی",
     "Str.Automation.MaximizeRestore": "بیشینه‌سازی یا بازیابی",
     "Str.Automation.ChooseColor": "انتخاب رنگ",

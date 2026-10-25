@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Usare barre (C:/Users/me/...) o barre inverse doppie (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Il campo '{0}' contiene un carattere di controllo prodotto da una sequenza di escape; probabile percorso desiderato con barre inverse: {1}. Il valore resta invariato.",
     "Str.Automation.Minimize": "Riduci a icona",
     "Str.Automation.MaximizeRestore": "Ingrandisci o ripristina",
     "Str.Automation.ChooseColor": "Scegli colore",

@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Käytä kauttaviivoja (C:/Users/me/...) tai kaksinkertaisia kenoviivoja (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Kenttä '{0}' sisältää escape-sekvenssistä syntyneen ohjausmerkin; todennäköisesti tarkoitettu polku kenoviivoilla: {1}. Arvoa ei muutettu.",
     "Str.Automation.Minimize": "Pienennä",
     "Str.Automation.MaximizeRestore": "Suurenna tai palauta",
     "Str.Automation.ChooseColor": "Valitse väri",

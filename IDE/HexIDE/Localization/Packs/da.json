@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Brug skråstreger (C:/Users/me/...) eller dobbelte omvendte skråstreger (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Feltet '{0}' indeholder et kontroltegn fra en escape-sekvens; sandsynligvis tilsigtet sti med omvendte skråstreger: {1}. Værdien er uændret.",
     "Str.Automation.Minimize": "Minimer",
     "Str.Automation.MaximizeRestore": "Maksimer eller gendan",
     "Str.Automation.ChooseColor": "Vælg farve",

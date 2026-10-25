@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "슬래시(C:/Users/me/...) 또는 이중 백슬래시(C:\\\\Users\\\\me\\\\...)를 사용하세요.",
+    "Str.LspConfig.PathControlWarning": "필드 '{0}'에 이스케이프 시퀀스로 생성된 제어 문자가 있습니다. 의도했을 가능성이 있는 백슬래시 경로: {1}. 값은 변경되지 않았습니다.",
     "Str.Automation.Minimize": "최소화",
     "Str.Automation.MaximizeRestore": "최대화 또는 복원",
     "Str.Automation.ChooseColor": "색 선택",

@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "請使用正斜線 (C:/Users/me/...) 或雙反斜線 (C:\\\\Users\\\\me\\\\...)。",
+    "Str.LspConfig.PathControlWarning": "欄位 '{0}' 包含逸出序列產生的控制字元；可能原本想寫的反斜線路徑：{1}。值保持不變。",
     "Str.Automation.Minimize": "最小化",
     "Str.Automation.MaximizeRestore": "最大化或還原",
     "Str.Automation.ChooseColor": "選擇色彩",

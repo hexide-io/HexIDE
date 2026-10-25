@@ -45,15 +45,21 @@ public sealed class LanguageServerConfigLoader
     /// <summary>The shape this loader understands. A file declaring a later one is left alone.</summary>
     public const int SupportedVersion = 1;
 
+    private const string PathEscapeHint = """Use forward slashes (C:/Users/me/...) or doubled backslashes (C:\\Users\\me\\...).""";
+    private const string PathControlWarning = "Field '{0}' contains an escaped control character; likely intended backslash path: {1}. The value is unchanged.";
+
+    private readonly Func<string, string>? _getString;
     private readonly string _filePath;
     private readonly ILogger<LanguageServerConfigLoader> _logger;
 
-    public LanguageServerConfigLoader(ILogger<LanguageServerConfigLoader> logger)
-        : this(DefaultFilePath(), logger) { }
+    public LanguageServerConfigLoader(ILogger<LanguageServerConfigLoader> logger, Func<string, string>? getString = null)
+        : this(DefaultFilePath(), logger, getString) { }
 
     /// <param name="filePath">Explicit path, so tests drive real files rather than a mocked filesystem.</param>
-    public LanguageServerConfigLoader(string filePath, ILogger<LanguageServerConfigLoader> logger)
+    public LanguageServerConfigLoader(string filePath, ILogger<LanguageServerConfigLoader> logger,
+        Func<string, string>? getString = null)
     {
+        _getString = getString;
         _filePath = filePath;
         _logger = logger;
     }
@@ -299,16 +305,40 @@ public sealed class LanguageServerConfigLoader
                 return null;
             }
 
+            foreach (var entry in file.Servers ?? [])
+            {
+                CheckPath(entry, "command", entry.Command, problems);
+                CheckPath(entry, "arguments", entry.Arguments, problems);
+                CheckPath(entry, "workingDirectory", entry.WorkingDirectory, problems);
+                CheckPath(entry, "workspaceArtifact.path", entry.WorkspaceArtifact?.Path, problems);
+            }
+
             return file;
         }
         catch (Exception ex)
         {
             // Every entry is lost, which is why the message has to reach a person and not only the log.
             _logger.LogWarning(ex, "Could not read language server configuration at {Path}", _filePath);
+            var hint = ex is JsonException && (ex.Message.Contains("invalid escapable character", StringComparison.Ordinal)
+                    || ex.Message.Contains("hex digit following", StringComparison.Ordinal))
+                ? " " + (_getString?.Invoke("Str.LspConfig.PathEscapeHint") ?? PathEscapeHint)
+                : "";
             problems.Add(new LanguageServerConfigProblem(
-                null, $"The configuration file could not be read: {ex.Message}", true));
+                null, $"The configuration file '{_filePath}' could not be read: {ex.Message}{hint}", true));
             return null;
         }
+    }
+
+    private void CheckPath(LanguageServerEntry entry, string field, string? value,
+        List<LanguageServerConfigProblem> problems)
+    {
+        if (value is null || value.IndexOfAny(['\t', '\n', '\r', '\b', '\f']) < 0) return;
+
+        var intended = value.Replace("\t", @"\t").Replace("\n", @"\n").Replace("\r", @"\r")
+            .Replace("\b", @"\b").Replace("\f", @"\f");
+        problems.Add(new LanguageServerConfigProblem(entry.Id,
+            string.Format(_getString?.Invoke("Str.LspConfig.PathControlWarning") ?? PathControlWarning,
+                field, intended), false));
     }
 
     /// <summary>

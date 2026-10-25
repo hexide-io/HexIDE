@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "יש להשתמש בלוכסנים (C:/Users/me/...) או בלוכסנים הפוכים כפולים (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "השדה '{0}' מכיל תו בקרה שנוצר מרצף מילוט; הנתיב המיועד כנראה עם לוכסנים הפוכים: {1}. הערך לא השתנה.",
     "Str.Automation.Minimize": "מזעור",
     "Str.Automation.MaximizeRestore": "הגדלה או שחזור",
     "Str.Automation.ChooseColor": "בחירת צבע",

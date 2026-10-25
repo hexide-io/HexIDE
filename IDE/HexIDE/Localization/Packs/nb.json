@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Bruk skråstreker (C:/Users/me/...) eller doble omvendte skråstreker (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Feltet '{0}' inneholder et kontrolltegn fra en escape-sekvens; sannsynligvis tiltenkt sti med omvendte skråstreker: {1}. Verdien er uendret.",
     "Str.Automation.Minimize": "Minimer",
     "Str.Automation.MaximizeRestore": "Maksimer eller gjenopprett",
     "Str.Automation.ChooseColor": "Velg farge",

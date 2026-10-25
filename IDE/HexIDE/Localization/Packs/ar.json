@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "استخدم الشرطات المائلة (C:/Users/me/...) أو الشرطات المائلة العكسية المزدوجة (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "يحتوي الحقل '{0}' على محرف تحكم ناتج عن تسلسل هروب؛ المسار المقصود على الأرجح: {1}. لم تتغير القيمة.",
     "Str.Automation.Minimize": "تصغير",
     "Str.Automation.MaximizeRestore": "تكبير أو استعادة",
     "Str.Automation.ChooseColor": "اختيار لون",

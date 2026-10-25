@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Gunakan garis miring (C:/Users/me/...) atau garis miring terbalik ganda (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Kolom '{0}' berisi karakter kontrol dari urutan escape; kemungkinan jalur bergaris miring terbalik yang dimaksud: {1}. Nilai tidak diubah.",
     "Str.Automation.Minimize": "Minimalkan",
     "Str.Automation.MaximizeRestore": "Maksimalkan atau pulihkan",
     "Str.Automation.ChooseColor": "Pilih warna",

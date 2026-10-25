@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Använd snedstreck (C:/Users/me/...) eller dubbla omvända snedstreck (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Fältet '{0}' innehåller ett styrtecken från en escape-sekvens; sannolikt avsedd sökväg med omvända snedstreck: {1}. Värdet är oförändrat.",
     "Str.Automation.Minimize": "Minimera",
     "Str.Automation.MaximizeRestore": "Maximera eller återställ",
     "Str.Automation.ChooseColor": "Välj färg",

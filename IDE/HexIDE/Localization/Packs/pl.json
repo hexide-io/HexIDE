@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Użyj ukośników (C:/Users/me/...) lub podwójnych ukośników odwrotnych (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Pole '{0}' zawiera znak sterujący z sekwencji ucieczki; prawdopodobnie zamierzona ścieżka z ukośnikami odwrotnymi: {1}. Wartość pozostaje bez zmian.",
     "Str.Automation.Minimize": "Minimalizuj",
     "Str.Automation.MaximizeRestore": "Maksymalizuj lub przywróć",
     "Str.Automation.ChooseColor": "Wybierz kolor",

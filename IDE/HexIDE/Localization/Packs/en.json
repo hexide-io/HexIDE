@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Use forward slashes (C:/Users/me/...) or doubled backslashes (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Field '{0}' contains an escaped control character; likely intended backslash path: {1}. The value is unchanged.",
     "Str.ProjectLoad.ParseFailed": "Failed to parse form file: {0}",
     "Str.ProjectLoad.InvalidForm": "This is not a valid form file",
     "Str.ProjectLoad.UnknownControl": "Class {0} of control {1} is not a supported control class — preserved as unknown.",

@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Eğik çizgi (C:/Users/me/...) veya çift ters eğik çizgi (C:\\\\Users\\\\me\\\\...) kullanın.",
+    "Str.LspConfig.PathControlWarning": "'{0}' alanı bir kaçış dizisinden oluşan kontrol karakteri içeriyor; muhtemelen amaçlanan ters eğik çizgili yol: {1}. Değer değiştirilmedi.",
     "Str.Automation.Minimize": "Simge durumuna küçült",
     "Str.Automation.MaximizeRestore": "Büyüt veya geri yükle",
     "Str.Automation.ChooseColor": "Renk seç",

@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Verwenden Sie Schrägstriche (C:/Users/me/...) oder doppelte Rückstriche (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Feld '{0}' enthält ein Steuerzeichen aus einer Escape-Sequenz; vermutlich beabsichtigter Pfad mit Rückstrichen: {1}. Der Wert bleibt unverändert.",
     "Str.Automation.Minimize": "Minimieren",
     "Str.Automation.MaximizeRestore": "Maximieren oder wiederherstellen",
     "Str.Automation.ChooseColor": "Farbe auswählen",

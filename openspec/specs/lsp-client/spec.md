@@ -328,6 +328,22 @@ in the way the next requirement describes.
 - **WHEN** an entry declares the identifier `vb6` and claims no VB6 extension
 - **THEN** it is not offered the IDE's forms and modules
 
+### Requirement: Windows path escapes SHALL be diagnosed without lenient parsing
+The configuration loader SHALL reject invalid JSON string escapes and retain the parse error's field and
+position while recommending forward slashes or doubled backslashes. It SHALL warn when `command`,
+`arguments`, `workingDirectory`, or `workspaceArtifact.path` contains an escaped tab, newline, carriage
+return, backspace, or form feed, naming the field and showing the likely intended backslash path.
+The warning SHALL leave the value unchanged and SHALL NOT itself reject the entry.
+
+#### Scenario: An invalid escape in a Windows command path
+- **WHEN** a command contains a single backslash followed by `U` in the JSON text
+- **THEN** the file is rejected, the defaults remain, and the error includes repair guidance and its location
+
+#### Scenario: A legal escape produces a control character in a path field
+- **WHEN** a path-bearing field contains a JSON escape that decodes to one of the listed control characters
+- **THEN** the loader warns with the field and likely intended path, without rewriting the value
+- **AND** ordinary entry validation still applies
+
 ### Requirement: Where one server must be chosen, a user's entry SHALL outrank a default
 For the features that cannot combine two answers, entries SHALL be ordered by an explicit priority, and the
 entries contributed as defaults SHALL rank below the value an entry takes when it does not state one.

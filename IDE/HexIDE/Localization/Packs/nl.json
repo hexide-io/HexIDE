@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Gebruik schuine strepen (C:/Users/me/...) of dubbele backslashes (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Veld '{0}' bevat een besturingsteken uit een escape-reeks; waarschijnlijk bedoeld pad met backslashes: {1}. De waarde is ongewijzigd.",
     "Str.Automation.Minimize": "Minimaliseren",
     "Str.Automation.MaximizeRestore": "Maximaliseren of herstellen",
     "Str.Automation.ChooseColor": "Kleur kiezen",

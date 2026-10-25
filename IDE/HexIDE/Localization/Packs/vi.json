@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "Dùng dấu gạch chéo xuôi (C:/Users/me/...) hoặc dấu gạch chéo ngược kép (C:\\\\Users\\\\me\\\\...).",
+    "Str.LspConfig.PathControlWarning": "Trường '{0}' chứa ký tự điều khiển từ chuỗi thoát; đường dẫn có dấu gạch chéo ngược có thể được định dùng: {1}. Giá trị không thay đổi.",
     "Str.Automation.Minimize": "Thu nhỏ",
     "Str.Automation.MaximizeRestore": "Phóng to hoặc khôi phục",
     "Str.Automation.ChooseColor": "Chọn màu",

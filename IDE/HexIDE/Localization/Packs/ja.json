@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.LspConfig.PathEscapeHint": "スラッシュ (C:/Users/me/...) または二重のバックスラッシュ (C:\\\\Users\\\\me\\\\...) を使用してください。",
+    "Str.LspConfig.PathControlWarning": "フィールド '{0}' にエスケープシーケンスによる制御文字が含まれています。意図された可能性のあるバックスラッシュのパス: {1}。値は変更されていません。",
     "Str.Automation.Minimize": "最小化",
     "Str.Automation.MaximizeRestore": "最大化または元に戻す",
     "Str.Automation.ChooseColor": "色を選択",
