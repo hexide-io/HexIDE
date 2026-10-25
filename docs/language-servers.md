@@ -62,6 +62,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
 | `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
+| `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
@@ -276,3 +277,19 @@ In order of likelihood:
   and a per-project file is written by whoever wrote the project.
 - **Discovery of servers already installed.** Nothing scans your machine for language servers.
 - **A user interface.** Today this file is the whole of it.
+
+For an incoming WebSocket, set `"websocketRole": "listen"` and an endpoint with a trailing slash
+(e.g. `ws://localhost:1234/lsp/`). HexIDE owns that HTTP listener until teardown and accepts one
+WebSocket connection per establishment attempt, with a ten-second timeout. A reconnect listens again.
+Listening uses the platform HTTP listener: Windows may require a URL reservation for the configured
+HTTP prefix, and `wss` requires an HTTPS certificate binding. Failure to bind, upgrade or accept is reported
+as a connection failure.
+
+**HexIDE listens on this machine only.** Whatever dials in is taken as the language server, and a language
+server can edit the document, so the endpoint must be `localhost`, `127.0.0.1` or `[::1]`; any other host is
+refused before anything is bound, and a server on another machine is reached with `connect` instead. A dial
+from another address is refused, and so is one carrying an `Origin` header: a browser sends one on every
+WebSocket handshake and a language server sends none, and a WebSocket is outside the browser's same-origin
+policy, so without that check any page open in a browser could dial the IDE first. A refused dial is logged,
+and the IDE goes on listening for the real server. There is still no authentication: another program on this
+machine can dial in.

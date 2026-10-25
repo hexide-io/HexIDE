@@ -594,7 +594,7 @@ anything, and failed entries remain failed.
 
 ### Transports
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
 Stdio process logs include the configured server ID as a structured `Server` property and in the

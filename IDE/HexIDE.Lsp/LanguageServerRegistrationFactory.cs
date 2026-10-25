@@ -168,7 +168,9 @@ public sealed class LanguageServerRegistrationFactory(
                 serverId: entry.Id),
 
             "websocket" when !string.IsNullOrWhiteSpace(entry.Endpoint) => () => new WebSocketLspTransport(
-                entry.Endpoint!.Trim(), loggerFactory.CreateLogger<WebSocketLspTransport>()),
+                entry.Endpoint!.Trim(), loggerFactory.CreateLogger<WebSocketLspTransport>(),
+                string.Equals(entry.WebSocketRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                    ? WebSocketRole.Listen : WebSocketRole.Connect),
 
             "pipe" when !string.IsNullOrWhiteSpace(entry.PipeName) => () => new NamedPipeLspTransport(
                 entry.PipeName!.Trim(),
