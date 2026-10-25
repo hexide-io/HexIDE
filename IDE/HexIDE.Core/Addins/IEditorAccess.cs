@@ -95,7 +95,9 @@ public interface IEditorAccess
     /// <summary>Applies a set of edits to a document.</summary>
     /// <remarks>
     /// All or nothing: if any edit would change the document's header or a member's <c>Attribute</c> lines, or
-    /// names a position the document does not have, none is applied.
+    /// names a position the document does not have, none is applied. The resulting text is checked too: adding
+    /// a described run (including a whole new described member), promoting an orphan or extending a run is
+    /// refused, with a reason naming the members. Deleting a run with its declaration remains refused.
     /// </remarks>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>

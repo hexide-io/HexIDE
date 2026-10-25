@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Input;
@@ -18,10 +19,48 @@ public sealed class AvaloniaTextClipboard(Func<IClipboard?> resolve) : ITextClip
     public async Task SetText(string text)
     {
         var clipboard = Clipboard;
-        // VB6 adds/replaces text without discarding other formats. Until we can preserve those, refuse
-        // rather than silently destroy them. Notepad explicitly calls Clear before SetText.
-        if ((await clipboard.GetDataFormatsAsync()).Any(format => format != DataFormat.Text))
-            throw new NotImplementedException("Clipboard.SetText cannot yet preserve non-text formats; call Clipboard.Clear first (#1156)");
-        await clipboard.SetTextAsync(text);
+        using var current = await clipboard.TryGetDataAsync();
+        var items = new List<SnapshotItem>();
+        if (current != null)
+        {
+            foreach (var source in current.Items)
+            {
+                var values = new Dictionary<DataFormat, object>();
+                foreach (var format in source.Formats)
+                {
+                    if (format == DataFormat.Text) continue;
+                    // Read everything before replacing the clipboard: delayed reads may become invalid afterwards.
+                    values.Add(format, await source.TryGetRawAsync(format)
+                        ?? throw new NotImplementedException("Clipboard.SetText cannot preserve an unreadable format; call Clipboard.Clear first (#1246)"));
+                }
+                if (values.Count > 0) items.Add(new SnapshotItem(values));
+            }
+        }
+        var formats = current?.Formats ?? await clipboard.GetDataFormatsAsync();
+        if (formats.Any(format => format != DataFormat.Text && !items.Any(item => item.Values.ContainsKey(format))))
+            throw new NotImplementedException("Clipboard.SetText cannot preserve an unreadable format; call Clipboard.Clear first (#1246)");
+        if (items.Count == 0)
+        {
+            await clipboard.SetTextAsync(text);
+            return;
+        }
+        items[0].Values[DataFormat.Text] = text;
+        await clipboard.SetDataAsync(new Snapshot(items));
+    }
+
+    private sealed class Snapshot(List<SnapshotItem> items) : IDataTransfer, IAsyncDataTransfer
+    {
+        public IReadOnlyList<DataFormat> Formats => items.SelectMany(item => item.Formats).Distinct().ToArray();
+        IReadOnlyList<IDataTransferItem> IDataTransfer.Items => items;
+        IReadOnlyList<IAsyncDataTransferItem> IAsyncDataTransfer.Items => items;
+        public void Dispose() { }
+    }
+
+    private sealed class SnapshotItem(Dictionary<DataFormat, object> values) : IDataTransferItem, IAsyncDataTransferItem
+    {
+        public Dictionary<DataFormat, object> Values => values;
+        public IReadOnlyList<DataFormat> Formats => values.Keys.ToArray();
+        public object? TryGetRaw(DataFormat format) => values.GetValueOrDefault(format);
+        public Task<object?> TryGetRawAsync(DataFormat format) => Task.FromResult(TryGetRaw(format));
     }
 }

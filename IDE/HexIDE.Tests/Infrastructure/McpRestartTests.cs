@@ -90,7 +90,7 @@ public class McpRestartTests
 
     /// <summary>
     /// A server built as <c>IdeServer</c> builds its own: Kestrel on loopback, the transport configured as given,
-    /// and the filter that explains a failing tool (#603).
+    /// the loopback gate, and the filter that explains a failing tool (#603).
     /// </summary>
     private static async Task<WebApplication> StartAsync(int port, Action<HttpServerTransportOptions> transport)
     {
@@ -102,6 +102,8 @@ public class McpRestartTests
             .WithHttpTransport(transport)
             .WithTools<Tools>(ReplyJson.Options), null);
         var app = builder.Build();
+        app.UseLoopbackOnly(port);
+        app.MapGet("/health", () => "ok");
         app.MapMcp("/mcp");
         await app.StartAsync(TestContext.Current.CancellationToken);
         return app;
@@ -140,6 +142,50 @@ public class McpRestartTests
 
     private static async Task<string> EchoAsync(McpClient client, string text) =>
         TextOf(await CallAsync(client, "echo", text));
+
+    [Theory]
+    [InlineData("POST", "/mcp", "evil.example", null)]
+    [InlineData("POST", "/mcp", "localhost", "http://evil.example")]
+    [InlineData("GET", "/health", "evil.example", null)]
+    public async Task A_foreign_host_or_origin_is_refused_before_the_endpoint(
+        string method, string path, string host, string? origin)
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var http = new HttpClient();
+            using var request = new HttpRequestMessage(new HttpMethod(method), $"http://localhost:{port}{path}");
+            request.Headers.Host = $"{host}:{port}";
+            if (origin is not null)
+                request.Headers.Add("Origin", origin);
+
+            using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task A_loopback_host_reaches_the_health_endpoint()
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var http = new HttpClient();
+            using var response = await http.GetAsync($"http://localhost:{port}/health", TestContext.Current.CancellationToken);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Be("ok");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
 
     [Fact]
     public async Task A_client_attached_before_a_restart_is_answered_after_it()
@@ -478,6 +524,7 @@ public class McpRestartTests
         // was started for, and reports that session in /health.
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
             .And.MatchRegex(@"ToolFilters\.Register\([\s\S]*?ReplyJson\.Options\), session\)")
+            .And.Contain("app.UseLoopbackOnly(port);")
             .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");

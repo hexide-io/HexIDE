@@ -240,7 +240,10 @@ public sealed class DebugController : IDebugController
         if (YieldDue())
         {
             _lastYieldTick = Environment.TickCount64;
+            var session = _session;
             await Task.Yield();
+            if (_isAborting || _session != session)
+                throw new StopExecutionSignal();
         }
     }
 

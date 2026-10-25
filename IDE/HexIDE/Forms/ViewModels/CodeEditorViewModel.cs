@@ -1451,7 +1451,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             CaretOffset = caret;
             return;
         }
-        // At the end of a described line, the file from its first line break on goes after the run (task 4.5).
+        // Keep the described declaration before its run and place the remaining file text after it (task 4.5).
         if (InsertLineBreakPastRun(selectionStart, selectionLength, content) is { } placed)
         {
             CaretOffset = placed.End;
@@ -1491,7 +1491,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Writes text holding a line break that would replace <c>[offset, offset + length)</c> at the end of a line a
-    /// member's run describes, with everything from its first line break on after the run, as one undo step
+    /// member's run describes, keeping its declaration before the run and the remaining text after it, as one undo step
     /// (#273 task 4.5). The section provider decides where (<see cref="CodeWindowReadOnlySections.PlaceLineBreak"/>).
     /// </summary>
     /// <returns>Where the two parts went; or null when the rule does not apply, and nothing was written.</returns>
@@ -1729,7 +1729,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// How the refusal names the edit at an index, in the caller's own terms. Without it the edit is named by the
     /// 1-based line and column its offset falls at, counted from the top of the file.
     /// </param>
-    /// <returns>Null when applied; otherwise why not, naming the refused edit.</returns>
+    /// <returns>Null when applied; otherwise why not, naming the refused edit or the members the result would change.</returns>
     internal string? ApplyEdits(IReadOnlyList<TextChange> edits, Func<int, string>? describe = null)
     {
         var regions = ReadOnlyRegionsNow;
@@ -1763,6 +1763,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         var lastFirst = new List<TextChange>(edits);
         lastFirst.Sort((a, b) => b.Offset.CompareTo(a.Offset));
+        var after = Document.Text;
+        foreach (var edit in lastFirst)
+            after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
+        if (GuardedContent.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
+            return string.Format(localization.GetString("Str.CodeEditor.RangeEditRefused"), refusal);
+
         ApplyAsOneStep(lastFirst);
         return null;
     }
