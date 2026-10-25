@@ -25,6 +25,12 @@ exactly that gap until a server nobody here had written was pointed at the clien
 drives five foreign servers across four different LSP frameworks, including `vscode-languageserver-node`, the
 library the specification is written around.
 
+The bundled-server tests in `HexIDE.Tests` skip when the executable is missing or more than a minute
+older than a C# or `.g4` grammar file under `LspServer/HexIDE.VbLspServer`, excluding `bin/` and `obj/`.
+Editing the server test project does not make that executable stale. Rebuild with
+`cd LspServer && dotnet build HexIDE.VbLspServer/`; `HEXIDE_REQUIRE_FOREIGN_LSP=1` makes a missing or
+stale bundled server fail rather than skip.
+
 ---
 
 ## The wire contract
@@ -60,6 +66,15 @@ answered `-32602 "An argument was not supplied for a required parameter"` and th
 the connection stayed healthy and the coverage table said the message was implemented. It is declared
 parameterless now, and `PullDiagnosticsReportKindTests` drives a scripted server that sends one and asserts
 the client asks again.
+
+---
+
+## Request failure logging
+
+A failed request returns an empty or absent result and warns once per method per connection; further
+failures of that method are logged at debug. Local cancellation and server error replies `-32801`
+(ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
+that method's warning available for a later genuine failure (#723).
 
 ---
 
@@ -193,8 +208,10 @@ cannot renumber older text. Before this, each window kept its own count, the ser
 whichever count was behind, and either window's close closed the document for both
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
 
-One path can still send a version that does not rise, and it is filed: a debounced change crossing the flush
-that superseded it, with identical text ([#720](https://github.com/hexide-io/HexIDE/issues/720)).
+The client drops a change whose version is no later than the one it tracks, keeping the newer text and
+version for reconnect replay. Checking, tracking and sending changes are serialized, so a debounced change
+crossing the flush that superseded it cannot send a lower version after the flush
+([#720](https://github.com/hexide-io/HexIDE/issues/720)).
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
@@ -554,19 +571,20 @@ claims it**, with its latest text, before any change to it is forwarded
 ([#469](https://github.com/hexide-io/HexIDE/issues/469)). Without that, a restarted connection holds nothing,
 and every document except the one whose opening noticed the move goes silently dark. The re-open is driven by
 the registry's own record of what is open rather than by the document that triggered it, because the
-teardown stops every server and the triggering document's claimants are a smaller set. A move is noticed
-when a document is next opened, not when the project changes. A save that gives a document its first file
-re-opens it under its new name, and that open notices the move. A save that writes no document to a new file
-notices nothing. Save Project As of a project already saved asks only where the project file goes, as does
-one of the project `--newproject` saved into a temporary folder: a document is asked for a path only when it
-has none (`ProjectService.DestinationOf`). The running servers
-then keep the old root until a document is next opened. That much is read from the code; neither save has
-been driven against a running server to watch it happen.
+teardown stops every server and the triggering document's claimants are a smaller set. The root is checked
+after a project save has assigned the `.vbp` its path and when the startup project changes, as well as when a document opens (#1051). Saving only the project file therefore restarts
+and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
+anything, and failed entries remain failed.
 
 ### Transports
 
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
+
+Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
+with or without an open workspace. A server can use it to watch its owner and exit after an unclean
+IDE shutdown. This is cooperative: servers that ignore it can still outlive a crash. Clean shutdown
+continues to kill the launched process tree. See [configuration](language-servers.md#placeholders-in-arguments).
 
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message

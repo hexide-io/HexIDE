@@ -876,6 +876,27 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task APasteOfACommentAndAWholeDeclarationKeepsTheRunUnderTheDeclaration()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var line = LineWith(editor, "Public Sub Go()");
+        await SetClipboard(editor, "' note\nPublic Sub Go()");
+        PutCaret(editor, line.EndOffset);
+        editor.TextArea.Selection = AvaloniaEdit.Editing.Selection.Create(editor.TextArea, line.Offset, line.EndOffset);
+
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
+        await UntilChanged(vm, before);
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Contain("' note\nPublic Sub Go()\nAttribute Go.VB_Description");
+        editor.TextArea.Caret.Offset.Should().Be(LineWith(editor, "Public Sub Go()").EndOffset);
+        editor.Undo();
+        Dispatcher.UIThread.RunJobs();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
     public async Task APasteWithNoLineBreakAtTheEndOfADescribedDeclarationJoinsIt()
     {
         var vm = Open(Procedure);

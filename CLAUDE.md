@@ -42,6 +42,10 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
 
+Failed test jobs upload their `TestResults` directories as `test-results-<job>-<OS>` artifacts, retained for
+seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
+`dotnet test` prints only a log path, download that job's artifact to read the reason.
+
 **Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
 seconds locally and a full CI cycle otherwise, and it fails on things that look entirely innocuous while
 you are writing them: an illustrative Windows user path in a troubleshooting example is, to a scanner,
@@ -166,8 +170,9 @@ incrementally. It needs no `--artifacts-path`: its build output can't stomp the 
 still holds `IDE/` and `LspServer/` for `GrammarParityTests.RepoRoot()` to find. Delete the folder to start
 clean.
 
-Expect the result to match Windows, except for `VbLocaleTests`' ar-SA row, which fails under WSL's newer ICU
-([#1045](https://github.com/hexide-io/HexIDE/issues/1045)). Measured 2026-10-24: `HexIDE.Runtime.Tests`
+Expect the result to match Windows. Before #1045's test correction, `VbLocaleTests`' ar-SA row failed under
+WSL's newer ICU because its default calendar is already Gregorian. Measured 2026-10-24 before the correction:
+`HexIDE.Runtime.Tests`
 4887 passed, 12 skipped, that one failed, in 6 minutes the first time and 4½ the second. To confirm the setup
 still has teeth, run the script from a `git worktree` at a commit predating a known cross-platform fix and
 check it fails there.
@@ -215,9 +220,9 @@ podman run --rm \
 
 **Measured on first setup (2026-09-06): no divergence.** `HexIDE.Tests` 961/965 and
 `HexIDE.Runtime.Tests` 1432/1432 in the container, matching CI exactly, against 965 and 1432 under WSL. So
-the ICU gap is real but **not currently live** — which is a statement about the tests that exist, not a
-guarantee. Nothing here probes collation or culture-sensitive formatting directly, so absence of a
-divergence is weak evidence of absence. Reach for the container when a CI failure will not reproduce under
+the ICU gap was real but **not live in that run** — a statement about the tests that existed, not a
+guarantee. #1045 later exposed an ar-SA calendar assumption that fails on ICU 78; the test now follows
+the platform's data. Reach for the container when a CI failure will not reproduce under
 WSL; that is the case it was set up for.
 
 **The 282-failure run is a thread-affinity race in the test harness, not a build problem.** Every so often
@@ -350,11 +355,11 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `get_project_info` | Current project name, path, forms, modules, carried files |
 | `get_open_editors` | Open editor windows and active window |
 | `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag. `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
-| `activate_document_tab(title)` | Make a tab active by title |
-| `close_document_tab(title)` | Close a tab by title |
+| `activate_document_tab(title?, name?, project?, type?)` | Make a tab active, by its `title`, or by a document's `name` (with `project`, and `type` code or designer when both are open) |
+| `close_document_tab(title?, name?, project?, type?)` | Close a tab, addressed the same way |
 | `get_diagnostics` | LSP errors and warnings |
-| `open_file(name, line?, column?)` | Open a form, module or carried file in the code editor (creates or activates tab). With `line` (and `column`), 1-based as the code window numbers them, put the caret there, opening any fold over it; a place off the text opens nothing; the note reads the caret back |
-| `view_designer(name)` | Open a form or UserControl in the visual designer (creates or activates tab; use before `take_snapshot`) |
+| `open_file(name, project?, line?, column?)` | Open a form, module or carried file in the code editor (creates or activates tab). With `line` (and `column`), 1-based as the code window numbers them, put the caret there, opening any fold over it; a place off the text opens nothing; the note reads the caret back |
+| `view_designer(name, project?)` | Open a form or UserControl in the visual designer (creates or activates tab; use before `take_snapshot`) |
 | `run_project` | Start the VB6 runtime |
 | `stop_project` | Stop the running project |
 | `shutdown_ide` | Clean shutdown (triggers all shutdown handlers) |
@@ -363,7 +368,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `inspect_element(target, window?)` | Deep-inspect one control by `path`: supported providers, bounds, current value and toggle state, `selectionItems` (what is selected, not the items), a list's `itemCount`, and the DataContext VM's command, Command-bound method and property members (the surface `interact`'s reflection actions target). Pass the same `window` as the dump the path came from. |
 | `list_lsp_messages(connectionId?, method?, failuresOnly?, afterSequence?, limit?)` | Recorded language-server envelopes — time, direction, method, id, size, outcome, latency — with no content. Answers "was it even sent" and "what came back", which diagnostics cannot. Works unarmed. |
 | `get_lsp_message(connectionId, sequence)` | One message's body, as the bytes that crossed the wire. Needs the connection armed, except for a connection's opening, which is always kept. |
-| `arm_lsp_capture(connectionId?, armed)` | Arms or disarms retention of message **bodies**. Session-scoped; use `--capture-lsp` to arm before the first connection exists. |
+| `arm_lsp_capture(connectionId?, armed?)` | Arms or disarms retention of message **bodies**. Session-scoped; use `--capture-lsp` to arm before the first connection exists. |
 | `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
 | `export_lsp_conversation(connectionId?)` | Writes the conversation as JSON-lines plus a manifest and returns both paths. **Always pseudonymised** — this is the shareable form; `get_lsp_message` is the raw one and is not. |
 | `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
@@ -371,11 +376,16 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `clear_file_dialog_answers()` | Discards armed answers, and reports how many there were — which is how you find out a step you thought opened a picker did not. |
 | `interact(target, action, value?, window?)` | Drive a control. Provider actions: `invoke`/`select`/`add_to_selection`/`remove_from_selection`/`double_click`/`set_value`/`set_range_value`/`toggle`/`expand`/`collapse`/`scroll`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. Pointer action: `click`, which presses and releases a real pointer at a point on the target (`value` is an optional `x,y`, a button and any of shift/ctrl/alt, as in `10,5 right shift`). `click` is the only verb that presses: `invoke` goes through the automation peer and raises a Button's Click with no pointer events, so a running form's MouseDown and MouseUp need `click`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. `expand` and `collapse` open and close a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns, whose items then appear under it in `dump_visual_tree`; with the popup already open or closed the reply says so. `close` closes the target's window as its title-bar close box does (`IsProgrammatic` false), so a Yes/No or Abort/Retry/Ignore MsgBox refuses it, and a form's QueryUnload, or a modal form over it, may refuse it; the reply says whether it is still open, or hidden rather than closed. Every verb except `invoke_command` and `set_property` is refused on a control that is not showing (`isHidden`), and `toggle`, `expand`, `collapse` and `set_value` reply with the state read back. Pass the same `window` as the dump the path came from: while a program runs, `auto` usually picks its form. The generic substitute for per-interaction tools. |
 
+The signatures in this curated table are checked by `McpToolTableDocumentationTests` against
+`HexIdeTools`: parameter order and optionality must match, and the `interact` row must name every
+`UiAutomationDriver.Verbs` action. Tools without a signature row need not be listed.
+
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
 - `--server-port <port>` — enable the MCP server on the given port (the launch profiles hard-code 5123, `.mcp.json` defaults to it, and `scripts/dev-ide.ps1` passes `HEXIDE_MCP_PORT`)
 - `--session <name>` — serve tool calls only to the agent session of that name, as named in the client's `X-HexIDE-Session` header; DEBUG-only. `scripts/dev-ide.ps1` passes `HEXIDE_SESSION` (see *Parallel sessions*)
-- `--newproject` — skip the startup dialog and create a default Standard EXE project
+- `--newproject` — skip the startup dialog, create a default Standard EXE project and save it in a unique temporary directory
+- `--newproject-unsaved` — skip the startup dialog and create the same project without writing files; takes precedence over `--newproject`. Use it to verify pathless documents and `untitled:` language-server URIs
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
@@ -452,9 +462,9 @@ that set nothing. Say so, and ask to be restarted with a port of its own, rather
   That is reproducible, and it is what a first-time user sees. A session that needs a configuration seeds it on
   purpose, by copying the one file into its `HexIDE/sessions/<name>` directory before launching, such as an
   `lsp-servers.json` naming another language server. The IDE never copies the user's own profile into a session's.
-- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`, and a burst of relaunches
-  across sessions can prune a log minutes old
-  ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)), so read a crash log promptly.
+- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`. IDE log pruning keeps
+  at least the seven most recent sessions and deletes an older session only when its newest part was last
+  modified more than seven days ago ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)).
 - **An IDE started for a session refuses every other session's calls**
   ([#1306](https://github.com/hexide-io/HexIDE/issues/1306)). The script starts it with `--session <name>`, and
   `.mcp.json` names the caller in an `X-HexIDE-Session` header from the same variable. A tool call from a client
@@ -917,9 +927,10 @@ widening visibility to `public` just for a test. When a new test project needs r
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` is silently ignored. All five projects are on MTP.** Passing VSTest's
-  `--filter "FullyQualifiedName~Foo"` does not error — it runs **every** test in the project, so a run you
-  believe was scoped to one class was actually the whole suite. Measured: 153 tests instead of 27.
+- **`--filter` is ignored with warning MTP0001. All five projects are on MTP.** Passing VSTest's
+  `--filter "FullyQualifiedName~Foo"` warns that VSTestTestCaseFilter is ignored and runs **every** test
+  in the project, so a run you believe was scoped to one class was actually the whole suite. Measured:
+  153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
   The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
   — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement
@@ -985,6 +996,10 @@ the PR. Typo-level fixes need no issue.
   `in progress on branch <name>`. The branch name is what a second session can check. And never
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
+
+**A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
+PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);
+`changelog.d/README.md` has the format, and `scripts/changelog-gather.sh` folds them in at release.
 
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 

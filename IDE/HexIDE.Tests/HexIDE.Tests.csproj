@@ -37,6 +37,7 @@
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+        <ProjectReference Include="..\HexIDE.Standalone\HexIDE.Standalone.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
         <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
         <!-- PackageSigner is used to produce signed fixtures for the verifier tests. -->
@@ -50,10 +51,14 @@
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
+        <Compile Include="..\HexIDE.Desktop\ServerOptions.cs" Link="Infrastructure\ServerOptions.cs" />
+        <Compile Include="..\HexIDE.Desktop\ConsoleOutput.cs" Link="Infrastructure\ConsoleOutput.cs" />
+        <Compile Include="..\HexIDE.Desktop\HelpMark.cs" Link="Infrastructure\HelpMark.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\HexIdeTools.cs" Link="Infrastructure\HexIdeTools.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\IdeContext.cs" Link="Infrastructure\IdeContext.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\DiagnosticsCache.cs" Link="Infrastructure\DiagnosticsCache.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\DescribesEnumAttribute.cs" Link="Infrastructure\DescribesEnumAttribute.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\LoopbackMiddleware.cs" Link="Infrastructure\LoopbackMiddleware.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\SessionGuard.cs" Link="Infrastructure\SessionGuard.cs" />

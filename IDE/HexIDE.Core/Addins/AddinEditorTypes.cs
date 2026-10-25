@@ -11,8 +11,8 @@ public enum AddinDiagnosticSeverity { Error = 1, Warning = 2, Information = 3, H
 /// <see cref="AddinTextEdit"/>, <see cref="AddinDiagnostic"/> and <c>NavigateTo</c>. The header is the IDE's to
 /// change: <c>TrySetContent</c> takes this text back with the header unchanged, or the code alone, and refuses a
 /// header that differs. A member's <c>Attribute</c> lines, the run under its declaration, are the IDE's too:
-/// <c>TryApplyEdits</c> refuses an edit to them, and <c>TrySetContent</c> refuses a replacement that changes, adds
-/// or drops them, other than by moving or renaming them with their member or deleting them with its declaration,
+/// <c>TryApplyEdits</c> refuses edits to them and sets of edits that add, extend or orphan a described run.
+/// <c>TrySetContent</c> refuses a replacement that changes, adds or drops them, other than by moving or renaming them with their member or deleting them with its declaration,
 /// and names the member (hexide-io/HexIDE#273 task 4.5b). Before hexide-io/HexIDE#273 this was the code alone,
 /// starting at the form's <c>Attribute</c> lines or after the class's header. A form created in this session and
 /// not yet saved or changed in the designer has no header yet, so for it this is still the code alone.

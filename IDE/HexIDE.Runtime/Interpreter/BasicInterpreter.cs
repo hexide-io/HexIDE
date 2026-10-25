@@ -71,10 +71,27 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// real-path project-scope hoist.</summary>
     public ModuleRegistry Modules { get; } = new();
 
+    private Debugging.IDebugController? debugController;
+
     /// <summary>The debug session driving step-through, or null for a non-debugged / headless run (tests, the
     /// Standalone runner). Set by the IDE right after construction (the shared per-session controller); read by the
     /// StatementExecutor's pause-gate. Null ⇒ zero debug overhead (the gate is skipped entirely).</summary>
-    public Debugging.IDebugController? DebugController { get; set; }
+    public Debugging.IDebugController? DebugController
+    {
+        get => debugController;
+        set
+        {
+            debugController = value;
+            if (value is not null)
+                RunSession ??= (value, value.Session);
+        }
+    }
+
+    // Origin survives a controller reset or detachment: static run events must still name the run that made us (#761).
+    private (Debugging.IDebugController Controller, int Session)? RunSession { get; set; }
+
+    /// <summary>Whether this interpreter belongs to the named run, even after its debugger has detached.</summary>
+    public bool IsInDebugSession(Debugging.IDebugController controller, int session) => RunSession == (controller, session);
 
     /// <summary>
     /// The run's event pump, when the program runs in a window: what keeps its handlers one at a time (#766). Null for code
@@ -95,7 +112,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await events.DoEvents();
             return new Vb6Value(0);
         }
-        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
+        return await events.WhileWaitingOnWindow(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
     }
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
@@ -125,6 +142,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// procedure, from Form_Load or from Sub Main.
     /// </remarks>
     public bool Ending { get; private set; }
+
+    private bool unimplementedFault;
+
+    // A filter runs before this try's cleanup, even across async boundaries. Never handle the fault here.
+    internal bool MarkUnimplementedFault(Exception fault)
+    {
+        if (fault is NotImplementedException)
+            unimplementedFault = true;
+        return false;
+    }
 
     /// <summary>
     /// Raised when a program reaches <c>End</c>, so whoever owns the run ends it: closes its forms, and stops the walks
@@ -239,8 +266,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
         var typedFields = new Dictionary<string, Vb6Value.ValueType>(StringComparer.OrdinalIgnoreCase);
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            if (f.AutoNewClass is { } made)
+            {
+                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
+                    throw new NotImplementedException($"Field '{f.Name}' declared As New inside Type '{typeName}' is not implemented (#1488)");
+                fields[f.Name] = Vb6Value.Nothing;
+                autoNewFields[f.Name] = new AutoNew(made, f.Name);
+                continue;
+            }
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
             if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
                 typedFields[f.Name] = declared;
@@ -257,7 +293,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields);
     }
 
     /// <summary>
@@ -273,10 +309,24 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
-        VbUdt udt => Vb6Value.NewUdt(udt.DeepClone()),
+        VbUdt udt => CopyUdt(udt),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
     };
+
+    private Vb6Value CopyUdt(VbUdt udt)
+    {
+        var copy = udt.DeepClone();
+        HoldFields(copy);
+        return Vb6Value.NewUdt(copy);
+
+        void HoldFields(VbUdt bag)
+        {
+            foreach (var field in bag.EnumerateFields())
+                if (field.Value.Value is VbUdt nested) HoldFields(nested);
+                else AddRef(field.Value);
+        }
+    }
 
     // Arrays nested in arrays are copied recursively. A store into an element copies too, so no array can come to hold
     // itself; the bound refuses where the alternative would be a stack overflow taking the host down.
@@ -376,6 +426,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (o.RefCount <= 0)
                 await FireTerminate(o);
         }
+        else if (v.Value is VbUdt bag)
+        {
+            foreach (var field in bag.EnumerateFields())
+                await ReleaseRef(field.Value);
+        }
         else if (v.Value is VBArray array)
         {
             foreach (var element in array.EnumerateElements())
@@ -394,8 +449,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         // A debugger reset (Stop) unwinds the walk via StopExecutionSignal, which runs this refcount teardown in
         // RunProcedure's finally — but VB6 `End` fires NO Class_Terminate (oracle-verified), so suppress it while
-        // the debugger is aborting, and once the program itself has reached End.
-        if (o.Terminated || Ending || DebugController?.IsAborting == true)
+        // the debugger is aborting, once the program itself has reached End, or while an unimplemented fault unwinds (#767).
+        if (o.Terminated || Ending || unimplementedFault || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
         // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
@@ -694,26 +749,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public async Task Execute()
     {
         declarationsRun = true;
-        // Initialise every NON-primary module's module-level declarations first (fills Public Const/Dim values
-        // in that module's own env) so a cross-module read sees a value, not Empty. Modules can't have executable
-        // top-level statements in real VB6, so this is declaration hoisting; the primary (test/startup) body runs
-        // after.
-        // Class modules are templates — they must NOT run at program start (a class body runs only per-instance,
-        // via New). Only Standard modules are initialised here.
         try
         {
             foreach (var m in Modules.All)
                 if (!ReferenceEquals(m, primaryModule) && m.Kind == InterpreterModuleKind.Standard)
-                {
-                    foreach (var block in m.PrePass.topLevelBlocks)
-                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
-                    m.DeclarationsRun = true;
-                }
+                    await RunModuleDeclarations(m);
+            await RunModuleDeclarations(primaryModule);
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
-                await statementExecutor.Execute(block);
-            primaryModule.DeclarationsRun = true;
+                await statementExecutor.Execute(block, moduleDeclarations: false);
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -799,15 +844,38 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var m in Modules.All)
                 if (m.Kind == InterpreterModuleKind.Standard)
-                {
-                    foreach (var block in m.PrePass.topLevelBlocks)
-                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
-                    m.DeclarationsRun = true;
-                }
+                    await RunModuleDeclarations(m);
         }
         finally
         {
             RunningDeclarations = false;
+        }
+    }
+
+    internal static bool IsModuleDeclaration(VB6Parser.BlockStmtContext statement) =>
+        statement.constStmt() != null || statement.variableStmt() != null;
+
+    // Resolve dependencies only while executing declarations, never by relating the pre-pass tables up front.
+    internal async Task RunModuleDeclarations(ModuleInfo module)
+    {
+        if (module.DeclarationsRunning)
+            throw new VBCompileErrorException("Circular dependencies between modules");
+        if (module.DeclarationsRun)
+            return;
+        module.DeclarationsRunning = true;
+        var wasRunning = RunningDeclarations;
+        RunningDeclarations = true;
+        try
+        {
+            var executor = new StatementExecutor(this, module.ModuleEnv, module);
+            foreach (var block in module.PrePass.topLevelBlocks)
+                await executor.Execute(block, moduleDeclarations: true);
+            module.DeclarationsRun = true;
+        }
+        finally
+        {
+            module.DeclarationsRunning = false;
+            RunningDeclarations = wasRunning;
         }
     }
 
@@ -929,7 +997,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? new Vb6Value(NewCollection())
             : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
-        if (ExecutionContext.State[need.Location] is { Value: null })
+        if (need.Field is { } field)
+            field.Write(made);
+        else if (ExecutionContext.State[need.Location] is { Value: null })
             ExecutionContext.State[need.Location] = made;
         else
             await ReleaseRef(made);   // Initialize filled the variable itself
@@ -1287,6 +1357,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : returned;
             completed = true;
         }
+        catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally
         {
             foreach (var slot in refSlots)

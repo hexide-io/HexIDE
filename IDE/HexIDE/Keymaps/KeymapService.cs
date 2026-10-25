@@ -10,6 +10,9 @@ namespace HexIDE.Keymaps;
 
 public sealed class KeymapService : IKeymapService
 {
+    // Commands are static, so menu observers follow changes from any service instance.
+    internal static event Action? GesturesChanged;
+
     private readonly Dictionary<string, IReadOnlyList<KeyGesture>> _defaults;
 
     public string ActiveKeymap { get; private set; } = "Default";
@@ -40,6 +43,7 @@ public sealed class KeymapService : IKeymapService
         if (keymapName == "Default")
         {
             Log.Debug("KeymapService: Applied Default keymap (factory gestures restored)");
+            GesturesChanged?.Invoke();
             return;
         }
 
@@ -84,6 +88,9 @@ public sealed class KeymapService : IKeymapService
             Log.Warning(ex, "KeymapService: Failed to apply keymap '{Name}', reverting to Default", keymapName);
             ActiveKeymap = "Default";
             Apply("Default");
+            return;
         }
+
+        GesturesChanged?.Invoke();
     }
 }

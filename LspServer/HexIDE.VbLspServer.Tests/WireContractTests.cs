@@ -25,6 +25,20 @@ public class WireContractTests
         "End Sub\n";                 // 5
 
     // ── document sync + diagnostics ─────────────────────────────────────────────────────────────
+    [Theory]
+    [InlineData("\r")]
+    [InlineData("\r\n\r\n\r")]
+    public async Task Diagnostics_below_a_lone_CR_use_editor_lines(string breaks)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, "Sub T()" + breaks + "    @@\rEnd Sub\r");
+
+        var pub = await h.NextDiagnosticsAsync();
+        pub.GetProperty("diagnostics").EnumerateArray().Should().Contain(d =>
+            d.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32() ==
+            breaks.ReplaceLineEndings("\n").Length);
+    }
+
     [Fact]
     public async Task DidOpen_publishes_diagnostics_with_the_exact_uri()
     {
@@ -179,6 +193,63 @@ public class WireContractTests
         list.GetProperty("isIncomplete").GetBoolean().Should().BeFalse();
         var labels = list.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("label").GetString()).ToList();
         labels.Should().Contain("Dim").And.Contain("Counter"); // keyword + declared name
+        labels.Distinct(StringComparer.OrdinalIgnoreCase).Count().Should().Be(labels.Count);
+        var items = list.GetProperty("items").EnumerateArray().ToList();
+        items.Single(i => i.GetProperty("label").GetString() == "DoWork").GetProperty("kind").GetInt32().Should().Be(2);
+        items.Single(i => i.GetProperty("label").GetString() == "Counter").GetProperty("kind").GetInt32().Should().Be(6);
+    }
+
+    [Theory]
+    [InlineData("Sub Worker()\nEnd Sub", "Worker", 2)]
+    [InlineData("Function Calculate() As Long\nEnd Function", "Calculate", 3)]
+    [InlineData("Const Limit = 5", "Limit", 21)]
+    [InlineData("Property Get Total() As Long\nEnd Property", "Total", 10)]
+    [InlineData("Property Let Total(ByVal Value As Long)\nEnd Property", "Total", 10)]
+    [InlineData("Property Set Total(ByVal Value As Object)\nEnd Property", "Total", 10)]
+    [InlineData("Enum Choices\nFirstChoice\nEnd Enum", "Choices", 13)]
+    [InlineData("Enum Choices\nFirstChoice\nEnd Enum", "FirstChoice", 20)]
+    [InlineData("Type RecordData\nValue As Long\nEnd Type", "RecordData", 22)]
+    public async Task Completion_preserves_declaration_kinds(string source, string label, int kind)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, source + "\n");
+
+        var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+        var item = list.GetProperty("items").EnumerateArray()
+            .Single(i => i.GetProperty("label").GetString() == label);
+        item.GetProperty("kind").GetInt32().Should().Be(kind);
+    }
+
+    [Fact]
+    public async Task Completion_keeps_Date_as_a_single_function()
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+
+        var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+        var dates = list.GetProperty("items").EnumerateArray()
+            .Where(i => string.Equals(i.GetProperty("label").GetString(), "Date", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        dates.Should().ContainSingle();
+        dates[0].GetProperty("kind").GetInt32().Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData("Dim tIME As Long", "tIME", 6)]
+    [InlineData("Function fORMAT() As Long\nEnd Function", "fORMAT", 3)]
+    public async Task Completion_prefers_declared_names_over_static_entries(string source, string label, int kind)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, source + "\n");
+
+        var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+        var matches = list.GetProperty("items").EnumerateArray()
+            .Where(i => string.Equals(i.GetProperty("label").GetString(), label, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        matches.Should().ContainSingle();
+        matches[0].GetProperty("label").GetString().Should().Be(label);
+        matches[0].GetProperty("kind").GetInt32().Should().Be(kind);
+        matches[0].TryGetProperty("insertText", out _).Should().BeFalse();
     }
 
     [Fact]

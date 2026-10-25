@@ -16,6 +16,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Sidecar;
+using HexIDE.Lsp;
 using Serilog;
 
 namespace HexIDE.Projects;
@@ -33,6 +34,7 @@ public class ProjectService : IProjectService
     private readonly ILocalizationService localization;
     private readonly IHeaderRefresher headerRefresher;
     private readonly ArchiveProjectService? archives;
+    private readonly Func<ILspClient>? lspClient;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -44,7 +46,8 @@ public class ProjectService : IProjectService
         IFileBaselineStore baselineStore,
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
-        ArchiveProjectService? archives = null)
+        ArchiveProjectService? archives = null,
+        Func<ILspClient>? lspClient = null)
     {
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
@@ -57,6 +60,7 @@ public class ProjectService : IProjectService
         this.localization = localization;
         this.headerRefresher = headerRefresher;
         this.archives = archives;
+        this.lspClient = lspClient;
     }
 
     /// <summary>
@@ -347,7 +351,7 @@ public class ProjectService : IProjectService
             await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
-        var errorSink = new DeserializeErrorSink();
+        var errorSink = new DeserializeErrorSink(localization);
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
         var (project, serializedProject, readByteForByteList) = await new ProjectLoader
@@ -370,10 +374,7 @@ public class ProjectService : IProjectService
         {
             var files = string.Join("\n", serializedProject.SkippedUserDocumentPaths.Select(p => $"  • {p}"));
             await windowManager.MessageBox(
-                $"This project contains ActiveX Document files (.dob) which are not supported in HexIDE " +
-                $"and have been skipped:\n\n{files}\n\n" +
-                $"ActiveX Documents required Internet Explorer or Office binders as a host, " +
-                $"both of which are effectively defunct. This project type is out of scope for HexIDE.",
+                string.Format(localization.GetString("Str.ProjectLoad.ActiveXDocuments"), files),
                 icon: MessageBoxIcon.Warning);
         }
 
@@ -381,9 +382,9 @@ public class ProjectService : IProjectService
         {
             const int maxShown = 10;
             var shown = errorSink.Errors.Take(maxShown).ToList();
-            var message = "Couldn't properly deserialize the project:\n" + string.Join("\n", shown);
+            var message = localization.GetString("Str.ProjectLoad.Heading") + "\n" + string.Join("\n", shown);
             if (errorSink.Errors.Count > maxShown)
-                message += $"\n\n...and {errorSink.Errors.Count - maxShown} more warnings (see log for full list).";
+                message += "\n\n" + string.Format(localization.GetString("Str.ProjectLoad.MoreWarnings"), errorSink.Errors.Count - maxShown);
             await windowManager.MessageBox(message, icon: MessageBoxIcon.Warning);
         }
 
@@ -426,7 +427,7 @@ public class ProjectService : IProjectService
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
         ProjectDefinition project) => ProjectLoader.BuildUserControlRegistry(project);
 
-    private class DeserializeErrorSink : IDeserializeErrorSink
+    private class DeserializeErrorSink(ILocalizationService localization) : IDeserializeErrorSink
     {
         private List<string> errors = new();
 
@@ -435,6 +436,9 @@ public class ProjectService : IProjectService
             Log.Warning("[Deserialize] {Error}", error);
             errors.Add(error);
         }
+
+        public void LogError(string key, string fallback, params object[] arguments) =>
+            LogError(string.Format(localization.GetString(key), arguments));
 
         public IReadOnlyList<string> Errors => errors;
     }
@@ -609,6 +613,8 @@ public class ProjectService : IProjectService
             else if (destination.Document is ProjectDefinition project)
             {
                 recentProjects.Add(destination.Path);
+                if (lspClient is not null)
+                    await lspClient().WorkspaceChangedAsync();
                 await sidecar.SaveAsync(project);
             }
         }
@@ -928,7 +934,7 @@ public class ProjectService : IProjectService
 
         var project = form.Owner;
         var formDeserializer = new FormDeserializer();
-        var errorSink = new DeserializeErrorSink();
+        var errorSink = new DeserializeErrorSink(localization);
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
         // companion cannot be parsed without it. See FrxDeserializer.
@@ -986,7 +992,7 @@ public class ProjectService : IProjectService
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
             var formDeserializer = new FormDeserializer();
-            var errorSink = new DeserializeErrorSink();
+            var errorSink = new DeserializeErrorSink(localization);
             var blobs = await LoadCompanionBlobs(path, source);
             var fresh = formDeserializer.Deserialize(module.Owner, source, errorSink, blobs);
             if (fresh != null)
@@ -1220,8 +1226,20 @@ public class ProjectService : IProjectService
 
             SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
 
+            EncodePackageSources(projectDefinition);
+
             // This is not a .dll file, but it will look better :wink: :wink:
-            ZipFile.CreateFromDirectory(tempPath, Path.ChangeExtension(exePath, "dll")!);
+            var archivePath = Path.ChangeExtension(exePath, "dll")!;
+            var stagedArchivePath = archivePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                ZipFile.CreateFromDirectory(tempPath, stagedArchivePath);
+                File.Move(stagedArchivePath, archivePath, overwrite: true);
+            }
+            finally
+            {
+                try { File.Delete(stagedArchivePath); } catch { /* best effort — the staged archive is disposable */ }
+            }
         }
         finally
         {
@@ -1243,6 +1261,22 @@ public class ProjectService : IProjectService
             if (fileName.StartsWith("HexIDE.Standalone"))
                 fileName = Path.GetFileName(exePath);
             standaloneFile.CopyTo(Path.Join(exeDir, fileName), true);
+        }
+    }
+
+    // Only the disposable copies: a made program must read the same text on any host code page (#731).
+    internal static void EncodePackageSources(ProjectDefinition project)
+    {
+        foreach (var form in project.Forms)
+            Convert(form.AbsolutePath!, form.TextEncoding);
+        foreach (var module in project.Modules)
+            Convert(module.AbsolutePath!, module.TextEncoding);
+        Convert(project.AbsolutePath!, project.TextEncoding);
+
+        static void Convert(string path, Vb6TextEncoding encoding)
+        {
+            var text = Vb6TextFile.Decode(File.ReadAllBytes(path), encoding);
+            File.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
         }
     }
 
@@ -1270,7 +1304,7 @@ public class ProjectService : IProjectService
         (project, saveAs)
     ];
 
-    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(() =>
+    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(async () =>
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -1307,7 +1341,8 @@ public class ProjectService : IProjectService
         // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
             Write(file, announceSave: true);
-        return Task.CompletedTask;
+        if (lspClient is not null)
+            await lspClient().WorkspaceChangedAsync();
     });
 
     public string NextFreeFormName(ProjectDefinition project) =>
@@ -1432,7 +1467,7 @@ public class ProjectService : IProjectService
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var blobs = await LoadCompanionBlobs(absolutePath, source);
         var form = new FormDeserializer().Deserialize(
-            project, source, new DeserializeErrorSink(), blobs, BuildUserControlRegistry(project));
+            project, source, new DeserializeErrorSink(localization), blobs, BuildUserControlRegistry(project));
         if (form == null)
             return Adopted<FormDefinition>.Unreadable();
 
@@ -1480,7 +1515,7 @@ public class ProjectService : IProjectService
         if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
             var blobs = await LoadCompanionBlobs(absolutePath, source);
-            var formPart = new FormDeserializer().Deserialize(project, source, new DeserializeErrorSink(), blobs);
+            var formPart = new FormDeserializer().Deserialize(project, source, new DeserializeErrorSink(localization), blobs);
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;

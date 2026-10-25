@@ -9,6 +9,97 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## Replies that report or act on a document without taking its name do not say which project's it is — **CLOSED** (#886, 2026-10-24)
+
+**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
+loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
+that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
+group holding a `Form1` in each of two projects:
+
+```
+step_over {}               → "note": "Paused at Form1 line 9 (Step)."
+                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
+get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
+invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
+                             as invoke_designer_redo, get_undo_state and invoke_format_command
+get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
+get_open_editors {}        → each editor's title, and 'activeWindow' as a title
+```
+
+None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
+`project`; the run-control notes beside them do not. A tab's title starts with its project's name
+(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
+the IDE's language, and not the `project` and `document` every naming tool takes and returns.
+
+**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
+lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
+designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
+a name.
+
+**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
+locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
+tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
+Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
+SHALL identify it by its project and its name", is only partly met.
+[#886](https://github.com/hexide-io/HexIDE/issues/886).
+
+
+**Fixed (#886).** Run-control pause notes include the running project; locals and watches replies carry
+`project` (the project in which watch expressions are evaluated). Designer undo state and undo/redo/format
+replies carry `project` and `document`, including refusals after finding a designer. Tab listings carry the
+same identity; `get_open_editors` adds structured `editors` and `activeEditor` alongside its existing titles.
+Activate and close accept `name` with optional `project` through `NamedDocuments`; `type` chooses code or
+designer when both are open. Title addressing remains available for tool tabs, and duplicate matches are
+refused. Headless guards cover the reply shapes and lookup wiring; direct tests cover tab targeting.
+Live verification of focus, close prompts and grouped-project replies remains the supervisor's check.
+
+---
+
+## Every automation route to a new document saves it — **CLOSED** (#502, 2026-10-24)
+
+**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
+the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
+by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
+`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
+into `%TEMP%` before the first tool call
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
+file.
+
+**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
+*ordinary* state: nothing is written until the project is saved. #273 names such a document
+`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
+servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
+through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
+spelling is dead code.
+
+**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
+`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
+`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
+writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
+of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
+
+**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
+which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
+change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
+its lines count from the top of that header. So a line number read before then is out by the header's height after
+it. **Workaround:** read the content again after any designer change or save before using a line number from it.
+Where a created form's first header should come from, so that it holds one from the start, is
+[#885](https://github.com/hexide-io/HexIDE/issues/885).
+
+**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
+leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
+way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
+can reach the state the product will normally be in once #500 lands. Until then, any verification of
+`untitled:` naming through this surface is verifying something the surface itself prevents.
+
+**Fixed.** #500 made `add_file` pathless: its description and reply explain the null path and the Save Project
+pickers. #502 adds `--newproject-unsaved` (also `/newproject-unsaved`), which creates the initial project and
+form without saving. It wins over `--newproject` and a positional path; `--newproject` keeps its existing save.
+For an `untitled:` check launch with `--capture-lsp --newproject-unsaved`, then open Form1's code and inspect
+its `didOpen`. No new VB6 behaviour is inferred: this uses #489's measured no-file state. The initial-header
+limitation above remains open as #885 in the live gaps document.
+
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
@@ -921,8 +1012,9 @@ damage reached a commit before it was spotted in `git diff`.
 
 **Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
 self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+source code of a form" *includes* the `Attribute` header, which is easy to omit when replacing only the
+procedures. VB6 hides it, but HexIDE showed it even before #273 made it part of the folded, read-only
+header. The original entry incorrectly called it invisible in HexIDE's editor. `VB_Name` is load-bearing.
 
 **Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
 use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
@@ -1362,8 +1454,11 @@ and replies with the watch list as if the call had done what was asked.
 >
 > **The entry's premise was partly wrong.** Avalonia's forced `Shutdown` still closes every window, so the
 > main window's `Closing` handler runs and saves window state and layout; it only loses its veto. A failed
-> launch therefore still writes the profile it shares, which is part of #557. No test pins the order in
-> `DesktopStartup` itself; that is #563.
+> launch therefore still writes the profile it shares, which is part of #557.
+>
+> **Regression coverage (#563).** `DesktopStartup` now delegates its posted cleanup to the internal
+> `ForcedExitCleanup` helper. `ForcedExitCleanupTests` pins loader disposal before exit, exit code 3
+> despite cleanup failures, and log closure after exit; deleting or reordering those steps fails the tests.
 
 **Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
 `desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,
@@ -4204,8 +4299,9 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > A reply records the loops running before its action, and counts the program idle only while every walk parked at
 > `DoEvents` was one of them. A loop the action found running is still the program's message loop, wherever the action
 > finds it, between two `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to
-> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at, since a handler
-> waiting there had not looped. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
+> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at: waiting on a
+> window now clears its earlier loop mark (#1318). The original fix covered only handlers with no DoEvents before
+> the window wait. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
 > the limit gets the usual note, naming only what the action set off: "(the program was still running Command1_Click 3s
 > later, so the form may still change)". Walks, not handler names, so a click that re-enters a handler parked under the
 > same name is told apart from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still
