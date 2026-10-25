@@ -93,14 +93,16 @@ internal static class ConsoleOutput
         Write(render, OpenRedirectedOutput, TryAttachToParentConsole);
 
     internal static bool Write(Func<ConsoleTarget, string> render,
-        Func<Stream?> openRedirectedOutput, Func<bool> attach)
+        Func<Stream?> openRedirectedOutput, Func<bool> attach, Encoding? redirectedEncoding = null)
     {
         using var output = openRedirectedOutput();
         if (output != null)
         {
-            using var writer = new StreamWriter(output, Console.OutputEncoding);
-            writer.WriteLine(render(new ConsoleTarget(false, int.MaxValue)));
-            writer.WriteLine();
+            // The console's encoding without its preamble. A StreamWriter writes the preamble first, and
+            // Console.OutputEncoding carries one whenever anything in the process set it to Encoding.UTF8, so a
+            // redirected file would start with a byte-order mark that whatever reads it has to strip.
+            var text = render(new ConsoleTarget(false, int.MaxValue)) + Environment.NewLine + Environment.NewLine;
+            output.Write((redirectedEncoding ?? Console.OutputEncoding).GetBytes(text));
             return true;
         }
 
