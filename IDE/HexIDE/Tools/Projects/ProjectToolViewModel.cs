@@ -73,6 +73,10 @@ public partial class ProjectToolViewModel : Tool
 
     public DelegateCommand FormPropertiesCommand { get; }
 
+    public DelegateCommand SaveFormCommand { get; }
+
+    public DelegateCommand SaveFormAsCommand { get; }
+
     public DelegateCommand AddFormCommand { get; }
     public DelegateCommand SynchronizeArchiveFolderCommand { get; }
 
@@ -135,6 +139,16 @@ public partial class ProjectToolViewModel : Tool
         {
             ViewObjectCommand.Execute(null);
             ((ICommand)ApplicationCommands.OpenPropertiesCommand).Execute(null);
+        }, () => SelectedForm != null);
+        SaveFormCommand = new DelegateCommand(() =>
+        {
+            if (SelectedForm != null)
+                projectService.SaveForm(SelectedForm.FormDefinition, false).ListenErrors();
+        }, () => SelectedForm != null);
+        SaveFormAsCommand = new DelegateCommand(() =>
+        {
+            if (SelectedForm != null)
+                projectService.SaveForm(SelectedForm.FormDefinition, true).ListenErrors();
         }, () => SelectedForm != null);
         AddFormCommand = new DelegateCommand(() => AddFormAsync(GetSelectedProject()!.Definition).ListenErrors(),
             () => GetSelectedProject() != null);
