@@ -7,7 +7,7 @@ namespace HexIDE.Processes;
 /// <summary>
 /// A Windows job object that ends every process assigned to it when the job closes: when this is disposed, and when
 /// HexIDE ends however it ends, since the system then closes the last handle to the job. It is for a child that would
-/// otherwise outlive HexIDE: a twinBASIC compiler started with <c>--compiler=0</c>, which watches no parent (#1689), and
+/// otherwise outlive HexIDE: the compiler #1689 starts, which in that mode watches no parent, and
 /// the language servers HexIDE launches (#406).
 /// <para>
 /// Job objects exist only on Windows. Elsewhere <see cref="Assign"/> returns false and the caller keeps its own lifetime
