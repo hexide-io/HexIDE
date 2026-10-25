@@ -1104,7 +1104,7 @@ public partial class CodeEditorView : UserControl
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
         if (tvPos is null) return;
 
-        if (_externalDebugger?.IsActive == true)
+        if (_externalDebugger is { Stop: not null, SelectedFrame: not null })
         {
             if (_externalDebugger.CanEvaluateHover)
             {
