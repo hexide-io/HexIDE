@@ -55,7 +55,7 @@
 | Quick Info | Ctrl+I | Done | Ctrl+I calls `TriggerQuickInfo()` → LSP hover at caret; auto-hover on mouse-over also active |
 | Parameter Info | Ctrl+Shift+I | Done | Triggers LSP signature help |
 | Complete Word | Ctrl+Space | Done | Triggers LSP completion |
-| Bookmarks | Ctrl+F2 / F2 / Shift+F2 / Ctrl+Shift+F2 | Done | Toggle/next/previous/clear-all; cyan circle gutter margin; persisted per project in the `.user.hexproj` sidecar via `UserSidecarService` (**exceeds VB6**, which lost bookmarks on close). Not set on a line of the header or of a member's `Attribute` lines, which are read-only (#273) |
+| Bookmarks | Ctrl+F2 / F2 / Shift+F2 / Ctrl+Shift+F2 | Done | Toggle/next/previous/clear-all; cyan circle gutter margin; persisted per project in the `.user.hexproj` sidecar via `UserSidecarService` (version 3 anchors code marks after the header, surviving conflicted external header edits and a reopen; #884) (**exceeds VB6**, which lost bookmarks on close). Not set on a line of the header or of a member's `Attribute` lines, which are read-only (#273) |
 
 ---
 
@@ -131,7 +131,7 @@
 | Add Watch… | — | Done (P6a) | Opens the Add Watch dialog (Expression + Context + the three VB6 Watch Types); adds to the Watches window. MCP `add_watch` |
 | Edit Watch… | Ctrl+W | Done (P6a) | Re-opens the Add Watch dialog for the Watches window's selected row |
 | Quick Watch… | Shift+F9 | Done (P6a) | Opens the Add Watch dialog pre-filled with the identifier under the caret |
-| Toggle Breakpoint | F9 | Done | Toggles a breakpoint on the active editor's caret line (red gutter margin, click-to-toggle); persists per-project in the `.user.hexproj` sidecar. Native interpreter debugger, Phase 1. Refused on a line of the header or of a member's `Attribute` lines, which never execute, and the status bar says why ([`debugger-vb6-divergences.md`](debugger-vb6-divergences.md), "No breakpoint or bookmark on a header line or a member's `Attribute` line"; #273) |
+| Toggle Breakpoint | F9 | Done | Toggles a breakpoint on the active editor's caret line (red gutter margin, click-to-toggle); persists per-project in the `.user.hexproj` sidecar, with code marks anchored after the header across conflicted external edits and a reopen (#884). Native interpreter debugger, Phase 1. Refused on a line of the header or of a member's `Attribute` lines, which never execute, and the status bar says why ([`debugger-vb6-divergences.md`](debugger-vb6-divergences.md), "No breakpoint or bookmark on a header line or a member's `Attribute` line"; #273) |
 | Clear All Breakpoints | Ctrl+Shift+F9 | Done | Removes every breakpoint in the project |
 | Set Next Statement | Ctrl+F9 | Done (P7b) | Moves the execution point to the caret line without running the statements between. **Top-level-body granularity only** — a nested target / a move while paused inside a block is refused (an interpreter limit — the top-level body is a pc-addressable loop, nested blocks are recursive descent; D18). MCP `set_next_statement` |
 | Show Next Statement | — | Done (P7a) | Reveals the paused module's current-statement line (scrolls to + shows the amber bar) |
