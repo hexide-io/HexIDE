@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Текущий модуль",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Все открытые документы",
     "Str.FindReplace.Msg.NotFound": "Искомый текст '{0}' не найден.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Текст '{0}' встречается только в заголовке файла или строках Attribute процедуры. Поиск пропускает эти области, поскольку их изменяет только IDE.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "Выполнено замен: {0}; пропущено совпадений в заголовке или строках Attribute процедур: {1}. Эти области изменяет только IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Выполнено замен: {0}.",
     "Str.FindReplace.Msg.InvalidRegex": "Недопустимый шаблон регулярного выражения.",
     "Str.FindReplace.Msg.NothingToSearch": "Здесь нечего искать. «Найти» работает в окнах кода и в текстовых файлах, входящих в проект.",

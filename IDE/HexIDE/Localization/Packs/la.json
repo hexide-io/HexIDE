@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Modulus Praesens",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Omnia Documenta Aperta",
     "Str.FindReplace.Msg.NotFound": "Textus quaesitus '{0}' non inventus est.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Textus quaesitus '{0}' tantum in capite fasciculi aut in lineis Attribute procedurae apparet. Quaestio has regiones praeterit, quia solum IDE eas mutat.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} substitutiones factae; {1} convenientiae in capite aut lineis Attribute procedurarum praetermissae, quas solum IDE mutat.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} substitutiones factae.",
     "Str.FindReplace.Msg.InvalidRegex": "Exemplar expressionis regularis invalidum.",
     "Str.FindReplace.Msg.NothingToSearch": "Nihil hic est quod perquiri possit. Invenire in fenestris codicis et in plicis textus quas inceptum fert operatur.",

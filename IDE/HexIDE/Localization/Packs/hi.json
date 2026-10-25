@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "वर्तमान मॉड्यूल",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "सभी खुले दस्तावेज़",
     "Str.FindReplace.Msg.NotFound": "खोज पाठ '{0}' नहीं मिला।",
+    "Str.FindReplace.Msg.ProtectedOnly": "खोज पाठ '{0}' केवल फ़ाइल के हेडर या प्रक्रिया की Attribute पंक्तियों में है। खोज इन्हें छोड़ देती है क्योंकि केवल IDE इन्हें बदलता है।",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} प्रतिस्थापन किए गए; हेडर या प्रक्रिया की Attribute पंक्तियों में {1} मिलान छोड़े गए, जिन्हें केवल IDE बदलता है।",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} प्रतिस्थापन किए गए।",
     "Str.FindReplace.Msg.InvalidRegex": "अमान्य नियमित अभिव्यक्ति पैटर्न।",
     "Str.FindReplace.Msg.NothingToSearch": "यहाँ ढूँढने के लिए कुछ नहीं है। ढूँढें कोड विंडो और परियोजना में शामिल पाठ फ़ाइलों में काम करता है।",
