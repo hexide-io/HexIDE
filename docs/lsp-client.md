@@ -38,6 +38,13 @@ stale bundled server fail rather than skip.
 
 ---
 
+## Subprocess launch configuration
+
+Subprocess launch configuration accepts `arguments` as a legacy command-line string or an argv array,
+forwarded through `ProcessStartInfo.ArgumentList`. An optional `environment` map overrides individual
+inherited variables. Both apply to stdio and launched pipe servers; pipe placeholders expand per argument.
+Processes have no shell or tty. See [the configuration guide](language-servers.md).
+
 ## The wire contract
 
 **Sent by the client:**
@@ -96,6 +103,14 @@ A failed request returns an empty or absent result and warns once per method per
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
 that method's warning available for a later genuine failure (#723).
+
+Every outbound request has a 30-second local deadline, using the same named default as `initialize`
+(#486). This is a consistency choice, not a measured server response budget. A shorter caller token stops
+the local wait sooner. Shutdown retains its existing shorter two-second budget; initialize still tears down an unanswered handshake.
+For language operations, a deadline returns the request's empty or absent result, warns once per method per connection, and records `TimedOut` rather than
+an answer. Cancellation sends `$/cancelRequest` best effort; returning never depends on its acknowledgement.
+StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
+is accepted so one silent method cannot block the caller or disable a healthy connection.
 
 ---
 
@@ -278,7 +293,7 @@ project's name, the document's own name, and the extension its kind will be save
 - **Each segment is percent-encoded** (`LspDocumentUri.ForUntitled`), never interpolated raw. texlab drops a
   notification whose URI is not strictly valid without a word: no response, no error, nothing on standard
   error, and the connection stays up and answers about other documents normally. A request about that
-  document is then never answered at all, because nothing but `initialize` has a timeout
+  document is then never answered by the server; the client gives up after its request deadline
   ([#486](https://github.com/hexide-io/HexIDE/issues/486)). The same server, in the same process, answers the
   percent-encoded form.
 - **Compared without regard to case**, because both segments are VB6 names. This is only ever exercised
@@ -507,6 +522,11 @@ of no change and no save, so those asks never reach it. Asking only about docume
 leave it no way to give diagnostics at all, which is why
 [#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
 
+The close of a pulled document clears its marks under the same gate that checks and publishes answers.
+The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
+publication was the close's clear, observed before the reopen answer had arrived because the test mistook
+its identically labelled initial answer for the fresh one. Its failure trace labels that empty clear.
+
 `workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
 table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
 report a change that is not a document, such as its own configuration file being edited.
@@ -602,6 +622,12 @@ anything, and failed entries remain failed.
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+exercised against a real foreign server; the other two are covered against fakes. Named-pipe
+process-notice and workspace-argument tests await the specific stderr/exit/close callbacks, with a
+two-minute safety bound for a loaded runner (#892). A timeout names the callback still awaited and
+reports scheduling uncertainty; it does not establish that the server omitted an exit code.
+
 Stdio process logs include the configured server ID as a structured `Server` property and in the
 rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
 that supply no ID use the executable name.
@@ -655,7 +681,7 @@ The answer now keeps the sequence it was already allocated, so the gap is the ad
 | On the request's row | Means |
 |---|---|
 | `answerSizeBytes` | How big the reply was. Recorded **whether or not bodies are being kept** — size is metadata, so it belongs to the tier that is always on. |
-| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` was answered on a connection nobody armed. |
+| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` may be an unretained answer or a local cancellation, timeout, or abandonment. |
 
 Pass `answerSequence` to `get_lsp_message` and the reply comes back with `isAnswer`, `answerTo`, and the
 request's method — a response carries none of its own on the wire. In the window, both halves appear under
@@ -670,6 +696,11 @@ For folding ranges, document symbols, formatting and rename, the highest-priorit
 advertises the capability supplies the single answer (registration order breaks ties). Each other
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
+
+Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
+Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
+Use synthetic paths outside a user profile in fixtures. Windows clone roots under `Repos` warn
+about portability; installed tool paths remain allowed (#366).
 
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
@@ -697,6 +728,13 @@ times like every entry, so `list_lsp_messages` shows them. A server that answere
 died of SIGPIPE the moment the connection was torn down, is the case they were written for (#390): the four
 say whether the request left this process and whether anything came back. `websocket` frames whole messages
 and has no such gap to observe.
+
+The foreign-server diagnostics waits in the lazy-start, configuration-file and untitled-document tests
+also inspect this record while waiting (#449). A captured non-zero process exit fails with the connection
+id, exit code, outstanding request names (including requests abandoned when the connection closed), and
+the conversation, rather than waiting out a diagnostics timeout. A clean exit or an exit on another
+connection is not classified as that failure. This adds no retry and does not establish the cause of the
+intermittent SIGPIPE.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
@@ -985,7 +1023,6 @@ Three clusters account for nearly all of the gap:
 |---|---|---|
 | Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
 | A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
 | A server's fold is read from the start of its first line, and its character offsets are ignored | Collapsed, a server's fold hides the line LSP leaves showing. Read as LSP means it, under today's merge, a procedure with an attribute run under a one-line declaration would lose its fold | [#1022](https://github.com/hexide-io/HexIDE/issues/1022) |

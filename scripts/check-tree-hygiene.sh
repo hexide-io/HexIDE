@@ -13,8 +13,8 @@
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
 # merge-conflict markers, xUnit assertions in test sources, and C1 control characters.
-# Warns (exit 0) on TWO things, both expected and neither blocking: key material .gitignore already covers, and the
-# upstream-attribution mention. Exits 2 when git cannot read the tree or the link scan cannot create its temp file.
+# Warns (exit 0) on: key material .gitignore already covers, clone roots under a Windows
+# Repos directory, and the upstream-attribution mention. Exits 2 when git cannot read the tree or the link scan cannot create its temp file.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
 # listings see only TRACKED files, so a brand-new file is invisible until it is staged --
@@ -51,7 +51,10 @@ cd "$(dirname "$0")/.." || exit 2
 # the *content* scans is what stops them flagging themselves. They stay inside the
 # *filename* scans below, so a stray key or binary dropped in scripts/ is still caught.
 EXCLUDE=( ':!scripts/check-tree-hygiene.sh' ':!scripts/check-licences.sh' )
+PATH_EXCLUDE=( "${EXCLUDE[@]}" ':!scripts/fixtures/tree-hygiene/**' )
 #
+# Path fixture data under scripts/fixtures/tree-hygiene/ is excluded only from path scans:
+# the selftest copies each into an isolated repository under a scanned name.
 # `check-tree-hygiene.selftest.sh` is deliberately ABSENT from that list, though it plants every
 # kind of material scanned for below. It assembles each forbidden literal at run time
 # (`printf 'twin%s' BASIC` and friends) precisely so it need not be excluded: excusing it would
@@ -148,7 +151,14 @@ done < <(tree_files | grep -zEi '\.(exe|dll|pdb|bak)$')
 #    to a reader and a small identity leak.
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
-done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
+done < <(git grep --untracked -nIiE '[c-z]:[\\/]+users[\\/]+|[c-z]%3a/users/' -- . "${PATH_EXCLUDE[@]}")
+
+# Clone roots are a portability problem rather than necessarily an identity leak. Warn for
+# the conventional Windows Repos directory; do not flag all absolute paths, since installed
+# tool paths (notably Program Files) are useful documentation. Other clone locations are not inferred.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && warned "machine-specific clone root: $hit"
+done < <(git grep --untracked -nIiE '[c-z]:[\\/]+repos[\\/]+' -- . "${PATH_EXCLUDE[@]}")
 
 # 3b. C# code that writes to a fixed absolute path. A test once wrote its debug output to a folder that
 #     existed on one developer's disk, and CI caught it only because that folder was missing on the runners. A
@@ -288,10 +298,11 @@ done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnu
 
 # 10. C1 controls (U+0080–U+009F) in UTF-8 text indicate an encoding accident (#1312).
 # Scan even the scripts excluded above; tests needing a control must spell it as an escape.
-# Match UTF-8 bytes under C locale so the result does not depend on the host's locale.
+# Explicit UTF mode matches code points on Linux and Git for Windows alike (#1881).
+# Windows git already uses UTF mode under C locale, where a byte pattern misses controls.
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "C1 control character: $hit"
-done < <(LC_ALL=C git grep --untracked -nIP '\xC2[\x80-\x9F]' -- .)
+done < <(LC_ALL=C git grep --untracked -nIP '(*UTF)[\x{80}-\x{9F}]' -- .)
 
 echo
 if [ "$fails" -eq 0 ]; then

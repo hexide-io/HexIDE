@@ -20,6 +20,17 @@ namespace HexIDE.Tests.ViewModels;
 /// </remarks>
 public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 {
+    [Fact]
+    public async Task TimedOutRequestsShowTheirOutcomeAndCountAsFailures()
+    {
+        _capture.Record("probe", ConversationDirection.Sent, ConversationEntryKind.Request, "textDocument/hover", "1", 0);
+        _capture.EndRequests("probe", ConversationDirection.Sent, "1", ConversationOutcome.TimedOut);
+        await _capture.DrainAsync();
+        var envelope = _capture.Snapshot("probe").Single();
+        envelope.IsFailure().Should().BeTrue();
+        new ProtocolInspectorRowViewModel(envelope, false, Loc()).Outcome.Should().Be("Str.Tool.ProtocolInspector.Outcome.TimedOut");
+    }
+
     private readonly ConversationLog _capture = new();
 
     public async ValueTask DisposeAsync()

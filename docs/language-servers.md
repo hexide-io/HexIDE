@@ -58,7 +58,8 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
 | `transport` | yes | `stdio`, `pipe` or `websocket`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
-| `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
+| `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
+| `environment` | no | Map of environment variable names to string values, layered over the inherited environment for a launched stdio or pipe server. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
 | `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
@@ -68,6 +69,12 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
+
+Use the array form when quoting matters: `"arguments": ["host", "server --stdio"]` passes two arguments
+exactly as written, including spaces, quotes and empty strings. The legacy string form still uses .NET
+command-line parsing. HexIDE launches processes directly, with no shell and no tty; shell expansion and
+interactive SSH prompts are unavailable. Pipe placeholders also work within each array element. Both
+`arguments` and `environment` may be omitted or null.
 
 ### Extensions serve; the identifier names
 
@@ -240,6 +247,9 @@ indefinitely and silently.
 
 The **arguments are part of the command's identity**, not just the executable: `node` is harmless, and
 `node /tmp/something.js` is whatever that script says.
+So is the `environment`: `NODE_OPTIONS`, `LD_PRELOAD` or `PATH` change what the same command line runs,
+so adding or changing a variable is announced too. Reordering them is not, and an entry with none keeps
+the identity it had before.
 
 This applies to a `pipe` entry that carries a `command` exactly as it does to a `stdio` one. What
 decides it is whether HexIDE starts a process, not which transport the entry names — a pipe it merely

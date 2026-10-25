@@ -518,6 +518,36 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void AnAddInsWidenedDeletionCannotOverlapAnotherEdit()
+    {
+        var vm = OpenCode();
+        var before = vm.Document.Text;
+        var line = LineOf(vm, "Public Sub Go()");
+
+        vm.ApplyEdits([new TextChange(line.Offset, line.Length, ""),
+            new TextChange(line.EndOffset, 0, " ' keep")]).Should().NotBeNull();
+
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Public Sub Go()")]
+    [InlineData("Public Count As Long")]
+    public void AnAddInsEmptyEditTakesTheDeclarationsRun(string text)
+    {
+        var vm = OpenCode();
+        var before = vm.Document.Text;
+        var line = LineOf(vm, text);
+        var widened = vm.ReadOnlySections.WidenDeletion(line.Offset, line.Length);
+
+        vm.ApplyEdits([new TextChange(line.Offset, line.Length, "")]).Should().BeNull();
+
+        vm.Document.Text.Should().Be(before.Remove(widened.Offset, widened.Length));
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
     public void AnAddInsEditPuttingALineBreakAtTheEndOfADescribedLineIsRefused()
     {
         var vm = OpenCode();

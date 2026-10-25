@@ -64,6 +64,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
+            .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()

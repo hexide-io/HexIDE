@@ -24,7 +24,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// </list>
 /// HexIDE drew the last block on top, and every Line under every other control.
 /// </remarks>
-public class RuntimeStackingTests
+public class RuntimeStackingTests : WindowTestFixture
 {
     private static readonly Color Red = Color.FromRgb(255, 0, 0);
     private static readonly Color Yellow = Color.FromRgb(255, 255, 0);

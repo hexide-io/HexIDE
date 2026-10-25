@@ -59,6 +59,13 @@ running.
 - **THEN** the caller receives the empty or absent result for that request
 - **AND** the connection remains usable for subsequent requests
 
+#### Scenario: The server never answers one request
+- **WHEN** a language request reaches its 30-second local deadline
+- **THEN** the client SHALL stop waiting locally, send cancellation best effort, and record `TimedOut`
+- **AND** a language operation SHALL return its empty or absent result and warn once per method per connection
+- **AND** subsequent requests on the same connection SHALL remain usable
+- **AND** a shorter caller cancellation SHALL stop waiting sooner without spending the failure warning
+
 #### Scenario: The server cancels a superseded request
 - **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
 - **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed
@@ -917,6 +924,21 @@ that line (hexide-io/HexIDE#1363).
 - **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
   alone
 - **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+
+### Requirement: Subprocess launch SHALL accept argument lists and environment overrides
+For stdio and launched pipe servers, the IDE SHALL accept nullable `arguments` as either a legacy
+command-line string or an array of strings. Arrays SHALL be forwarded through `ProcessStartInfo.ArgumentList`
+without trimming their elements. Pipe placeholders SHALL expand within each element. A nullable
+`environment` map SHALL override only the named inherited environment variables. Processes SHALL be launched
+without a shell or tty.
+
+#### Scenario: Arguments needing embedded quoting
+- **WHEN** an entry supplies an argument array containing spaces, quotes or empty strings
+- **THEN** the child receives each element as one argument with its contents preserved
+
+#### Scenario: One environment override
+- **WHEN** an entry supplies an environment variable value
+- **THEN** the child receives that value and inherits variables not named in the map
 
 ### Requirement: A launched pipe server can be told its owner's process ID
 For a launched pipe server, the client SHALL replace every `{pid}` in the configured arguments with

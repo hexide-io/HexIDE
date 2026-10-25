@@ -176,7 +176,7 @@ public sealed class VBLspClient : ILspClient
         _logger = logger;
         _languageId = languageId;
         _workspace = workspace;
-        _initializeTimeout = initializeTimeout ?? DefaultInitializeTimeout;
+        _initializeTimeout = initializeTimeout ?? DefaultRequestTimeout;
         _trace = LspTraceValue.Normalise(trace) ?? LspTraceValue.Off;
         _capture = capture;
         _connectionId = connectionId;
@@ -218,14 +218,37 @@ public sealed class VBLspClient : ILspClient
     private readonly string _languageId;
     private readonly ILspWorkspace? _workspace;
     private readonly TimeSpan _initializeTimeout;
+    internal TimeSpan RequestTimeout { get; set; } = DefaultRequestTimeout;
 
-    /// <summary>
-    /// Deliberately generous. The cost of waiting too long is a late log line; the cost of waiting too
-    /// little is tearing down a server that was merely slow to start — which would be a worse bug than the
-    /// one this bounds, because it would strike healthy setups on cold or loaded machines. Nothing here is
-    /// on a user-visible path: the handshake runs fire-and-forget from startup.
-    /// </summary>
-    private static readonly TimeSpan DefaultInitializeTimeout = TimeSpan.FromSeconds(30);
+    // Shared with initialize for consistency; a policy budget, not a measured server response time.
+    private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
+
+    private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
+        CancellationToken cancellationToken = default, TimeSpan? timeout = null)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var scope = new RequestCancellation(_capture, _connectionId);
+        var previous = RequestCancellation.Current.Value;
+        Task<T> pending;
+        try
+        {
+            RequestCancellation.Current.Value = scope;
+            pending = rpc.InvokeWithParameterObjectAsync<T>(method, parameters, cancellation.Token);
+        }
+        finally { RequestCancellation.Current.Value = previous; }
+
+        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellationToken); }
+        catch (Exception ex) when (ex is TimeoutException || ex is OperationCanceledException)
+        {
+            if (ex is TimeoutException) scope.Outcome = ConversationOutcome.TimedOut;
+            // Notify best effort, but never wait for the server to acknowledge cancellation.
+            cancellation.Cancel();
+            _ = pending.ContinueWith(t => _ = t.Exception, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            throw;
+        }
+    }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -552,9 +575,7 @@ public sealed class VBLspClient : ILspClient
         attempt.Reached(LanguageConnectionStage.HandshakeSent);
         try
         {
-            raw = await _rpc
-                .InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams, cancellationToken)
-                .WaitAsync(_initializeTimeout, cancellationToken);
+            raw = await InvokeRequestAsync<JsonElement>(_rpc, "initialize", initParams, cancellationToken, _initializeTimeout);
             _initializeAnswered = true;
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
         }
@@ -1019,7 +1040,7 @@ public sealed class VBLspClient : ILspClient
         JsonElement? raw;
         try
         {
-            raw = await rpc.InvokeWithParameterObjectAsync<JsonElement?>("textDocument/diagnostic", p);
+            raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
         }
         catch (Exception ex)
         {
@@ -1196,7 +1217,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<HoverResult?>(
+            return await InvokeRequestAsync<HoverResult?>(_rpc,
                 "textDocument/hover", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1228,7 +1249,7 @@ public sealed class VBLspClient : ILspClient
         var p = new DocumentSymbolParams(new TextDocumentIdentifier(uri));
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/documentSymbol", p, cancellationToken);
             return ReadDocumentSymbols(raw);
         }
@@ -1335,7 +1356,7 @@ public sealed class VBLspClient : ILspClient
         var p = new FoldingRangeParams(new TextDocumentIdentifier(uri));
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<FoldingRange[]>(
+            return await InvokeRequestAsync<FoldingRange[]>(_rpc,
                 "textDocument/foldingRange", p, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1351,7 +1372,7 @@ public sealed class VBLspClient : ILspClient
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var result = await _rpc.InvokeWithParameterObjectAsync<CompletionList?>(
+            var result = await InvokeRequestAsync<CompletionList?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
             return result?.Items ?? [];
         }
@@ -1368,7 +1389,7 @@ public sealed class VBLspClient : ILspClient
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<SignatureHelp?>(
+            return await InvokeRequestAsync<SignatureHelp?>(_rpc,
                 "textDocument/signatureHelp", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1395,7 +1416,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/definition", p, cancellationToken);
             return ReadLocations(raw);
         }
@@ -1416,7 +1437,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/declaration", p, cancellationToken);
             return ReadLocations(raw);
         }
@@ -1477,7 +1498,7 @@ public sealed class VBLspClient : ILspClient
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<DocumentHighlight[]?>(
+            return await InvokeRequestAsync<DocumentHighlight[]?>(_rpc,
                 "textDocument/documentHighlight", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1493,7 +1514,7 @@ public sealed class VBLspClient : ILspClient
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<WorkspaceEdit?>(
+            return await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
                 "textDocument/rename", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1511,7 +1532,7 @@ public sealed class VBLspClient : ILspClient
             new FormattingOptions(4, true));
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<TextEdit[]?>(
+            return await InvokeRequestAsync<TextEdit[]?>(_rpc,
                 "textDocument/formatting", p, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1529,7 +1550,7 @@ public sealed class VBLspClient : ILspClient
         CodeLens[] lenses;
         try
         {
-            lenses = await _rpc.InvokeWithParameterObjectAsync<CodeLens[]?>(
+            lenses = await InvokeRequestAsync<CodeLens[]?>(_rpc,
                 "textDocument/codeLens", p, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1567,7 +1588,7 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null) return null;
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<CodeLens?>(
+            return await InvokeRequestAsync<CodeLens?>(_rpc,
                 "codeLens/resolve", lens, cancellationToken);
         }
         catch (Exception ex)
@@ -1594,7 +1615,7 @@ public sealed class VBLspClient : ILspClient
         var p = new ExecuteCommandParams(command, arguments);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<System.Text.Json.JsonElement?>(
+            return await InvokeRequestAsync<System.Text.Json.JsonElement?>(_rpc,
                 "workspace/executeCommand", p, cancellationToken);
         }
         catch (Exception ex)
@@ -1609,7 +1630,7 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null || !_initialized || !CanServeExperimental("vbBuiltinSymbols")) return [];
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<VbaBuiltinSymbol[]>(
+            return await InvokeRequestAsync<VbaBuiltinSymbol[]>(_rpc,
                 "vb/builtinSymbols", EmptyParams.Instance, cancellationToken) ?? [];
         }
         catch (Exception ex)
@@ -1625,7 +1646,7 @@ public sealed class VBLspClient : ILspClient
         if (_rpc is null || !_initialized || !CanServe("workspaceSymbolProvider")) return [];
         try
         {
-            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "workspace/symbol", new WorkspaceSymbolParams(query), cancellationToken);
             return ReadWorkspaceSymbols(raw);
         }
@@ -1720,8 +1741,7 @@ public sealed class VBLspClient : ILspClient
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
             {
-                await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null)
-                    .WaitAsync(TimeSpan.FromSeconds(2));
+                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: TimeSpan.FromSeconds(2));
             }
             catch { }
             try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }

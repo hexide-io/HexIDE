@@ -77,6 +77,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // inside this client and reads strictly more of it — see docs/lsp-client.md.
         string fileName = serverInfo.FileName;
         string arguments = serverInfo.Arguments;
+        var argumentList = serverInfo.ArgumentList?.ToList();
 
         if (!OperatingSystem.IsWindows())
         {
@@ -112,6 +113,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
                 if (File.Exists(dll))
                 {
                     arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
+                    if (argumentList is not null) argumentList.Insert(0, dll);
                     fileName = "dotnet";
                 }
                 else
@@ -126,7 +128,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             StartInfo = new ProcessStartInfo
             {
                 FileName = fileName,
-                Arguments = arguments,
+                Arguments = argumentList is null ? arguments : "",
                 WorkingDirectory = WorkingDirectory(),
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -136,6 +138,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
             },
             EnableRaisingEvents = true
         };
+
+        if (argumentList is not null)
+            foreach (var argument in argumentList) _process.StartInfo.ArgumentList.Add(argument);
+        if (serverInfo.Environment is not null)
+            foreach (var (key, value) in serverInfo.Environment) _process.StartInfo.Environment[key] = value;
 
         _process.ErrorDataReceived += (_, e) =>
         {
