@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Vložit _soubor",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Přepnout _zarážku",
     "Str.CodeEditor.Context.Bookmarks": "_Záložky",
+    "Str.Menu.Edit.ToggleFold": "_Přepnout sbalení",
+    "Str.CodeEditor.Context.ToggleFold": "_Přepnout sbalení",
     "Str.CodeEditor.Context.ToggleBookmark": "_Přepnout záložku",
     "Str.CodeEditor.Context.NextBookmark": "_Další záložka",
     "Str.CodeEditor.Context.PreviousBookmark": "_Předchozí záložka",

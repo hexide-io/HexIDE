@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Inserisci _file",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Attiva/disattiva _punto di interruzione",
     "Str.CodeEditor.Context.Bookmarks": "_Segnalibri",
+    "Str.Menu.Edit.ToggleFold": "_Attiva/disattiva compressione",
+    "Str.CodeEditor.Context.ToggleFold": "_Attiva/disattiva compressione",
     "Str.CodeEditor.Context.ToggleBookmark": "_Attiva/disattiva segnalibro",
     "Str.CodeEditor.Context.NextBookmark": "Segnalibro _successivo",
     "Str.CodeEditor.Context.PreviousBookmark": "Segnalibro _precedente",

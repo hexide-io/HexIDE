@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Inserir _Ficheiro",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Alternar Ponto de _Interrupção",
     "Str.CodeEditor.Context.Bookmarks": "_Marcadores",
+    "Str.Menu.Edit.ToggleFold": "_Alternar recolhimento",
+    "Str.CodeEditor.Context.ToggleFold": "_Alternar recolhimento",
     "Str.CodeEditor.Context.ToggleBookmark": "Al_ternar Marcador",
     "Str.CodeEditor.Context.NextBookmark": "Marcador _Seguinte",
     "Str.CodeEditor.Context.PreviousBookmark": "Marcador _Anterior",

@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "파일 삽입",
     "Str.CodeEditor.Context.ToggleBreakpoint": "중단점 설정/해제",
     "Str.CodeEditor.Context.Bookmarks": "책갈피",
+    "Str.Menu.Edit.ToggleFold": "접기 전환",
+    "Str.CodeEditor.Context.ToggleFold": "접기 전환",
     "Str.CodeEditor.Context.ToggleBookmark": "책갈피 설정/해제",
     "Str.CodeEditor.Context.NextBookmark": "다음 책갈피",
     "Str.CodeEditor.Context.PreviousBookmark": "이전 책갈피",

@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "הוסף קובץ",
     "Str.CodeEditor.Context.ToggleBreakpoint": "הפעל/בטל נקודת עצירה",
     "Str.CodeEditor.Context.Bookmarks": "סימניות",
+    "Str.Menu.Edit.ToggleFold": "החלפת מצב קיפול",
+    "Str.CodeEditor.Context.ToggleFold": "החלפת מצב קיפול",
     "Str.CodeEditor.Context.ToggleBookmark": "הפעל/בטל סימנייה",
     "Str.CodeEditor.Context.NextBookmark": "הסימנייה הבאה",
     "Str.CodeEditor.Context.PreviousBookmark": "הסימנייה הקודמת",

@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Sett inn _fil",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Veksle _bruddpunkt",
     "Str.CodeEditor.Context.Bookmarks": "_Bokmerker",
+    "Str.Menu.Edit.ToggleFold": "_Veksle folding",
+    "Str.CodeEditor.Context.ToggleFold": "_Veksle folding",
     "Str.CodeEditor.Context.ToggleBookmark": "_Veksle bokmerke",
     "Str.CodeEditor.Context.NextBookmark": "_Neste bokmerke",
     "Str.CodeEditor.Context.PreviousBookmark": "_Forrige bokmerke",

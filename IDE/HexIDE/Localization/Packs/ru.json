@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Вставить файл",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Точка останова",
     "Str.CodeEditor.Context.Bookmarks": "Закладки",
+    "Str.Menu.Edit.ToggleFold": "Переключить сворачивание",
+    "Str.CodeEditor.Context.ToggleFold": "Переключить сворачивание",
     "Str.CodeEditor.Context.ToggleBookmark": "Переключить закладку",
     "Str.CodeEditor.Context.NextBookmark": "Следующая закладка",
     "Str.CodeEditor.Context.PreviousBookmark": "Предыдущая закладка",
