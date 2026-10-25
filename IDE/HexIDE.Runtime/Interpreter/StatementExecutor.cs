@@ -1584,16 +1584,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A condition that raised under Resume Next enters its own branch, the Then or the ElseIf it was testing (null; see
         // ConditionMet).
         if (await ConditionMet(context.ifBlockStmt().ifConditionStmt().valueStmt(), context) is not false)
-            return await VisitBranch(context.ifBlockStmt().block());
+            return await VisitBranch(context.ifBlockStmt().ifBlockBody()?.block());
 
         foreach (var elseIf in context.ifElseIfBlockStmt())
         {
             if (await ConditionMet(elseIf.ifConditionStmt().valueStmt(), elseIf) is not false)
-                return await VisitBranch(elseIf.block());
+                return await VisitBranch(elseIf.ifBlockBody()?.block());
         }
 
         if (context.ifElseBlockStmt() is { } elseBlock)
-            return await VisitBranch(elseBlock.block());
+            return await VisitBranch(elseBlock.ifBlockBody()?.block());
 
         return default;
     }
