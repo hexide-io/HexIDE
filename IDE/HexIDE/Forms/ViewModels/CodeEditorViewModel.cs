@@ -1103,7 +1103,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (LiveDocumentUri is not { } uri) return;
         var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
         _symbols = symbols;
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshProcedureNames());
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Event names come from the component, not symbols. Rebuilding that bound list reselects the
+            // handler and moves a new stub's caret from its body to its declaration (#1865).
+            if (SelectedObject == GeneralObject || SelectedObject is null)
+                RefreshProcedureNames();
+        });
     }
 
     private void RefreshProcedureNames()
