@@ -12,6 +12,11 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
+**Known robustness gap (#1223):** the parse-depth guard does not bound left-associated operator trees.
+The isolated [depth probes](parse-depth-probes.md) find stack overflows in symbol/type/scope visitors
+and the real `didOpen` path at the 100,000-addition sample, while direct diagnostics still parse it.
+This is outstanding hardening work, not a language-analysis boundary.
+
 ---
 
 ## Two limits, and only one of them is a backlog
