@@ -415,6 +415,7 @@ public partial class CodeEditorView : UserControl
             // Apply tab width from settings
             TextEditor.Options.IndentationSize = vm.Settings.TabWidth;
             TextEditor.Options.ConvertTabsToSpaces = true;
+            TextEditor.Options.AllowToggleOverstrikeMode = true;
 
             // Push initial cursor position to status bar
             var caret = TextEditor.TextArea.Caret;
@@ -1629,7 +1630,12 @@ public partial class CodeEditorView : UserControl
     /// Ends the step <see cref="OnEditorKeyDown"/> noted, once the key has been handled, whoever handled it (#273 task
     /// 4.3 review).
     /// </summary>
-    private void OnEditorKeyHandled(object? sender, KeyEventArgs e) => _stepRightFrom = -1;
+    private void OnEditorKeyHandled(object? sender, KeyEventArgs e)
+    {
+        _stepRightFrom = -1;
+        if (e.Key == Key.Insert && DataContext is CodeEditorViewModel vm)
+            vm.StatusBar.InsertMode = !TextEditor.TextArea.OverstrikeMode;
+    }
 
     /// <summary>
     /// Handles Enter key press: if the current logical line is a VB6 block opener,

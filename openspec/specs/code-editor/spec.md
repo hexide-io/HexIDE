@@ -324,3 +324,13 @@ then the other open documents, and only then wrap within the active document.
 - **WHEN** the caret is at offset 0 and both the active document and another open document contain the search text
 - **AND** the developer uses plain-text Find Up under All Open Documents
 - **THEN** the last match in the other document is selected before any match in the active document
+
+### Requirement: Insert toggles overtype with immediate status feedback
+The code window SHALL toggle between insert and overtype mode when Insert is pressed.
+The status bar SHALL reflect the new mode immediately, without requiring the caret to move.
+
+#### Scenario: Toggle overtype and return to insert
+- **WHEN** the developer presses Insert in a focused code window
+- **THEN** overtype mode is enabled and the status bar displays the localized overtype label
+- **WHEN** the developer presses Insert again
+- **THEN** insert mode is restored and the status bar displays the localized insert label
