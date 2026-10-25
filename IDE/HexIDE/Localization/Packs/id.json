@@ -787,6 +787,15 @@
     "Str.Naming.Msg.ProjectNameTaken": "Sebuah proyek bernama '{0}' sudah dimuat. Dua proyek dalam satu grup tidak boleh bernama sama.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' tidak ditambahkan. Berkas itu bernama '{0}', yang sudah menjadi nama sebuah form, modul, atau kelas di proyek ini.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' tidak ditambahkan. Berkas itu bernama '{0}', dan itu bukan nama yang valid: nama diawali dengan huruf dan dilanjutkan dengan huruf, angka, dan garis bawah.",
+    "Str.ProjectLoad.ParseFailed": "Gagal mengurai berkas formulir: {0}",
+    "Str.ProjectLoad.InvalidForm": "Ini bukan berkas formulir yang valid",
+    "Str.ProjectLoad.UnknownControl": "Kelas {0} dari kontrol {1} bukan kelas kontrol yang didukung — dipertahankan sebagai tidak dikenal.",
+    "Str.ProjectLoad.InvalidValue": "Properti {0} dalam {1} memiliki nilai yang tidak valid.",
+    "Str.ProjectLoad.MissingOffset": "Properti {0} dalam {1}: offset .frx tidak ditemukan.",
+    "Str.ProjectLoad.MissingRecord": "Properti '{0}' dalam '{1}' merujuk pada rekaman yang tidak ada dalam berkas pendampingnya, sehingga formulir tidak dapat disimpan.",
+    "Str.ProjectLoad.Heading": "Proyek tidak dapat dideserialisasi dengan benar:",
+    "Str.ProjectLoad.MoreWarnings": "...dan {0} peringatan lainnya (lihat log untuk daftar lengkap).",
+    "Str.ProjectLoad.ActiveXDocuments": "Proyek ini berisi berkas ActiveX Document (.dob) yang tidak didukung di HexIDE dan telah dilewati:\n\n{0}\n\nActiveX Documents memerlukan Internet Explorer atau binder Office sebagai host, yang keduanya kini praktis tidak digunakan lagi. Jenis proyek ini berada di luar cakupan HexIDE.",
     "Str.CodeEditor.RangeEditRefused": "Suntingan ditolak: {0}. Tidak ada yang diubah."
   }
 }

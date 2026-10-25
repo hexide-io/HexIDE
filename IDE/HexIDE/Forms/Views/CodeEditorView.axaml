@@ -138,11 +138,11 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NextBookmark}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  />
                             <Separator />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" />
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />

@@ -787,6 +787,15 @@
     "Str.Naming.Msg.ProjectNameTaken": "Et projekt med navnet '{0}' er allerede indlæst. To projekter i én projektgruppe kan ikke have samme navn.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' blev ikke tilføjet. Den hedder '{0}', som allerede er navnet på en formular, et modul eller en klasse i dette projekt.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' blev ikke tilføjet. Den hedder '{0}', som ikke er et gyldigt navn: et navn begynder med et bogstav og fortsætter med bogstaver, cifre og understregningstegn.",
+    "Str.ProjectLoad.ParseFailed": "Kunne ikke fortolke formularfilen: {0}",
+    "Str.ProjectLoad.InvalidForm": "Dette er ikke en gyldig formularfil",
+    "Str.ProjectLoad.UnknownControl": "Klassen {0} for kontrolelementet {1} er ikke en understøttet kontrolelementklasse — bevaret som ukendt.",
+    "Str.ProjectLoad.InvalidValue": "Egenskaben {0} i {1} havde en ugyldig værdi.",
+    "Str.ProjectLoad.MissingOffset": "Egenskaben {0} i {1}: forskydningen i .frx blev ikke fundet.",
+    "Str.ProjectLoad.MissingRecord": "Egenskaben '{0}' i '{1}' henviser til en post, som den tilhørende fil ikke indeholder, så formularen kan ikke gemmes.",
+    "Str.ProjectLoad.Heading": "Projektet kunne ikke deserialiseres korrekt:",
+    "Str.ProjectLoad.MoreWarnings": "...og yderligere {0} advarsler (se loggen for den fulde liste).",
+    "Str.ProjectLoad.ActiveXDocuments": "Dette projekt indeholder ActiveX Document-filer (.dob), som ikke understøttes i HexIDE og er blevet sprunget over:\n\n{0}\n\nActiveX-dokumenter krævede Internet Explorer eller Office-projektmapper som vært, og begge er i praksis udgået. Denne projekttype ligger uden for HexIDEs omfang.",
     "Str.CodeEditor.RangeEditRefused": "Ændringer afvist: {0}. Intet blev ændret."
   }
 }
