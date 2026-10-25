@@ -627,6 +627,11 @@ Envelopes — direction, method, id, size, outcome, latency — are recorded for
 connection that has been armed, except each connection's opening, which is always kept because a handshake
 cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
 
+The grid stays fixed until Refresh. While the tab is visible, its pending indicator polls a monotonic
+entry counter every half second, without copying the record. The count covers all connections regardless
+of the selected filter and survives eviction or clearing; Refresh resets its baseline. Replies completing
+an existing request do not add an entry to this count.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline

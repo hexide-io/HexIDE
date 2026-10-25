@@ -244,3 +244,15 @@ evicts the quiet one's history and a single count reports a loss nobody can attr
 #### Scenario: A shared ceiling written against one server
 - **WHEN** an entry for a single server sets a limit that governs every connection together
 - **THEN** it is not applied, and the developer is told it was not
+
+### Requirement: The inspector SHALL report new entries without moving the grid
+The visible inspector SHALL poll a cheap monotonic entry counter every half second and show how many
+entries were appended since Refresh. It SHALL keep the grid unchanged until explicitly refreshed. The
+counter SHALL cover all connections independently of filters and SHALL NOT reset on eviction or clearing.
+Replies completing existing requests SHALL NOT count as appended entries. Polling SHALL stop while the
+view is hidden or detached.
+
+#### Scenario: Traffic arrives while the grid is being read
+- **WHEN** an entry is recorded while the inspector is visible
+- **THEN** its pending indicator appears without adding or moving grid rows
+- **AND** Refresh fills the grid again and resets the pending indicator
