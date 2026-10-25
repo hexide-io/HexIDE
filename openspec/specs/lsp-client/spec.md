@@ -94,6 +94,11 @@ Full synchronization removes an entire class of desynchronization bug — a drop
 leaving the server's copy silently diverged from the editor's — at a cost that is negligible for source
 files of the size VB6 projects contain.
 
+This is deliberate for servers declaring either Full or Incremental synchronization: each change SHALL
+contain one event with the whole new text and no range. A server declaring None SHALL receive no changes.
+LSP permits full-document changes whatever sync kind the server advertises. Incremental sync is deferred
+until a server needs it to justify the desynchronization risk (hexide-io/HexIDE#282).
+
 The version is the server's only way to order what it receives, and a server may discard a change that is not
 later than what it holds. The open counts: a first change that repeated the open's version was lost to such a
 server (hexide-io/HexIDE#470).
@@ -208,7 +213,10 @@ backend under any licence can sit behind the seam without affecting the IDE's ow
 
 ### Requirement: The language client SHALL start and stop with the desktop session
 The client SHALL be started when the desktop IDE starts and stopped when it shuts down, requesting an
-orderly server shutdown before terminating the process.
+orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
+deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out. Both messages
+SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
+two seconds for termination before disposing the process handle.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
@@ -218,6 +226,11 @@ still goes away.
 - **WHEN** the IDE shuts down
 - **THEN** the server is asked to shut down and its process is ended
 - **AND** no server process outlives the IDE
+
+#### Scenario: A server never answers shutdown
+- **WHEN** the server receives `shutdown` but never answers it
+- **THEN** the client stops waiting after two seconds and attempts `exit`
+- **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
@@ -742,6 +755,11 @@ upward is worse than one that does not recognise the value at all.
 #### Scenario: A server explaining a misconfiguration
 - **WHEN** a server reports a problem with its own setup
 - **THEN** that report reaches a surface the developer can read, rather than only a discarded log level
+
+#### Scenario: Running commentary reaches the default log
+- **WHEN** a server sends `window/logMessage` with type 4 (Log)
+- **THEN** the client SHALL write it at Information so the default log retains it
+- **AND** type 5 (Debug) SHALL remain at Trace
 
 #### Scenario: A severity this client does not know
 - **WHEN** a server sends a severity introduced after the version this client targets

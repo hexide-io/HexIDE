@@ -48,11 +48,24 @@ stale bundled server fail rather than skip.
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+On stop, the client allows two seconds for the parameterless `shutdown` request to answer, then
+attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+The stdio transport kills any remaining child and waits up to two seconds for termination before
+disposing its process handle.
+
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
-The first goes to the log at the severity the server declared; the second goes there **and** to the
+Both map Error to Error, Warning to Warning, Info and Log (types 3 and 4) to Information, and
+3.18 Debug (type 5) and unknown values to Trace. Type 4 therefore reaches the default log;
+type 5 needs `HEXIDE_LOG_LEVEL=Verbose`. The second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
 is the next one.
+
+The metamodel guard also checks the numeric values of the wire enums (`DiagnosticSeverity`,
+`MessageType`, `SymbolKind` and `CompletionItemKind`). Completion display kinds still declare only
+six of the 25 specification values; the guard explicitly defers the existing 19 omissions as a separate
+display-model follow-up, while detecting newly added values. `SaveNotification` describes local save
+negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
@@ -169,11 +182,15 @@ that kind under `change`. Kind `0` means "send me nothing", so presence alone ca
 
 **Full text only.** Every `didChange` carries the whole document.
 
-The client reads a server's declared sync kind well enough to know whether to send changes at all, but does
-**not** honour an incremental declaration — a server asking for incremental updates receives full ones
-anyway. That is legal, since full text is always a valid superset, but it is wasteful on large files and
-leaves the incremental path with no coverage at all. Tracked as
-[#282](https://github.com/hexide-io/HexIDE/issues/282); texlab is the server that surfaced it.
+The client reads a server's declared sync kind to decide whether to send changes at all: None suppresses
+them. For both Full and Incremental, it deliberately sends one change event containing the entire new text
+and no `range`. LSP permits this: a server must accept full-document changes whatever sync kind it advertises.
+
+This is the decision in [#282](https://github.com/hexide-io/HexIDE/issues/282), not pending incremental-sync
+work. Full synchronization avoids dropped or misapplied deltas silently desynchronizing the server and
+editor, at negligible cost for typical VB6 source files. Texlab and a second backend both declared
+Incremental and were measured accepting these full-text changes. Incremental sync is deferred until a server needs it;
+the cost on large files remains recorded under *Known client limitations*.
 
 **`didClose` publishes an empty diagnostic set, and this is a hard requirement.** Three consumers — the
 editor's marker service, `AddinDiagnosticsService`, and the MCP `DiagnosticsCache` — depend on that empty
@@ -610,6 +627,11 @@ Envelopes — direction, method, id, size, outcome, latency — are recorded for
 connection that has been armed, except each connection's opening, which is always kept because a handshake
 cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
 
+The grid stays fixed until Refresh. While the tab is visible, its pending indicator polls a monotonic
+entry counter every half second, without copying the record. The count covers all connections regardless
+of the selected filter and survives eviction or clearing; Refresh resets its baseline. Replies completing
+an existing request do not add an entry to this count.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline
@@ -951,7 +973,7 @@ Three clusters account for nearly all of the gap:
 
 | Limitation | Consequence | Tracked |
 |---|---|---|
-| Full-text sync only; a declared incremental kind is ignored | Wasteful on large files; the incremental path is untested | [#282](https://github.com/hexide-io/HexIDE/issues/282) |
+| Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 | No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
 | A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |

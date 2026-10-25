@@ -12,6 +12,8 @@ than by arguing about a default.
 This is one of three independent pack systems following the same shape: this one swaps gestures,
 `theme-packs` swaps colours, `language-packs` swaps text.
 
+Disk discovery closes the embedded-only gap tracked in [#414](https://github.com/hexide-io/HexIDE/issues/414).
+
 ## Requirements
 ### Requirement: Shortcuts SHALL be declared as data
 A keymap SHALL be a data file mapping commands to gestures, and adding one SHALL require no code change.
@@ -21,8 +23,18 @@ keymap is something a user can hold an opinion about and act on — and the proj
 opinion rather than having to pick the single correct answer.
 
 #### Scenario: Adding a keymap
-- **WHEN** a new keymap is contributed
-- **THEN** it is a data file mapping commands to gestures, with no code change
+- **WHEN** a JSON keymap is placed in the active user-data directory's `keymaps` subdirectory before startup
+- **THEN** its filename without `.json` appears in Options → Keymap and is the persisted selection name
+- **AND** applying it reads that file and rebinds commands without restarting
+- **AND** `Default` and `VB6` remain reserved built-in names, compared case-insensitively
+- **AND** unreadable or invalid packs revert to Default when applied
+
+Pack files use the existing `name`, optional `description`, and `bindings` JSON fields. `bindings` maps
+command names to gesture strings; an empty string clears a binding. Unmentioned commands retain their
+factory gestures and unknown command names are logged and skipped. Discovery is top-level only, sorted
+by ordinal file path; duplicate names differing only by case use the first file. A missing or unreadable
+directory leaves the built-in choices available. Adding files requires another startup for discovery;
+edits to an already discovered file are read on its next application.
 
 ### Requirement: A keymap SHALL take effect without restarting
 Applying a keymap SHALL rebind commands in the running IDE. Command-backed menu items SHALL display the

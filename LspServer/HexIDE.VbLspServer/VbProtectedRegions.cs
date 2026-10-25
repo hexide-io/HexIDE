@@ -87,6 +87,9 @@ internal sealed class VbProtectedRegions
     /// </remarks>
     public bool Declares(string word) => declaredNames.Contains(word);
 
+    /// <summary>The names declared by the designer block, for the scope check's baseline.</summary>
+    internal IEnumerable<string> DesignerNames => declaredNames;
+
     /// <summary>
     /// True when <paramref name="line"/> (0-based) is in the header or is an attribute line of a run that
     /// describes a member. An orphan's lines are not protected.
