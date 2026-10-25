@@ -60,6 +60,7 @@ internal static class CommandKeyMapping
             ["ParameterInfoCommand"]                   = ApplicationCommands.ParameterInfoCommand,
             ["CompleteWordCommand"]                    = ApplicationCommands.CompleteWordCommand,
             ["BookmarksCommand"]                       = ApplicationCommands.BookmarksCommand,
+            ["ToggleFoldCommand"]                      = ApplicationCommands.ToggleFoldCommand,
             ["ToggleBookmarkCommand"]                  = ApplicationCommands.ToggleBookmarkCommand,
             ["NextBookmarkCommand"]                    = ApplicationCommands.NextBookmarkCommand,
             ["PreviousBookmarkCommand"]                = ApplicationCommands.PreviousBookmarkCommand,

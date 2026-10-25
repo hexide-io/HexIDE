@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "Вставити файл",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Перемкнути точку зупину",
     "Str.CodeEditor.Context.Bookmarks": "Закладки",
+    "Str.Menu.Edit.ToggleFold": "Перемкнути згортання",
+    "Str.CodeEditor.Context.ToggleFold": "Перемкнути згортання",
     "Str.CodeEditor.Context.ToggleBookmark": "Перемкнути закладку",
     "Str.CodeEditor.Context.NextBookmark": "Наступна закладка",
     "Str.CodeEditor.Context.PreviousBookmark": "Попередня закладка",

@@ -1218,6 +1218,26 @@ public partial class CodeEditorView : UserControl
         _ = ShowHoverAsync(vm, lspPos, _hoverCts.Token);
     }
 
+    public void ToggleFold()
+    {
+        if (_foldingManager is null) return;
+        var caret = TextEditor.TextArea.Caret;
+        var line = TextEditor.Document.GetLineByNumber(caret.Line);
+        FoldingSection? target = null;
+        foreach (var section in _foldingManager.AllFoldings)
+        {
+            if (!(section.StartOffset <= caret.Offset && caret.Offset <= section.EndOffset) &&
+                !(line.Offset <= section.StartOffset && section.StartOffset <= line.EndOffset)) continue;
+            if (target is null || section.StartOffset > target.StartOffset ||
+                (section.StartOffset == target.StartOffset && section.EndOffset < target.EndOffset))
+                target = section;
+        }
+        if (target is null) return;
+        if (!target.IsFolded && target.StartOffset < caret.Offset && caret.Offset < target.EndOffset)
+            caret.Offset = target.StartOffset;
+        target.IsFolded = !target.IsFolded;
+    }
+
     // ── Bookmarks ─────────────────────────────────────────────────────────────
 
     public void ToggleBookmark()

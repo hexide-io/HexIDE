@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "درج فایل",
     "Str.CodeEditor.Context.ToggleBreakpoint": "تغییر وضعیت نقطه توقف",
     "Str.CodeEditor.Context.Bookmarks": "نشانک‌ها",
+    "Str.Menu.Edit.ToggleFold": "تغییر وضعیت تاخوردگی",
+    "Str.CodeEditor.Context.ToggleFold": "تغییر وضعیت تاخوردگی",
     "Str.CodeEditor.Context.ToggleBookmark": "تغییر وضعیت نشانک",
     "Str.CodeEditor.Context.NextBookmark": "نشانک بعدی",
     "Str.CodeEditor.Context.PreviousBookmark": "نشانک قبلی",

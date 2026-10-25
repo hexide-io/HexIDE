@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Toggle Fold in the code window** (#1014): Edit and context-menu commands, with Ctrl+M (Cmd+M on macOS),
+  fold or expand the innermost section at the caret or starting on its row. An expanded member attribute run
+  can be folded again without folding its procedure or reopening the window.
+
 - **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
   placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
 

@@ -313,6 +313,8 @@
     "Str.CodeEditor.Context.InsertFile": "Enmeti _dosieron",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Baskuligi _rompopunkton",
     "Str.CodeEditor.Context.Bookmarks": "_Legosignoj",
+    "Str.Menu.Edit.ToggleFold": "_Baskuligi faldon",
+    "Str.CodeEditor.Context.ToggleFold": "_Baskuligi faldon",
     "Str.CodeEditor.Context.ToggleBookmark": "_Baskuligi legosignon",
     "Str.CodeEditor.Context.NextBookmark": "_Sekva legosigno",
     "Str.CodeEditor.Context.PreviousBookmark": "_Antaŭa legosigno",
