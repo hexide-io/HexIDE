@@ -13,7 +13,7 @@ name, then `_ExtentX`, `_ExtentY` and `_Version`, then the control's own propert
 | `saved/` | Forms **VB6's IDE wrote**, each by its own save of the form in `input/` of the same name | **Yes**: every byte is VB6's, and HexIDE must give each back unchanged |
 | `input/` | The hand-written forms and projects VB6 was given to open | **No**: these are not VB6's bytes |
 | `typelib/` | MSCOMCTL.OCX's and COMCTL32.OCX's type libraries, dumped by `scripts/dump-typelib-types.ps1` and `scripts/dump-typelib-members.ps1` on the oracle VM | No: `InBoxMemberTableTests` checks the libraries and the ProgressBar's member table against them |
-| `look/` | Two forms of ProgressBars, hand-written, and VB6's drawing of each: the client area of the running form, captured from the console of the oracle VM (Windows 10, 100% scaling) and cropped | No: `ProgressBarDrawingTests` draws each bar and compares it with VB6's, pixel by pixel |
+| `look/` | Two forms of ProgressBars, hand-written with a project each to open them by, and VB6's drawing of each: the client area of the running form, captured from the console of the oracle VM (Windows 10, 100% scaling) and cropped | No: `ProgressBarDrawingTests` draws each bar and compares it with VB6's, pixel by pixel |
 
 An input is not a round-trip fixture because VB6 rewrote it. It added a `TabIndex` to each control, wrote the default
 extents for a control read without any, dropped a `Value` line, which it doesn't save, and laid out the aligned
