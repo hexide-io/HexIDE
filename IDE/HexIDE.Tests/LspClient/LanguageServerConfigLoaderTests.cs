@@ -329,11 +329,50 @@ public class LanguageServerConfigLoaderTests : IDisposable
         var value = field switch
         {
             "command" => entry.Command,
-            "arguments" => entry.Arguments,
+            "arguments" => entry.Arguments?.Text,
             "workingDirectory" => entry.WorkingDirectory,
             _ => entry.WorkspaceArtifact?.Path,
         };
         value.Should().Be("C:\tools\new\repo\bin\file");
+    }
+
+    [Theory]
+    [InlineData("arguments", "arguments[1]")]
+    [InlineData("environment", "environment.SERVER_PATH")]
+    public void EscapedControlsInArgumentElementsAndEnvironmentValuesWarnWithoutChangingTheValue(
+        string field, string expectedField)
+    {
+        var property = field == "arguments"
+            ? """
+              "arguments":["safe","C:\tools\new\repo\bin\file","D:\new"]
+              """
+            : """
+              "environment":{"SAFE":"safe","SERVER_PATH":"C:\tools\new\repo\bin\file","OTHER_PATH":"D:\new"}
+              """;
+        var result = LoaderFor($$"""
+            {"version":1,"servers":[{"id":"paths","extensions":[".x"],"languageId":"x",
+             "transport":"stdio","command":"server",{{property}}}]}
+            """).Load([]);
+
+        var warnings = result.Problems.Where(p => p.Message.Contains("likely intended")).ToArray();
+        warnings.Should().HaveCount(2);
+        var warning = warnings.Should().ContainSingle(p => p.Message.Contains(expectedField)).Which;
+        warning.EntryId.Should().Be("paths");
+        warnings.Should().OnlyContain(p => !p.EntryRejected);
+        warning.Message.Should().Contain(@"C:\tools\new\repo\bin\file");
+        warnings.Should().ContainSingle(p => p.Message.Contains(
+            field == "arguments" ? "arguments[2]" : "environment.OTHER_PATH"))
+            .Which.Message.Should().Contain(@"D:\new");
+        var entry = result.Entries.Should().ContainSingle().Which;
+        if (field == "arguments")
+            entry.Arguments!.List.Should().Equal("safe", "C:\tools\new\repo\bin\file", "D:\new");
+        else
+        {
+            entry.Environment.Should().HaveCount(3);
+            entry.Environment!["SAFE"].Should().Be("safe");
+            entry.Environment["SERVER_PATH"].Should().Be("C:\tools\new\repo\bin\file");
+            entry.Environment["OTHER_PATH"].Should().Be("D:\new");
+        }
     }
 
     // ── Whole-file failures ───────────────────────────────────────────────────────────────────────────

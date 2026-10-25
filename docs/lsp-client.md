@@ -14,7 +14,8 @@ registered with the `connect` fallback.
 
 Invalid JSON escapes in the server configuration remain errors, with guidance to use forward slashes or
 doubled backslashes. Escaped control characters in path-bearing fields produce a warning showing the
-likely intended path, without changing the value; see [Windows path syntax](language-servers.md#a-worked-example).
+likely intended path, including the index for array arguments and the variable name for environment values,
+without changing the value; see [Windows path syntax](language-servers.md#a-worked-example).
 
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).

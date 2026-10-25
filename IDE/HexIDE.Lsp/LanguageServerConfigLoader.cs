@@ -315,7 +315,13 @@ public sealed class LanguageServerConfigLoader
             foreach (var entry in file.Servers ?? [])
             {
                 CheckPath(entry, "command", entry.Command, problems);
-                CheckPath(entry, "arguments", entry.Arguments, problems);
+                CheckPath(entry, "arguments", entry.Arguments?.Text, problems);
+                if (entry.Arguments?.List is { } arguments)
+                    for (var i = 0; i < arguments.Length; i++)
+                        CheckPath(entry, $"arguments[{i}]", arguments[i], problems);
+                if (entry.Environment is { } environment)
+                    foreach (var variable in environment)
+                        CheckPath(entry, $"environment.{variable.Key}", variable.Value, problems);
                 CheckPath(entry, "workingDirectory", entry.WorkingDirectory, problems);
                 CheckPath(entry, "workspaceArtifact.path", entry.WorkspaceArtifact?.Path, problems);
             }

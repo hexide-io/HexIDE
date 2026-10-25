@@ -55,7 +55,8 @@ rejects the file with repair guidance and the field and position. A valid escape
 silently means a tab or newline instead of a backslash and a letter.
 
 HexIDE warns about these control characters in `command`, `arguments`, `workingDirectory`, and
-`workspaceArtifact.path`, naming the field and showing the likely intended backslash path. This warning
+`workspaceArtifact.path`, including every array `arguments` element and every `environment` value,
+naming the field (with the array index or environment variable) and showing the likely intended backslash path. This warning
 does not rewrite the value or reject the entry; other validation still applies. `cwd` and `environment`
 are not configuration fields HexIDE supports.
 

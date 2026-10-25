@@ -331,8 +331,10 @@ in the way the next requirement describes.
 ### Requirement: Windows path escapes SHALL be diagnosed without lenient parsing
 The configuration loader SHALL reject invalid JSON string escapes and retain the parse error's field and
 position while recommending forward slashes or doubled backslashes. It SHALL warn when `command`,
-`arguments`, `workingDirectory`, or `workspaceArtifact.path` contains an escaped tab, newline, carriage
-return, backspace, or form feed, naming the field and showing the likely intended backslash path.
+`arguments` (the string or each array element), any `environment` value, `workingDirectory`, or
+`workspaceArtifact.path` contains an escaped tab, newline, carriage
+return, backspace, or form feed, naming the field (including its array index or environment variable name)
+and showing the likely intended backslash path.
 The warning SHALL leave the value unchanged and SHALL NOT itself reject the entry.
 
 #### Scenario: An invalid escape in a Windows command path
