@@ -12,6 +12,7 @@ public partial class OBClassViewModel
     public override string ToString() => Name;
     public OBClassKind Kind { get; }
     [Notify] private string libraryName;
+    public bool IsStatus { get; init; }
 
     public ModuleDefinition? ModuleDefinition { get; }
     public FormDefinition? FormDefinition { get; }

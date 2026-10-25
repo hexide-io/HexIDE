@@ -37,6 +37,9 @@ public interface ILspClient : IAsyncDisposable
     /// </summary>
     event EventHandler<ShowMessageParams>? MessageShown;
 
+    /// <summary>Work-done progress; sender identifies the originating server through a registry.</summary>
+    event EventHandler<ProgressParams>? ProgressReceived;
+
     /// <summary>
     /// The server's running commentary about itself — <c>window/logMessage</c>.
     /// </summary>

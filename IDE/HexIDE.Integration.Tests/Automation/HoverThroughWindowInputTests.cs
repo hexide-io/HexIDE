@@ -319,6 +319,9 @@ public class HoverThroughWindowInputTests
     [AvaloniaFact]
     public async Task External_hover_uses_a_stopped_frame_and_quick_info_after_continue()
     {
+        // Read once, before any await: after continuations on Avalonia's dispatcher, TestContext.Current can resolve a
+        // context already disposed, and a throw from the finally hides whatever the test body threw.
+        var cancellationToken = TestContext.Current.CancellationToken;
         var directory = Path.Combine(Path.GetTempPath(), "hexide-hover-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         await using var log = new HexIDE.Conversations.ConversationLog();
@@ -329,7 +332,7 @@ public class HoverThroughWindowInputTests
         {
             executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, "evaluate-running" },
             adapterId = "fixture", launch = new { },
-        }), TestContext.Current.CancellationToken);
+        }), cancellationToken);
         var run = external.StartAsync(config);
         var (window, editor, vm) = ShowEditor(external);
         try
@@ -359,7 +362,7 @@ public class HoverThroughWindowInputTests
         {
             window.Close(); vm.Dispose();
             await external.StopAsync();
-            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            await run.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
             Directory.Delete(directory, true);
         }
     }

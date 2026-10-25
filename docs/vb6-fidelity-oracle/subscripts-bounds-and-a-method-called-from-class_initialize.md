@@ -312,8 +312,8 @@ Procedure forward-local-Const reads are now checked by #894; other procedure rul
   read, a class's included (#889);
 - a built-in no probe has asked about is refused, rather than guessed either way.
 
-`LenB` and `CVar` are allowed in a bound but not implemented in HexIDE, so a bound using them stops there as any use
-of them does.
+`LenB` and `CVar` are allowed in a bound but were not implemented in HexIDE, so a bound using them stopped there as any
+use of them did. `LenB` is now, for a String (#1510).
 
 **Review round four** found that the check refused qualified constants main had read, and asked what else a bound or
 a Const may read. Measured with `/make`, one project each, on the en-GB guest; each project that built was run, and
@@ -360,7 +360,7 @@ what reads it. And a dimension with no values does not compile, at either level.
   read, bare as qualified, since #880.
 - `Len` and `LenB` size from a String constant only: a literal, a String Const, a concatenation, or `CStr` of a
   constant. Of a number or a non-String Const they are "Variable required". Of anything else, such as another
-  function's result, they are refused loudly. HexIDE has no `LenB` to size from yet.
+  function's result, they are refused loudly. HexIDE sizes from `LenB` since #1510.
 - The pre-pass records where each Enum is declared, which is collection; an Enum below a Const or bound is "Constant
   expression required".
 - A `Global` variable counts as Public.
