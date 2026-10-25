@@ -175,3 +175,12 @@ points them away from the reason.
 #### Scenario: A search that genuinely finds nothing
 - **WHEN** a capable server is asked and returns no symbols
 - **THEN** the browser says nothing matched, naming the query
+
+### Requirement: Browser inputs and lists have localized automation names
+The library selector, search field, search-results list, class list and member list SHALL expose distinct,
+localized automation names describing their purpose.
+
+#### Scenario: Identifying browser controls
+- **WHEN** a screen reader or automation caller inspects the Object Browser
+- **THEN** each input and list is named in the selected IDE language
+- **AND** the class and member lists can be distinguished without positional indices

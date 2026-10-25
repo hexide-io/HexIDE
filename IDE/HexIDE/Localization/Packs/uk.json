@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Очистити пошук",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Пошук",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Пошук",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Бібліотеки",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Члени",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Класи",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Результати пошуку",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Жоден мовний сервер ще не запущено. Відкрийте вікно коду, щоб запустити його.",

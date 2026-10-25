@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "検索をクリア",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "検索",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "検索",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "ライブラリ",
+    "Str.Tool.ObjectBrowser.Panel.Members": "メンバー",
     "Str.Tool.ObjectBrowser.Panel.Classes": "クラス",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "検索結果",
     "Str.Tool.ObjectBrowser.Search.NoServer": "言語サーバーはまだ起動していません。コードウィンドウを開いて起動してください。",

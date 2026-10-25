@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Hapus Pencarian",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Cari",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Cari",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Pustaka",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Anggota",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Kelas",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Hasil Pencarian",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Belum ada server bahasa yang berjalan. Buka jendela kode untuk menjalankannya.",

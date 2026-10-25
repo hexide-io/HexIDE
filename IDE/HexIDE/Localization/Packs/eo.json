@@ -276,6 +276,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Vakigi Serĉon",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Serĉi",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Serĉi",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Bibliotekoj",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Membroj",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klasoj",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Serĉrezultoj",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Neniu lingva servilo ankoraŭ startis. Malfermu kodan fenestron por startigi unu.",

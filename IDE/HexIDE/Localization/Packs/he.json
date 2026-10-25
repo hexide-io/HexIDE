@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "נקה חיפוש",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "חפש",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "חפש",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "ספריות",
+    "Str.Tool.ObjectBrowser.Panel.Members": "חברים",
     "Str.Tool.ObjectBrowser.Panel.Classes": "מחלקות",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "תוצאות חיפוש",
     "Str.Tool.ObjectBrowser.Search.NoServer": "עדיין לא הופעל שרת שפה. פתח חלון קוד כדי להפעיל אחד.",

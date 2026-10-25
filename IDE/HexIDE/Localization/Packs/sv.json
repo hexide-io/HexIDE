@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Rensa sökning",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Sök",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Sök",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Bibliotek",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Medlemmar",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klasser",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Sökresultat",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Ingen språkserver har startats ännu. Öppna ett kodfönster för att starta en.",

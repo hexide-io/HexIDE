@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "खोज साफ़ करें",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "खोजें",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "खोजें",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "लाइब्रेरी",
+    "Str.Tool.ObjectBrowser.Panel.Members": "सदस्य",
     "Str.Tool.ObjectBrowser.Panel.Classes": "क्लासेस",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "खोज परिणाम",
     "Str.Tool.ObjectBrowser.Search.NoServer": "अभी तक कोई भाषा सर्वर प्रारंभ नहीं हुआ है। एक प्रारंभ करने के लिए कोड विंडो खोलें।",

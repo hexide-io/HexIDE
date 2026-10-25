@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Ryd søgning",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Søg",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Søg",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Biblioteker",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Medlemmer",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klasser",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Søgeresultater",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Der er endnu ikke startet nogen sprogserver. Åbn et kodevindue for at starte en.",

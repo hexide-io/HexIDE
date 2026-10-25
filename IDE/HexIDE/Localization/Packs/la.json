@@ -276,6 +276,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Dele Quaestionem",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Quaere",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Quaere",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Bibliothecae",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Membra",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Inventa Quaestionis",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Nullus servitor linguae adhuc inceptus est. Aperi fenestram codicis ut unum incipias.",

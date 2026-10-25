@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Aramayı Temizle",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Ara",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Ara",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Kitaplıklar",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Üyeler",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Sınıflar",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Arama Sonuçları",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Henüz hiçbir dil sunucusu başlatılmadı. Başlatmak için bir kod penceresi açın.",

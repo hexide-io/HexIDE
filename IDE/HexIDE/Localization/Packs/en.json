@@ -285,6 +285,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Clear Search",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Search",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Search",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Libraries",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Members",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Search Results",
     "Str.Tool.ObjectBrowser.Search.NoServer": "No language server has started yet. Open a code window to start one.",

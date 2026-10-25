@@ -315,6 +315,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "清除搜尋",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "搜尋",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "搜尋",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "程式庫",
+    "Str.Tool.ObjectBrowser.Panel.Members": "成員",
     "Str.Tool.ObjectBrowser.Panel.Classes": "類別",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "搜尋結果",
     "Str.Tool.ObjectBrowser.Search.NoServer": "尚未啟動任何語言伺服器。請開啟程式碼視窗以啟動。",
