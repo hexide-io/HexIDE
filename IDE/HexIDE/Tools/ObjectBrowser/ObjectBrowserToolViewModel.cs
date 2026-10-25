@@ -227,6 +227,14 @@ public partial class ObjectBrowserToolViewModel : Document
     private void OnProjectUnloaded(ProjectDefinition project)
     {
         if (!projectToLibrary.TryGetValue(project, out var lib)) return;
+        project.FormAdded -= OnFormAdded;
+        project.FormDeleted -= OnFormDeleted;
+        project.ModuleAdded -= OnModuleAdded;
+        project.ModuleDeleted -= OnModuleDeleted;
+        project.PropertyChanged -= OnProjectChanged;
+        foreach (var form in project.Forms) form.PropertyChanged -= OnMemberChanged;
+        foreach (var module in project.Modules) module.PropertyChanged -= OnMemberChanged;
+        PruneHistory(c => lib.Classes.Contains(c));
         Libraries.Remove(lib);
         projectToLibrary.Remove(project);
         if (SelectedLibrary == lib) SelectedLibrary = null;
@@ -235,13 +243,23 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void AddProjectLibrary(ProjectDefinition project)
     {
+        if (projectToLibrary.ContainsKey(project)) return;
+        project.FormAdded += OnFormAdded;
+        project.FormDeleted += OnFormDeleted;
+        project.ModuleAdded += OnModuleAdded;
+        project.ModuleDeleted += OnModuleDeleted;
+        project.PropertyChanged += OnProjectChanged;
         var lib = new OBLibraryViewModel(project.Name);
 
         foreach (var form in project.Forms)
+        {
+            form.PropertyChanged += OnMemberChanged;
             lib.Classes.Add(new OBClassViewModel(form.Name, OBClassKind.Form, project.Name, formDefinition: form));
+        }
 
         foreach (var module in project.Modules)
         {
+            module.PropertyChanged += OnMemberChanged;
             var kind = module.Kind == ModuleKind.ClassModule ? OBClassKind.ClassModule : OBClassKind.Module;
             lib.Classes.Add(new OBClassViewModel(module.Name, kind, project.Name, moduleDefinition: module));
         }
@@ -260,6 +278,84 @@ public partial class ObjectBrowserToolViewModel : Document
         }
 
         ReorderLibraries();
+    }
+
+    private void OnFormAdded(ProjectDefinition project, FormDefinition form)
+    {
+        form.PropertyChanged += OnMemberChanged;
+        projectToLibrary[project].Classes.Add(new OBClassViewModel(form.Name, OBClassKind.Form,
+            project.Name, formDefinition: form));
+        RefreshProjectClasses(project);
+    }
+
+    private void OnModuleAdded(ProjectDefinition project, ModuleDefinition module)
+    {
+        module.PropertyChanged += OnMemberChanged;
+        var kind = module.Kind == ModuleKind.ClassModule ? OBClassKind.ClassModule : OBClassKind.Module;
+        projectToLibrary[project].Classes.Add(new OBClassViewModel(module.Name, kind,
+            project.Name, moduleDefinition: module));
+        RefreshProjectClasses(project);
+    }
+
+    private void OnFormDeleted(ProjectDefinition project, FormDefinition form)
+    {
+        form.PropertyChanged -= OnMemberChanged;
+        RemoveProjectClass(project, c => ReferenceEquals(c.FormDefinition, form));
+    }
+
+    private void OnModuleDeleted(ProjectDefinition project, ModuleDefinition module)
+    {
+        module.PropertyChanged -= OnMemberChanged;
+        RemoveProjectClass(project, c => ReferenceEquals(c.ModuleDefinition, module));
+    }
+
+    private void RemoveProjectClass(ProjectDefinition project, Predicate<OBClassViewModel> matches)
+    {
+        PruneHistory(matches);
+        projectToLibrary[project].Classes.RemoveAll(matches);
+        RebuildFilteredClasses();
+    }
+
+    private void PruneHistory(Predicate<OBClassViewModel> matches)
+    {
+        for (int i = _navHistory.Count - 1; i >= 0; i--)
+        {
+            if (_navHistory[i].Class is not { } cls || !matches(cls)) continue;
+            _navHistory.RemoveAt(i);
+            if (i <= _navIndex) _navIndex--;
+        }
+        BackCommand.RaiseCanExecutedChanged();
+        ForwardCommand.RaiseCanExecutedChanged();
+    }
+
+    private void OnMemberChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != nameof(FormDefinition.Name)) return;
+        if (sender is FormDefinition form) RefreshProjectClasses(form.Owner);
+        else if (sender is ModuleDefinition module) RefreshProjectClasses(module.Owner);
+    }
+
+    private void OnProjectChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != nameof(ProjectDefinition.Name)) return;
+        if (sender is not ProjectDefinition project) return;
+        projectToLibrary[project].Name = project.Name;
+        RefreshProjectClasses(project);
+        ReorderLibraries();
+    }
+
+    private void RefreshProjectClasses(ProjectDefinition project)
+    {
+        var lib = projectToLibrary[project];
+        foreach (var cls in lib.Classes)
+        {
+            cls.Name = cls.FormDefinition?.Name ?? cls.ModuleDefinition!.Name;
+            cls.LibraryName = project.Name;
+        }
+        lib.Classes.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+        RebuildFilteredClasses();
+        OnPropertyChanged(nameof(DescriptionMembership));
+        OnPropertyChanged(nameof(MembersHeader));
     }
 
     private void ReorderLibraries()

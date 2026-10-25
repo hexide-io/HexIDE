@@ -1,7 +1,7 @@
 # Building with the real VB6: switches, compiler output and hooks
 
 > **Work in progress.** Captured 2026-10-13. Nothing here is built. The measurements are real and are also
-> recorded in [`vb6-fidelity-oracle.md`](../vb6-fidelity-oracle.md); everything under "Proposal" is an idea.
+> recorded in [`vb6-fidelity-oracle/README.md`](../vb6-fidelity-oracle/README.md); everything under "Proposal" is an idea.
 
 ## Why
 

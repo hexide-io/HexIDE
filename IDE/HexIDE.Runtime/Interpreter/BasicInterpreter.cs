@@ -1678,7 +1678,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // Optional defaults evaluate in the OWNER module's context (a default may name an owner-module
                 // helper); an empty With scope (a leading `.X` in a default is Error 91).
                 // Three cases, and VB6 distinguishes all three (measured — see the IsMissing section of
-                // docs/vb6-fidelity-oracle.md):
+                // docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md):
                 //   a default    → that value, and IsMissing is False
                 //   a non-Variant declared type → that type's zero, and IsMissing is False
                 //   an untyped or As Variant parameter → Missing (#866, native and in the IDE)

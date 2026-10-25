@@ -1279,7 +1279,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static Vb6Value.ValueType ForOperandType(Vb6Value.ValueType t) =>
         t == Vb6Value.ValueType.Boolean || t == Vb6Value.ValueType.EmptyVariant ? Vb6Value.ValueType.Integer : t;
 
-    // The result table of + for two numeric types (docs/vb6-fidelity-oracle.md, "+ and -"): the wider of the two, except that
+    // The result table of + for two numeric types (docs/vb6-fidelity-oracle/verified-findings.md, "+ and -"): the wider of the two, except that
     // a Long beside a Single is a Double. A Date beside any number is a Date. A Date beside a Decimal was not measured.
     private static Vb6Value.ValueType ForSumType(Vb6Value.ValueType a, Vb6Value.ValueType b, ParserRuleContext context)
     {
@@ -2947,7 +2947,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <para>
     /// VB6 coerces the CASE VALUE to the SELECTOR's runtime type and then compares — it does not compare
     /// numerically, and it is not symmetric. Both halves are measured (see <i>Select Case matching</i> in
-    /// docs/vb6-fidelity-oracle.md): a <c>String</c> selector holding <c>"1.0"</c> does NOT match
+    /// docs/vb6-fidelity-oracle/select-case-matching--the-coercion-rule.md): a <c>String</c> selector holding <c>"1.0"</c> does NOT match
     /// <c>Case 1</c>, because <c>CStr(1)</c> is <c>"1"</c>; a <c>Long</c> selector holding 2 DOES match
     /// <c>Case 1.7</c>, because <c>CLng(1.7)</c> is 2. Comparing numerically would get both backwards.
     /// </para>
@@ -3021,7 +3021,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>
     /// A Variant selector against a Case value, neither converted into the other's type. Measured, native and p-code
-    /// (docs/vb6-fidelity-oracle.md, <i>A typed selector and a Variant one</i>):
+    /// (docs/vb6-fidelity-oracle/a-typed-selector-and-a-variant-one.md, <i>A typed selector and a Variant one</i>):
     /// <list type="bullet">
     /// <item>Against a TYPED Case value, a literal, a declared variable or a typed Function's result, the selector is read
     /// as that type. Against a String it is text, so 5 is not <c>Is &lt; "10"</c> and <c>Is = "5"</c> matches. Against a

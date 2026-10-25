@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Tests;
 /// is 13 for any object. A few rows are inferred rather than measured, and say so. HexIDE does not call a class's
 /// default member yet, so a Widget is refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR
 /// type name, or no match at all. A Plain raises VB6's 438, where several of these raised 13 or gave the type name
-/// (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a value".
+/// (#436). The probe is in docs/vb6-fidelity-oracle/an-object-used-as-a-value.md, "An object used as a value".
 /// </summary>
 public class ObjectAsValueTests : BaseVBTestFixture
 {
@@ -167,7 +167,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(true), new Vb6Value(true)]);
     }
 
-    // ---- From #840's review: the routes that still read an object as a value (docs/vb6-fidelity-oracle.md, "An object
+    // ---- From #840's review: the routes that still read an object as a value (docs/vb6-fidelity-oracle/an-object-used-as-a-value.md, "An object
     // ---- used as a value"). Each was measured on vb6.exe, native and in the IDE, except `c = MsgBox(o)` for a Widget,
     // ---- which would show a box nobody can dismiss and is inferred.
 

@@ -29,7 +29,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(180);
 
     // What vb6.exe actually writes to /out, measured rather than assumed -- see "What `/make` writes to
-    // `/out`, and what "Line N" counts" in docs/vb6-fidelity-oracle.md:
+    // `/out`, and what "Line N" counts" in docs/vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md:
     //
     //     <CRLF>Compile Error in File '<ABSOLUTE path>', Line <N> : <message><CRLF>Build of 'x.exe' failed.
     //
