@@ -79,3 +79,13 @@ one panel that did not change rather than as an error.
 #### Scenario: A colour that has no key
 - **WHEN** chrome needs a colour the theme does not define
 - **THEN** a key is added to the definition layer and every theme inherits a default for it
+
+### Requirement: Shipped dark packs SHALL declare all mapped colours
+Dark and Abyss SHALL carry every colour key supported by the theme-pack mapping. Their warning banners
+SHALL use dark backgrounds, with foreground contrast of at least 4.5:1 and border contrast of at least 3:1
+against both the banner and Window backgrounds. Validation error text SHALL have at least 4.5:1 contrast
+against the pack's Window background.
+
+#### Scenario: Warning and validation surfaces in a dark pack
+- **WHEN** Dark or Abyss is selected
+- **THEN** warning banners and validation text use that pack's explicit colours rather than Classic's defaults

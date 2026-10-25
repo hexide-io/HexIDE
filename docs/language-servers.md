@@ -60,7 +60,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
 | `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
-| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`. |
+| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
@@ -173,6 +173,7 @@ only works if you remembered to launch the server first.
 | Placeholder | Becomes |
 |---|---|
 | `{pipe}` | The pipe name. |
+| `{pid}` | The HexIDE process ID, in decimal. |
 | `{workspaceUri}` | The open project as a `file:` URI — the same one sent as `rootUri`. |
 | `{workspaceDir}` | The same directory as a plain path. |
 
@@ -190,6 +191,10 @@ initialize does not fail — it loads one workspace and answers questions about 
 **With no project open, an entry using either workspace placeholder is not launched**, and the reason says
 so. Substituting nothing would hand the server a flag with no value and let it fail in its own vocabulary,
 which the reader then has to translate back into "no project was open".
+
+`{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
+Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
+the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
 
 ### `workingDirectory` is a different question
 

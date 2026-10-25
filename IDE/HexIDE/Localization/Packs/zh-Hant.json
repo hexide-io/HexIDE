@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "成員",
     "Str.ProjectDocument.Section.References": "參考",
     "Str.ProjectDocument.Kind.RelatedDocument": "相關文件",
+    "Str.Naming.Msg.EmptyName": "名稱不能為空",
+    "Str.Naming.Msg.NameNotUniqueInForm": "名稱在表單中必須唯一",
     "Str.Naming.Msg.NotAVb6Name": "「{0}」不是有效的名稱。名稱必須以字母開頭，後續只能是字母、數字與底線。",
     "Str.Naming.Msg.ReservedWord": "「{0}」不能用作名稱，因為它是 VB6 的保留字。",
     "Str.Naming.Msg.DocumentNameTaken": "「{0}」已經是此專案中某個表單、模組或類別的名稱。VB6 讓它們共用單一命名空間，因此兩者不能同名。",
     "Str.Naming.Msg.ProjectNameTaken": "名稱為「{0}」的專案已經載入。同一個專案群組中的兩個專案不能同名。",
     "Str.Naming.Msg.AdoptedNameTaken": "「{1}」未加入。它的名稱是「{0}」，而該名稱已經是此專案中某個表單、模組或類別的名稱。",
-    "Str.Naming.Msg.AdoptedNameNotValid": "「{1}」未加入。它的名稱是「{0}」，而該名稱無效：名稱必須以字母開頭，後續只能是字母、數字與底線。"
+    "Str.Naming.Msg.AdoptedNameNotValid": "「{1}」未加入。它的名稱是「{0}」，而該名稱無效：名稱必須以字母開頭，後續只能是字母、數字與底線。",
+    "Str.ProjectLoad.ParseFailed": "無法剖析表單檔案：{0}",
+    "Str.ProjectLoad.InvalidForm": "這不是有效的表單檔案",
+    "Str.ProjectLoad.UnknownControl": "控制項 {1} 的類別 {0} 不是支援的控制項類別 — 已作為未知控制項保留。",
+    "Str.ProjectLoad.InvalidValue": "{1} 中的屬性 {0} 值無效。",
+    "Str.ProjectLoad.MissingOffset": "{1} 中的屬性 {0}：找不到 .frx 位移量。",
+    "Str.ProjectLoad.MissingRecord": "「{1}」中的屬性「{0}」參照了配套檔案中不存在的記錄，因此無法儲存表單。",
+    "Str.ProjectLoad.Heading": "無法正確還原序列化的專案：",
+    "Str.ProjectLoad.MoreWarnings": "……還有 {0} 則警告（完整清單請參閱記錄）。",
+    "Str.ProjectLoad.ActiveXDocuments": "此專案包含 HexIDE 不支援的 ActiveX 文件檔案 (.dob)，已略過這些檔案：\n\n{0}\n\nActiveX 文件需要 Internet Explorer 或 Office 活頁夾作為裝載程式，而兩者實際上均已淘汰。此專案類型不在 HexIDE 的支援範圍內。",
+    "Str.CodeEditor.RangeEditRefused": "編輯遭拒：{0}。未作任何變更。"
   }
 }

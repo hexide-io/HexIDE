@@ -171,7 +171,7 @@ public partial class ObjectBrowserToolViewModel : Document
         var lib = new OBLibraryViewModel("VB");
         foreach (var component in componentRegistry.Components)
         {
-            var cls = new OBClassViewModel(component.Name, OBClassKind.ClassModule, "VB");
+            var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
             foreach (var prop in component.Properties)
                 cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
             foreach (var evt in component.Events)

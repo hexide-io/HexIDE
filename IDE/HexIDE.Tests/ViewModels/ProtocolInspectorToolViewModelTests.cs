@@ -305,6 +305,41 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         vm.HasPending.Should().BeFalse();
     }
 
+    [Fact]
+    public void PendingCountsArrivalsSinceRefreshRatherThanHiddenRows()
+    {
+        Frame("vb6", "first");
+        Frame("other", "hidden");
+        var vm = Sut();
+        vm.ShowOnly("vb6");
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(0);
+
+        Frame("other", "new");
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(1);
+        vm.Rows.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task PendingSurvivesEvictionAndClear()
+    {
+        await using var capture = new ConversationLog(new CaptureLimits(EnvelopeEntries: 100, PrologueEntries: 0));
+        for (var i = 0; i < 100; i++)
+            capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "old", null, 1);
+        var vm = Over(capture);
+        capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "new", null, 1);
+        await capture.DrainAsync();
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(1);
+
+        await capture.ClearAsync();
+        capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "afterClear", null, 1);
+        await capture.DrainAsync();
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(2);
+    }
+
     // ── Losses ───────────────────────────────────────────────────────────────
 
     [Fact]

@@ -77,6 +77,7 @@ something this project can offer outward rather than something it must ask for.
 | 11 | `D`-exponent whole numbers (`1D3`, `1D3@`) | lexer | `INTEGERLITERAL` exponent `'E'` → `('E' | 'D')`, as fix 5 has it for `DOUBLELITERAL` |
 | 12 | A literal ending in its point (`5.`, `5.D1`, `5.#`) | lexer | `DOUBLELITERAL` `[0-9]* DOT [0-9]+` → `([0-9]+ DOT [0-9]* | DOT [0-9]+)` |
 | 13 | Option lines directly before a broken procedure (#939) | parser (server only) | `moduleOptions? NEWLINE* moduleBody?` → `(moduleOptions \| moduleBody)?` |
+| 14 | A member statement with an unspaced parenthesised argument (`Form2.Show(0)`, `Text1.Move(100)`) | parser | permit the missing `WS` in `iCS_B_MemberProcedureCall` only when the next token is `LPAREN`; retain `argsCall` so the parentheses remain an expression and pass a copy (#1064, oracle "Several forms", measurement 13) |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.

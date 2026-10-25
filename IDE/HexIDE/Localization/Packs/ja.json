@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "メンバー",
     "Str.ProjectDocument.Section.References": "参照",
     "Str.ProjectDocument.Kind.RelatedDocument": "関連ドキュメント",
+    "Str.Naming.Msg.EmptyName": "名前を空にすることはできません",
+    "Str.Naming.Msg.NameNotUniqueInForm": "フォーム内で名前は一意である必要があります",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' は有効な名前ではありません。名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。",
     "Str.Naming.Msg.ReservedWord": "'{0}' は VB6 の予約語のため、名前として使用できません。",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' は、このプロジェクト内のフォーム、モジュール、またはクラスモジュールの名前として既に使用されています。VB6 ではこれらが 1 つの名前空間を共有するため、2 つが同じ名前を使用することはできません。",
     "Str.Naming.Msg.ProjectNameTaken": "'{0}' という名前のプロジェクトは既に読み込まれています。同じグループ内の 2 つのプロジェクトに同じ名前を付けることはできません。",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、その名前はこのプロジェクト内のフォーム、モジュール、またはクラスモジュールで既に使用されています。",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、これは有効な名前ではありません: 名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。"
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、これは有効な名前ではありません: 名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。",
+    "Str.ProjectLoad.ParseFailed": "フォームファイルを解析できませんでした: {0}",
+    "Str.ProjectLoad.InvalidForm": "これは有効なフォームファイルではありません",
+    "Str.ProjectLoad.UnknownControl": "コントロール {1} のクラス {0} はサポートされていないコントロールクラスです — 不明なクラスとして保持されました。",
+    "Str.ProjectLoad.InvalidValue": "{1} のプロパティ {0} に無効な値がありました。",
+    "Str.ProjectLoad.MissingOffset": "{1} のプロパティ {0}: .frx オフセットが見つかりません。",
+    "Str.ProjectLoad.MissingRecord": "'{1}' のプロパティ '{0}' は付随ファイルに存在しないレコードを参照しているため、フォームを保存できません。",
+    "Str.ProjectLoad.Heading": "プロジェクトを正しく逆シリアル化できませんでした:",
+    "Str.ProjectLoad.MoreWarnings": "...ほかに {0} 件の警告があります（全一覧はログを参照）。",
+    "Str.ProjectLoad.ActiveXDocuments": "このプロジェクトには HexIDE でサポートされていない ActiveX Document ファイル（.dob）が含まれているため、スキップされました:\n\n{0}\n\nActiveX Document はホストとして Internet Explorer または Office バインダーを必要としていましたが、いずれも現在は事実上使われていません。このプロジェクトの種類は HexIDE の対象外です。",
+    "Str.CodeEditor.RangeEditRefused": "編集は拒否されました: {0}。何も変更されていません。"
   }
 }

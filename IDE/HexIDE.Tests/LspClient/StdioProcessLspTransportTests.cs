@@ -69,6 +69,32 @@ public class StdioProcessLspTransportTests
         Path.Combine(Path.GetTempPath(), $"hexide_Project1_{Guid.NewGuid():N}");
 
     [Fact]
+    public async Task DisposalWaitsForTheKilledProcessToExit()
+    {
+        var adapter = typeof(global::HexIDE.Dap.TestAdapter.Program).Assembly.Location;
+        var info = new LspServerInfo("dotnet", $"\"{adapter}\" hang", Path.GetTempPath());
+        await using var sut = new StdioProcessLspTransport(info, _logger);
+        using var handler = (HeaderDelimitedMessageHandler)(await sut.ConnectAsync(Formatter(), Timeout()))!;
+        // Keep an independent process handle: the transport disposes its own before returning.
+        var child = (System.Diagnostics.Process)typeof(StdioProcessLspTransport)
+            .GetField("_process", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(sut)!;
+        await child.StandardOutput.ReadLineAsync(TestContext.Current.CancellationToken)
+            .AsTask().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        using var observer = System.Diagnostics.Process.GetProcessById(child.Id);
+        observer.HasExited.Should().BeFalse();
+
+        await sut.DisposeAsync();
+
+        // HasExited can wait on .NET's shared child wait state and hide an unreaped child.
+        // On Linux, check the kernel record first, before asking .NET about exit.
+        if (OperatingSystem.IsLinux())
+            Directory.Exists($"/proc/{observer.Id}").Should().BeFalse(
+                "a killed child must be reaped before disposal returns");
+        observer.HasExited.Should().BeTrue("disposal must wait for termination, not just request a kill");
+    }
+
+    [Fact]
     public async Task TheTransportLaunchesTheCommandItWasGiven()
     {
         // The point of the change, stated positively: no locator is consulted and none is available — the

@@ -2,6 +2,7 @@
   "name": "English (United Kingdom)",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.Heading": "Couldn't properly deserialise the project:",
     "Str.Toolbar.Customize": "Customise...",
     "Str.Menu.View.ColorPalette": "Colour Pa_lette",
     "Str.Menu.Format.Align.CentersHorizontally": "Centres _Horizontally",

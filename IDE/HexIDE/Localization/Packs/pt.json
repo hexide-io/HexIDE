@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "Membros",
     "Str.ProjectDocument.Section.References": "Referências",
     "Str.ProjectDocument.Kind.RelatedDocument": "Documento relacionado",
+    "Str.Naming.Msg.EmptyName": "O nome não pode estar vazio",
+    "Str.Naming.Msg.NameNotUniqueInForm": "O nome deve ser único no formulário",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' não é um nome válido. Um nome começa por uma letra e continua com letras, dígitos e sublinhados.",
     "Str.Naming.Msg.ReservedWord": "'{0}' não pode ser um nome, porque o VB6 reserva essa palavra.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' já é o nome de um formulário, módulo ou classe neste projeto. O VB6 dá-lhes um único espaço de nomes, pelo que não pode haver dois com o mesmo nome.",
     "Str.Naming.Msg.ProjectNameTaken": "Já está carregado um projeto com o nome '{0}'. Dois projetos no mesmo grupo não podem ter o mesmo nome.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' não foi adicionado. Chama-se '{0}', que já é o nome de um formulário, módulo ou classe neste projeto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' não foi adicionado. Chama-se '{0}', que não é um nome válido: um nome começa por uma letra e continua com letras, dígitos e sublinhados."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' não foi adicionado. Chama-se '{0}', que não é um nome válido: um nome começa por uma letra e continua com letras, dígitos e sublinhados.",
+    "Str.ProjectLoad.ParseFailed": "Não foi possível analisar o ficheiro de formulário: {0}",
+    "Str.ProjectLoad.InvalidForm": "Este não é um ficheiro de formulário válido",
+    "Str.ProjectLoad.UnknownControl": "A classe {0} do controlo {1} não é uma classe de controlo suportada — preservada como desconhecida.",
+    "Str.ProjectLoad.InvalidValue": "A propriedade {0} em {1} tinha um valor inválido.",
+    "Str.ProjectLoad.MissingOffset": "Propriedade {0} em {1}: deslocamento .frx não encontrado.",
+    "Str.ProjectLoad.MissingRecord": "A propriedade '{0}' em '{1}' refere um registo que o ficheiro associado não contém, pelo que o formulário não pode ser guardado.",
+    "Str.ProjectLoad.Heading": "Não foi possível desserializar corretamente o projeto:",
+    "Str.ProjectLoad.MoreWarnings": "...e mais {0} avisos (consulte o registo para ver a lista completa).",
+    "Str.ProjectLoad.ActiveXDocuments": "Este projeto contém ficheiros de documentos ActiveX (.dob) que não são suportados no HexIDE e foram ignorados:\n\n{0}\n\nOs documentos ActiveX exigiam o Internet Explorer ou os dossiers do Office como anfitrião, ambos praticamente descontinuados. Este tipo de projeto está fora do âmbito do HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Edições recusadas: {0}. Nada foi alterado."
   }
 }

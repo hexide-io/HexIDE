@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "Miembros",
     "Str.ProjectDocument.Section.References": "Referencias",
     "Str.ProjectDocument.Kind.RelatedDocument": "Documento relacionado",
+    "Str.Naming.Msg.EmptyName": "El nombre no puede estar vacío",
+    "Str.Naming.Msg.NameNotUniqueInForm": "El nombre debe ser único en el formulario",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' no es un nombre válido. Un nombre comienza por una letra y continúa con letras, dígitos y guiones bajos.",
     "Str.Naming.Msg.ReservedWord": "'{0}' no puede ser un nombre, porque VB6 reserva esa palabra.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' ya es el nombre de un formulario, módulo o clase de este proyecto. VB6 les da un único espacio de nombres, así que dos no pueden compartir nombre.",
     "Str.Naming.Msg.ProjectNameTaken": "Ya está cargado un proyecto llamado '{0}'. Dos proyectos de un mismo grupo no pueden compartir nombre.",
     "Str.Naming.Msg.AdoptedNameTaken": "No se agregó '{1}'. Se llama '{0}', que ya es el nombre de un formulario, módulo o clase de este proyecto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "No se agregó '{1}'. Se llama '{0}', que no es un nombre válido: un nombre comienza por una letra y continúa con letras, dígitos y guiones bajos."
+    "Str.Naming.Msg.AdoptedNameNotValid": "No se agregó '{1}'. Se llama '{0}', que no es un nombre válido: un nombre comienza por una letra y continúa con letras, dígitos y guiones bajos.",
+    "Str.ProjectLoad.ParseFailed": "No se pudo analizar el archivo de formulario: {0}",
+    "Str.ProjectLoad.InvalidForm": "Este no es un archivo de formulario válido",
+    "Str.ProjectLoad.UnknownControl": "La clase {0} del control {1} no es una clase de control compatible — se ha conservado como desconocida.",
+    "Str.ProjectLoad.InvalidValue": "La propiedad {0} en {1} tenía un valor no válido.",
+    "Str.ProjectLoad.MissingOffset": "Propiedad {0} en {1}: no se encontró el desplazamiento en .frx.",
+    "Str.ProjectLoad.MissingRecord": "La propiedad '{0}' en '{1}' hace referencia a un registro que no existe en su archivo complementario, por lo que no se puede guardar el formulario.",
+    "Str.ProjectLoad.Heading": "No se pudo deserializar correctamente el proyecto:",
+    "Str.ProjectLoad.MoreWarnings": "...y {0} advertencias más (consulte el registro para ver la lista completa).",
+    "Str.ProjectLoad.ActiveXDocuments": "Este proyecto contiene archivos de documentos ActiveX (.dob) que no son compatibles con HexIDE y se han omitido:\n\n{0}\n\nLos documentos ActiveX necesitaban Internet Explorer o los cuadernos de Office como anfitrión; ambos están prácticamente en desuso. Este tipo de proyecto queda fuera del alcance de HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Ediciones rechazadas: {0}. No se cambió nada."
   }
 }

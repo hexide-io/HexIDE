@@ -12,15 +12,6 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 > opens no port. Making it a supported opt-in feature for end users is a decided direction rather than
 > current behaviour, and the requirements below describe what ships today.
 
-> **Known divergence.** The requirements below state intended behaviour. One is only partly met: "A tool that
-> names a document SHALL name its project, and count lines from the top of the file" holds for every tool that
-> takes a document's name, and not yet for those that report or act on a document without taking one. The note a
-> run-control reply gives when a run pauses, the context the locals and watch tools report, the designer tools'
-> undo, redo and format replies, and the tab tools, which take and report a tab's title, still name a form or
-> module without its project, so with two projects each holding a `Form1` none of them can say which one it
-> means. Tracked in [#886](https://github.com/hexide-io/HexIDE/issues/886). The requirement is stated as intended
-> rather than narrowed to the tools that meet it, because the code is incomplete here, not the intent.
-
 ## Requirements
 
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
@@ -57,6 +48,11 @@ binary cannot serve automation requests under any argument.
 Being off by default protects a user who does nothing; being absent protects one who is talked into
 something. It also keeps a web-server dependency out of shipped binaries, which is worth having for its own
 sake — the smallest attack surface is the code that is not there.
+
+#### Scenario: CI checks the distributed configuration
+- **WHEN** the build-ide job runs
+- **THEN** Desktop and Standalone compile in Release
+- **AND** the Desktop output is checked for server code, MCP dependencies and AspNetCore references
 
 #### Scenario: A released build asked to serve
 - **WHEN** a distributed build is launched with a port argument
@@ -290,6 +286,19 @@ A caller that has never seen the IDE cannot know which of a document's several n
 and a name that is only unique within a project is ambiguous the moment a group is open. A read whose result
 the matching write refuses breaks the most basic loop an automation client runs.
 
+Run-control pause notes SHALL qualify the module with the running project. Locals and watch replies SHALL
+identify the running project in which expressions are evaluated. Active-designer replies SHALL name the
+designer's document, including a UserControl's or PropertyPage's owning module. Tab listings SHALL report
+project and document for source editors and designers. Tab activation and closing SHALL accept a document
+name with an optional project through the document lookup, alongside title addressing for tool tabs. A match
+that names more than one tab SHALL be refused; a caller MAY select code or designer by tab type.
+
+#### Scenario: Choosing between code and designer tabs
+- **WHEN** both tabs for Second/Form1 are open and a caller addresses Form1 in Second without a tab type
+- **THEN** the call refuses the ambiguity and explains how to select code or designer
+- **WHEN** the caller also supplies the designer type
+- **THEN** only Second/Form1's designer is activated or closed, and the reply names Second and Form1
+
 #### Scenario: Setting a breakpoint by name in the wrong case
 - **WHEN** a client sets a breakpoint in `form1` of a project containing `Form1`
 - **THEN** it is shown in `Form1`'s gutter, pushed to the next run, and saved with the project
@@ -393,3 +402,21 @@ replies SHALL use the meaningful label when available.
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+### Requirement: Attribute window waits when settling running-form actions
+
+An automation reply for a running form SHALL distinguish a handler waiting on a window from one suspended at a
+time slice, breakpoint or asynchronous control call. Starting a window wait SHALL clear that handler's earlier
+DoEvents loop mark, so a loop resumed by answering the window is waited for as work the action sets going.
+A window already open before the action SHALL be considered by the program wait only when the program was
+waiting on a window before the action.
+
+#### Scenario: Answer a window after an earlier DoEvents
+- **WHEN** a handler calls DoEvents, waits at a MsgBox or modal form, then runs a finite DoEvents loop
+- **AND** an automation action answers or closes that window
+- **THEN** the reply waits for the loop to finish, up to the usual program wait limit
+
+#### Scenario: An unrelated old dialog during a busy loop
+- **WHEN** a watch finds the program between two DoEvents, with an unrelated dialog already open
+- **AND** the action queues a handler that opens no window
+- **THEN** the old dialog does not end the program wait or get named as holding the handler

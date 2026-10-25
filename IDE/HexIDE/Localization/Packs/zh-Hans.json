@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "成员",
     "Str.ProjectDocument.Section.References": "引用",
     "Str.ProjectDocument.Kind.RelatedDocument": "相关文档",
+    "Str.Naming.Msg.EmptyName": "名称不能为空",
+    "Str.Naming.Msg.NameNotUniqueInForm": "名称在窗体中必须唯一",
     "Str.Naming.Msg.NotAVb6Name": "“{0}”不是有效的名称。名称以字母开头，其后只能包含字母、数字和下划线。",
     "Str.Naming.Msg.ReservedWord": "“{0}”不能用作名称，因为它是 VB6 的保留字。",
     "Str.Naming.Msg.DocumentNameTaken": "“{0}”已经是此工程中某个窗体、模块或类的名称。VB6 让它们共用一个命名空间，因此不允许重名。",
     "Str.Naming.Msg.ProjectNameTaken": "名为“{0}”的工程已加载。同一个工程组中的两个工程不能同名。",
     "Str.Naming.Msg.AdoptedNameTaken": "“{1}”未添加。它的名称是“{0}”，而该名称已经是此工程中某个窗体、模块或类的名称。",
-    "Str.Naming.Msg.AdoptedNameNotValid": "“{1}”未添加。它的名称是“{0}”，而该名称无效：名称以字母开头，其后只能包含字母、数字和下划线。"
+    "Str.Naming.Msg.AdoptedNameNotValid": "“{1}”未添加。它的名称是“{0}”，而该名称无效：名称以字母开头，其后只能包含字母、数字和下划线。",
+    "Str.ProjectLoad.ParseFailed": "无法解析窗体文件：{0}",
+    "Str.ProjectLoad.InvalidForm": "这不是有效的窗体文件",
+    "Str.ProjectLoad.UnknownControl": "控件 {1} 的类 {0} 不是受支持的控件类 — 已作为未知控件保留。",
+    "Str.ProjectLoad.InvalidValue": "{1} 中的属性 {0} 的值无效。",
+    "Str.ProjectLoad.MissingOffset": "{1} 中的属性 {0}：未找到 .frx 偏移量。",
+    "Str.ProjectLoad.MissingRecord": "“{1}”中的属性“{0}”引用了配套文件中不存在的记录，因此无法保存窗体。",
+    "Str.ProjectLoad.Heading": "无法正确反序列化项目：",
+    "Str.ProjectLoad.MoreWarnings": "……还有 {0} 条警告（完整列表请参阅日志）。",
+    "Str.ProjectLoad.ActiveXDocuments": "此项目包含 HexIDE 不支持的 ActiveX 文档文件 (.dob)，已跳过这些文件：\n\n{0}\n\nActiveX 文档需要 Internet Explorer 或 Office 活页夹作为宿主，而两者实际上均已淘汰。此项目类型不在 HexIDE 的支持范围内。",
+    "Str.CodeEditor.RangeEditRefused": "编辑被拒绝：{0}。未作任何更改。"
   }
 }

@@ -206,7 +206,13 @@ Linux, and that a real mouse behaves normally after a hover ends.
 > is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
 > with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
 > process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
-> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
+> look in the log. The four IDE-owned timer callbacks named in #652 now catch and log exceptions with
+> their purpose and stack, remaining nonfatal. This covers dock-layout capture, the language revert
+> countdown, the minimap redraw and the designer code-navigation follow-up; the DEBUG crash hook remains
+> an unwrapped framework probe. VB6 Timer events keep their existing interpreter runtime-error handling
+> (checked in the later #652 comment). WSL/Ubuntu headless probes on Avalonia 12 confirm that throwing Tick and Run
+> callbacks execute without reaching `Dispatcher.UIThread.UnhandledException`; the three logging regressions
+> (Tick, Run, RunOnce) each fail with an empty log when the guard is reduced to calling the body directly.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
@@ -480,39 +486,6 @@ returned before the write, which is applied the same way.
 `type_text` give. The issue lists this tool among the writers that still edit such a file.
 [#701](https://github.com/hexide-io/HexIDE/issues/701).
 
-## Replies that report or act on a document without taking its name do not say which project's it is
-
-**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
-loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
-that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
-group holding a `Form1` in each of two projects:
-
-```
-step_over {}               → "note": "Paused at Form1 line 9 (Step)."
-                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
-get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
-invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
-                             as invoke_designer_redo, get_undo_state and invoke_format_command
-get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
-get_open_editors {}        → each editor's title, and 'activeWindow' as a title
-```
-
-None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
-`project`; the run-control notes beside them do not. A tab's title starts with its project's name
-(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
-the IDE's language, and not the `project` and `document` every naming tool takes and returns.
-
-**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
-lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
-designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
-a name.
-
-**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
-locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
-tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
-Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
-SHALL identify it by its project and its name", is only partly met.
-[#886](https://github.com/hexide-io/HexIDE/issues/886).
 
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 

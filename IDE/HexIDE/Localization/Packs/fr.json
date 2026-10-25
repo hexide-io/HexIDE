@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "Membres",
     "Str.ProjectDocument.Section.References": "Références",
     "Str.ProjectDocument.Kind.RelatedDocument": "Document associé",
+    "Str.Naming.Msg.EmptyName": "Le nom ne peut pas être vide",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Le nom doit être unique dans le formulaire",
     "Str.Naming.Msg.NotAVb6Name": "« {0} » n'est pas un nom valide. Un nom commence par une lettre et se poursuit par des lettres, des chiffres et des traits de soulignement.",
     "Str.Naming.Msg.ReservedWord": "« {0} » ne peut pas être un nom, car VB6 réserve ce mot.",
     "Str.Naming.Msg.DocumentNameTaken": "« {0} » est déjà le nom d'une feuille, d'un module ou d'une classe dans ce projet. VB6 les place dans un seul espace de noms ; deux d'entre eux ne peuvent donc pas porter le même nom.",
     "Str.Naming.Msg.ProjectNameTaken": "Un projet nommé « {0} » est déjà chargé. Deux projets d'un même groupe ne peuvent pas porter le même nom.",
     "Str.Naming.Msg.AdoptedNameTaken": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui est déjà celui d'une feuille, d'un module ou d'une classe dans ce projet.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui n'est pas un nom valide : un nom commence par une lettre et se poursuit par des lettres, des chiffres et des traits de soulignement."
+    "Str.Naming.Msg.AdoptedNameNotValid": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui n'est pas un nom valide : un nom commence par une lettre et se poursuit par des lettres, des chiffres et des traits de soulignement.",
+    "Str.ProjectLoad.ParseFailed": "Impossible d'analyser le fichier de feuille : {0}",
+    "Str.ProjectLoad.InvalidForm": "Ce fichier n'est pas un fichier de feuille valide",
+    "Str.ProjectLoad.UnknownControl": "La classe {0} du contrôle {1} n'est pas une classe de contrôle prise en charge — conservée comme inconnue.",
+    "Str.ProjectLoad.InvalidValue": "La propriété {0} dans {1} avait une valeur non valide.",
+    "Str.ProjectLoad.MissingOffset": "Propriété {0} dans {1} : décalage dans le fichier .frx introuvable.",
+    "Str.ProjectLoad.MissingRecord": "La propriété « {0} » dans « {1} » renvoie à un enregistrement absent du fichier associé ; la feuille ne peut donc pas être enregistrée.",
+    "Str.ProjectLoad.Heading": "Le projet n'a pas pu être désérialisé correctement :",
+    "Str.ProjectLoad.MoreWarnings": "...et {0} autres avertissements (consultez le journal pour la liste complète).",
+    "Str.ProjectLoad.ActiveXDocuments": "Ce projet contient des fichiers de documents ActiveX (.dob), qui ne sont pas pris en charge dans HexIDE et ont été ignorés :\n\n{0}\n\nLes documents ActiveX nécessitaient Internet Explorer ou les classeurs Office comme hôte, tous deux désormais pratiquement abandonnés. Ce type de projet sort du périmètre de HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Modifications refusées : {0}. Rien n’a été modifié."
   }
 }

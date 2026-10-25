@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "Elementy",
     "Str.ProjectDocument.Section.References": "Odwołania",
     "Str.ProjectDocument.Kind.RelatedDocument": "Dokument powiązany",
+    "Str.Naming.Msg.EmptyName": "Nazwa nie może być pusta",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Nazwa musi być unikatowa w formularzu",
     "Str.Naming.Msg.NotAVb6Name": "„{0}” nie jest prawidłową nazwą. Nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia.",
     "Str.Naming.Msg.ReservedWord": "„{0}” nie może być nazwą, ponieważ VB6 zastrzega to słowo.",
     "Str.Naming.Msg.DocumentNameTaken": "„{0}” jest już nazwą formularza, modułu lub klasy w tym projekcie. VB6 umieszcza je w jednej przestrzeni nazw, więc dwa elementy nie mogą nosić tej samej nazwy.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekt o nazwie „{0}” jest już wczytany. Dwa projekty w jednej grupie nie mogą nosić tej samej nazwy.",
     "Str.Naming.Msg.AdoptedNameTaken": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która jest już nazwą formularza, modułu lub klasy w tym projekcie.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która nie jest prawidłową nazwą: nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia."
+    "Str.Naming.Msg.AdoptedNameNotValid": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która nie jest prawidłową nazwą: nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia.",
+    "Str.ProjectLoad.ParseFailed": "Nie udało się przeanalizować pliku formularza: {0}",
+    "Str.ProjectLoad.InvalidForm": "To nie jest prawidłowy plik formularza",
+    "Str.ProjectLoad.UnknownControl": "Klasa {0} kontrolki {1} nie jest obsługiwaną klasą kontrolek — zachowano jako nieznaną.",
+    "Str.ProjectLoad.InvalidValue": "Właściwość {0} w {1} miała nieprawidłową wartość.",
+    "Str.ProjectLoad.MissingOffset": "Właściwość {0} w {1}: nie znaleziono przesunięcia .frx.",
+    "Str.ProjectLoad.MissingRecord": "Właściwość „{0}” w „{1}” odwołuje się do rekordu, którego nie ma w pliku towarzyszącym, więc formularza nie można zapisać.",
+    "Str.ProjectLoad.Heading": "Nie udało się poprawnie zdeserializować projektu:",
+    "Str.ProjectLoad.MoreWarnings": "...i jeszcze {0} ostrzeżeń (pełna lista znajduje się w dzienniku).",
+    "Str.ProjectLoad.ActiveXDocuments": "Ten projekt zawiera pliki ActiveX Document (.dob), które nie są obsługiwane przez HexIDE i zostały pominięte:\n\n{0}\n\nDokumenty ActiveX wymagały programu Internet Explorer lub skoroszytów programu Office jako hosta. Oba te rozwiązania praktycznie wyszły już z użycia. Ten typ projektu nie mieści się w zakresie HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Odrzucono zmiany: {0}. Nic nie zmieniono."
   }
 }

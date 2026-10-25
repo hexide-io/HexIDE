@@ -781,11 +781,23 @@
     "Str.ProjectDocument.Section.Members": "Medlemmer",
     "Str.ProjectDocument.Section.References": "Referanser",
     "Str.ProjectDocument.Kind.RelatedDocument": "Relatert dokument",
+    "Str.Naming.Msg.EmptyName": "Navnet kan ikke være tomt",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Navnet må være unikt i skjemaet",
     "Str.Naming.Msg.NotAVb6Name": "«{0}» er ikke et gyldig navn. Et navn begynner med en bokstav og fortsetter med bokstaver, sifre og understrekingstegn.",
     "Str.Naming.Msg.ReservedWord": "«{0}» kan ikke være et navn, fordi VB6 reserverer ordet.",
     "Str.Naming.Msg.DocumentNameTaken": "«{0}» er allerede navnet på et skjema, en modul eller en klasse i dette prosjektet. VB6 gir dem ett felles navnerom, så to av dem kan ikke ha samme navn.",
     "Str.Naming.Msg.ProjectNameTaken": "Et prosjekt med navnet «{0}» er allerede lastet inn. To prosjekter i én prosjektgruppe kan ikke ha samme navn.",
     "Str.Naming.Msg.AdoptedNameTaken": "«{1}» ble ikke lagt til. Den heter «{0}», som allerede er navnet på et skjema, en modul eller en klasse i dette prosjektet.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "«{1}» ble ikke lagt til. Den heter «{0}», som ikke er et gyldig navn: et navn begynner med en bokstav og fortsetter med bokstaver, sifre og understrekingstegn."
+    "Str.Naming.Msg.AdoptedNameNotValid": "«{1}» ble ikke lagt til. Den heter «{0}», som ikke er et gyldig navn: et navn begynner med en bokstav og fortsetter med bokstaver, sifre og understrekingstegn.",
+    "Str.ProjectLoad.ParseFailed": "Kunne ikke tolke skjemafilen: {0}",
+    "Str.ProjectLoad.InvalidForm": "Dette er ikke en gyldig skjemafil",
+    "Str.ProjectLoad.UnknownControl": "Klassen {0} for kontrollen {1} er ikke en støttet kontrollklasse — bevart som ukjent.",
+    "Str.ProjectLoad.InvalidValue": "Egenskapen {0} i {1} hadde en ugyldig verdi.",
+    "Str.ProjectLoad.MissingOffset": "Egenskapen {0} i {1}: .frx-forskyvningen ble ikke funnet.",
+    "Str.ProjectLoad.MissingRecord": "Egenskapen '{0}' i '{1}' viser til en post som ikke finnes i den tilhørende filen, så skjemaet kan ikke lagres.",
+    "Str.ProjectLoad.Heading": "Kunne ikke deserialisere prosjektet riktig:",
+    "Str.ProjectLoad.MoreWarnings": "...og {0} advarsler til (se loggen for hele listen).",
+    "Str.ProjectLoad.ActiveXDocuments": "Dette prosjektet inneholder ActiveX Document-filer (.dob) som ikke støttes i HexIDE, og som er hoppet over:\n\n{0}\n\nActiveX Documents krevde Internet Explorer eller Office-permer som vert, og begge er nå i praksis ute av bruk. Denne prosjekttypen er utenfor omfanget til HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Endringer avvist: {0}. Ingenting ble endret."
   }
 }
