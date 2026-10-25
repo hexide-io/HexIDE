@@ -20,7 +20,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <c>docs/vb6-fidelity-oracle.md</c>: read-backs logged by the program, and what painted read with
 /// <c>GetPixel</c> in an interactive session. Here the painting is read from a real Skia frame of the hosted form.
 /// </summary>
-public class LabelColourTests
+public class LabelColourTests : WindowTestFixture
 {
     private const string Form = """
         VERSION 5.00

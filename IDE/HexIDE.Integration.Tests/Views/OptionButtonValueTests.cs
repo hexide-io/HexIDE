@@ -29,7 +29,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// These need real headless Avalonia, because the group behaviour under test IS Avalonia's radio-button
 /// grouping and the dispatch under test travels the visual tree.
 /// </summary>
-public class OptionButtonValueTests
+public class OptionButtonValueTests : WindowTestFixture
 {
     // Option2 carries the designer's `Value = -1  'True` — the boolean spelling VB6 writes, which is also
     // what the .frm round-trip test in the runtime suite pins. Check1 is here so the sibling control's
