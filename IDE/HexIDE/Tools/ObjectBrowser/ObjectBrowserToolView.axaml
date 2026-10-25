@@ -49,6 +49,7 @@
         <DockPanel Grid.Row="1" LastChildFill="True" Margin="2">
             <ComboBox DockPanel.Dock="Left"
                       Width="160"
+                      AutomationProperties.Name="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Libraries}"
                       ItemsSource="{CompiledBinding Libraries}"
                       SelectedItem="{CompiledBinding SelectedLibrary}" />
             <!-- Right-docked buttons: declared right-to-left, rendered left-to-right -->
@@ -83,6 +84,7 @@
                 <Path Data="{StaticResource Geo.Find}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
             </Button>
             <TextBox Text="{CompiledBinding SearchText}"
+                     AutomationProperties.Name="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Search}"
                      PlaceholderText="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder}"
                      Margin="4,0">
                 <TextBox.KeyBindings>
@@ -114,6 +116,7 @@
                              IsVisible="{CompiledBinding IsSearchingWorkspace}"
                              Height="3" />
                 <ListBox Height="96"
+                         AutomationProperties.Name="{DynamicResource Str.Tool.ObjectBrowser.Panel.SearchResults}"
                          ItemsSource="{CompiledBinding SearchResults}"
                          SelectedItem="{CompiledBinding SelectedSearchResult}"
                          DoubleTapped="SearchResults_OnDoubleTapped">
@@ -147,6 +150,7 @@
                     <TextBlock Text="{DynamicResource Str.Tool.ObjectBrowser.Panel.Classes}" FontWeight="SemiBold" />
                 </Border>
                 <ListBox ItemsSource="{CompiledBinding FilteredClasses}"
+                         AutomationProperties.Name="{DynamicResource Str.Tool.ObjectBrowser.Panel.Classes}"
                          SelectedItem="{CompiledBinding SelectedClass}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="ob:OBClassViewModel">
@@ -173,6 +177,7 @@
                 </Border>
                 <Panel>
                     <ListBox ItemsSource="{CompiledBinding FilteredMembers}"
+                             AutomationProperties.Name="{DynamicResource Str.Tool.ObjectBrowser.Panel.Members}"
                              SelectedItem="{CompiledBinding SelectedMember}"
                              DoubleTapped="Members_OnDoubleTapped">
                         <ListBox.ItemTemplate>

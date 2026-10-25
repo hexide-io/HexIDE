@@ -169,6 +169,44 @@ public class DebuggerTests : BaseVBTestFixture
         debug.Select(v => v.Value?.ToString()).Should().NotContain("b").And.NotContain("c");
     }
 
+    private sealed class YieldContext : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> pending = new();
+        public override void Post(SendOrPostCallback callback, object? state) => pending.Enqueue((callback, state));
+        public void Pump()
+        {
+            while (pending.TryDequeue(out var work))
+                work.Callback(work.State);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Stop_WhileTimeSliceYielded_UnwindsBeforePrinting(bool reset)
+    {
+        var (vb, dbg) = NewDebuggable("Debug.Print \"stale\"\n", "M");
+        dbg.TimeSliceMs = -1;   // every statement yields, without depending on a clock tick
+        var previous = SynchronizationContext.Current;
+        var pump = new YieldContext();
+        SynchronizationContext.SetSynchronizationContext(pump);
+        try
+        {
+            var run = vb.Execute();
+            run.IsCompleted.Should().BeFalse();
+            debug.Should().BeEmpty();
+            dbg.Stop();
+            if (reset) dbg.Reset();
+            pump.Pump();
+            run.IsCompletedSuccessfully.Should().BeTrue();
+            AssertDebugLog([]);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
     [Fact]
     public async Task Stop_WhilePaused_RaisesContinued_SoTheCurrentLineBarClears()
     {

@@ -363,7 +363,10 @@ public sealed class LanguageServerConfigLoader
         }
 
         if (transport is "stdio" or "pipe")
+        {
             Note("endpoint", entry.Endpoint);
+            Note("websocketRole", entry.WebSocketRole);
+        }
 
         if (ignored.Count == 0) return;
 
@@ -411,6 +414,19 @@ public sealed class LanguageServerConfigLoader
                 $"'{entry.Id}' asks for trace level '{trace.Trim()}', which is not one of "
               + $"'{LspTraceValue.Off}', '{LspTraceValue.Messages}' or '{LspTraceValue.Verbose}'. "
               + "Tracing is off for this server.",
+                false,
+                LanguageServerConfigProblemKind.Configuration));
+        }
+
+        if (string.Equals(entry.Transport?.Trim(), "pipe", StringComparison.OrdinalIgnoreCase)
+            && entry.PipeRole is { } pipeRole && !string.IsNullOrWhiteSpace(pipeRole)
+            && !string.Equals(pipeRole.Trim(), "connect", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(pipeRole.Trim(), "listen", StringComparison.OrdinalIgnoreCase))
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entry.Id,
+                $"'{entry.Id}' asks for pipeRole '{pipeRole.Trim()}', which is not one of "
+              + "'connect' or 'listen'. Falling back to 'connect' for this server.",
                 false,
                 LanguageServerConfigProblemKind.Configuration));
         }

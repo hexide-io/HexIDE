@@ -1748,7 +1748,7 @@ public class UiAutomationDriverTests
             UiAutomationDriver.TypeText(editor, "Sub Main()\n").Success.Should().BeTrue();
             UiAutomationDriver.TypeText(editor, "    MsgBox \"hi\"\n").Success.Should().BeTrue();
             UiAutomationDriver.TypeText(editor, "End Sub").Success.Should().BeTrue();
-            editor.Document.Text.Should().Be("Sub Main()\n    MsgBox \"hi\"\nEnd Sub");
+            editor.Document.Text.Should().Be("Sub Main()\r\n    MsgBox \"hi\"\r\nEnd Sub");
         }
         finally { window.Close(); }
     }

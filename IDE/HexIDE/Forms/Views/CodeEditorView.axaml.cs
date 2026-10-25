@@ -137,7 +137,10 @@ public partial class CodeEditorView : UserControl
         {
             ArmResetPrompt();
             WidenSelectionForDeletion(wholeLineWhenEmpty: false);
-            TextEditor.Delete();
+            if (TextEditor.TextArea.Selection.IsEmpty)
+                EditingCommands.Delete.Execute(null, TextEditor.TextArea);
+            else
+                TextEditor.Delete();
         }, () => true);
         // A paste at the end of a described line is the window's own, so a line break in it can go past the run
         // (task 4.5); the library's paste puts the text wherever the caret is, and only the text says whether it may.
@@ -1468,14 +1471,19 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    // Keys that would modify the document (printable chars arrive via OnTextEntering, not here; the clipboard's
-    // keys are ClipboardEditOf's).
-    private static bool IsDocumentEditKey(KeyEventArgs e) => e.Key switch
+    // Follow the library's editing keys; an arm costs nothing unless a document change lands.
+    // Clipboard keys have their asynchronous path below. Undo/Redo remain unmeasured (#710).
+    private bool IsDocumentEditKey(KeyEventArgs e)
     {
-        Key.Back or Key.Delete or Key.Return or Key.Enter or Key.Tab
-            => e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift,
-        _ => false,
-    };
+        foreach (var binding in TextEditor.TextArea.DefaultInputHandler.Editing.KeyBindings)
+        {
+            if (binding.Gesture?.Matches(e) == true)
+                return binding.Command != AvaloniaEdit.ApplicationCommands.Undo
+                    && binding.Command != AvaloniaEdit.ApplicationCommands.Redo;
+        }
+        return AvaloniaEditCommands.DeleteLine.Gesture?.Matches(e) == true
+            || AvaloniaEditCommands.IndentSelection.Gesture?.Matches(e) == true;
+    }
 
     /// <summary>
     /// True when <paramref name="e"/> is the text area's own Paste, false when it is its own Cut, and null for any
@@ -1524,7 +1532,7 @@ public partial class CodeEditorView : UserControl
         _stepRightFrom = StepsRight(e) ? TextEditor.CaretOffset : -1;
 
         // Editing while the project is running/paused → VB6 reset prompt (see ArmResetPrompt). Covers the
-        // non-printable edit keys that reach the text area (Backspace, Enter, Tab); printable chars go via
+        // library editing keys that reach the text area; printable chars go via
         // OnTextEntering, and Delete, Paste and Cut via the commands their keys are bound to.
         // The edit is allowed to proceed (VB6 lets it land); No reverts it, Yes keeps it + resets the project.
         // The keymap's Paste and Cut keys normally never get here, because the code window's command bindings take
@@ -1549,6 +1557,7 @@ public partial class CodeEditorView : UserControl
             // Over a selection, Enter writes over it, as typing does and as Shift+Enter did (#1040): the selection goes,
             // and the line break goes where it was, as one change. Typing is not a deletion, so a described line's run is
             // not taken with it. A selection reaching a region only the IDE may change takes nothing, as typing there does.
+            var newline = DocumentNewLines.Of(TextEditor.Document.Text);
             using (TextEditor.Document.RunUpdate())
             {
                 var removed = false;
@@ -1587,12 +1596,12 @@ public partial class CodeEditorView : UserControl
                     TextEditor.TextArea.Selection.ReplaceSelectionWithText(string.Empty);
                     removed = true;
                 }
-                if (HandleEnterAutoClose())
+                if (HandleEnterAutoClose(newline))
                     e.Handled = true;
                 else if (removed)
                 {
                     // Auto-close failed: the line break still goes in this change, not as the editor's second one.
-                    TextEditor.Document.Insert(TextEditor.CaretOffset, "\n");
+                    TextEditor.Document.Insert(TextEditor.CaretOffset, newline);
                     e.Handled = true;
                 }
             }
@@ -1638,7 +1647,7 @@ public partial class CodeEditorView : UserControl
     /// looser one, which would take a declaration ending in a name like <c>Total_</c> for one continuing into the run,
     /// and break the line at the caret.
     /// </remarks>
-    private bool HandleEnterAutoClose()
+    private bool HandleEnterAutoClose(string newline)
     {
         try
         {
@@ -1670,7 +1679,7 @@ public partial class CodeEditorView : UserControl
             if (textAfterCaret.Trim().Length > 0)
             {
                 Log.Debug("[auto-close] Caret not at end of line, text after: '{TextAfter}'", textAfterCaret);
-                InsertNewlineWithIndent(doc, caretOffset, currentLineText);
+                InsertNewlineWithIndent(doc, caretOffset, currentLineText, newline);
                 return true;
             }
 
@@ -1679,7 +1688,7 @@ public partial class CodeEditorView : UserControl
             if (run is null && VbAutoCloseProvider.IsContinuationLine(currentLineText))
             {
                 Log.Debug("[auto-close] Continuation line, auto-indent only");
-                InsertNewlineWithIndent(doc, caretOffset, currentLineText);
+                InsertNewlineWithIndent(doc, caretOffset, currentLineText, newline);
                 return true;
             }
 
@@ -1748,7 +1757,7 @@ public partial class CodeEditorView : UserControl
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
                 var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent);
                 var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
-                var insertText = addCloser ? "\n" + bodyIndent + "\n" + indent + closer : "\n" + indent;
+                var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
                 // After the run: the provider places it, writing each line break as the described line's own. The
                 // caret goes to the end of the new line, or to the body line between the declaration and the closer.
@@ -1772,7 +1781,7 @@ public partial class CodeEditorView : UserControl
                         indent, insertText.Replace("\n", "\\n"));
 
                     doc.Insert(adjustedCaretOffset, insertText);
-                    caret.Offset = adjustedCaretOffset + 1 + bodyIndent.Length;
+                    caret.Offset = adjustedCaretOffset + newline.Length + bodyIndent.Length;
                 }
             }
             finally
@@ -1789,10 +1798,10 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    private void InsertNewlineWithIndent(TextDocument doc, int caretOffset, string currentLineText)
+    private void InsertNewlineWithIndent(TextDocument doc, int caretOffset, string currentLineText, string newline)
     {
         var indent = VbAutoCloseProvider.GetIndentation(currentLineText);
-        var insertText = "\n" + indent;
+        var insertText = newline + indent;
         doc.Insert(caretOffset, insertText);
         TextEditor.TextArea.Caret.Offset = caretOffset + insertText.Length;
     }
@@ -2309,7 +2318,7 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var newName = await vm.ShowInputBoxAsync("New name:", "Rename", oldName);
+            var newName = await vm.ShowRenameInputBoxAsync(oldName);
             if (newName is null || newName == oldName) return;
             // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
             // answer is refused with the rest rather than taken for Cancel, which answers null.

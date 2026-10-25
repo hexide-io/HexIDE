@@ -150,8 +150,16 @@ than calling a tool: three refused calls in a row drop the tools until `/mcp`.
 
 **Retiring this entry** needs the client change named at the top. Everything #765 asked to be checked live has
 been, except what the client does with a 400, which no switch-over has produced yet.
-No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on. #764 records a
-server-side idea that may win back the added-tool case, to measure during the SDK upgrade.
+No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on.
+
+**SDK upgrade (#764).** The server now uses 2.2.0, supporting `server/discover` and revision 2026-07-28;
+legacy clients remain stateless too. The historical Claude Code measurements above are not measurements of
+this SDK. Recheck a fresh connection for the absence of the legacy negotiation fallback, then call an existing
+tool before and after a rebuild/relaunch, including a 40-second downtime, and check that the tools remain
+callable without `/mcp`. Repeat tool-list discovery after adding a tool. The comment on #764 suggests
+`notifications/tools/list_changed` on a call's response stream; no notification or subscription handler has
+been added, and its effect on Claude Code remains unmeasured. Keep this entry open until the client behaviour
+is measured again; the upgrade alone does not retire it.
 
 ---
 
@@ -206,7 +214,13 @@ Linux, and that a real mouse behaves normally after a hover ends.
 > is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
 > with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
 > process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
-> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
+> look in the log. The four IDE-owned timer callbacks named in #652 now catch and log exceptions with
+> their purpose and stack, remaining nonfatal. This covers dock-layout capture, the language revert
+> countdown, the minimap redraw and the designer code-navigation follow-up; the DEBUG crash hook remains
+> an unwrapped framework probe. VB6 Timer events keep their existing interpreter runtime-error handling
+> (checked in the later #652 comment). WSL/Ubuntu headless probes on Avalonia 12 confirm that throwing Tick and Run
+> callbacks execute without reaching `Dispatcher.UIThread.UnhandledException`; the three logging regressions
+> (Tick, Run, RunOnce) each fail with an empty log when the guard is reduced to calling the body directly.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
@@ -295,6 +309,12 @@ name would end every session's IDE on a machine running several.
 the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
 shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
 what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
+
+**Ordering hardened for #644 (2026-10-25; live verification pending).** The main-window close now waits
+for HTTP response completion, and server/context cleanup waits for desktop `Exit`, rather than the
+cancellable `ShutdownRequested` event. Headless regression coverage checks response ordering and the
+exit subscription. The original trigger remains unknown; keep this entry open until a running IDE check
+confirms a complete reply followed by exit, and a cancelled close leaves `/health` and tools working.
 
 ---
 

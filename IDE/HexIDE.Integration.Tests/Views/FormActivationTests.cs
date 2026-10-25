@@ -114,10 +114,10 @@ public class FormActivationTests
         new FormDeserializer().Deserialize(project, (Header(name) + code).ReplaceLineEndings("\r\n"), new NullSink())!;
 
     /// <summary>Run Form1, with Form2 in the project, as F5 does, and let its start run.</summary>
-    private static Run Start(string form1Code)
+    private static Run Start(string form1Code, bool logEvents = true)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form1 = Form(project, "Form1", Logged("f1") + form1Code);
+        var form1 = Form(project, "Form1", (logEvents ? Logged("f1") : "") + form1Code);
         project.AddForm(form1);
         project.AddForm(Form(project, "Form2", Form2Code));
 
@@ -265,6 +265,40 @@ public class FormActivationTests
     }
 
     // ── Resize after the show ────────────────────────────────────────────────────────────────────────────
+
+    [AvaloniaTheory]
+    [InlineData("Width")]
+    [InlineData("Height")]
+    public void A_size_assignment_raises_Resize_before_the_next_statement_and_layout_does_not_repeat_it(string dimension)
+    {
+        using var run = Start(Steps($"Debug.Print \"before\"\nMe.{dimension} = Me.{dimension} + 300\nDebug.Print \"after\"",
+            $"Me.{dimension} = Me.{dimension}\nDebug.Print \"same\""));
+
+        run.Click("Form1");
+        run.Since(Started.Length).Should().Equal("before", "f1 resize", "after");
+        run.Click("Form1");
+        run.Errors.Should().BeEmpty();
+        run.Since(Started.Length).Should().Equal("before", "f1 resize", "after", "same");
+    }
+
+    [AvaloniaFact]
+    public void Size_assignments_in_Load_raise_Resize_while_hidden_and_Show_raises_its_own()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                Me.Width = 6000
+                Debug.Print "width"
+                Me.Height = 4000
+                Debug.Print "height"
+            End Sub
+            Private Sub Form_Resize()
+                Debug.Print "resize " & Me.Visible
+            End Sub
+            """, logEvents: false);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("resize False", "width", "resize False", "height", "resize True");
+    }
 
     [AvaloniaFact]
     public void Resize_comes_once_for_each_change_of_size_and_not_at_all_for_the_same_size()

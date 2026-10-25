@@ -4,6 +4,10 @@ using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
 using Nerdbank.Streams;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
+using Serilog.Extensions.Logging;
 using StreamJsonRpc;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
@@ -74,7 +78,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
         }
     }
 
-    private async Task<(VBLspClient Client, TalkativeServer Server, RecordingLogger Log)> ConnectedAsync()
+    private async Task<(VBLspClient Client, TalkativeServer Server, RecordingLogger Log)> ConnectedAsync(ILogger<VBLspClient>? logger = null)
     {
         var server = new TalkativeServer();
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
@@ -92,7 +96,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var log = new RecordingLogger();
-        var client = new VBLspClient(transport, log, DocumentLanguage.Vb6);
+        var client = new VBLspClient(transport, logger ?? log, DocumentLanguage.Vb6);
         _clients.Add(client);
         await client.StartAsync();
         return (client, server, log);
@@ -114,7 +118,8 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
     [InlineData(LspMessageType.Error, LogLevel.Error)]
     [InlineData(LspMessageType.Warning, LogLevel.Warning)]
     [InlineData(LspMessageType.Info, LogLevel.Information)]
-    [InlineData(LspMessageType.Log, LogLevel.Debug)]
+    [InlineData(LspMessageType.Log, LogLevel.Information)]
+    [InlineData((LspMessageType)5, LogLevel.Trace)]
     public async Task ALoggedMessageIsWrittenAtTheSeverityTheServerDeclared(
         LspMessageType declared, LogLevel expected)
     {
@@ -130,6 +135,28 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
             "the server's log message to reach the logger");
 
         (((LogLevel Level, string Message))entry).Level.Should().Be(expected);
+    }
+
+    private sealed class RecordingSink : ILogEventSink
+    {
+        public readonly System.Collections.Concurrent.ConcurrentQueue<LogEvent> Events = new();
+        public void Emit(LogEvent logEvent) => Events.Enqueue(logEvent);
+    }
+
+    [Fact]
+    public async Task RunningCommentaryReachesTheSinkAtTheDefaultInformationFloor()
+    {
+        var sink = new RecordingSink();
+        using var logger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Sink(sink).CreateLogger();
+        using var factory = new SerilogLoggerFactory(logger);
+        var (_, server, _) = await ConnectedAsync(factory.CreateLogger<VBLspClient>());
+
+        await server.SayAsync("window/logMessage", (LspMessageType)4, "toolchain unavailable");
+
+        var entry = await Eventually(
+            () => sink.Events.FirstOrDefault(e => e.RenderMessage().Contains("toolchain unavailable")),
+            "type 4 to reach the configured sink");
+        entry.Level.Should().Be(LogEventLevel.Information);
     }
 
     [Fact]

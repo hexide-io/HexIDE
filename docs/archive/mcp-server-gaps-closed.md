@@ -4299,8 +4299,9 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > A reply records the loops running before its action, and counts the program idle only while every walk parked at
 > `DoEvents` was one of them. A loop the action found running is still the program's message loop, wherever the action
 > finds it, between two `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to
-> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at, since a handler
-> waiting there had not looped. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
+> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at: waiting on a
+> window now clears its earlier loop mark (#1318). The original fix covered only handlers with no DoEvents before
+> the window wait. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
 > the limit gets the usual note, naming only what the action set off: "(the program was still running Command1_Click 3s
 > later, so the form may still change)". Walks, not handler names, so a click that re-enters a handler parked under the
 > same name is told apart from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still

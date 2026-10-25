@@ -27,9 +27,16 @@ public class ComponentRegistry : IComponentRegistry
     public IReadOnlyList<IComponentClass> Components => _components;
     public event Action<IComponentClass>? ComponentRegistered;
 
+    public event Action<IComponentClass>? ComponentUnregistered;
+
     public void Register(IComponentClass component)
     {
         _components.Add(component);
+        HexIDE.Addins.AddinInitializationScope.Record(() =>
+        {
+            _components.RemoveAt(_components.LastIndexOf(component));
+            ComponentUnregistered?.Invoke(component);
+        });
         ComponentRegistered?.Invoke(component);
     }
 }

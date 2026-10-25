@@ -73,8 +73,9 @@ The lesson generalises past the one bug: **an assertion that a request did not t
 assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
 protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
 that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
-because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
-all, and those three are not interchangeable to a real server.
+because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, `null`, or not at
+all, and those four are not interchangeable to a real server. Measured against rumdl 0.2.64,
+`"params":null` is refused with `-32602`, `Unexpected params: null` (#368).
 
 Five servers. Four are chosen for **framework** diversity rather than language diversity — interop bugs
 come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
@@ -996,6 +997,10 @@ the PR. Typo-level fixes need no issue.
   `in progress on branch <name>`. The branch name is what a second session can check. And never
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
+
+**A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
+PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);
+`changelog.d/README.md` has the format, and `scripts/changelog-gather.sh` folds them in at release.
 
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 

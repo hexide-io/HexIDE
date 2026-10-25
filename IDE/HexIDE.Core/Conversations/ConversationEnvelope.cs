@@ -40,7 +40,7 @@ public enum ConversationEntryKind
     Notification,
 
     /// <summary>
-    /// A request the client declined to make, because the server advertised no such capability.
+    /// A request the client declined to make, including an unavailable capability or another claimant taking priority.
     /// </summary>
     /// <remarks>
     /// It never reached the wire, so no tap could see it, and its absence is indistinguishable from a

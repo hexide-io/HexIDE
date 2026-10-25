@@ -103,7 +103,7 @@ public class AddinWholeFileTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>());
+            Substitute.For<IRunScope>(), new LocalizationService());
         made.Add(vm);
         return vm;
     }
@@ -339,6 +339,74 @@ public class AddinWholeFileTests : IDisposable
         result.Succeeded.Should().BeFalse();
         result.Reason.Should().Be($"The edit (line {line}, column 1 to line {line}, column 2) would change the Attribute "
                                   + "lines describing Total, which only the IDE changes. Nothing was changed.");
+        editor.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Public Sub Pause()\r\nEnd Sub\r\n", "End Sub", "Attribute Pause.VB_UserMemId = 0\r\n", "Pause")]
+    [InlineData(DescribedClassCode, "    Total = 0", "Attribute Total.VB_UserMemId = 0\r\n", "Total")]
+    [InlineData(DescribedClassCode, "    Total = 0", "Attribute Total.VB_VarHelpID = 0\r\n", "Total")]
+    [InlineData("Option Explicit\r\n", "Option Explicit", "Public Sub Pause()\r\nAttribute Pause.VB_UserMemId = 0\r\nEnd Sub\r\n", "Pause")]
+    public async Task RangeEditsCannotAddOrExtendAMembersAttributeRun(string code, string anchor, string inserted, string member)
+    {
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule, code);
+        var before = editor.Document.Text;
+        var line = LineOf(before, anchor);
+
+        var result = await sut.TryApplyEdits("Order", [new AddinTextEdit(line, 1, line, 1, inserted)], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Contain(member).And.Contain("Attribute");
+        editor.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task DeletingTheBlankLineAboveAnOrphanCannotPromoteIt()
+    {
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule,
+            "Public Sub Pause()\r\n\r\nAttribute Pause.VB_UserMemId = 0\r\nEnd Sub\r\n");
+        var before = editor.Document.Text;
+        var line = LineOf(before, "Attribute Pause.");
+
+        var result = await sut.TryApplyEdits("Order", [new AddinTextEdit(line - 1, 1, line, 1, "")], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Contain("Pause").And.Contain("Attribute");
+        editor.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task UncommentingADeclarationCannotPromoteItsOrphan()
+    {
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule,
+            "'Public Sub Pause()\r\nAttribute Pause.VB_UserMemId = 0\r\nEnd Sub\r\n");
+        var before = editor.Document.Text;
+        var line = LineOf(before, "'Public Sub Pause");
+
+        var result = await sut.TryApplyEdits("Order", [new AddinTextEdit(line, 1, line, 2, "")], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Contain("Pause");
+        editor.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task TheResultOfTheWholeEditSetNamesEveryAffectedMember()
+    {
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule,
+            "Public Sub Pause()\r\nEnd Sub\r\nPublic Sub ResumeWork()\r\nEnd Sub\r\n");
+        var before = editor.Document.Text;
+        var pause = LineOf(before, "Public Sub Pause");
+        var resume = LineOf(before, "Public Sub ResumeWork");
+
+        var result = await sut.TryApplyEdits("Order",
+        [
+            new AddinTextEdit(pause + 1, 1, pause + 1, 1, "Attribute Pause.VB_UserMemId = 0\r\n"),
+            new AddinTextEdit(resume + 1, 1, resume + 1, 1, "Attribute ResumeWork.VB_Description = \"Resume\"\r\n"),
+        ], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Contain("Pause").And.Contain("ResumeWork");
         editor.Document.Text.Should().Be(before);
     }
 

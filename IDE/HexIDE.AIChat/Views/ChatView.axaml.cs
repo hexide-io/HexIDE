@@ -14,6 +14,7 @@ public partial class ChatView : UserControl
         InitializeComponent();
         _vm = new ChatViewModel(host, settingsDir);
         DataContext = _vm;
+        AttachedToVisualTree += (_, _) => _vm.ReloadSettings();
         _vm.Messages.CollectionChanged += (_, _) => ScrollToBottom();
     }
 

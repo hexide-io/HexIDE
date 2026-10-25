@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Pipes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
@@ -27,9 +28,10 @@ public enum NamedPipeRole
 /// How to start a server that needs launching before the pipe can be used.
 /// </summary>
 /// <remarks>
-/// <paramref name="Arguments"/> may contain three placeholders:
+/// <paramref name="Arguments"/> may contain four placeholders:
 /// <list type="bullet">
 ///   <item><c>{pipe}</c> — the agreed pipe name.</item>
+///   <item><c>{pid}</c> — HexIDE's process ID, for a server that watches its owner.</item>
 ///   <item><c>{workspaceUri}</c> — the open workspace as a <c>file:</c> URI, spelled exactly as the
 ///     client's <c>rootUri</c> spells it.</item>
 ///   <item><c>{workspaceDir}</c> — the same directory as a plain path, for a server that wants one.</item>
@@ -315,7 +317,9 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// </remarks>
     private string? ResolveArguments(string configured)
     {
-        var arguments = configured.Replace("{pipe}", _pipeName, StringComparison.Ordinal);
+        var arguments = configured
+            .Replace("{pipe}", _pipeName, StringComparison.Ordinal)
+            .Replace("{pid}", Environment.ProcessId.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
         var wantsUri = arguments.Contains("{workspaceUri}", StringComparison.Ordinal);
         var wantsDir = arguments.Contains("{workspaceDir}", StringComparison.Ordinal);
