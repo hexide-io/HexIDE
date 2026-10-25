@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Nullum proiectum initiale inventum est.",
     "Str.MakeProject.Browser": "In navigatro programma confici non potest. Versione HexIDE pro computatro utere.",
     "Str.MakeProject.UnsupportedPlatform": "In hoc systemate operativo programma confici non potest. HexIDE in Windows, macOS aut Linux utere.",
-    "Str.MakeProject.MissingRuntime": "Ut programma conficias, primum ambitum exsecutionis autonomum compila. Praecepta in README lege.",
+    "Str.MakeProject.RuntimeNotFound": "Ut programma conficias, primum ambitum exsecutionis autonomum compila. In {0} non inventa sunt: {1}. Caput \"Making a program\" in README docet quomodo.",
     "Str.MakeProject.Failed": "Programma confectum non est. Error accidit:\n{0}"
   }
 }

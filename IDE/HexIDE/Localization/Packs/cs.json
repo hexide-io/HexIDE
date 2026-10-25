@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Nebyl nalezen žádný spouštěcí projekt.",
     "Str.MakeProject.Browser": "V prohlížeči nelze vytvořit program. Použijte desktopovou verzi HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Vytváření programu není v tomto operačním systému podporováno. Použijte HexIDE ve Windows, macOS nebo Linuxu.",
-    "Str.MakeProject.MissingRuntime": "Chcete-li vytvořit program, nejprve sestavte samostatné běhové prostředí. Pokyny najdete v souboru README.",
+    "Str.MakeProject.RuntimeNotFound": "Chcete-li vytvořit program, nejprve sestavte samostatné běhové prostředí. Ve složce {0} nebylo nalezeno: {1}. Postup popisuje oddíl „Making a program“ v souboru README.",
     "Str.MakeProject.Failed": "Program nebyl vytvořen. Došlo k chybě:\n{0}"
   }
 }

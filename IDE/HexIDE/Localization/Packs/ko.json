@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "시작 프로젝트를 찾을 수 없습니다.",
     "Str.MakeProject.Browser": "브라우저에서는 프로그램을 만들 수 없습니다. HexIDE 데스크톱 버전을 사용하세요.",
     "Str.MakeProject.UnsupportedPlatform": "이 운영 체제에서는 프로그램 만들기가 지원되지 않습니다. Windows, macOS 또는 Linux에서 HexIDE를 사용하세요.",
-    "Str.MakeProject.MissingRuntime": "프로그램을 만들려면 먼저 독립 실행형 런타임을 빌드하세요. 지침은 README를 참조하세요.",
+    "Str.MakeProject.RuntimeNotFound": "프로그램을 만들려면 먼저 독립 실행형 런타임을 빌드하세요. {0}에서 다음을 찾지 못했습니다: {1}. 방법은 README의 \"Making a program\" 섹션을 참조하세요.",
     "Str.MakeProject.Failed": "프로그램이 만들어지지 않았습니다. 오류가 발생했습니다:\n{0}"
   }
 }

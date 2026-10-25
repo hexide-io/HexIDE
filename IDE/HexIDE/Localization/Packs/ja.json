@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "スタートアッププロジェクトが見つかりません。",
     "Str.MakeProject.Browser": "ブラウザーではプログラムを作成できません。デスクトップ版の HexIDE を使用してください。",
     "Str.MakeProject.UnsupportedPlatform": "このオペレーティングシステムではプログラムの作成はサポートされていません。Windows、macOS、Linux のいずれかで HexIDE を使用してください。",
-    "Str.MakeProject.MissingRuntime": "プログラムを作成するには、まずスタンドアロンランタイムをビルドしてください。手順については README を参照してください。",
+    "Str.MakeProject.RuntimeNotFound": "プログラムを作成するには、まずスタンドアロンランタイムをビルドしてください。{0} に次のファイルがありません: {1}。手順は README の「Making a program」を参照してください。",
     "Str.MakeProject.Failed": "プログラムは作成されませんでした。エラーが発生しました:\n{0}"
   }
 }

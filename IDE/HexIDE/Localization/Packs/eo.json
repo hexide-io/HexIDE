@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Neniu startprojekto trovita.",
     "Str.MakeProject.Browser": "Kreo de programo ne disponeblas en retumilo. Uzu la labortablan version de HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Kreo de programo ne estas subtenata en ĉi tiu operaciumo. Uzu HexIDE en Windows, macOS aŭ Linux.",
-    "Str.MakeProject.MissingRuntime": "Por krei programon, unue konstruu la memstaran rultempan medion. Vidu la instrukciojn en README.",
+    "Str.MakeProject.RuntimeNotFound": "Por krei programon, unue konstruu la memstaran rultempan medion. HexIDE serĉis en {0} kaj ne trovis {1}. La sekcio „Making a program“ en README klarigas kiel.",
     "Str.MakeProject.Failed": "La programo ne estis kreita. Okazis eraro:\n{0}"
   }
 }

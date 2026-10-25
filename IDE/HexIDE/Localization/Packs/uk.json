@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Стартовий проєкт не знайдено.",
     "Str.MakeProject.Browser": "Створення програми недоступне в браузері. Використовуйте настільну версію HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Створення програми не підтримується в цій операційній системі. Використовуйте HexIDE у Windows, macOS або Linux.",
-    "Str.MakeProject.MissingRuntime": "Щоб створити програму, спочатку зберіть автономне середовище виконання. Інструкції наведено в README.",
+    "Str.MakeProject.RuntimeNotFound": "Щоб створити програму, спочатку зберіть автономне середовище виконання. У папці {0} не знайдено: {1}. Як це зробити, описано в розділі «Making a program» файлу README.",
     "Str.MakeProject.Failed": "Програму не створено. Сталася помилка:\n{0}"
   }
 }

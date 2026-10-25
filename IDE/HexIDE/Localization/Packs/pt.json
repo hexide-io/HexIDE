@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Não foi encontrado nenhum projeto de arranque.",
     "Str.MakeProject.Browser": "Não é possível criar um programa num navegador. Use a versão de ambiente de trabalho do HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "A criação de programas não é suportada neste sistema operativo. Use o HexIDE no Windows, macOS ou Linux.",
-    "Str.MakeProject.MissingRuntime": "Para criar um programa, compile primeiro o ambiente de execução autónomo. Consulte as instruções no README.",
+    "Str.MakeProject.RuntimeNotFound": "Para criar um programa, compile primeiro o ambiente de execução autónomo. Não foi encontrado em {0}: {1}. A secção «Making a program» do README explica como.",
     "Str.MakeProject.Failed": "O programa não foi criado. Ocorreu um erro:\n{0}"
   }
 }

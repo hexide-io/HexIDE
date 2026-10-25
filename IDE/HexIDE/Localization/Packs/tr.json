@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Başlangıç projesi bulunamadı.",
     "Str.MakeProject.Browser": "Tarayıcıda program oluşturulamaz. HexIDE uygulamasının masaüstü sürümünü kullanın.",
     "Str.MakeProject.UnsupportedPlatform": "Bu işletim sisteminde program oluşturma desteklenmiyor. HexIDE uygulamasını Windows, macOS veya Linux üzerinde kullanın.",
-    "Str.MakeProject.MissingRuntime": "Program oluşturmak için önce bağımsız çalışma zamanını derleyin. Yönergeler için README dosyasına bakın.",
+    "Str.MakeProject.RuntimeNotFound": "Program oluşturmak için önce bağımsız çalışma zamanını derleyin. {0} içinde bulunamadı: {1}. Nasıl yapılacağı README dosyasının \"Making a program\" bölümünde anlatılır.",
     "Str.MakeProject.Failed": "Program oluşturulamadı. Bir hata oluştu:\n{0}"
   }
 }

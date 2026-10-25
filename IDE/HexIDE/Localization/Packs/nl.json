@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "Geen opstartproject gevonden.",
     "Str.MakeProject.Browser": "Een programma maken is niet beschikbaar in een browser. Gebruik de desktopversie van HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Een programma maken wordt niet ondersteund op dit besturingssysteem. Gebruik HexIDE op Windows, macOS of Linux.",
-    "Str.MakeProject.MissingRuntime": "Bouw eerst de zelfstandige runtime om een programma te maken. Zie de README voor instructies.",
+    "Str.MakeProject.RuntimeNotFound": "Bouw eerst de zelfstandige runtime om een programma te maken. HexIDE zocht in {0} en vond {1} niet. De sectie ‘Making a program’ in de README legt uit hoe.",
     "Str.MakeProject.Failed": "Het programma is niet gemaakt. Er is een fout opgetreden:\n{0}"
   }
 }

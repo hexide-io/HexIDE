@@ -191,6 +191,24 @@ cd IDE       && dotnet test HexIDE.Tests/               # IDE view-models
 cd LspServer && dotnet test HexIDE.VbLspServer.Tests/   # LSP server
 ```
 
+### Making a program
+
+**File → Make** writes your project out as a program that runs without HexIDE. It needs HexIDE's standalone runtime,
+the runner a program is made from.
+
+- **A download from Releases** already has it, in the `standalone` folder beside the IDE.
+- **A build from source** doesn't. Publish the runner into a `standalone` folder beside the IDE you run. For the IDE
+  that `dotnet run --project HexIDE.Desktop/` starts, from `IDE/`:
+
+  ```sh
+  dotnet publish HexIDE.Standalone -f net10.0 -o HexIDE.Desktop/bin/Debug/net10.0/standalone/
+  ```
+
+If Make still says the runtime is missing, its message names the folder it looked in and the files it didn't find.
+
+**Known issue:** a made program doesn't start yet, because Make copies the runner but not the library it loads
+([#1971](https://github.com/hexide-io/HexIDE/issues/1971)).
+
 ### Open in Visual Studio
 
 Open `HexIDE.slnx` at the repo root — all projects, in two solution folders (`IDE` and

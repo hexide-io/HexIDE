@@ -849,7 +849,7 @@
     "Str.MakeProject.NoStartup": "找不到啟動專案。",
     "Str.MakeProject.Browser": "無法在瀏覽器中產生程式。請使用桌面版 HexIDE。",
     "Str.MakeProject.UnsupportedPlatform": "此作業系統不支援產生程式。請在 Windows、macOS 或 Linux 上使用 HexIDE。",
-    "Str.MakeProject.MissingRuntime": "若要產生程式，請先建置獨立執行階段。操作說明請參閱 README。",
+    "Str.MakeProject.RuntimeNotFound": "若要產生程式，請先建置獨立執行階段。在 {0} 中找不到：{1}。建置方法請參閱 README 中的「Making a program」一節。",
     "Str.MakeProject.Failed": "程式未產生。發生錯誤：\n{0}"
   }
 }
