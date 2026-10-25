@@ -181,6 +181,7 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
                 ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
 
                 // The whole of #255 meets here. Defaults are contributed in code, the user's file is
@@ -191,7 +192,8 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
-                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture)
+                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture,
+                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms))
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and

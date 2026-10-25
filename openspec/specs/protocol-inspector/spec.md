@@ -179,6 +179,14 @@ weigh, because a message count tells them nothing about how much of their source
 - **WHEN** a client and a server referred to one document by two spellings
 - **THEN** the two spellings remain distinguishable in the exported capture
 
+#### Scenario: A client-supplied workspace folder name
+- **WHEN** HexIDE initializes a language server with pseudonymisation enabled
+- **THEN** it SHALL send each workspace folder's name as the same session pseudonym used for that folder's URI segment in an export
+- **AND** the URI sent to the server SHALL remain the real workspace URI
+- **AND** body redaction SHALL remain textual, without a structural pass or a project-name sweep
+
+A name a server echoes back in its own fields is outside this guarantee and may survive export.
+
 #### Scenario: Reading your own conversation
 - **WHEN** a developer views a captured message in the IDE
 - **THEN** it is shown as it was, unredacted
