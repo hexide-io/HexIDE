@@ -296,6 +296,12 @@ the confirmation the tool promises. Either way, do not leave a window up with no
 shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
 what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
 
+**Ordering hardened for #644 (2026-10-25; live verification pending).** The main-window close now waits
+for HTTP response completion, and server/context cleanup waits for desktop `Exit`, rather than the
+cancellable `ShutdownRequested` event. Headless regression coverage checks response ordering and the
+exit subscription. The original trigger remains unknown; keep this entry open until a running IDE check
+confirms a complete reply followed by exit, and a cancelled close leaves `/health` and tools working.
+
 ---
 
 ## An empty reply that does not say why is a defect, not a null result

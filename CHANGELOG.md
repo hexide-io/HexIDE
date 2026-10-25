@@ -281,6 +281,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP shutdown ordering** (#644): finish the reply before closing the main window, and keep the
+  automation server alive when shutdown is cancelled by stopping it only on desktop exit.
+
 - **Feature catalogue corrections** (#862): distinguish unbuilt COM features from platform gates, describe refused ActiveX templates and unmodelled controls at open, save and F5, and explain the DAO Data control exclusion.
 
 - **Unimplemented constructs name the failing statement** (#758). The runtime-error dialog now appends

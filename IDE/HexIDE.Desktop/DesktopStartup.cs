@@ -116,7 +116,8 @@ internal static class DesktopStartup
                     }
                 });
 
-            desktop.ShutdownRequested += (_, _) =>
+            // ShutdownRequested can be cancelled. Keep automation available while any window survives.
+            desktop.Exit += (_, _) =>
             {
                 ctx.Dispose();
                 cts.Cancel();
