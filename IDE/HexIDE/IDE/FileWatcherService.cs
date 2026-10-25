@@ -293,12 +293,14 @@ public sealed class FileWatcherService : IFileWatcherService
 
     private void OnFsChanged(object? sender, FileSystemEventArgs e)
     {
-        if (IsWatchedFile(e.FullPath))
+        if (IsLive(sender) && IsWatchedFile(e.FullPath))
             coalescer.Notify(e.FullPath);
     }
 
     private void OnFsRenamed(object? sender, RenamedEventArgs e)
     {
+        if (!IsLive(sender))
+            return;
         // An atomic write (tmp → target) surfaces here; the old (.tmp) name has no baseline.
         baselineStore.Remove(e.OldFullPath);
         if (IsWatchedFile(e.FullPath))
@@ -311,8 +313,19 @@ public sealed class FileWatcherService : IFileWatcherService
         // transient Deleted of the target immediately followed by its re-creation, and eagerly dropping
         // the baseline would defeat self-write suppression. Route it through the coalescer — the batch
         // processor drops the baseline only if the file is still gone once the burst settles.
-        if (IsWatchedFile(e.FullPath))
+        if (IsLive(sender) && IsWatchedFile(e.FullPath))
             coalescer.Notify(e.FullPath);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="sender"/> is a watcher this service still holds. A released watcher can still raise
+    /// an event already in flight: on macOS the FSEvents stream stops asynchronously, so a write just after a
+    /// project unloads or moves arrived from the watcher it had let go of (#476, seen on macOS CI).
+    /// </summary>
+    private bool IsLive(object? sender)
+    {
+        lock (watchersLock)
+            return watchers.Values.Any(entry => ReferenceEquals(entry.Watcher, sender));
     }
 
     private void OnFsError(object? sender, ErrorEventArgs e) =>
