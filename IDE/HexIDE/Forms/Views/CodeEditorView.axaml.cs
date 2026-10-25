@@ -1125,7 +1125,6 @@ public partial class CodeEditorView : UserControl
 
         var lspPos = new Position(tvPos.Value.Line - 1, tvPos.Value.Column - 1);
         if (DataContext is not CodeEditorViewModel vm) return;
-        if (!vm.Settings.AutoQuickInfo) return;
 
         _ = HoverAfterDelayAsync(vm, lspPos, token);
     }
@@ -1269,28 +1268,22 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(400, token);
-            await ShowHoverAsync(vm, pos, token);
+            await ShowHoverAsync(vm, pos, token, vm.Settings.AutoQuickInfo);
         }
         catch (OperationCanceledException) { }
     }
 
-    private async Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token)
+    private async Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token, bool requestQuickInfo = true)
     {
         try
         {
-            var result = await vm.RequestHoverAsync(pos, token);
+            ShowDiagnosticTip(pos, null);
+            var result = requestQuickInfo
+                ? await vm.RequestHoverAsync(pos, token) : null;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested) return;
-                if (result is { Contents.Value.Length: > 0 })
-                {
-                    ToolTip.SetTip(TextEditor, result.Contents.Value);
-                    ToolTip.SetIsOpen(TextEditor, true);
-                }
-                else
-                {
-                    CloseTip();
-                }
+                ShowDiagnosticTip(pos, result?.Contents.Value);
             });
         }
         catch (OperationCanceledException) { }
@@ -1298,6 +1291,25 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[hover] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private void ShowDiagnosticTip(Position pos, string? quickInfo)
+    {
+        var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
+        var parts = new List<string>();
+        if (_markerService is { } service)
+        {
+            foreach (var marker in service.Markers)
+            {
+                if (offset >= marker.StartOffset && offset < marker.EndOffset)
+                    parts.Add(string.IsNullOrEmpty(marker.Source)
+                        ? marker.Message : $"{marker.Source}: {marker.Message}");
+            }
+        }
+        if (!string.IsNullOrEmpty(quickInfo)) parts.Add(quickInfo);
+        if (parts.Count == 0) { CloseTip(); return; }
+        ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
+        ToolTip.SetIsOpen(TextEditor, true);
     }
 
     protected override Size MeasureOverride(Size availableSize)
