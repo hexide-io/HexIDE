@@ -323,6 +323,19 @@ whole file, the code's real errors included, and give no reason why.
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
 - **THEN** there is no answer
 
+### Requirement: Physical line endings
+
+The server SHALL count CR, LF and CRLF as line ends in every position it reads or sends, including files
+with mixed endings. Formatting and protected-region blanking SHALL preserve the original terminators.
+
+#### Scenario: A diagnostic below a lone CR
+- **WHEN** an opened document contains a syntax error after a lone CR
+- **THEN** the published diagnostic uses the same zero-based physical line and character as the editor
+
+#### Scenario: Protected regions in a file with lone CR endings
+- **WHEN** a whole file uses lone CR line endings
+- **THEN** formatting, rename, highlight and diagnostics respect the same header and member-attribute lines as the IDE
+
 ### Requirement: Completion SHALL preserve declaration kinds and unique labels
 The server SHALL return completion labels unique under ordinal case-insensitive comparison, preferring a
 name declared in the document over a static keyword or built-in. The static `Date` entry SHALL be a
