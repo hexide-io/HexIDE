@@ -329,7 +329,7 @@ jobs:
           & $compiler "/DAppVersion=$version" "/DPublishDir=$((Resolve-Path 'bin/sc').Path)" '../installer/HexIDE.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE" }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.rid == 'win-x64'
         with:
           name: hexide-windows-installer
