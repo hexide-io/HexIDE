@@ -355,7 +355,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 |------|-------------|
 | `get_project_info` | Current project name, path, forms, modules, carried files |
 | `get_open_editors` | Open editor windows and active window |
-| `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag. `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
+| `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag, and `isModified`, whether the tab has the unsaved changes it marks with `*` (the title leaves the `*` out; absent on a tool tab or read-only view). `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
 | `activate_document_tab(title?, name?, project?, type?)` | Make a tab active, by its `title`, or by a document's `name` (with `project`, and `type` code or designer when both are open) |
 | `close_document_tab(title?, name?, project?, type?)` | Close a tab, addressed the same way |
 | `get_diagnostics` | LSP errors and warnings |
