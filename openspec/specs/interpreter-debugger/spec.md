@@ -48,6 +48,7 @@ A form's run loads its code and the project's standard (`.bas`) and class (`.cls
 #### Scenario: A breakpoint in a standard or class module
 - **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
 - **THEN** execution breaks at that line under the module's name
+- **AND** the stop reason is `Breakpoint`, with the line counted from the top of the module's file
 
 #### Scenario: A breakpoint in a UserControl or PropertyPage module
 - **WHEN** the developer sets a breakpoint in a `.ctl` or `.pag` module and runs the startup form
