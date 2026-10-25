@@ -13,9 +13,9 @@ namespace HexIDE.Tests.LspClient;
 /// What <c>shutdown</c> and <c>exit</c> look like on the wire.
 ///
 /// <para>
-/// LSP 3.17 defines both as taking <b>no parameters</b>, and the three ways of expressing "nothing" are not
-/// interchangeable to a real server. Measured against the three foreign servers this suite drives, and
-/// against a fourth, externally-authored one:
+/// LSP 3.17 defines both as taking <b>no parameters</b>, and the four ways of expressing "nothing" are not
+/// interchangeable to a real server. Measured against foreign servers this suite drives and an
+/// externally-authored one (hexide-io/HexIDE#312, #368):
 /// </para>
 ///
 /// <list type="table">
@@ -24,6 +24,9 @@ namespace HexIDE.Tests.LspClient;
 ///   overload.</description></item>
 /// <item><description><c>"params":{}</c> — REJECTED by rumdl. This is what <c>EmptyParams.Instance</c>
 ///   sends.</description></item>
+/// <item><description><c>"params":null</c> — REJECTED by rumdl 0.2.64 with <c>-32602</c>,
+///   <c>Unexpected params: null</c>. A null argument object in StreamJsonRpc's parameter-object overload
+///   omits the member; it does not send JSON null.</description></item>
 /// <item><description>member omitted — accepted by every server measured, and what the specification and
 ///   <c>vscode-languageserver-node</c> send.</description></item>
 /// </list>
@@ -39,7 +42,9 @@ namespace HexIDE.Tests.LspClient;
 /// <para>
 /// <b>Why a raw framing server rather than a <c>JsonRpc</c> one.</b> A <c>[JsonRpcMethod]</c> handler is
 /// told its arguments were bound; it cannot report whether <c>params</c> arrived as <c>[]</c>, as
-/// <c>{}</c>, or not at all — which is the entire question. This reads the bytes.
+/// <c>{}</c>, as <c>null</c>, or not at all — which is the entire question. This reads the bytes.
+/// The existing absence assertions reject all three present spellings; accepting null or empty
+/// parameters instead would weaken the guard.
 /// </para>
 /// </summary>
 public class ShutdownWireShapeTests : IAsyncDisposable
