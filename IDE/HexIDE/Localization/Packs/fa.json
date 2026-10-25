@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "توقف موقت",
     "Str.Menu.Run.End": "پایان",
     "Str.Menu.Run.Restart": "راه‌اندازی مجدد",
-    "Str.Menu.Run.StartWithVB6": "شروع با VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "شروع با VB6",
     "Str.Menu.Tools": "ابزارها",
     "Str.Menu.Tools.AddProcedure": "افزودن رویه...",
     "Str.Menu.Tools.ProcedureAttributes": "ویژگی‌های رویه...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "کامپایل VB6 شکست خورد:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "ساخت با موفقیت انجام شد اما فایل اجرایی در این مسیر یافت نشد:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "اجرا ناموفق بود",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "این عمل پروژه شما را بازنشانی می‌کند. آیا می‌خواهید ادامه دهید؟",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "این عمل پروژه شما را بازنشانی می‌کند، با این حال ادامه می‌دهید؟",
     "Str.ProjectRunner.StartupFormFailedToLoad": "فرم '{0}' بارگذاری نشد، بنابراین پروژه اجرا نشد.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE هنوز این را پیاده‌سازی نکرده است:\n\n{0}",
     "Str.NewProject.Msg.Title": "پروژه جدید",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "توقف",
     "Str.Dialog.MessageBox.Button.Retry": "تلاش مجدد",
     "Str.Dialog.MessageBox.Button.Ignore": "نادیده گرفتن",
-    "Str.Addins.Incompatible": "افزونه بارگیری نمی‌شود: طرح‌وارهٔ لازم {0}، حداقل HexIDE {1}؛ این ساخت از طرح‌وارهٔ {2} و HexIDE {3} پشتیبانی می‌کند. نیازمندی طرح‌واره یا نسخه پشتیبانی‌نشده یا نامعتبر است."
+    "Str.Addins.Incompatible": "افزونه بارگیری نمی‌شود: طرح‌وارهٔ لازم {0}، حداقل HexIDE {1}؛ این ساخت از طرح‌وارهٔ {2} و HexIDE {3} پشتیبانی می‌کند. نیازمندی طرح‌واره یا نسخه پشتیبانی‌نشده یا نامعتبر است.",
+    "Str.MakeProject.NoStartup": "پروژهٔ آغازین پیدا نشد.",
+    "Str.MakeProject.Browser": "ساخت برنامه در مرورگر در دسترس نیست. از نسخهٔ دسکتاپ HexIDE استفاده کنید.",
+    "Str.MakeProject.UnsupportedPlatform": "ساخت برنامه در این سیستم‌عامل پشتیبانی نمی‌شود. از HexIDE در Windows، macOS یا Linux استفاده کنید.",
+    "Str.MakeProject.MissingRuntime": "برای ساخت برنامه، ابتدا محیط اجرای مستقل را بسازید. برای مشاهدهٔ دستورالعمل‌ها به فایل README مراجعه کنید.",
+    "Str.MakeProject.Failed": "برنامه ساخته نشد. خطایی رخ داد:\n{0}"
   }
 }

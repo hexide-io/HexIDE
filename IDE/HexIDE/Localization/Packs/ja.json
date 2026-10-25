@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "中断",
     "Str.Menu.Run.End": "終了",
     "Str.Menu.Run.Restart": "再起動",
-    "Str.Menu.Run.StartWithVB6": "VB6 で開始 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6 で開始",
     "Str.Menu.Tools": "ツール",
     "Str.Menu.Tools.AddProcedure": "プロシージャの追加...",
     "Str.Menu.Tools.ProcedureAttributes": "プロシージャ属性...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 のコンパイルに失敗しました:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "ビルドは成功しましたが、実行ファイルが次の場所に見つかりませんでした:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "実行に失敗しました",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "この操作を行うと、プロジェクトがリセットされます。続行しますか？",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "この操作によりプロジェクトがリセットされます。それでも続行しますか？",
     "Str.ProjectRunner.StartupFormFailedToLoad": "フォーム '{0}' を読み込めなかったため、プロジェクトは開始されませんでした。\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "次の機能は HexIDE にまだ実装されていません:\n\n{0}",
     "Str.NewProject.Msg.Title": "新しいプロジェクト",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "中止",
     "Str.Dialog.MessageBox.Button.Retry": "再試行",
     "Str.Dialog.MessageBox.Button.Ignore": "無視",
-    "Str.Addins.Incompatible": "アドインを読み込めません。必要なスキーマは {0}、HexIDE の最低バージョンは {1} です。このビルドはスキーマ {2}、HexIDE {3} に対応しています。スキーマまたはバージョンの要件が未対応または無効です。"
+    "Str.Addins.Incompatible": "アドインを読み込めません。必要なスキーマは {0}、HexIDE の最低バージョンは {1} です。このビルドはスキーマ {2}、HexIDE {3} に対応しています。スキーマまたはバージョンの要件が未対応または無効です。",
+    "Str.MakeProject.NoStartup": "スタートアッププロジェクトが見つかりません。",
+    "Str.MakeProject.Browser": "ブラウザーではプログラムを作成できません。デスクトップ版の HexIDE を使用してください。",
+    "Str.MakeProject.UnsupportedPlatform": "このオペレーティングシステムではプログラムの作成はサポートされていません。Windows、macOS、Linux のいずれかで HexIDE を使用してください。",
+    "Str.MakeProject.MissingRuntime": "プログラムを作成するには、まずスタンドアロンランタイムをビルドしてください。手順については README を参照してください。",
+    "Str.MakeProject.Failed": "プログラムは作成されませんでした。エラーが発生しました:\n{0}"
   }
 }

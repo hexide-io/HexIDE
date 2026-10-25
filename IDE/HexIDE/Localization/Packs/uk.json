@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Перервати",
     "Str.Menu.Run.End": "Завершити",
     "Str.Menu.Run.Restart": "Перезапустити",
-    "Str.Menu.Run.StartWithVB6": "Старт із VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Старт із VB6",
     "Str.Menu.Tools": "Інструменти",
     "Str.Menu.Tools.AddProcedure": "Додати процедуру...",
     "Str.Menu.Tools.ProcedureAttributes": "Атрибути процедури...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Компіляцію VB6 не виконано:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Збірку виконано успішно, але виконуваний файл не знайдено за шляхом:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не виконано",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Ця дія скине проєкт. Продовжити?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Ця дія скине ваш проєкт. Усе одно продовжити?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Не вдалося завантажити форму '{0}', тому проєкт не було запущено.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ще не підтримує цього:\n\n{0}",
     "Str.NewProject.Msg.Title": "Новий проєкт",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Перервати",
     "Str.Dialog.MessageBox.Button.Retry": "Повторити",
     "Str.Dialog.MessageBox.Button.Ignore": "Пропустити",
-    "Str.Addins.Incompatible": "Не вдалося завантажити надбудову: потрібна схема {0}, мінімум HexIDE {1}; ця збірка підтримує схему {2}, HexIDE {3}. Вимога до схеми або версії не підтримується або є некоректною."
+    "Str.Addins.Incompatible": "Не вдалося завантажити надбудову: потрібна схема {0}, мінімум HexIDE {1}; ця збірка підтримує схему {2}, HexIDE {3}. Вимога до схеми або версії не підтримується або є некоректною.",
+    "Str.MakeProject.NoStartup": "Стартовий проєкт не знайдено.",
+    "Str.MakeProject.Browser": "Створення програми недоступне в браузері. Використовуйте настільну версію HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Створення програми не підтримується в цій операційній системі. Використовуйте HexIDE у Windows, macOS або Linux.",
+    "Str.MakeProject.MissingRuntime": "Щоб створити програму, спочатку зберіть автономне середовище виконання. Інструкції наведено в README.",
+    "Str.MakeProject.Failed": "Програму не створено. Сталася помилка:\n{0}"
   }
 }

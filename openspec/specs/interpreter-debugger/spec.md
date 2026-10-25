@@ -185,8 +185,8 @@ The interpreter cannot hot-patch a running program: the execution position is a 
 
 #### Scenario: Editing while the project is running or paused
 - **WHEN** the developer edits code while the project is running or in break mode
-- **THEN** a prompt asks whether to reset the project
-- **AND** choosing yes ends the run and keeps the edit, while choosing no reverts the edit and lets the program continue
+- **THEN** a localized prompt asks "This action will reset your project, proceed anyway?" with OK and Cancel
+- **AND** choosing OK ends the run and keeps the edit, while choosing Cancel reverts the edit and lets the program continue
 
 #### Scenario: The window the reset prompt is shown over
 - **WHEN** the reset prompt is asked while the code window's own window is visible and not minimized
@@ -242,6 +242,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
+
+#### Scenario: Selecting an expanded watch child
+- **WHEN** the developer selects a child of an expanded watch after selecting another watch
+- **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key
+- **AND** rebuilding the watch rows SHALL clear selection
 
 #### Scenario: Breaking when a watch condition is met
 - **WHEN** a watch is configured to break when its expression becomes true, or when its value changes

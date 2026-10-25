@@ -119,8 +119,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public bool IsProjectRunning => debugController.IsSessionActive || ExternalDebugger?.IsActive == true;
 
     /// <summary>VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program
-    /// live, so editing while running/paused pops VB6's own reset prompt. Yes → request a project reset (the edit
-    /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
+    /// live, so editing while running/paused pops VB6's own reset prompt. OK → request a project reset (the edit
+    /// then stands); Cancel → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
     /// <param name="over">The window of the editor that asks, which the prompt holds. Shown over the active window, often the
@@ -131,8 +131,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var result = await windowManager.MessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
-            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning, owner: over);
-        if (result != MessageBoxResult.Yes)
+            buttons: MessageBoxButtons.OkCancel, icon: MessageBoxIcon.Warning, owner: over);
+        if (result != MessageBoxResult.Ok)
             return false;
         eventBus.Publish(new EndProjectRequestedEvent());
         return true;
@@ -214,6 +214,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         ILocalizationService localization,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
+        CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
         this.projectService = projectService;
@@ -227,6 +228,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.TextChanged += (_, _) => RefreshBufferModified();
 
         // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
         // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
@@ -288,6 +290,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 formDefinition?.UpdateCode(body);
                 if (moduleDefinition is not null)
                     moduleDefinition.UpdateCode(body);
+                RefreshModelModified();
             }
         }));
         AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
@@ -303,6 +306,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
             var mine = (e.Module is not null && ReferenceEquals(e.Module, moduleDefinition))
                     || (e.Form is not null && ReferenceEquals(e.Form, formDefinition));
+
+            if (mine) RefreshModelModified();
 
             // A save is also the commonest way a document's NAME changes: a first save gives it a file,
             // and saving a project into another directory repoints every one of them. So reconcile the
@@ -327,6 +332,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             session?.Dispose();
         }));
+    }
+
+    private bool modelIsModified;
+
+    private void RefreshBufferModified() => IsModified = modelIsModified ||
+        !string.Equals(BufferBody, moduleDefinition?.Code ?? formDefinition?.Code ?? "", StringComparison.Ordinal);
+
+    private void RefreshModelModified()
+    {
+        modelIsModified = moduleDefinition is { } module ? projectService.HasUnsavedChanges(module)
+            : formDefinition is { } form && projectService.HasUnsavedChanges(form);
+        RefreshBufferModified();
     }
 
     /// <summary>
@@ -519,7 +536,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Puts the code back to <paramref name="body"/>, under whatever header the buffer carries now: what
-    /// answering No to Edit-and-Continue's reset prompt does (hexide-io/HexIDE#273 task 3.13).
+    /// answering Cancel to Edit-and-Continue's reset prompt does (hexide-io/HexIDE#273 task 3.13).
     /// </summary>
     /// <remarks>
     /// <para>

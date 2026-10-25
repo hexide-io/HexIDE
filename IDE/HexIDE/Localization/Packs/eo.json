@@ -165,7 +165,7 @@
     "Str.Menu.Run.Break": "_Paŭzigi",
     "Str.Menu.Run.End": "_Fini",
     "Str.Menu.Run.Restart": "_Rekomenci",
-    "Str.Menu.Run.StartWithVB6": "Komenci per _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Komenci per _VB6",
     "Str.Menu.Tools": "_Iloj",
     "Str.Menu.Tools.AddProcedure": "Aldoni _Proceduron...",
     "Str.Menu.Tools.ProcedureAttributes": "Proceduraj _Atributoj...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompilado malsukcesis:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Konstruado sukcesis sed la plenumebla dosiero ne estis trovita ĉe:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Rulado malsukcesis",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Ĉi tiu ago restarigos vian projekton. Ĉu vi volas daŭrigi?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Ĉi tiu ago restarigos vian projekton, ĉu tamen daŭrigi?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "La formularo '{0}' ne ŝargeblis, do la projekto ne startis.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ankoraŭ ne realigas ĉi tion:\n\n{0}",
     "Str.NewProject.Msg.Title": "Nova Projekto",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Ĉesigi",
     "Str.Dialog.MessageBox.Button.Retry": "Reprovi",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignori",
-    "Str.Addins.Incompatible": "Ne eblas ŝargi aldonaĵon: postulata skemo {0}, minimuma HexIDE {1}; ĉi tiu kompilaĵo subtenas skemon {2}, HexIDE {3}. La skema aŭ versia postulo estas nesubtenata aŭ nevalida."
+    "Str.Addins.Incompatible": "Ne eblas ŝargi aldonaĵon: postulata skemo {0}, minimuma HexIDE {1}; ĉi tiu kompilaĵo subtenas skemon {2}, HexIDE {3}. La skema aŭ versia postulo estas nesubtenata aŭ nevalida.",
+    "Str.MakeProject.NoStartup": "Neniu startprojekto trovita.",
+    "Str.MakeProject.Browser": "Kreo de programo ne disponeblas en retumilo. Uzu la labortablan version de HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Kreo de programo ne estas subtenata en ĉi tiu operaciumo. Uzu HexIDE en Windows, macOS aŭ Linux.",
+    "Str.MakeProject.MissingRuntime": "Por krei programon, unue konstruu la memstaran rultempan medion. Vidu la instrukciojn en README.",
+    "Str.MakeProject.Failed": "La programo ne estis kreita. Okazis eraro:\n{0}"
   }
 }

@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "중단",
     "Str.Menu.Run.End": "끝내기",
     "Str.Menu.Run.Restart": "다시 시작",
-    "Str.Menu.Run.StartWithVB6": "VB6으로 시작 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6으로 시작",
     "Str.Menu.Tools": "도구",
     "Str.Menu.Tools.AddProcedure": "프로시저 추가...",
     "Str.Menu.Tools.ProcedureAttributes": "프로시저 특성...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 컴파일에 실패했습니다:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "빌드는 성공했지만 다음 위치에서 실행 파일을 찾을 수 없습니다:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "실행 실패",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "이 작업을 수행하면 프로젝트가 다시 설정됩니다. 계속하시겠습니까?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "이 작업은 프로젝트를 다시 설정합니다. 그래도 진행하시겠습니까?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "폼 '{0}'을(를) 로드할 수 없어 프로젝트가 시작되지 않았습니다.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE는 아직 다음을 구현하지 않았습니다:\n\n{0}",
     "Str.NewProject.Msg.Title": "새 프로젝트",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "중단",
     "Str.Dialog.MessageBox.Button.Retry": "다시 시도",
     "Str.Dialog.MessageBox.Button.Ignore": "무시",
-    "Str.Addins.Incompatible": "추가 기능을 로드할 수 없습니다. 필요한 스키마: {0}, 최소 HexIDE: {1}. 이 빌드는 스키마 {2}, HexIDE {3}을 지원합니다. 스키마 또는 버전 요구 사항이 지원되지 않거나 잘못되었습니다."
+    "Str.Addins.Incompatible": "추가 기능을 로드할 수 없습니다. 필요한 스키마: {0}, 최소 HexIDE: {1}. 이 빌드는 스키마 {2}, HexIDE {3}을 지원합니다. 스키마 또는 버전 요구 사항이 지원되지 않거나 잘못되었습니다.",
+    "Str.MakeProject.NoStartup": "시작 프로젝트를 찾을 수 없습니다.",
+    "Str.MakeProject.Browser": "브라우저에서는 프로그램을 만들 수 없습니다. HexIDE 데스크톱 버전을 사용하세요.",
+    "Str.MakeProject.UnsupportedPlatform": "이 운영 체제에서는 프로그램 만들기가 지원되지 않습니다. Windows, macOS 또는 Linux에서 HexIDE를 사용하세요.",
+    "Str.MakeProject.MissingRuntime": "프로그램을 만들려면 먼저 독립 실행형 런타임을 빌드하세요. 지침은 README를 참조하세요.",
+    "Str.MakeProject.Failed": "프로그램이 만들어지지 않았습니다. 오류가 발생했습니다:\n{0}"
   }
 }

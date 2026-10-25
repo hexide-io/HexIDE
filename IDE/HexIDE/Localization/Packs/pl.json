@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "_Przerwij",
     "Str.Menu.Run.End": "_Zakończ",
     "Str.Menu.Run.Restart": "_Uruchom ponownie",
-    "Str.Menu.Run.StartWithVB6": "Start z _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Start z _VB6",
     "Str.Menu.Tools": "_Narzędzia",
     "Str.Menu.Tools.AddProcedure": "Dodaj _procedurę...",
     "Str.Menu.Tools.ProcedureAttributes": "_Atrybuty procedury...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Kompilacja VB6 nie powiodła się:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Kompilacja powiodła się, ale nie znaleziono pliku wykonywalnego w lokalizacji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uruchomienie nie powiodło się",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Ta akcja zresetuje projekt. Czy chcesz kontynuować?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Ta akcja zresetuje projekt. Czy mimo to kontynuować?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Nie można załadować formularza '{0}', więc projekt nie został uruchomiony.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE jeszcze tego nie obsługuje:\n\n{0}",
     "Str.NewProject.Msg.Title": "Nowy projekt",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Przerwij",
     "Str.Dialog.MessageBox.Button.Retry": "Ponów próbę",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignoruj",
-    "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe."
+    "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe.",
+    "Str.MakeProject.NoStartup": "Nie znaleziono projektu startowego.",
+    "Str.MakeProject.Browser": "Tworzenie programu nie jest dostępne w przeglądarce. Użyj wersji komputerowej HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Tworzenie programu nie jest obsługiwane w tym systemie operacyjnym. Użyj HexIDE w systemie Windows, macOS lub Linux.",
+    "Str.MakeProject.MissingRuntime": "Aby utworzyć program, najpierw skompiluj samodzielne środowisko uruchomieniowe. Instrukcje znajdziesz w pliku README.",
+    "Str.MakeProject.Failed": "Program nie został utworzony. Wystąpił błąd:\n{0}"
   }
 }

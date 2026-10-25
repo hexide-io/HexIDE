@@ -25,6 +25,7 @@
 
     <Application.Styles>
         <SimpleTheme />
+        <StyleInclude Source="avares://HexIDE/Themes/IconDirection.axaml" />
         <dockSimple:DockSimpleTheme />
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" />

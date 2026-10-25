@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Διακοπή",
     "Str.Menu.Run.End": "Τερματισμός",
     "Str.Menu.Run.Restart": "Επανεκκίνηση",
-    "Str.Menu.Run.StartWithVB6": "Έναρξη με VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Έναρξη με VB6",
     "Str.Menu.Tools": "Εργαλεία",
     "Str.Menu.Tools.AddProcedure": "Προσθήκη διαδικασίας...",
     "Str.Menu.Tools.ProcedureAttributes": "Χαρακτηριστικά διαδικασίας...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Η μεταγλώττιση με VB6 απέτυχε:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Η δόμηση ολοκληρώθηκε, αλλά το εκτελέσιμο δεν βρέθηκε στη θέση:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Η εκτέλεση απέτυχε",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Αυτή η ενέργεια θα επαναφέρει το έργο σας. Θέλετε να συνεχίσετε;",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Αυτή η ενέργεια θα επαναφέρει το έργο σας. Να συνεχιστεί ούτως ή άλλως;",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Δεν ήταν δυνατή η φόρτωση της φόρμας '{0}', οπότε το έργο δεν ξεκίνησε.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "Το HexIDE δεν υλοποιεί ακόμη το εξής:\n\n{0}",
     "Str.NewProject.Msg.Title": "Νέο έργο",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Ματαίωση",
     "Str.Dialog.MessageBox.Button.Retry": "Επανάληψη",
     "Str.Dialog.MessageBox.Button.Ignore": "Παράβλεψη",
-    "Str.Addins.Incompatible": "Δεν είναι δυνατή η φόρτωση του προσθέτου: απαιτούμενο σχήμα {0}, ελάχιστο HexIDE {1}· αυτή η έκδοση υποστηρίζει σχήμα {2}, HexIDE {3}. Η απαίτηση σχήματος ή έκδοσης δεν υποστηρίζεται ή δεν είναι έγκυρη."
+    "Str.Addins.Incompatible": "Δεν είναι δυνατή η φόρτωση του προσθέτου: απαιτούμενο σχήμα {0}, ελάχιστο HexIDE {1}· αυτή η έκδοση υποστηρίζει σχήμα {2}, HexIDE {3}. Η απαίτηση σχήματος ή έκδοσης δεν υποστηρίζεται ή δεν είναι έγκυρη.",
+    "Str.MakeProject.NoStartup": "Δεν βρέθηκε έργο εκκίνησης.",
+    "Str.MakeProject.Browser": "Η δημιουργία προγράμματος δεν είναι διαθέσιμη σε πρόγραμμα περιήγησης. Χρησιμοποιήστε την έκδοση του HexIDE για υπολογιστές.",
+    "Str.MakeProject.UnsupportedPlatform": "Η δημιουργία προγράμματος δεν υποστηρίζεται σε αυτό το λειτουργικό σύστημα. Χρησιμοποιήστε το HexIDE σε Windows, macOS ή Linux.",
+    "Str.MakeProject.MissingRuntime": "Για να δημιουργήσετε ένα πρόγραμμα, μεταγλωττίστε πρώτα το αυτόνομο περιβάλλον εκτέλεσης. Δείτε το README για οδηγίες.",
+    "Str.MakeProject.Failed": "Το πρόγραμμα δεν δημιουργήθηκε. Παρουσιάστηκε σφάλμα:\n{0}"
   }
 }

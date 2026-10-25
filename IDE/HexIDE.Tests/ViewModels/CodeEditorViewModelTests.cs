@@ -51,13 +51,46 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    [AvaloniaFact]
+    public void ModifiedMarker_FollowsCodeEditsAndRevertWithoutRenderingModel()
+    {
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        var original = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        vm.IsModified.Should().BeTrue();
+        _projectService.DidNotReceive().HasUnsavedChanges(form);
+        vm.Document.Text = original;
+        vm.IsModified.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void ModifiedMarker_FollowsFlushAndMatchingSave()
+    {
+        Action<ApplyAllUnsavedChangesEvent> flush = null!;
+        Action<DocumentSavedEvent> saved = null!;
+        _eventBus.Subscribe(Arg.Do<Action<ApplyAllUnsavedChangesEvent>>(x => flush = x));
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(x => saved = x));
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        _projectService.HasUnsavedChanges(form).Returns(true);
+        flush(new ApplyAllUnsavedChangesEvent());
+        vm.IsModified.Should().BeTrue();
+        _projectService.HasUnsavedChanges(form).Returns(false);
+        saved(new DocumentSavedEvent(TestHelpers.CreateForm(name: "Other"), null));
+        vm.IsModified.Should().BeTrue();
+        saved(new DocumentSavedEvent(form, null));
+        vm.IsModified.Should().BeFalse();
+    }
+
     // ── Edit-while-running reset prompt (VB6-faithful E&C affordance) ──
 
     [AvaloniaFact]
-    public async Task ConfirmResetWhileRunningAsync_Yes_RequestsProjectEnd()
+    public async Task ConfirmResetWhileRunningAsync_OK_RequestsProjectEnd()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
-            .Returns(MessageBoxResult.Yes);
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+            .Returns(MessageBoxResult.Ok);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
@@ -66,13 +99,14 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task ConfirmResetWhileRunningAsync_No_KeepsRunning()
+    public async Task ConfirmResetWhileRunningAsync_Cancel_KeepsRunning()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
-            .Returns(MessageBoxResult.No);
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+            .Returns(MessageBoxResult.Cancel);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
+        await _windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
         reset.Should().BeFalse();
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }

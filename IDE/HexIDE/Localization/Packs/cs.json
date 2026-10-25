@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Přeruši_t",
     "Str.Menu.Run.End": "_Ukončit",
     "Str.Menu.Run.Restart": "_Restartovat",
-    "Str.Menu.Run.StartWithVB6": "Spustit pomocí _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Spustit pomocí _VB6",
     "Str.Menu.Tools": "Nás_troje",
     "Str.Menu.Tools.AddProcedure": "Přidat _proceduru...",
     "Str.Menu.Tools.ProcedureAttributes": "_Atributy procedury...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Kompilace VB6 selhala:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Sestavení proběhlo úspěšně, ale spustitelný soubor nebyl nalezen na:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Spuštění selhalo",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Tato akce resetuje projekt. Chcete pokračovat?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Tato akce resetuje váš projekt, přesto pokračovat?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Formulář '{0}' nelze načíst, projekt proto nebyl spuštěn.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE toto zatím neimplementuje:\n\n{0}",
     "Str.NewProject.Msg.Title": "Nový projekt",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Přerušit",
     "Str.Dialog.MessageBox.Button.Retry": "Opakovat",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorovat",
-    "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný."
+    "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný.",
+    "Str.MakeProject.NoStartup": "Nebyl nalezen žádný spouštěcí projekt.",
+    "Str.MakeProject.Browser": "V prohlížeči nelze vytvořit program. Použijte desktopovou verzi HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Vytváření programu není v tomto operačním systému podporováno. Použijte HexIDE ve Windows, macOS nebo Linuxu.",
+    "Str.MakeProject.MissingRuntime": "Chcete-li vytvořit program, nejprve sestavte samostatné běhové prostředí. Pokyny najdete v souboru README.",
+    "Str.MakeProject.Failed": "Program nebyl vytvořen. Došlo k chybě:\n{0}"
   }
 }

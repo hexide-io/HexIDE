@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Bry_t",
     "Str.Menu.Run.End": "_Avsluta",
     "Str.Menu.Run.Restart": "Starta _om",
-    "Str.Menu.Run.StartWithVB6": "Starta med _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Starta med _VB6",
     "Str.Menu.Tools": "_Verktyg",
     "Str.Menu.Tools.AddProcedure": "Lägg till _procedur...",
     "Str.Menu.Tools.ProcedureAttributes": "Procedur_attribut...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompileringen misslyckades:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Bygget lyckades men den körbara filen hittades inte på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Körningen misslyckades",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Den här åtgärden återställer projektet. Vill du fortsätta?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Den här åtgärden återställer ditt projekt. Vill du fortsätta ändå?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Formuläret '{0}' kunde inte läsas in, så projektet startades inte.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE har ännu inte stöd för detta:\n\n{0}",
     "Str.NewProject.Msg.Title": "Nytt projekt",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Avbryt",
     "Str.Dialog.MessageBox.Button.Retry": "Försök igen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorera",
-    "Str.Addins.Incompatible": "Kan inte läsa in tillägget: krävt schema {0}, minst HexIDE {1}; denna version stöder schema {2}, HexIDE {3}. Schema- eller versionskravet stöds inte eller är ogiltigt."
+    "Str.Addins.Incompatible": "Kan inte läsa in tillägget: krävt schema {0}, minst HexIDE {1}; denna version stöder schema {2}, HexIDE {3}. Schema- eller versionskravet stöds inte eller är ogiltigt.",
+    "Str.MakeProject.NoStartup": "Inget startprojekt hittades.",
+    "Str.MakeProject.Browser": "Det går inte att skapa ett program i en webbläsare. Använd skrivbordsversionen av HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Det går inte att skapa ett program på det här operativsystemet. Använd HexIDE på Windows, macOS eller Linux.",
+    "Str.MakeProject.MissingRuntime": "För att skapa ett program måste du först bygga den fristående körmiljön. Se README för instruktioner.",
+    "Str.MakeProject.Failed": "Programmet skapades inte. Ett fel uppstod:\n{0}"
   }
 }

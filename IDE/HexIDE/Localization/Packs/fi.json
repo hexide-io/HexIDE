@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "_Keskeytä",
     "Str.Menu.Run.End": "_Lopeta",
     "Str.Menu.Run.Restart": "_Käynnistä uudelleen",
-    "Str.Menu.Run.StartWithVB6": "Käynnistä _VB6:lla (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Käynnistä _VB6:lla",
     "Str.Menu.Tools": "_Työkalut",
     "Str.Menu.Tools.AddProcedure": "Lisää _proseduuri...",
     "Str.Menu.Tools.ProcedureAttributes": "Proseduurin _määritteet...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6-käännös epäonnistui:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Käännös onnistui, mutta suoritettavaa tiedostoa ei löytynyt sijainnista:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Suoritus epäonnistui",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Tämä toiminto nollaa projektin. Haluatko jatkaa?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Tämä toiminto nollaa projektisi. Jatketaanko silti?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Lomaketta '{0}' ei voitu ladata, joten projektia ei käynnistetty.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ei vielä toteuta tätä:\n\n{0}",
     "Str.NewProject.Msg.Title": "Uusi projekti",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Keskeytä",
     "Str.Dialog.MessageBox.Button.Retry": "Yritä uudelleen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ohita",
-    "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen."
+    "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen.",
+    "Str.MakeProject.NoStartup": "Käynnistysprojektia ei löytynyt.",
+    "Str.MakeProject.Browser": "Ohjelman koostaminen ei ole käytettävissä selaimessa. Käytä HexIDEn työpöytäversiota.",
+    "Str.MakeProject.UnsupportedPlatform": "Ohjelman koostamista ei tueta tässä käyttöjärjestelmässä. Käytä HexIDEä Windowsissa, macOS:ssä tai Linuxissa.",
+    "Str.MakeProject.MissingRuntime": "Koosta ensin erillinen suoritusympäristö, jotta voit koostaa ohjelman. Katso ohjeet README-tiedostosta.",
+    "Str.MakeProject.Failed": "Ohjelmaa ei koostettu. Tapahtui virhe:\n{0}"
   }
 }

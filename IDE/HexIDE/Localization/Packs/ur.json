@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "وقفہ",
     "Str.Menu.Run.End": "ختم کریں",
     "Str.Menu.Run.Restart": "دوبارہ شروع کریں",
-    "Str.Menu.Run.StartWithVB6": "VB6 کے ساتھ شروع کریں (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6 کے ساتھ شروع کریں",
     "Str.Menu.Tools": "ٹولز",
     "Str.Menu.Tools.AddProcedure": "طریقہ کار شامل کریں...",
     "Str.Menu.Tools.ProcedureAttributes": "طریقہ کار کی خصوصیات...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 کمپائلیشن ناکام ہوگئی:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "بلڈ کامیاب رہی مگر قابلِ عمل فائل یہاں نہیں ملی:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "چلانا ناکام",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "یہ عمل آپ کے پروجیکٹ کو ری سیٹ کر دے گا۔ کیا آپ جاری رکھنا چاہتے ہیں؟",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "یہ عمل آپ کے پروجیکٹ کو ری سیٹ کر دے گا، پھر بھی آگے بڑھیں؟",
     "Str.ProjectRunner.StartupFormFailedToLoad": "فارم '{0}' لوڈ نہیں ہو سکا، اس لیے پروجیکٹ شروع نہیں ہوا۔\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ابھی تک اس کی معاونت نہیں کرتا:\n\n{0}",
     "Str.NewProject.Msg.Title": "نیا پروجیکٹ",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "روکیں",
     "Str.Dialog.MessageBox.Button.Retry": "دوبارہ کوشش کریں",
     "Str.Dialog.MessageBox.Button.Ignore": "نظر انداز کریں",
-    "Str.Addins.Incompatible": "ایڈ اِن لوڈ نہیں ہو سکتا: مطلوبہ اسکیما {0}، کم از کم HexIDE {1}؛ یہ بلڈ اسکیما {2}، HexIDE {3} کو سپورٹ کرتا ہے۔ اسکیما یا ورژن کی شرط غیر معاون یا غلط ہے۔"
+    "Str.Addins.Incompatible": "ایڈ اِن لوڈ نہیں ہو سکتا: مطلوبہ اسکیما {0}، کم از کم HexIDE {1}؛ یہ بلڈ اسکیما {2}، HexIDE {3} کو سپورٹ کرتا ہے۔ اسکیما یا ورژن کی شرط غیر معاون یا غلط ہے۔",
+    "Str.MakeProject.NoStartup": "آغاز کے لیے کوئی پروجیکٹ نہیں ملا۔",
+    "Str.MakeProject.Browser": "براؤزر میں پروگرام بنانا دستیاب نہیں ہے۔ HexIDE کا ڈیسک ٹاپ ورژن استعمال کریں۔",
+    "Str.MakeProject.UnsupportedPlatform": "اس آپریٹنگ سسٹم پر پروگرام بنانے کی سہولت موجود نہیں ہے۔ Windows، macOS یا Linux پر HexIDE استعمال کریں۔",
+    "Str.MakeProject.MissingRuntime": "پروگرام بنانے کے لیے پہلے خودمختار رن ٹائم بلڈ کریں۔ ہدایات کے لیے README دیکھیں۔",
+    "Str.MakeProject.Failed": "پروگرام نہیں بنایا گیا۔ ایک خرابی پیش آئی:\n{0}"
   }
 }

@@ -88,6 +88,8 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
 
     [Notify] private bool isDirty;
 
+    private void OnIsDirtyChanged() => IsModified = IsDirty;
+
     /// <summary>True when the file could not be read — the editor opens empty and read-only rather than lying.</summary>
     [Notify] private string? loadError;
 

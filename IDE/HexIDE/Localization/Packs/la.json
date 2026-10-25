@@ -165,7 +165,7 @@
     "Str.Menu.Run.Break": "Inter_rumpe",
     "Str.Menu.Run.End": "_Termina",
     "Str.Menu.Run.Restart": "_Iterum Incipe",
-    "Str.Menu.Run.StartWithVB6": "Incipe cum _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Incipe cum _VB6",
     "Str.Menu.Tools": "_Instrumenta",
     "Str.Menu.Tools.AddProcedure": "Adde _Proceduram...",
     "Str.Menu.Tools.ProcedureAttributes": "Attributa _Procedurae...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Compilatio VB6 defecit:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Constructio successit sed exsecutabile non inventum est apud:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Exsecutio Defecit",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Haec actio inceptum tuum restituet. Visne pergere?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Haec actio inceptum tuum restituet. Visne tamen pergere?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Forma '{0}' onerari non potuit, itaque inceptum non est incohatum.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE hoc nondum sustinet:\n\n{0}",
     "Str.NewProject.Msg.Title": "Novum Inceptum",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "Interrumpe",
     "Str.Dialog.MessageBox.Button.Retry": "Retenta",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignora",
-    "Str.Addins.Incompatible": "Additamentum onerari non potest: schema requisitum {0}, HexIDE minimum {1}; haec versio schema {2}, HexIDE {3} sustinet. Requisitum schematis aut versionis non sustinetur aut invalidum est."
+    "Str.Addins.Incompatible": "Additamentum onerari non potest: schema requisitum {0}, HexIDE minimum {1}; haec versio schema {2}, HexIDE {3} sustinet. Requisitum schematis aut versionis non sustinetur aut invalidum est.",
+    "Str.MakeProject.NoStartup": "Nullum proiectum initiale inventum est.",
+    "Str.MakeProject.Browser": "In navigatro programma confici non potest. Versione HexIDE pro computatro utere.",
+    "Str.MakeProject.UnsupportedPlatform": "In hoc systemate operativo programma confici non potest. HexIDE in Windows, macOS aut Linux utere.",
+    "Str.MakeProject.MissingRuntime": "Ut programma conficias, primum ambitum exsecutionis autonomum compila. Praecepta in README lege.",
+    "Str.MakeProject.Failed": "Programma confectum non est. Error accidit:\n{0}"
   }
 }

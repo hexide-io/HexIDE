@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "中断",
     "Str.Menu.Run.End": "结束",
     "Str.Menu.Run.Restart": "重新启动",
-    "Str.Menu.Run.StartWithVB6": "用 VB6 启动 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "用 VB6 启动",
     "Str.Menu.Tools": "工具",
     "Str.Menu.Tools.AddProcedure": "添加过程...",
     "Str.Menu.Tools.ProcedureAttributes": "过程属性...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 编译失败：\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "生成成功，但未在以下位置找到可执行文件：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "运行失败",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "此操作将重置工程。是否继续？",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "此操作将重置您的工程，仍要继续吗？",
     "Str.ProjectRunner.StartupFormFailedToLoad": "无法加载窗体“{0}”，因此项目未启动。\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE 尚未实现此功能：\n\n{0}",
     "Str.NewProject.Msg.Title": "新建工程",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "中止",
     "Str.Dialog.MessageBox.Button.Retry": "重试",
     "Str.Dialog.MessageBox.Button.Ignore": "忽略",
-    "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。"
+    "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。",
+    "Str.MakeProject.NoStartup": "未找到启动项目。",
+    "Str.MakeProject.Browser": "无法在浏览器中生成程序。请使用桌面版 HexIDE。",
+    "Str.MakeProject.UnsupportedPlatform": "此操作系统不支持生成程序。请在 Windows、macOS 或 Linux 上使用 HexIDE。",
+    "Str.MakeProject.MissingRuntime": "要生成程序，请先构建独立运行时。有关说明，请参阅 README。",
+    "Str.MakeProject.Failed": "程序未生成。发生错误：\n{0}"
   }
 }

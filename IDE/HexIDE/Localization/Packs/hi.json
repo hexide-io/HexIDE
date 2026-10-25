@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "रोकें",
     "Str.Menu.Run.End": "समाप्त करें",
     "Str.Menu.Run.Restart": "पुनः प्रारंभ करें",
-    "Str.Menu.Run.StartWithVB6": "VB6 के साथ प्रारंभ करें (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6 के साथ प्रारंभ करें",
     "Str.Menu.Tools": "उपकरण",
     "Str.Menu.Tools.AddProcedure": "प्रक्रिया जोड़ें...",
     "Str.Menu.Tools.ProcedureAttributes": "प्रक्रिया विशेषताएँ...",
@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 संकलन विफल रहा:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "बिल्ड सफल रहा परंतु निष्पादन योग्य फ़ाइल यहाँ नहीं मिली:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "चलाना विफल",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "यह क्रिया आपके प्रोजेक्ट को रीसेट कर देगी। क्या आप जारी रखना चाहते हैं?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "यह क्रिया आपके प्रोजेक्ट को रीसेट कर देगी, फिर भी आगे बढ़ें?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "फ़ॉर्म '{0}' लोड नहीं हो सका, इसलिए प्रोजेक्ट शुरू नहीं हुआ।\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE अभी तक इसे लागू नहीं करता:\n\n{0}",
     "Str.NewProject.Msg.Title": "नया प्रोजेक्ट",
@@ -845,6 +845,11 @@
     "Str.Dialog.MessageBox.Button.Abort": "निरस्त करें",
     "Str.Dialog.MessageBox.Button.Retry": "पुनः प्रयास करें",
     "Str.Dialog.MessageBox.Button.Ignore": "अनदेखा करें",
-    "Str.Addins.Incompatible": "ऐड-इन लोड नहीं हो सकता: आवश्यक स्कीमा {0}, न्यूनतम HexIDE {1}; यह बिल्ड स्कीमा {2}, HexIDE {3} का समर्थन करता है। स्कीमा या संस्करण की आवश्यकता असमर्थित या अमान्य है।"
+    "Str.Addins.Incompatible": "ऐड-इन लोड नहीं हो सकता: आवश्यक स्कीमा {0}, न्यूनतम HexIDE {1}; यह बिल्ड स्कीमा {2}, HexIDE {3} का समर्थन करता है। स्कीमा या संस्करण की आवश्यकता असमर्थित या अमान्य है।",
+    "Str.MakeProject.NoStartup": "कोई स्टार्टअप प्रोजेक्ट नहीं मिला।",
+    "Str.MakeProject.Browser": "ब्राउज़र में प्रोग्राम बनाना उपलब्ध नहीं है। HexIDE के डेस्कटॉप संस्करण का उपयोग करें।",
+    "Str.MakeProject.UnsupportedPlatform": "इस ऑपरेटिंग सिस्टम पर प्रोग्राम बनाना समर्थित नहीं है। Windows, macOS या Linux पर HexIDE का उपयोग करें।",
+    "Str.MakeProject.MissingRuntime": "प्रोग्राम बनाने के लिए, पहले स्टैंडअलोन रनटाइम बिल्ड करें। निर्देशों के लिए README देखें।",
+    "Str.MakeProject.Failed": "प्रोग्राम नहीं बना। एक त्रुटि हुई:\n{0}"
   }
 }
