@@ -41,10 +41,24 @@ public class LaunchConfigurationTests
             var factory = new LanguageServerRegistrationFactory(
                 Substitute.For<ILoggerFactory>().WithNullLoggers());
             await using var client = factory.Create([entry]).Single().CreateClient();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            // The probe never connects, so a pipe start runs to this budget and then kills the child: it must outlast a
+            // cold powershell.exe on a CI runner, which three seconds did not (#1913). A stdio start ends sooner, when the
+            // probe exits, and the file may still be being written then: read it once it is complete.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await client.StartAsync(timeout.Token);
-            File.Exists(output).Should().BeTrue("the configured child must have written its received values");
-            var received = File.ReadAllLines(output);
+            var expectedLines = 2 + values.Length;
+            string[] received = [];
+            for (var deadline = DateTime.UtcNow.AddSeconds(30); DateTime.UtcNow < deadline;)
+            {
+                try
+                {
+                    if (File.Exists(output) && (received = File.ReadAllLines(output)).Length >= expectedLines)
+                        break;
+                }
+                catch (IOException) { /* still being written */ }
+                await Task.Delay(100, TestContext.Current.CancellationToken);
+            }
+            received.Should().HaveCount(expectedLines, "the configured child must have written its received values");
             received[0].Should().Be("configured");
             received[1].Should().Be(Environment.GetEnvironmentVariable("PATH"), "unspecified variables are inherited");
             received.Skip(2).Should().Equal(values.Select(v =>
