@@ -519,6 +519,11 @@ of no change and no save, so those asks never reach it. Asking only about docume
 leave it no way to give diagnostics at all, which is why
 [#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
 
+The close of a pulled document clears its marks under the same gate that checks and publishes answers.
+The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
+publication was the close's clear, observed before the reopen answer had arrived because the test mistook
+its identically labelled initial answer for the fresh one. Its failure trace labels that empty clear.
+
 `workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
 table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
 report a change that is not a document, such as its own configuration file being edited.
