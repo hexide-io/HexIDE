@@ -10,6 +10,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Folding;
@@ -186,6 +187,14 @@ public class MemberRunFoldTests : IDisposable
         Dispatcher.UIThread.RunJobs();
     }
 
+    // Through the command's handler, not its key: the gesture differs by platform and macOS has none (#1014),
+    // and ApplicationCommandsTests pins the gesture itself.
+    private static void ToggleFold(TextEditor editor)
+    {
+        editor.FindAncestorOfType<CodeEditorView>()!.ToggleFold();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static void Press(TextEditor editor, Key key, KeyModifiers modifiers = KeyModifiers.None)
     {
         editor.TextArea.RaiseEvent(new KeyEventArgs
@@ -224,7 +233,7 @@ public class MemberRunFoldTests : IDisposable
         var declaration = LineWith(editor, "Public Sub Go()");
         PutCaret(editor, declaration.Offset + 3);
 
-        Press(editor, Key.M, ApplicationCommands.SaveCommand.Gestures[0].KeyModifiers);
+        ToggleFold(editor);
 
         run.IsFolded.Should().Be(!initiallyFolded);
         Folding(editor).GetFoldingsAt(declaration.Offset).Single().IsFolded.Should().BeFalse();
@@ -241,7 +250,7 @@ public class MemberRunFoldTests : IDisposable
         PutCaret(editor, LineWith(editor, "Attribute Go.VB_Description").Offset + 5);
         run.IsFolded.Should().BeFalse("the caret opened the run");
 
-        Press(editor, Key.M, ApplicationCommands.SaveCommand.Gestures[0].KeyModifiers);
+        ToggleFold(editor);
 
         run.IsFolded.Should().BeTrue();
         Caret(editor).Should().Be(run.StartOffset);
@@ -264,7 +273,7 @@ public class MemberRunFoldTests : IDisposable
         PutCaret(editor, LineWith(editor, "Debug.Print 1").Offset + 5);
         var procedure = Folding(editor).GetFoldingsAt(LineWith(editor, "Public Sub Go()").Offset).Single();
 
-        Press(editor, Key.M, ApplicationCommands.SaveCommand.Gestures[0].KeyModifiers);
+        ToggleFold(editor);
 
         procedure.IsFolded.Should().BeTrue();
         Caret(editor).Should().Be(procedure.StartOffset);
