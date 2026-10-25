@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "현재 모듈",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "열려 있는 모든 문서",
     "Str.FindReplace.Msg.NotFound": "검색한 텍스트 '{0}'을(를) 찾을 수 없습니다.",
+    "Str.FindReplace.Msg.ProtectedOnly": "검색 텍스트 '{0}'은 파일 헤더 또는 프로시저의 Attribute 줄에만 있습니다. IDE만 변경하는 영역이므로 검색에서 건너뜁니다.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0}개를 바꿨습니다. IDE만 변경하는 헤더 또는 프로시저 Attribute 줄의 일치 항목 {1}개를 건너뛰었습니다.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0}개 항목을 바꿨습니다.",
     "Str.FindReplace.Msg.InvalidRegex": "잘못된 정규식 패턴입니다.",
     "Str.FindReplace.Msg.NothingToSearch": "여기에는 찾을 내용이 없습니다. 찾기는 코드 창과 프로젝트에 포함된 텍스트 파일에서 동작합니다.",

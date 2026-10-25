@@ -724,6 +724,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Modul Saat Ini",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Semua Dokumen Terbuka",
     "Str.FindReplace.Msg.NotFound": "Teks pencarian '{0}' tidak ditemukan.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Teks pencarian '{0}' hanya ada di header berkas atau baris Attribute prosedur. Pencarian melewati bagian ini karena hanya IDE yang mengubahnya.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} penggantian dibuat; {1} kecocokan dilewati di header atau baris Attribute prosedur, yang hanya diubah oleh IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} penggantian dilakukan.",
     "Str.FindReplace.Msg.InvalidRegex": "Pola ekspresi reguler tidak valid.",
     "Str.FindReplace.Msg.NothingToSearch": "Tidak ada yang dapat dicari di sini. Cari berfungsi di jendela kode dan di berkas teks yang disertakan proyek.",
