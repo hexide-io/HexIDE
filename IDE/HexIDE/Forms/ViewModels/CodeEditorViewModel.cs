@@ -214,6 +214,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         ILocalizationService localization,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
+        CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
         this.projectService = projectService;

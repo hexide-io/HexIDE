@@ -26,6 +26,19 @@ behaves consistently instead of having a separate set of rules inside one region
 - **WHEN** several documents are open
 - **THEN** each has its own tab and the developer switches between them by selecting one
 
+### Requirement: Code documents and designers SHALL remain docked
+Code documents and designers SHALL NOT offer Float or Float all in their tab menu. A float attempt through
+another route SHALL leave the document docked and listed among the open document tabs. Tool-window
+floating SHALL remain unchanged.
+
+#### Scenario: Code tab menu
+- **WHEN** the developer opens a code document's or designer's tab menu
+- **THEN** neither Float nor Float all is offered
+
+#### Scenario: Programmatic float
+- **WHEN** automation attempts to float a code document or designer
+- **THEN** the document remains docked and listed among the open document tabs
+
 ### Requirement: Docked content SHALL remain fully opaque
 The IDE SHALL disable Dock's content-reveal animation before creating any dock controls, so presenting
 documents and tools again does not leave their contents semi-transparent.

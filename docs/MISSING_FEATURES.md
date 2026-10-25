@@ -222,6 +222,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
+| Document containment | Done | Code and designer tabs stay docked: Float and Float all are unavailable, and programmatic float attempts leave the document in its tab (#1361) |
 | Syntax highlighting | Done | In the editor itself, from `VB6.xshd.xml`, with a dark palette swapped in for a dark theme (`SyntaxHighlightingTheme`); not from the language server, as this row used to say. Keywords match regardless of case, including `Begin` and standalone `End` (#716). The header and member `Attribute` lines are drawn in the theme's read-only grey instead (#273). Named syntax colours, including metadata keywords, are guarded at WCAG AA 4.5:1 on Classic, Dark and Abyss (#713) |
 | Error/warning squiggles | Done | Full LSP diagnostic pipeline; inline markers. The bundled server reports nothing that starts on a line of the header or of a member's `Attribute` lines (#273) |
 | Object/Procedure dropboxes | Done | Two combos at top; navigate to handler on select. Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. A match in a member's `Attribute` line can still take the caret there ([#702](https://github.com/hexide-io/HexIDE/issues/702)) |

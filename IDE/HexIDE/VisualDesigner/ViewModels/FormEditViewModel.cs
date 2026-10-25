@@ -616,6 +616,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /* ctr only for the previewer! */
     public FormEditViewModel()
     {
+        CanFloat = false;
         AllComponents.CollectionChanged += OnAllComponentsChanged;
         Components.CollectionChanged += OnComponentsChanged;
         Form = new ComponentInstanceViewModel(this, new ComponentInstance(FormComponentClass.Instance, "Form1")
