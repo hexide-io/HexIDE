@@ -9,6 +9,9 @@ consume is bounded by the LSP specification, while what the bundled server can p
 HexIDE's CST-not-AST limit. Those bounds are different, and a feature can be perfectly reasonable on one
 side of the seam and forbidden on the other.
 
+An unrecognised `pipeRole` on a pipe entry is reported as a configuration problem; the entry remains
+registered with the `connect` fallback.
+
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).
 

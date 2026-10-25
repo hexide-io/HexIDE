@@ -407,6 +407,19 @@ public sealed class LanguageServerConfigLoader
                 LanguageServerConfigProblemKind.Configuration));
         }
 
+        if (string.Equals(entry.Transport?.Trim(), "pipe", StringComparison.OrdinalIgnoreCase)
+            && entry.PipeRole is { } pipeRole && !string.IsNullOrWhiteSpace(pipeRole)
+            && !string.Equals(pipeRole.Trim(), "connect", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(pipeRole.Trim(), "listen", StringComparison.OrdinalIgnoreCase))
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entry.Id,
+                $"'{entry.Id}' asks for pipeRole '{pipeRole.Trim()}', which is not one of "
+              + "'connect' or 'listen'. Falling back to 'connect' for this server.",
+                false,
+                LanguageServerConfigProblemKind.Configuration));
+        }
+
         // Same judgement as trace above, and for the same reason: reported, then survivable. A server that
         // generates no descriptor may still be useful; one that refuses to start is not. Checked before the
         // enabled gate so a typo surfaces whether or not the entry is currently on.
