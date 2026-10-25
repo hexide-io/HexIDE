@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Перейменування не виконано, оскільки воно змінило б заголовок цього файлу або рядки Attribute одного з членів, якими керує IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Рядок {0} належить до заголовка цього файлу або до рядків Attribute одного з членів, які ніколи не виконуються, тому на ньому не можна встановити точку зупину чи закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставити файл",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Нове ім’я:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Перейменувати",
     "Str.CodeEditor.Context.Cut": "Вирізати",
     "Str.CodeEditor.Context.Copy": "Копіювати",
     "Str.CodeEditor.Context.Paste": "Вставити",

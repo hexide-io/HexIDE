@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "La ridenominazione non è stata applicata perché modificherebbe l'intestazione di questo file o le righe Attribute di un membro, che sono gestite dall'IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La riga {0} fa parte dell'intestazione di questo file o delle righe Attribute di un membro, che non vengono mai eseguite, quindi non vi si può impostare un punto di interruzione né un segnalibro.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserisci file",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nuovo nome:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Rinomina",
     "Str.CodeEditor.Context.Cut": "_Taglia",
     "Str.CodeEditor.Context.Copy": "_Copia",
     "Str.CodeEditor.Context.Paste": "_Incolla",

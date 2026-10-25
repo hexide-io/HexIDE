@@ -315,6 +315,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Nomen non mutatum est, quia caput huius fasciculi aut versus Attribute alicuius membri mutaret, quos IDE curat.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Versus {0} pars est capitis huius fasciculi aut versuum Attribute alicuius membri, qui numquam currunt; itaque nec punctum interruptionis nec signaculum ibi poni potest.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insere Plicam",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nomen novum:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Nomen mutare",
     "Str.CodeEditor.Context.Cut": "E_xscinde",
     "Str.CodeEditor.Context.Copy": "_Describe",
     "Str.CodeEditor.Context.Paste": "_Agglutina",

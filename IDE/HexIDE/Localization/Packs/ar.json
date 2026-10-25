@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "لم تُطبَّق إعادة التسمية لأنها ستغيّر رأس هذا الملف أو أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر تتولّاها بيئة التطوير.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "السطر {0} جزء من رأس هذا الملف أو من أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر لا تُنفَّذ أبدًا، لذا لا يمكن وضع نقطة توقف أو إشارة مرجعية عليه.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "إدراج ملف",
+    "Str.CodeEditor.Dialog.RenamePrompt": "الاسم الجديد:",
+    "Str.CodeEditor.Dialog.RenameTitle": "إعادة تسمية",
     "Str.CodeEditor.Context.Cut": "قص",
     "Str.CodeEditor.Context.Copy": "نسخ",
     "Str.CodeEditor.Context.Paste": "لصق",

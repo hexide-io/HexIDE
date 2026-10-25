@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Namnbytet genomfördes inte eftersom det skulle ändra filens huvud eller en medlems Attribute-rader, som IDE:n underhåller.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rad {0} hör till filens huvud eller till en medlems Attribute-rader, som aldrig körs, så det går inte att sätta en brytpunkt eller ett bokmärke där.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Infoga fil",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nytt namn:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Byt namn",
     "Str.CodeEditor.Context.Cut": "Klipp _ut",
     "Str.CodeEditor.Context.Copy": "_Kopiera",
     "Str.CodeEditor.Context.Paste": "Klistra _in",

@@ -315,6 +315,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "La alinomo ne estis farita, ĉar ĝi ŝanĝus la kapon de ĉi tiu dosiero aŭ la Attribute-liniojn de membro, kiujn la IDE prizorgas.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linio {0} apartenas al la kapo de ĉi tiu dosiero aŭ al la Attribute-linioj de membro, kiuj neniam ruliĝas, do oni ne povas meti tie rompopunkton aŭ legosignon.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Enmeti Dosieron",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nova nomo:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Alinomi",
     "Str.CodeEditor.Context.Cut": "El_tondi",
     "Str.CodeEditor.Context.Copy": "_Kopii",
     "Str.CodeEditor.Context.Paste": "_Alglui",

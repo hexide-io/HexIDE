@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "名前の変更は行われませんでした。このファイルのヘッダー、またはメンバーの Attribute 行が変更されるためです。これらは IDE が管理しています。",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0} 行目は、このファイルのヘッダーまたはメンバーの Attribute 行の一部です。これらの行は実行されないため、ブレークポイントやブックマークは設定できません。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "ファイルの挿入",
+    "Str.CodeEditor.Dialog.RenamePrompt": "新しい名前:",
+    "Str.CodeEditor.Dialog.RenameTitle": "名前の変更",
     "Str.CodeEditor.Context.Cut": "切り取り",
     "Str.CodeEditor.Context.Copy": "コピー",
     "Str.CodeEditor.Context.Paste": "貼り付け",

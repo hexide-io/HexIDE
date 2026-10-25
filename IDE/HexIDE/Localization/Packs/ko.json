@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "이 파일의 헤더나 멤버의 Attribute 줄이 바뀌게 되므로 이름 바꾸기를 적용하지 않았습니다. 이 부분은 IDE가 관리합니다.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0}번째 줄은 이 파일의 헤더나 멤버의 Attribute 줄에 속합니다. 이 줄들은 실행되지 않으므로 중단점이나 책갈피를 설정할 수 없습니다.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "파일 삽입",
+    "Str.CodeEditor.Dialog.RenamePrompt": "새 이름:",
+    "Str.CodeEditor.Dialog.RenameTitle": "이름 바꾸기",
     "Str.CodeEditor.Context.Cut": "잘라내기",
     "Str.CodeEditor.Context.Copy": "복사",
     "Str.CodeEditor.Context.Paste": "붙여넣기",

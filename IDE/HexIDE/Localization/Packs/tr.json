@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Yeniden adlandırma uygulanmadı; bu dosyanın üst bilgisini veya bir üyenin Attribute satırlarını değiştirirdi ve bunları IDE yönetir.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0}. satır bu dosyanın üst bilgisine veya bir üyenin Attribute satırlarına aittir; bu satırlar hiç çalıştırılmadığından buraya kesme noktası veya yer imi konamaz.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Dosya Ekle",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Yeni ad:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Yeniden Adlandır",
     "Str.CodeEditor.Context.Cut": "K_es",
     "Str.CodeEditor.Context.Copy": "_Kopyala",
     "Str.CodeEditor.Context.Paste": "_Yapıştır",

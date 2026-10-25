@@ -1832,8 +1832,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<WorkspaceEdit?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
 
-    public Task<string?> ShowInputBoxAsync(string prompt, string title, string defaultText)
-        => windowManager.InputBox(prompt, title, defaultText);
+    public Task<string?> ShowRenameInputBoxAsync(string defaultText)
+        => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),
+            localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
     public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);

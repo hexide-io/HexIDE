@@ -310,6 +310,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "The rename was not made because it would change this file's header or a member's Attribute lines, which the IDE maintains.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Line {0} is part of this file's header or a member's Attribute lines, which never run, so no breakpoint or bookmark can be set there.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insert File",
+    "Str.CodeEditor.Dialog.RenamePrompt": "New name:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Rename",
     "Str.CodeEditor.Context.Cut": "Cu_t",
     "Str.CodeEditor.Context.Copy": "_Copy",
     "Str.CodeEditor.Context.Paste": "_Paste",

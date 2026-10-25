@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Không đổi tên vì thao tác này sẽ thay đổi phần đầu tệp này hoặc các dòng Attribute của một thành viên, vốn do IDE quản lý.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Dòng {0} thuộc phần đầu tệp này hoặc các dòng Attribute của một thành viên, vốn không bao giờ được chạy, nên không thể đặt điểm dừng hay dấu trang tại đó.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Chèn tệp",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Tên mới:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Đổi tên",
     "Str.CodeEditor.Context.Cut": "Cắ_t",
     "Str.CodeEditor.Context.Copy": "_Sao chép",
     "Str.CodeEditor.Context.Paste": "_Dán",

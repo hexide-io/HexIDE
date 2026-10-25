@@ -354,6 +354,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未执行重命名，因为这会更改此文件的标头或某个成员的 Attribute 行，而这些内容由 IDE 维护。",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行属于此文件的标头或某个成员的 Attribute 行，这些行永远不会执行，因此无法在此设置断点或书签。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入文件",
+    "Str.CodeEditor.Dialog.RenamePrompt": "新名称：",
+    "Str.CodeEditor.Dialog.RenameTitle": "重命名",
     "Str.CodeEditor.Context.Cut": "剪切",
     "Str.CodeEditor.Context.Copy": "复制",
     "Str.CodeEditor.Context.Paste": "粘贴",
