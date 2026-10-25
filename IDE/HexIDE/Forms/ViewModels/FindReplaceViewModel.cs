@@ -406,7 +406,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         }
         else
         {
-            searchStart = startOffset > 0 ? startOffset - 1 : doc.TextLength - 1;
+            searchStart = startOffset - 1;
             var text = doc.Text;
             for (int i = searchStart; i >= 0; i--)
             {

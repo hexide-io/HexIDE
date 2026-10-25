@@ -178,6 +178,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("endpoint")]
     public string? Endpoint { get; set; }
 
+    /// <summary><c>connect</c> (default) or <c>listen</c>.</summary>
+    [JsonPropertyName("websocketRole")]
+    public string? WebSocketRole { get; set; }
+
     // ── pipe ──────────────────────────────────────────────────────────────────────────────────────────
     [JsonPropertyName("pipeName")]
     public string? PipeName { get; set; }

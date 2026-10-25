@@ -1638,7 +1638,7 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
 `AvaloniaInteroperability.ConvertForAssignment` (and `CheckScrollBarValue` for a scroll bar's `Value`).
 `HexIDE.Integration.Tests` `PropertyAssignmentTests` covers, through real controls and the interpreter:
 - the String-property rows, the Single, Double, Currency and Decimal ones included, since #779;
-- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (error only, #769) and
+- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (read-back and errors, since #769) and
   `BackColor` rows, the colour checked as stored and as left unchanged;
 - copying a colour from one control to another, through a Variant, and into a caption;
 - Null into `Tag`, and the two `Tag` idioms below.
@@ -1656,8 +1656,8 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 
 **Refused with `NotImplementedException`, rather than answered wrong:**
 - **A palette colour** (#786), from any type. HexIDE has no colour that holds one.
-- **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
-  would read back clamped.
+- **Superseded by #787:** `Value` on a scroll bar whose Min exceeds its Max now maps onto an ascending
+  Avalonia range in reverse, preserving the loaded value and the measured assignments above.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
   property (#790). (Superseded for a class instance and the in-box objects by #840, "An object used as a value": a
   class with no default member raises 438, one with a default member is refused naming #174, and Err stands for its
@@ -3713,9 +3713,11 @@ error raised:
 Two further silent wrong values, unrelated to each other:
 
 - **A line continuation inside an identifier does not join it.** `continuation-illegal/split-identifier`
-  prints `Long 0` under VB6 — the halves are two separate names, so the read is of an undeclared Variant.
-  HexIDE joins them, reads the real variable, and prints `Long 5`. Accepting more than VB6 would be
-  tolerable; returning a different number is not.
+  prints `Long 0` under VB6. The recorded probe is `Dim value As Long`, then `val _` ⏎ `ue = 5`, then
+  `Debug.Print value`: it splits the **assignment**, leaving the declared Long untouched. It does not
+  assign 5 first and split the read, as #224's illustrative snippet does. HexIDE joined the names,
+  assigned to `value`, and printed `Long 5`. **#224 fixed:** both grammar copies emit a continuation between word fragments as
+  whitespace, preserving the name boundary; multi-word keyword tokens still absorb their separator.
 - **`""` inside a string literal is not collapsed.** VB6 prints `he said "hi" _`; HexIDE prints
   `he said ""hi"" _`.
 
@@ -4403,6 +4405,22 @@ On paths specifically: the UNC pass used the loopback admin share, so a genuinel
 round-trip, credential prompt, slow I/O — is untested, as are a mapped network drive letter, paths beyond
 `MAX_PATH`, 8.3 short names, and drive-letter case. And whether the IDE displays or round-trips a UNC path,
 or rewrites it to a mapped letter, is unknown.
+
+### The IDE can keep Form before Reference on Save Project As (#855)
+
+Measured on the oracle VM, VB6 6.00.8176 SP6, 2026-10-12 (issue #855). A hand-written Standard EXE project
+was opened in the IDE with keys in this order: `Type`, `Form=Form1.frm`, `Reference`, `Startup`, `ExeName32`,
+`Name`. File → Save Form1.frm As renamed the form to `Saved.frm`; File → Save Project As then wrote a
+594-byte project. Its first three lines remained `Type=Exe`, `Form=Saved.frm`, and
+`Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation`.
+The renamed form stayed on line 2. VB6 added `IconForm` between `Reference` and `Startup`, `Command32`
+after `ExeName32`, and the option block after `Name`.
+
+This overturns the assumption that VB6 always writes references before forms: its templates' usual order
+is not universal. It does not resolve the custom-section or `RelatedDoc` save questions above. A plain
+Save Project, other non-canonical orders, placement of newly added items, and project types other than
+Standard EXE remain unmeasured. HexIDE's slot retention for other recognised keys is its round-trip
+contract, not an additional VB6 measurement.
 
 ## Extending the oracle (future phases)
 
@@ -6287,9 +6305,8 @@ replaces `BackColor` with that appearance's default. The border is redrawn to ma
   among them.
 - A Label's `BackStyle` can be set at run time, so both orders in the table above behave as measured, and
   `BackStyle = 2` is 380 (measured, below).
-- **Refused, as not implemented:** setting a Label's `Appearance`, because VB6 resets `BackColor` with it (#796).
-  It is refused untrappably: a trappable error swallowed by `On Error Resume Next` would leave the old `BackColor`,
-  a wrong value. Reading it works.
+- Since #796, setting a Label's `Appearance` at run time resets `BackColor` to the measured default above
+  and redraws the border. `LabelColourTests` checks both transitions, read-back and painted pixels.
 
 ### Measured with it: defaults, BackStyle 2, and a system colour past the palette (2026-10-12, #802)
 
@@ -9105,13 +9122,13 @@ procedure bodies do not. Within a module, every scope probed evaluates strictly 
 form, procedure and Enum member. And at module level `Option Explicit` still says "Constant expression required",
 where at procedure level it says "Variable not defined": module-level names are known before their values are.
 
-**HexIDE, after this.** Another module's Public Const read qualified, as `Module2.B`, is read when that module's
-declarations have already run; its value is final. Which have run depends on how the run starts. `Execute`, which
-only the tests use, runs the other standard modules in list order and the startup module last, its body doubling as
-its declarations. The IDE's Sub Main run, `RunStartupSubMain`, runs every standard module's declarations in list
-order, the startup module's among them, before Main. Before a module's have run, a read of its Const is refused naming
-#893, which is VB6's on-demand ordering, with its cycle error. Unqualified, it is read the same way since #880
-(*Another module's Public names, bare*, below). The module naming itself is "Circular dependencies between modules", whatever it names.
+**HexIDE, after #893.** A module-level Const or array bound reading another standard module's Public Const,
+qualified or bare, runs that module's declarations on demand first, once. Re-entering a module whose declarations
+are still running raises "Circular dependencies between modules" as a compile error during execution. The check
+is per module, even when the individual Consts do not depend on themselves. Procedure bodies make no dependency
+edges. The test harness's `Execute` completes the startup module's declarations before its executable top-level
+statements, so a class created there reads the completed startup Consts too (the class row above, measured native
+and in the IDE, and issue #893's follow-up comment). No new VB6 measurement is needed for this fix.
 
 **Review round three** asked what lies one level down: what a Const above the Dim may itself read, which built-ins
 are allowed, and what a qualified name does. Each case below is its own project, built with `/make` (`p27`, `p28` and
@@ -9172,8 +9189,7 @@ Procedure forward-local-Const reads are now checked by #894; other procedure rul
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
   required" without it;
 - the module's own name as a qualifier is "Circular dependencies between modules";
-- another module's Public Const, bare (since #880) or qualified, is read once that module's declarations have run,
-  and refused naming #893 before; another module's Public Enum member, bare or qualified by its Enum's name, is
+- another module's Public Const, bare (since #880) or qualified, initialises that module on demand first (#893); another module's Public Enum member, bare or qualified by its Enum's name, is
   read, a class's included (#889);
 - a built-in no probe has asked about is refused, rather than guessed either way.
 
@@ -10513,9 +10529,8 @@ gaps elsewhere: the probes that stored through a qualifier (`Module2.X = 1`) hav
 qualified store raises 424 (#1006); `Module2.A(2)` is read through a Function of Module2's, because it reads the whole
 array (#965); and the Collection row uses a class, because HexIDE cannot create a Collection with `New` yet.
 
-What it still does not do: a module-level Const or bound that reads a Const of a module whose declarations have not run
-yet is refused naming #893, where VB6 reads it in either list order. Another module's Public Enum member, bare, is read
-since #889 (*Another module's Enum members, bare*).
+Since #893, a module-level Const or bound initialises a referenced Const's module on demand, in either list order,
+and refuses module cycles with VB6's message. Another module's Public Enum member, bare, is read since #889 (*Another module's Enum members, bare*).
 
 ## A control's position at run time (2026-10-14, #933)
 
@@ -11582,7 +11597,7 @@ Load goes on once Form2 has unloaded, and Form1 is then shown as any startup for
 **13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
 and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
 shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
-a file written elsewhere gets. HexIDE's grammar refused both (#1064).
+a file written elsewhere gets. HexIDE's grammar refused both; #1064 now accepts them in the interpreter and language server.
 
 ## An unhandled run-time error (2026-10-14, #1011)
 
@@ -12899,8 +12914,10 @@ End Function
 **HexIDE's supported slice:** the Clipboard object, Clear, default/vbCFText GetText and SetText, and GetFormat(vbCFText).
 Its methods await the host under the event pump's suspension boundary. The desktop and IDE hosts use Avalonia's
 window clipboard. RTF, Link, image/data methods and other format queries are explicitly refused, not reported absent.
-Since Avalonia's SetText clears other formats, the host refuses SetText while non-text formats exist until those can
-be preserved. Clear followed by SetText works; that is what the Notepad demo does.
+The host snapshots readable non-text formats before replacing text and writes them back with the new text (#1246).
+If a format cannot be read, it refuses before writing. Clear removes all formats, as the Notepad demo requires.
+The measurement above covers program-supplied RTF; preservation of external HTML and Windows-synthesized text
+formats has not been measured against VB6.
 
 **Live Windows follow-up, 2026-10-18:** built the PR's desktop application at `905e3506` and launched it with an
 isolated user-data directory and copies of the unmodified Notepad demo forms. HexIDE MCP was now available.
@@ -12919,8 +12936,8 @@ the TextBox's native editing commands. The following checks passed with no runti
   and Exit ended the run. Breakpoints and pending picker answers were cleared afterwards.
 
 The Windows native clipboard is verified; Linux host tests remain headless, and no native Linux/macOS clipboard
-verification is claimed. Headless tests also cover preservation refusal when non-text formats exist. The existing
-grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
+verification is claimed. Headless tests now cover replacing text while preserving non-text string and byte payloads
+(#1246). The existing grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
 `Call Clipboard.SetText("hello")` are covered. That pre-existing grammar restriction is outside this clipboard slice.
 
 A function also shadows Clipboard when it supplies the object of a member chain. With class `Box` containing
@@ -17803,8 +17820,12 @@ What these show:
 ### In HexIDE (#994)
 
 **Resize.** A form's context raises it when its window first becomes visible since the form loaded, and after that
-only when the window reports a size or state that differs from the one Resize was last raised for. The window system
-reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
+only when a size setter or the window reports a size or state that differs from the one Resize was last raised for.
+Since #1570, Width and Height setters report the requested extent immediately, even during Load while hidden;
+the subsequent layout report finds the same extent and raises nothing. WindowState changes on a shown form
+use the same comparison. Before #1570, hidden assignments raised nothing, and the headless probe
+`Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then Resize.
+The window system reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
 headless two. The size is compared in whole device pixels: a form 4000 twips wide is 266.67 units, which the window
 laid out again at 267 on a later show. Until the window system has sized a window, its size is the `Width` and `Height`
 it is being shown at. Before that, `ClientSize` is still the platform's default, 1024 by 768 headless.
@@ -17824,13 +17845,6 @@ the handler either way, so no headless test can tell.
 - Form2's own Unload button: `f2 unload`, `f1 activate`;
 - Wider: one `f1 resize 5700x4200 ws0`;
 - the same width set again: nothing.
-
-**Not followed** (both #1570, and the layout after them is the same, so a missing or late event, not a wrong value):
-- **A size set while the form is hidden.** Form3's two Resizes from its own Load aren't raised. The window
-  doesn't report a size before it is shown, so the show's one Resize is the only one.
-- **A size set from code after the show** raises its Resize when the window reports the size, after the statement:
-  headless, `Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then the
-  Resize. VB6 raises it inside the statement.
 
 **A form's `Move`** stops the program, refused as not implemented: #1569.
 
@@ -20210,3 +20224,21 @@ counter there splits native from p-code as in the table above.
 - **Waiting on #966:** a Currency counter whose step is a Double tie, `Step 0.00005`, is 0 here until a Double becomes a
   Currency by its binary value. Until then that loop runs for ever at its start where vb6.exe counts in steps of 0.0001.
   It isn't pinned yet.
+
+## Data-bound TextBox startup value (#859, #856)
+
+Provenance: the oracle VM probe reported in hexide-io/HexIDE#859, using VB6 6.0 SP6's
+saved form and an EXE built with `vb6 /make`, at HexIDE fc9f790. This is a **native-code
+measurement only**: neither VB6 F5 nor p-code was measured (#842).
+
+The form had Data1 opening BIBLIO.MDB's Authors, Text1 with `DataSource = "Data1"`,
+`DataField = "Author"` and design-time `Text = "Text1"`, and a Timer at Interval 1500.
+`Form_Load` read Text1.Text as `Text1`. Data1_Reposition ran once after Load and also
+read `Text1`. By the first Timer tick Text1.Text was `Jacobs, Russell`, the Authors
+record with Au_ID 1. Reposition also fired on the probe's MoveNext and Refresh.
+Both Data controls on the original form displayed navigation arrows; the second,
+Data2, opened NWIND.MDB's Customers and had no bound control.
+
+This establishes why retaining the design-time value silently is wrong; HexIDE refuses
+data-bound forms rather than implementing binding. No behaviour for a UserControl or
+Data Environment source was measured in this probe.

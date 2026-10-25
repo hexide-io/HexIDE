@@ -15,6 +15,11 @@ namespace HexIDE.Runtime.Interpreter;
 public readonly record struct ErrorLocation(string Module, int Line)
 {
     private const string Key = "HexIDE.ErrorLocation";
+    private const string StatementKey = "HexIDE.UnimplementedStatement";
+
+    /// <summary>The innermost unimplemented statement, sliced from its own source, if one was reached (#758).</summary>
+    public static string? StatementOf(Exception? error) =>
+        error is null ? null : StatementOf(error.InnerException) ?? error.Data[StatementKey] as string;
 
     /// <summary>
     /// Where <paramref name="error"/> was raised, or null when no statement it passed noted it. An inner exception's comes
@@ -27,12 +32,14 @@ public readonly record struct ErrorLocation(string Module, int Line)
     /// Notes where <paramref name="error"/> was raised, unless a statement nearer has. Answers false, for an exception
     /// filter that only looks.
     /// </summary>
-    internal static bool Note(Exception error, string module, int line)
+    internal static bool Note(Exception error, string module, int line, string? statement = null)
     {
         try
         {
             if (!error.Data.Contains(Key))
                 error.Data[Key] = new ErrorLocation(module, line);
+            if (statement is not null && !error.Data.Contains(StatementKey))
+                error.Data[StatementKey] = statement;
         }
         catch (Exception)
         {

@@ -30,9 +30,8 @@ namespace HexIDE.Runtime.Interpreter;
 /// Const a bound or another Const names has been checked already: the walk is one level deep. This relates symbols,
 /// which the pre-pass must not do, so it runs with the declarations. The pre-pass only collects: each Const's
 /// declaration and visibility, each Enum's position, and each Public variable.</para>
-/// <para>Two things VB6 reads are refused loudly instead, because HexIDE would read Empty: another module's Public
-/// Const before that module's declarations have run (#893), and another module's Public Enum member unqualified (#889).
-/// Once that module has run, another module's Const is read, bare (#880) or qualified: its value is final. A built-in
+/// <para>Another module's Public Const is read bare or qualified, running its declarations on demand first (#893).
+/// Re-entering a module still running its declarations is a circular dependency. A built-in
 /// function nobody has measured in a bound, and a qualified name of a shape nobody has measured, are refused loudly
 /// too, rather than guessed.</para>
 /// <para>Procedure declarations reuse only the measured forward-local-Const check below (#894).</para>
@@ -68,7 +67,7 @@ internal sealed class ModuleLevelBounds
     }
 
     /// <summary>A module-level array's bounds, at its Dim.</summary>
-    public static void Check(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
+    public static Task Check(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
         VB6Parser.SubscriptsContext bounds, VB6Parser.VariableSubStmtContext dim)
         => new ModuleLevelBounds(interpreter, module, env, dim.ambiguousIdentifier().GetText() + "'s bounds", plural: true)
             .Walk(bounds, inConst: false, position: dim.Start.TokenIndex);
@@ -77,7 +76,7 @@ internal sealed class ModuleLevelBounds
     /// A module-level Const's value, as the Const runs and before it is evaluated. Every Const above it was checked
     /// when it ran, so a same-module Const it names is a constant expression already, and the walk need go no deeper.
     /// </summary>
-    public static void CheckConst(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
+    public static Task CheckConst(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
         VB6Parser.ConstSubStmtContext constant)
         => new ModuleLevelBounds(interpreter, module, env, "Const " + constant.ambiguousIdentifier().GetText() + "'s value", plural: false)
             .Walk(constant.valueStmt(), inConst: true, position: constant.Start.TokenIndex);
@@ -114,34 +113,34 @@ internal sealed class ModuleLevelBounds
     }
 
     // `position` is where the expression sits: a name it reads must be declared before it.
-    private void Walk(IParseTree node, bool inConst, int position)
+    private async Task Walk(IParseTree node, bool inConst, int position)
     {
         switch (node)
         {
             case VB6Parser.ICS_S_MembersCallContext members:
-                Qualified(members, position);
+                await Qualified(members, position);
                 return;
             case VB6Parser.ICS_S_VariableOrProcedureCallContext name:
-                Name(name.ambiguousIdentifier().GetText(), inConst, position);
+                await Name(name.ambiguousIdentifier().GetText(), inConst, position);
                 return;
             case VB6Parser.ICS_S_ProcedureOrArrayCallContext call when call.ambiguousIdentifier() is { } callee:
                 Call(callee.GetText(), inConst);
                 for (var i = 0; i < node.ChildCount; i++)
-                    Walk(node.GetChild(i), inConst, position);
+                    await Walk(node.GetChild(i), inConst, position);
                 // Once its argument is known to be a constant: Len and LenB of a number, a numeric Const, a typed,
                 // fractional or Date Const are each "Variable required" (measured), and of a String constant they size.
                 if (callee.GetText().TrimEnd('$') is var function
                     && (function.Equals("Len", StringComparison.OrdinalIgnoreCase)
                         || function.Equals("LenB", StringComparison.OrdinalIgnoreCase)))
-                    RequireString(call, callee.GetText(), position);
+                    await RequireString(call, callee.GetText(), position);
                 return;
         }
         for (var i = 0; i < node.ChildCount; i++)
-            Walk(node.GetChild(i), inConst, position);
+            await Walk(node.GetChild(i), inConst, position);
     }
 
     // Returns the constant's value where it is known here, for Len's check; null where the walk approved it without one.
-    private Vb6Value? Name(string name, bool inConst, int position)
+    private async Task<Vb6Value?> Name(string name, bool inConst, int position)
     {
         if (module.PrePass.ModuleConsts.TryGetValue(name, out var constant))
         {
@@ -194,7 +193,7 @@ internal sealed class ModuleLevelBounds
         if (exported is { } exportedValue)
             return new Vb6Value(exportedValue);
         if (exporter is not null)
-            return isConst ? ModuleConst(exporter, name, name) : throw ConstantExpressionRequired();
+            return isConst ? await ModuleConst(exporter, name) : throw ConstantExpressionRequired();
         if (interpreter.BuiltIns.TryGetBuiltInConstant(name, out var builtIn))
             return builtIn;
         if (VB6BuiltIns.IsBuiltInFunction(name))
@@ -211,7 +210,7 @@ internal sealed class ModuleLevelBounds
     // A dotted name, resolved one level at a time as the evaluator resolves it (ExpressionExecutor's qualified read),
     // so that what main read here it still reads: each level is a module, an Enum, a library, an in-box container or
     // the project.
-    private Vb6Value? Qualified(VB6Parser.ICS_S_MembersCallContext members, int position)
+    private async Task<Vb6Value?> Qualified(VB6Parser.ICS_S_MembersCallContext members, int position)
     {
         var text = members.GetText();
         var lead = text.Split('.')[0];
@@ -224,7 +223,7 @@ internal sealed class ModuleLevelBounds
             // The project level is stepped over (measured: `Probe.Module2.Cols.colMax` is 4, `Probe.Module2.M + 1` 4).
             parts = parts[1..];
             if (parts.Length == 1)
-                return parts[0].Contains('(') ? throw Unsupported(text) : Name(parts[0], inConst: false, position);
+                return parts[0].Contains('(') ? throw Unsupported(text) : await Name(parts[0], inConst: false, position);
         }
         // The module naming itself is a cycle (measured for a Const, an Enum member, `Module1.Sizes.eMax`, a variable,
         // a function, a name that does not exist, and a qualified forward reference, which is this error rather than
@@ -236,7 +235,7 @@ internal sealed class ModuleLevelBounds
             throw ConstantExpressionRequired();
 
         if (interpreter.Modules.TryGet(parts[0], out var other) && other.Kind == InterpreterModuleKind.Standard)
-            return ModuleMember(other, parts, text);
+            return await ModuleMember(other, parts, text);
         if (interpreter.TryResolveEnum(parts[0], module, out var enumMembers))
         {
             if (parts.Length != 2 || !enumMembers.TryGetValue(parts[1], out var member))
@@ -269,13 +268,13 @@ internal sealed class ModuleLevelBounds
         throw Unsupported(text);
     }
 
-    private Vb6Value? ModuleMember(ModuleInfo other, string[] parts, string text)
+    private async Task<Vb6Value?> ModuleMember(ModuleInfo other, string[] parts, string text)
     {
         if (parts.Length == 2)
         {
             var member = parts[1];
             if (other.PrePass.ModuleConsts.TryGetValue(member, out var theirs) && theirs.Public)
-                return ModuleConst(other, member, text);
+                return await ModuleConst(other, member);
             foreach (var (enumName, members) in other.PrePass.Enums)
             {
                 if (!members.TryGetValue(member, out var value))
@@ -295,12 +294,10 @@ internal sealed class ModuleLevelBounds
         throw Unsupported(text);
     }
 
-    // Another module's Public Const, bare or qualified. VB6 reads it in either list order (measured). Once that module's
-    // declarations have run, its value is final; before, it would be Empty.
-    private Vb6Value? ModuleConst(ModuleInfo other, string name, string text)
+    // Another module's Public Const, bare or qualified: run its declarations first, once (#893).
+    private async Task<Vb6Value?> ModuleConst(ModuleInfo other, string name)
     {
-        if (!other.DeclarationsRun)
-            throw NotInitialisedYet(text, other.Name);
+        await interpreter.RunModuleDeclarations(other);
         return interpreter.ExecutionContext.TryGetVariable(other.ModuleEnv, name, out var value) ? (Vb6Value?)value : null;
     }
 
@@ -323,12 +320,12 @@ internal sealed class ModuleLevelBounds
             "and HexIDE does not know whether this is one, so it does not size the array from it.");
     }
 
-    private void RequireString(VB6Parser.ICS_S_ProcedureOrArrayCallContext call, string name, int position)
+    private async Task RequireString(VB6Parser.ICS_S_ProcedureOrArrayCallContext call, string name, int position)
     {
         var argument = call.argsCall().Length == 1 && call.argsCall(0).argCall() is { Length: 1 } args
             ? args[0].valueStmt()
             : null;
-        switch (argument is null ? null : IsString(argument, position))
+        switch (argument is null ? null : await IsString(argument, position))
         {
             case true:
                 return;
@@ -342,7 +339,7 @@ internal sealed class ModuleLevelBounds
     }
 
     // Whether a constant expression is a String: true, false, or null where HexIDE cannot tell.
-    private bool? IsString(VB6Parser.ValueStmtContext value, int position) => value switch
+    private async Task<bool?> IsString(VB6Parser.ValueStmtContext value, int position) => value switch
     {
         VB6Parser.VsLiteralContext literal => literal.literal().STRINGLITERAL() != null ? true
             : literal.literal().INTEGERLITERAL() != null || literal.literal().DOUBLELITERAL() != null
@@ -353,18 +350,18 @@ internal sealed class ModuleLevelBounds
         VB6Parser.VsAddContext subtract when subtract.MINUS() != null => null,
         // A String added to a String is a String, and to a number it is not (measured: `Len("ab" + "c")` sizes 0 To 3,
         // and `Len("ab" + 1)` is "Variable required").
-        VB6Parser.VsAddContext add => (IsString(add.valueStmt(0), position), IsString(add.valueStmt(1), position)) switch
+        VB6Parser.VsAddContext add => (await IsString(add.valueStmt(0), position), await IsString(add.valueStmt(1), position)) switch
         {
             (true, true) => true,
             (not null, not null) => false,
             _ => null,
         },
-        VB6Parser.VsStructContext group when group.valueStmt().Length == 1 => IsString(group.valueStmt(0), position),
+        VB6Parser.VsStructContext group when group.valueStmt().Length == 1 => await IsString(group.valueStmt(0), position),
         VB6Parser.VsICSContext ics => ics.implicitCallStmt_InStmt() switch
         {
             { } call when call.iCS_S_VariableOrProcedureCall() is { } name =>
-                Known(Name(name.ambiguousIdentifier().GetText(), inConst: false, position)),
-            { } call when call.iCS_S_MembersCall() is { } members => Known(Qualified(members, position)),
+                Known(await Name(name.ambiguousIdentifier().GetText(), inConst: false, position)),
+            { } call when call.iCS_S_MembersCall() is { } members => Known(await Qualified(members, position)),
             // CStr gives a String (measured: `Len(CStr(123))` sizes 0 To 3). Len of another function's result was not
             // measured, so it is not decided here.
             { } call when call.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText().TrimEnd('$') is { } function =>
@@ -377,11 +374,6 @@ internal sealed class ModuleLevelBounds
     private static bool? Known(Vb6Value? value) => value is { } v ? v.Type == Vb6Value.ValueType.String : null;
 
     private static VBCompileErrorException ConstantExpressionRequired() => new("Constant expression required");
-
-    private NotImplementedException NotInitialisedYet(string text, string other) => new(
-        $"{subject} {reads} {text}, a Public Const of {other}, whose declarations have not run yet. VB6 works out every " +
-        "module's Consts before the program starts; HexIDE initialises modules one at a time, in an order that depends " +
-        "on how the run starts, and does not yet initialise one on demand (#893).");
 
     private NotImplementedException Unsupported(string text) => new(
         $"{subject} {reads} {text}, which HexIDE does not read in a module-level Const or array bound.");

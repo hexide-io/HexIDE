@@ -15,10 +15,10 @@
     <Color name="Constant" foreground="#A31515" />
     <Color name="IOKeyword" foreground="#0000B0" />
     <Color name="StorageModifier" foreground="#0000B0" />
-    <Color name="MetadataKeyword" foreground="#FF00FF" />
+    <Color name="MetadataKeyword" foreground="#CD00CD" />
 
     <!-- Main Rules -->
-    <RuleSet>
+    <RuleSet ignoreCase="true">
         <!-- Comments -->
         <Span color="Comment" begin="'" />
         <Span color="Comment" begin="REM " ignoreCase="true" />

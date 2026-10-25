@@ -143,8 +143,8 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                     <MenuItem Header="{DynamicResource Str.Tool.Project.Menu.Add}">
                         <MenuItem utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}"  Command="{CompiledBinding AddFormCommand}" Header="{DynamicResource Str.Tool.Project.Menu.Add.Form}" />
                     </MenuItem>
-                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormHeader}" />
-                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormAsHeader}" />
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormHeader}" Command="{CompiledBinding SaveFormCommand}" />
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormAsHeader}" Command="{CompiledBinding SaveFormAsCommand}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Command="{CompiledBinding DeleteForm}" Header="{CompiledBinding RemoveFormHeader}" />
                     <Separator />
                     <MenuItem Header="{DynamicResource Str.Tool.Project.Menu.Print}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Print}" Command="{x:Static HexIDE:ApplicationCommands.DisabledCommand}" />

@@ -73,8 +73,9 @@ The lesson generalises past the one bug: **an assertion that a request did not t
 assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
 protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
 that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
-because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
-all, and those three are not interchangeable to a real server.
+because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, `null`, or not at
+all, and those four are not interchangeable to a real server. Measured against rumdl 0.2.64,
+`"params":null` is refused with `-32602`, `Unexpected params: null` (#368).
 
 Five servers. Four are chosen for **framework** diversity rather than language diversity — interop bugs
 come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
@@ -462,9 +463,9 @@ that set nothing. Say so, and ask to be restarted with a port of its own, rather
   That is reproducible, and it is what a first-time user sees. A session that needs a configuration seeds it on
   purpose, by copying the one file into its `HexIDE/sessions/<name>` directory before launching, such as an
   `lsp-servers.json` naming another language server. The IDE never copies the user's own profile into a session's.
-- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`, and a burst of relaunches
-  across sessions can prune a log minutes old
-  ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)), so read a crash log promptly.
+- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`. IDE log pruning keeps
+  at least the seven most recent sessions and deletes an older session only when its newest part was last
+  modified more than seven days ago ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)).
 - **An IDE started for a session refuses every other session's calls**
   ([#1306](https://github.com/hexide-io/HexIDE/issues/1306)). The script starts it with `--session <name>`, and
   `.mcp.json` names the caller in an `X-HexIDE-Session` header from the same variable. A tool call from a client
@@ -996,6 +997,10 @@ the PR. Typo-level fixes need no issue.
   `in progress on branch <name>`. The branch name is what a second session can check. And never
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
+
+**A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
+PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);
+`changelog.d/README.md` has the format, and `scripts/changelog-gather.sh` folds them in at release.
 
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 

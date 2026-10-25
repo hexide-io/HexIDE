@@ -6,6 +6,21 @@ namespace HexIDE.VbLspServer;
 
 internal static class VbTextHelpers
 {
+    // Content end and start of the next line; CRLF is one boundary, as in LSP and AvaloniaEdit.
+    internal static (int End, int Next) LineEnd(string source, int start)
+    {
+        var end = start;
+        while (end < source.Length && source[end] is not ('\r' or '\n'))
+            end++;
+        var next = end;
+        if (next < source.Length)
+        {
+            if (source[next++] == '\r' && next < source.Length && source[next] == '\n')
+                next++;
+        }
+        return (end, next);
+    }
+
     public static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 
     /// <summary>
@@ -56,24 +71,19 @@ internal static class VbTextHelpers
         int lineStart = 0;
         int lineEnd = source.Length;
 
-        for (int i = 0; i < source.Length; i++)
+        while (true)
         {
-            if (source[i] == '\r') continue;
-            if (source[i] == '\n')
-            {
-                if (currentLine == line)
-                {
-                    lineEnd = i;
-                    break;
-                }
-                currentLine++;
-                lineStart = i + 1;
-            }
+            var (contentEnd, next) = LineEnd(source, lineStart);
+            lineEnd = contentEnd;
+            if (currentLine == line || next == contentEnd)
+                break;
+            currentLine++;
+            lineStart = next;
         }
 
         if (currentLine != line) return null;
 
-        // lineStart..lineEnd is the target line's content (excluding \r\n).
+        // lineStart..lineEnd is the target line's content (excluding its terminator).
         var col = character;
         var lineLen = lineEnd - lineStart;
         if (col > lineLen) col = lineLen;
@@ -98,12 +108,8 @@ internal static class VbTextHelpers
         while (i < source.Length)
         {
             int lineStart = i;
-            while (i < source.Length && source[i] != '\n') i++;
-            int lineEnd = i;
-            if (i < source.Length) i++; // skip \n
-
-            int end = lineEnd;
-            if (end > lineStart && source[end - 1] == '\r') end--;
+            var (end, next) = LineEnd(source, i);
+            i = next;
 
             int pos = lineStart;
             while (pos < end)
@@ -158,46 +164,27 @@ internal static class VbTextHelpers
     /// </summary>
     public static (string? FunctionName, int ActiveParameter) FindCallContext(string source, int line, int character)
     {
-        // Convert (line, character) to a flat offset. Both \n and \r\n are handled (\r is invisible).
-        int offset;
-        int currentLine = 0;
         int lineStart = 0;
-        for (int i = 0; i < source.Length; i++)
+        for (var currentLine = 0; currentLine < line; currentLine++)
         {
-            char c = source[i];
-            if (c == '\r') continue;
-            if (c == '\n')
-            {
-                if (currentLine == line && character >= (i - lineStart))
-                {
-                    offset = i;
-                    goto found;
-                }
-                currentLine++;
-                lineStart = i + 1;
-                continue;
-            }
-            if (currentLine == line && (i - lineStart) == character)
-            {
-                offset = i;
-                goto found;
-            }
+            var (end, next) = LineEnd(source, lineStart);
+            if (end == next) return (null, 0);
+            lineStart = next;
         }
-        offset = source.Length;
-        found:
+        var lineEnd = LineEnd(source, lineStart).End;
+        var offset = lineStart + Math.Clamp(character, 0, lineEnd - lineStart);
 
         int depth = 0;
         int commas = 0;
         for (int i = offset - 1; i >= 0; i--)
         {
             char c = source[i];
-            if (c == '\r') continue;
             if (c == ')') { depth++; continue; }
             if (c == '(')
             {
                 if (depth > 0) { depth--; continue; }
                 int nameEnd = i - 1;
-                while (nameEnd >= 0 && (source[nameEnd] == ' ' || source[nameEnd] == '\r')) nameEnd--;
+                while (nameEnd >= 0 && source[nameEnd] == ' ') nameEnd--;
                 if (nameEnd < 0) return (null, 0);
                 if (!char.IsLetterOrDigit(source[nameEnd]) && source[nameEnd] != '_')
                     return (null, 0);
@@ -209,7 +196,7 @@ internal static class VbTextHelpers
             }
             if (c == ',' && depth == 0) commas++;
             // Stop at statement boundaries — don't cross lines.
-            if (c == '\n' || c == ':') return (null, 0);
+            if (c is '\r' or '\n' or ':') return (null, 0);
         }
         return (null, 0);
     }

@@ -73,7 +73,7 @@ public partial class LanguageRevertGateViewModel : ObservableObject, IDialog
     public void Start()
     {
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += (_, _) => Tick();
+        _timer.Tick += (_, _) => LoggedTimerCallback.Run("language revert countdown", Tick);
         _timer.Start();
     }
 

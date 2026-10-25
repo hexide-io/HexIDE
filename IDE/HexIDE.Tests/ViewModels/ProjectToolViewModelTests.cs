@@ -50,6 +50,29 @@ public class ProjectToolViewModelTests
     private static ModuleViewModel FirstModule(ProjectViewModel projVm) =>
         projVm.Elements.OfType<ModuleViewModel>().First();
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExplorerSave_SavesTheSelectedFormThroughTheProjectService(bool saveAs)
+    {
+        var project = TestHelpers.CreateProjectWithForm("P", "Form1");
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+        var form = FirstForm(projectVm);
+        vm.SelectedItem = form;
+        var property = typeof(ProjectToolViewModel).GetProperty(saveAs ? "SaveFormAsCommand" : "SaveFormCommand");
+        property.Should().NotBeNull();
+        var command = (System.Windows.Input.ICommand)property!.GetValue(vm)!;
+        command.CanExecute(null).Should().BeTrue();
+
+        command.Execute(null);
+
+        await projectService.Received(1).SaveForm(form.FormDefinition, saveAs, true);
+        vm.SelectedItem = projectVm;
+        command.CanExecute(null).Should().BeFalse();
+        vm.SelectedItem = null;
+        command.CanExecute(null).Should().BeFalse();
+    }
+
     // ── Construction ──────────────────────────────────────────────
 
     [Fact]
