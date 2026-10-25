@@ -228,6 +228,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.TextChanged += (_, _) => RefreshBufferModified();
 
         // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
         // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
@@ -289,6 +290,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 formDefinition?.UpdateCode(body);
                 if (moduleDefinition is not null)
                     moduleDefinition.UpdateCode(body);
+                RefreshModelModified();
             }
         }));
         AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
@@ -304,6 +306,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
             var mine = (e.Module is not null && ReferenceEquals(e.Module, moduleDefinition))
                     || (e.Form is not null && ReferenceEquals(e.Form, formDefinition));
+
+            if (mine) RefreshModelModified();
 
             // A save is also the commonest way a document's NAME changes: a first save gives it a file,
             // and saving a project into another directory repoints every one of them. So reconcile the
@@ -328,6 +332,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             session?.Dispose();
         }));
+    }
+
+    private bool modelIsModified;
+
+    private void RefreshBufferModified() => IsModified = modelIsModified ||
+        !string.Equals(BufferBody, moduleDefinition?.Code ?? formDefinition?.Code ?? "", StringComparison.Ordinal);
+
+    private void RefreshModelModified()
+    {
+        modelIsModified = moduleDefinition is { } module ? projectService.HasUnsavedChanges(module)
+            : formDefinition is { } form && projectService.HasUnsavedChanges(form);
+        RefreshBufferModified();
     }
 
     /// <summary>

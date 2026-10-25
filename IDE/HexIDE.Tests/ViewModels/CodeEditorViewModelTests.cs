@@ -51,6 +51,39 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    [AvaloniaFact]
+    public void ModifiedMarker_FollowsCodeEditsAndRevertWithoutRenderingModel()
+    {
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        var original = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        vm.IsModified.Should().BeTrue();
+        _projectService.DidNotReceive().HasUnsavedChanges(form);
+        vm.Document.Text = original;
+        vm.IsModified.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void ModifiedMarker_FollowsFlushAndMatchingSave()
+    {
+        Action<ApplyAllUnsavedChangesEvent> flush = null!;
+        Action<DocumentSavedEvent> saved = null!;
+        _eventBus.Subscribe(Arg.Do<Action<ApplyAllUnsavedChangesEvent>>(x => flush = x));
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(x => saved = x));
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        _projectService.HasUnsavedChanges(form).Returns(true);
+        flush(new ApplyAllUnsavedChangesEvent());
+        vm.IsModified.Should().BeTrue();
+        _projectService.HasUnsavedChanges(form).Returns(false);
+        saved(new DocumentSavedEvent(TestHelpers.CreateForm(name: "Other"), null));
+        vm.IsModified.Should().BeTrue();
+        saved(new DocumentSavedEvent(form, null));
+        vm.IsModified.Should().BeFalse();
+    }
+
     // ── Edit-while-running reset prompt (VB6-faithful E&C affordance) ──
 
     [AvaloniaFact]

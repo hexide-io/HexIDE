@@ -57,6 +57,19 @@ public class RelatedDocumentEditorViewModelTests : IDisposable
         return vm;
     }
 
+    [AvaloniaFact]
+    public async Task ModifiedMarker_FollowsEditsRevertAndSave()
+    {
+        var vm = Open(Carried("note.txt", "original"));
+        vm.Document.Text = "edited";
+        vm.IsModified.Should().BeTrue();
+        vm.Document.Text = "original";
+        vm.IsModified.Should().BeFalse();
+        vm.Document.Text = "saved edit";
+        await vm.SaveAsync();
+        vm.IsModified.Should().BeFalse();
+    }
+
     private string? OpenedUri()
     {
         foreach (var call in _lspClient.ReceivedCalls())
