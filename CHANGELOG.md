@@ -8,6 +8,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ## [Unreleased]
 
+New entries are written one file per change in [`changelog.d/`](changelog.d/README.md), and gathered here at
+release by `scripts/changelog-gather.sh` (#1375). The entries below were recorded before that.
+
 ### Added
 
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
