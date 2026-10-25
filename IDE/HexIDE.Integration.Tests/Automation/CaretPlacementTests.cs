@@ -309,7 +309,7 @@ public class CaretPlacementTests : IDisposable
     [AvaloniaFact]
     public void Set_property_reads_the_carried_file_caret_after_the_view_clamps_it()
     {
-        var vm = new RelatedDocumentEditorViewModel(lsp);
+        var vm = new RelatedDocumentEditorViewModel(lsp, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
         vm.Document.Text = "0123456789";
         var view = new RelatedDocumentEditorView { DataContext = vm };
         var window = new Window { Width = 800, Height = 600, Content = view };
