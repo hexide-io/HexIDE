@@ -41,14 +41,16 @@ public class LaunchConfigurationTests
             var factory = new LanguageServerRegistrationFactory(
                 Substitute.For<ILoggerFactory>().WithNullLoggers());
             await using var client = factory.Create([entry]).Single().CreateClient();
-            // The probe never connects, so a pipe start runs to this budget and then kills the child: it must outlast a
-            // cold powershell.exe on a CI runner, which three seconds did not (#1913). A stdio start ends sooner, when the
-            // probe exits, and the file may still be being written then: read it once it is complete.
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            await client.StartAsync(timeout.Token);
+            // The probe never connects, so a pipe start runs until it gives up and then kills the child. No fixed budget
+            // outlasts a cold powershell.exe on a loaded CI runner: three seconds did not (#1913), nor ten (#1941). So the
+            // start is left pending while the file is watched, and is cancelled once the child has written everything; a
+            // slow runner gets the whole minute and a fast one finishes in seconds. A stdio start ends by itself when the
+            // probe exits, possibly mid-write, which the same watch covers.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            var starting = client.StartAsync(timeout.Token);
             var expectedLines = 2 + values.Length;
             string[] received = [];
-            for (var deadline = DateTime.UtcNow.AddSeconds(30); DateTime.UtcNow < deadline;)
+            while (!timeout.IsCancellationRequested)
             {
                 try
                 {
@@ -58,6 +60,9 @@ public class LaunchConfigurationTests
                 catch (IOException) { /* still being written */ }
                 await Task.Delay(100, TestContext.Current.CancellationToken);
             }
+            await timeout.CancelAsync();
+            try { await starting; }
+            catch (OperationCanceledException) { /* the start is abandoned once the child has answered */ }
             received.Should().HaveCount(expectedLines, "the configured child must have written its received values");
             received[0].Should().Be("configured");
             received[1].Should().Be(Environment.GetEnvironmentVariable("PATH"), "unspecified variables are inherited");
