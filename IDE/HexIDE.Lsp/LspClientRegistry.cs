@@ -325,7 +325,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Asking only the top-priority claimant is what makes a second server attached to `.bas` an addition
     // rather than a corruption of what was already working.
     public Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "documentSymbolProvider") is { } c
+        TopClaimantAdvertising(uri, "documentSymbolProvider") is { } c
             ? c.RequestDocumentSymbolsAsync(uri, ct)
             : Task.FromResult<DocumentSymbol[]>([]);
 
@@ -334,7 +334,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // not merely a duplicate — it can take out folding for the whole document behind the debug-level
     // catch that wraps the update.
     public Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "foldingRangeProvider") is { } c
+        TopClaimantAdvertising(uri, "foldingRangeProvider") is { } c
             ? c.RequestFoldingRangesAsync(uri, ct)
             : Task.FromResult<FoldingRange[]>([]);
 
@@ -367,10 +367,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
     public Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+        TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
 
     public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.
@@ -607,9 +607,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// server with no formatter would silently block a lower one that has it. That is also how the
     /// established editor ecosystem behaves — its formatter conflict prompt lists only formatters.
     /// </summary>
-    private ILspClient? SoleClaimantFor(string? uri, string capability) =>
-        StartedClaimantsFor(uri)
-            .FirstOrDefault(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability));
+    private ILspClient? TopClaimantAdvertising(string? uri, string capability)
+    {
+        var advertisers = StartedClaimantsFor(uri)
+            .Where(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability)).ToList();
+        if (advertisers.Count == 0) return null;
+
+        var winner = advertisers[0];
+        foreach (var skipped in advertisers.Skip(1))
+            skipped.NotePrioritySkip(capability, OwnerOf(winner));
+        return winner;
+    }
 
     private async Task<T[]> GatherAsync<T>(string uri, Func<ILspClient, Task<T[]>> call)
     {

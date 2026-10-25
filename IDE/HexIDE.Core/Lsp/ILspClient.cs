@@ -114,6 +114,9 @@ public interface ILspClient : IAsyncDisposable
     /// </summary>
     IReadOnlyList<string> DeclinedCapabilities { get; }
 
+    /// <summary>Records that another claimant has priority for this capability, once per connection.</summary>
+    void NotePrioritySkip(string capabilityName, string winnerId) { }
+
     /// <summary>
     /// What the server advertised during initialize, exactly as it sent it — or null if nothing is
     /// connected, or the reply could not be read.
