@@ -61,7 +61,62 @@ public sealed class CompilerProcessTests
     [Fact]
     public void The_executable_is_under_the_install_folders_bin()
     {
-        CompilerProcess.ExecutableIn(@"C:\tb", CompilerArchitecture.Win64).Should().Be(Path.Combine(@"C:\tb", "bin", "twinBASIC_win64.exe"));
+        CompilerProcess.ExecutableIn(@"C:\tb").Should().Be(Path.Combine(@"C:\tb", "bin", "twinBASIC_win32.exe"));
+    }
+
+    // The six an install holds (BETA 1024): there is no 64-bit _LAA, since a 64-bit process needs no large-address flag.
+    [Theory]
+    [InlineData(CompilerArchitecture.Win32, true, false, "twinBASIC_win32.exe")]
+    [InlineData(CompilerArchitecture.Win32, false, false, "twinBASIC_win32_noDEP.exe")]
+    [InlineData(CompilerArchitecture.Win32, true, true, "twinBASIC_win32_LAA.exe")]
+    [InlineData(CompilerArchitecture.Win32, false, true, "twinBASIC_win32_noDEP_LAA.exe")]
+    [InlineData(CompilerArchitecture.Win64, true, false, "twinBASIC_win64.exe")]
+    [InlineData(CompilerArchitecture.Win64, false, true, "twinBASIC_win64_noDEP.exe")]
+    public void The_stub_follows_the_projects_architecture_DEP_and_LAA(CompilerArchitecture architecture, bool dep, bool laa, string name)
+    {
+        new CompilerStub(architecture, dep, laa).FileName.Should().Be(name);
+    }
+
+    [Fact]
+    public void The_root_endpoint_is_the_port_and_key_on_loopback()
+    {
+        // The key goes in exactly as the record held it, braces and case kept (BETA 1024 refused nothing else it was given).
+        CompilerProcess.RootEndpointFor(49226, Guid).Should().Be(new Uri($"ws://127.0.0.1:49226/{Guid}/root"));
+    }
+
+    private static TwinBasicContainer ProjectWithSettings(string? settings) => new(1, new TwinBasicDirectory("", 0, 0, 0,
+        settings is null ? [] : [new TwinBasicFile("Settings", 0, 0, 4, [.. Encoding.UTF8.GetBytes(settings)], [])]));
+
+    [Theory]
+    [InlineData("{\"project.depAware\": true}", "twinBASIC_win32.exe")]
+    [InlineData("{\"project.depAware\": false}", "twinBASIC_win32_noDEP.exe")]
+    [InlineData("{\"project.name\": \"x\"}", "twinBASIC_win32_noDEP.exe")]
+    [InlineData("{\"project.depAware\": true, \"project.largeAddressAware\": true}", "twinBASIC_win32_LAA.exe")]
+    [InlineData("{\"project.depAware\": \"true\"}", "twinBASIC_win32_noDEP.exe")]
+    public void A_projects_stub_follows_its_settings(string settings, string name)
+    {
+        CompilerStub.ForProject(ProjectWithSettings(settings)).FileName.Should().Be(name);
+    }
+
+    [Fact]
+    public void A_project_with_no_settings_needs_the_stub_without_DEP()
+    {
+        CompilerStub.ForProject(ProjectWithSettings(null)).FileName.Should().Be("twinBASIC_win32_noDEP.exe");
+    }
+
+    [Fact]
+    public void The_package_list_is_the_installs_package_folder_names_in_ordinal_order()
+    {
+        var install = Directory.CreateTempSubdirectory("hexide-tb-install-");
+        try
+        {
+            foreach (var name in new[] { "b", "B", "a" }) Directory.CreateDirectory(Path.Combine(install.FullName, "packages", name));
+            File.WriteAllText(Path.Combine(install.FullName, "packages", "not-a-folder"), "");
+
+            CompilerProcess.PackageNamesIn(install.FullName).Should().Equal(
+                OperatingSystem.IsWindows() ? ["a", "b"] : ["B", "a", "b"]);
+        }
+        finally { install.Delete(recursive: true); }
     }
 }
 
