@@ -84,3 +84,15 @@ contribute a page is what makes a third-party add-in feel like part of the IDE r
 #### Scenario: An add-in with settings
 - **WHEN** an installed add-in contributes a settings page
 - **THEN** it appears in the tree alongside the IDE's own categories, and behaves like them
+
+### Requirement: Numeric formatting and grid fields SHALL be named by their labels
+The Tab width, grid Width and grid Height text boxes SHALL expose their localized labels as automation names,
+without access-key markers. The names SHALL follow changes to those labels.
+
+#### Scenario: Naming a numeric field
+- **WHEN** the Formatting or Form Grid page is shown
+- **THEN** each numeric text box has its label's displayed text as its automation name
+
+#### Scenario: Changing the label language
+- **WHEN** a numeric field's localized label changes
+- **THEN** its automation name changes too, including when the label has no access-key marker

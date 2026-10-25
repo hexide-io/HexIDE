@@ -5,6 +5,8 @@
 
 namespace HexIDE.VbLspServer;
 
+public sealed record VbDeclaration(string? TypeText, LspCompletionItemKind Kind);
+
 /// <summary>
 /// Performs scope-level analysis over an already-parsed VB6 parse tree.
 /// Currently detects undeclared variable assignments when <c>Option Explicit</c> is present.
@@ -25,10 +27,10 @@ public static class VbScopeAnalyzer
     }
 
     /// <summary>
-    /// Returns a map of declared name → type annotation string (null if untyped/Sub/Enum member).
+    /// Returns a map of declared name → type annotation and declaration kind.
     /// Used by the hover handler to show type info.
     /// </summary>
-    public static IReadOnlyDictionary<string, string?> GetDeclaredTypes(VisualBasic6Parser.StartRuleContext tree)
+    public static IReadOnlyDictionary<string, VbDeclaration> GetDeclaredTypes(VisualBasic6Parser.StartRuleContext tree)
     {
         var collector = new DeclarationCollectorVisitor();
         collector.Visit(tree);
@@ -59,8 +61,8 @@ public static class VbScopeAnalyzer
     {
         public bool HasOptionExplicit { get; private set; }
 
-        /// <summary>Declared names → type annotation string (null = no explicit type).</summary>
-        public Dictionary<string, string?> DeclaredTypes { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Declared names → type annotation and declaration kind.</summary>
+        public Dictionary<string, VbDeclaration> DeclaredTypes { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>All declared names (computed from DeclaredTypes keys).</summary>
         public HashSet<string> DeclaredNames => new(DeclaredTypes.Keys, StringComparer.OrdinalIgnoreCase);
@@ -83,7 +85,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = TypeText(ctx.asTypeClause());
+                DeclaredTypes[name] = new(TypeText(ctx.asTypeClause()), LspCompletionItemKind.Variable);
             return VisitChildren(ctx);
         }
 
@@ -91,7 +93,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = TypeText(ctx.asTypeClause());
+                DeclaredTypes[name] = new(TypeText(ctx.asTypeClause()), LspCompletionItemKind.Constant);
             return VisitChildren(ctx);
         }
 
@@ -99,7 +101,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = TypeText(ctx.asTypeClause());
+                DeclaredTypes[name] = new(TypeText(ctx.asTypeClause()), LspCompletionItemKind.Variable);
             return VisitChildren(ctx);
         }
 
@@ -107,7 +109,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = null; // Sub has no return type
+                DeclaredTypes[name] = new(null, LspCompletionItemKind.Method); // Sub has no return type
             return VisitChildren(ctx);
         }
 
@@ -115,7 +117,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = TypeText(ctx.asTypeClause());
+                DeclaredTypes[name] = new(TypeText(ctx.asTypeClause()), LspCompletionItemKind.Function);
             return VisitChildren(ctx);
         }
 
@@ -123,7 +125,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = TypeText(ctx.asTypeClause());
+                DeclaredTypes[name] = new(TypeText(ctx.asTypeClause()), LspCompletionItemKind.Property);
             return VisitChildren(ctx);
         }
 
@@ -131,7 +133,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = null;
+                DeclaredTypes[name] = new(null, LspCompletionItemKind.Property);
             return VisitChildren(ctx);
         }
 
@@ -139,7 +141,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = null;
+                DeclaredTypes[name] = new(null, LspCompletionItemKind.Property);
             return VisitChildren(ctx);
         }
 
@@ -147,7 +149,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = null;
+                DeclaredTypes[name] = new(null, LspCompletionItemKind.EnumMember);
             return VisitChildren(ctx);
         }
 
@@ -156,7 +158,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = null;
+                DeclaredTypes[name] = new(null, LspCompletionItemKind.Struct);
             return VisitChildren(ctx);
         }
 
@@ -164,7 +166,7 @@ public static class VbScopeAnalyzer
         {
             var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
-                DeclaredTypes[name] = null;
+                DeclaredTypes[name] = new(null, LspCompletionItemKind.Enum);
             return VisitChildren(ctx);
         }
     }

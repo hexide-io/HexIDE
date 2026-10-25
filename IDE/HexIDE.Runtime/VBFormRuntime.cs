@@ -85,6 +85,12 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         // where VB6 raises Resize with WindowState already 1, so the state is watched too.
         if (change.Property == IsVisibleProperty && IsVisible)
             windowContext.Shown();
+        else if (change.Property == WidthProperty || change.Property == HeightProperty)
+        {
+            // Use the requested size until layout reports it, and raise inside the setter, even in Load (#1570).
+            sized = false;
+            windowContext.WindowResized(sizeSet: true);
+        }
         else if (change.Property == WindowStateProperty)
             windowContext.WindowResized();
     }

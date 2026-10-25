@@ -16,6 +16,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Sidecar;
+using HexIDE.Lsp;
 using Serilog;
 
 namespace HexIDE.Projects;
@@ -33,6 +34,7 @@ public class ProjectService : IProjectService
     private readonly ILocalizationService localization;
     private readonly IHeaderRefresher headerRefresher;
     private readonly ArchiveProjectService? archives;
+    private readonly Func<ILspClient>? lspClient;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -44,7 +46,8 @@ public class ProjectService : IProjectService
         IFileBaselineStore baselineStore,
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
-        ArchiveProjectService? archives = null)
+        ArchiveProjectService? archives = null,
+        Func<ILspClient>? lspClient = null)
     {
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
@@ -57,6 +60,7 @@ public class ProjectService : IProjectService
         this.localization = localization;
         this.headerRefresher = headerRefresher;
         this.archives = archives;
+        this.lspClient = lspClient;
     }
 
     /// <summary>
@@ -609,6 +613,8 @@ public class ProjectService : IProjectService
             else if (destination.Document is ProjectDefinition project)
             {
                 recentProjects.Add(destination.Path);
+                if (lspClient is not null)
+                    await lspClient().WorkspaceChangedAsync();
                 await sidecar.SaveAsync(project);
             }
         }
@@ -1221,7 +1227,17 @@ public class ProjectService : IProjectService
             SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
 
             // This is not a .dll file, but it will look better :wink: :wink:
-            ZipFile.CreateFromDirectory(tempPath, Path.ChangeExtension(exePath, "dll")!);
+            var archivePath = Path.ChangeExtension(exePath, "dll")!;
+            var stagedArchivePath = archivePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                ZipFile.CreateFromDirectory(tempPath, stagedArchivePath);
+                File.Move(stagedArchivePath, archivePath, overwrite: true);
+            }
+            finally
+            {
+                try { File.Delete(stagedArchivePath); } catch { /* best effort — the staged archive is disposable */ }
+            }
         }
         finally
         {
@@ -1270,7 +1286,7 @@ public class ProjectService : IProjectService
         (project, saveAs)
     ];
 
-    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(() =>
+    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(async () =>
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -1307,7 +1323,8 @@ public class ProjectService : IProjectService
         // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
             Write(file, announceSave: true);
-        return Task.CompletedTask;
+        if (lspClient is not null)
+            await lspClient().WorkspaceChangedAsync();
     });
 
     public string NextFreeFormName(ProjectDefinition project) =>
