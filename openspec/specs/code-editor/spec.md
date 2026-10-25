@@ -293,3 +293,12 @@ handler from being generated.
 - **GIVEN** a control whose caption contains `Sub Command1_Click`
 - **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
 - **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent
+
+### Requirement: Delete SHALL work without a selection
+The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
+forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
+
+#### Scenario: Deleting inside code with nothing selected
+- **WHEN** the developer presses Delete with the caret inside editable code and no selection
+- **THEN** the next character is removed
+- **AND** if a run is active, the reset prompt is shown and answering No restores the edit
