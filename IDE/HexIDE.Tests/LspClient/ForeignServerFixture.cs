@@ -127,7 +127,7 @@ internal sealed class ForeignServer
         extensions: [".json", ".jsonc"],
         hostedOnNode: true);
 
-    private ForeignServer(
+    internal ForeignServer(
         ForeignServerSource source,
         string pathVariable,
         string onPath,
@@ -280,7 +280,16 @@ public sealed class ForeignServerFactAttribute : FactAttribute
         // migration: 978 passed, 0 failed, 0 skipped, against a normal 992. That is precisely the
         // fail-open this variable exists to prevent, so the enforcement moved somewhere discovery cannot
         // swallow it: see RequiredServersTests.
-        Skip = $"No '{server}' language server available. It is normally downloaded on demand; set "
+        Skip = SkipReason(server, needed);
+    }
+
+    internal static string SkipReason(string server, ForeignServer needed)
+    {
+        if (needed.Source.ChecksumMismatch is not null)
+            return $"The '{server}' language server is unavailable because the download did not match its pinned checksum. "
+                 + "See RequiredServersTests for the expected and actual digests.";
+
+        return $"No '{server}' language server available. It is normally downloaded on demand; set "
              + $"{needed.PathVariable} to an executable, or put `{needed.OnPath}` on PATH, to choose your "
              + "own. Offline machines skip these.";
     }

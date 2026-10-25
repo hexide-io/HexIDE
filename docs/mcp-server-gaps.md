@@ -150,8 +150,16 @@ than calling a tool: three refused calls in a row drop the tools until `/mcp`.
 
 **Retiring this entry** needs the client change named at the top. Everything #765 asked to be checked live has
 been, except what the client does with a 400, which no switch-over has produced yet.
-No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on. #764 records a
-server-side idea that may win back the added-tool case, to measure during the SDK upgrade.
+No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on.
+
+**SDK upgrade (#764).** The server now uses 2.2.0, supporting `server/discover` and revision 2026-07-28;
+legacy clients remain stateless too. The historical Claude Code measurements above are not measurements of
+this SDK. Recheck a fresh connection for the absence of the legacy negotiation fallback, then call an existing
+tool before and after a rebuild/relaunch, including a 40-second downtime, and check that the tools remain
+callable without `/mcp`. Repeat tool-list discovery after adding a tool. The comment on #764 suggests
+`notifications/tools/list_changed` on a call's response stream; no notification or subscription handler has
+been added, and its effect on Claude Code remains unmeasured. Keep this entry open until the client behaviour
+is measured again; the upgrade alone does not retire it.
 
 ---
 
@@ -206,7 +214,13 @@ Linux, and that a real mouse behaves normally after a hover ends.
 > is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
 > with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
 > process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
-> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
+> look in the log. The four IDE-owned timer callbacks named in #652 now catch and log exceptions with
+> their purpose and stack, remaining nonfatal. This covers dock-layout capture, the language revert
+> countdown, the minimap redraw and the designer code-navigation follow-up; the DEBUG crash hook remains
+> an unwrapped framework probe. VB6 Timer events keep their existing interpreter runtime-error handling
+> (checked in the later #652 comment). WSL/Ubuntu headless probes on Avalonia 12 confirm that throwing Tick and Run
+> callbacks execute without reaching `Dispatcher.UIThread.UnhandledException`; the three logging regressions
+> (Tick, Run, RunOnce) each fail with an empty log when the guard is reduced to calling the body directly.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
@@ -295,6 +309,12 @@ name would end every session's IDE on a machine running several.
 the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
 shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
 what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
+
+**Ordering hardened for #644 (2026-10-25; live verification pending).** The main-window close now waits
+for HTTP response completion, and server/context cleanup waits for desktop `Exit`, rather than the
+cancellable `ShutdownRequested` event. Headless regression coverage checks response ordering and the
+exit subscription. The original trigger remains unknown; keep this entry open until a running IDE check
+confirms a complete reply followed by exit, and a cancelled close leaves `/health` and tools working.
 
 ---
 
@@ -411,41 +431,6 @@ that change.
 [#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
-
-## The code window's gutters are not in the control tree, so a gutter click cannot be driven
-
-**Symptom (2026-10-01, during #273 task 3.12's live check).**
-`dump_visual_tree {"root":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None","interactiveOnly":false,"maxDepth":4}`
-returns the `TextArea` with two children: an empty `ItemsControl` and the hidden `PART_Watermark`. The
-breakpoint gutter, the bookmark gutter and the line-number margin are all absent, because AvaloniaEdit's
-`AbstractMargin` has no automation peer, so `interact` has nothing to click. The task's own named case, a
-click on a folded header, could only be tested headlessly (`MarkGutterOnReadOnlyLineTests`, which raises
-the press on the gutter itself).
-
-**Workaround.** Place the caret with `interact set_property CaretOffset=N` on the code view, then
-`invoke_menu_item Debug/Toggle Breakpoint` or `Edit/Bookmarks/Toggle Bookmark`. That reaches the same
-toggle a gutter click calls, but not the gutter's own mapping from a point to a visual line, which is
-what decides what a click on a folded row marks.
-
-**Suggested fix.** Undecided: a peer on the gutters that `interact` can drive with a line, a `click` action
-on `interact` at a point relative to its target (which would cover other drawn surfaces too), or a
-dedicated tool if the authoring policy justifies one. Filed as
-[#707](https://github.com/hexide-io/HexIDE/issues/707).
-
-**The fold margin is the same (2026-10-02, during #273 task 3.14's live check).**
-`dump_visual_tree {"interactiveOnly":false,"maxDepth":40}` over the whole window has no node whose class is
-`FoldingMargin` or `FoldingMarginMarker`, so a fold cannot be expanded or folded by its marker. The
-`TextEditor` node does report `expandCollapse`, which reads as the answer and is not: `inspect_element` on it
-shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
-`expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
-CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
-folds one again. A `click` action on `interact` would cover this margin as well as the gutters.
-
-**A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
-the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
-it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
-run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
-run stays folded.
 
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 

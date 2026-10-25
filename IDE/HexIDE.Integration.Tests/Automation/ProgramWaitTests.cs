@@ -458,6 +458,100 @@ public class ProgramWaitTests
         run.Text.Should().Be("done");
     }
 
+    // An earlier DoEvents does not make the loop after a window wait part of the program's old message loop (#1318).
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_loop_after_a_window_wait_is_waited_for_even_after_an_earlier_DoEvents(bool modal)
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                DoEvents
+                WINDOW_WAIT
+                Dim i As Integer
+                For i = 1 To 200
+                    Text1.Text = "working " & i
+                    DoEvents
+                Next i
+                Text1.Text = "done"
+            End Sub
+            """.Replace("WINDOW_WAIT", modal ? "Form2.Show vbModal" : "MsgBox \"Go?\", vbOKOnly, \"Question\""),
+            form2Code: modal ? "" : null, timeSliceMs: null);
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (!OpenWindows().Any(w => modal ? w.Title == "Form2" : w.Content is HexIDE.Runtime.Dialogs.MessageBox))
+        {
+            deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+            await Task.Delay(1);
+        }
+        Pump();
+        var window = OpenWindows().Single(w => modal ? w.Title == "Form2" : w.Content is HexIDE.Runtime.Dialogs.MessageBox);
+        var watch = run.Watch(window);
+        if (modal)
+        {
+            outcome = UiAutomationDriver.Interact(window, "close", null);
+        }
+        else
+        {
+            var ok = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<Button>().First();
+            outcome = UiAutomationDriver.Interact(ok, "invoke", null);
+        }
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().NotContain("(");
+        run.Text.Should().Be("done");
+    }
+
+    // A time slice makes the program busy, but does not make an old unrelated dialog hold its handler (#1318).
+    [AvaloniaFact]
+    public async Task An_old_dialog_does_not_hold_a_reply_when_the_watch_finds_a_busy_loop()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim n As Long
+                Do
+                    n = n + 1
+                    n = n + 1
+                    n = n + 1
+                    n = n + 1
+                    DoEvents
+                Loop Until Command1.Caption = "stop"
+            End Sub
+
+            Private Sub Text1_Change()
+                Command1.Caption = "done"
+            End Sub
+            """);
+        var earlier = new Window { Title = "HexIDE" };
+        _ = earlier.ShowDialog(run.Window);
+        UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
+        await Task.Delay(100);
+        try
+        {
+            var watch = run.Watch()!;
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
+            while (watch.Pump.AtDoEvents.Count > 0)
+            {
+                deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+                await Task.Delay(1);
+                watch = run.Watch()!;
+            }
+            watch.Pump.IsIdle.Should().BeFalse();
+            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "done");
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+            outcome.Detail.Should().NotContain("'HexIDE'");
+            ((Button)run.Named("Command1")).Content.Should().Be("done");
+            run.Text.Should().Be("done");
+        }
+        finally
+        {
+            ((Button)run.Named("Command1")).Content = "stop";
+            earlier.Close();
+        }
+    }
+
     // A Timer's tick is no action's work, though it may come after one: its DoEvents loop does not hold the reply to the
     // limit, as it did once a reply waited for loops it had not found running (#1254 review). Raised on the pump directly,
     // as a Timer raises it: a headless Timer does not tick within a click.

@@ -22,6 +22,7 @@ namespace HexIDE.Lsp;
 public sealed class StdioProcessLspTransport : ILspTransport
 {
     private readonly LspServerInfo _serverInfo;
+    private readonly string _serverId;
     private readonly ILogger<StdioProcessLspTransport> _logger;
     private readonly ILspWorkspace? _workspace;
     private Process? _process;
@@ -36,10 +37,13 @@ public sealed class StdioProcessLspTransport : ILspTransport
     /// so a server launched lazily runs in whichever project is open by then. An explicit working directory
     /// always wins: a user who named one meant it.
     /// </param>
+    /// <param name="serverId">Configuration identity for logs; defaults to the executable for direct callers.</param>
     public StdioProcessLspTransport(
-        LspServerInfo serverInfo, ILogger<StdioProcessLspTransport> logger, ILspWorkspace? workspace = null)
+        LspServerInfo serverInfo, ILogger<StdioProcessLspTransport> logger, ILspWorkspace? workspace = null,
+        string? serverId = null)
     {
         _serverInfo = serverInfo;
+        _serverId = serverId ?? serverInfo.FileName;
         _logger = logger;
         _workspace = workspace;
     }
@@ -66,7 +70,6 @@ public sealed class StdioProcessLspTransport : ILspTransport
     public Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
         var serverInfo = _serverInfo;
-        _logger.LogInformation("Starting language server: {Exe}", serverInfo.FileName);
 
         // The server is launched directly. There used to be an interposed debug proxy here, reached by
         // setting VB6_LSP_DEBUG_PROXY=1, which relaunched the server underneath a byte-forwarding process
@@ -74,6 +77,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // inside this client and reads strictly more of it — see docs/lsp-client.md.
         string fileName = serverInfo.FileName;
         string arguments = serverInfo.Arguments;
+        var argumentList = serverInfo.ArgumentList?.ToList();
 
         if (!OperatingSystem.IsWindows())
         {
@@ -109,6 +113,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
                 if (File.Exists(dll))
                 {
                     arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
+                    if (argumentList is not null) argumentList.Insert(0, dll);
                     fileName = "dotnet";
                 }
                 else
@@ -123,7 +128,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             StartInfo = new ProcessStartInfo
             {
                 FileName = fileName,
-                Arguments = arguments,
+                Arguments = argumentList is null ? arguments : "",
                 WorkingDirectory = WorkingDirectory(),
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -134,11 +139,16 @@ public sealed class StdioProcessLspTransport : ILspTransport
             EnableRaisingEvents = true
         };
 
+        if (argumentList is not null)
+            foreach (var argument in argumentList) _process.StartInfo.ArgumentList.Add(argument);
+        if (serverInfo.Environment is not null)
+            foreach (var (key, value) in serverInfo.Environment) _process.StartInfo.Environment[key] = value;
+
         _process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data is not { Length: > 0 }) return;
 
-            _logger.LogDebug("[vb-lsp stderr] {Data}", e.Data);
+            _logger.LogDebug("[{Server}] stderr: {Data}", _serverId, e.Data);
 
             // Onto the record as well as into the log. A debug log line is not somewhere a person looks
             // when a server dies mid-conversation; the timeline beside the last message it managed to
@@ -154,7 +164,8 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // names the executable and Windows' message for a bad working directory does not name the
         // directory. Same "<inherited>" spelling as the pipe transport, so the two logs read alike.
         _logger.LogInformation(
-            "Starting VB LSP server: {Exe} {Args} (cwd: {Cwd})",
+            "[{Server}] Starting language server: {Exe} {Args} (cwd: {Cwd})",
+            _serverId,
             fileName,
             arguments,
             string.IsNullOrEmpty(_process.StartInfo.WorkingDirectory)
@@ -172,7 +183,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             // as a faulted/unobserved task, and don't leave a never-started Process whose HasExited access throws —
             // IsAlive would then throw on every poll. Tear it down and report "no transport"; LSP features simply
             // degrade off (no diagnostics/definition/rename) rather than crashing the IDE.
-            _logger.LogError(ex, "Failed to start the VB6 LSP server process ({File})", fileName);
+            _logger.LogError(ex, "[{Server}] Failed to start the language server process ({File})", _serverId, fileName);
             // The command is the first thing anyone needs: "not on PATH" and "there but not runnable"
             // are different problems and the exception distinguishes them.
             //
@@ -232,7 +243,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // and ExitCode throws once the handle is gone.
         var code = ExitCode();
 
-        _logger.LogWarning("VB6 LSP server process exited{Code}", code is null ? "" : $" with code {code}");
+        _logger.LogWarning("[{Server}] Language server process exited{Code}", _serverId, code is null ? "" : $" with code {code}");
 
         // BEFORE Closed, which is what tears the connection down. An exit code that arrived after the
         // record had stopped accepting entries would be the one fact nobody could see.
@@ -267,6 +278,8 @@ public sealed class StdioProcessLspTransport : ILspTransport
         {
             _process.Exited -= OnProcessExited;
             try { _process.Kill(); } catch { /* already gone */ }
+            // Kill requests termination; wait for it before releasing the process handle (#392).
+            try { _process.WaitForExit(2000); } catch { /* already gone */ }
             _process.Dispose();
             _process = null;
         }

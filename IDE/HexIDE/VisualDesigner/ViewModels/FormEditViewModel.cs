@@ -254,7 +254,14 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(CanRedo)));
             UndoCommand.RaiseCanExecutedChanged();
             RedoCommand.RaiseCanExecutedChanged();
+            RefreshModified();
         };
+        AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
+        {
+            if ((e.Form is not null && ReferenceEquals(e.Form, formDefinition))
+                || (e.Module is not null && ReferenceEquals(e.Module, formDefinition?.OwningModule)))
+                RefreshModified();
+        }));
         AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(_ => FlushComponentsToModel()));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
@@ -521,6 +528,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         formDefinition?.UpdateComponents(orderedComponents);
     }
 
+    private void RefreshModified()
+    {
+        IsModified = HasComponentsNotInModel || (formDefinition is { } form &&
+            (form.OwningModule is { } module ? projectService?.HasUnsavedChanges(module)
+                : projectService?.HasUnsavedChanges(form)) == true);
+    }
+
     /// <summary>
     /// Announces a committed change to this form's designer half, flushing the working collections into the
     /// model first so that whatever re-renders the form sees the change.
@@ -542,6 +556,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public void CommitLayout()
     {
         FlushComponentsToModel();
+        RefreshModified();
         if (formDefinition is not null)
             eventBus.Publish(new FormLayoutChangedEvent(formDefinition));
     }
@@ -556,6 +571,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         Populate(formElement.Components);
 
         SelectedComponent = Form;
+        RefreshModified();
         Title = ComputeTitle();
         return this;
     }
@@ -616,6 +632,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /* ctr only for the previewer! */
     public FormEditViewModel()
     {
+        CanFloat = false;
         AllComponents.CollectionChanged += OnAllComponentsChanged;
         Components.CollectionChanged += OnComponentsChanged;
         Form = new ComponentInstanceViewModel(this, new ComponentInstance(FormComponentClass.Instance, "Form1")
@@ -1467,10 +1484,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             return;
 
         // this is a hack, the following line can be executed only after the window is created, it should be solved in a better way.
-        DispatcherTimer.RunOnce(() =>
+        DispatcherTimer.RunOnce(() => LoggedTimerCallback.Run("designer code navigation", () =>
         {
             Log.Debug("FormEditViewModel: Dispatching CreateOrNavigateToSubEvent({SubName})", subName);
             eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName));
-        }, TimeSpan.FromMilliseconds(16));
+        }), TimeSpan.FromMilliseconds(16));
     }
 }

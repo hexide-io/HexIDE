@@ -49,6 +49,7 @@ public partial class ToolBoxToolViewModel : Tool
         selectedComponent = Arrow;
 
         componentRegistry.ComponentRegistered += OnComponentRegistered;
+        componentRegistry.ComponentUnregistered += OnComponentUnregistered;
 
         IImage LoadIcon(string name)
         {
@@ -59,6 +60,14 @@ public partial class ToolBoxToolViewModel : Tool
     private void OnComponentRegistered(IComponentClass component)
     {
         Components.Add(new ComponentToolViewModel(this, component, _addinComponentIcon.Value));
+    }
+
+    private void OnComponentUnregistered(IComponentClass component)
+    {
+        var tool = Components.LastOrDefault(c => ReferenceEquals(c.BaseClass, component));
+        if (tool is null) return;
+        if (SelectedComponent == tool) SelectedComponent = Arrow;
+        Components.Remove(tool);
     }
 
     protected void OnSelectedComponentChanged()

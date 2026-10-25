@@ -48,6 +48,7 @@ A form's run loads its code and the project's standard (`.bas`) and class (`.cls
 #### Scenario: A breakpoint in a standard or class module
 - **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
 - **THEN** execution breaks at that line under the module's name
+- **AND** the stop reason is `Breakpoint`, with the line counted from the top of the module's file
 
 #### Scenario: A breakpoint in a UserControl or PropertyPage module
 - **WHEN** the developer sets a breakpoint in a `.ctl` or `.pag` module and runs the startup form
@@ -71,6 +72,19 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **WHEN** the developer chooses End while paused
 - **THEN** the suspended execution is unwound and the project is reset
 - **AND** no `Class_Terminate` handlers run, matching VB6's `End`
+
+### Requirement: A fresh run SHALL be isolated from prior execution
+A walk suspended at a time-slice yield SHALL abort before executing its statement if the run ended or the debug
+session changed. The runner SHALL accept static fault and `End` notifications only from interpreters tagged with
+its controller and session when attached to the run.
+
+#### Scenario: Restart while a running walk has yielded
+- **WHEN** End and a fresh run's Reset happen before the old time-slice continuation resumes
+- **THEN** the old walk unwinds without executing its parked statement
+
+#### Scenario: An old or unrelated interpreter reports a fault or End
+- **WHEN** a startup-form or Sub Main run is active and another run's interpreter reports a fault or `End`
+- **THEN** the current run stays active and reports no error from that interpreter
 
 ### Requirement: A `Stop` statement SHALL enter break mode under the debugger
 A `Stop` statement SHALL enter break mode when the debugger is attached, and SHALL terminate the program when it is not.
@@ -171,8 +185,8 @@ The interpreter cannot hot-patch a running program: the execution position is a 
 
 #### Scenario: Editing while the project is running or paused
 - **WHEN** the developer edits code while the project is running or in break mode
-- **THEN** a prompt asks whether to reset the project
-- **AND** choosing yes ends the run and keeps the edit, while choosing no reverts the edit and lets the program continue
+- **THEN** a localized prompt asks "This action will reset your project, proceed anyway?" with OK and Cancel
+- **AND** choosing OK ends the run and keeps the edit, while choosing Cancel reverts the edit and lets the program continue
 
 #### Scenario: The window the reset prompt is shown over
 - **WHEN** the reset prompt is asked while the code window's own window is visible and not minimized
@@ -228,6 +242,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
+
+#### Scenario: Selecting an expanded watch child
+- **WHEN** the developer selects a child of an expanded watch after selecting another watch
+- **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key
+- **AND** rebuilding the watch rows SHALL clear selection
 
 #### Scenario: Breaking when a watch condition is met
 - **WHEN** a watch is configured to break when its expression becomes true, or when its value changes
@@ -317,3 +336,12 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 - **WHEN** a procedure with no handler of its own, in a standard module or a class, raises an error, and a caller with an
   active handler called it from the same event
 - **THEN** the caller's handler runs and the program does not halt
+
+### Requirement: Run state in the IDE chrome
+The IDE SHALL show localized design, run and break title tags, with break selected while the interpreter debugger is paused. The no-project title SHALL be localized. Title and OS window title SHALL refresh on debugger stop, continue and language changes. The running status message SHALL be cleared while paused and restored on continuing a running program.
+
+#### Scenario: Pausing and continuing
+- **WHEN** a running program pauses at a breakpoint, a Stop statement, a step or a requested break
+- **THEN** the title shows the break tag and the running status message is cleared
+- **WHEN** execution continues
+- **THEN** the title shows the run tag and the running status message returns

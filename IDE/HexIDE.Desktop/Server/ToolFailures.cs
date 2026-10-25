@@ -241,7 +241,7 @@ internal static class ToolFailures
             && !string.Equals(shortForm, profile, StringComparison.OrdinalIgnoreCase))
             forms.Add(shortForm);
 
-        // And each spelled with forward slashes, as a file:///C:/Users/... URI carries it in an LSP message (#606).
+        // And each spelled with forward slashes, as a file:///<drive>:/Users/... URI carries it in an LSP message (#606).
         foreach (var form in forms.ToList())
             if (form.Contains('\\'))
                 forms.Add(form.Replace('\\', '/'));

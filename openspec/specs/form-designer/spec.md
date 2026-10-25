@@ -42,6 +42,9 @@ visually distinguishable from the rest of the selection.
 Every alignment and sizing command answers "align to what?", and the answer has to be visible before the
 command runs — otherwise the developer finds out which control was the reference by looking at the result.
 Making it the same control whose properties are being shown means one visual cue answers both questions.
+This is a HexIDE presentation choice: VB6 uses the last selected control with solid handles as the reference,
+but its toolbar keeps showing the first selected and its Properties caption can change after reselection
+(measured 2026-10-22, #928/#929).
 
 #### Scenario: Selecting a second control
 - **WHEN** the developer adds a second control to the selection
