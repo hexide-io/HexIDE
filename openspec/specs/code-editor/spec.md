@@ -114,6 +114,23 @@ blank line, a comment or a statement, mixing the two kinds, or a variable attrib
 a variable declared elsewhere — SHALL NOT be read-only, greyed or folded, because editing it by hand is the
 only way to repair it.
 
+When a paste or Insert File replaces a described declaration's whole text and ends at its anchor, the IDE
+SHALL keep the run under the first logical line of the replacement that declares a member it can describe:
+a procedure for a procedure run, or variables or constants naming every qualifier of a variable run.
+Continuation lines SHALL be read together by the member-declaration reader. Text through that declaration
+SHALL replace the selection; any remaining text SHALL follow the run. With no remaining text the caret SHALL
+end at the pasted declaration's end. If no compatible declaration exists, or the selection starts inside the
+declaration, the existing split at the first line break SHALL apply.
+
+This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
+whole-declaration paste question in the archived #273 design record without changing that historical record.
+
+#### Scenario: Pasting a comment before a replacement declaration
+- **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed
+  by a compatible declaration
+- **THEN** the comment precedes the declaration, its attribute run remains directly below the declaration,
+  and one Undo restores the original text
+
 #### Scenario: A procedure with a description
 - **WHEN** a module containing a procedure with an `Attribute <Name>.VB_Description` line is opened
 - **THEN** the attribute is folded into the end of the procedure's declaration line, and cannot be edited
@@ -243,6 +260,11 @@ nowhere else.
 #### Scenario: A compile error from VB6
 - **WHEN** a build reports an error against one of the project's files
 - **THEN** it is shown on the line of that file the developer sees, not on the line the compiler counted
+
+#### Scenario: A compile error around a continued attribute
+- **WHEN** VB6 reports a compile error in code containing continued lines
+- **THEN** mapping SHALL exclude every physical line of a logical line starting with `Attribute`
+- **AND** it SHALL count a physical line starting with `Attribute` when it continues code or a comment
 
 ### Requirement: Find SHALL NOT match inside a read-only region
 Find, Find Next and Replace SHALL search only text outside read-only regions.
