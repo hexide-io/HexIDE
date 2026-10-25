@@ -48,7 +48,7 @@ connection. Unsupported adapter-initiated requests SHALL receive an unsuccessful
 Each request SHALL have a finite configurable deadline and accept caller cancellation. The client SHALL
 bound pending requests and queued events. It SHALL NOT retry timed-out or cancelled requests automatically.
 EOF, malformed input, event overflow and failed writes SHALL close the connection and fail pending work.
-Disposal SHALL settle pending requests and release owned streams; repeated disposal SHALL be safe.
+Disposal SHALL settle pending requests with `IOException` and release owned streams; repeated disposal SHALL be safe.
 
 #### Scenario: A cancelled request receives a late reply
 
@@ -60,6 +60,13 @@ Disposal SHALL settle pending requests and release owned streams; repeated dispo
 
 - **WHEN** cancellation interrupts writing a request frame
 - **THEN** the connection is closed rather than reused with a potentially incomplete frame
+
+#### Scenario: Disposal interrupts a request write
+
+- **WHEN** disposal closes the output stream during an in-flight request write
+- **AND** the write throws `ObjectDisposedException`
+- **THEN** the request fails with `IOException`
+- **AND** queued requests fail without writing another frame
 
 #### Scenario: The adapter disappears
 
@@ -338,7 +345,11 @@ and Immediate completion SHALL refresh values. External watch definitions SHALL 
 - **THEN** only expression watches are offered; interpreter break-condition watches remain unchanged
 
 ### Requirement: External hover data tips
-While an external session is active, the editor SHALL evaluate hovered identifiers only against the selected stopped external frame, using evaluate context hover, and only when the adapter advertises supportsEvaluateForHovers as true. It SHALL NOT evaluate these tips through the interpreter. An unsuccessful evaluation SHALL display no value tip.
+While an external session is active, the editor SHALL evaluate hovered identifiers only against the selected stopped external frame, using evaluate context hover, and only when the adapter advertises supportsEvaluateForHovers as true. It SHALL NOT evaluate these tips through the interpreter. An unsuccessful evaluation SHALL display no value tip. External data tips SHALL take precedence only while a stop and selected frame exist; otherwise the editor SHALL retain language-server quick info.
+
+#### Scenario: Running external session
+- **WHEN** the external program is running without a stop
+- **THEN** hovering an identifier requests language-server quick info
 
 #### Scenario: Selected caller value
 - **WHEN** the user selects a caller frame and dwells over an identifier with a hover-capable adapter

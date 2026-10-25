@@ -132,6 +132,21 @@ public class OptionsViewModelTests
         sut.CurrentPage.Should().BeSameAs(sut.SelectedNode.Page);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InitialNode_SelectsAddInsCategory(bool installed)
+    {
+        if (!installed) _addinRegistry.GetAll().Returns([]);
+        var sut = new OptionsViewModel(_settings, _themeService, _keymapService, _languageSwitch,
+            _addinRegistry, _addinOptions, _devMode, _localization, _eventBus, "Str.Options.Node.AddIns");
+
+        sut.SelectedNode.Should().BeSameAs(sut.RootNodes.Single(n => n.Key == "Str.Options.Node.AddIns"));
+        sut.SelectedNode!.IsExpanded.Should().BeTrue();
+        sut.CurrentPage.Should().BeNull();
+        sut.CanRestorePageDefaults.Should().BeFalse();
+    }
+
     [AvaloniaFact]
     public void SelectedNode_DrivesCurrentPage()
     {
@@ -434,11 +449,16 @@ public class OptionsViewModelTests
     }
 
     [AvaloniaFact]
-    public void NoAddins_OmitsAddInsGroup()
+    public void NoAddins_ShowsEmptyAddInsLeaf()
     {
         _addinRegistry.GetAll().Returns([]);
         var sut = CreateSut();
-        sut.RootNodes.Select(n => n.Title).Should().NotContain("Add-Ins");
+        var group = sut.RootNodes.Single(n => n.Key == "Str.Options.Node.AddIns");
+        group.Children.Should().ContainSingle();
+        sut.SelectedNode = group.Children[0];
+        sut.SelectedNode.Title.Should().Be("(no add-ins installed)");
+        sut.CurrentPage.Should().BeNull();
+        sut.CanRestorePageDefaults.Should().BeFalse();
     }
 
     [AvaloniaFact]

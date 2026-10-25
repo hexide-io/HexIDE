@@ -9,6 +9,178 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## The code window's gutters are not in the control tree, so a gutter click cannot be driven — **CLOSED** (#707, 2026-10-25)
+
+**Symptom (2026-10-01, during #273 task 3.12's live check).**
+`dump_visual_tree {"root":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None","interactiveOnly":false,"maxDepth":4}`
+returns the `TextArea` with two children: an empty `ItemsControl` and the hidden `PART_Watermark`. The
+breakpoint gutter, the bookmark gutter and the line-number margin are all absent, because AvaloniaEdit's
+`AbstractMargin` has no automation peer, so `interact` has nothing to click. The task's own named case, a
+click on a folded header, could only be tested headlessly (`MarkGutterOnReadOnlyLineTests`, which raises
+the press on the gutter itself).
+
+**Workaround.** Place the caret with `interact set_property CaretOffset=N` on the code view, then
+`invoke_menu_item Debug/Toggle Breakpoint` or `Edit/Bookmarks/Toggle Bookmark`. That reaches the same
+toggle a gutter click calls, but not the gutter's own mapping from a point to a visual line, which is
+what decides what a click on a folded row marks.
+
+**Suggested fix.** Undecided: a peer on the gutters that `interact` can drive with a line, a `click` action
+on `interact` at a point relative to its target (which would cover other drawn surfaces too), or a
+dedicated tool if the authoring policy justifies one. Filed as
+[#707](https://github.com/hexide-io/HexIDE/issues/707).
+
+**The fold margin is the same (2026-10-02, during #273 task 3.14's live check).**
+`dump_visual_tree {"interactiveOnly":false,"maxDepth":40}` over the whole window has no node whose class is
+`FoldingMargin` or `FoldingMarginMarker`, so a fold cannot be expanded or folded by its marker. The
+`TextEditor` node does report `expandCollapse`, which reads as the answer and is not: `inspect_element` on it
+shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
+`expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
+CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
+folds one again. A `click` action on `interact` would cover this margin as well as the gutters.
+
+**A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
+the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
+it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
+run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
+run stays folded.
+
+**Fixed by #1033; paperwork in #707.** `interact` now takes `action: "click"` with a
+point relative to its target. `UiAutomationDriver.DoClick` translates that point into window coordinates
+and hit-tests the rendered window, then delivers pointer press and release to what it hits. The margin
+needs no automation peer: address the editor that contains it. The old `expandCollapse` trap above still
+applies; use `click` for a fold marker, not `expand` on the editor.
+
+Call shape (substitute the discovered editor path and the measured point; this is a recipe, not a
+record of a live call made in this pass):
+
+```json
+{"target":"<editor path from dump_visual_tree>","action":"click","value":"<x>,<y> left","window":"ide"}
+```
+
+Discover the editor with `dump_visual_tree {"window":"ide","interactiveOnly":false,"maxDepth":40}`,
+then `inspect_element {"target":"<editor path>","window":"ide"}` for its bounds. Use
+`take_snapshot {"window":"ide"}` to locate the desired gutter and row; subtract the editor's origin
+from the point in the window to obtain `x,y`. Coordinates depend on layout, font, scrolling and scaling;
+there is no fixed gutter offset to reuse across sessions. The click reply names what the hit test reached;
+confirm the resulting mark or fold as well, since delivery alone does not prove a toggle.
+
+**Verification.** Existing `InteractClickTests` cover target-relative coordinates, pointer press/release
+on a peerless Border, and delivery to the control at the point rather than necessarily the addressed
+control. No product behaviour changes in #707.
+
+**Live check (2026-10-25, Windows, Debug build).** The breakpoint margin is now in the control tree as its own
+node, so target it, not the editor:
+
+```json
+{"target":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None/List/Custom[BreakpointMargin]","action":"click","value":"7,75","window":"ide"}
+```
+
+Its reply was `clicked the left button at (7, 75) on 'BreakpointMargin'`; `get_breakpoints` then gave `[21]`, and the
+same call again gave `[]`. The margin is 14 units wide: the same row addressed on the editor at `10,77` fell on its
+edge, landed on `ScrollContentPresenter`, and toggled nothing, which the reply's "landing on" names. The fold marker
+has no node, so it is clicked through the editor:
+
+```json
+{"target":"…/Custom[Root]/None[TextEditor]","action":"click","value":"66,10","window":"ide"}
+```
+
+Its reply named `FoldingMarginMarker`; the form's header unfolded, and the same call folded it again. Bookmarks have
+no gutter click to drive. Not checked live: a breakpoint click beside a folded header.
+
+
+---
+
+## Replies that report or act on a document without taking its name do not say which project's it is — **CLOSED** (#886, 2026-10-24)
+
+**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
+loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
+that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
+group holding a `Form1` in each of two projects:
+
+```
+step_over {}               → "note": "Paused at Form1 line 9 (Step)."
+                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
+get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
+invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
+                             as invoke_designer_redo, get_undo_state and invoke_format_command
+get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
+get_open_editors {}        → each editor's title, and 'activeWindow' as a title
+```
+
+None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
+`project`; the run-control notes beside them do not. A tab's title starts with its project's name
+(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
+the IDE's language, and not the `project` and `document` every naming tool takes and returns.
+
+**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
+lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
+designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
+a name.
+
+**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
+locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
+tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
+Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
+SHALL identify it by its project and its name", is only partly met.
+[#886](https://github.com/hexide-io/HexIDE/issues/886).
+
+
+**Fixed (#886).** Run-control pause notes include the running project; locals and watches replies carry
+`project` (the project in which watch expressions are evaluated). Designer undo state and undo/redo/format
+replies carry `project` and `document`, including refusals after finding a designer. Tab listings carry the
+same identity; `get_open_editors` adds structured `editors` and `activeEditor` alongside its existing titles.
+Activate and close accept `name` with optional `project` through `NamedDocuments`; `type` chooses code or
+designer when both are open. Title addressing remains available for tool tabs, and duplicate matches are
+refused. Headless guards cover the reply shapes and lookup wiring; direct tests cover tab targeting.
+Live verification of focus, close prompts and grouped-project replies remains the supervisor's check.
+
+---
+
+## Every automation route to a new document saves it — **CLOSED** (#502, 2026-10-24)
+
+**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
+the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
+by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
+`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
+into `%TEMP%` before the first tool call
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
+file.
+
+**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
+*ordinary* state: nothing is written until the project is saved. #273 names such a document
+`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
+servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
+through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
+spelling is dead code.
+
+**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
+`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
+`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
+writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
+of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
+
+**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
+which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
+change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
+its lines count from the top of that header. So a line number read before then is out by the header's height after
+it. **Workaround:** read the content again after any designer change or save before using a line number from it.
+Where a created form's first header should come from, so that it holds one from the start, is
+[#885](https://github.com/hexide-io/HexIDE/issues/885).
+
+**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
+leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
+way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
+can reach the state the product will normally be in once #500 lands. Until then, any verification of
+`untitled:` naming through this surface is verifying something the surface itself prevents.
+
+**Fixed.** #500 made `add_file` pathless: its description and reply explain the null path and the Save Project
+pickers. #502 adds `--newproject-unsaved` (also `/newproject-unsaved`), which creates the initial project and
+form without saving. It wins over `--newproject` and a positional path; `--newproject` keeps its existing save.
+For an `untitled:` check launch with `--capture-lsp --newproject-unsaved`, then open Form1's code and inspect
+its `didOpen`. No new VB6 behaviour is inferred: this uses #489's measured no-file state. The initial-header
+limitation above remains open as #885 in the live gaps document.
+
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
@@ -921,8 +1093,9 @@ damage reached a commit before it was spotted in `git diff`.
 
 **Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
 self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+source code of a form" *includes* the `Attribute` header, which is easy to omit when replacing only the
+procedures. VB6 hides it, but HexIDE showed it even before #273 made it part of the folded, read-only
+header. The original entry incorrectly called it invisible in HexIDE's editor. `VB_Name` is load-bearing.
 
 **Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
 use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
@@ -1362,8 +1535,11 @@ and replies with the watch list as if the call had done what was asked.
 >
 > **The entry's premise was partly wrong.** Avalonia's forced `Shutdown` still closes every window, so the
 > main window's `Closing` handler runs and saves window state and layout; it only loses its veto. A failed
-> launch therefore still writes the profile it shares, which is part of #557. No test pins the order in
-> `DesktopStartup` itself; that is #563.
+> launch therefore still writes the profile it shares, which is part of #557.
+>
+> **Regression coverage (#563).** `DesktopStartup` now delegates its posted cleanup to the internal
+> `ForcedExitCleanup` helper. `ForcedExitCleanupTests` pins loader disposal before exit, exit code 3
+> despite cleanup failures, and log closure after exit; deleting or reordering those steps fails the tests.
 
 **Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
 `desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,
@@ -1561,7 +1737,7 @@ checked. The stack trace is kept out of the reply. Authentication stays #352.
 > **Fixed.** `set_file_content`, `add_file`, `set_control_property` and `add_control` catch their own write
 > failures and put the exception's message in their reply. Those messages now go through
 > `ToolFailures.WithoutProfile`, the same redaction #603's backstop applies. That redaction now also covers the
-> forward-slash spelling of the profile, as a `file:///C:/Users/…` URI carries it, in both the long and the 8.3
+> forward-slash spelling of the profile, as a `file:///<drive>:/Users/…` URI carries it, in both the long and the 8.3
 > short form. It is for the report, not a security control; the server's exposure is #352.
 
 **Measured.** With the target file read-only, each of the three writing tools tried answered `Access to the
@@ -4204,8 +4380,9 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > A reply records the loops running before its action, and counts the program idle only while every walk parked at
 > `DoEvents` was one of them. A loop the action found running is still the program's message loop, wherever the action
 > finds it, between two `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to
-> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at, since a handler
-> waiting there had not looped. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
+> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at: waiting on a
+> window now clears its earlier loop mark (#1318). The original fix covered only handlers with no DoEvents before
+> the window wait. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
 > the limit gets the usual note, naming only what the action set off: "(the program was still running Command1_Click 3s
 > later, so the form may still change)". Walks, not handler names, so a click that re-enters a handler parked under the
 > same name is told apart from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still
@@ -4523,6 +4700,59 @@ button, proving the product path worked.
 with physical key and symbol metadata. Retain routed delivery when focus or platform input is unavailable,
 and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.
 
+
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+
+**Fixed (#1054).** The shared replacement guard compares member runs even when the header differs. One refusal
+names the header first, then every changed, added or removed member run, with the existing repair guidance.
+`DocumentContentTests` covers all three findings alongside a header change and verifies the document stays unchanged.
+
+## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
+
+**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
+member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
+`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
+Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
+place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
+a change it did not make, with no reason given.
+
+**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
+through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
+`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
+added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
+names `set_file_content` alone.
+
+**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
+re-qualified.
+
+**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
+is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
+
+
+**Fixed (#1043).** The form and module save paths collect the old and new qualifiers they rewrite. All three
+tools append that report to a successful reply’s `note`, explaining that VB6’s own Save writes the member’s
+name. Headless save tests cover both paths; source guards check all three tool replies. Live verification
+remains with the supervising session: on a fresh stale run for each tool, check the note names `Gone` and
+`Total`, and read back `Attribute Total.VB_Description`.
 
 ## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
 

@@ -96,7 +96,8 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         // Earned immediately. The first failure it explained was a connection torn down mid-request by a
         // malformed frame, which is a sentence the wire can say and a TimeoutException never could.
         PublishDiagnosticsParams published;
-        try { published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
+        try { published = await ForeignServerWait.ForDiagnostics(received.Task, _capture,
+            "foreign.markdown", TimeSpan.FromSeconds(30)); }
         catch (TimeoutException)
         {
             await _capture.DrainAsync();
@@ -287,7 +288,8 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             // Same treatment as the lazy-start test above, and for the same reason: a bare timeout here
             // says only that nothing arrived, which is true of every interesting way this can fail.
             PublishDiagnosticsParams published;
-            try { published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
+            try { published = await ForeignServerWait.ForDiagnostics(received.Task, _capture,
+                "rumdl", TimeSpan.FromSeconds(30)); }
             catch (TimeoutException)
             {
                 await _capture.DrainAsync();

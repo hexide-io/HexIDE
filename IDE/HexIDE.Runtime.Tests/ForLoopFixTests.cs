@@ -45,6 +45,25 @@ public class ForLoopFixTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(50001L)]);
     }
 
+    // #841: measured with #839's fifth probe, M1–M3, native and p-code.
+    [Theory]
+    [InlineData("Long")]
+    [InlineData("Variant")]
+    public async Task BodyIncrement_ChangesCounterAtNext(string counterType)
+    {
+        await Run($"Dim i As {counterType}\nFor i = 1 To 10\nDebug.Print i\ni = i + 1\nNext\nDebug.Print i\n");
+        var value = (int n) => counterType == "Long" ? new Vb6Value((long)n) : new Vb6Value(n);
+        AssertDebugLog([value(1), value(3), value(5), value(7), value(9), value(11)]);
+    }
+
+    [Fact]
+    public async Task BodyReset_RestartsCounterAtNext()
+    {
+        await Run("Dim i As Long\nDim passes As Long\nFor i = 1 To 3\nDebug.Print i\npasses = passes + 1\nIf passes = 8 Then Exit For\nIf i = 3 Then i = 0\nNext\n");
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(2L), new Vb6Value(3L), new Vb6Value(1L),
+            new Vb6Value(2L), new Vb6Value(3L), new Vb6Value(1L), new Vb6Value(2L)]);
+    }
+
     // NOTE: the sibling empty-body NRE in the Do loops (Do/Loop, Do While…/Loop) is fixed by the same null-guard as
     // ForEach uses, but isn't unit-testable in isolation — an empty Do/Loop is an infinite loop (would hang the
     // test), and the conditional forms either don't parse empty or return before reaching the guarded body Visit.

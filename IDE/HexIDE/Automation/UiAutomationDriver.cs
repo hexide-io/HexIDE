@@ -11,8 +11,10 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
+using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
+using HexIDE.Utils;
 
 namespace HexIDE.Automation;
 
@@ -190,6 +192,7 @@ public static class UiAutomationDriver
             note,
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
+            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
                 window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
                 "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
@@ -689,6 +692,21 @@ public static class UiAutomationDriver
                 case "setvalue":
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
                     if (value is null) return Err("set_value requires 'value'");
+                    if (control is ComboBox { IsEditable: false } combo)
+                    {
+                        // Open the same rows select matches, whose peers read the text the dump shows, including
+                        // item templates. Always close what we opened, including a refused or ambiguous selection.
+                        combo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, true);
+                        try
+                        {
+                            combo.UpdateLayout();
+                            return DoSelect(control, peer, value, matchEmptyValue: true);
+                        }
+                        finally { combo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false); }
+                    }
+                    if (val.IsReadOnly)
+                        return Err($"value is read-only on '{LabelOf(control, peer)}'; set_value cannot change it. "
+                                   + "inspect_element shows its providers and view-model members for other supported actions");
                     val.SetValue(value);
                     // A bound box's source may convert what it is given, and pushes the result back at once: " 90" reads
                     // back "90", taken. Whether the source kept it is RefusedCommit's to say, once it has reacted.
@@ -1050,10 +1068,10 @@ public static class UiAutomationDriver
 
     private static string TitleOf(Window window) => string.IsNullOrEmpty(window.Title) ? window.GetType().Name : window.Title;
 
-    private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value)
+    private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value, bool matchEmptyValue = false)
     {
         // value absent (treating "" as absent, like "omit if the target is the item") → select the target.
-        value = NullIfEmpty(value);
+        if (!matchEmptyValue) value = NullIfEmpty(value);
         if (value is null)
         {
             if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
@@ -1078,6 +1096,9 @@ public static class UiAutomationDriver
 
             return Unsupported("select");
         }
+
+        if (control is ComboBox combo)
+            return SelectComboItem(combo, value);
 
         // value present → match against the realized selectable items (the target itself if it is one, plus
         // its selectable descendants) using the SAME precedence + uniqueness as path resolution, so the two
@@ -1167,6 +1188,47 @@ public static class UiAutomationDriver
                 : Err(refusal);
 
         return Unsupported("select");
+    }
+
+    // Snapshot names, not containers: scrolling a dropdown recycles its rows. Read every row before matching,
+    // so an offscreen namesake is ambiguous too, and a miss can name all available items (#1672).
+    private sealed record ComboRow(int Index, string? AutoId, string? Name, string? Label, string Shown);
+
+    private static InteractOutcome SelectComboItem(ComboBox combo, string value)
+    {
+        if (!combo.IsDropDownOpen)
+            return Err($"'{LabelOf(combo)}' has no selectable items realized — 'expand' it first, then select");
+        var scroller = combo.GetRealizedContainers().FirstOrDefault()?.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault();
+        var original = scroller?.Offset;
+        List<ComboRow> rows = [];
+        try
+        {
+            for (var i = 0; i < combo.ItemCount; i++)
+            {
+                combo.ScrollIntoView(i);
+                combo.UpdateLayout();
+                if (combo.ContainerFromIndex(i) is not Control row || Shows(row) is not true) continue;
+                var info = Classify(row);
+                rows.Add(new ComboRow(i, info.AutoId, row.Name, MeaningfulLabelOf(info.Peer), LabelOf(row)));
+            }
+            var (matches, facet) = MatchByDiscriminator(rows, value, r => r.AutoId, r => r.Name, r => r.Label);
+            if (matches.Count == 0)
+                return Err($"no selectable item matching '{value}' among {rows.Count} item(s); available items: "
+                           + (rows.Count == 0 ? "none" : string.Join(", ", rows.Take(20).Select(r => $"'{r.Shown}'")))
+                           + (rows.Count > 20 ? $"; {rows.Count - 20} more item(s) omitted" : ""));
+            if (matches.Count > 1)
+                return Err($"ambiguous select '{value}' ({matches.Count} {facet} matches); target the item directly by path instead");
+            combo.ScrollIntoView(matches[0].Index);
+            combo.UpdateLayout();
+            if (combo.ContainerFromIndex(matches[0].Index) is not Control target)
+                return Err($"the item matching '{value}' could not be brought into view; nothing was selected");
+            return DoSelect(target, ControlAutomationPeer.CreatePeerForElement(target), null);
+        }
+        finally
+        {
+            if (scroller is not null && original is { } offset)
+                scroller.Offset = offset;
+        }
     }
 
     /// <summary>
@@ -1273,6 +1335,23 @@ public static class UiAutomationDriver
                 treeRefusal = unselected;
             else
                 selected = true;
+        }
+
+        // AvaloniaEdit commits on a pointer press, before DoubleTapped would arrive. Use the same
+        // insertion request as its pointer handler, after verifying selection, rather than sending keys.
+        if (control is ListBoxItem
+            && control.FindAncestorOfType<CompletionList>() is { } completion
+            && completion.GetLogicalParent() is CompletionWindow completionWindow)
+        {
+            if (!selected)
+                return Err($"the completion item was not selected, so it was not committed: {treeRefusal}");
+            var label = LabelOf(control, peer);
+            var document = completionWindow.TextArea.Document;
+            var before = document.Text;
+            completion.RequestInsertion(EventArgs.Empty);
+            return Ok($"requested insertion of completion '{label}'; "
+                      + (document.Text != before ? "the document text changed" : "the document text did not change")
+                      + (completionWindow.IsOpen ? "; the completion list is still open" : "; the completion list closed"));
         }
 
         var centre = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
@@ -1586,7 +1665,7 @@ public static class UiAutomationDriver
             HexIDE.Runtime.EventPump pump, Window? form, HashSet<Window> before, Func<HexIDE.Runtime.Debugging.StoppedInfo?> paused)
         {
             Pump = pump;
-            IdleBefore = pump.IsIdle;
+            WaitingOnWindowBefore = pump.IsWaitingOnWindow;
             LiveBefore = [.. pump.Live];
             LoopsBefore = [.. pump.Loops];
             Form = form;
@@ -1597,8 +1676,8 @@ public static class UiAutomationDriver
         internal HexIDE.Runtime.EventPump Pump { get; }
         internal Window? Form { get; }
         internal HashSet<Window> Before { get; }
-        // A program idle before the action held on nothing open then: only a window the action opened can hold it.
-        internal bool IdleBefore { get; }
+        // An old window can hold the program only if a walk was waiting on a window before the action.
+        internal bool WaitingOnWindowBefore { get; }
         // The loops running before the action: one of them parked at DoEvents is the program waiting for input, but a loop
         // the action started, or set going by answering a box its handler waited at, is its own work, waited for as a loop
         // with no DoEvents is (#1254).
@@ -1755,9 +1834,9 @@ public static class UiAutomationDriver
     /// <summary>
     /// A window, not one of the program's forms, open over the form: one that opened since the action began, such as a
     /// MsgBox when the startup form that owns it is not this one, else one the form owns, the program's own box first, as
-    /// that is what holds a handler. One open before the action is left out when the program was idle then, as it held
-    /// nothing: an error dialog an earlier call left open was named in place of the MsgBox the action raised, before that
-    /// had opened (#1253). A form of the program is left out: a form shown modally is the program waiting for input once
+    /// that is what holds a handler. One open before the action is left out unless the program was waiting on a window
+    /// then: an error dialog an earlier call left open was named in place of the MsgBox the action raised, before that
+    /// had opened (#1253, #1318). A form of the program is left out: a form shown modally is the program waiting for input once
     /// its own events have run, which the wait sees, and one shown otherwise holds nothing. Null when there is none.
     /// </summary>
     private static Window? DialogOf(ProgramWatch watch) =>
@@ -1765,7 +1844,7 @@ public static class UiAutomationDriver
             .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox
                                                                        or HexIDE.Runtime.Dialogs.InputBox ? 0 : 1))
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
-                                 && !(watch.IdleBefore && watch.Before.Contains(w)));
+                                 && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
     /// <summary>The titles of the program's forms that have opened since the action began.</summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>
@@ -2503,6 +2582,9 @@ public static class UiAutomationDriver
 
             surface.Focus();
 
+            var insertedText = AreaOf(surface) is { } textArea
+                ? DocumentNewLines.Normalize(text, textArea.Document.Text) : text;
+
             // A person's typing writes over a standing selection (#1040), as one change.
             using var change = AreaOf(surface)?.Document.RunUpdate();
 
@@ -2514,7 +2596,7 @@ public static class UiAutomationDriver
             // replacement; its surrounding span is more than the box, so it is not placed past a run (#1040 review).
             if (AreaOf(surface) is { Selection: RectangleSelection { IsEmpty: false } box } boxArea)
             {
-                HexIDE.Forms.Views.CodeEditorView.WriteOverBox(boxArea, box, text);
+                HexIDE.Forms.Views.CodeEditorView.WriteOverBox(boxArea, box, insertedText);
                 return new InteractOutcome(true, TypedMechanism,
                     $"typed {text.Length} char(s) into {surface.GetType().Name}"
                     + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
@@ -2524,7 +2606,7 @@ public static class UiAutomationDriver
             if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
                 && (codeArea.Selection.IsEmpty ? (codeArea.Caret.Offset, 0)
                     : (codeArea.Selection.SurroundingSegment.Offset, codeArea.Selection.SurroundingSegment.Length)) is var (from, span)
-                && window.InsertLineBreakPastRun(from, span, text) is { } placed)
+                && window.InsertLineBreakPastRun(from, span, insertedText) is { } placed)
             {
                 // The replaced text's selection would carry over onto what replaced it, for the next write to go over.
                 codeArea.ClearSelection();
@@ -2548,13 +2630,13 @@ public static class UiAutomationDriver
             {
                 case TextEditor editor:
                     var eo = editor.CaretOffset;
-                    editor.Document.Insert(eo, text);
-                    editor.CaretOffset = eo + text.Length;
+                    editor.Document.Insert(eo, insertedText);
+                    editor.CaretOffset = eo + insertedText.Length;
                     break;
                 case TextArea area:
                     var ao = area.Caret.Offset;
-                    area.Document.Insert(ao, text);
-                    area.Caret.Offset = ao + text.Length;
+                    area.Document.Insert(ao, insertedText);
+                    area.Caret.Offset = ao + insertedText.Length;
                     break;
                 case TextBox textBox:
                     // One assignment, so what is bound to the box sees one change and one undo takes it back.
@@ -3699,18 +3781,20 @@ public static class UiAutomationDriver
     // any match wins (and must be unique to be decisive).
     private static (List<Control> matches, string facet) MatchByDiscriminator(List<MeaningfulChild> typed, string disc)
     {
-        var byId = typed.Where(m => string.Equals(m.Info.AutoId?.Trim(), disc, StringComparison.OrdinalIgnoreCase))
-            .Select(m => m.Control).ToList();
+        var (matches, facet) = MatchByDiscriminator(typed, disc,
+            m => m.Info.AutoId, m => m.Control.Name, m => MeaningfulLabelOf(m.Info.Peer));
+        return ([.. matches.Select(m => m.Control)], facet);
+    }
+
+    private static (List<T> Matches, string Facet) MatchByDiscriminator<T>(List<T> items, string disc,
+        Func<T, string?> id, Func<T, string?> name, Func<T, string?> label)
+    {
+        var byId = items.Where(m => string.Equals(id(m)?.Trim(), disc, StringComparison.OrdinalIgnoreCase)).ToList();
         if (byId.Count > 0) return (byId, "automationId");
-
-        var byName = typed.Where(m => NameEquals(m.Control.Name, disc)).Select(m => m.Control).ToList();
+        var byName = items.Where(m => NameEquals(name(m), disc)).ToList();
         if (byName.Count > 0) return (byName, "name");
-
-        var byLabel = typed.Where(m => NameEquals(MeaningfulLabelOf(m.Info.Peer), disc))
-            .Select(m => m.Control).ToList();
-        if (byLabel.Count > 0) return (byLabel, "label");
-
-        return ([], "match");
+        var byLabel = items.Where(m => NameEquals(label(m), disc)).ToList();
+        return (byLabel, "label");
     }
 
     private static (Control? control, string? error) Pick(List<Control> matches, string raw, string parentPath, string by)
@@ -3941,6 +4025,13 @@ public static class UiAutomationDriver
         // The code window's completion list and parameter info are the editor's own popups, held by its view.
         if (c is TextEditor editor && HexIDE.Forms.Views.CodeEditorView.OpenPopupsOf(editor) is { Count: > 0 } editorPopups)
             return editorPopups;
+
+        // AvaloniaEdit parents its description popup logically to CompletionWindow, alongside the
+        // CompletionList. Graft it under the list box that owns the selected item (#1334). This same
+        // route is used by SnapshotComposer when it walks the completion popup's realised content.
+        if (c is CompletionListBox
+            && c.FindAncestorOfType<CompletionList>()?.GetLogicalParent() is CompletionWindow completionWindow)
+            return completionWindow.GetLogicalChildren().OfType<Popup>().Where(p => p.IsOpen).ToList();
 
         foreach (var f in FlyoutsOf(c))
             if (f is PopupFlyoutBase open && IsOpenOn(open, c))
@@ -4200,6 +4291,8 @@ public record UiNodeDetail(
     // Absent for anything else: a menu or the dock's lists count separators and splitters a dump does not show.
     int? ItemCount = null,
     string? Label = null,
+    // The value pattern's writability, independent of the range pattern's flag. Null without that pattern.
+    bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     WindowFrameState? Frame = null);
 

@@ -1268,6 +1268,118 @@ public class UiAutomationDriverTests
     }
 
     [AvaloniaFact]
+    public void ReadOnlyValue_ComboMatch_SelectsAndReports()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Alpha", "Beta" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "beta");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("Beta");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().Be("selected 'Beta' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMiss_NamesItemsWithoutSelecting()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Alpha", "Beta" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "missing");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("no selectable item matching 'missing'").And.Contain("'Alpha', 'Beta'");
+            combo.SelectedItem.Should().Be("Alpha");
+            combo.IsDropDownOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_Inspection_ReportsComboTrueAndTextBoxFalse()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Alpha", "Beta" } };
+        var text = new TextBox();
+        var window = Show(new StackPanel { Children = { combo, text } });
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+            var comboJson = System.Text.Json.JsonSerializer.SerializeToElement(UiAutomationDriver.Inspect(combo, "Window/ComboBox"), options);
+            var textJson = System.Text.Json.JsonSerializer.SerializeToElement(UiAutomationDriver.Inspect(text, "Window/TextBox"), options);
+            comboJson.TryGetProperty("isReadOnly", out var comboReadOnly).Should().BeTrue();
+            comboReadOnly.GetBoolean().Should().BeTrue();
+            textJson.GetProperty("isReadOnly").GetBoolean().Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMiss_CapsNamesAndCountsOmitted()
+    {
+        var combo = new ComboBox { ItemsSource = Enumerable.Range(0, 25).Select(i => $"Item{i}").ToArray() };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "missing");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("'Item0'").And.Contain("'Item19'").And.Contain("5 more item(s) omitted")
+                .And.NotContain("'Item20'");
+            combo.SelectedIndex.Should().Be(-1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMatch_SelectsAnOffscreenItem()
+    {
+        var combo = new ComboBox { ItemsSource = Enumerable.Range(0, 25).Select(i => $"Item{i}").ToArray() };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "Item24");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("Item24");
+            outcome.Detail.Should().Be("selected 'Item24' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboAmbiguity_RefusesWithoutSelecting()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Dup", "dup" } };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "Dup");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("ambiguous");
+            combo.SelectedIndex.Should().Be(-1);
+            combo.IsDropDownOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_TextBox_RefusesClearly()
+    {
+        var text = new TextBox { Text = "original", IsReadOnly = true };
+        var window = Show(text);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(text, "set_value", "changed");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("value is read-only").And.NotContain("threw");
+            text.Text.Should().Be("original");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void Interact_Select_ByValue_SelectsListBoxItem()
     {
         var list = new ListBox { ItemsSource = new[] { "Alpha", "Beta", "Gamma" } };
@@ -1636,7 +1748,7 @@ public class UiAutomationDriverTests
             UiAutomationDriver.TypeText(editor, "Sub Main()\n").Success.Should().BeTrue();
             UiAutomationDriver.TypeText(editor, "    MsgBox \"hi\"\n").Success.Should().BeTrue();
             UiAutomationDriver.TypeText(editor, "End Sub").Success.Should().BeTrue();
-            editor.Document.Text.Should().Be("Sub Main()\n    MsgBox \"hi\"\nEnd Sub");
+            editor.Document.Text.Should().Be("Sub Main()\r\n    MsgBox \"hi\"\r\nEnd Sub");
         }
         finally { window.Close(); }
     }

@@ -33,7 +33,7 @@ startRule
 
 module
     : WS? NEWLINE* (moduleHeader NEWLINE+)? moduleReferences? NEWLINE* controlProperties? NEWLINE* moduleConfig? NEWLINE* moduleAttributes? NEWLINE*
-        moduleOptions? NEWLINE* moduleBody? NEWLINE* WS?
+        (moduleOptions | moduleBody)? NEWLINE* WS?
     ;
 
 moduleReferences
@@ -156,7 +156,7 @@ attributeStmt
     ;
 
 block
-    : emptyLineNumber* lineHead? blockStmt
+    : colonSep? emptyLineNumber* lineHead? blockStmt
       ( colonSep blockStmt
       | lineSep emptyLineNumber* lineHead? blockStmt
       )*
@@ -307,7 +307,7 @@ dateStmt
 
 // `Lib WS? "x"` / `Alias WS? "x"` - measured, not reasoned; see the note on selectCaseStmt.
 declareStmt
-    : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (
+    : (visibility WS)? DECLARE WS (PTRSAFE WS)? (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (
         WS ALIAS WS? STRINGLITERAL
     )? (WS? argList)? (WS asTypeClause)?
     ;
@@ -426,11 +426,19 @@ ifThenElseStmt
     // whitespace had nothing to match - inlineIfBody's own leading `(WS? COLON WS?)*` already admits the
     // colon. Safe by adjacency: `ThenX` lexes as one IDENTIFIER. Mirrored from the interpreter's grammar.
     : IF WS ifConditionStmt WS THEN WS? ((inlineIfBody | lineNumber) (WS? ELSE (WS (inlineIfBody | lineNumber))?)? | ELSE (WS (inlineIfBody | lineNumber))?) # inlineIfThenElse
+    | IF WS ifConditionStmt WS THEN WS? COLON WS? # inlineIfThenElse
     | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF             # blockIfThenElse
     ;
 
 ifBlockStmt
-    : IF WS ifConditionStmt WS THEN blockSep (block blockSep)?
+    : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+    ;
+
+// The LSP already accepts labelled End If via block/blockSep. Keep that recovery shape: unlike the
+// interpreter it does not execute a bare call node, and preferring a trailing label here harms recovery
+// after an incomplete member access (#223).
+ifBlockBody
+    : block blockSep
     ;
 
 ifConditionStmt
@@ -438,11 +446,11 @@ ifConditionStmt
     ;
 
 ifElseIfBlockStmt
-    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ (block blockSep)?
+    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ ifBlockBody?
     ;
 
 ifElseBlockStmt
-    : ELSE blockSep (block blockSep)?
+    : ELSE blockSep ifBlockBody?
     ;
 
 implementsStmt
@@ -718,7 +726,7 @@ valueStmt
     ;
 
 variableStmt
-    : (DIM | STATIC | visibility) WS (WITHEVENTS WS)? variableListStmt
+    : (DIM | STATIC | visibility) WS variableListStmt
     ;
 
 variableListStmt
@@ -726,7 +734,7 @@ variableListStmt
     ;
 
 variableSubStmt
-    : ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (
+    : (WITHEVENTS WS)? ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (
         WS asTypeClause
     )?
     ;
@@ -777,8 +785,9 @@ iCS_B_ProcedureCall
     : certainIdentifier (WS argsCall)?
     ;
 
+// Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
-    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt?
+    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?
     // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
     // VB6's "Syntax error" (measured, #1409).
     | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*
@@ -883,6 +892,7 @@ baseType
 certainIdentifier
     : IDENTIFIER (ambiguousKeyword | IDENTIFIER)*
     | ambiguousKeyword (ambiguousKeyword | IDENTIFIER)+
+    | PTRSAFE
     ;
 
 comparisonOperator
@@ -1008,6 +1018,7 @@ ambiguousKeyword
     | CONST
     | DATE
     | DECLARE
+    | PTRSAFE
     | DEFBOOL
     | DEFBYTE
     | DEFCUR

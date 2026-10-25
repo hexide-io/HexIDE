@@ -64,6 +64,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
+            .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
@@ -181,6 +182,7 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
                 ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
 
                 // The whole of #255 meets here. Defaults are contributed in code, the user's file is
@@ -191,7 +193,8 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
-                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture)
+                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture,
+                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms))
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
@@ -220,7 +223,7 @@ public partial class DISetup
             // Theming
             .Bind<IThemeService>().As(Singleton).To<ThemeService>()
             // Keymaps
-            .Bind<IKeymapService>().As(Singleton).To<KeymapService>()
+            .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
             .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
             .Bind<ILocalizationService>().As(Singleton).To<LocalizationService>()

@@ -143,4 +143,4 @@ public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
     }
 }
 
-public readonly record struct LspMarker(int StartOffset, int EndOffset, bool IsError, string Message);
+public readonly record struct LspMarker(int StartOffset, int EndOffset, bool IsError, string Message, string? Source = null);

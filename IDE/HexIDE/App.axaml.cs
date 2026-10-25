@@ -25,14 +25,20 @@ public partial class App : Application
 
     public override void Initialize()
     {
+        // Dock's reveal can leave nested document/tool presenters at 0.85 opacity after a switch (#900).
+        Dock.Controls.DeferredContentControl.DeferredContentPresentationSettings.RevealDuration = TimeSpan.Zero;
+
         // A running program formats and reads text in the user's regional settings, as VB6 does (#777). Taken on
         // the line before the pin below, because from that line on the main thread's culture reads as invariant.
         // The pin stays: it keeps the IDE's language out of what a program computes, and source literals rely on it.
         VbLocale.Default = CultureInfo.CurrentCulture;
+        Localization.LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-        AvaloniaXamlLoader.Load(this);
+        LoadMarkup();
     }
+
+    internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {

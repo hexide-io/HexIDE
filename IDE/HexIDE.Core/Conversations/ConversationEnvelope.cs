@@ -40,7 +40,7 @@ public enum ConversationEntryKind
     Notification,
 
     /// <summary>
-    /// A request the client declined to make, because the server advertised no such capability.
+    /// A request the client declined to make, including an unavailable capability or another claimant taking priority.
     /// </summary>
     /// <remarks>
     /// It never reached the wire, so no tap could see it, and its absence is indistinguishable from a
@@ -102,6 +102,9 @@ public enum ConversationOutcome
 
     /// <summary>The connection went away with the request outstanding.</summary>
     Abandoned,
+
+    /// <summary>The local request deadline expired before an answer arrived.</summary>
+    TimedOut,
 }
 
 /// <summary>
@@ -210,5 +213,6 @@ public static class ConversationFailures
         || envelope.Fault
         || envelope.Outcome is ConversationOutcome.Failed
                             or ConversationOutcome.Cancelled
-                            or ConversationOutcome.Abandoned;
+                            or ConversationOutcome.Abandoned
+                            or ConversationOutcome.TimedOut;
 }

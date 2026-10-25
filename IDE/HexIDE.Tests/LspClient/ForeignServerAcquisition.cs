@@ -90,7 +90,10 @@ internal sealed record ForeignServerSource(
     string ReleaseUrlFormat,
     DigestProvenance Provenance,
     ForeignAsset[] Assets,
-    string ExecutableSubdirectory = "");
+    string ExecutableSubdirectory = "")
+{
+    public string? ChecksumMismatch { get; set; }
+}
 
 /// <summary>
 /// Fetches the pinned third-party language servers the foreign-backend tests need, into a gitignored
@@ -448,6 +451,7 @@ internal static class ForeignServerAcquisition
         {
             Directory.CreateDirectory(directory);
             var archive = DownloadVerified(server, asset, directory);
+            if (archive is null) return null;
             Extract(archive, directory);
             File.Delete(archive);
 
@@ -482,7 +486,7 @@ internal static class ForeignServerAcquisition
         return Array.Find(server.Assets, a => a.Rid == $"{os}-{arch}");
     }
 
-    private static string DownloadVerified(
+    private static string? DownloadVerified(
         ForeignServerSource server, ForeignAsset asset, string directory)
     {
         var url = string.Format(server.ReleaseUrlFormat, server.Version, asset.FileName);
@@ -497,18 +501,24 @@ internal static class ForeignServerAcquisition
             response.Content.CopyToAsync(target).GetAwaiter().GetResult();
         }
 
+        return VerifyDownload(server, asset, path);
+    }
+
+    internal static string? VerifyDownload(ForeignServerSource server, ForeignAsset asset, string path)
+    {
+        string actual;
         using (var stream = File.OpenRead(path))
+            actual = Convert.ToHexString(SHA256.HashData(stream));
+
+        if (!actual.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
         {
-            var actual = Convert.ToHexString(SHA256.HashData(stream));
-            if (!actual.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
-            {
-                File.Delete(path);
-                // Thrown, not swallowed into a skip. A skip says "not available"; this says "something
-                // other than what was pinned arrived", and the tests are about to EXECUTE it.
-                throw new InvalidOperationException(
-                    $"Checksum mismatch for {asset.FileName}: expected {asset.Sha256}, got {actual}. "
-                  + "Refusing to run it.");
-            }
+            // Discovery must not throw: xunit v3 discards the test. An ordinary Fact reports this
+            // even when foreign servers are optional; see RequiredServersTests.
+            server.ChecksumMismatch =
+                $"Checksum mismatch for {asset.FileName}: expected {asset.Sha256}, got {actual}. "
+              + "Refusing to run it.";
+            File.Delete(path);
+            return null;
         }
 
         return path;

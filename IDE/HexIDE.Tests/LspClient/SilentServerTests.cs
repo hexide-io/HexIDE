@@ -90,7 +90,9 @@ public class SilentServerTests : IAsyncDisposable
             LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            lock (_entries) _entries.Add((logLevel, formatter(state, exception)));
+            lock (_entries) _entries.Add((logLevel, exception is null
+                ? formatter(state, exception)
+                : $"{formatter(state, exception)}{Environment.NewLine}{exception}"));
         }
     }
 
@@ -183,7 +185,12 @@ public class SilentServerTests : IAsyncDisposable
 
         logger.Entries.Should().ContainSingle(e =>
                 e.Level == LogLevel.Warning && e.Message.Contains("did not answer initialize"),
-            "the whole bug is that this failure said nothing, so the giving-up must be visible");
+            "the whole bug is that this failure said nothing, so the giving-up must be visible. "
+          + "Last attempt: {0}. Recorded logs: {1}",
+            sut.LastAttempt is { } attempt
+                ? string.Join(Environment.NewLine, attempt.Steps)
+                : "(none)",
+            string.Join(Environment.NewLine, logger.Entries.Select(e => $"{e.Level}: {e.Message}")));
     }
 
     [Fact]

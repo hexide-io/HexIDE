@@ -138,6 +138,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // that push, so the paused statement has no temp frame open here to clobber).
                 stmtFrames.Push(new List<Vb6Value>());
                 try { await Visit(assign); }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
                 return string.Empty;
             }
@@ -334,6 +335,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var target = new TextTarget();
         stmtFrames.Push(new List<Vb6Value>());
         try { await PrintList(list, target, _ => { }); }
+        catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
         finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
         var text = target.Text;
         return (text.EndsWith("\r\n", StringComparison.Ordinal) ? text[..^2] : text).Replace("\r\n", "\n");
@@ -444,6 +446,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     ret = await Visit(stmt);
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -614,7 +617,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var name = sub.ambiguousIdentifier().GetText();
             // What the value reads is checked against VB6's rules for a constant expression first (measured).
-            ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
+            await ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
             var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value, fillingConstant: true))
@@ -919,8 +922,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var empties = DeclaredOtherThanAnArray(context.valueStmt())
                 ?? throw new NotImplementedException(
                     "This For Each's collection raised under On Error Resume Next. VB6 then runs the body once and empties "
-                    + "the loop variable unless the collection is declared as an array, and HexIDE can tell which only for a "
-                    + "call of one of the project's own Functions (#969).");
+                    + "the loop variable unless the collection is declared as an array, and this expression's "
+                    + "declaration is unavailable (#969): " + context.valueStmt().GetText() + ".");
             interpreter.Err.Capture(ex);
             return await RunUninitialisedForEach(context, varName, empties);
         }
@@ -953,36 +956,52 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!ResumesNext)
                 throw refusal;
             interpreter.Err.Capture(refusal);
+            // P-code and the IDE skip Next with a failed For Each over Nothing when it directly follows
+            // on the same line (#1486). The grammar gives this form no block; token lines distinguish
+            // it from an empty multi-line loop. Returning consumes the loop, leaving any following
+            // statement in the enclosing block to run, without touching the variable.
+            if (collection.Type == Vb6Value.ValueType.Object && collection.Value is null
+                && context.block() is null && context.FOR().Symbol.Line == context.NEXT().Symbol.Line)
+                return ControlFlow.Nothing;
             return await RunUninitialisedForEach(context, varName, emptiesElement: collection.Value is not VBArray);
         }
 
-        var block = context.block();
-        foreach (var element in array.EnumerateElements())
+        // Share the ByRef element lock (#1455): every exit, including a propagated jump or error, must release it.
+        array.LockCount++;
+        try
         {
-            // VB6 binds each element as a copy: an element that is an array is copied, so a write through the loop
-            // variable does not reach the array walked (measured, #970). An object element is held by the variable while
-            // it holds it, and what the variable held before is released.
-            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var previous);
-            var bound = interpreter.CopyForStore(element);
-            interpreter.AddRef(bound);
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound);
-            await interpreter.ReleaseRef(previous);
+            var block = context.block();
+            foreach (var element in array.EnumerateElements())
+            {
+                // VB6 binds each element as a copy: an element that is an array is copied, so a write through the loop
+                // variable does not reach the array walked (measured, #970). An object element is held by the variable while
+                // it holds it, and what the variable held before is released.
+                interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var previous);
+                var bound = interpreter.CopyForStore(element);
+                interpreter.AddRef(bound);
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound);
+                await interpreter.ReleaseRef(previous);
 
-            if (block == null)
-                continue;
-            var result = await Visit(block);
-            if (result == ControlFlow.ExitFor)
-                return ControlFlow.Nothing;
-            if (result != ControlFlow.Nothing)
-                return result;
+                if (block == null)
+                    continue;
+                var result = await Visit(block);
+                if (result == ControlFlow.ExitFor)
+                    return ControlFlow.Nothing;
+                if (result != ControlFlow.Nothing)
+                    return result;
+            }
+            // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
+            // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
+            // over an empty Split is Empty after it). Exit For leaves it holding the element it reached.
+            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Variant);
+            await interpreter.ReleaseRef(last);
+            return ControlFlow.Nothing;
         }
-        // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
-        // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
-        // over an empty Split is Empty after it). Exit For leaves it holding the element it reached.
-        interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
-        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Variant);
-        await interpreter.ReleaseRef(last);
-        return ControlFlow.Nothing;
+        finally
+        {
+            array.LockCount--;
+        }
     }
 
     /// <summary>The next item of a For Each over an object, or false once there are no more.</summary>
@@ -1157,18 +1176,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // oracle (0 To 10 Step 3 → 12; empty 1 To 3 → 4). An empty body still counts.
         var block = context.block();
         long i = fromL;
-        for (; stepL >= 0 ? i <= toL : i >= toL; i += stepL)
-        {
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
-            if (block == null)
-                continue;
-            var ret = await Visit(block);
-            if (ret == ControlFlow.ExitFor)
-                return ControlFlow.Nothing;
-            if (ret != ControlFlow.Nothing)
-                return ret;
-        }
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
+        while (stepL >= 0 ? i <= toL : i >= toL)
+        {
+            if (await RunLoopBodyOnce(block) is { } left)
+                return left;
+            i = AdvanceForCounter(context, variable, stepL, i);
+        }
         return default;
     }
 
@@ -1219,6 +1233,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (ret != ControlFlow.Nothing)
                     return ret;
             }
+            // Next reads a Variant counter back as the body left it (measured, #841). Single, Double, Currency and Date
+            // counters, and a Variant the body left holding something that isn't a number, are unmeasured and keep the step.
+            if (variant && interpreter.ExecutionContext.TryGetVariable(currentEnv, variable, out var held)
+                && VbNumeric.IsCoreNumeric(held.Type))
+                counter = held;
             (counter, tested) = ForNextValue(counter, by, context);
         }
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, counter);
@@ -1394,15 +1413,28 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (await RunLoopBodyOnce(block) is { } left)
                 return left;
 
-            // Next: the counter as the body left it, plus the step. A Byte, Integer or Long counter holds a whole number.
-            interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
-            if (!expressionExecutor.TryUnpack(current, out double c) || c != Math.Truncate(c))
-                throw FractionalForRefused();
-            var next = (long)c + (long)step;
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, ForCounterValue(next), context);
+            var next = AdvanceForCounter(context, counter, (long)step);
             if (!(step >= 0 ? next <= limit : next >= limit))
                 return ControlFlow.Nothing;
         }
+    }
+
+    // Next reads the counter as the body left it (#841). Unmeasured non-integral/nonnumeric body stores
+    // keep the normal loop's previous advancement; a raised-header loop keeps its existing refusal.
+    private long AdvanceForCounter(VB6Parser.ForNextStmtContext context, string counter, long step, long? previous = null)
+    {
+        interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
+        long value;
+        if ((previous is null || VbNumeric.IsCoreNumeric(current.Type)) && expressionExecutor.TryUnpack(current, out double c)
+            && c == Math.Truncate(c))
+            value = (long)c;
+        else if (previous is { } fallback)
+            value = fallback;
+        else
+            throw FractionalForRefused();
+        var next = value + step;
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, ForCounterValue(next), context);
+        return next;
     }
 
     /// <summary>
@@ -1419,7 +1451,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
     }
 
-    /// <summary>Run a loop body once, for a header that raised under Resume Next. Null when it reaches its <c>Next</c>; otherwise
+    /// <summary>Run a loop body once. Null when it reaches its <c>Next</c>; otherwise
     /// the flow that left it, with an <c>Exit For</c> spent here.</summary>
     private async Task<ControlFlow?> RunLoopBodyOnce(VB6Parser.BlockContext? block)
     {
@@ -1432,24 +1464,72 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     /// <summary>
-    /// Whether a For Each collection that raised is declared as something other than an array, which decides whether its
-    /// Next empties the element. Only a call of one of the project's own Functions can be answered, from that Function's
-    /// declaration: it is the procedure the call reached, found as the call found it. Null for anything else, whose
-    /// declared type HexIDE cannot know without the value, and for a name a variable in scope shadows, which the call
-    /// reached instead of the Function.
+    /// Whether a raised collection's declaration is not an array (#969). Read only existing slots and member
+    /// tables: evaluating the expression again could repeat the error or its side effects. Null means unavailable.
     /// </summary>
     private bool? DeclaredOtherThanAnArray(VB6Parser.ValueStmtContext collection)
     {
+        while (collection is VB6Parser.VsStructContext parentheses && parentheses.valueStmt().Length == 1)
+            collection = parentheses.valueStmt(0);
         var call = (collection as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         var name = call?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
                    ?? call?.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText();
-        if (name is null
-            || interpreter.ExecutionContext.TryInspectVariable(currentEnv, name, out _)
-            || !interpreter.TryResolveProcedure(name, currentModule, out _, out var proc)
-            || proc.Body?.Parent is not VB6Parser.FunctionStmtContext function)
+        if (name is not null)
+        {
+            if (interpreter.ExecutionContext.TryInspectVariable(currentEnv, name, out var slot))
+                return call?.iCS_S_ProcedureOrArrayCall() is not null && slot.Value is VBArray
+                    ? true : null; // An element is not declared as an array, even when a Variant element holds one.
+            return interpreter.TryResolveProcedure(name, currentModule, out _, out var proc)
+                ? ProcedureIsNotArray(proc) : null;
+        }
+        if (call?.iCS_S_MembersCall() is not { } members
+            || members.dictionaryCallStmt() is not null
+            || members.iCS_S_VariableOrProcedureCall() is not { } lead
+            || lead.typeHint() is not null || lead.dictionaryCallStmt() is not null)
             return null;
-        return function.asTypeClause()?.type().LPAREN() == null;
+        var chain = members.iCS_S_MemberCall();
+        if (chain.Length != 1)
+            return null;
+        var member = chain[0];
+        if (member.iCS_S_ProcedureOrArrayCall() is { } indexed
+            && (indexed.argsCall().Length > 1 || indexed.dictionaryCallStmt() is not null)
+            || member.iCS_S_VariableOrProcedureCall()?.dictionaryCallStmt() is not null)
+            return null;
+        var memberName = member.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
+                         ?? member.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText();
+        if (memberName is null)
+            return null;
+        var leadName = lead.ambiguousIdentifier().GetText();
+        if (interpreter.ExecutionContext.TryInspectVariable(currentEnv, leadName, out var target))
+        {
+            if (target.Value is not VbObject instance)
+                return null;
+            memberName = VbInterface.ResolveMember(target, instance, memberName);
+            if (memberName is null)
+                return null;
+            var table = instance.ClassDef.PrePass;
+            if (table.Procedures.TryGetValue(memberName, out var method))
+                return ProcedureIsNotArray(method);
+            if (table.Properties.TryGetValue(memberName, out var property) && property.Get is { } getter)
+                return ProcedureIsNotArray(getter);
+            if (instance.InstanceEnv.TryGetVariableLocation(memberName, out var location))
+                return member.iCS_S_ProcedureOrArrayCall() is not null
+                    || !interpreter.ExecutionContext.State.IsDeclaredArray(location);
+            return null;
+        }
+        if (interpreter.TryResolveQualifier(leadName, out var qualifier) && qualifier.Module is { } module
+            && module.PrePass.Procedures.TryGetValue(memberName, out var qualified)
+            && (!qualified.IsPrivate || ReferenceEquals(module, currentModule)))
+            return ProcedureIsNotArray(qualified);
+        return null;
     }
+
+    private static bool? ProcedureIsNotArray(ProcedureInfo procedure) => procedure.Body?.Parent switch
+    {
+        VB6Parser.FunctionStmtContext function => function.asTypeClause()?.type().LPAREN() == null,
+        VB6Parser.PropertyGetStmtContext getter => getter.asTypeClause()?.type().LPAREN() == null,
+        _ => null
+    };
 
     // A For counter value with VB6-faithful typing: an integer magnitude picks Integer vs Long via Vb6Value's
     // magnitude rule (oracle: 12 → Integer, 50001 → Long); a value beyond Long range is a Double, matching VB6's
@@ -1504,16 +1584,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A condition that raised under Resume Next enters its own branch, the Then or the ElseIf it was testing (null; see
         // ConditionMet).
         if (await ConditionMet(context.ifBlockStmt().ifConditionStmt().valueStmt(), context) is not false)
-            return await VisitBranch(context.ifBlockStmt().block());
+            return await VisitBranch(context.ifBlockStmt().ifBlockBody()?.block());
 
         foreach (var elseIf in context.ifElseIfBlockStmt())
         {
             if (await ConditionMet(elseIf.ifConditionStmt().valueStmt(), elseIf) is not false)
-                return await VisitBranch(elseIf.block());
+                return await VisitBranch(elseIf.ifBlockBody()?.block());
         }
 
         if (context.ifElseBlockStmt() is { } elseBlock)
-            return await VisitBranch(elseBlock.block());
+            return await VisitBranch(elseBlock.ifBlockBody()?.block());
 
         return default;
     }
@@ -2020,6 +2100,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (membersCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dict not supported yet");
 
+            // Enum members are constants, including the shared-name E.E (#1637).
+            if (membersCall.iCS_S_VariableOrProcedureCall() is { } enumLead
+                && interpreter.EnumIsQualifier(enumLead.GetText(), currentEnv, currentModule)
+                && interpreter.TryResolveEnum(enumLead.GetText(), currentModule, out var enumMembers)
+                && membersCall.iCS_S_MemberCall() is { Length: 1 } enumTail
+                && enumMembers.ContainsKey(ExpressionExecutor.MemberName(enumTail[0])))
+                throw new VBCompileErrorException("Assignment to constant not permitted");
+
             if (await TryStoreModuleMember(membersCall, value, false, context))
                 return default;
 
@@ -2079,7 +2167,29 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (variable.Value is not VbObject vobj)
                     throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
                 if (MemberHasArgs(members[0]))
+                {
+                    var indexedName = UdtFieldName(members[0]);
+                    if (string.Equals(variable.DeclaredAs, vobj.ClassName, StringComparison.OrdinalIgnoreCase)
+                        && members[0].iCS_S_ProcedureOrArrayCall() is { } indexed && indexed.argsCall().Length == 1
+                        && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
+                        && expressionExecutor.IsVariantArrayField(vobj, indexedName, field))
+                    {
+                        var indices = await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0));
+                        // VB6 writes into a copy of the field's array, leaving the field unchanged (#1435).
+                        // Only an in-bounds store is measured; keep other stores refused.
+                        if (field.Value is VBArray array && indices.Count == array.Rank)
+                        {
+                            try
+                            {
+                                array.GetValue(Subscripts(indices));
+                                return default;
+                            }
+                            catch (IndexOutOfRangeException) { }
+                            catch (VBRunTimeException) { }
+                        }
+                    }
                     throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
+                }
                 var fieldName = VbInterface.ResolveMember(variable, vobj, UdtFieldName(members[0]))
                     ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
                         UdtFieldName(members[0]));
@@ -2154,7 +2264,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             if (variable.Type != Vb6Value.ValueType.Control ||
                 variable.Value is not Control control)
-                throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
+                throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
 
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -2176,14 +2286,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (IdentityMembers.TrySet(control, memberIdentifier))
                 return default;
 
-            throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
+            throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
         {
+            if (procedureOrArrayCall.dictionaryCallStmt() != null)
+                throw new NotImplementedException("Bang access (!) in an assignment target is not supported: "
+                    + procedureOrArrayCall.GetText());
             if (procedureOrArrayCall.baseType() != null||
                 procedureOrArrayCall.iCS_S_NestedProcedureCall() != null ||
-                procedureOrArrayCall.typeHint() != null ||
-                procedureOrArrayCall.dictionaryCallStmt() != null)
+                procedureOrArrayCall.typeHint() != null)
                 throw new NotImplementedException();
 
             if (procedureOrArrayCall.argsCall().Length == 0)
@@ -2656,6 +2768,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitResetStmt(VB6Parser.ResetStmtContext context)
     {
+        // A bare Reset can call the module's own Sub, including a private class sibling (#851).
+        if (currentModule.PrePass.Procedures.TryGetValue("Reset", out var proc) && !proc.IsFunction)
+        {
+            await interpreter.CallProcedure("Reset", [], currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
+            return ControlFlow.Nothing;
+        }
         throw new NotImplementedException("Reset not implemented");
     }
 
@@ -3407,26 +3525,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitVariableStmt(VB6Parser.VariableStmtContext context)
     {
-        if (context.WITHEVENTS() != null)
-        {
-            // `[Private] WithEvents src As Clock` re-run per-instance at New (a class field): seed each slot to
-            // Nothing (a class-typed object ref). The sink NAME was recorded in the class's PrePass; the sink is
-            // registered when the var is Set. Not added to ownedSlots — fields aren't scope-released.
-            foreach (var sub in context.variableListStmt().variableSubStmt())
-                interpreter.ExecutionContext.AllocVariable(currentEnv, sub.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
-            return default;
-        }
-
         // `Dim`, `Private`, and `Public` module/local declarations all allocate the same way (visibility isn't
         // tracked). Class fields are usually declared `Private`/`Public`. A procedure's `Static` was declared at entry
         // with the rest; outside a procedure it does not compile (measured, #1491).
-        if (context.DIM() != null || context.visibility() != null || Statics is not null)
+        foreach (var subStmt in context.variableListStmt().variableSubStmt())
         {
-            foreach (var subStmt in context.variableListStmt().variableSubStmt())
+            if (subStmt.WITHEVENTS() != null)
+                // Re-seed the field per instance; Set registers the sink recorded by PrePass.
+                interpreter.ExecutionContext.AllocVariable(currentEnv, subStmt.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
+            else if (context.DIM() != null || context.visibility() != null || Statics is not null)
                 await DeclareLocal(subStmt);
+            else
+                throw new VBCompileErrorException("Invalid outside procedure");
         }
-        else
-            throw new VBCompileErrorException("Invalid outside procedure");
 
         return default;
     }
@@ -3463,7 +3574,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     isArray = true;
                     if (ownedSlots == null && subStmt.subscripts() is { } bounds)
-                        ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
+                        await ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
                     dimensions = await ExtractDimensions(subStmt.subscripts());
                     // A dimension whose upper bound is below its lower is "Range has no values", at module and procedure
                     // level, from a literal or a Const (measured: `Dim d(-1)`, `Dim d(1 To N)` with N 0, `Dim d(5, 2 To 1)`).
@@ -3473,6 +3584,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
 
                 var asType = subStmt.asTypeClause();
+                if (isArray && asType?.type()?.complexType() is { } elementType)
+                {
+                    var (qualifier, typeName) = SplitTypeName(elementType.GetText());
+                    if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _))
+                        throw new NotImplementedException($"An array of the user-defined type {elementType.GetText()} is not supported (#178)");
+                }
                 Vb6Value value;
                 // The class or interface name a class-typed Dim was declared with, kept because an object slot
                 // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).
@@ -3533,8 +3650,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review). A Collection's
                     // records its type, so it refuses a class instance (13, measured, #1471).
                     value = Vb6Value.Nothing;
-                    if (objectType.COLLECTION() != null)
-                        declaredClass = "Collection";
+                    declaredClass = objectType.COLLECTION() != null ? "Collection" : isArray ? null : "Object";
                 }
                 else
                 {
@@ -3996,12 +4112,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Library)
         {
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
-            // member errors (mirroring the expression path), rather than silently no-op'ing; a known constant
+            // member stops the run even under Resume Next (#867); a known constant
             // used as a bare statement is a harmless no-op.
             var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
-                throw new VBRunTimeException((Antlr4.Runtime.ParserRuleContext?)null, VBStandardError.MethodOrDataMemberNotFound, memberName);
+                throw new VBSubOrFunctionNotDefinedException(memberName);
             return true;
         }
 
@@ -4058,9 +4174,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitImplicitCallStmt_InBlock(VB6Parser.ImplicitCallStmt_InBlockContext context) => await base.VisitImplicitCallStmt_InBlock(context);
 
-    public async Task Execute(VB6Parser.BlockContext block)
+    public async Task Execute(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
-        await ExecuteProcedureBody(block);
+        await ExecuteProcedureBody(block, moduleDeclarations);
     }
 
     // Runs a procedure body's TOP-LEVEL statements with an explicit program counter so On Error GoTo <label>,
@@ -4178,7 +4294,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
-    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block)
+    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
         var stmts = block.blockStmt();
         _bodyStmts = stmts;   // Set Next Statement targets this top-level list
@@ -4195,6 +4311,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         while (pc < stmts.Length)
         {
+            // Execute's harness body runs after its declarations, through the same statement/error/debugger loop.
+            if (moduleDeclarations is { } declarations && BasicInterpreter.IsModuleDeclaration(stmts[pc]) != declarations)
+            {
+                pc++;
+                continue;
+            }
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
@@ -4231,6 +4353,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     pc++;
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -4323,13 +4446,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         currentLine = line;
         ErrorLocation.Note(error, currentModule.Name, line);
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
-        return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
+        return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
     // loop, so the innermost statement notes it before a handler or a halt sees it. At the statement's line, where a
     // halt stops; a condition notes its own first (ConditionMet).
-    private bool Locate(Exception error, ParserRuleContext stmt) => ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line);
+    private bool Locate(Exception error, ParserRuleContext stmt)
+    {
+        var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
+            ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
+            : null;
+        return ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line, statement);
+    }
 
     // An error raised in a statement loop's own catch, which that loop's Locate cannot see: at the statement running.
     private T Raised<T>(T error) where T : Exception
