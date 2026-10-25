@@ -4404,6 +4404,22 @@ round-trip, credential prompt, slow I/O — is untested, as are a mapped network
 `MAX_PATH`, 8.3 short names, and drive-letter case. And whether the IDE displays or round-trips a UNC path,
 or rewrites it to a mapped letter, is unknown.
 
+### The IDE can keep Form before Reference on Save Project As (#855)
+
+Measured on the oracle VM, VB6 6.00.8176 SP6, 2026-10-12 (issue #855). A hand-written Standard EXE project
+was opened in the IDE with keys in this order: `Type`, `Form=Form1.frm`, `Reference`, `Startup`, `ExeName32`,
+`Name`. File → Save Form1.frm As renamed the form to `Saved.frm`; File → Save Project As then wrote a
+594-byte project. Its first three lines remained `Type=Exe`, `Form=Saved.frm`, and
+`Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation`.
+The renamed form stayed on line 2. VB6 added `IconForm` between `Reference` and `Startup`, `Command32`
+after `ExeName32`, and the option block after `Name`.
+
+This overturns the assumption that VB6 always writes references before forms: its templates' usual order
+is not universal. It does not resolve the custom-section or `RelatedDoc` save questions above. A plain
+Save Project, other non-canonical orders, placement of newly added items, and project types other than
+Standard EXE remain unmeasured. HexIDE's slot retention for other recognised keys is its round-trip
+contract, not an additional VB6 measurement.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

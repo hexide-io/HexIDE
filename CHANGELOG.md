@@ -281,6 +281,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project keeps recognised `.vbp` lines in their read order** (#855), including renamed forms,
+  missing members and reclassified carried files. A form before a reference stays before it.
+
 - **Cross-module Const initialisation** (#893). Module-level Consts and array bounds initialise a referenced
   module's declarations on demand, in either startup order. Module cycles raise "Circular dependencies between
   modules"; a class created by the test harness's top-level code sees the startup module's completed Consts.
