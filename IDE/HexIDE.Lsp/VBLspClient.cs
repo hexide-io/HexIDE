@@ -405,6 +405,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
 
@@ -1722,6 +1723,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
     }
@@ -1756,6 +1758,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
         RaiseStateChanged();
@@ -2168,6 +2171,14 @@ public sealed class VBLspClient : ILspClient
         return false;
     }
 
+    /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
+    public void NotePrioritySkip(string capabilityName, string winnerId)
+    {
+        if (!_prioritySkips.TryAdd(capabilityName, 0)) return;
+        Note(ConversationDirection.Sent, ConversationEntryKind.NeverSent, null,
+            $"not asked: '{winnerId}' has priority for '{capabilityName}'");
+    }
+
     /// <summary>
     /// Says once, at warning, that a wanted capability was not advertised.
     ///
@@ -2248,6 +2259,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever
     /// <see cref="_warnedCapabilities"/> is, so a reconnect to a different server reports afresh.</summary>

@@ -627,6 +627,11 @@ documents run together are not a third one.
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
 
+For folding ranges, document symbols, formatting and rename, the highest-priority claimant that
+advertises the capability supplies the single answer (registration order breaks ties). Each other
+advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
+once per capability per connection. These routing notes also appear in exported conversations.
+
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
 The inspector reads strictly more, and the difference is not one of convenience:

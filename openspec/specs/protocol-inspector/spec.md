@@ -110,6 +110,10 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 - **WHEN** a request was not sent because the server advertised no such capability
 - **THEN** the record says so and names the capability, marked as never sent
 
+#### Scenario: Another server has priority
+- **WHEN** a server advertises a one-answer capability but another claimant wins selection
+- **THEN** its record SHALL explain which claimant has priority for that capability, marked as never sent, once per capability per connection
+
 #### Scenario: A request that failed inside this client
 - **WHEN** a message cannot be serialized and so never reaches the transport
 - **THEN** the record says so, naming the method, marked as never sent

@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **One-answer language-server routing is recorded** (#407). Skipped advertisers record which server
+  has priority for folding, document symbols, formatting and rename, once per capability per connection.
+
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
   The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on

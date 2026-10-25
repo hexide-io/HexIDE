@@ -328,6 +328,10 @@ to have it honoured.
 - **WHEN** a feature requires exactly one server
 - **THEN** the user's entry is chosen over the default
 
+#### Scenario: Another advertiser loses a one-answer feature
+- **WHEN** folding ranges, document symbols, formatting or rename selects the highest-priority advertising claimant
+- **THEN** each other advertising claimant SHALL record a never-sent explanation naming the winner's registration id and capability, once per capability per connection
+
 ### Requirement: A server SHALL be given the project's working directory
 Each server SHALL be started with the current project's working directory as its working directory, and told
 that directory as its workspace root, unless its entry states otherwise.
