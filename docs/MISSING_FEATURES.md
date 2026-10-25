@@ -17,8 +17,8 @@
 | Open Project… | Ctrl+O | Done | |
 | Add Project… | — | Done | Adds second project; implicit `CurrentGroup` created when >1 project loaded |
 | Remove *{project}* | — | Done | |
-| Save Project | — | Partial | Saves every member HexIDE can reproduce; members it cannot are left untouched on disk and reported together in one dialog. With a group open it saves every loaded project and the group as one operation: every destination, the `.vbg` path included, is asked for first, then every file is checked against its code page, and only then is anything written, so a dismissed picker or a refusal leaves every file as it was. See `Save {file}` |
 | Unsaved-change tab marker | — | Done | Designer, code and carried-file tabs expose their existing dirty state through Dock's modified marker; matching saves refresh it (#901). Pointer selection ends its drag on release so subsequent Delete commits and marks the tab dirty. This is HexIDE's tab presentation, not a measured VB6 window affordance |
+| Save Project | — | Partial | Saves every member HexIDE can reproduce; members it cannot are left untouched on disk and reported together in one dialog. With a group open it saves every loaded project and the group as one operation: every destination, the `.vbg` path included, is asked for first, then every file is checked against its code page, and only then is anything written, so a dismissed picker or a refusal leaves every file as it was. See `Save {file}` |
 | Save Project As… | — | Done | |
 | Save *{file}* | Ctrl+S | Partial | Form Save and Save As remain available with tool-window focus; the active form code window retains format-on-save (#899). Module code saving remains tracked in #244. **All 22 of VB6's own template forms survive a save byte-for-byte**, companions included, and none is held read-only. The last held, `Web Browser.frm`, was freed by [#60](https://github.com/hexide-io/HexIDE/issues/60): the companion records cited by a control or property HexIDE does not model are carried with it, and a save rewrites each citation to wherever its record lands. Menu trees round-trip as of #83, container nesting as of #84, and the companion-file model closed the rest (#107–#113); VB6's seven `.vbp` files round-trip as of #116. A save now writes a designer file and its companion **together or not at all** ([#148](https://github.com/hexide-io/HexIDE/issues/148)) — the text write used to be unconditional while the companion write could refuse on a measure of its own, leaving a `.frm` citing renumbered offsets into a companion that still held the old partition, which then reopened as faithful. A form separated from its `.frx` is held too, as of [#146](https://github.com/hexide-io/HexIDE/issues/146) — the gate counts what the `.frm` *cites* rather than what the companion yielded, so an absent or truncated companion is visible to it; previously such a form opened freely and an ordinary Ctrl+S stripped every citation from the developer's own file. Still `Partial`, not `Done`: the measured corpus is VB6's own templates rather than real-world projects. A control HexIDE does not model is carried, and since [#157](https://github.com/hexide-io/HexIDE/issues/157) is shown in the designer where VB6 shows it, so `Web Browser.frm` edits with its ImageList and Toolbar in view. Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
 | Save *{file}* As… | — | Done | Subject to the same faithfulness gate as `Save {file}`, at a new path too, and refused *before* the destination is asked for. It used to be exempt — "the original file is not at risk" — which is true of the original and silent about the copy: `WriteCompanionBinary` can only protect a companion that already exists, so at a new path the blobs are dropped, and the copy then reopens as **faithful** because the citations that flagged it are exactly what went missing ([#143](https://github.com/hexide-io/HexIDE/issues/143)). **Not covered:** the Make EXE package still serializes every form to a temp directory with no gate |
@@ -145,7 +145,7 @@
 |---|---|---|---|
 | Start | F5 | Done | Runs project via HexIDE interpreter in a new window |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
-| Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running. Paused execution shows a localized break title tag and clears the running status message (#837) |
+| Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running |
 | End | — | Done | |
 | Restart | Shift+F5 | Done | |
 | Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
@@ -205,7 +205,7 @@
 | Find | Done | |
 | Undo | Done | |
 | Redo | Done | |
-| Start | Done | Play icon keeps its right-pointing appearance under RTL languages (#40) |
+| Start | Done | |
 | Break | Done | Requests a pause at the next statement gate while the interpreter is running |
 | End | Done | |
 | Project Explorer | Done | Opens/focuses tool window |
@@ -216,6 +216,7 @@
 | Data View | Stub | Button present; no Data View window |
 | Position display (twips) | Done | Shows selected component position |
 | Size display (twips) | Done | Shows selected component size |
+| Document containment | Done | Code and designer tabs stay docked: Float and Float all are unavailable, and programmatic float attempts leave the document in its tab (#1361) |
 
 ---
 
@@ -223,9 +224,8 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Document containment | Done | Code and designer tabs stay docked: Float and Float all are unavailable, and programmatic float attempts leave the document in its tab (#1361) |
 | Syntax highlighting | Done | In the editor itself, from `VB6.xshd.xml`, with a dark palette swapped in for a dark theme (`SyntaxHighlightingTheme`); not from the language server, as this row used to say. Keywords match regardless of case, including `Begin` and standalone `End` (#716). The header and member `Attribute` lines are drawn in the theme's read-only grey instead (#273). Named syntax colours, including metadata keywords, are guarded at WCAG AA 4.5:1 on Classic, Dark and Abyss (#713) |
-| Error/warning squiggles | Done | Full LSP diagnostic pipeline; inline markers. The bundled server reports nothing that starts on a line of the header or of a member's `Attribute` lines (#273) |
+| Error/warning squiggles | Done | Full LSP diagnostic pipeline; inline markers with hover tooltips combining overlapping messages, supplied sources and quick info in every personality (#451). The bundled server reports nothing that starts on a line of the header or of a member's `Attribute` lines (#273) |
 | Object/Procedure dropboxes | Done | Two combos at top; navigate to handler on select. A new stub keeps the caret on its blank body line across diagnostics refreshes (#1865). Form and UserControl roots use `Form` / `UserControl` handler prefixes; forms offer Load and Resize as well as their existing events (#937). Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. A match in a member's `Attribute` line can still take the caret there ([#702](https://github.com/hexide-io/HexIDE/issues/702)) |
 | Auto-complete (IntelliSense) | Partial | LSP completion: 87 keywords, 42 built-ins, and every name declared in the current file. **No position awareness** — the same list comes back wherever the caret is — and no member access (`obj.`) or cross-file symbols. Position awareness is ordinary work; the other two need name binding, which belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)) |
 | Signature help | Partial | LSP signature help across 89 VB6 built-ins, with active-parameter tracking through nested parentheses. **User-defined procedures show nothing** — matching a call site to its declaration is name binding, which belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)) |
@@ -249,6 +249,7 @@
 | View Object (switch to designer) | Done | |
 | Read-only banner for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce on save opens with its code editor read-only and a banner giving the reason (`CodeEditorViewModel.IsReadOnly`). Viewing still works, and so does running, unless the form holds a control HexIDE cannot create or a data-bound control (#859), which is refused when it runs ([#857](https://github.com/hexide-io/HexIDE/issues/857)). Typing is refused by the code window's own section provider (`CodeWindowReadOnlySections`), which carries this verdict beside the read-only regions since the editor's `IsReadOnly` binding was removed (#273); the programmatic writers (Replace All, formatting, rename, Insert File, add-ins, automation) do not ask it yet ([#701](https://github.com/hexide-io/HexIDE/issues/701)). The form as a whole is not a read-only region: its code still takes breakpoints, and Find searches all of it. Rationale in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
 | File header and member `Attribute` lines in the code window | Done | **Diverges from VB6 by design**: VB6's code window hid these lines, and HexIDE's shows them, read-only (#273). The window holds the whole file: a `.cls`'s `VERSION`/`BEGIN`…`END` block and leading `Attribute` run, a `.bas`'s `Attribute VB_Name` line, a form's, UserControl's or PropertyPage's designer block and attribute run, and the `Attribute` lines VB6 writes after a procedure's first line or after a module-level variable. All are read-only and drawn in the theme's read-only grey (`ReadOnlyText`). The header is folded when the window opens, unless it is one line, as a `.bas`'s is; each member's run is folded into a box at the end of the line it describes. Only the IDE changes them: a designer change rewrites the header as an edit the code window's Undo steps past, a form's `VB_Name` follows its rename, deleting or cutting a described line takes its run along, including an empty Replace, Replace All or add-in range edit deleting its text (#1038), and Enter at the end of one puts the new line after the run. A paste or Insert File replacing the whole declaration keeps the run under the first compatible logical declaration in the inserted text, including after comments or blank lines (#1039). A run typed by hand under a declaration is read-only from the moment it describes it, which for a procedure is its first `.`. A whole replacement (add-in `SetContent`, automation `set_file_content`) is refused if it would change the header; a member's run may move with its member, be renamed with it or go with its declaration, and any other change to one is refused. A save rewrites each procedure's run, and the run a variable's rename left, to name the member as declared, whenever VB6 would write the file, as VB6 does; otherwise the lines are kept byte for byte. Add-in range edits also compare the complete result and refuse added, extended or orphaned member runs (#1012). A run under no line it can describe is ordinary text. Editing a member's attributes is the Procedure Attributes dialog's job, which does not exist yet ([#62](https://github.com/hexide-io/HexIDE/issues/62)) |
+| Form caption bar | Done | Uses the active title-bar brush without an MDI ancestor, including in Dock documents (#896); active/inactive styling is deferred |
 
 ---
 
@@ -256,7 +257,6 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Form caption bar | Done | Uses the active title-bar brush without an MDI ancestor, including in Dock documents (#896); active/inactive styling is deferred |
 | Draw control from toolbox | Done | Click-drag on canvas spawns control |
 | Grid display | Done | Visual dot grid; configurable size |
 | Snap to grid | Done | Controlled by Options |
@@ -446,9 +446,6 @@
 ---
 
 ## Keyboard Shortcuts
-
-Keymap packs: Done — built-in Default/VB6 plus JSON files discovered at startup in the active user-data
-folder's `keymaps` directory (#414). Select in Options → Keymap; applying rebinds commands immediately.
 
 | Shortcut | Action | Status | Notes |
 |---|---|---|---|

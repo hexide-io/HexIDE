@@ -322,4 +322,47 @@ public class HoverThroughWindowInputTests
         }
         finally { window.Close(); vm.Dispose(); }
     }
+
+    [AvaloniaTheory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public async Task Diagnostic_hover_combines_overlaps_sources_and_optional_quick_info(bool autoQuickInfo, bool hasQuickInfo)
+    {
+        var (window, editor, vm) = ShowEditor();
+        vm.Settings.AutoQuickInfo.Returns(autoQuickInfo);
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(hasQuickInfo
+                ? new HoverResult(new MarkupContent("plaintext", "Quick info")) : null));
+        var line = editor.Document.GetLocation(editor.CaretOffset).Line - 1;
+        try
+        {
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [
+                    new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(line, 4), new Position(line, 7)),
+                        "First message", DiagnosticSeverity.Error, Source: "Server"),
+                    new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(line, 5), new Position(line, 5)),
+                        "Second message", DiagnosticSeverity.Warning)]));
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            var tip = ToolTip.GetTip(editor)?.ToString();
+            tip.Should().Contain("Server: First message").And.Contain("Second message");
+            if (autoQuickInfo && hasQuickInfo) tip.Should().Contain("Quick info");
+            else tip.Should().NotContain("Quick info");
+
+            editor.CaretOffset = editor.Document.GetLineByNumber(line + 1).Offset + 7;
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            var outsideTip = ToolTip.GetTip(editor)?.ToString() ?? "";
+            outsideTip.Should().NotContain("First message");
+            outsideTip.Should().NotContain("Second message");
+
+            UiAutomationDriver.EndHover(editor);
+            Dispatcher.UIThread.RunJobs();
+            ToolTip.GetTip(editor).Should().BeNull();
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
 }
