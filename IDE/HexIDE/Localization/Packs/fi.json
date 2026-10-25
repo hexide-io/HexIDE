@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "Jäsenet",
     "Str.ProjectDocument.Section.References": "Viittaukset",
     "Str.ProjectDocument.Kind.RelatedDocument": "Liittyvä asiakirja",
+    "Str.Naming.Msg.EmptyName": "Nimi ei voi olla tyhjä",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Nimen on oltava yksilöllinen lomakkeessa",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' ei ole kelvollinen nimi. Nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla.",
     "Str.Naming.Msg.ReservedWord": "'{0}' ei voi olla nimi, koska VB6 varaa sanan itselleen.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi. VB6:ssa niillä on yhteinen nimiavaruus, joten kahdella ei voi olla samaa nimeä.",

@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "Elemente",
     "Str.ProjectDocument.Section.References": "Verweise",
     "Str.ProjectDocument.Kind.RelatedDocument": "Zugehöriges Dokument",
+    "Str.Naming.Msg.EmptyName": "Der Name darf nicht leer sein",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Der Name muss innerhalb des Formulars eindeutig sein",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' ist kein gültiger Name. Ein Name beginnt mit einem Buchstaben und besteht danach aus Buchstaben, Ziffern und Unterstrichen.",
     "Str.Naming.Msg.ReservedWord": "'{0}' kann kein Name sein, weil VB6 dieses Wort reserviert.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' ist bereits der Name eines Formulars, Moduls oder Klassenmoduls in diesem Projekt. VB6 kennt dafür nur einen Namensraum, daher können zwei nicht denselben Namen tragen.",
