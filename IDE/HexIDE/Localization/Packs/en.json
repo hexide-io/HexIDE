@@ -806,6 +806,20 @@
     "Str.Naming.Msg.ProjectNameTaken": "A project named '{0}' is already loaded. Two projects in one group cannot share a name.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' was not added. It is named '{0}', which is already the name of a form, module or class in this project.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' was not added. It is named '{0}', which is not a valid name: a name starts with a letter and continues with letters, digits and underscores.",
-    "Str.CodeEditor.RangeEditRefused": "Edits refused: {0}. Nothing was changed."
+    "Str.CodeEditor.RangeEditRefused": "Edits refused: {0}. Nothing was changed.",
+    "Str.Automation.Minimize": "Minimize",
+    "Str.Automation.MaximizeRestore": "Maximize or restore",
+    "Str.Automation.ChooseColor": "Choose color",
+    "Str.Automation.ChooseFont": "Choose font",
+    "Str.Automation.ToggleList": "Open or close list",
+    "Str.Automation.Close": "Close",
+    "Str.Dock.ScrollUp": "Scroll tabs up",
+    "Str.Dock.ScrollDown": "Scroll tabs down",
+    "Str.Dock.Menu": "Pane menu",
+    "Str.Dock.Pin": "Pin or unpin pane",
+    "Str.Dock.MaximizeRestore": "Maximize or restore pane",
+    "Str.Dock.Close": "Close pane",
+    "Str.Dock.ScrollLeft": "Scroll tabs left",
+    "Str.Dock.ScrollRight": "Scroll tabs right"
   }
 }

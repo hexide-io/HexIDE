@@ -35,8 +35,10 @@ public partial class App : Application
         Localization.LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-        AvaloniaXamlLoader.Load(this);
+        LoadMarkup();
     }
+
+    internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
