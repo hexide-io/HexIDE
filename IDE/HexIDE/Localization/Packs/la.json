@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Ambiens",
     "Str.Options.Node.Editor": "Recensor",
     "Str.Options.Node.FormDesigner": "Designator Formae",
+    "Str.Menu.AddIns.Manager": "_Administrator additamentorum…",
+    "Str.Options.Node.NoAddins": "(nulla additamenta instituta)",
     "Str.Options.Node.AddIns": "Additamenta",
     "Str.Options.Node.General": "Generalia",
     "Str.Options.Node.Theme": "Thema",

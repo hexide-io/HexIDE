@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Miljø",
     "Str.Options.Node.Editor": "Redigeringsprogram",
     "Str.Options.Node.FormDesigner": "Skjemautforming",
+    "Str.Menu.AddIns.Manager": "_Tilleggsbehandling…",
+    "Str.Options.Node.NoAddins": "(ingen tillegg installert)",
     "Str.Options.Node.AddIns": "Tillegg",
     "Str.Options.Node.General": "Generelt",
     "Str.Options.Node.Theme": "Tema",

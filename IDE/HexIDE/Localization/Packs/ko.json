@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "환경",
     "Str.Options.Node.Editor": "편집기",
     "Str.Options.Node.FormDesigner": "폼 디자이너",
+    "Str.Menu.AddIns.Manager": "추가 기능 관리자…",
+    "Str.Options.Node.NoAddins": "(설치된 추가 기능 없음)",
     "Str.Options.Node.AddIns": "추가 기능",
     "Str.Options.Node.General": "일반",
     "Str.Options.Node.Theme": "테마",
