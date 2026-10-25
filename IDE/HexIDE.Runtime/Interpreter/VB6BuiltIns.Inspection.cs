@@ -28,7 +28,7 @@ public partial class VB6BuiltIns
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
         // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
-        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle.md.
+        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md.
         d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
 
         // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.

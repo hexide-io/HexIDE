@@ -97,6 +97,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
+    public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
     public event EventHandler<LogTraceParams>? TraceReceived;
     public event EventHandler? ConnectionsChanged;
@@ -212,6 +213,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             client.TraceReceived -= OnInnerTrace;
             client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+            client.ProgressReceived -= OnInnerProgress;
             e.Client = null;
             e.State = LanguageConnectionState.Stopped;
             e.StateSince = DateTimeOffset.UtcNow;
@@ -709,6 +711,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+            client.ProgressReceived -= OnInnerProgress;
             e.Client = null;
             // NotStarted rather than Stopped: this one is eligible to run again, at the new root.
             e.State = LanguageConnectionState.NotStarted;
@@ -789,6 +792,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
             client.MessageShown += OnInnerMessage;
+            client.ProgressReceived += OnInnerProgress;
             client.MessageLogged += OnInnerLogMessage;
             client.TraceReceived += OnInnerTrace;
             client.StateChanged += OnInnerStateChanged;
@@ -831,6 +835,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(this, e);
     private void OnInnerTrace(object? sender, LogTraceParams e) => TraceReceived?.Invoke(this, e);
+
+    private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender, p);
 
     private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 

@@ -14,7 +14,7 @@ namespace HexIDE.Runtime.Serialization;
 /// and nothing here is written back; the block is carried as it was read.
 /// </para>
 /// <para>
-/// <b>The size is VB6's, measured in its IDE</b> (docs/vb6-fidelity-oracle.md, "Its size when the file records none,
+/// <b>The size is VB6's, measured in its IDE</b> (docs/vb6-fidelity-oracle/a-control-vb6-cannot-load-renders-as-an-empty-box.md, "Its size when the file records none,
 /// and what the box is"). <c>Width</c> and <c>Height</c> size the box when the file has them, and it is 1200 × 480
 /// twips when it has neither. <c>_ExtentX</c> and <c>_ExtentY</c> play no part, though they are the obvious guess: an
 /// ImageList records only those, and VB6 draws it 1200 × 480. A file recording one of the two only was not measured,

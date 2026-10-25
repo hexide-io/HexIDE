@@ -88,7 +88,7 @@ roadmap, not walled off — expect them to arrive over time:
 - **Odds and ends** — conditional compilation (`#If`), and actually *calling* `Declare … Lib` Win32 APIs
 
 The full, continuously-maintained catalogue lives in the project's `docs/` (`interpreter-gaps.md`, and
-`vb6-fidelity-oracle.md` for every behaviour verified against `vb6.exe`).
+`vb6-fidelity-oracle/conditional-compilation.md` for every behaviour verified against `vb6.exe`).
 
 ## Debugging features permanently out of scope
 

@@ -115,6 +115,28 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task ProgressRetainsItsServerIdentityAndStopForwardsItsEnd()
+    {
+        var server = FakeServer();
+        await using var sut = Registry(Registration("vb6", server));
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
+        var received = new List<(object? Sender, string Kind)>();
+        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind));
+        var token = JsonSerializer.SerializeToElement("index");
+        server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
+            new ProgressParams(token, new WorkDoneProgressValue("begin", "indexing")));
+        server.StopAsync().Returns(_ =>
+        {
+            server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
+                new ProgressParams(token, new WorkDoneProgressValue("end")));
+            return Task.CompletedTask;
+        });
+        await sut.StopAsync();
+        received.Select(p => p.Kind).Should().Equal("begin", "end");
+        received.Should().OnlyContain(p => ReferenceEquals(p.Sender, server));
+    }
+
+    [Fact]
     public async Task OnlyServersClaimingTheDocumentsLanguageAreStarted()
     {
         // The whole point of lazy start: a project with no Markdown must not pay for a Markdown server.

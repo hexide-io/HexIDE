@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// Command0, and a paste counted up from the number of controls on the canvas.
 /// </summary>
 /// <remarks>
-/// Every expected name is VB6's, measured in its IDE (docs/vb6-fidelity-oracle.md, "The name VB6's designer gives a
+/// Every expected name is VB6's, measured in its IDE (docs/vb6-fidelity-oracle/the-name-vb6s-designer-gives-a-new-control.md, "The name VB6's designer gives a
 /// new control"), and the form is the probe's: Command1 and Command3, with 2 free, and Text5, with 1 to 4 free.
 /// </remarks>
 public class NewControlNameTests

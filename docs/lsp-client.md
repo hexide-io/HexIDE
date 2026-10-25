@@ -65,7 +65,8 @@ HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport kills any remaining child and waits up to two seconds for termination before
 disposing its process handle.
 
-**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
+**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
+progress below), plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
 Both map Error to Error, Warning to Warning, Info and Log (types 3 and 4) to Information, and
 3.18 Debug (type 5) and unknown values to Trace. Type 4 therefore reaches the default log;
@@ -81,7 +82,8 @@ negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
-`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again. Everything
+`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again — plus
+`window/workDoneProgress/create`, which registers a progress token and succeeds. Everything
 else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
 silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
 taken here. A server awaiting a reply it never gets hangs rather than degrading, which is invisible until
@@ -96,6 +98,22 @@ parameterless now, and `PullDiagnosticsReportKindTests` drives a scripted server
 the client asks again.
 
 ---
+
+### Work-done progress
+
+The client declares `window.workDoneProgress: true`, accepts `window/workDoneProgress/create` with
+string or integer tokens and replies with a null result. `$/progress` begin/report/end updates the
+status bar through `LanguageServerMessageReporter`. Begin without create is accepted (measured with
+rumdl 0.2.64 in #360).
+Report retains omitted title, message and percentage; end clears immediately, or restores another active
+task. Tokens are scoped to each server, and disconnect ends its outstanding tasks. An end does not erase
+a later status message from another IDE operation. Server text uses the reporter's whitespace flattening
+and 200-character cap, with a localized prefix. Cancellation and partial-result progress remain unwired.
+
+StreamJsonRpc 2.24.92 reserves `$/progress` for `IProgress<T>`, but measured dispatch falls back to the
+ordinary target for both string and integer tokens; no custom formatter is needed. The foreign Markdown
+test records inbound method names during a workspace session and checks that progress reaches subscribers
+too (#360). The current rumdl fixture indexes only with a workspace root, so the test supplies one.
 
 ## Request failure logging
 
@@ -807,7 +825,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 29 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 31 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -901,7 +919,7 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 2 of 6
+### `window/*` — 3 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -909,8 +927,8 @@ than inferred.
 | ○ | `window/showDocument` | ← |  |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ○ | `window/showMessageRequest` | ← |  |
-| ○ | `window/workDoneProgress/cancel` | → |  |
-| ○ | `window/workDoneProgress/create` | ← |  |
+| ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
+| ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
 ### `client/*` — 0 of 2
 
@@ -919,13 +937,13 @@ than inferred.
 | ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
 | ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
 
-### `$/*` — 2 of 4
+### `$/*` — 3 of 4
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `$/cancelRequest` | ↔ | Cancelling a token sends `$/cancelRequest` with the original request’s bare numeric or string `id` (#944), so a server can stop abandoned work. **Cancelling does not unblock the client’s await**: it still waits for the server to answer, as measured in [#231](https://github.com/hexide-io/HexIDE/issues/231) / [PR #291](https://github.com/hexide-io/HexIDE/pull/291). |
 | ✅ | `$/logTrace` | ← | Raised as an event and logged. A server's own account of its reasoning, which a wire capture cannot reconstruct |
-| ○ | `$/progress` | ↔ |  |
+| ◐ | `$/progress` | ↔ | Work-done begin/report/end in the status bar; no partial results |
 | ✅ | `$/setTrace` | → | Changes the level on a running server. A notification, so **no server ever confirms it**, and the protocol defines no capability for asking |
 
 ### `notebookDocument/*` — 0 of 4
@@ -1023,7 +1041,7 @@ Three clusters account for nearly all of the gap:
   everything that keeps that model live or reacts to it: file-operation notifications, watched files,
   configuration round-trips, and `didChangeWorkspaceFolders` for a group whose membership changes while a
   server is running ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
-- **Server-to-client courtesy** — `window/*` and `client/*` are 2 of 8 between them. The two that landed
+- **Server-to-client courtesy** — `window/*` and `client/*` are 3 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean

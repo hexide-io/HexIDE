@@ -406,7 +406,7 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
 - ◐ Only those six words are refused as a new name, and any other keyword is let through. VB6 refuses
   more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
-  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle.md`](./vb6-fidelity-oracle.md),
+  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle/enums.md`](./vb6-fidelity-oracle/enums.md),
   *Which keywords may name a label*). Whether it refuses each of them as a variable or procedure name has not
   been measured, and the IDE and this server refuse only the words measured in one of those positions.
 

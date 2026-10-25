@@ -169,7 +169,8 @@ public class ActiveFormSaveTests
         try
         {
             File.WriteAllText(path, "before");
-            var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>()).Initialize(
+            var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(),
+                Substitute.For<ILocalizationService>()).Initialize(
                 new RelatedDocumentDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "notes.txt", path));
             shell.Composition.DocumentDockService.OpenDocument(vm);
             var view = new RelatedDocumentEditorView { DataContext = vm };

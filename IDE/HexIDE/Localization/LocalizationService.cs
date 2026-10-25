@@ -45,6 +45,12 @@ public sealed class LocalizationService : ILocalizationService
 
     public FlowDirection FlowDirection { get; private set; } = FlowDirection.LeftToRight;
 
+    /// <summary>
+    /// The application resource holding <see cref="FlowDirection"/>, swapped with the strings. A popup takes its direction
+    /// from the control it opens from, so a menu opened from code, which reads left to right, reads this instead (#1944).
+    /// </summary>
+    public const string FlowDirectionKey = "Ide.FlowDirection";
+
     public event Action? LanguageChanged;
 
     public LocalizationService(IUserTranslationsService? userTranslations = null, IDeveloperModeService? developerMode = null)
@@ -104,6 +110,7 @@ public sealed class LocalizationService : ILocalizationService
                 app.Resources.MergedDictionaries.Remove(_currentLanguageDict);
 
             _currentLanguageDict = BuildResourceDictionary(map);
+            _currentLanguageDict[FlowDirectionKey] = FlowDirection;
             app.Resources.MergedDictionaries.Add(_currentLanguageDict);
         }
 

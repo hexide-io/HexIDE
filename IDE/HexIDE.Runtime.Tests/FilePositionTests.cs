@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// LOF, Loc, Seek and the Input function on sequential files (#1645). Each program is a slice of a probe vb6.exe ran with
-/// /make, native and p-code agreeing, and each expected line is what it logged: docs/vb6-fidelity-oracle.md, "LOF, Loc,
+/// /make, native and p-code agreeing, and each expected line is what it logged: docs/vb6-fidelity-oracle/lof-loc-seek-and-the-input-function.md, "LOF, Loc,
 /// Seek and the Input function". The probe made its files with Binary Put, which HexIDE has not got (#1646), so each test
 /// writes the same bytes itself. The en-GB guest's code page was 1252.
 /// </summary>

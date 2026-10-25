@@ -1,4 +1,4 @@
-﻿# CLAUDE.md
+﻿﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -355,7 +355,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 |------|-------------|
 | `get_project_info` | Current project name, path, forms, modules, carried files |
 | `get_open_editors` | Open editor windows and active window |
-| `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag. `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
+| `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag, and `isModified`, whether the tab has the unsaved changes it marks with `*` (the title leaves the `*` out; absent on a tool tab or read-only view). `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
 | `activate_document_tab(title?, name?, project?, type?)` | Make a tab active, by its `title`, or by a document's `name` (with `project`, and `type` code or designer when both are open) |
 | `close_document_tab(title?, name?, project?, type?)` | Close a tab, addressed the same way |
 | `get_diagnostics` | LSP errors and warnings |
@@ -594,14 +594,14 @@ See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features th
 
 **Fidelity means reproducing VB6's intended behaviour, not its bugs.** Where VB6 had a known defect, HexIDE should do the right thing even in Classic mode. The canonical example: in VB6 the Object Browser lost its MDI chrome (title bar, close button) when maximised, because it was an MDI child window — that was a Windows MDI system limitation, not an intended design. In HexIDE the Object Browser is a `Document` tab in the `DocumentDock`, so the Dock framework always owns its tab header and close button; maximising an MDI child inside the host cannot affect it. Whenever a feature diverges from VB6 behaviour, document the reason here or in the relevant spec.
 
-**Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
+**Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle/README.md`](docs/vb6-fidelity-oracle/README.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
 
 **Where native code and p-code differ, HexIDE matches p-code**, the build the VB6 IDE runs (decided 2026-10-14). So
 build a probe both ways wherever the two could disagree, and treat a row measured natively as provisional until
 p-code has answered too. The oracle long built native code only (#842), and that has already overturned a "fact":
 `Byte * Byte` wraps mod 256 natively but raises 6 as p-code and in the IDE, which is what HexIDE does (#233).
 
-**`vb6-fidelity-oracle.md` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
+**`docs/vb6-fidelity-oracle/` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
 and a change that measures something new is not finished until the measurement is written down there.
 
 VB6 is end-of-life. Its documentation is archived and, on the details that matter here, repeatedly wrong.
@@ -664,7 +664,7 @@ AST-building. Necessity is not the line. Relationships are.
 
 The rule also decides **how** to build what it permits. Within one module VB6 evaluates `Const`s strictly in
 source order — `Const A = B + 1` above `Const B = 2` is its compile error "Constant expression required"
-(measured, `docs/vb6-fidelity-oracle.md`) — so there the walk itself is the specification. Across modules, do
+(measured, `docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md`) — so there the walk itself is the specification. Across modules, do
 not topologically sort the modules up front: when a module-level declaration reads another module's constant,
 run that module's declarations first, once, and treat re-entering a module still mid-initialisation as VB6's
 own "Circular dependencies between modules" (#893). Same behaviour as VB6, at VB6's granularity, and the
@@ -964,7 +964,7 @@ widening visibility to `public` just for a test. When a new test project needs r
   user-facing account of that file — the openspec specs describe the behaviour as contracts, which is not
   the same thing and is not where someone configuring the IDE will look.
 - **The backlog lives in [GitHub Issues](https://github.com/hexide-io/HexIDE/issues)**, not in a file. `docs/TODO.md` was retired on 2026-08-17 and its actionable items opened as issues, so a contributor can find work without reading the repository. Note it down as an issue, not as a checklist entry.
-- **[`docs/issue-labels.md`](docs/issue-labels.md)** — what each issue label means and which one wins when two look plausible. Four axes: one `type`, one `size`, up to three `area`, and zero or more `state`. **Read it before labelling an issue**, and treat its rules literally — each one was written to settle a case two careful readers decided differently. It is *not* a living document in the guarded sense: its source of truth is the label set on GitHub, which no test here can reach. How the set was arrived at is in [`docs/archive/issue-labels-decided.md`](docs/archive/issue-labels-decided.md).
+- **[`docs/issue-labels.md`](docs/issue-labels.md)** — what each issue label means and which one wins when two look plausible. Five axes: one `type`, one `size`, up to three `area`, zero or more `state`, and zero or more `initiative`, which also feeds that initiative's project board. **Read it before labelling an issue**, and treat its rules literally — each one was written to settle a case two careful readers decided differently. It is *not* a living document in the guarded sense: its source of truth is the label set on GitHub, which no test here can reach. How the set was arrived at is in [`docs/archive/issue-labels-decided.md`](docs/archive/issue-labels-decided.md).
 - **`openspec/`** — design records in [OpenSpec](https://github.com/Fission-AI/OpenSpec) format (CLI: `openspec`). **There is no status field anywhere — position in the tree *is* the status.**
   - `specs/{capability}/spec.md` — how the system behaves **today**, as present-tense `### Requirement:` / `#### Scenario:` pairs. RFC 2119 keywords (SHALL/MUST) must appear in the requirement **body**, not only its heading, or `--strict` warns.
   - `changes/{change-id}/` — work in flight: `proposal.md`, optional `design.md`, `tasks.md`, and spec deltas under `specs/{capability}/spec.md` (delta files start with `## ADDED Requirements` and carry **no H1**).
@@ -978,10 +978,16 @@ widening visibility to `public` just for a test. When a new test project needs r
   - Spec-authoring and change-workflow rules live in `openspec/config.yaml` under `rules:`. Notably: where the code contradicts a spec because the *code* is defective, write the **intended** behaviour as the requirement, open an issue, and link it from a note under `## Purpose` — a spec matched to a known bug enshrines the bug (`specs/object-browser` is the worked example).
   - `openspec/` **ships publicly**. The 35 pre-OpenSpec design documents that used to sit in `specs-pending/` were all migrated (2026-08-16) and the folder was deleted; migrating each one is also what sanitised it, since rewriting a plan as behaviour contracts drops the third-party names. Anything landing here now is in OpenSpec format from the start.
 - **`docs/MISSING_FEATURES.md`** — full VB6 IDE fidelity catalog; status assessed against the codebase. **Update this file whenever a feature's status changes** — after any implementation phase, scan the relevant rows and update Status/Notes to reflect the new state.
-- **`docs/debugger-vb6-divergences.md`** — living catalogue of where the interpreter debugger + Edit-and-Continue affordance knowingly diverge from real VB6. **Add a row the moment a divergence is found** — during implementation, review, or live verification — so it's tracked, not forgotten. (Sibling to `interpreter-gaps.md` = runtime language gaps, `vb6-fidelity-oracle.md` = verified runtime semantics, `MISSING_LANGUAGE.md` = the positive language-coverage inventory.)
+- **`docs/debugger-vb6-divergences.md`** — living catalogue of where the interpreter debugger + Edit-and-Continue affordance knowingly diverge from real VB6. **Add a row the moment a divergence is found** — during implementation, review, or live verification — so it's tracked, not forgotten. (Sibling to `interpreter-gaps.md` = runtime language gaps, `vb6-fidelity-oracle/README.md` = verified runtime semantics, `MISSING_LANGUAGE.md` = the positive language-coverage inventory.)
 - **`docs/MISSING_LANGUAGE.md`** — the full VB6 language surface (statements, functions, operators, keywords, literals, directives, constants, in-box objects) with HexIDE's support level for each, ordered by **F5 impact**: won't load / dies mid-run / runs-but-differs / faithful. **Update the row in the same change that changes the status.** A coverage document that drifts is worse than none, because it gets quoted rather than checked. It owns *what runs*; `interpreter-gaps.md` owns *why something is missing*.
 
 ## Git Workflow
+
+**Before merging, including a session merging its own pull request, wait until every job on the head
+commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
+advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
+remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
+failing run on its issue and re-run it green before merging (#1331).
 
 **Claim the issue before starting non-trivial work.** Find or open it, then take it: with maintainer
 access, `gh issue edit N --repo hexide-io/HexIDE --add-assignee @me`; without it, comment asking to be

@@ -284,9 +284,10 @@ jobs:
   # has no VB6, so every test gated on the VB98 Template tree returns early here exactly as it does on
   # ubuntu. Those stay unproven until they run somewhere with the toolchain installed.
   #
-  # Deliberately NOT added to branch protection by this change. They are visible on a pull request and
-  # do not block a merge, which is the right state while there is no local macOS to reproduce a failure
-  # on. Promoting them to required is a separate, deliberate decision.
+  # build-ide (windows) is now required by branch protection (#1331). macOS remains advisory because
+  # there is no local macOS to reproduce a failure on. The merge rule in CONTRIBUTING.md and CLAUDE.md
+  # still requires waiting for every head-commit job to finish without red and for main's latest run
+  # not to be red; a known flake gets its run posted on its issue and re-run green before merging.
   build-ide-desktop:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}

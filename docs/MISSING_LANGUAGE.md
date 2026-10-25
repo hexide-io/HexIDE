@@ -8,7 +8,7 @@
 > why something is missing (Deferred / Walled / Platform / Partial), is
 > [`interpreter-gaps.md`](interpreter-gaps.md); where they disagree, that one is authoritative on
 > classification and this one on coverage. Verified runtime *semantics* live in
-> [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). Debugger divergences are in
+> [`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md). Debugger divergences are in
 > [`debugger-vb6-divergences.md`](debugger-vb6-divergences.md). Permanently excluded features are in
 > [`OUT_OF_SCOPE.md`](OUT_OF_SCOPE.md), and the IDE surface (menus, windows, designer) is
 > [`MISSING_FEATURES.md`](MISSING_FEATURES.md).
@@ -88,7 +88,7 @@ every row is derived from reading HexIDE's own source, not from measuring real V
 *does it run* — a `NotImplementedException` is a fact about our code — but it is **not** authority on
 *does it behave correctly*. Where a Partial row describes a semantic difference, treat it as a lead to
 verify, not a measurement. Verified behaviour only ever lives in
-[`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). A row re-rated since on the oracle's evidence names
+[`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md). A row re-rated since on the oracle's evidence names
 the oracle rows it rests on, and says which parts no oracle row covers; for the type characters, the
 Silently wrong section does.
 
@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 2 | 16 | 42 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 41 | 47 | 0 | 65 | 153 |
+| Intrinsic functions | 0 | 0 | 35 | 51 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 3 | 22 | 1 | 25 | 51 |
 | Literals, types and suffixes | 6 | 0 | 3 | 14 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **7** | **2** | **149** | **431** | **20** | **575** | **1184** |
+| **Total** | **7** | **2** | **143** | **435** | **20** | **577** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -203,7 +203,7 @@ and inside a `Sub`.
 VB6 sends the assignment to the declared variable for all six characters, into a module variable and
 into a local, with `Option Explicit` and without it: every one of those combinations is measured, in the
 section "An assignment through a type character reaches the declared variable, for every character"
-of the 2026-10-11 entry "A type character on a name the program also declares" in [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). The same entry measured it first
+of the 2026-10-11 entry "A type character on a name the program also declares" in [`vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md`](vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The same entry measured it first
 for `$` on a name with a library twin, `Left` (TF_01, TL_01, TL_04). With nothing declared, the first
 assignment through a character declares the variable with that type, for every character: `a$ = "x"` then
 `a` gives `"x"` String, `k% = 3` then `k` an Integer 3, and `&`, `!`, `#` and `@` a Long, Single, Double
@@ -316,7 +316,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 
-## Dies mid-run — 149 names
+## Dies mid-run — 143 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -352,11 +352,10 @@ most of the in-box object model.
 | `App.StartMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (StartMode in… | VbApp.cs |
 | `App.TaskVisible` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (TaskVisible in… | VbApp.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
-| `AscB` | **Dies** | No registry entry: BuildRegistry (VB6BuiltIns.cs) calls RegisterStrings/Conversion/Math/Array/Inspection/DateTime/Format and adds only DoEvents; grep for "AscB" across IDE/HexIDE.Runtime… | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
 | `CallByName` | **Dies** | Not registered by any Register* partial. Expression calls and library-qualified statement calls stop with an untrappable Sub or Function not defined; On Error Resume Next cannot skip the missing effect (#867). Bare statement calls stop as an unimplemented intrinsic. | ExpressionExecutor.cs |
-| `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". Left out of [#1134](https://github.com/hexide-io/HexIDE/issues/1134): a one-byte string needs a representation HexIDE's strings lack, so it is tracked with the rest of the byte-string family in [#1510](https://github.com/hexide-io/HexIDE/issues/1510). | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `ChrB` | **Dies** | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** refused as not implemented: it is always one byte, a String of an odd number of bytes, which HexIDE's whole-character strings cannot hold (measured: `ChrB(65) & ChrB(0) = "A"`). | VB6BuiltIns.Strings.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
 | `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
@@ -400,11 +399,8 @@ most of the in-box object model.
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
 | `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), which HexIDE has not got ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
-| `InStrB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "InStrB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (InStrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `IPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `LeftB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "LeftB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (LeftB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `LenB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "LenB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (LenB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `Line` | **Dies** | There is no standalone LINE token; `Line Input` is lexed as ONE token, `LINE_INPUT : L I N E ' ' I N P U T` (Grammar/VB6.g4), consumed by `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA… | StatementExecutor.cs |
@@ -415,7 +411,6 @@ most of the in-box object model.
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
-| `MidB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "MidB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (MidB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `NPer` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPer)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `NPV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -446,7 +441,6 @@ most of the in-box object model.
 | `Rate` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Rate)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4). A bare call dispatches to the module's own Sub named `Reset`, including a private sibling in `Class_Initialize` (measured, #851). The file-closing statement still throws NotImplementedException: "Reset not implemented" when no local Sub matches. | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
-| `RightB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "RightB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (RightB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `SavePicture` | **Dies** | throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
@@ -632,7 +626,7 @@ missing.
 | `TypeOf ... Is` | Supported | **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (41 absent, 47 partial, 65 supported)
+### Intrinsic functions — 153 names (35 absent, 51 partial, 67 supported)
 
 
 **array** (3)
@@ -791,19 +785,19 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `AscB` | **Dies** | No registry entry: BuildRegistry (VB6BuiltIns.cs) calls RegisterStrings/Conversion/Math/Array/Inspection/DateTime/Format and adds only DoEvents; grep for "AscB" across IDE/HexIDE.Runtime… | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `AscB` | Supported | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** the first byte, as a Byte; 5 for an empty string and 94 for Null (measured). | VB6BuiltIns.Strings.cs |
 | `AscW` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** the first UTF-16 unit as a typed Integer, so a unit past &H7FFF is negative (`AscW(ChrW(&H8000))` is -32768), as vb6.exe measured. 5 for an empty string or Empty, 94 for Null; `AscW$` does not compile. | VB6BuiltIns.Strings.cs |
-| `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". Left out of [#1134](https://github.com/hexide-io/HexIDE/issues/1134): a one-byte string needs a representation HexIDE's strings lack, so it is tracked with the rest of the byte-string family in [#1510](https://github.com/hexide-io/HexIDE/issues/1510). | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `ChrB` | **Dies** | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** refused as not implemented: it is always one byte, a String of an odd number of bytes, which HexIDE's whole-character strings cannot hold (measured: `ChrB(65) & ChrB(0) = "A"`). | VB6BuiltIns.Strings.cs |
 | `ChrW` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** a UTF-16 unit, -32768 to 65535, a negative code being its unsigned unit (`ChrW(&HF050)`, an Integer -4016, is U+F050), and 5 outside that, as vb6.exe measured. Rounds half to even, takes a numeric string, and is 94 for Null and 6 past a Long. A Variant, as `Chr` is; `ChrW$` a typed String. | VB6BuiltIns.Strings.cs |
 | `FormatCurrency` | **Dies** | RegisterFormat registers exactly one name — `d["Format"]` (VB6BuiltIns.Format.cs); no occurrence of "FormatCurrency" under IDE/HexIDE.Runtime. `throw new… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatPercent` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (FormatPercent)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `InStrB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "InStrB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (InStrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `LeftB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "LeftB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (LeftB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `LenB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "LenB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (LenB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `MidB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "MidB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (MidB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `RightB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "RightB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (RightB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `InStrB` | Supported | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** a search by byte, so a match may start mid-character and the compare argument is ignored; an empty string2 is found at start only within string1 (measured). | VB6BuiltIns.Strings.cs |
+| `LeftB` | Partial | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** bytes, as measured, wherever the result is an even number of them; an odd number is refused. | VB6BuiltIns.Strings.cs |
+| `LenB` | Partial | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** a String's byte count, a declared scalar's size as `Len` gives it, and twice a Variant's text, as measured; of a number that is not a variable it is "Variable required". Of a user-defined type it is refused: it is the Type's padded size in memory (8 for an Integer and a Long, where `Len` is 6), which HexIDE does not lay out. | VB6BuiltIns.Strings.cs |
+| `MidB` | Partial | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** bytes, as measured, wherever the result is an even number of them. An odd number is refused: HexIDE's strings are whole characters. The `MidB` statement is not built. | VB6BuiltIns.Strings.cs |
+| `RightB` | Partial | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** bytes, as measured, wherever the result is an even number of them; an odd number is refused. | VB6BuiltIns.Strings.cs |
 | `StrComp` | Partial | **#1560:** runs as vb6.exe measured: the compare read first as CLng reads it, 0 binary and 1 text (#1567), 2 and a negative 5; an array is 13 even beside a Null, and a Null string makes it Null. Remaining: a compare of 3 and up (#881). **#1572:** omitted compare takes the calling module's `Option Compare` (#1572). | VB6BuiltIns.Strings.cs, VbTextCompare.cs |
 | `StrConv` | Partial | **#1560:** upper, lower and proper case run as vb6.exe measured, through the ANSI code page (a character it lacks becomes its best fit or "?"), proper case starting a word after Chr(0), tab, LF, VT, FF, CR and space only; the conversion and LocaleID are checked as vb6.exe checks them. Remaining: vbUnicode and vbFromUnicode, which make byte strings (#1510). | VB6BuiltIns.Strings.cs, VbCase.cs |
 | `Asc` | Partial | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** the character's byte in the ANSI code page, best fit first (Ā is 65, "A"), and "?" (63) for a character with no fit (Ж), as vb6.exe measured. A typed Integer; 5 for an empty string or Empty, and 94 for Null, where it returned Null. **Partial:** under a double-byte ANSI code page, a character beyond ASCII is refused until measured ([#1509](https://github.com/hexide-io/HexIDE/issues/1509)). | VB6BuiltIns.Strings.cs |

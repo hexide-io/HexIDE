@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// How <c>Select Case</c> decides that an arm matches — every expectation here measured against real
-/// vb6.exe (see <i>Select Case matching</i> in docs/vb6-fidelity-oracle.md).
+/// vb6.exe (see <i>Select Case matching</i> in docs/vb6-fidelity-oracle/select-case-matching--the-coercion-rule.md).
 ///
 /// <para>
 /// <b>The rule.</b> For a selector with a FIXED type, a declared variable, a literal, a typed Function or
@@ -192,7 +192,7 @@ public class SelectCaseMatchingTests : BaseVBTestFixture
 
     // Round two of #839's review (2026-10-13). Every row below is a program built as native code and as p-code, the two
     // agreeing on each, and generated from those probes and their logs rather than written out by hand; the probes are
-    // in docs/vb6-fidelity-oracle.md, "A typed selector and a Variant one". A selector with a fixed type converts the
+    // in docs/vb6-fidelity-oracle/a-typed-selector-and-a-variant-one.md, "A typed selector and a Variant one". A selector with a fixed type converts the
     // Case value into its type. A Variant selector does not, and compares as VB6 compares a Variant with a typed or a
     // Variant value. Round one converted into whatever type the selector's value had, so a Variant 5 was not
     // `Case Is < 5.4` and a Variant against `Is > "a"` stopped the run with 13.
