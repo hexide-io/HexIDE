@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Ne",
     "Str.Dialog.MessageBox.Button.Abort": "Ĉesigi",
     "Str.Dialog.MessageBox.Button.Retry": "Reprovi",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignori"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignori",
+    "Str.Addins.Incompatible": "Ne eblas ŝargi aldonaĵon: postulata skemo {0}, minimuma HexIDE {1}; ĉi tiu kompilaĵo subtenas skemon {2}, HexIDE {3}. La skema aŭ versia postulo estas nesubtenata aŭ nevalida."
   }
 }

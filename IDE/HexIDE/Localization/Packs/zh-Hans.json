@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "否",
     "Str.Dialog.MessageBox.Button.Abort": "中止",
     "Str.Dialog.MessageBox.Button.Retry": "重试",
-    "Str.Dialog.MessageBox.Button.Ignore": "忽略"
+    "Str.Dialog.MessageBox.Button.Ignore": "忽略",
+    "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。"
   }
 }

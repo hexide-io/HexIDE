@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Không",
     "Str.Dialog.MessageBox.Button.Abort": "Hủy bỏ",
     "Str.Dialog.MessageBox.Button.Retry": "Thử lại",
-    "Str.Dialog.MessageBox.Button.Ignore": "Bỏ qua"
+    "Str.Dialog.MessageBox.Button.Ignore": "Bỏ qua",
+    "Str.Addins.Incompatible": "Không thể tải phần bổ trợ: lược đồ yêu cầu {0}, HexIDE tối thiểu {1}; bản dựng này hỗ trợ lược đồ {2}, HexIDE {3}. Yêu cầu lược đồ hoặc phiên bản không được hỗ trợ hoặc không hợp lệ."
   }
 }

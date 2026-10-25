@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "नहीं",
     "Str.Dialog.MessageBox.Button.Abort": "निरस्त करें",
     "Str.Dialog.MessageBox.Button.Retry": "पुनः प्रयास करें",
-    "Str.Dialog.MessageBox.Button.Ignore": "अनदेखा करें"
+    "Str.Dialog.MessageBox.Button.Ignore": "अनदेखा करें",
+    "Str.Addins.Incompatible": "ऐड-इन लोड नहीं हो सकता: आवश्यक स्कीमा {0}, न्यूनतम HexIDE {1}; यह बिल्ड स्कीमा {2}, HexIDE {3} का समर्थन करता है। स्कीमा या संस्करण की आवश्यकता असमर्थित या अमान्य है।"
   }
 }

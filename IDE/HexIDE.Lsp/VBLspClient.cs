@@ -5,12 +5,14 @@ using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
 using HexIDE.Conversations;
+using HexIDE.Redaction;
 
 namespace HexIDE.Lsp;
 
 public sealed class VBLspClient : ILspClient
 {
     private readonly ILspTransport _transport;
+    private readonly ConversationRedactor? _workspaceNames;
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
@@ -165,11 +167,16 @@ public sealed class VBLspClient : ILspClient
     /// How long to wait for the server's <c>initialize</c> reply before abandoning the handshake. Injected
     /// so tests need not wait out the real one; leave it unset everywhere else.
     /// </param>
+    /// <param name="workspaceNames">
+    /// The session redactor for names this client supplies. URI fields stay real so the server can use
+    /// them; folder display names are assigned their export pseudonym before they reach the wire.
+    /// </param>
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
-        ConversationLog? capture = null, string? connectionId = null)
+        ConversationLog? capture = null, string? connectionId = null,
+        ConversationRedactor? workspaceNames = null)
     {
         _transport = transport;
         _logger = logger;
@@ -179,6 +186,7 @@ public sealed class VBLspClient : ILspClient
         _trace = LspTraceValue.Normalise(trace) ?? LspTraceValue.Off;
         _capture = capture;
         _connectionId = connectionId;
+        _workspaceNames = workspaceNames;
     }
 
     /// <summary>
@@ -654,7 +662,13 @@ public sealed class VBLspClient : ILspClient
         {
             try
             {
-                wire.Add(new WorkspaceFolder(new Uri(folder.Directory).AbsoluteUri, folder.Name));
+                var uri = new Uri(folder.Directory).AbsoluteUri;
+                // A name is not a URI, so the textual export pass cannot recognise it. Assign the
+                // same name as the URI's final segment here, using the export's session mapping.
+                var name = _workspaceNames is { IsPseudonymising: true }
+                    ? _workspaceNames.Uri(uri).TrimEnd('/').Split('/')[^1]
+                    : folder.Name;
+                wire.Add(new WorkspaceFolder(uri, name));
             }
             catch (Exception ex)
             {

@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Hayır",
     "Str.Dialog.MessageBox.Button.Abort": "Durdur",
     "Str.Dialog.MessageBox.Button.Retry": "Yeniden Dene",
-    "Str.Dialog.MessageBox.Button.Ignore": "Yoksay"
+    "Str.Dialog.MessageBox.Button.Ignore": "Yoksay",
+    "Str.Addins.Incompatible": "Eklenti yüklenemiyor: gerekli şema {0}, en düşük HexIDE {1}; bu derleme şema {2}, HexIDE {3} destekler. Şema veya sürüm gereksinimi desteklenmiyor ya da geçersiz."
   }
 }

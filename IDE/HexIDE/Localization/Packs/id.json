@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Tidak",
     "Str.Dialog.MessageBox.Button.Abort": "Batalkan",
     "Str.Dialog.MessageBox.Button.Retry": "Coba Lagi",
-    "Str.Dialog.MessageBox.Button.Ignore": "Abaikan"
+    "Str.Dialog.MessageBox.Button.Ignore": "Abaikan",
+    "Str.Addins.Incompatible": "Tidak dapat memuat add-in: skema yang diperlukan {0}, minimum HexIDE {1}; build ini mendukung skema {2}, HexIDE {3}. Persyaratan skema atau versi tidak didukung atau tidak valid."
   }
 }

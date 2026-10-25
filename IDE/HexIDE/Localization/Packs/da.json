@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Nej",
     "Str.Dialog.MessageBox.Button.Abort": "Afbryd",
     "Str.Dialog.MessageBox.Button.Retry": "Prøv igen",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
+    "Str.Addins.Incompatible": "Tilføjelsen kan ikke indlæses: krævet skema {0}, mindst HexIDE {1}; denne udgave understøtter skema {2}, HexIDE {3}. Skema- eller versionskravet understøttes ikke eller er ugyldigt."
   }
 }

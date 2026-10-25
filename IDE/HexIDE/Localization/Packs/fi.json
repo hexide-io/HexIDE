@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Ei",
     "Str.Dialog.MessageBox.Button.Abort": "Keskeytä",
     "Str.Dialog.MessageBox.Button.Retry": "Yritä uudelleen",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ohita"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ohita",
+    "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen."
   }
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using HexIDE.Lsp.Messages;
 
 using HexIDE.Conversations;
+using HexIDE.Redaction;
 
 namespace HexIDE.Lsp;
 
@@ -26,7 +27,8 @@ public sealed class LanguageServerRegistrationFactory(
     ILoggerFactory loggerFactory,
     ILspWorkspace? workspace = null,
     ConversationLog? capture = null,
-    IWorkspaceArtifactProviderRegistry? artifactProviders = null)
+    IWorkspaceArtifactProviderRegistry? artifactProviders = null,
+    ConversationRedactor? workspaceNames = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -63,7 +65,7 @@ public sealed class LanguageServerRegistrationFactory(
                     trace: trace,
                     // The id, not the language: two servers can serve one language, and a record that
                     // could not tell them apart would be worse than no record.
-                    capture: capture, connectionId: id),
+                    capture: capture, connectionId: id, workspaceNames: workspaceNames),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,

@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Minime",
     "Str.Dialog.MessageBox.Button.Abort": "Interrumpe",
     "Str.Dialog.MessageBox.Button.Retry": "Retenta",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignora"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignora",
+    "Str.Addins.Incompatible": "Additamentum onerari non potest: schema requisitum {0}, HexIDE minimum {1}; haec versio schema {2}, HexIDE {3} sustinet. Requisitum schematis aut versionis non sustinetur aut invalidum est."
   }
 }

@@ -660,6 +660,19 @@ entry counter every half second, without copying the record. The count covers al
 of the selected filter and survives eviction or clearing; Refresh resets its baseline. Replies completing
 an existing request do not add an entry to this count.
 
+### Workspace names in a shareable conversation
+
+HexIDE assigns the `workspaceFolders[].name` it sends in `initialize` the same session pseudonym as
+that folder's URI segment (#397). The server still receives the real URI so it can access the workspace;
+the exported conversation pseudonymises that URI with the same mapping. This name is assigned at the
+source, so even the raw handshake contains the pseudonym rather than the project's display name.
+The IDE's exports always enable redaction; callers supplying a non-pseudonymising redactor retain the
+original names.
+
+Body redaction remains textual, including for a body the client cannot decode. It adds neither a
+structural JSON pass nor a sweep for occurrences of the project name. **A name a server echoes back in
+its own fields is outside this fix** and may survive export; review the preview before sharing it.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline

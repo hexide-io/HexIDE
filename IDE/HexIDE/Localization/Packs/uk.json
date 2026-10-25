@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Ні",
     "Str.Dialog.MessageBox.Button.Abort": "Перервати",
     "Str.Dialog.MessageBox.Button.Retry": "Повторити",
-    "Str.Dialog.MessageBox.Button.Ignore": "Пропустити"
+    "Str.Dialog.MessageBox.Button.Ignore": "Пропустити",
+    "Str.Addins.Incompatible": "Не вдалося завантажити надбудову: потрібна схема {0}, мінімум HexIDE {1}; ця збірка підтримує схему {2}, HexIDE {3}. Вимога до схеми або версії не підтримується або є некоректною."
   }
 }

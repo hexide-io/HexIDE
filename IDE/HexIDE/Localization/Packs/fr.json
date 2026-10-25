@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Non",
     "Str.Dialog.MessageBox.Button.Abort": "Abandonner",
     "Str.Dialog.MessageBox.Button.Retry": "Réessayer",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
+    "Str.Addins.Incompatible": "Impossible de charger le complément : schéma requis {0}, HexIDE minimum {1} ; cette compilation prend en charge le schéma {2}, HexIDE {3}. Le schéma ou la version exigés ne sont pas pris en charge ou sont invalides."
   }
 }

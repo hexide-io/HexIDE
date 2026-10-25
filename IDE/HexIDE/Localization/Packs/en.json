@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "No",
     "Str.Dialog.MessageBox.Button.Abort": "Abort",
     "Str.Dialog.MessageBox.Button.Retry": "Retry",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignore"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignore",
+    "Str.Addins.Incompatible": "Cannot load add-in: required schema {0}, minimum HexIDE {1}; this build supports schema {2}, HexIDE {3}. The schema or version requirement is unsupported or invalid."
   }
 }

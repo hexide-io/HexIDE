@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "Ne",
     "Str.Dialog.MessageBox.Button.Abort": "Přerušit",
     "Str.Dialog.MessageBox.Button.Retry": "Opakovat",
-    "Str.Dialog.MessageBox.Button.Ignore": "Ignorovat"
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorovat",
+    "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný."
   }
 }

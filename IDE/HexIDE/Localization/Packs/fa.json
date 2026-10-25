@@ -844,6 +844,7 @@
     "Str.Dialog.MessageBox.Button.No": "خیر",
     "Str.Dialog.MessageBox.Button.Abort": "توقف",
     "Str.Dialog.MessageBox.Button.Retry": "تلاش مجدد",
-    "Str.Dialog.MessageBox.Button.Ignore": "نادیده گرفتن"
+    "Str.Dialog.MessageBox.Button.Ignore": "نادیده گرفتن",
+    "Str.Addins.Incompatible": "افزونه بارگیری نمی‌شود: طرح‌وارهٔ لازم {0}، حداقل HexIDE {1}؛ این ساخت از طرح‌وارهٔ {2} و HexIDE {3} پشتیبانی می‌کند. نیازمندی طرح‌واره یا نسخه پشتیبانی‌نشده یا نامعتبر است."
   }
 }
