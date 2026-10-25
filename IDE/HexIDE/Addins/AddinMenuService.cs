@@ -31,7 +31,9 @@ public sealed class AddinMenuService : IMenuContributor
     {
         var vm = new AddinMenuItemViewModel(label, onInvoke, canExecute);
         collection.Add(vm);
-        return new ActionDisposable(() => collection.Remove(vm));
+        var handle = new ActionDisposable(() => collection.Remove(vm));
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
     }
 
     private static IDisposable AddToSubmenu(ObservableCollection<AddinMenuItemViewModel> parent,
@@ -48,11 +50,13 @@ public sealed class AddinMenuService : IMenuContributor
         var item = new AddinMenuItemViewModel(label, onInvoke, canExecute);
         submenu!.SubItems.Add(item);
 
-        return new ActionDisposable(() =>
+        var handle = new ActionDisposable(() =>
         {
             submenu.SubItems.Remove(item);
             if (created && submenu.SubItems.Count == 0)
                 parent.Remove(submenu);
         });
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
     }
 }

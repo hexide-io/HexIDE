@@ -20,6 +20,7 @@ public partial class FormEditView : UserControl
     public FormEditView()
     {
         InitializeComponent();
+        ControlsContainer.ReferenceChanged += OnControlsContainerReferenceChanged;
         NewControlSpawner.AddHandler(PointerPressedEvent, OnNewControlStarted);
         NewControlSpawner.AddHandler(PointerMovedEvent, OnNewControlMoving);
         NewControlSpawner.AddHandler(PointerReleasedEvent, OnNewPointerReleased);
@@ -227,6 +228,7 @@ public partial class FormEditView : UserControl
                 ControlsContainer.Selection.Clear();
             foreach (var i in matched)
                 ControlsContainer.Selection.Select(i);
+            ControlsContainer.Selection.Select(matched[0]);
             ControlsContainer.Selection.EndBatchUpdate();
         }
         finally
@@ -235,7 +237,7 @@ public partial class FormEditView : UserControl
         }
 
         // Update VM primary to first matched item.
-        if (ControlsContainer.SelectedItem is ComponentInstanceViewModel primary)
+        if (ControlsContainer.ReferenceItem is ComponentInstanceViewModel primary)
         {
             _syncingSelection = true;
             try { vm.SelectedComponent = primary; }
@@ -245,7 +247,7 @@ public partial class FormEditView : UserControl
     }
 
     // Fired by ControlsContainer when the user changes selection interactively.
-    private void OnControlsContainerSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnControlsContainerReferenceChanged(object? sender, EventArgs e)
     {
         if (_syncingSelection) return;
         if (DataContext is not FormEditViewModel vm) return;
@@ -253,7 +255,7 @@ public partial class FormEditView : UserControl
         _syncingSelection = true;
         try
         {
-            vm.SelectedComponent = ControlsContainer.SelectedItem as ComponentInstanceViewModel ?? vm.Form;
+            vm.SelectedComponent = ControlsContainer.ReferenceItem as ComponentInstanceViewModel ?? vm.Form;
             vm.SetSelectedComponents(ControlsContainer.SelectedItems?.OfType<ComponentInstanceViewModel>() ?? []);
         }
         finally

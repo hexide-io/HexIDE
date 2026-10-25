@@ -25,6 +25,20 @@ public class WireContractTests
         "End Sub\n";                 // 5
 
     // ── document sync + diagnostics ─────────────────────────────────────────────────────────────
+    [Theory]
+    [InlineData("\r")]
+    [InlineData("\r\n\r\n\r")]
+    public async Task Diagnostics_below_a_lone_CR_use_editor_lines(string breaks)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, "Sub T()" + breaks + "    @@\rEnd Sub\r");
+
+        var pub = await h.NextDiagnosticsAsync();
+        pub.GetProperty("diagnostics").EnumerateArray().Should().Contain(d =>
+            d.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32() ==
+            breaks.ReplaceLineEndings("\n").Length);
+    }
+
     [Fact]
     public async Task DidOpen_publishes_diagnostics_with_the_exact_uri()
     {

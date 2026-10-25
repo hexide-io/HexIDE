@@ -37,6 +37,7 @@
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+        <ProjectReference Include="..\HexIDE.Standalone\HexIDE.Standalone.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
         <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
         <!-- PackageSigner is used to produce signed fixtures for the verifier tests. -->

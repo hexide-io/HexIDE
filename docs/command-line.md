@@ -5,7 +5,7 @@ skip a step you would otherwise take by hand, or to turn on something that has t
 finishes starting.
 
 ```text
-HexIDE.Desktop [options] [<project>.vbp]
+HexIDE.Desktop [options] [<project>.vbp | <group>.vbg | <project>.twinproj]
 ```
 
 **Both prefixes work.** `--newproject` and `/newproject` are the same flag, and both are matched
@@ -26,7 +26,7 @@ most people will type today.
 | `--session` | a name | Serves automation only to the agent session of that name. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
-| *(positional)* | a path ending `.vbp` | Opens that project instead of showing the startup dialog. Relative to where you ran HexIDE from. |
+| *(positional)* | a path ending `.vbp`, `.vbg` or `.twinproj` | Opens that project or project group instead of showing the startup dialog; a `.twinproj` opens read-only. Relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 
@@ -114,12 +114,12 @@ sessions*.
 it starts, and used to resolve the project path *after* that move — so `HexIDE.Desktop ../demo/x.vbp` looked
 beside the executable, found nothing, and opened nothing without saying so.
 
-**The positional path must end in `.vbp`.** A `.vbg` project group cannot currently be opened from the
-command line even though the IDE opens groups perfectly well from **File → Open Project** — the argument
-is matched on the `.vbp` extension alone. Tracked as a gap rather than a decision.
+**The positional path must end in `.vbp`, `.vbg` or `.twinproj`**, matched case-insensitively. A `.vbg` opens
+the whole project group, as **File → Open Project** does, and a `.twinproj` opens read-only, for browsing its
+sources (#1189). Any other path is not taken as a project.
 
 **Almost nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
-place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE starts normally. The
+place, a path that isn't a project, an unknown personality — is skipped in silence and the IDE starts normally. The
 exceptions are the flags whose whole purpose would be defeated by carrying on without them: a
 `--user-data-dir` with no directory, a `--session` with no name, a `--server-port` with no usable port, and an
 `--ansi-code-page` HexIDE has no table for. So a flag
@@ -129,6 +129,9 @@ looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 **`--help` is answered before anything starts.** No window, no project, no port — it prints and exits. On
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
+An inherited file or pipe is used directly, before trying to attach to a console. In particular, a
+Windows batch file can capture help and refusals with `HexIDE.Desktop.exe --help > out.txt 2>&1`,
+even when the batch file's cmd has no console window.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
 terminal rather than a file or pipe, `NO_COLOR` unset, `TERM` not set to `dumb`, and a terminal that takes

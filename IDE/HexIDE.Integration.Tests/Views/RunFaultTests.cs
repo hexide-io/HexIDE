@@ -204,7 +204,7 @@ public class RunFaultTests
             printed.Should().Equal("loaded");
             Click(window);
             run.RunFailed.Should().ContainSingle().Which.Should()
-                .Be("Not implemented yet: The Print method is not implemented for Form1");
+                .Be($"Not implemented yet: The Print method is not implemented for Form1\n\nat {statement}");
             printed.Should().Equal("loaded");
             AssertNothingIsRunning(run);
         }

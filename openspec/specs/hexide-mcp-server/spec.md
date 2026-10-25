@@ -14,6 +14,19 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Shutdown SHALL preserve the reply and a cancelled IDE's server
+`shutdown_ide` SHALL close the main window only after its HTTP response completes. Server cancellation
+and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
+available. The reply reports a request, not confirmation of process exit.
+
+#### Scenario: Shutdown is requested through a tool call
+- **WHEN** `shutdown_ide` returns its result
+- **THEN** the main-window close is deferred until the HTTP response completes
+
+#### Scenario: A close is cancelled
+- **WHEN** shutdown is requested but the IDE stays open
+- **THEN** the automation server and its context remain available
+
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
 On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
 so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
@@ -48,6 +61,11 @@ binary cannot serve automation requests under any argument.
 Being off by default protects a user who does nothing; being absent protects one who is talked into
 something. It also keeps a web-server dependency out of shipped binaries, which is worth having for its own
 sake — the smallest attack surface is the code that is not there.
+
+#### Scenario: CI checks the distributed configuration
+- **WHEN** the build-ide job runs
+- **THEN** Desktop and Standalone compile in Release
+- **AND** the Desktop output is checked for server code, MCP dependencies and AspNetCore references
 
 #### Scenario: A released build asked to serve
 - **WHEN** a distributed build is launched with a port argument
@@ -90,6 +108,16 @@ day it lands, with nothing to add.
 #### Scenario: Driving a newly added dialog
 - **WHEN** a dialog is added to the IDE
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
+
+### Requirement: Icon-only controls SHALL expose localized action names
+The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
+localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
+accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
+dropdown toggles and property color/font picker buttons SHALL likewise have localized names describing their actions.
+
+#### Scenario: Discovering an icon-only dock button
+- **WHEN** a caller discovers a dock pane's close button
+- **THEN** its name describes closing the pane in the active language, rather than naming the glyph's .NET type
 
 ### Requirement: A purpose-built tool SHALL be justified against the generic mechanism
 A new dedicated tool SHALL be added only where the generic mechanism genuinely cannot reach the surface, and
@@ -397,3 +425,33 @@ replies SHALL use the meaningful label when available.
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+### Requirement: Attribute window waits when settling running-form actions
+
+An automation reply for a running form SHALL distinguish a handler waiting on a window from one suspended at a
+time slice, breakpoint or asynchronous control call. Starting a window wait SHALL clear that handler's earlier
+DoEvents loop mark, so a loop resumed by answering the window is waited for as work the action sets going.
+A window already open before the action SHALL be considered by the program wait only when the program was
+waiting on a window before the action.
+
+#### Scenario: Answer a window after an earlier DoEvents
+- **WHEN** a handler calls DoEvents, waits at a MsgBox or modal form, then runs a finite DoEvents loop
+- **AND** an automation action answers or closes that window
+- **THEN** the reply waits for the loop to finish, up to the usual program wait limit
+
+#### Scenario: An unrelated old dialog during a busy loop
+- **WHEN** a watch finds the program between two DoEvents, with an unrelated dialog already open
+- **AND** the action queues a handler that opens no window
+- **THEN** the old dialog does not end the program wait or get named as holding the handler
+
+### Requirement: Discovery and legacy clients share a stateless transport
+The automation server SHALL support discovery for the 2026-07-28 protocol revision and SHALL keep both discovery
+and legacy initialize clients stateless, without issuing an MCP session ID or offering a standalone GET stream.
+
+#### Scenario: Discovery without initialization
+- **WHEN** a client sends `server/discover` without first sending `initialize`
+- **THEN** the server advertises `2026-07-28` among its supported versions and issues no MCP session ID
+
+#### Scenario: Rebuild with an attached client
+- **WHEN** the server restarts on the same endpoint after a client has connected
+- **THEN** that client's next tool call is answered without a stale transport session

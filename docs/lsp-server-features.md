@@ -50,6 +50,10 @@ The philosophy behind that last rating has not changed and is worth restating:
 
 ## What the server is sent, and the lines it keeps off
 
+All server positions count CR, LF and CRLF as line ends, including mixed endings in a file edited outside
+VB6 (#1052). Diagnostics, symbols, folds, rename, highlight, signature help, protected regions and formatting
+use those same physical lines. Formatting and protected-region blanking preserve each line's terminator.
+
 The client sends each form, module and class as **the whole VB6 file**: a class's `VERSION` and
 `BEGIN … END` block, a form's `VERSION` line, object references and designer block, the run of `Attribute`
 lines that opens the code, and every member's `Attribute` lines further down. It names the document by its
@@ -148,6 +152,13 @@ a false error in VB6's Tip of the Day template.
 `Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
 their conversion functions remain follow-up work; this adds no external API execution.
 
+An empty `If True Then:` line is accepted without requiring `End If` (#223); the following line is
+an independent statement. Both grammars also accept leading empty colon statements and labels before
+`End If`, using the measured label-name list.
+
+Whitespace-only offending tokens are named `end of line` in unexpected-input and syntax-error-near
+messages, rather than shown as empty quotes (#665). Null, empty and EOF tokens still read `end of file`.
+
 ### Conditional compilation
 
 **Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's
@@ -195,9 +206,18 @@ out, not merely disabled at runtime. The analyzer and its tests exist and work; 
 (The document these replaced listed this under *what works*, describing the severity and the node kinds it
 covers. It has never shipped switched on.)
 
-That is the boundary doing its job rather than an oversight: the check needs a symbol table, and a symbol
-table is the thing being declined. Turning it on would mean either accepting false positives on every
-identifier declared elsewhere, or building the binding pass that is out of scope.
+The retained analyzer has a fixed baseline (#54): designer names collected from the form header,
+class/module names explicitly listed before the semicolon in the document's `.vbp`, and the existing
+built-in list with `vbPixels` added. `RGB`, `Sin` and `Cos` calls already bypass its simple-variable
+visitor. Project names use the same disk lookup and cache as conditional-compilation arguments; they
+are supplied only when exactly one project lists the document and its arguments are valid. Unsaved
+documents still get their own designer names, but no disk-project names. A header the grammar blanks
+for recovery still supplies its names from the original text in the provider path.
+
+This is collection, not binding: it does not inspect other modules' code, check accessibility, or
+resolve a reference to a declaration. The remaining runtime-library names have not been added without
+measurements. Cross-module variables remain invisible, so enabling the check would still produce false
+positives. The baseline does not justify switching it on.
 
 - ◐ Scope analysis is skipped when syntax errors are present, avoiding cascading false positives from an
   incomplete parse tree. Its diagnostics are filtered off the protected lines too, although the check cannot

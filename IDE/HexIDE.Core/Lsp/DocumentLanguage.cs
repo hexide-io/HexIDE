@@ -98,7 +98,7 @@ public static class DocumentLanguage
     /// <remarks>
     /// <para>
     /// This is the gate a <b>project member</b> passes through, and only a project member: a carried
-    /// <c>.cls</c> is an ordinary file and goes wherever its extension leads. A member is known to be VB6
+    /// <c>.cls</c> also needs a VB6 class header before it reaches a VB6 entry. A member is known to be VB6
     /// whatever its extension shares with another language, so offering it to a server that has not
     /// established VB6 would hand a LaTeX server the developer's source (hexide-io/HexIDE#279).
     /// </para>
