@@ -301,6 +301,41 @@ jobs:
           done
           exit $fail
 
+      - name: Build Windows installer
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          # SHA-256 and size: digest GitHub records for the asset the publisher uploaded to
+          # jrsoftware/issrc release is-6_7_3 (read 2026-10-25 with
+          # gh api repos/jrsoftware/issrc/releases/tags/is-6_7_3). Publisher-hosted, not computed here.
+          $expectedHash = '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $installer
+          if ((Get-Item $installer).Length -ne 10592232) { throw 'Inno Setup installer size mismatch' }
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $expectedHash) { throw 'Inno Setup installer SHA-256 mismatch' }
+          # jrsoftware.org/isdl-verify.php names Pyrsys B.V. for 6.4.2 and later.
+          $signature = Get-AuthenticodeSignature $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(?:^|,\s*)O=Pyrsys B\.V\.(?:,|$)') {
+            throw 'Inno Setup installer Authenticode verification failed'
+          }
+          $setup = Start-Process $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Inno Setup installation failed: $($setup.ExitCode)" }
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          # ISCC.exe carries no version resource (it reads 0.0.0.0), so ask the uninstall entry the installer writes.
+          $installed = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1').DisplayVersion
+          if ($installed -ne '6.7.3') { throw "Unexpected Inno Setup version installed: $installed" }
+          [xml]$props = Get-Content Directory.Build.props
+          $version = [string]($props.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1)
+          & $compiler "/DAppVersion=$version" "/DPublishDir=$((Resolve-Path 'bin/sc').Path)" '../installer/HexIDE.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE" }
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.rid == 'win-x64'
+        with:
+          name: hexide-windows-installer
+          path: ./IDE/bin/HexIDE-Setup-*.exe
+          if-no-files-found: error
+
       - name: Archive (Windows)
         if: matrix.os == 'win'
         shell: pwsh
@@ -371,7 +406,8 @@ jobs:
             **What's new:** [CHANGELOG.md](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/CHANGELOG.md)
 
             **Which download?**
-            - `hexide-<platform>-selfcontained.*` — includes .NET. Start here.
+            - **Windows x64:** `HexIDE-Setup-<version>.exe` — installs for all users; includes .NET.
+            - `hexide-<platform>-selfcontained.*` — portable archive; includes .NET.
             - `hexide-<platform>.*` — smaller, but needs the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
 
             [Download and run instructions](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/README.md#download-and-run), including Linux extraction and launch steps.

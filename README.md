@@ -133,7 +133,11 @@ never at the cost of familiarity. See **[PHILOSOPHY.md](PHILOSOPHY.md)** for the
 
 ### Download and run
 
-Download an archive for your platform and processor from [Releases](https://github.com/hexide-io/HexIDE/releases).
+Download from [Releases](https://github.com/hexide-io/HexIDE/releases). On **Windows x64**, start with
+`HexIDE-Setup-<version>.exe`: it includes .NET, installs for all users into Program Files
+(requires administrator approval), and adds a Start-menu shortcut and an uninstaller.
+
+Portable archives remain available for every platform and processor.
 Start with `hexide-<platform>-selfcontained.*`, which includes .NET. The smaller
 `hexide-<platform>.*` build needs the plain [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 (`Microsoft.NETCore.App`) installed on every platform.
@@ -164,8 +168,8 @@ That openSUSE install had no `tar`. If yours has none, these are alternatives:
 On the same VM without a GPU, Avalonia used XWayland and fell back to software rendering. A GLX log
 message saying the `llvmpipe` renderer is blacklisted is expected in that case; it did not prevent startup.
 
-**Windows:** extract the `.zip` into its own folder and run `HexIDE.exe`. The builds are unsigned;
-SmartScreen shows a warning: More info → Run anyway.
+**Windows portable:** extract the `.zip` into its own folder and run `HexIDE.exe`.
+The installer and portable builds are unsigned; SmartScreen shows a warning: More info → Run anyway.
 
 **macOS:** extract in Terminal with `tar -xzf <file>.tar.gz`, then open `HexIDE.app`.
 The builds are not notarised; Finder extraction applies a quarantine flag that the unsigned app cannot clear.
