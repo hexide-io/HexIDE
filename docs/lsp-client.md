@@ -715,6 +715,13 @@ died of SIGPIPE the moment the connection was torn down, is the case they were w
 say whether the request left this process and whether anything came back. `websocket` frames whole messages
 and has no such gap to observe.
 
+The foreign-server diagnostics waits in the lazy-start, configuration-file and untitled-document tests
+also inspect this record while waiting (#449). A captured non-zero process exit fails with the connection
+id, exit code, outstanding request names (including requests abandoned when the connection closed), and
+the conversation, rather than waiting out a diagnostics timeout. A clean exit or an exit on another
+connection is not classified as that failure. This adds no retry and does not establish the cause of the
+intermittent SIGPIPE.
+
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
 mitigation rather than keeping the whole thing: a serialization failure is now recorded as a never-sent
