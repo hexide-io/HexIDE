@@ -10,7 +10,7 @@ whichever of those the developer is working in.
 
 ## Requirements
 ### Requirement: A personality SHALL determine which surfaces are offered
-A personality SHALL control which menu entries, toolbar buttons and project types are presented.
+A personality SHALL control which menu entries and project types are presented.
 
 The differences between these products are almost entirely about what is offered rather than how anything
 works. Expressing them as visibility keeps one implementation behind every surface, which is what stops the

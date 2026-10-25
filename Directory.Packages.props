@@ -89,7 +89,7 @@
   </ItemGroup>
   <!-- MCP server -->
   <ItemGroup>
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.3.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
   </ItemGroup>
   <!-- Other -->
   <ItemGroup>

@@ -22,6 +22,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     private readonly IBreakpointService breakpoints;
     private readonly IBookmarkService bookmarks;
     private readonly IDisposable subscription;
+    private readonly IDisposable nameSubscription;
 
     public HeaderRefresher(
         IEventBus eventBus,
@@ -33,9 +34,14 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         this.breakpoints = breakpoints;
         this.bookmarks = bookmarks;
         subscription = eventBus.Subscribe<FormLayoutChangedEvent>(e => LayoutChanged(e.Form));
+        nameSubscription = eventBus.Subscribe<DocumentNameChangedEvent>(e => NameChanged(e.Document));
     }
 
-    public void Dispose() => subscription.Dispose();
+    public void Dispose()
+    {
+        subscription.Dispose();
+        nameSubscription.Dispose();
+    }
 
     /// <summary>
     /// Trigger one: a committed change to a form's designer half. Re-renders the designer text and makes it
@@ -188,10 +194,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// the right thing.
     /// </para>
     /// <para>
-    /// <b>It follows the document's name, which for a UserControl is its module's.</b> Renaming the root of a
-    /// UserControl in its designer renames the <c>Begin</c> line and nothing else, because the module's name
-    /// is a separate field nothing connects to it — the rename itself is missing (hexide-io/HexIDE#493), and
-    /// following the root here would make the file disagree with the name the project knows it by instead.
+    /// <b>It follows the document's name, which for a UserControl is its module's.</b> The Properties
+    /// window's rename keeps the module and designer root together before refreshing this text (#493).
     /// </para>
     /// <para>
     /// <b>No mark moves.</b> One line is replaced by one line, so no line number below it changes.

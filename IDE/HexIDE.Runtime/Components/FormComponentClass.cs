@@ -19,7 +19,7 @@ public class FormComponentClass : ComponentBaseClass
     StartUpPositionProperty,
     KeyPreviewProperty,
     MaxButtonProperty,
-    MinButtonProperty], RootEvents)
+    MinButtonProperty], [.. RootEvents, new EventClass("Load"), new EventClass("Resize")])
     {
     }
 
@@ -28,10 +28,16 @@ public class FormComponentClass : ComponentBaseClass
     /// with (Name) and Tag. VB6's Properties window gives neither Left, Top nor Visible (measured, #1585), so they aren't
     /// in it; the root's geometry is the file's ClientLeft, ClientTop, ClientWidth and ClientHeight, as a form's is.
     /// </summary>
-    protected FormComponentClass(IReadOnlyList<PropertyClass> properties)
-        : base(properties, RootEvents, hasBounds: false, hasVisible: false)
+    protected FormComponentClass(IReadOnlyList<PropertyClass> properties, IReadOnlyList<EventClass> events)
+        : base(properties, events, hasBounds: false, hasVisible: false)
     {
     }
+
+    /// <summary>
+    /// The event whose procedure the designer writes when its background is double-clicked: a form's Load (#1532), a
+    /// UserControl's Initialize and a PropertyPage's SelectionChanged (measured, #1632).
+    /// </summary>
+    public virtual string DesignerDoubleClickEvent => "Load";
 
     private static readonly EventClass[] RootEvents = [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
@@ -70,6 +76,8 @@ public class FormComponentClass : ComponentBaseClass
         var chrome = AvaloniaInterop.FormChrome.Read(instance, menuBar);
         AvaloniaInterop.FormFrame.Set(form, chrome, menuBar);
         chrome.Apply(form);
+        // And the icon it carries: its own, none, or the default (#1594).
+        AvaloniaInterop.FormIcon.Read(instance).Apply(form);
         // The state the form's file gives it, which it shows in: `WindowState = 2 'Maximized` (#1152, measured). It is kept
         // as the line it was read with, so the designer and the file are unchanged.
         if (VBLoader.RawNumber(instance, "WindowState") is { } state

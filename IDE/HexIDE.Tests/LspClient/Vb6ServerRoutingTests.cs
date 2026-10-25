@@ -41,6 +41,53 @@ public class Vb6ServerRoutingTests
     private static LspClientRegistry RegistryOf(params LanguageServerRegistration[] registrations) =>
         new(registrations, Substitute.For<ILogger<LspClientRegistry>>());
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("% LaTeX class\n\\NeedsTeXFormat{LaTeX2e}")]
+    [InlineData("Option Explicit\nVERSION 1.0 CLASS")]
+    [InlineData("VERSION 1.0 CLASS extra")]
+    public async Task ACarriedClassWithoutTheSignatureDoesNotReachVb6(string text)
+    {
+        var vb = FakeServer();
+        var latex = FakeServer();
+        await using var sut = RegistryOf(
+            new LanguageServerRegistration("vb", "VB6", [".bas", ".cls"], "vba", () => vb),
+            new LanguageServerRegistration("tex", "LaTeX", [".cls"], "latex", () => latex));
+        const string uri = "file:///project/docs/article.cls";
+
+        await sut.OpenDocumentAsync(uri, text, TestContext.Current.CancellationToken);
+
+        await vb.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
+        await vb.DidNotReceive().OpenDocumentAsync(uri, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await latex.Received(1).OpenDocumentAsync(uri, text, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CarriedClassRoutingStaysUntilReopened()
+    {
+        var vb = FakeServer();
+        await using var sut = RegistryOf(new LanguageServerRegistration(
+            "vb", "VB6", [".cls"], "vb6", () => vb));
+        const string uri = "file:///project/Class1.cls";
+        const string signature = "\r\n  \r\nvErSiOn 1.0 cLaSs\r\n";
+        await sut.OpenDocumentAsync(uri, signature, TestContext.Current.CancellationToken);
+        await sut.ChangeDocumentAsync(uri, 2, "% LaTeX", TestContext.Current.CancellationToken);
+        await vb.Received(1).ChangeDocumentAsync(uri, 2, "% LaTeX", Arg.Any<CancellationToken>());
+        await sut.CloseDocumentAsync(uri, TestContext.Current.CancellationToken);
+        await vb.Received(1).CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
+        vb.ClearReceivedCalls();
+
+        await sut.OpenDocumentAsync(uri, "% LaTeX", TestContext.Current.CancellationToken);
+        await sut.ChangeDocumentAsync(uri, 3, signature, TestContext.Current.CancellationToken);
+        await sut.CloseDocumentAsync(uri, TestContext.Current.CancellationToken);
+        await vb.DidNotReceive().OpenDocumentAsync(uri, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await vb.DidNotReceive().ChangeDocumentAsync(uri, Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await vb.DidNotReceive().CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
+
+        await sut.OpenDocumentAsync(uri, signature, TestContext.Current.CancellationToken);
+        await vb.Received(1).OpenDocumentAsync(uri, signature, Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task AVb6ServerAttachedUnderADifferentLanguageIdStillGetsTheDocuments()
     {

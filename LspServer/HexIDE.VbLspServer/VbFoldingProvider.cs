@@ -84,16 +84,13 @@ public static class VbFoldingProvider
 
     public static List<LspFoldingRange> GetFoldings(string source)
     {
-        var lines = source.Split('\n');
+        var lines = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
         var result = new List<LspFoldingRange>();
         var stack  = new Stack<(int startLine, string blockType)>();
 
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
-            // Strip trailing \r (Windows line endings)
-            if (line.Length > 0 && line[^1] == '\r')
-                line = line[..^1];
 
             // ── Check closers first (order matters for single-keyword lines) ──
 

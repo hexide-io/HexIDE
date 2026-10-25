@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HexIDE.Addins;
@@ -11,7 +12,9 @@ namespace HexIDE.Addins;
 /// </summary>
 public sealed record AddinManifest
 {
-    [JsonPropertyName("schema")]           public int Schema { get; init; } = 1;
+    public const int CurrentSchema = 1;
+    [JsonPropertyName("schema")]           public int Schema { get; init; } = CurrentSchema;
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unrecognized { get; set; }
     [JsonPropertyName("id")]               public string Id { get; init; } = "";
     [JsonPropertyName("title")]            public string Title { get; init; } = "";
     [JsonPropertyName("description")]      public string Description { get; init; } = "";

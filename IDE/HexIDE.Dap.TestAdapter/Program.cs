@@ -61,7 +61,7 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
-            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear")
+            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (command == "setBreakpoints")
@@ -105,7 +105,7 @@ public static class Program
                 }
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsEvaluateForHovers = mode == "evaluate" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsEvaluateForHovers = mode is "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {
@@ -133,7 +133,7 @@ public static class Program
                     await ReplyBreakpoints(delayed);
                     heldBreakpoints = null;
                 }
-                if (command == "continue")
+                if (command == "continue" && mode != "evaluate-running")
                 {
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
                     await Send(new { seq = 6, type = "event", @event = "terminated" });

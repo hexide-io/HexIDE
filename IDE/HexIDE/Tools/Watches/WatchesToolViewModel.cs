@@ -39,7 +39,8 @@ public partial class WatchesToolViewModel : Tool
     private WatchService ActiveService => showingExternal ? ExternalService : _watchService;
 
     [Notify] private ObservableCollection<WatchRowViewModel> _rows = new();
-    [Notify] private WatchRowViewModel? _selectedRow;
+    [Notify] [AlsoNotify(nameof(SelectedRow))] private object? _selectedItem;
+    public WatchRowViewModel? SelectedRow => SelectedItem as WatchRowViewModel;
 
     public ICommand EditWatchCommand { get; }
     public ICommand DeleteWatchCommand { get; }
@@ -86,7 +87,7 @@ public partial class WatchesToolViewModel : Tool
 
     private void RebuildRows()
     {
-        SelectedRow = null;
+        SelectedItem = null;
         Rows = new ObservableCollection<WatchRowViewModel>(
             ActiveService.Watches.Select(w => new WatchRowViewModel(w, _localization)));
     }

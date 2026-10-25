@@ -20,7 +20,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// And driving one did less than a click (#947): invoke left the menu open and moved no tick, and collapse on a bar
 /// header left the bar lit and taking keys.
 /// </summary>
-public class MenuPopupTests
+public class MenuPopupTests : WindowTestFixture
 {
     private static (Window window, Menu menu, MenuItem file) BuildMenuWindow()
     {
