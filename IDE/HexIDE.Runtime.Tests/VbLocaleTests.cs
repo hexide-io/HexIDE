@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A running program formats and reads text in its own locale, the user's regional settings, and not in the
 /// thread's culture, which the IDE pins to the invariant one (#777). Expectations marked measured are vb6.exe output
-/// under en-GB (<c>docs/vb6-fidelity-oracle.md</c>); the comma-decimal ones are the round trip, which is the property
+/// under en-GB (<c>docs/vb6-fidelity-oracle/a-running-programs-locale-is-the-users-regional-settings.md</c>); the comma-decimal ones are the round trip, which is the property
 /// the change exists for, and VB6's own text there is documented rather than measured.
 /// </summary>
 public class VbLocaleTests : BaseVBTestFixture

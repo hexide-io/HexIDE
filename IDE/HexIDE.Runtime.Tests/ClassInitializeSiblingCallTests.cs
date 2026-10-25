@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A call from <c>Class_Initialize</c> to one of the object's own methods does not terminate the object it is
-/// building. Measured on vb6.exe; the probe is in docs/vb6-fidelity-oracle.md, "Subscripts, bounds, and a method
+/// building. Measured on vb6.exe; the probe is in docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md, "Subscripts, bounds, and a method
 /// called from Class_Initialize".
 /// </summary>
 public class ClassInitializeSiblingCallTests : BaseVBTestFixture

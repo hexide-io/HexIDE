@@ -20,7 +20,7 @@ namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
 /// FontName at run time (#1141). Every expected line is what vb6.exe printed for the same statements, native and p-code
-/// alike: the probes and their logs are in docs/vb6-fidelity-oracle.md, "The fonts a form names". Where a family isn't
+/// alike: the probes and their logs are in docs/vb6-fidelity-oracle/the-fonts-a-form-names.md, "The fonts a form names". Where a family isn't
 /// installed here, as Wingdings isn't on Linux, the test expects VB6's answer for a machine without it, 380.
 /// </summary>
 public sealed class FontNameTests : IDisposable

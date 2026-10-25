@@ -9,7 +9,7 @@ namespace HexIDE.Runtime.ProjectElements;
 ///
 /// <para>
 /// These are VB6's own rules, measured against the real compiler rather than assumed, and recorded in
-/// <c>docs/vb6-fidelity-oracle.md</c>. Enforcing them where a name is chosen turns a failure at build time
+/// <c>docs/vb6-fidelity-oracle/module-name-uniqueness-is-per-project-and-filenames-are-free.md</c>. Enforcing them where a name is chosen turns a failure at build time
 /// into a refusal at the moment it is caused — and keeps the name usable as an identifier, because a
 /// document with no file is named to a language server by its project and its own name, and two documents
 /// sharing one are a single document as far as a server can tell.
@@ -42,7 +42,7 @@ public static class ProjectNaming
     /// <remarks>
     /// <para>
     /// <b>These six and no others, because only these were measured refused as a name</b>
-    /// (<c>docs/vb6-fidelity-oracle.md</c>). <c>Rem</c> was refused as a variable, a <c>Sub</c>, a parameter, a
+    /// (<c>docs/vb6-fidelity-oracle/module-name-uniqueness-is-per-project-and-filenames-are-free.md</c>). <c>Rem</c> was refused as a variable, a <c>Sub</c>, a parameter, a
     /// <c>Type</c>'s field and an enum member, and is never an identifier anywhere; <c>Empty</c> as a variable, a
     /// reserved word and not a name; <c>New</c> and <c>Nothing</c> as a <c>Sub</c>'s name and as a label; <c>Me</c>
     /// as a module-level array (<c>Private mE(N - 1)</c>, "Expected: identifier", found as a by-product of the
