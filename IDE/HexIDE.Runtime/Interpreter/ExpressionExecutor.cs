@@ -1349,13 +1349,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// A field of an object, given an index: <c>Form1.Text1(0)</c>, a control array named through its form, picks its
     /// element as a bare <c>Text1(0)</c> does, and a missing one is 340, its message naming the index (measured, #1386).
     /// <para>
-    /// Any other field given one is refused. A class's Variant holding an array, <c>k.V(1)</c>, is its element early-bound
-    /// and 451 late-bound, which HexIDE can't tell apart; the index used to be dropped, which read the whole array.
+    /// A class's Variant holding an array, <c>k.V(1)</c>, is its element through its declared class and 451 through
+    /// Object (measured, #1435). Other fields and bindings remain refused.
     /// </para>
     /// </summary>
-    private static Vb6Value FieldElement(VbObject obj, string name, Vb6Value field, List<Vb6Value> indexes,
+    private Vb6Value FieldElement(Vb6Value receiver, VbObject obj, string name, Vb6Value field, List<Vb6Value> indexes,
         Antlr4.Runtime.ParserRuleContext ctx)
     {
+        if (IsVariantArrayField(obj, name, field))
+        {
+            if (string.Equals(receiver.DeclaredAs, obj.ClassName, StringComparison.OrdinalIgnoreCase))
+                return IndexResult(field, indexes, ctx);
+            if (string.Equals(receiver.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
+                throw new VBRunTimeException(ctx, VBStandardError.ObjectNotACollection);
+        }
         if (field.Value is not ControlArrayGroup group)
             throw new NotImplementedException(
                 $"{obj.ClassName}.{name}(...) is not implemented: only a control array is indexed through its object (#1435)");
@@ -1366,6 +1373,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ? new Vb6Value(element)
             : throw new VBRunTimeException(ctx, VBStandardError.ControlArrayElementIsMissing(index));
     }
+
+    internal bool IsVariantArrayField(VbObject obj, string name, Vb6Value field) =>
+        field.Value is VBArray && obj.ClassDef.Kind == InterpreterModuleKind.Class
+        && obj.InstanceEnv.TryGetVariableLocation(name, out var slot)
+        && interpreter.ExecutionContext.State.IsVariant(slot);
 
     // Resolve a namespace-qualified member reference as a VALUE (expression context): `Module1.Foo(args)`,
     // `Module1.PublicConst`, `VBA.Abs(x)`, `VBA.Math.Abs(x)`, `VBA.vbCrLf`. Library-module segments
@@ -1431,7 +1443,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 (isField, fieldVal) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, memberName, isFieldNeed!);
             if (isField)
                 return MemberArgs(member) is { } fieldArgs
-                    ? FieldElement(vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
+                    ? FieldElement(variable, vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
                     : fieldVal;
             // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
             // own members, which VB6 refuses to let clash with them. Using one loads the form, as a control does.
@@ -1514,7 +1526,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         for (var i = from; i < members.Length; i++)
         {
             if (current.Value is VbUdt)
-                return (Vb6Value)GetUdtField(current, members[i..], ctx)!;
+                return await interpreter.Loading((Root: current, Members: members[i..], Context: ctx),
+                    static s => (Vb6Value)GetUdtField(s.Root, s.Members, s.Context)!);
             // A member reached through a Variant is late-bound, and its result is a Variant's whatever the member is
             // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
             // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
