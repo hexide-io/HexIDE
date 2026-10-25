@@ -835,7 +835,7 @@
     "Str.MakeProject.NoStartup": "Proyek awal tidak ditemukan.",
     "Str.MakeProject.Browser": "Pembuatan program tidak tersedia di peramban. Gunakan HexIDE versi desktop.",
     "Str.MakeProject.UnsupportedPlatform": "Pembuatan program tidak didukung pada sistem operasi ini. Gunakan HexIDE di Windows, macOS, atau Linux.",
-    "Str.MakeProject.MissingRuntime": "Untuk membuat program, bangun runtime mandiri terlebih dahulu. Lihat README untuk petunjuknya.",
+    "Str.MakeProject.RuntimeNotFound": "Untuk membuat program, bangun runtime mandiri terlebih dahulu. HexIDE mencari di {0} dan tidak menemukan {1}. Bagian \"Making a program\" di README menjelaskan caranya.",
     "Str.MakeProject.Failed": "Program tidak dibuat. Terjadi kesalahan:\n{0}",
     "Str.ScrollBar.LineUp": "Satu baris ke atas",
     "Str.ScrollBar.PageUp": "Satu halaman ke atas",

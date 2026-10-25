@@ -835,7 +835,7 @@
     "Str.MakeProject.NoStartup": "Nessun progetto di avvio trovato.",
     "Str.MakeProject.Browser": "La creazione di un programma non è disponibile nel browser. Utilizzare la versione desktop di HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "La creazione di un programma non è supportata su questo sistema operativo. Utilizzare HexIDE su Windows, macOS o Linux.",
-    "Str.MakeProject.MissingRuntime": "Per creare un programma, compilare prima il runtime autonomo. Consultare il README per le istruzioni.",
+    "Str.MakeProject.RuntimeNotFound": "Per creare un programma, compilare prima il runtime autonomo. In {0} non è stato trovato: {1}. La sezione «Making a program» del README spiega come fare.",
     "Str.MakeProject.Failed": "Il programma non è stato creato. Si è verificato un errore:\n{0}",
     "Str.ScrollBar.LineUp": "Una riga verso l’alto",
     "Str.ScrollBar.PageUp": "Una pagina verso l’alto",

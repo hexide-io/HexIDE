@@ -835,7 +835,7 @@
     "Str.MakeProject.NoStartup": "Không tìm thấy dự án khởi động.",
     "Str.MakeProject.Browser": "Không thể tạo chương trình trong trình duyệt. Hãy dùng phiên bản HexIDE dành cho máy tính.",
     "Str.MakeProject.UnsupportedPlatform": "Không hỗ trợ tạo chương trình trên hệ điều hành này. Hãy dùng HexIDE trên Windows, macOS hoặc Linux.",
-    "Str.MakeProject.MissingRuntime": "Để tạo chương trình, trước tiên hãy biên dịch môi trường thực thi độc lập. Xem hướng dẫn trong README.",
+    "Str.MakeProject.RuntimeNotFound": "Để tạo chương trình, trước tiên hãy biên dịch môi trường thực thi độc lập. Không tìm thấy trong {0}: {1}. Mục \"Making a program\" trong README hướng dẫn cách làm.",
     "Str.MakeProject.Failed": "Chương trình chưa được tạo. Đã xảy ra lỗi:\n{0}",
     "Str.ScrollBar.LineUp": "Lên một dòng",
     "Str.ScrollBar.PageUp": "Lên một trang",

@@ -835,7 +835,7 @@
     "Str.MakeProject.NoStartup": "Käynnistysprojektia ei löytynyt.",
     "Str.MakeProject.Browser": "Ohjelman koostaminen ei ole käytettävissä selaimessa. Käytä HexIDEn työpöytäversiota.",
     "Str.MakeProject.UnsupportedPlatform": "Ohjelman koostamista ei tueta tässä käyttöjärjestelmässä. Käytä HexIDEä Windowsissa, macOS:ssä tai Linuxissa.",
-    "Str.MakeProject.MissingRuntime": "Koosta ensin erillinen suoritusympäristö, jotta voit koostaa ohjelman. Katso ohjeet README-tiedostosta.",
+    "Str.MakeProject.RuntimeNotFound": "Koosta ensin erillinen suoritusympäristö, jotta voit koostaa ohjelman. HexIDE etsi kansiosta {0} eikä löytänyt tiedostoja {1}. README-tiedoston kohta ”Making a program” kertoo, miten se tehdään.",
     "Str.MakeProject.Failed": "Ohjelmaa ei koostettu. Tapahtui virhe:\n{0}",
     "Str.ScrollBar.LineUp": "Rivi ylös",
     "Str.ScrollBar.PageUp": "Sivu ylös",

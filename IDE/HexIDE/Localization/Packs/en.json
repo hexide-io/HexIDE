@@ -840,7 +840,7 @@
     "Str.MakeProject.NoStartup": "No startup project found.",
     "Str.MakeProject.Browser": "Making a program is unavailable in a browser. Use the desktop version of HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "Making a program is not supported on this operating system. Use HexIDE on Windows, macOS or Linux.",
-    "Str.MakeProject.MissingRuntime": "To make a program, build the standalone runtime first. See the README for instructions.",
+    "Str.MakeProject.RuntimeNotFound": "To make a program, build the standalone runtime first. HexIDE looked in {0} and did not find {1}. \"Making a program\" in the README says how.",
     "Str.MakeProject.Failed": "The program was not made. An error occurred:\n{0}",
     "Str.ScrollBar.LineUp": "Line up",
     "Str.ScrollBar.PageUp": "Page up",

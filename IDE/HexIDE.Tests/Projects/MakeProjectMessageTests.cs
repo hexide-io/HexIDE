@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -40,12 +41,75 @@ public class MakeProjectMessageTests
         await windows.Received().MessageBox("localized not made: failure detail", icon: MessageBoxIcon.Error);
     }
 
+    [Fact]
+    public async Task A_missing_runtime_names_the_folder_looked_in_and_the_files_not_found()
+    {
+        // #1947: "see the README" pointed at nothing, and gave no way to tell a runtime not built from one built elsewhere.
+        var ide = Directory.CreateTempSubdirectory("hexide-make-").FullName;
+        try
+        {
+            localization.GetString("Str.MakeProject.RuntimeNotFound").Returns("{0} | {1}");
+            windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(Path.Join(ide, "Made.exe"));
+            var service = Service();
+            service.RuntimeDirectory = ide;
+
+            Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
+
+            await make.Should().ThrowAsync<OperationCanceledException>();
+            await windows.Received().MessageBox(
+                $"{Path.Join(ide, "standalone")} | {string.Join(", ", ProjectService.StandaloneRuntimeFiles()!)}",
+                icon: MessageBoxIcon.Information);
+        }
+        finally { Directory.Delete(ide, true); }
+    }
+
+    private static string Fixture(params string[] files)
+    {
+        var ide = Directory.CreateTempSubdirectory("hexide-runtime-").FullName;
+        foreach (var file in files)
+        {
+            var path = Path.Join(ide, file);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, "runtime fixture");
+        }
+        return ide;
+    }
+
+    private static string?[] Found(string ide, params string[] names) =>
+        [.. ProjectService.FindStandaloneRuntime(ide, "win-x64", names)
+            .Select(f => f is null ? null : Path.GetRelativePath(ide, f.FullName).Replace('\\', '/'))];
+
+    [Fact]
+    public void A_runtime_published_without_a_runtime_identifier_is_found_in_its_runtimes_folder()
+    {
+        // A publish with no -r leaves the native libraries under runtimes/<rid>/native/, where Make did not look (#1947).
+        var ide = Fixture("standalone/Runner.exe", "standalone/runtimes/win-x64/native/a.dll");
+        try { Found(ide, "Runner.exe", "a.dll").Should().Equal("standalone/Runner.exe", "standalone/runtimes/win-x64/native/a.dll"); }
+        finally { Directory.Delete(ide, true); }
+    }
+
+    [Fact]
+    public void A_native_library_in_the_runtime_is_preferred_to_the_IDEs_own_copy_and_either_layout_of_that_is_used()
+    {
+        var ide = Fixture("standalone/Runner.exe", "standalone/a.dll", "a.dll", "runtimes/win-x64/native/b.dll");
+        try { Found(ide, "Runner.exe", "a.dll", "b.dll").Should().Equal("standalone/Runner.exe", "standalone/a.dll", "runtimes/win-x64/native/b.dll"); }
+        finally { Directory.Delete(ide, true); }
+    }
+
+    [Fact]
+    public void The_runner_is_taken_only_from_the_runtime_folder()
+    {
+        var ide = Fixture("Runner.exe", "standalone/runtimes/win-x64/native/Runner.exe", "a.dll");
+        try { Found(ide, "Runner.exe", "a.dll").Should().Equal(null, "a.dll"); }
+        finally { Directory.Delete(ide, true); }
+    }
+
     // Browser and unsupported-host branches cannot be reached on this test host. Guard all five call sites too.
     [Theory]
     [InlineData("NoStartup")]
     [InlineData("Browser")]
     [InlineData("UnsupportedPlatform")]
-    [InlineData("MissingRuntime")]
+    [InlineData("RuntimeNotFound")]
     [InlineData("Failed")]
     public void Every_make_message_reads_its_localization_key(string name)
     {

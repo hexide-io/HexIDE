@@ -835,7 +835,7 @@
     "Str.MakeProject.NoStartup": "לא נמצא פרויקט אתחול.",
     "Str.MakeProject.Browser": "יצירת תוכנית אינה זמינה בדפדפן. יש להשתמש בגרסת שולחן העבודה של HexIDE.",
     "Str.MakeProject.UnsupportedPlatform": "יצירת תוכנית אינה נתמכת במערכת הפעלה זו. יש להשתמש ב-HexIDE ב-Windows, ב-macOS או ב-Linux.",
-    "Str.MakeProject.MissingRuntime": "כדי ליצור תוכנית, יש לבנות תחילה את סביבת הריצה העצמאית. ההוראות נמצאות בקובץ README.",
+    "Str.MakeProject.RuntimeNotFound": "כדי ליצור תוכנית, יש לבנות תחילה את סביבת הריצה העצמאית. ב-{0} לא נמצאו: {1}. הסעיף \"Making a program\" בקובץ README מסביר כיצד.",
     "Str.MakeProject.Failed": "התוכנית לא נוצרה. אירעה שגיאה:\n{0}",
     "Str.ScrollBar.LineUp": "שורה למעלה",
     "Str.ScrollBar.PageUp": "עמוד למעלה",
