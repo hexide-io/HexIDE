@@ -69,6 +69,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
+| `workspaceArtifact` | no | A workspace-relative `path`, registered `provider` id and provider-owned `settings`. Generation requires consent; see [Generated workspace files](#generated-workspace-files). |
 
 Use the array form when quoting matters: `"arguments": ["host", "server --stdio"]` passes two arguments
 exactly as written, including spaces, quotes and empty strings. The legacy string form still uses .NET
@@ -307,3 +308,38 @@ WebSocket handshake and a language server sends none, and a WebSocket is outside
 policy, so without that check any page open in a browser could dial the IDE first. A refused dial is logged,
 and the IDE goes on listening for the real server. There is still no authentication: another program on this
 machine can dial in.
+
+### Generated workspace files
+
+A server entry can request a file with `workspaceArtifact` (#455):
+
+```json
+"workspaceArtifact": {
+  "path": "compile_commands.json",
+  "provider": "clangd",
+  "settings": { "arguments": ["clang", "-DHEXIDE_PROBE"] }
+}
+```
+
+The `clangd` provider creates one compilation-database entry for each carried `.c`, `.cc`, `.cpp`
+or `.cxx` source or `.h`, `.hh`, `.hpp` or `.hxx` header. `settings.arguments` is the compiler
+command and its arguments; the filename is appended as a separate argument, and the command runs in that file's directory. The default is
+`["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
+
+Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
+server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
+**Deny** starts the server without generating the file and records the reason in the log and on its
+connection in **Tools → Protocol Inspector**. Persistent
+grants are listed under **Tools → Options → Workspace files**, where **Reset** makes the next session
+ask again. Permission for one workspace never permits writes in another.
+
+Only workspace-relative paths resolving inside the workspace, including through links, are accepted.
+An existing file is left alone without prompting unless its bytes still match HexIDE's last recorded
+write. This protects compilation databases produced by CMake and files edited by hand. Unchanged
+content is not rewritten; changed content replaces the owned file atomically. Refused paths, provider
+failures, failed writes and files left alone are also explained on the connection in the inspector.
+
+Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
+no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
+generated without a declaration, and core contains no backend schema. The `.rdproj` provider is
+reserved for phase 2.

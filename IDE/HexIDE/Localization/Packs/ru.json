@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
+    "Str.LspArtifact.Title": "Файлы рабочей области",
+    "Str.LspArtifact.Prompt": "Сервер {0} запросил запись локального файла {1}.",
+    "Str.LspArtifact.Allow": "Разрешить",
+    "Str.LspArtifact.Deny": "Запретить",
+    "Str.LspArtifact.Always": "Разрешать всегда",
+    "Str.LspArtifact.Grants": "Ниже перечислены серверы, которым разрешено создавать файлы рабочей области. Сбросьте разрешение, чтобы запросить его снова в следующем сеансе.",
+    "Str.LspArtifact.Reset": "Сбросить",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",
     "Str.Archive.ReadOnly": "Просмотр архива только для чтения. Редактирование, сборка и запуск недоступны.",

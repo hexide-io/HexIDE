@@ -34,6 +34,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly List<Entry> _entries;
     private readonly ILogger<LspClientRegistry> _logger;
     private readonly ILspWorkspace? _workspace;
+    private readonly IWorkspaceArtifactService? _artifacts;
 
     // Each connection is a source of its own, and so is anything injecting through this router. Without
     // this, two servers claiming one document overwrote each other and a build erased both (#358).
@@ -82,10 +83,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public LspClientRegistry(
         IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger,
         ILspWorkspace? workspace = null,
-        IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null)
+        IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null,
+        IWorkspaceArtifactService? artifacts = null)
     {
         _logger = logger;
         _workspace = workspace;
+        _artifacts = artifacts;
         ConfigurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
@@ -548,6 +551,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async ValueTask DisposeAsync()
     {
+        if (_artifacts is IDisposable disposable) disposable.Dispose();
         await StopAsync();
         foreach (var e in _entries) e.Gate.Dispose();
     }
@@ -788,6 +792,16 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.State = LanguageConnectionState.Starting;
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+
+            if (_artifacts is not null)
+            {
+                try { await _artifacts.PrepareAsync(e.Registration, cancellationToken); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Workspace artefact for {Server} failed; launching anyway.", e.Registration.Id);
+                }
+            }
 
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
