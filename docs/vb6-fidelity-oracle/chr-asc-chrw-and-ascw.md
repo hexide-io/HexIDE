@@ -62,7 +62,7 @@ best fit from a plain replacement. HexIDE wrote Ā as "?" until #1511.
   255 being a lead and a trail byte, and `Asc` a possibly negative pair. Unmeasured, so HexIDE refuses a code beyond
   ASCII under one (#1509).
 - **ChrB and the rest of the byte-string family.** A first `ChrB` probe did not compile. HexIDE's strings cannot hold a
-  one-byte string at all (#1510).
+  one-byte string at all (#1510). Measured since: [The byte-string functions](the-byte-string-functions.md).
 
 ### In HexIDE (#1134)
 

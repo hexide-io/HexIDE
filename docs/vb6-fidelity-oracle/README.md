@@ -631,3 +631,4 @@ added afterwards.
 - [Len of declared scalars and numeric expressions (#780)](len-of-declared-scalars-and-numeric-expressions.md#len-of-declared-scalars-and-numeric-expressions-780)
 - [A For loop with a fraction (2026-10-24, #983)](a-for-loop-with-a-fraction.md#a-for-loop-with-a-fraction-2026-10-24-983)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
+- [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
