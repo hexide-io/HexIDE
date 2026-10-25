@@ -1702,9 +1702,11 @@ public sealed class VBLspClient : ILspClient
             // Both take NO parameters (LSP 3.17), and the distinction is not pedantry.
             // `InvokeAsync(name)` is StreamJsonRpc's POSITIONAL overload and puts `"params":[]` on
             // the wire, which rumdl (tower-lsp) and an OmniSharp-based server both REJECT; and
-            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. Only omitting the
+            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. `"params":null` is
+            // rejected too: rumdl 0.2.64 answers -32602, "Unexpected params: null" (#368). Only omitting the
             // member is accepted by every server measured, and it is what the specification and
-            // vscode-languageserver-node send. A null argument object is what omits it.
+            // vscode-languageserver-node send. In the parameter-object overload below, a null argument
+            // object omits the member; JSON null on the wire is not equivalent to absence.
             //
             // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
             // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
