@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// which members are reachable through an interface-typed reference.
 ///
 /// Every rule here is measured against vb6.exe; see "Implements, and interface-typed variables" in
-/// docs/vb6-fidelity-oracle.md. The two that are easy to get wrong: <c>TypeName</c> of an interface-typed
+/// docs/vb6-fidelity-oracle/implements-and-interface-typed-variables.md. The two that are easy to get wrong: <c>TypeName</c> of an interface-typed
 /// variable reports the CONCRETE class, and the <c>Private</c> on <c>IFoo_Draw</c> is convention, not a rule.
 ///
 /// VB6 checks conformance at compile time. HexIDE has no compile step and no binder, so it checks at first

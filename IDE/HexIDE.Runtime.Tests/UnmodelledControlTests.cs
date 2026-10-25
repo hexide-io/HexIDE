@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// every block shares, so no knowledge of the control is needed.
 /// </summary>
 /// <remarks>
-/// VB6's answers are from its IDE (docs/vb6-fidelity-oracle.md, "Its size when the file records none, and what the
+/// VB6's answers are from its IDE (docs/vb6-fidelity-oracle/a-control-vb6-cannot-load-renders-as-an-empty-box.md, "Its size when the file records none, and what the
 /// box is"): <c>Width</c> and <c>Height</c> size the box, and with neither it is 1200 × 480 twips. <c>_ExtentX</c> and
 /// <c>_ExtentY</c> play no part.
 /// </remarks>

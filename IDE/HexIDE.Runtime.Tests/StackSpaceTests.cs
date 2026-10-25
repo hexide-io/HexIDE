@@ -22,7 +22,7 @@ namespace HexIDE.Runtime.Tests;
 /// </para>
 ///
 /// <para>
-/// Every expectation here is vb6.exe output; see <i>Out of stack space</i> in docs/vb6-fidelity-oracle.md.
+/// Every expectation here is vb6.exe output; see <i>Out of stack space</i> in docs/vb6-fidelity-oracle/out-of-stack-space--error-28.md.
 /// </para>
 /// </summary>
 public class StackSpaceTests : BaseVBTestFixture

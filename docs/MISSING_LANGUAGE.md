@@ -8,7 +8,7 @@
 > why something is missing (Deferred / Walled / Platform / Partial), is
 > [`interpreter-gaps.md`](interpreter-gaps.md); where they disagree, that one is authoritative on
 > classification and this one on coverage. Verified runtime *semantics* live in
-> [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). Debugger divergences are in
+> [`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md). Debugger divergences are in
 > [`debugger-vb6-divergences.md`](debugger-vb6-divergences.md). Permanently excluded features are in
 > [`OUT_OF_SCOPE.md`](OUT_OF_SCOPE.md), and the IDE surface (menus, windows, designer) is
 > [`MISSING_FEATURES.md`](MISSING_FEATURES.md).
@@ -88,7 +88,7 @@ every row is derived from reading HexIDE's own source, not from measuring real V
 *does it run* — a `NotImplementedException` is a fact about our code — but it is **not** authority on
 *does it behave correctly*. Where a Partial row describes a semantic difference, treat it as a lead to
 verify, not a measurement. Verified behaviour only ever lives in
-[`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). A row re-rated since on the oracle's evidence names
+[`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md). A row re-rated since on the oracle's evidence names
 the oracle rows it rests on, and says which parts no oracle row covers; for the type characters, the
 Silently wrong section does.
 
@@ -203,7 +203,7 @@ and inside a `Sub`.
 VB6 sends the assignment to the declared variable for all six characters, into a module variable and
 into a local, with `Option Explicit` and without it: every one of those combinations is measured, in the
 section "An assignment through a type character reaches the declared variable, for every character"
-of the 2026-10-11 entry "A type character on a name the program also declares" in [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). The same entry measured it first
+of the 2026-10-11 entry "A type character on a name the program also declares" in [`vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md`](vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The same entry measured it first
 for `$` on a name with a library twin, `Left` (TF_01, TL_01, TL_04). With nothing declared, the first
 assignment through a character declares the variable with that type, for every character: `a$ = "x"` then
 `a` gives `"x"` String, `k% = 3` then `k` an Integer 3, and `&`, `!`, `#` and `@` a Long, Single, Double

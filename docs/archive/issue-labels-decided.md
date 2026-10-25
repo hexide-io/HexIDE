@@ -53,7 +53,7 @@ The five suggested flavours all survive contact with the evidence, three of them
 bug · documentation · duplicate · enhancement · good first issue
 help wanted · invalid · question · wontfix          (GitHub defaults, untouched)
 
-fidelity   The answer comes from real vb6.exe. Measure it, then record it in docs/vb6-fidelity-oracle.md.
+fidelity   The answer comes from real vb6.exe. Measure it, then record it in docs/vb6-fidelity-oracle/README.md.
 grammar    The shared VB6 grammar: both .g4 copies, judged by the conformance corpus
 ```
 
@@ -334,7 +334,7 @@ All `#fbca04` except the two marked, which are `#d93f0b`.
 | Label | Description | n |
 |---|---|---|
 | `silently-wrong` **`#d93f0b`** | Wrong output shown as right, a dropped or misplaced write, an accepted no-op, a file VB6 refuses. | **35** |
-| `needs-oracle` | *(was `fidelity`; wording unchanged)* The answer comes from real vb6.exe. Measure it, then record it in docs/vb6-fidelity-oracle.md. | 19 |
+| `needs-oracle` | *(was `fidelity`; wording unchanged)* The answer comes from real vb6.exe. Measure it, then record it in docs/vb6-fidelity-oracle/README.md. | 19 |
 | `security` **`#d93f0b`** | Signing, revocation, package verification, consent, redaction, or an escape. | 14 |
 | `needs-decision` | A fork only the maintainer can settle, named in the body. An implementer's fork is size, not this. | **12** |
 | `misleading` | A surface that works and tells the user or a calling agent something untrue. Additive. | **10** |
@@ -396,7 +396,7 @@ alone.
 ## 6. What this does not do
 
 - **It does not duplicate the catalogues.** `MISSING_FEATURES.md`, `MISSING_LANGUAGE.md`,
-  `interpreter-gaps.md`, `debugger-vb6-divergences.md` and `vb6-fidelity-oracle.md` already track
+  `interpreter-gaps.md`, `debugger-vb6-divergences.md` and `vb6-fidelity-oracle/README.md` already track
   coverage and divergence in far more detail than a label can. No label here restates a row in any of
   them; `needs-oracle` *points at* the oracle rather than summarising it.
 - **It does not add a status axis.** OpenSpec's position-is-status rule (`specs/` = built, `changes/` =
