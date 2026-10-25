@@ -15,12 +15,14 @@ namespace HexIDE.Localization;
 /// <summary>
 /// Loads JSON language packs and hot-swaps a merged <see cref="ResourceDictionary"/> of
 /// <c>Str.*</c> keys into <see cref="Application"/>.Resources, mirroring <c>ThemeService</c>.
-/// Decoupled from thread culture: it never touches <see cref="CultureInfo"/> except a single
-/// read-only read in <c>ResolveOsLanguage</c>.
+/// Decoupled from thread culture: system language resolution uses the UI culture captured at startup.
 /// </summary>
 public sealed class LocalizationService : ILocalizationService
 {
     private Func<string, Uri> _packUri = id => new Uri($"avares://HexIDE/Localization/Packs/{id}.json");
+
+    // Captured by App.Initialize before the invariant pin; never read the pinned thread culture (#799).
+    internal static CultureInfo OsUICulture { get; set; } = CultureInfo.CurrentUICulture;
 
     // The English canonical pack — the universal fallback. Loaded once, never mutated.
     private readonly Dictionary<string, string> _englishStrings;
@@ -150,7 +152,7 @@ public sealed class LocalizationService : ILocalizationService
     /// </summary>
     private static string ResolveOsLanguage()
     {
-        var cultureName = CultureInfo.CurrentUICulture.Name;                       // e.g. "en-GB", "fr-CD", "fr"
+        var cultureName = OsUICulture.Name;                       // e.g. "en-GB", "fr-CD", "fr"
 
         // (1) Exact language (neutral) match — e.g. "fr" → "fr".
         foreach (var lang in LanguageManifest.Packs)
@@ -166,7 +168,7 @@ public sealed class LocalizationService : ILocalizationService
 
         // (3) Neutral-language match — e.g. "fr-CD" → "fr" (a francophone on an unshipped region still
         // gets French).
-        var twoLetter = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;     // e.g. "fr"
+        var twoLetter = OsUICulture.TwoLetterISOLanguageName;     // e.g. "fr"
         foreach (var lang in LanguageManifest.Packs)
             if (string.Equals(lang.Id, twoLetter, StringComparison.OrdinalIgnoreCase))
                 return lang.Id;

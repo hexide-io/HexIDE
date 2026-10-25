@@ -881,3 +881,14 @@ that line (hexide-io/HexIDE#1363).
 - **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
   alone
 - **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+
+### Requirement: A launched pipe server can be told its owner's process ID
+For a launched pipe server, the client SHALL replace every `{pid}` in the configured arguments with
+HexIDE's process ID as invariant decimal digits. This substitution SHALL work without an open workspace.
+The server is responsible for watching that process; the placeholder does not enforce process-tree cleanup
+after an unclean IDE shutdown.
+
+#### Scenario: A server accepts an owner-process argument
+- **WHEN** a pipe entry launches a command with `--owner {pid}` in its arguments
+- **THEN** the launched process receives `--owner` followed by HexIDE's process ID
+- **AND** no open project is required for that substitution
