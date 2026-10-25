@@ -241,6 +241,7 @@
                     </Button>
                     <TextBox
                         BorderThickness="0"
+                        ScrollViewer.VerticalScrollBarVisibility="Disabled"
                         Margin="4,0,0,0"
                         Padding="0"
                         Text="{CompiledBinding Color, RelativeSource={RelativeSource Mode=TemplatedParent}, UpdateSourceTrigger=LostFocus, Mode=TwoWay, Converter={x:Static converters:VBColorConverter.Instance}}" />
