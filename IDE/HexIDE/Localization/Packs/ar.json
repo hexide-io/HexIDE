@@ -786,6 +786,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "الاسم '{0}' مستخدَم بالفعل لنموذج أو Module أو Class في هذا المشروع. يضع VB6 هذه العناصر كلها في مساحة اسم واحدة، لذا لا يمكن أن يحمل عنصران الاسم نفسه.",
     "Str.Naming.Msg.ProjectNameTaken": "يوجد بالفعل مشروع محمَّل بالاسم '{0}'. ولا يمكن أن يحمل مشروعان في مجموعة واحدة الاسم نفسه.",
     "Str.Naming.Msg.AdoptedNameTaken": "لم تتم إضافة '{1}'. فاسمه هو '{0}'، وهو مستخدَم بالفعل لنموذج أو Module أو Class في هذا المشروع.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "لم تتم إضافة '{1}'. فاسمه هو '{0}'، وهو ليس اسماً صالحاً: يبدأ الاسم بحرف، وتأتي بعده حروف وأرقام وشرطات سفلية."
+    "Str.Naming.Msg.AdoptedNameNotValid": "لم تتم إضافة '{1}'. فاسمه هو '{0}'، وهو ليس اسماً صالحاً: يبدأ الاسم بحرف، وتأتي بعده حروف وأرقام وشرطات سفلية.",
+    "Str.ProjectLoad.ParseFailed": "تعذّر تحليل ملف النموذج: {0}",
+    "Str.ProjectLoad.InvalidForm": "هذا ليس ملف نموذج صالحًا",
+    "Str.ProjectLoad.UnknownControl": "الفئة {0} لعنصر التحكم {1} ليست فئة عناصر تحكم مدعومة — تم الاحتفاظ بها كعنصر غير معروف.",
+    "Str.ProjectLoad.InvalidValue": "كانت قيمة الخاصية {0} في {1} غير صالحة.",
+    "Str.ProjectLoad.MissingOffset": "الخاصية {0} في {1}: لم يتم العثور على الإزاحة في .frx.",
+    "Str.ProjectLoad.MissingRecord": "تشير الخاصية '{0}' في '{1}' إلى سجل غير موجود في الملف المرافق، لذا لا يمكن حفظ النموذج.",
+    "Str.ProjectLoad.Heading": "تعذّرت إزالة تسلسل المشروع بصورة صحيحة:",
+    "Str.ProjectLoad.MoreWarnings": "...و{0} تحذيرات أخرى (راجع السجل للاطلاع على القائمة الكاملة).",
+    "Str.ProjectLoad.ActiveXDocuments": "يحتوي هذا المشروع على ملفات مستندات ActiveX ‏(.dob) غير المدعومة في HexIDE وقد تم تخطيها:\n\n{0}\n\nكانت مستندات ActiveX تتطلب Internet Explorer أو مجلدات Office كمضيف، وكلاهما لم يعد مستخدمًا فعليًا. هذا النوع من المشاريع خارج نطاق HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "رُفضت التعديلات: {0}. لم يتغير شيء."
   }
 }

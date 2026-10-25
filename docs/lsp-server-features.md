@@ -50,6 +50,10 @@ The philosophy behind that last rating has not changed and is worth restating:
 
 ## What the server is sent, and the lines it keeps off
 
+All server positions count CR, LF and CRLF as line ends, including mixed endings in a file edited outside
+VB6 (#1052). Diagnostics, symbols, folds, rename, highlight, signature help, protected regions and formatting
+use those same physical lines. Formatting and protected-region blanking preserve each line's terminator.
+
 The client sends each form, module and class as **the whole VB6 file**: a class's `VERSION` and
 `BEGIN … END` block, a form's `VERSION` line, object references and designer block, the run of `Attribute`
 lines that opens the code, and every member's `Attribute` lines further down. It names the document by its
@@ -144,6 +148,9 @@ Recovery is still partial: an extraneous token that ends the block loop early (s
 more statements), an error between procedures, or an Option line directly before a broken procedure can
 still mask later errors and procedures. `Sync` retains ANTLR's default behaviour; overriding it introduced
 a false error in VB6's Tip of the Day template.
+
+`Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
+their conversion functions remain follow-up work; this adds no external API execution.
 
 ### Conditional compilation
 

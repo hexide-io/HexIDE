@@ -581,6 +581,11 @@ Stdio process logs include the configured server ID as a structured `Server` pro
 rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
 that supply no ID use the executable name.
 
+Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
+with or without an open workspace. A server can use it to watch its owner and exit after an unclean
+IDE shutdown. This is cooperative: servers that ignore it can still outlive a crash. Clean shutdown
+continues to kill the launched process tree. See [configuration](language-servers.md#placeholders-in-arguments).
+
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
 boundaries itself and must therefore send **one JSON-RPC message per Text frame with no header at all**.

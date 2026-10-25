@@ -786,6 +786,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' jam estas la nomo de formularo, modulo aŭ klaso en ĉi tiu projekto. VB6 donas al ili unu solan nomspacon, do du ne povas havi la saman nomon.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekto nomata '{0}' jam estas ŝargita. Du projektoj en unu grupo ne povas havi la saman nomon.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' ne estis aldonita. Ĝia nomo estas '{0}', kiu jam estas la nomo de formularo, modulo aŭ klaso en ĉi tiu projekto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' ne estis aldonita. Ĝia nomo estas '{0}', kiu ne estas valida nomo: nomo komenciĝas per litero kaj poste enhavas nur literojn, ciferojn kaj substrekojn."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' ne estis aldonita. Ĝia nomo estas '{0}', kiu ne estas valida nomo: nomo komenciĝas per litero kaj poste enhavas nur literojn, ciferojn kaj substrekojn.",
+    "Str.ProjectLoad.ParseFailed": "Ne eblis analizi la formularan dosieron: {0}",
+    "Str.ProjectLoad.InvalidForm": "Ĉi tio ne estas valida formulara dosiero",
+    "Str.ProjectLoad.UnknownControl": "La klaso {0} de la regilo {1} ne estas subtenata regilklaso — konservita kiel nekonata.",
+    "Str.ProjectLoad.InvalidValue": "La eco {0} en {1} havis nevalidan valoron.",
+    "Str.ProjectLoad.MissingOffset": "Eco {0} en {1}: la deŝovo en .frx ne estis trovita.",
+    "Str.ProjectLoad.MissingRecord": "La eco '{0}' en '{1}' referencas rikordon, kiun ĝia akompana dosiero ne enhavas, do la formularo ne povas esti konservita.",
+    "Str.ProjectLoad.Heading": "Ne eblis ĝuste malseriigi la projekton:",
+    "Str.ProjectLoad.MoreWarnings": "...kaj {0} pliaj avertoj (vidu la protokolon por la plena listo).",
+    "Str.ProjectLoad.ActiveXDocuments": "Ĉi tiu projekto enhavas ActiveX-dokumentajn dosierojn (.dob), kiuj ne estas subtenataj en HexIDE kaj estis preterlasitaj:\n\n{0}\n\nActiveX-dokumentoj postulis Internet Explorer aŭ Office-bindilojn kiel gastiganton; ambaŭ nun praktike ne plu estas uzataj. Ĉi tiu projekttipo estas ekster la amplekso de HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Redaktoj rifuzitaj: {0}. Nenio estis ŝanĝita."
   }
 }

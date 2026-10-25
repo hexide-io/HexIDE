@@ -1664,7 +1664,7 @@ public static class UiAutomationDriver
             HexIDE.Runtime.EventPump pump, Window? form, HashSet<Window> before, Func<HexIDE.Runtime.Debugging.StoppedInfo?> paused)
         {
             Pump = pump;
-            IdleBefore = pump.IsIdle;
+            WaitingOnWindowBefore = pump.IsWaitingOnWindow;
             LiveBefore = [.. pump.Live];
             LoopsBefore = [.. pump.Loops];
             Form = form;
@@ -1675,8 +1675,8 @@ public static class UiAutomationDriver
         internal HexIDE.Runtime.EventPump Pump { get; }
         internal Window? Form { get; }
         internal HashSet<Window> Before { get; }
-        // A program idle before the action held on nothing open then: only a window the action opened can hold it.
-        internal bool IdleBefore { get; }
+        // An old window can hold the program only if a walk was waiting on a window before the action.
+        internal bool WaitingOnWindowBefore { get; }
         // The loops running before the action: one of them parked at DoEvents is the program waiting for input, but a loop
         // the action started, or set going by answering a box its handler waited at, is its own work, waited for as a loop
         // with no DoEvents is (#1254).
@@ -1833,9 +1833,9 @@ public static class UiAutomationDriver
     /// <summary>
     /// A window, not one of the program's forms, open over the form: one that opened since the action began, such as a
     /// MsgBox when the startup form that owns it is not this one, else one the form owns, the program's own box first, as
-    /// that is what holds a handler. One open before the action is left out when the program was idle then, as it held
-    /// nothing: an error dialog an earlier call left open was named in place of the MsgBox the action raised, before that
-    /// had opened (#1253). A form of the program is left out: a form shown modally is the program waiting for input once
+    /// that is what holds a handler. One open before the action is left out unless the program was waiting on a window
+    /// then: an error dialog an earlier call left open was named in place of the MsgBox the action raised, before that
+    /// had opened (#1253, #1318). A form of the program is left out: a form shown modally is the program waiting for input once
     /// its own events have run, which the wait sees, and one shown otherwise holds nothing. Null when there is none.
     /// </summary>
     private static Window? DialogOf(ProgramWatch watch) =>
@@ -1843,7 +1843,7 @@ public static class UiAutomationDriver
             .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox
                                                                        or HexIDE.Runtime.Dialogs.InputBox ? 0 : 1))
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
-                                 && !(watch.IdleBefore && watch.Before.Contains(w)));
+                                 && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
     /// <summary>The titles of the program's forms that have opened since the action began.</summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>

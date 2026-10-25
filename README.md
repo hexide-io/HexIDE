@@ -131,7 +131,46 @@ never at the cost of familiarity. See **[PHILOSOPHY.md](PHILOSOPHY.md)** for the
 
 ## 🚀 Quick start
 
-### Requirements
+### Download and run
+
+Download an archive for your platform and processor from [Releases](https://github.com/hexide-io/HexIDE/releases).
+Start with `hexide-<platform>-selfcontained.*`, which includes .NET. The smaller
+`hexide-<platform>.*` build needs the plain [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+(`Microsoft.NETCore.App`) installed on every platform.
+
+**Linux:** choose `amd64` if `uname -m` prints `x86_64`, or `arm64` if it prints `aarch64`.
+The archives have no top-level folder, so extract into a folder of their own. From the directory
+containing your download (substitute `arm64` in the filename if needed):
+
+```sh
+mkdir -p ~/hexide
+tar -xzf hexide-linux-amd64-selfcontained.tar.gz -C ~/hexide
+~/hexide/HexIDE
+```
+
+Self-contained builds still need native libraries, including the distro's `libX11`, `libICE`, `libSM`,
+`fontconfig` and ICU. The v0.2.0 amd64 self-contained build started and showed the New Project dialog on
+openSUSE Leap 16.0 with GNOME without adding any libraries; other distros, desktops and the arm64 build
+were not checked.
+
+That openSUSE install had no `tar`. If yours has none, these are alternatives:
+
+- Python's `python3 -m tarfile -e hexide-linux-amd64-selfcontained.tar.gz` extracted the archive there.
+  To keep it in its own folder, use
+  `python3 -m tarfile -e hexide-linux-amd64-selfcontained.tar.gz ~/hexide` (the output-folder form is untested).
+- On openSUSE, `sudo zypper install tar` (untested), then use the commands above.
+- Your desktop's Extract action (untested); choose a folder of its own.
+
+On the same VM without a GPU, Avalonia used XWayland and fell back to software rendering. A GLX log
+message saying the `llvmpipe` renderer is blacklisted is expected in that case; it did not prevent startup.
+
+**Windows:** extract the `.zip` into its own folder and run `HexIDE.exe`. The builds are unsigned;
+SmartScreen shows a warning: More info → Run anyway.
+
+**macOS:** extract in Terminal with `tar -xzf <file>.tar.gz`, then open `HexIDE.app`.
+The builds are not notarised; Finder extraction applies a quarantine flag that the unsigned app cannot clear.
+
+### Build requirements
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
 - No Java required — the ANTLR4 grammar compiles via MSBuild

@@ -46,8 +46,10 @@ Timeout/cancellation ends the local request wait; it does not undo remote execut
 automatic DAP cancel request. A late response to an abandoned request is ignored. Cancellation or failure
 during writing closes the connection, since the peer may have received only part of a frame.
 
-EOF, malformed messages and connection disposal settle pending requests. `Completion` returns the first
-closure exception, or null after intentional disposal. The event stream also completes with the failure.
+EOF, malformed messages and connection disposal settle pending requests. Disposal fails requests with
+`IOException`, including an in-flight write whose disposed stream throws `ObjectDisposedException`.
+`Completion` returns the first closure exception, or null after intentional disposal. The event stream also
+completes with the failure.
 Dispose the connection even after input ends. Streams must support cancellation or unblock when disposed.
 
 ## Owning an adapter process

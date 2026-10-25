@@ -9,8 +9,8 @@ name: Publish Release
 # nobody targets — the "Windows" zip contained riscv64 Linux binaries. RID-specific is 47.5 MB / 17.4 MB.
 #
 # ── Two flavours per platform ─────────────────────────────────────────────────────────────────────
-#   framework-dependent  ~26-32 MB archived — needs the .NET 10 desktop runtime installed
-#   self-contained       ~90-102 MB archived — no prerequisites
+#   framework-dependent  ~26-32 MB archived — needs the .NET 10 Runtime installed
+#   self-contained       ~90-102 MB archived — includes .NET; native libraries still required
 # Measured from the v0.1.0 assets across all six RIDs. Roughly double the earlier figures, because
 # the standalone runner now ships in BOTH flavours as its own publish rather than as one shared AOT
 # binary — see the note above that step.
@@ -371,11 +371,13 @@ jobs:
             **What's new:** [CHANGELOG.md](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/CHANGELOG.md)
 
             **Which download?**
-            - `hexide-<platform>-selfcontained.*` — no prerequisites. Start here.
-            - `hexide-<platform>.*` — smaller, but needs the [.NET 10 desktop runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+            - `hexide-<platform>-selfcontained.*` — includes .NET. Start here.
+            - `hexide-<platform>.*` — smaller, but needs the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+
+            [Download and run instructions](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/README.md#download-and-run), including Linux extraction and launch steps.
 
             Nothing here is signed or notarised.
             **Windows** shows a SmartScreen warning: More info → Run anyway.
             **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
             instead applies a quarantine flag that an unsigned app cannot clear.
-            **Linux** self-contained still needs the distro's `libX11`, `libICE`, `libSM` and `fontconfig`.
+            **Linux** self-contained still needs native libraries, including the distro's `libX11`, `libICE`, `libSM`, `fontconfig` and ICU.
