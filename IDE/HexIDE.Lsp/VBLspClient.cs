@@ -1740,9 +1740,12 @@ public sealed class VBLspClient : ILspClient
         // The two directions are not interchangeable and ConversationDirection already says which is
         // which: Received is "a reply, a notification, a line of standard error", Local is "a process
         // starting". A stderr line arrived from the server; an exit code is something observed about it.
-        var (direction, kind) = notice.Kind == TransportNoticeKind.StandardError
-            ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
-            : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
+        var (direction, kind) = notice.Kind switch
+        {
+            TransportNoticeKind.StandardError => (ConversationDirection.Received, ConversationEntryKind.StandardError),
+            TransportNoticeKind.StandardOutput => (ConversationDirection.Received, ConversationEntryKind.StandardOutput),
+            _ => (ConversationDirection.Local, ConversationEntryKind.Lifecycle),
+        };
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop

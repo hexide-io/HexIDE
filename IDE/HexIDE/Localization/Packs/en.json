@@ -624,6 +624,7 @@
     "Str.Tool.ProtocolInspector.Column.Size": "Size",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "This is a line the server wrote to standard error, shown above in full. It is not a message, so there is no body to show.",
+    "Str.Tool.ProtocolInspector.StandardOutputHasNoBody": "Standard output is shown above in full. It is not a protocol message, so there is no body to show.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "This entry is the capture's own note about the connection, not a message, so there is no body to show.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} bytes of {1} were not kept —",
     "Str.Tool.ProtocolInspector.Reply": "— reply, {0} bytes —",

@@ -625,6 +625,7 @@
     "Str.Tool.ProtocolInspector.Column.Size": "Размер",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Это строка, которую сервер записал в стандартный поток ошибок; выше она показана целиком. Это не сообщение, поэтому тела у неё нет.",
+    "Str.Tool.ProtocolInspector.StandardOutputHasNoBody": "Стандартный вывод полностью показан выше. Это не сообщение протокола, поэтому тела для отображения нет.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Эта запись — собственная заметка о подключении, а не сообщение, поэтому показывать нечего: тела у неё нет.",
     "Str.Tool.ProtocolInspector.Truncated": "— не сохранено {0} байт из {1} —",
     "Str.Tool.ProtocolInspector.Reply": "— ответ, {0} байт —",

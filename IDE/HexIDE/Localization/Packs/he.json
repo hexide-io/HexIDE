@@ -625,6 +625,7 @@
     "Str.Tool.ProtocolInspector.Column.Size": "גודל",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "זו שורה שהשרת כתב לפלט השגיאות התקני, והיא מוצגת במלואה למעלה. זו אינה הודעה, ולכן אין גוף להציג.",
+    "Str.Tool.ProtocolInspector.StandardOutputHasNoBody": "הפלט התקני מוצג במלואו למעלה. זו אינה הודעת פרוטוקול, ולכן אין גוף להצגה.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "רשומה זו היא הערה של הלכידה עצמה על החיבור, ולא הודעה, ולכן אין גוף להציג.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} בתים מתוך {1} לא נשמרו —",
     "Str.Tool.ProtocolInspector.Reply": "— תשובה, {0} בתים —",

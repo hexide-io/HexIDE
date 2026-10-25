@@ -125,9 +125,12 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 ### Requirement: The record SHALL carry the process, not only its messages
 For a connection whose process the IDE started, the record SHALL include its start, its termination, its
 exit code, and everything it wrote to standard error, attributed to that connection and interleaved with its
-messages in one timeline.
+messages in one timeline. For a named-pipe server it launches, the IDE SHALL also redirect and drain
+standard output, recording its lines verbatim as Received entries of kind StandardOutput, distinct from
+StandardError. The inspector and automation vocabulary SHALL distinguish both streams, and neither kind
+SHALL imply a missing protocol body.
 
-A server that fails badly does not explain itself in the protocol. Standard error is its only channel for a
+A stdio server that fails badly may not explain itself in the protocol. Standard error is its only channel for a
 crash, because a server speaking over standard output may write nothing else there, and measurement bears
 this out: when servers in this project's own fixture genuinely failed, the human-readable cause appeared
 only on standard error and in a protocol error reply, and nothing at all appeared in the protocol's
@@ -139,6 +142,10 @@ it.
 #### Scenario: A server crashes
 - **WHEN** a language server terminates unexpectedly
 - **THEN** its exit code and its final standard-error output appear in the timeline at the point it died
+
+#### Scenario: A pipe server explains a startup failure only on stdout
+- **WHEN** a launched named-pipe server writes to stdout and exits before creating its pipe
+- **THEN** its output appears on that connection’s timeline as StandardOutput, even though connecting fails
 
 #### Scenario: Several servers attached
 - **WHEN** more than one server is running and one writes to standard error

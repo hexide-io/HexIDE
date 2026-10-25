@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Named-pipe language-server stdout is captured** (#724) as its own `StandardOutput` kind, alongside
+  stderr and exit codes in the Protocol Inspector and `list_lsp_messages`, including startup failures.
+
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
   The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on

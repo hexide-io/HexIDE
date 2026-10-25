@@ -455,6 +455,8 @@ public partial class ProtocolInspectorToolViewModel : Document
             {
                 { IsStandardError: true } =>
                     _localization.GetString("Str.Tool.ProtocolInspector.StandardErrorHasNoBody"),
+                { IsStandardOutput: true } =>
+                    _localization.GetString("Str.Tool.ProtocolInspector.StandardOutputHasNoBody"),
                 { IsNotAMessage: true } =>
                     _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody"),
                 _ => NoBody(row),

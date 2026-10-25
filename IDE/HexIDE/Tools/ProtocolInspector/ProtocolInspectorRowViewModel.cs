@@ -143,12 +143,16 @@ public sealed class ProtocolInspectorRowViewModel(
     public bool IsNotAMessage { get; } = envelope.Kind
         is ConversationEntryKind.Lifecycle
         or ConversationEntryKind.StandardError
+        or ConversationEntryKind.StandardOutput
         or ConversationEntryKind.NeverSent
         or ConversationEntryKind.Unconsumed
         or ConversationEntryKind.Note;
 
     /// <summary>True for a line the server wrote to standard error, which is its words rather than ours.</summary>
     public bool IsStandardError { get; } = envelope.Kind == ConversationEntryKind.StandardError;
+
+    /// <summary>True for a named-pipe server's standard output.</summary>
+    public bool IsStandardOutput { get; } = envelope.Kind == ConversationEntryKind.StandardOutput;
 
     private static string Format(int bytes) => bytes < 1024
         ? $"{bytes} B"
