@@ -69,7 +69,7 @@ jobs:
     name: Check tag matches Version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - shell: bash
         run: |
           set -euo pipefail
@@ -103,8 +103,8 @@ jobs:
           # Intel Macs cannot run the arm64 build — Rosetta never translates arm64 to x64.
           - { name: macos-amd64,   runner: macos-15-intel,  rid: osx-x64,    os: mac }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -329,7 +329,7 @@ jobs:
           & $compiler "/DAppVersion=$version" "/DPublishDir=$((Resolve-Path 'bin/sc').Path)" '../installer/HexIDE.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE" }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.rid == 'win-x64'
         with:
           name: hexide-windows-installer
@@ -359,7 +359,7 @@ jobs:
           tar -czf ./bin/hexide-${{ matrix.name }}.tar.gz -C ./bin/fdd-app HexIDE.app
           tar -czf ./bin/hexide-${{ matrix.name }}-selfcontained.tar.gz -C ./bin/sc-app HexIDE.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: hexide-${{ matrix.name }}
           path: ./IDE/bin/hexide-${{ matrix.name }}*.*
@@ -372,7 +372,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -380,7 +380,7 @@ jobs:
       - name: List assets
         run: ls -lh artifacts
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
