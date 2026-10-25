@@ -68,7 +68,8 @@ public sealed class DocumentTabsModifiedTests : IDisposable
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, "notes.txt");
         File.WriteAllText(path, content);
-        return Made(new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>())
+        return Made(new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(),
+            Substitute.For<ILocalizationService>())
             .Initialize(new RelatedDocumentDefinition(project, "notes.txt", path)));
     }
 
