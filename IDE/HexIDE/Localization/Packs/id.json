@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Sisipkan _Berkas",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Alihkan _Titik Henti",
     "Str.CodeEditor.Context.Bookmarks": "_Penanda",
+    "Str.Menu.Edit.ToggleFold": "_Alihkan Lipatan",
+    "Str.CodeEditor.Context.ToggleFold": "_Alihkan Lipatan",
     "Str.CodeEditor.Context.ToggleBookmark": "_Alihkan Penanda",
     "Str.CodeEditor.Context.NextBookmark": "Penanda _Berikutnya",
     "Str.CodeEditor.Context.PreviousBookmark": "Penanda _Sebelumnya",

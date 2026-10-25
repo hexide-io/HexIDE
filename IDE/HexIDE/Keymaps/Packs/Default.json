@@ -23,6 +23,7 @@
     "QuickInfoCommand":                        "Ctrl+I",
     "ParameterInfoCommand":                    "Ctrl+Shift+I",
     "CompleteWordCommand":                     "Ctrl+Space",
+    "ToggleFoldCommand":                       "Ctrl+M",
     "ToggleBookmarkCommand":                   "Ctrl+F2",
     "PreviousBookmarkCommand":                 "Shift+F2",
     "ClearAllBookmarksCommand":                "Ctrl+Shift+F2",

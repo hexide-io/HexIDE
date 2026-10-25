@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "Insérer un _fichier",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Activer/désactiver le _point d'arrêt",
     "Str.CodeEditor.Context.Bookmarks": "_Signets",
+    "Str.Menu.Edit.ToggleFold": "_Basculer le repli",
+    "Str.CodeEditor.Context.ToggleFold": "_Basculer le repli",
     "Str.CodeEditor.Context.ToggleBookmark": "_Activer/désactiver le signet",
     "Str.CodeEditor.Context.NextBookmark": "Signet _suivant",
     "Str.CodeEditor.Context.PreviousBookmark": "Signet _précédent",

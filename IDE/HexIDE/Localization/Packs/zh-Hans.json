@@ -379,6 +379,8 @@
     "Str.CodeEditor.Context.InsertFile": "插入文件",
     "Str.CodeEditor.Context.ToggleBreakpoint": "切换断点",
     "Str.CodeEditor.Context.Bookmarks": "书签",
+    "Str.Menu.Edit.ToggleFold": "切换折叠",
+    "Str.CodeEditor.Context.ToggleFold": "切换折叠",
     "Str.CodeEditor.Context.ToggleBookmark": "切换书签",
     "Str.CodeEditor.Context.NextBookmark": "下一个书签",
     "Str.CodeEditor.Context.PreviousBookmark": "上一个书签",
