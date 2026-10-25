@@ -164,7 +164,8 @@ public sealed class LanguageServerRegistrationFactory(
                     // happened to start.
                     entry.WorkingDirectory?.Trim() ?? ""),
                 loggerFactory.CreateLogger<StdioProcessLspTransport>(),
-                workspace),
+                workspace,
+                serverId: entry.Id),
 
             "websocket" when !string.IsNullOrWhiteSpace(entry.Endpoint) => () => new WebSocketLspTransport(
                 entry.Endpoint!.Trim(), loggerFactory.CreateLogger<WebSocketLspTransport>()),

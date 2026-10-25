@@ -577,6 +577,10 @@ anything, and failed entries remain failed.
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
+Stdio process logs include the configured server ID as a structured `Server` property and in the
+rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
+that supply no ID use the executable name.
+
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean
 IDE shutdown. This is cooperative: servers that ignore it can still outlive a crash. Clean shutdown
