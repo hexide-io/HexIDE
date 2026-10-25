@@ -302,3 +302,12 @@ forward deletion. Both the Delete key and the menu command SHALL arm the existin
 - **WHEN** the developer presses Delete with the caret inside editable code and no selection
 - **THEN** the next character is removed
 - **AND** if a run is active, the reset prompt is shown and answering No restores the edit
+
+### Requirement: Find SHALL wrap after searching other open documents
+Under All Open Documents, Find SHALL search the active document in the chosen direction without wrapping,
+then the other open documents, and only then wrap within the active document.
+
+#### Scenario: Find Up from the start of the active document
+- **WHEN** the caret is at offset 0 and both the active document and another open document contain the search text
+- **AND** the developer uses plain-text Find Up under All Open Documents
+- **THEN** the last match in the other document is selected before any match in the active document
