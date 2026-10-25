@@ -281,6 +281,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Delete Line and word deletion ask to reset a running project** (#1025). AvaloniaEdit's editing keys now
+  arm the code window's reset prompt, including Delete Line, Delete Previous Word and Delete Next Word.
+  A refused edit in the file header still asks nothing, and No restores the deleted code.
+
 - **Add-in range edits preserve member Attribute runs** (#1012). Edits that add a run, promote an orphan,
   extend a run or turn it into an orphan are refused together, naming the affected members.
 
