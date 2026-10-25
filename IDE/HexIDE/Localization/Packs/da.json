@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Mislykket",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Afbrudt",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Opgivet",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tidsgrænse overskredet",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Ingen sprogserver har oprettet forbindelse endnu, så der er intet optaget. En server starter ved det første dokument på et sprog, den håndterer — åbn en fil, og se efter igen. Der skal ikke aktiveres noget, for at meddelelser bliver vist.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "En server er tilknyttet, og der er endnu ikke sendt noget over forbindelsen, eller optagelsen blev ryddet.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Der er optaget meddelelser, og ingen af dem matcher dette filter. Ryd filtrene for at se, hvad der er.",

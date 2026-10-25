@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "失败",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "已取消",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "已放弃",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "请求超时",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "尚未有语言服务器连接，因此没有任何记录。服务器要等到打开它所声明语言的第一个文档时才会启动 — 打开一个文件后再来查看。列出消息不需要启用正文保留。",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "已附加一个服务器，但尚未有任何内容经过连接，或者记录已被清除。",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "已记录消息，但没有一条与此筛选条件匹配。清除筛选条件即可看到已有内容。",

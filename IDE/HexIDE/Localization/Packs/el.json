@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Απέτυχε",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Ακυρώθηκε",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Εγκαταλείφθηκε",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Έληξε το χρονικό όριο",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Δεν έχει συνδεθεί ακόμη κανένας διακομιστής γλώσσας, οπότε δεν υπάρχει τίποτα καταγεγραμμένο. Οι διακομιστές ξεκινούν με το πρώτο έγγραφο μιας γλώσσας που δηλώνουν — ανοίξτε ένα αρχείο και κοιτάξτε ξανά. Δεν χρειάζεται καμία ενεργοποίηση για να εμφανίζονται τα μηνύματα.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Ένας διακομιστής είναι συνδεδεμένος και δεν έχει περάσει ακόμη τίποτα από τη γραμμή, ή η καταγραφή εκκαθαρίστηκε.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Υπάρχουν καταγεγραμμένα μηνύματα, αλλά κανένα δεν αντιστοιχεί σε αυτό το φίλτρο. Εκκαθαρίστε τα φίλτρα για να δείτε τι υπάρχει.",

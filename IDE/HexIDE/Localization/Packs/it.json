@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Non riuscito",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Annullato",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Abbandonato",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tempo scaduto",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Nessun server di linguaggio si è ancora collegato, quindi non c'è nulla di registrato. I server si avviano al primo documento di un linguaggio di cui dichiarano la competenza — apri un file e riprova. Perché i messaggi vengano elencati non serve attivare nulla.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Un server è collegato e finora non è passato nulla sulla connessione, oppure la registrazione è stata cancellata.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Ci sono messaggi registrati e nessuno di essi corrisponde a questo filtro. Cancella i filtri per vedere cosa c'è.",

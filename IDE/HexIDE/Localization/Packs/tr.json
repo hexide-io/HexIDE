@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Başarısız",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "İptal edildi",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Bırakıldı",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Zaman aşımı",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Henüz hiçbir dil sunucusu bağlanmadı, bu yüzden kaydedilmiş bir şey yok. Sunucular, kapsadığını bildirdikleri bir dilin ilk belgesinde başlar — bir dosya açıp yeniden bakın. İletilerin listelenmesi için hiçbir şeyin etkinleştirilmesi gerekmez.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Bir sunucu bağlı ve henüz hattan hiçbir şey geçmedi ya da kayıt temizlendi.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Kaydedilmiş iletiler var ama hiçbiri bu filtreyle eşleşmiyor. Neler olduğunu görmek için filtreleri temizleyin.",

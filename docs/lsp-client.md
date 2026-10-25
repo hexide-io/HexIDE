@@ -92,6 +92,14 @@ failures of that method are logged at debug. Local cancellation and server error
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
 that method's warning available for a later genuine failure (#723).
 
+Every outbound request has a 30-second local deadline, using the same named default as `initialize`
+(#486). This is a consistency choice, not a measured server response budget. A shorter caller token stops
+the local wait sooner. Shutdown retains its existing shorter two-second budget; initialize still tears down an unanswered handshake.
+For language operations, a deadline returns the request's empty or absent result, warns once per method per connection, and records `TimedOut` rather than
+an answer. Cancellation sends `$/cancelRequest` best effort; returning never depends on its acknowledgement.
+StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
+is accepted so one silent method cannot block the caller or disable a healthy connection.
+
 ---
 
 ## Describing the workspace
@@ -273,7 +281,7 @@ project's name, the document's own name, and the extension its kind will be save
 - **Each segment is percent-encoded** (`LspDocumentUri.ForUntitled`), never interpolated raw. texlab drops a
   notification whose URI is not strictly valid without a word: no response, no error, nothing on standard
   error, and the connection stays up and answers about other documents normally. A request about that
-  document is then never answered at all, because nothing but `initialize` has a timeout
+  document is then never answered by the server; the client gives up after its request deadline
   ([#486](https://github.com/hexide-io/HexIDE/issues/486)). The same server, in the same process, answers the
   percent-encoded form.
 - **Compared without regard to case**, because both segments are VB6 names. This is only ever exercised
@@ -650,7 +658,7 @@ The answer now keeps the sequence it was already allocated, so the gap is the ad
 | On the request's row | Means |
 |---|---|
 | `answerSizeBytes` | How big the reply was. Recorded **whether or not bodies are being kept** — size is metadata, so it belongs to the tier that is always on. |
-| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` was answered on a connection nobody armed. |
+| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` may be an unretained answer or a local cancellation, timeout, or abandonment. |
 
 Pass `answerSequence` to `get_lsp_message` and the reply comes back with `isAnswer`, `answerTo`, and the
 request's method — a response carries none of its own on the wire. In the window, both halves appear under
@@ -980,7 +988,6 @@ Three clusters account for nearly all of the gap:
 |---|---|---|
 | Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
 | A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
 | A server's fold is read from the start of its first line, and its character offsets are ignored | Collapsed, a server's fold hides the line LSP leaves showing. Read as LSP means it, under today's merge, a procedure with an attribute run under a one-line declaration would lose its fold | [#1022](https://github.com/hexide-io/HexIDE/issues/1022) |

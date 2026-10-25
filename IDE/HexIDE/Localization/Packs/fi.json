@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Epäonnistui",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Peruutettu",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Jäi kesken",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Aikakatkaisu",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Yksikään kielipalvelin ei ole vielä yhdistänyt, joten tallennettuna ei ole mitään. Palvelin käynnistyy vasta ensimmäisestä asiakirjasta, jonka kieltä se käsittelee — avaa tiedosto ja katso uudelleen. Viestien luettelointi ei vaadi sisältöjen säilytystä.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Palvelin on liitetty, eikä linjaa pitkin ole vielä kulkenut mitään, tai tallenne on tyhjennetty.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Viestejä on tallennettu, eikä yksikään niistä vastaa tätä suodatinta. Tyhjennä suodattimet, niin näet mitä siellä on.",

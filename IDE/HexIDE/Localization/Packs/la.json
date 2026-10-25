@@ -653,6 +653,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Defectus",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Cancellatum",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Derelictum",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tempus expletum",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Nullus adhuc servitor linguae conexus est, itaque nihil notatum est. Servitores incipiunt cum primo documento linguae quam sibi vindicant — aperi plicam et iterum inspice. Nihil armandum est ut nuntii recenseantur.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Servitor adiunctus est et nihil adhuc per filum transiit, aut quae notata erant deleta sunt.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Nuntii notati sunt, sed nullus eorum huic filtro respondet. Tolle filtra ut videas quid adsit.",

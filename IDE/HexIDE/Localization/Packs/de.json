@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Fehlgeschlagen",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Abgebrochen",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Aufgegeben",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Zeitüberschreitung",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Es hat sich noch kein Sprachserver verbunden, daher ist nichts aufgezeichnet. Server starten beim ersten Dokument einer Sprache, für die sie zuständig sind — öffnen Sie eine Datei und sehen Sie erneut nach. Damit Nachrichten aufgelistet werden, muss nichts eingeschaltet werden.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Ein Server ist eingebunden, und es ist noch nichts über die Leitung gegangen, oder die Aufzeichnung wurde geleert.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Es sind Nachrichten aufgezeichnet, und keine davon entspricht diesem Filter. Setzen Sie die Filter zurück, um zu sehen, was da ist.",

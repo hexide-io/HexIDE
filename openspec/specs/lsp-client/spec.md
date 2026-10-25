@@ -59,6 +59,13 @@ running.
 - **THEN** the caller receives the empty or absent result for that request
 - **AND** the connection remains usable for subsequent requests
 
+#### Scenario: The server never answers one request
+- **WHEN** a language request reaches its 30-second local deadline
+- **THEN** the client SHALL stop waiting locally, send cancellation best effort, and record `TimedOut`
+- **AND** a language operation SHALL return its empty or absent result and warn once per method per connection
+- **AND** subsequent requests on the same connection SHALL remain usable
+- **AND** a shorter caller cancellation SHALL stop waiting sooner without spending the failure warning
+
 #### Scenario: The server cancels a superseded request
 - **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
 - **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed

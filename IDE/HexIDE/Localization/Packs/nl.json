@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Mislukt",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Geannuleerd",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Afgebroken",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Time-out",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Er heeft nog geen taalserver verbinding gemaakt, dus er is niets vastgelegd. Een server start bij het eerste document van een taal die hij claimt — open een bestand en kijk opnieuw. Er hoeft niets te worden ingeschakeld om berichten te laten verschijnen.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Er is een server gekoppeld en er is nog niets over de lijn gegaan, of de opname is gewist.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Er zijn berichten vastgelegd, maar geen ervan komt overeen met dit filter. Wis de filters om te zien wat er is.",

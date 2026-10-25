@@ -653,6 +653,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Malsukcesa",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Nuligita",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Forlasita",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tempolimo atingita",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Neniu lingva servilo ankoraŭ konektiĝis, do estas nenio registrita. Serviloj startas ĉe la unua dokumento de lingvo, kiun ili pretendas — malfermu dosieron kaj rigardu denove. Nenio bezonas esti ŝaltita por ke mesaĝoj estu listigitaj.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Servilo estas alligita kaj ankoraŭ nenio transiris la linion, aŭ la registro estis vakigita.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Mesaĝoj estas registritaj, kaj neniu el ili kongruas kun ĉi tiu filtrilo. Vakigu la filtrilojn por vidi kio estas tie.",

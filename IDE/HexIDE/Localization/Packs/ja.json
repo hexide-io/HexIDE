@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "失敗",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "キャンセル",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "切断",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "タイムアウト",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "まだ言語サーバーが接続していないため、記録されているものはありません。サーバーは、担当する言語のドキュメントが最初に開かれたときに起動します — ファイルを開いてからもう一度確認してください。メッセージの一覧表示に本文の保持は必要ありません。",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "サーバーは接続されていますが、まだ何も送受信されていないか、記録がクリアされました。",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "メッセージは記録されていますが、このフィルターに一致するものはありません。フィルターをクリアすると、記録されている内容を確認できます。",

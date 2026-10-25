@@ -654,6 +654,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "失敗",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "已取消",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "已放棄",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "要求逾時",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "尚未有語言伺服器連線，因此沒有任何記錄。伺服器會在開啟其所宣告語言的第一份文件時啟動 — 請開啟一個檔案後再查看。列出訊息不需要啟用擷取。",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "已附加伺服器，但尚未有任何訊息傳輸，或是記錄已遭清除。",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "已記錄訊息，但沒有任何一則符合此篩選條件。請清除篩選條件以查看現有內容。",
