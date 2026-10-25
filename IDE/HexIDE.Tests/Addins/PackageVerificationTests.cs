@@ -65,12 +65,10 @@ public sealed class PackageVerificationTests : IDisposable
 
     // Bug-hunt MED: a locked/unreadable envelope file (e.g. antivirus holding a scan lock on first launch) made
     // File.ReadAllText throw IOException, which unwound through IDE startup instead of yielding a clean verdict.
-    [Fact]
+    [WindowsOnlyFact]
     public void Locked_signature_file_yields_Untrusted_not_an_exception()
     {
         // Windows-only: file locks are advisory on Linux (CI), so FileShare.None wouldn't block the read there.
-        if (!OperatingSystem.IsWindows()) return;
-
         var sig = Path.Combine(_pkg, "publisher.sig");
         using var hold = new FileStream(sig, FileMode.Open, FileAccess.Read, FileShare.None);
 

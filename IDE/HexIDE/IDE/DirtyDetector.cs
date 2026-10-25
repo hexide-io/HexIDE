@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
@@ -78,22 +79,30 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
             return (codeDirty || designerDirty) ? ReloadDecision.Conflict : ReloadDecision.CleanReload;
         }
 
+        // Designer modules hold only the code body; compare complete renders as for a not-open form.
+        if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+            return projectService.HasUnsavedChanges(module)
+                ? ReloadDecision.Conflict
+                : ReloadDecision.CleanReload;
+
         var baseline = baselineStore.TryGet(t.SourcePath);
         if (baseline is null)
             return ReloadDecision.Indeterminate; // unknown saved state — don't risk clobbering edits
-        // module.Code is the code section only, so a .bas/.cls is rebuilt as a save writes it (header + body)
-        // to be hashed against the baseline, which records the bytes on disk. Two things stop the two matching,
-        // both hexide-io/HexIDE#730, and each classes a module with no unsaved edits Conflict on an external
-        // change: the model is hashed as UTF-8 text where the baseline is the file's own bytes, so a Latin-1
-        // accent differs; and a .ctl/.pag is hashed as module.Code alone, which is its file only when its
-        // designer block did not parse, and otherwise the code after the root End. This used to call the
-        // .ctl/.pag case a no-op.
+        // Rebuild header + body as a save writes it, in the file's retained encoding (including its BOM).
         var modelOnDisk = ModuleFileFormat.HandlesHeader(module.Kind)
             ? ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader)
             : module.Code;
-        return string.Equals(FileHasher.Hash(modelOnDisk), baseline.Hash, StringComparison.Ordinal)
-            ? ReloadDecision.CleanReload
-            : ReloadDecision.Conflict;
+        try
+        {
+            return string.Equals(FileHasher.Hash(Vb6TextFile.Encode(modelOnDisk, module.TextEncoding)),
+                baseline.Hash, StringComparison.Ordinal)
+                ? ReloadDecision.CleanReload
+                : ReloadDecision.Conflict;
+        }
+        catch (EncoderFallbackException)
+        {
+            return ReloadDecision.Conflict; // an edit the source encoding cannot hold is still an unsaved edit
+        }
     }
 
     private ReloadDecision ClassifyForm(WatchedFileTarget t)

@@ -138,6 +138,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // that push, so the paused statement has no temp frame open here to clobber).
                 stmtFrames.Push(new List<Vb6Value>());
                 try { await Visit(assign); }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
                 return string.Empty;
             }
@@ -334,6 +335,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var target = new TextTarget();
         stmtFrames.Push(new List<Vb6Value>());
         try { await PrintList(list, target, _ => { }); }
+        catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
         finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
         var text = target.Text;
         return (text.EndsWith("\r\n", StringComparison.Ordinal) ? text[..^2] : text).Replace("\r\n", "\n");
@@ -444,6 +446,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     ret = await Visit(stmt);
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -1173,18 +1176,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // oracle (0 To 10 Step 3 → 12; empty 1 To 3 → 4). An empty body still counts.
         var block = context.block();
         long i = fromL;
-        for (; stepL >= 0 ? i <= toL : i >= toL; i += stepL)
-        {
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
-            if (block == null)
-                continue;
-            var ret = await Visit(block);
-            if (ret == ControlFlow.ExitFor)
-                return ControlFlow.Nothing;
-            if (ret != ControlFlow.Nothing)
-                return ret;
-        }
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
+        while (stepL >= 0 ? i <= toL : i >= toL)
+        {
+            if (await RunLoopBodyOnce(block) is { } left)
+                return left;
+            i = AdvanceForCounter(context, variable, stepL, i);
+        }
         return default;
     }
 
@@ -1235,6 +1233,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (ret != ControlFlow.Nothing)
                     return ret;
             }
+            // Next reads a Variant counter back as the body left it (measured, #841). Single, Double, Currency and Date
+            // counters, and a Variant the body left holding something that isn't a number, are unmeasured and keep the step.
+            if (variant && interpreter.ExecutionContext.TryGetVariable(currentEnv, variable, out var held)
+                && VbNumeric.IsCoreNumeric(held.Type))
+                counter = held;
             (counter, tested) = ForNextValue(counter, by, context);
         }
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, counter);
@@ -1410,15 +1413,28 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (await RunLoopBodyOnce(block) is { } left)
                 return left;
 
-            // Next: the counter as the body left it, plus the step. A Byte, Integer or Long counter holds a whole number.
-            interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
-            if (!expressionExecutor.TryUnpack(current, out double c) || c != Math.Truncate(c))
-                throw FractionalForRefused();
-            var next = (long)c + (long)step;
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, ForCounterValue(next), context);
+            var next = AdvanceForCounter(context, counter, (long)step);
             if (!(step >= 0 ? next <= limit : next >= limit))
                 return ControlFlow.Nothing;
         }
+    }
+
+    // Next reads the counter as the body left it (#841). Unmeasured non-integral/nonnumeric body stores
+    // keep the normal loop's previous advancement; a raised-header loop keeps its existing refusal.
+    private long AdvanceForCounter(VB6Parser.ForNextStmtContext context, string counter, long step, long? previous = null)
+    {
+        interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
+        long value;
+        if ((previous is null || VbNumeric.IsCoreNumeric(current.Type)) && expressionExecutor.TryUnpack(current, out double c)
+            && c == Math.Truncate(c))
+            value = (long)c;
+        else if (previous is { } fallback)
+            value = fallback;
+        else
+            throw FractionalForRefused();
+        var next = value + step;
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, ForCounterValue(next), context);
+        return next;
     }
 
     /// <summary>
@@ -1435,7 +1451,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
     }
 
-    /// <summary>Run a loop body once, for a header that raised under Resume Next. Null when it reaches its <c>Next</c>; otherwise
+    /// <summary>Run a loop body once. Null when it reaches its <c>Next</c>; otherwise
     /// the flow that left it, with an <c>Exit For</c> spent here.</summary>
     private async Task<ControlFlow?> RunLoopBodyOnce(VB6Parser.BlockContext? block)
     {
@@ -2151,7 +2167,29 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (variable.Value is not VbObject vobj)
                     throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
                 if (MemberHasArgs(members[0]))
+                {
+                    var indexedName = UdtFieldName(members[0]);
+                    if (string.Equals(variable.DeclaredAs, vobj.ClassName, StringComparison.OrdinalIgnoreCase)
+                        && members[0].iCS_S_ProcedureOrArrayCall() is { } indexed && indexed.argsCall().Length == 1
+                        && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
+                        && expressionExecutor.IsVariantArrayField(vobj, indexedName, field))
+                    {
+                        var indices = await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0));
+                        // VB6 writes into a copy of the field's array, leaving the field unchanged (#1435).
+                        // Only an in-bounds store is measured; keep other stores refused.
+                        if (field.Value is VBArray array && indices.Count == array.Rank)
+                        {
+                            try
+                            {
+                                array.GetValue(Subscripts(indices));
+                                return default;
+                            }
+                            catch (IndexOutOfRangeException) { }
+                            catch (VBRunTimeException) { }
+                        }
+                    }
                     throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
+                }
                 var fieldName = VbInterface.ResolveMember(variable, vobj, UdtFieldName(members[0]))
                     ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
                         UdtFieldName(members[0]));
@@ -2226,7 +2264,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             if (variable.Type != Vb6Value.ValueType.Control ||
                 variable.Value is not Control control)
-                throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
+                throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
 
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -2248,7 +2286,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (IdentityMembers.TrySet(control, memberIdentifier))
                 return default;
 
-            throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
+            throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
         {
@@ -2728,6 +2766,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitResetStmt(VB6Parser.ResetStmtContext context)
     {
+        // A bare Reset can call the module's own Sub, including a private class sibling (#851).
+        if (currentModule.PrePass.Procedures.TryGetValue("Reset", out var proc) && !proc.IsFunction)
+        {
+            await interpreter.CallProcedure("Reset", [], currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
+            return ControlFlow.Nothing;
+        }
         throw new NotImplementedException("Reset not implemented");
     }
 
@@ -3479,26 +3523,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitVariableStmt(VB6Parser.VariableStmtContext context)
     {
-        if (context.WITHEVENTS() != null)
-        {
-            // `[Private] WithEvents src As Clock` re-run per-instance at New (a class field): seed each slot to
-            // Nothing (a class-typed object ref). The sink NAME was recorded in the class's PrePass; the sink is
-            // registered when the var is Set. Not added to ownedSlots — fields aren't scope-released.
-            foreach (var sub in context.variableListStmt().variableSubStmt())
-                interpreter.ExecutionContext.AllocVariable(currentEnv, sub.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
-            return default;
-        }
-
         // `Dim`, `Private`, and `Public` module/local declarations all allocate the same way (visibility isn't
         // tracked). Class fields are usually declared `Private`/`Public`. A procedure's `Static` was declared at entry
         // with the rest; outside a procedure it does not compile (measured, #1491).
-        if (context.DIM() != null || context.visibility() != null || Statics is not null)
+        foreach (var subStmt in context.variableListStmt().variableSubStmt())
         {
-            foreach (var subStmt in context.variableListStmt().variableSubStmt())
+            if (subStmt.WITHEVENTS() != null)
+                // Re-seed the field per instance; Set registers the sink recorded by PrePass.
+                interpreter.ExecutionContext.AllocVariable(currentEnv, subStmt.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
+            else if (context.DIM() != null || context.visibility() != null || Statics is not null)
                 await DeclareLocal(subStmt);
+            else
+                throw new VBCompileErrorException("Invalid outside procedure");
         }
-        else
-            throw new VBCompileErrorException("Invalid outside procedure");
 
         return default;
     }
@@ -3605,8 +3642,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review). A Collection's
                     // records its type, so it refuses a class instance (13, measured, #1471).
                     value = Vb6Value.Nothing;
-                    if (objectType.COLLECTION() != null)
-                        declaredClass = "Collection";
+                    declaredClass = objectType.COLLECTION() != null ? "Collection" : isArray ? null : "Object";
                 }
                 else
                 {
@@ -4068,12 +4104,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Library)
         {
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
-            // member errors (mirroring the expression path), rather than silently no-op'ing; a known constant
+            // member stops the run even under Resume Next (#867); a known constant
             // used as a bare statement is a harmless no-op.
             var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
-                throw new VBRunTimeException((Antlr4.Runtime.ParserRuleContext?)null, VBStandardError.MethodOrDataMemberNotFound, memberName);
+                throw new VBSubOrFunctionNotDefinedException(memberName);
             return true;
         }
 
@@ -4303,6 +4339,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     pc++;
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -4401,7 +4438,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
     // loop, so the innermost statement notes it before a handler or a halt sees it. At the statement's line, where a
     // halt stops; a condition notes its own first (ConditionMet).
-    private bool Locate(Exception error, ParserRuleContext stmt) => ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line);
+    private bool Locate(Exception error, ParserRuleContext stmt)
+    {
+        var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
+            ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
+            : null;
+        return ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line, statement);
+    }
 
     // An error raised in a statement loop's own catch, which that loop's Locate cannot see: at the statement running.
     private T Raised<T>(T error) where T : Exception

@@ -13,8 +13,8 @@
 **Corrections applied after the audit (things the audit got slightly wrong):**
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
-  other formats on SetText; the Avalonia host refuses SetText when non-text formats exist until it can preserve
-  them, rather than silently discarding them. Clear followed by SetText is supported.
+  other formats on SetText; the Avalonia host snapshots readable non-text formats and writes them back with the
+  replacement text (#1246). Unreadable formats are refused before writing; Clear removes all formats.
 - **Numeric line labels** (classic `10  Print "x"` / `GoTo 10`) do **NOT** work — the audit missed this. The
   grammar's `lineLabel` is `ambiguousIdentifier COLON`, so a bare line number never parses as a label and
   `GoTo <number>` raises "Label not defined". Alphanumeric `Name:` labels + `On Error GoTo`/`Resume` *do* work.
@@ -59,8 +59,8 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
->   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
->   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
+>   fails the module load — the declaration (including VBA7 `PtrSafe`, #1548) is skipped, so the module runs; an actual
+>   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
 >   cheap future adds; the financials/system set is a larger deferral).
 > - **→ Walled:** AppActivate / SendKeys (OS automation) · array-element/call-result lead in a member chain (rides the
 >   multi-dot / member-chain wall).
@@ -228,8 +228,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   silence, where the procedure path raises "Ambiguous name detected".
 - **Object-model class features** — `With New`, `Friend`, and same-project qualified `New` are runtime lookups, not
   analysis. **`As New` is done (#435):** the object is made where the variable is first read, through the same request
-  and retry that make a form's default instance (#822), with an array `As New` (#1482) and a Type's field (#1488) still
-  to come. (`Friend` treated as Public is arguably not
+  and retry that make a form's default instance (#822), with an array `As New` (#1482) still to come. A Type's field makes its object on first use too (#1488);
+  copying the Type shares the object. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)
 
 ### Found while auditing — bugs, not classification
