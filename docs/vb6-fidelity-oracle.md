@@ -1656,8 +1656,8 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 
 **Refused with `NotImplementedException`, rather than answered wrong:**
 - **A palette colour** (#786), from any type. HexIDE has no colour that holds one.
-- **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
-  would read back clamped.
+- **Superseded by #787:** `Value` on a scroll bar whose Min exceeds its Max now maps onto an ascending
+  Avalonia range in reverse, preserving the loaded value and the measured assignments above.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
   property (#790). (Superseded for a class instance and the in-box objects by #840, "An object used as a value": a
   class with no default member raises 438, one with a default member is refused naming #174, and Err stands for its

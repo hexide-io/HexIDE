@@ -281,6 +281,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Reversed scroll bars run in the right direction** (#787). A bar loaded with Min greater than Max keeps
+  its Value, accepts values between either endpoint, and reverses the thumb-to-value mapping.
+
 - **Save Project keeps recognised `.vbp` lines in their read order** (#855), including renamed forms,
   missing members and reclassified carried files. A form before a reference stays before it.
 
