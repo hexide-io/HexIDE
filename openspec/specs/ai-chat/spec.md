@@ -28,6 +28,12 @@ differently.
 - **WHEN** the developer configures a different endpoint and model
 - **THEN** the assistant uses them with no change to the IDE
 
+#### Scenario: Reopening after editing settings
+- **WHEN** the developer edits `chat-settings.json` and reopens the existing assistant panel
+- **THEN** the assistant SHALL reload its configuration without an IDE restart and preserve the conversation
+- **AND** if a response is in progress, the reload SHALL wait until that response ends
+- **AND** a missing or malformed file SHALL use the same defaults as at initial construction
+
 #### Scenario: Using a locally-hosted model
 - **WHEN** the configured endpoint is a model server on the developer's own machine
 - **THEN** the assistant works and no conversation content leaves the machine

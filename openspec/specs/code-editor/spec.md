@@ -51,6 +51,19 @@ A document with no file yet SHALL hold the header its first save will write.
 - **THEN** the code window's text afterwards is the text of the file that was written
 - **AND** that update is not something the developer can undo, and does not mark the document as edited
 
+### Requirement: Syntax colours SHALL meet the editor contrast bar
+Every named VB6 syntax foreground SHALL be a solid colour with a WCAG AA contrast ratio of at least
+4.5:1 against Classic's editor background in the light palette and against both Dark and Abyss editor
+backgrounds in the dark palette. Metadata keywords SHALL retain their magenta hue in the light palette.
+
+#### Scenario: Checking the light syntax palette
+- **WHEN** the light VB6 syntax palette is applied
+- **THEN** every named foreground, including MetadataKeyword, clears 4.5:1 against Classic's editor background
+
+#### Scenario: Checking the dark syntax palette
+- **WHEN** the dark VB6 syntax palette is applied
+- **THEN** every named foreground, including MetadataKeyword, clears 4.5:1 against both dark editor backgrounds
+
 ### Requirement: The header SHALL be folded, greyed out and read-only
 The header SHALL be shown folded when a code window opens, and SHALL be folded again whenever its fold is
 re-created — unless the developer has expanded it in that window, or it is a single line. Its text SHALL be shown in a colour that

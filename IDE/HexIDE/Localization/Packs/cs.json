@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "Členové",
     "Str.ProjectDocument.Section.References": "Odkazy",
     "Str.ProjectDocument.Kind.RelatedDocument": "Související dokument",
+    "Str.Naming.Msg.EmptyName": "Název nesmí být prázdný",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Název musí být v rámci formuláře jedinečný",
     "Str.Naming.Msg.NotAVb6Name": "„{0}“ není platný název. Název začíná písmenem a pokračuje písmeny, číslicemi a podtržítky.",
     "Str.Naming.Msg.ReservedWord": "„{0}“ nemůže být název, protože toto slovo si VB6 vyhrazuje.",
     "Str.Naming.Msg.DocumentNameTaken": "„{0}“ je již názvem formuláře, modulu nebo třídy v tomto projektu. Ve VB6 sdílejí jediný obor názvů, takže stejný název nelze použít dvakrát.",

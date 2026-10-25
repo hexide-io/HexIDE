@@ -30,6 +30,10 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** the code window opens the Rename input dialog
 - **THEN** its prompt and title resolve `Str.CodeEditor.Dialog.RenamePrompt` and `Str.CodeEditor.Dialog.RenameTitle` through the active localization service
 
+#### Scenario: Refusing an empty or duplicate component name
+- **WHEN** a control or form rename is refused because the name is empty or already used in the form
+- **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
+
 #### Scenario: Project-load diagnostics cross the runtime boundary
 - **WHEN** the runtime deserializer reports a form-load warning to the IDE
 - **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language

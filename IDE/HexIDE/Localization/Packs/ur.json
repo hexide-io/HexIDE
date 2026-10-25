@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "ارکان",
     "Str.ProjectDocument.Section.References": "حوالہ جات",
     "Str.ProjectDocument.Kind.RelatedDocument": "متعلقہ دستاویز",
+    "Str.Naming.Msg.EmptyName": "نام خالی نہیں ہو سکتا",
+    "Str.Naming.Msg.NameNotUniqueInForm": "فارم میں نام منفرد ہونا چاہیے",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' درست نام نہیں ہے۔ نام حرف سے شروع ہوتا ہے اور اس کے بعد حروف، ہندسے اور انڈر اسکور آ سکتے ہیں۔",
     "Str.Naming.Msg.ReservedWord": "'{0}' نام نہیں ہو سکتا، کیونکہ VB6 میں یہ لفظ مخصوص ہے۔",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' اس پروجیکٹ میں پہلے ہی کسی فارم، ماڈیول یا کلاس کا نام ہے۔ VB6 ان سب کو ایک ہی نیم اسپیس میں رکھتا ہے، اس لیے کسی دو کا ایک ہی نام نہیں ہو سکتا۔",

@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "חברים",
     "Str.ProjectDocument.Section.References": "הפניות",
     "Str.ProjectDocument.Kind.RelatedDocument": "מסמך קשור",
+    "Str.Naming.Msg.EmptyName": "השם לא יכול להיות ריק",
+    "Str.Naming.Msg.NameNotUniqueInForm": "השם חייב להיות ייחודי בטופס",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' אינו שם חוקי. שם מתחיל באות וממשיך באותיות, בספרות ובקווים תחתונים.",
     "Str.Naming.Msg.ReservedWord": "'{0}' אינו יכול לשמש כשם, כי זוהי מילה שמורה ב-VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' הוא כבר שם של טופס, Module או Class Module בפרויקט זה. VB6 מאגד את כולם במרחב שמות אחד, ולכן שני מסמכים אינם יכולים לשאת אותו שם.",

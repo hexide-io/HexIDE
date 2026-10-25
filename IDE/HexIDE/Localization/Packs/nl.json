@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "Leden",
     "Str.ProjectDocument.Section.References": "Verwijzingen",
     "Str.ProjectDocument.Kind.RelatedDocument": "Gerelateerd document",
+    "Str.Naming.Msg.EmptyName": "De naam mag niet leeg zijn",
+    "Str.Naming.Msg.NameNotUniqueInForm": "De naam moet uniek zijn binnen het formulier",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' is geen geldige naam. Een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens.",
     "Str.Naming.Msg.ReservedWord": "'{0}' kan geen naam zijn, omdat VB6 dit woord reserveert.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' is al de naam van een formulier, module of klasse in dit project. VB6 plaatst ze in één naamruimte, dus kunnen er geen twee dezelfde naam hebben.",

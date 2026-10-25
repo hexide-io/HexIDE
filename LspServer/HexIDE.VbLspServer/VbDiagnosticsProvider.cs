@@ -13,13 +13,10 @@ namespace HexIDE.VbLspServer;
 /// <summary>Parses VB6 source and returns LSP diagnostics.</summary>
 public static class VbDiagnosticsProvider
 {
-    // The Option-Explicit undeclared-variable check is DEFAULT-OFF in the live diagnostics path. Without a
-    // workspace symbol table the analyzer cannot see form-control names, cross-module declarations, VB6
-    // intrinsic functions, or vb* constants, so under Option Explicit (the professional default) it
-    // squiggles a wall of false "not declared" warnings on code VB6 compiles clean — the worst signal a
-    // language tool can send. VB6 itself reports undeclared variables only at COMPILE time, so live
-    // squiggling is also less faithful. VbScopeAnalyzer stays fully implemented + directly tested; flip
-    // this on once a workspace symbol table can resolve those names.
+    // The Option-Explicit check is DEFAULT-OFF in live diagnostics. The fixed baseline (#54) covers
+    // designer names, project class/module names and vbPixels, but not cross-module variables or the
+    // entire runtime library. Enabling it would still produce false "not declared" warnings on valid
+    // code. VbScopeAnalyzer remains directly tested; keep the live check off.
     public const bool EnableUndeclaredVariableCheck = false;
 
     /// <param name="compilation">The document's project, for its conditional compilation (#1112); none by default.</param>
@@ -32,7 +29,8 @@ public static class VbDiagnosticsProvider
         // Only run scope analysis when the syntax is clean — syntax errors can produce
         // an incomplete parse tree which would cause spurious undeclared-variable warnings.
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
-            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
+            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree,
+                regions.DesignerNames.Concat(compilation?.BaselineNames ?? [])), regions));
 
         return diagnostics;
     }
@@ -49,7 +47,8 @@ public static class VbDiagnosticsProvider
         var tree = ParseSource(source, diagnostics, protectedRegions: regions, compilation: compilation);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
-            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
+            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree,
+                regions.DesignerNames.Concat(compilation?.BaselineNames ?? [])), regions));
 
         return (diagnostics, tree);
     }
@@ -94,7 +93,8 @@ public static class VbDiagnosticsProvider
         report.Elapsed = Stopwatch.GetElapsedTime(startedAt);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
-            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
+            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree,
+                regions.DesignerNames.Concat(compilation?.BaselineNames ?? [])), regions));
 
         return (diagnostics, tree, report);
     }

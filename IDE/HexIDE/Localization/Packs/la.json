@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "Membra",
     "Str.ProjectDocument.Section.References": "Relationes",
     "Str.ProjectDocument.Kind.RelatedDocument": "Documentum coniunctum",
+    "Str.Naming.Msg.EmptyName": "Nomen vacuum esse non potest",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Nomen in hac forma unicum esse debet",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' nomen validum non est. Nomen a littera incipit, deinde litteris, numeris et lineolis subscriptis continuatur.",
     "Str.Naming.Msg.ReservedWord": "'{0}' nomen esse non potest, quia VB6 hoc verbum sibi reservat.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' iam est nomen formae, moduli aut classis in hoc incepto. VB6 eis unum spatium nominum dat, itaque duo idem nomen habere non possunt.",

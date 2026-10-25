@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "Membros",
     "Str.ProjectDocument.Section.References": "Referências",
     "Str.ProjectDocument.Kind.RelatedDocument": "Documento relacionado",
+    "Str.Naming.Msg.EmptyName": "O nome não pode estar vazio",
+    "Str.Naming.Msg.NameNotUniqueInForm": "O nome deve ser único no formulário",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' não é um nome válido. Um nome começa por uma letra e continua com letras, dígitos e sublinhados.",
     "Str.Naming.Msg.ReservedWord": "'{0}' não pode ser um nome, porque o VB6 reserva essa palavra.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' já é o nome de um formulário, módulo ou classe neste projeto. O VB6 dá-lhes um único espaço de nomes, pelo que não pode haver dois com o mesmo nome.",

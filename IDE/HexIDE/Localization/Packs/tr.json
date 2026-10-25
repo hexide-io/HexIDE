@@ -783,6 +783,8 @@
     "Str.ProjectDocument.Section.Members": "Üyeler",
     "Str.ProjectDocument.Section.References": "Başvurular",
     "Str.ProjectDocument.Kind.RelatedDocument": "İlgili Belge",
+    "Str.Naming.Msg.EmptyName": "Ad boş olamaz",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Ad form içinde benzersiz olmalıdır",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' geçerli bir ad değil. Ad bir harfle başlar, ardından harf, rakam ve alt çizgiyle devam eder.",
     "Str.Naming.Msg.ReservedWord": "'{0}' ad olamaz, çünkü VB6'da ayrılmış bir sözcüktür.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' zaten bu projedeki bir formun, modülün veya sınıfın adı. VB6 bunları tek bir ad alanında tutar, bu yüzden ikisi aynı adı paylaşamaz.",
