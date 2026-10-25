@@ -56,6 +56,26 @@ public partial class DISetup
                 return new WatchesToolViewModel(localization, watches, debugger, windows, external);
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
+            .Bind<CodeEditorViewModel>().To(ctx =>
+            {
+                // Keep optional debugger dependencies explicit, as for the Watches pane above.
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<IEditorService>(out var editors);
+                ctx.Inject<IProjectService>(out var projects);
+                ctx.Inject<IEventBus>(out var events);
+                ctx.Inject<ILspClient>(out var lsp);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IStatusBarService>(out var status);
+                ctx.Inject<HexIDE.Bookmarks.IBookmarkService>(out var bookmarks);
+                ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<HexIDE.Debugging.IRunScope>(out var run);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                ctx.Inject<CallStackToolViewModel>(out var stack);
+                return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
+                    bookmarks, breakpoints, debugger, run, localization, external, stack);
+            })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()

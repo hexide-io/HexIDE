@@ -111,6 +111,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public IBookmarkService BookmarkService => bookmarkService;
     public HexIDE.Debugging.IBreakpointService BreakpointService => breakpointService;
     public HexIDE.Runtime.Debugging.IDebugController DebugController => debugController;
+    public HexIDE.Tools.CallStackToolViewModel? CallStack { get; }
 
     /// <summary>True while the project is running OR paused in the debugger — the window in which a code edit
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
@@ -212,7 +213,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Tools.CallStackToolViewModel? callStack = null)
     {
         this.windowManager = windowManager;
         this.editorService = editorService;
@@ -224,6 +226,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.breakpointService = breakpointService;
         this.debugController = debugController;
         ExternalDebugger = externalDebugger;
+        CallStack = callStack;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
