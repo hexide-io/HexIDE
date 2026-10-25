@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "הליך",
     "Str.Tool.CallStack.Column.Line": "שורה",
     "Str.Tool.CallStack.RowName": "{0}, שורה {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<כל הספריות>",
+    "Str.Tool.ObjectBrowser.MembersOf": "חברים של '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "סגור את דפדפן האובייקטים",
     "Str.Tool.ObjectBrowser.Chrome.Title": "דפדפן אובייקטים",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "עבור להגדרה",

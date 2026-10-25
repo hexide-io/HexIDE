@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Procedimento",
     "Str.Tool.CallStack.Column.Line": "Linha",
     "Str.Tool.CallStack.RowName": "{0}, linha {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Todas as bibliotecas>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Membros de '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Fechar o Navegador de Objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Navegador de Objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir para definição",

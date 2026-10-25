@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Prosedyre",
     "Str.Tool.CallStack.Column.Line": "Linje",
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer av '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Lukk objektutforsker",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektutforsker",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definisjon",

@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Thủ tục",
     "Str.Tool.CallStack.Column.Line": "Dòng",
     "Str.Tool.CallStack.RowName": "{0}, dòng {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Tất cả thư viện>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Thành viên của '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Đóng Trình duyệt Đối tượng",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Trình duyệt Đối tượng",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Đi tới Định nghĩa",

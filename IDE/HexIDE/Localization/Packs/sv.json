@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Procedur",
     "Str.Tool.CallStack.Column.Line": "Rad",
     "Str.Tool.CallStack.RowName": "{0}, rad {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Alla bibliotek>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Medlemmar i '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Stäng Objektläsare",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektläsare",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå till definition",

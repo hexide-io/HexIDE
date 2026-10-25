@@ -285,6 +285,8 @@
     "Str.Tool.CallStack.Column.Frame": "Procedure",
     "Str.Tool.CallStack.Column.Line": "Line",
     "Str.Tool.CallStack.RowName": "{0}, line {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<All Libraries>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Members of '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Close Object Browser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Object Browser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Go to Definition",

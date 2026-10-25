@@ -290,6 +290,8 @@
     "Str.Tool.CallStack.Column.Frame": "Proceduro",
     "Str.Tool.CallStack.Column.Line": "Linio",
     "Str.Tool.CallStack.RowName": "{0}, linio {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Ĉiuj bibliotekoj>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Membroj de '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Fermi Objektan Foliumilon",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objekta Foliumilo",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Iri al Difino",

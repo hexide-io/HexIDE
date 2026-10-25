@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Routine",
     "Str.Tool.CallStack.Column.Line": "Riga",
     "Str.Tool.CallStack.RowName": "{0}, riga {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Tutte le librerie>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Membri di '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Chiudi Visualizzatore oggetti",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Visualizzatore oggetti",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Vai alla definizione",

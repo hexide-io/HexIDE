@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Yordam",
     "Str.Tool.CallStack.Column.Line": "Satır",
     "Str.Tool.CallStack.RowName": "{0}, satır {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Tüm Kitaplıklar>",
+    "Str.Tool.ObjectBrowser.MembersOf": "'{0}' üyeleri",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Nesne Tarayıcısını Kapat",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Nesne Tarayıcısı",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Tanıma Git",

@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "过程",
     "Str.Tool.CallStack.Column.Line": "行",
     "Str.Tool.CallStack.RowName": "{0}，第 {1} 行",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<所有库>",
+    "Str.Tool.ObjectBrowser.MembersOf": "'{0}' 的成员",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "关闭对象浏览器",
     "Str.Tool.ObjectBrowser.Chrome.Title": "对象浏览器",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "转到定义",

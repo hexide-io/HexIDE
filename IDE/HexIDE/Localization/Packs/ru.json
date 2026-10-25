@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Процедура",
     "Str.Tool.CallStack.Column.Line": "Строка",
     "Str.Tool.CallStack.RowName": "{0}, строка {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Все библиотеки>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Члены '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрыть обозреватель объектов",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Обозреватель объектов",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти к определению",

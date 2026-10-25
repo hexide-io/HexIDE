@@ -329,6 +329,8 @@
     "Str.Tool.CallStack.Column.Frame": "Διαδικασία",
     "Str.Tool.CallStack.Column.Line": "Γραμμή",
     "Str.Tool.CallStack.RowName": "{0}, γραμμή {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Όλες οι βιβλιοθήκες>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Μέλη του '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Κλείσιμο περιήγησης αντικειμένων",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Περιήγηση αντικειμένων",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Μετάβαση στον ορισμό",
