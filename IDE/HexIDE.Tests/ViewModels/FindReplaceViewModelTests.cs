@@ -1082,7 +1082,7 @@ public class FindReplaceViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService);
+            windowStateService, new DockFactoryReference());
 
         return new MainViewViewModel(
             windowManager,
