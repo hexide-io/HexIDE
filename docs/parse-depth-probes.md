@@ -99,3 +99,10 @@ other operator families, other recursive walks and CRLF variants remain unmeasur
 The external parser named in the issue is not present in this repository and was not probed. Parenthesis/block guard
 coverage remains with `ParserDepthGuardTests` and `ParseHardeningTests`, as the issue's
 comment directs.
+
+## LSP visitor hardening (#1894)
+
+The symbol, declaration collector and Option Explicit visitors now bound `VisitChildren`
+recursion at 500 levels. Regression tests cover 100,000 additions, declarations and symbols
+following the chain, and an undeclared reference in a later statement. The original measurements
+above describe the pre-fix build; the interpreter execution overflow remains outstanding.
