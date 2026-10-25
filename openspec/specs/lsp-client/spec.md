@@ -213,7 +213,10 @@ backend under any licence can sit behind the seam without affecting the IDE's ow
 
 ### Requirement: The language client SHALL start and stop with the desktop session
 The client SHALL be started when the desktop IDE starts and stopped when it shuts down, requesting an
-orderly server shutdown before terminating the process.
+orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
+deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out. Both messages
+SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
+two seconds for termination before disposing the process handle.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
@@ -223,6 +226,11 @@ still goes away.
 - **WHEN** the IDE shuts down
 - **THEN** the server is asked to shut down and its process is ended
 - **AND** no server process outlives the IDE
+
+#### Scenario: A server never answers shutdown
+- **WHEN** the server receives `shutdown` but never answers it
+- **THEN** the client stops waiting after two seconds and attempts `exit`
+- **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
