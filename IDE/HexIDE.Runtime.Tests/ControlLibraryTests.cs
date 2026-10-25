@@ -177,6 +177,38 @@ public class ControlLibraryTests
         await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Method or data member not found*");
     }
 
+    // A module-level Const or bound may name one, as an in-box library's constant may (measured there, "What a module-level
+    // array's bound may name"). Not measured for a control library's.
+    [Theory]
+    [InlineData("Const K = MSComctlLib.ccScrollingSmooth\nDebug.Print K", 1L)]
+    [InlineData("Const K = ScrollingConstants.ccScrollingStandard\nDebug.Print K", 0L)]
+    [InlineData("Const K = MSComctlLib.ScrollingConstants.ccScrollingSmooth\nDebug.Print K", 1L)]
+    [InlineData("Dim d(MSComctlLib.ccOrientationVertical To 3) As Long\nDebug.Print LBound(d)", 1L)]
+    public async Task A_module_level_Const_or_bound_may_name_one(string code, long expected)
+    {
+        var log = await Run(code + "\n", ControlLibraries.MSComctlLib);
+
+        log.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == expected);
+    }
+
+    // A member of another enum is "Method or data member not found", as through an in-box library's enum (measured there).
+    [Fact]
+    public async Task A_module_level_Const_naming_a_member_its_enum_lacks_is_not_found()
+    {
+        var act = () => Run("Const K = ScrollingConstants.ccOrientationVertical\nDebug.Print K\n", ControlLibraries.MSComctlLib);
+
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Method or data member not found*");
+    }
+
+    // A name the library lacks is refused as an in-box library's is there, as a name the check doesn't read.
+    [Fact]
+    public async Task A_module_level_Const_naming_what_the_library_lacks_is_refused()
+    {
+        var act = () => Run("Const K = MSComctlLib.NoSuchConstant\nDebug.Print K\n", ControlLibraries.MSComctlLib);
+
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*MSComctlLib.NoSuchConstant*");
+    }
+
     // An enum both libraries declare is the in-box library's, which VB6 references first: BorderStyleConstants is VBRUN's,
     // and MSComctlLib's is reached through its library. Not measured: the order is VB6's reference order.
     [Fact]

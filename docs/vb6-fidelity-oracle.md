@@ -20269,7 +20269,7 @@ cover both of its libraries:
 | Font, BackColor, ForeColor, Text, SetFocus | 438 |
 | Negotiate | 393, "Get not supported at runtime" |
 | MouseIcon Is Nothing, DragIcon Is Nothing | `False`, `False`: each holds an empty picture |
-| `ZOrder 0`, `OLEDrag`, `Move 100, 100` | no error. After the Move, Left reads 0, as an aligned control's does: an earlier row had set Align to 2, which nothing undid |
+| `ZOrder 0`, `OLEDrag`, `Move 100, 100` | no error. After the Move, Left reads 0. Align had been set to 2 by an earlier row |
 
 **Writing Value, Min and Max.** Each row starts from Min 0, Max 100, Value 0, and shows the error and then Value, Min
 and Max:

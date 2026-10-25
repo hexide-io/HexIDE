@@ -130,4 +130,23 @@ public class ProgressBarDrawingTests
 
         report.ToString().Should().BeEmpty();
     }
+
+    // VB6's designer draws a ProgressBar full, whatever its Min and Max (measured): Value isn't saved, so it has none to draw.
+    // A running one starts empty.
+    [AvaloniaFact]
+    public void The_designer_draws_a_bar_full_and_a_run_starts_it_empty()
+    {
+        var instance = new ComponentInstance(ProgressBarComponentClass.Instance, "pb")
+            .SetProperty(VBProperties.WidthProperty, 200)
+            .SetProperty(VBProperties.HeightProperty, 20);
+
+        var designed = ProgressBarComponentClass.Instance.InstantiateForDesigner(instance).Should().BeOfType<VBProgressBar>().Subject;
+        var running = ProgressBarComponentClass.Instance.Instantiate(instance).Should().BeOfType<VBProgressBar>().Subject;
+
+        designed.ShowFull.Should().BeTrue();
+        running.ShowFull.Should().BeFalse();
+        // The 3-D frame and the gap leave a fill area from x 3 to 196; full, its blocks run to 1 px short of its end.
+        designed.Paint(200, 20).Where(r => r.Colour == VbSystemColor.Highlight).Max(r => r.X + r.Width).Should().Be(196);
+        running.Paint(200, 20).Should().NotContain(r => r.Colour == VbSystemColor.Highlight);
+    }
 }
