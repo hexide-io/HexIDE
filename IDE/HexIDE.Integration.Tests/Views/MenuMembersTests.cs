@@ -18,7 +18,7 @@ namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
 /// Menus used from code at run time (#1126). Every expected line is what vb6.exe printed for the same statements on the
-/// same menus, native and p-code alike: the probes and their logs are in docs/vb6-fidelity-oracle.md, "Menus at run time,
+/// same menus, native and p-code alike: the probes and their logs are in docs/vb6-fidelity-oracle/menus-at-run-time-and-the-menu-bar.md, "Menus at run time,
 /// and the menu bar".
 /// </summary>
 public class MenuMembersTests : WindowTestFixture

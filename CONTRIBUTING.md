@@ -125,6 +125,12 @@ calls of any kind.
 5. Record a user-visible change in its own file under [`changelog.d/`](changelog.d/README.md), named for
    the issue, not in `CHANGELOG.md`: two pull requests then never edit the same lines.
 
+**Before merging, including a session merging its own pull request, wait until every job on the head
+commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
+advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
+remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
+failing run on its issue and re-run it green before merging (#1331).
+
 ## AI-assisted contributions
 
 **HexIDE leans heavily on AI-assisted workflows, and you are welcome to use AI when contributing.** There
@@ -157,7 +163,7 @@ each one says which.
 **When you need it:** you are changing what the interpreter computes, meaning a result type, an error
 number, a rounding rule, a coercion or a `Format` edge. HexIDE decides those by running the real VB6
 compiler, not by reading documentation. The documentation has been wrong often enough that a test's
-expected value has to come from `vb6.exe`. [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md)
+expected value has to come from `vb6.exe`. [`docs/vb6-fidelity-oracle/README.md`](docs/vb6-fidelity-oracle/README.md)
 records every behaviour measured so far, so check it first. Your question may already be answered there.
 
 **What it needs:** Windows and **your own licensed copy of Visual Basic 6**, installed on the machine you

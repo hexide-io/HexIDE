@@ -14,7 +14,7 @@ namespace HexIDE.Tests.Projects;
 /// A new form or module gets its file when the project is saved, not when it is added, as VB6 does it.
 ///
 /// <para>
-/// Measured against the VB6 IDE (#489, <c>docs/vb6-fidelity-oracle.md</c>): no gesture that creates a document
+/// Measured against the VB6 IDE (#489, <c>docs/vb6-fidelity-oracle/when-a-document-gets-a-file-and-what-a-dangling-startup-does.md</c>): no gesture that creates a document
 /// writes a file, in an unsaved project or a saved one, and discarding an unsaved document leaves nothing behind.
 /// HexIDE wrote each one at once, into the project's folder or, for a project never saved, a scratch folder under
 /// <c>%TEMP%</c>. Its first Save Project then wrote the <c>.vbp</c> where the developer chose and left those members

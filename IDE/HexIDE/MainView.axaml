@@ -209,6 +209,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}" Header="{DynamicResource Str.Menu.Edit.ParameterInfo}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Parameterinfo}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}" Header="{DynamicResource Str.Menu.Edit.CompleteWord}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Completeword}" />
                             <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Edit.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks}">
                                 <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Toggle}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                                 <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Next}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />

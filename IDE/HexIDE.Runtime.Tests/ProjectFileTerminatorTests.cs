@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 /// Every recognised line of a written <c>.vbp</c> must end with CRLF.
 ///
 /// <para>
-/// Measured against real vb6.exe (see <i>What a .vbp tolerates</i> in docs/vb6-fidelity-oracle.md): an
+/// Measured against real vb6.exe (see <i>What a .vbp tolerates</i> in docs/vb6-fidelity-oracle/what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md): an
 /// ITEM line — <c>Module=</c>, <c>RelatedDoc=</c> — as the file's last line with <b>no trailing CRLF</b>
 /// kills the compiler with <c>0xC0000005</c> and writes <b>nothing</b> to the <c>/out</c> log. Adding the
 /// terminator makes the byte-identical file legal. A final unterminated <c>Reference=</c> or <c>Name=</c>

@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The byte-string functions (#1510): LenB, AscB, InStrB, MidB, LeftB and RightB. Every expected value was measured on vb6.exe
-/// SP6, native and p-code alike: docs/vb6-fidelity-oracle.md, "The byte-string functions". A result of an odd number of
+/// SP6, native and p-code alike: docs/vb6-fidelity-oracle/the-byte-string-functions.md. A result of an odd number of
 /// bytes, and so ChrB, is refused: HexIDE's strings are whole characters and cannot hold one.
 /// </summary>
 public class ByteStringTests : BaseVBTestFixture

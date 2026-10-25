@@ -98,7 +98,7 @@ public class SerializationRoundTripTests
     // These two asked for the wrong thing until 2026-09-20. They asserted `UserControl=UserControl1;` —
     // the `Name; File` shape the code emitted — and VB6 reads that whole value as a filename, so every
     // project HexIDE saved with a UserControl or a PropertyPage in it was unopenable (hexide-io/HexIDE#483,
-    // measured in docs/vb6-fidelity-oracle.md). The assertion certified the defect for as long as it
+    // measured in docs/vb6-fidelity-oracle/a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which.md). The assertion certified the defect for as long as it
     // existed, which is what an expectation written from the code rather than from the compiler does.
     // ProjectItemLineShapeTests carries the rule for all four keys.
 
@@ -905,7 +905,7 @@ public class SerializationRoundTripTests
         // VB98's own Template tree contains not one OptionButton, so the corpus lane cannot reach this and
         // the spelling has to come from elsewhere. It comes from two measured facts rather than a guess:
         // vb6.exe compiles and loads this exact file with Option1.Value reading True (see the #95 probe in
-        // docs/vb6-fidelity-oracle.md), and `-1  'True` is the boolean layout the corpus already pinned
+        // docs/vb6-fidelity-oracle/option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md), and `-1  'True` is the boolean layout the corpus already pinned
         // (VbFrmFormatSerializer.BooleanValueWidth, from EditAtDesignTime).
         //
         // What this catches is the property being modelled as the check box's tri-state, which would write

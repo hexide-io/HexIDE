@@ -16,7 +16,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// indexed as Command1(i), the array-name object's .Count/.LBound/.UBound, and shared event handlers that receive
 /// the fired element's Index. Needs real (headless) Avalonia controls spawned through the runtime
 /// <see cref="VBLoader.SpawnComponents"/> grouping path, so it lives here. Behaviour is oracle-pinned against
-/// vb6.exe (see docs/vb6-fidelity-oracle.md → Control arrays).
+/// vb6.exe (see docs/vb6-fidelity-oracle/control-arrays.md → Control arrays).
 /// </summary>
 public class ControlArrayTests
 {
