@@ -50,6 +50,10 @@ The philosophy behind that last rating has not changed and is worth restating:
 
 ## What the server is sent, and the lines it keeps off
 
+All server positions count CR, LF and CRLF as line ends, including mixed endings in a file edited outside
+VB6 (#1052). Diagnostics, symbols, folds, rename, highlight, signature help, protected regions and formatting
+use those same physical lines. Formatting and protected-region blanking preserve each line's terminator.
+
 The client sends each form, module and class as **the whole VB6 file**: a class's `VERSION` and
 `BEGIN … END` block, a form's `VERSION` line, object references and designer block, the run of `Attribute`
 lines that opens the code, and every member's `Attribute` lines further down. It names the document by its

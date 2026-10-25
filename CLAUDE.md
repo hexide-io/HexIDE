@@ -997,6 +997,10 @@ the PR. Typo-level fixes need no issue.
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
 
+**A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
+PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);
+`changelog.d/README.md` has the format, and `scripts/changelog-gather.sh` folds them in at release.
+
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 
 When in doubt about whether a piece of work is "complete enough", err on the side of committing — a WIP commit is easy to amend or squash, but uncommitted work can be lost.

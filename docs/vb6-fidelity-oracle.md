@@ -1656,8 +1656,8 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 
 **Refused with `NotImplementedException`, rather than answered wrong:**
 - **A palette colour** (#786), from any type. HexIDE has no colour that holds one.
-- **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
-  would read back clamped.
+- **Superseded by #787:** `Value` on a scroll bar whose Min exceeds its Max now maps onto an ascending
+  Avalonia range in reverse, preserving the loaded value and the measured assignments above.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
   property (#790). (Superseded for a class instance and the in-box objects by #840, "An object used as a value": a
   class with no default member raises 438, one with a default member is refused naming #174, and Err stands for its
@@ -4403,6 +4403,22 @@ On paths specifically: the UNC pass used the loopback admin share, so a genuinel
 round-trip, credential prompt, slow I/O — is untested, as are a mapped network drive letter, paths beyond
 `MAX_PATH`, 8.3 short names, and drive-letter case. And whether the IDE displays or round-trips a UNC path,
 or rewrites it to a mapped letter, is unknown.
+
+### The IDE can keep Form before Reference on Save Project As (#855)
+
+Measured on the oracle VM, VB6 6.00.8176 SP6, 2026-10-12 (issue #855). A hand-written Standard EXE project
+was opened in the IDE with keys in this order: `Type`, `Form=Form1.frm`, `Reference`, `Startup`, `ExeName32`,
+`Name`. File → Save Form1.frm As renamed the form to `Saved.frm`; File → Save Project As then wrote a
+594-byte project. Its first three lines remained `Type=Exe`, `Form=Saved.frm`, and
+`Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation`.
+The renamed form stayed on line 2. VB6 added `IconForm` between `Reference` and `Startup`, `Command32`
+after `ExeName32`, and the option block after `Name`.
+
+This overturns the assumption that VB6 always writes references before forms: its templates' usual order
+is not universal. It does not resolve the custom-section or `RelatedDoc` save questions above. A plain
+Save Project, other non-canonical orders, placement of newly added items, and project types other than
+Standard EXE remain unmeasured. HexIDE's slot retention for other recognised keys is its round-trip
+contract, not an additional VB6 measurement.
 
 ## Extending the oracle (future phases)
 
@@ -9104,13 +9120,13 @@ procedure bodies do not. Within a module, every scope probed evaluates strictly 
 form, procedure and Enum member. And at module level `Option Explicit` still says "Constant expression required",
 where at procedure level it says "Variable not defined": module-level names are known before their values are.
 
-**HexIDE, after this.** Another module's Public Const read qualified, as `Module2.B`, is read when that module's
-declarations have already run; its value is final. Which have run depends on how the run starts. `Execute`, which
-only the tests use, runs the other standard modules in list order and the startup module last, its body doubling as
-its declarations. The IDE's Sub Main run, `RunStartupSubMain`, runs every standard module's declarations in list
-order, the startup module's among them, before Main. Before a module's have run, a read of its Const is refused naming
-#893, which is VB6's on-demand ordering, with its cycle error. Unqualified, it is read the same way since #880
-(*Another module's Public names, bare*, below). The module naming itself is "Circular dependencies between modules", whatever it names.
+**HexIDE, after #893.** A module-level Const or array bound reading another standard module's Public Const,
+qualified or bare, runs that module's declarations on demand first, once. Re-entering a module whose declarations
+are still running raises "Circular dependencies between modules" as a compile error during execution. The check
+is per module, even when the individual Consts do not depend on themselves. Procedure bodies make no dependency
+edges. The test harness's `Execute` completes the startup module's declarations before its executable top-level
+statements, so a class created there reads the completed startup Consts too (the class row above, measured native
+and in the IDE, and issue #893's follow-up comment). No new VB6 measurement is needed for this fix.
 
 **Review round three** asked what lies one level down: what a Const above the Dim may itself read, which built-ins
 are allowed, and what a qualified name does. Each case below is its own project, built with `/make` (`p27`, `p28` and
@@ -9171,8 +9187,7 @@ Procedure forward-local-Const reads are now checked by #894; other procedure rul
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
   required" without it;
 - the module's own name as a qualifier is "Circular dependencies between modules";
-- another module's Public Const, bare (since #880) or qualified, is read once that module's declarations have run,
-  and refused naming #893 before; another module's Public Enum member, bare or qualified by its Enum's name, is
+- another module's Public Const, bare (since #880) or qualified, initialises that module on demand first (#893); another module's Public Enum member, bare or qualified by its Enum's name, is
   read, a class's included (#889);
 - a built-in no probe has asked about is refused, rather than guessed either way.
 
@@ -10512,9 +10527,8 @@ gaps elsewhere: the probes that stored through a qualifier (`Module2.X = 1`) hav
 qualified store raises 424 (#1006); `Module2.A(2)` is read through a Function of Module2's, because it reads the whole
 array (#965); and the Collection row uses a class, because HexIDE cannot create a Collection with `New` yet.
 
-What it still does not do: a module-level Const or bound that reads a Const of a module whose declarations have not run
-yet is refused naming #893, where VB6 reads it in either list order. Another module's Public Enum member, bare, is read
-since #889 (*Another module's Enum members, bare*).
+Since #893, a module-level Const or bound initialises a referenced Const's module on demand, in either list order,
+and refuses module cycles with VB6's message. Another module's Public Enum member, bare, is read since #889 (*Another module's Enum members, bare*).
 
 ## A control's position at run time (2026-10-14, #933)
 

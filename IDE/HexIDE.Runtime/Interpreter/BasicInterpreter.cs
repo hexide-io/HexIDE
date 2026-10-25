@@ -112,7 +112,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await events.DoEvents();
             return new Vb6Value(0);
         }
-        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
+        return await events.WhileWaitingOnWindow(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
     }
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
@@ -749,26 +749,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public async Task Execute()
     {
         declarationsRun = true;
-        // Initialise every NON-primary module's module-level declarations first (fills Public Const/Dim values
-        // in that module's own env) so a cross-module read sees a value, not Empty. Modules can't have executable
-        // top-level statements in real VB6, so this is declaration hoisting; the primary (test/startup) body runs
-        // after.
-        // Class modules are templates — they must NOT run at program start (a class body runs only per-instance,
-        // via New). Only Standard modules are initialised here.
         try
         {
             foreach (var m in Modules.All)
                 if (!ReferenceEquals(m, primaryModule) && m.Kind == InterpreterModuleKind.Standard)
-                {
-                    foreach (var block in m.PrePass.topLevelBlocks)
-                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
-                    m.DeclarationsRun = true;
-                }
+                    await RunModuleDeclarations(m);
+            await RunModuleDeclarations(primaryModule);
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
-                await statementExecutor.Execute(block);
-            primaryModule.DeclarationsRun = true;
+                await statementExecutor.Execute(block, moduleDeclarations: false);
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -854,15 +844,38 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var m in Modules.All)
                 if (m.Kind == InterpreterModuleKind.Standard)
-                {
-                    foreach (var block in m.PrePass.topLevelBlocks)
-                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
-                    m.DeclarationsRun = true;
-                }
+                    await RunModuleDeclarations(m);
         }
         finally
         {
             RunningDeclarations = false;
+        }
+    }
+
+    internal static bool IsModuleDeclaration(VB6Parser.BlockStmtContext statement) =>
+        statement.constStmt() != null || statement.variableStmt() != null;
+
+    // Resolve dependencies only while executing declarations, never by relating the pre-pass tables up front.
+    internal async Task RunModuleDeclarations(ModuleInfo module)
+    {
+        if (module.DeclarationsRunning)
+            throw new VBCompileErrorException("Circular dependencies between modules");
+        if (module.DeclarationsRun)
+            return;
+        module.DeclarationsRunning = true;
+        var wasRunning = RunningDeclarations;
+        RunningDeclarations = true;
+        try
+        {
+            var executor = new StatementExecutor(this, module.ModuleEnv, module);
+            foreach (var block in module.PrePass.topLevelBlocks)
+                await executor.Execute(block, moduleDeclarations: true);
+            module.DeclarationsRun = true;
+        }
+        finally
+        {
+            module.DeclarationsRunning = false;
+            RunningDeclarations = wasRunning;
         }
     }
 

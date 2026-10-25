@@ -8,10 +8,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ## [Unreleased]
 
-### Added
+New entries are written one file per change in [`changelog.d/`](changelog.d/README.md), and gathered here at
+release by `scripts/changelog-gather.sh` (#1375). The entries below were recorded before that.
 
-- **Diagnostic tooltips** (#451). Hovering a squiggle shows every overlapping message and its source
-  when supplied, alongside quick info, in every personality and with Auto Quick Info disabled.
+### Added
 
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
@@ -283,6 +283,34 @@ there isn't one yet. Anything may change between 0.x releases.
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **The bundled language server counts lone CR line endings** (#1052). Diagnostics, folds, rename, highlight
+  and formatting now use the editor's line numbers in files with CR, LF or CRLF, and keep off the same protected lines.
+
+- **Reversed scroll bars run in the right direction** (#787). A bar loaded with Min greater than Max keeps
+  its Value, accepts values between either endpoint, and reverses the thumb-to-value mapping.
+
+- **Save Project keeps recognised `.vbp` lines in their read order** (#855), including renamed forms,
+  missing members and reclassified carried files. A form before a reference stays before it.
+
+- **Cross-module Const initialisation** (#893). Module-level Consts and array bounds initialise a referenced
+  module's declarations on demand, in either startup order. Module cycles raise "Circular dependencies between
+  modules"; a class created by the test harness's top-level code sees the startup module's completed Consts.
+
+- **Made programs keep non-ASCII source text across machines** (#731). Make packages its source copies as UTF-8
+  with a BOM; source files keep their own encoding. Standalone `--check` now reads project and form files with
+  the IDE's source decoder.
+
+- **Delete Line and word deletion ask to reset a running project** (#1025). AvaloniaEdit's editing keys now
+  arm the code window's reset prompt, including Delete Line, Delete Previous Word and Delete Next Word.
+  A refused edit in the file header still asks nothing, and No restores the deleted code.
+
+- **Add-in range edits preserve member Attribute runs** (#1012). Edits that add a run, promote an orphan,
+  extend a run or turn it into an orphan are refused together, naming the affected members.
+
+- **Pasting a comment and a declaration over a described declaration keeps its attributes** (#1039). Leading
+  blank lines and continued declarations work too, including through Insert File; the run stays under the
+  first compatible declaration.
 
 - **Making a project again to the same path succeeds** (#748). The new project archive is completed beside
   the destination before replacing the previous build, so the second Make includes the current source.

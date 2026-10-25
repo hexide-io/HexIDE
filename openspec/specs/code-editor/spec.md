@@ -21,6 +21,13 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Syntax keywords match regardless of case
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+
+#### Scenario: Keywords differ from the definition's casing
+- **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
+- **THEN** each word receives its named keyword colour from the syntax definition
+
 ### Requirement: The code window SHALL hold the whole file
 The code window for a form, module, class, UserControl or PropertyPage SHALL hold the file's complete text.
 It SHALL be the text of the file as it stands, and after a save it SHALL be the text that save wrote.
@@ -114,6 +121,23 @@ blank line, a comment or a statement, mixing the two kinds, or a variable attrib
 a variable declared elsewhere — SHALL NOT be read-only, greyed or folded, because editing it by hand is the
 only way to repair it.
 
+When a paste or Insert File replaces a described declaration's whole text and ends at its anchor, the IDE
+SHALL keep the run under the first logical line of the replacement that declares a member it can describe:
+a procedure for a procedure run, or variables or constants naming every qualifier of a variable run.
+Continuation lines SHALL be read together by the member-declaration reader. Text through that declaration
+SHALL replace the selection; any remaining text SHALL follow the run. With no remaining text the caret SHALL
+end at the pasted declaration's end. If no compatible declaration exists, or the selection starts inside the
+declaration, the existing split at the first line break SHALL apply.
+
+This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
+whole-declaration paste question in the archived #273 design record without changing that historical record.
+
+#### Scenario: Pasting a comment before a replacement declaration
+- **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed
+  by a compatible declaration
+- **THEN** the comment precedes the declaration, its attribute run remains directly below the declaration,
+  and one Undo restores the original text
+
 #### Scenario: A procedure with a description
 - **WHEN** a module containing a procedure with an `Attribute <Name>.VB_Description` line is opened
 - **THEN** the attribute is folded into the end of the procedure's declaration line, and cannot be edited
@@ -154,8 +178,18 @@ that member's: VB6 gives a procedure's run to the procedure above it whatever it
 follow the member's rename as the requirement above has them do. A run added is not exempt for having been inert
 text before, because a replacement cannot tell an orphan it repairs from a run its caller wrote.
 
+An add-in's range edits SHALL also be compared as a complete resulting document and refused together if
+that result changes, adds or loses a described member run under the same comparison as a whole replacement.
+The refusal SHALL name the members. This includes promoting an orphan, extending a run at its end, mixing a
+run into an orphan and inserting a whole new described member. The existing region check SHALL run first;
+a range edit deleting a run with its declaration remains refused. Developer input and formatting are unchanged.
+
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
+
+#### Scenario: An add-in extends a member's run
+- **WHEN** an add-in inserts an Attribute line at the start of the line following Total's described run
+- **THEN** the entire edit set is refused, naming Total, and the buffer is unchanged
 
 #### Scenario: Formatting a class
 - **WHEN** a class is formatted by a server whose answer replaces the whole document
@@ -249,3 +283,31 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+### Requirement: Event-handler searches SHALL start after the header
+Both designer double-click navigation and the Object/Procedure boxes SHALL search for an event handler starting
+at the end of the file header. Text in designer properties SHALL NOT intercept navigation or prevent a missing
+handler from being generated.
+
+#### Scenario: A caption names an event handler
+- **GIVEN** a control whose caption contains `Sub Command1_Click`
+- **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
+- **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent
+
+### Requirement: Delete SHALL work without a selection
+The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
+forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
+
+#### Scenario: Deleting inside code with nothing selected
+- **WHEN** the developer presses Delete with the caret inside editable code and no selection
+- **THEN** the next character is removed
+- **AND** if a run is active, the reset prompt is shown and answering No restores the edit
+
+### Requirement: Find SHALL wrap after searching other open documents
+Under All Open Documents, Find SHALL search the active document in the chosen direction without wrapping,
+then the other open documents, and only then wrap within the active document.
+
+#### Scenario: Find Up from the start of the active document
+- **WHEN** the caret is at offset 0 and both the active document and another open document contain the search text
+- **AND** the developer uses plain-text Find Up under All Open Documents
+- **THEN** the last match in the other document is selected before any match in the active document
