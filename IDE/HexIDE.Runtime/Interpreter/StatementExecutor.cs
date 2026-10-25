@@ -2266,6 +2266,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 variable.Value is not Control control)
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
 
+            // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+            if (ProgressBarMembers.TrySet(control, memberIdentifier, value) is { } inBox)
+                return inBox ? default
+                    : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
+
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
             foreach (var prop in props)
@@ -3623,6 +3628,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                              ? VB6InBoxLibraries.TryEnumType(typeName, out _)
                              : VB6InBoxLibraries.TryEnumType(qualifier, typeName, out _))
                         value = new Vb6Value(0L);
+                    // A referenced control library's enum is a type as well (#1082): `Dim s As ScrollingConstants`, and
+                    // `As MSComctlLib.ScrollingConstants`. Without this the first was an object of a referenced library's
+                    // type, Nothing, where VB6's is a Long.
+                    else if (IsControlLibraryEnum(qualifier, typeName))
+                        value = new Vb6Value(0L);
                     else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
                     {
                         value = Vb6Value.Nothing;
@@ -4235,6 +4245,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Nothing either way. A typo then runs on until the variable is used. With nothing referenced, a name nobody
     /// declares stays VB6's "User-defined type not defined".
     /// </summary>
+    private bool IsControlLibraryEnum(string? qualifier, string typeName)
+    {
+        foreach (var library in interpreter.BuiltIns.ControlLibraries)
+            if ((qualifier is null || library.Name.Equals(qualifier, StringComparison.OrdinalIgnoreCase))
+                && library.ContainerName(typeName) is not null)
+                return true;
+        return false;
+    }
+
     private bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
     {
         aliasScalar = null;
