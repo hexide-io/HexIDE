@@ -52,6 +52,18 @@ had a required parameter that a conformant server never sends, so the client ans
 `-32602` and refused the refresh on a perfectly healthy connection. Both are the same shape — a claim in
 the coverage table that nothing had ever driven end to end.
 
+## Shutdown parameters: absence and null differ (#368)
+
+Measured over stdio after initialize → initialized, followed by exit: rumdl 0.2.64 (`tower-lsp`)
+accepts shutdown only when the `params` member is absent (`result:null`). With `params` present as
+`null`, `[]` or `{}`, it returns `-32602` and respectively `Unexpected params: null`,
+`Unexpected params: []` or `Unexpected params: {}`. texlab 5.26.0, clangd 22.1.6 and
+vscode-json-language-server 4.10.0 returned `result:null` for all four spellings and exited 0.
+
+`ShutdownWireShapeTests` asserts member absence on the raw frames, covering all four spellings without
+relying on a permissive server. StreamJsonRpc's null argument object in its parameter-object overload
+omits the member; it does not serialize `"params":null`.
+
 ## What they do with a document that has no file (2026-09-20)
 
 hexide-io/HexIDE#273 names a never-saved document `untitled:<Project>/<Name>.<ext>`, which is a scheme

@@ -221,7 +221,7 @@ public partial class DISetup
             // Theming
             .Bind<IThemeService>().As(Singleton).To<ThemeService>()
             // Keymaps
-            .Bind<IKeymapService>().As(Singleton).To<KeymapService>()
+            .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
             .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
             .Bind<ILocalizationService>().As(Singleton).To<LocalizationService>()

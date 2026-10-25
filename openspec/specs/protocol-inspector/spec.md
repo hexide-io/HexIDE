@@ -110,6 +110,10 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 - **WHEN** a request was not sent because the server advertised no such capability
 - **THEN** the record says so and names the capability, marked as never sent
 
+#### Scenario: Another server has priority
+- **WHEN** a server advertises a one-answer capability but another claimant wins selection
+- **THEN** its record SHALL explain which claimant has priority for that capability, marked as never sent, once per capability per connection
+
 #### Scenario: A request that failed inside this client
 - **WHEN** a message cannot be serialized and so never reaches the transport
 - **THEN** the record says so, naming the method, marked as never sent
@@ -244,3 +248,15 @@ evicts the quiet one's history and a single count reports a loss nobody can attr
 #### Scenario: A shared ceiling written against one server
 - **WHEN** an entry for a single server sets a limit that governs every connection together
 - **THEN** it is not applied, and the developer is told it was not
+
+### Requirement: The inspector SHALL report new entries without moving the grid
+The visible inspector SHALL poll a cheap monotonic entry counter every half second and show how many
+entries were appended since Refresh. It SHALL keep the grid unchanged until explicitly refreshed. The
+counter SHALL cover all connections independently of filters and SHALL NOT reset on eviction or clearing.
+Replies completing existing requests SHALL NOT count as appended entries. Polling SHALL stop while the
+view is hidden or detached.
+
+#### Scenario: Traffic arrives while the grid is being read
+- **WHEN** an entry is recorded while the inspector is visible
+- **THEN** its pending indicator appears without adding or moving grid rows
+- **AND** Refresh fills the grid again and resets the pending indicator

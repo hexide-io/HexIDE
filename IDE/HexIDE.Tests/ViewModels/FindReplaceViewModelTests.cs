@@ -845,6 +845,28 @@ public class FindReplaceViewModelTests
         active.SelectionLength.Should().Be(0);
     }
 
+    [AvaloniaTheory]
+    [InlineData("needle")]
+    [InlineData("x needle")]
+    public void FindNext_AllOpenDocuments_UpFromZero_SearchesOtherDocumentsBeforeWrapping(string activeText)
+    {
+        var active = CreateMockEditor(activeText);
+        var other = CreateMockEditor("needle then needle");
+        SetOpenDocuments(active, other);
+        var sut = CreateSut();
+        sut.Scope = FindScope.AllOpenDocuments;
+        sut.Direction = FindDirection.Up;
+        sut.SearchText = "needle";
+
+        sut.FindNextCommand.Execute(null);
+
+        other.SelectionStart.Should().Be("needle then ".Length);
+        other.SelectionLength.Should().Be("needle".Length);
+        active.SelectionLength.Should().Be(0);
+        _documentDockService.Received(1).TryActivate<BaseEditorWindowViewModel>(
+            Arg.Is<Func<BaseEditorWindowViewModel, bool>>(predicate => predicate(other)));
+    }
+
     [AvaloniaFact]
     public void FindNext_AllOpenDocuments_BringsTheMatchingDocumentToTheFront()
     {

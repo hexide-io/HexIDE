@@ -321,12 +321,71 @@ public class SerializationRoundTripTests
         // Mirror the real loader (ProjectService) so full open->save round-trip tests are faithful.
         foreach (var r in sp.References)
             p.AddReference(r);
+        foreach (var path in sp.RelativeFormPaths)
+            p.AddForm(new FormDefinition(p, FormComponentClass.Instance, SerializedProject.FileNameWithoutExtensionOf(path))
+            {
+                AbsolutePath = Path.Combine(TestDir, SerializedProject.ToHostPath(path)),
+            });
+        foreach (var (name, path, kind) in sp.RelativeModulePaths)
+            p.AddModule(new ModuleDefinition(p, name, kind)
+            {
+                AbsolutePath = Path.Combine(TestDir, SerializedProject.ToHostPath(path)),
+            });
+        p.StartupForm = p.Forms.FirstOrDefault(f => f.Name == sp.StartupFormName);
         p.UnknownPreSectionLines.AddRange(sp.UnknownPreSectionLines);
-        p.PreservedItemLines.AddRange(sp.PreservedItemLines);
+        p.KnownLineKeys.AddRange(sp.KnownLineKeys);
+        for (var i = 0; i < sp.PreservedItemLines.Count; i++)
+            p.PreserveItemLine(sp.PreservedItemLines[i], sp.PreservedItemLineSlots[i]);
         p.StartupFormName = sp.StartupFormName;
         p.Description = sp.Description ?? "";
         p.ExtensionTail = sp.ExtensionTail;
         return p;
+    }
+
+    [Theory]
+    [InlineData("Form=Form1.frm\r\nObject=kept\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", false)]
+    [InlineData("Module=Module1; Module1.bas\r\nForm=Form1.frm\r\n", false)]
+    [InlineData("Form=Form1.frm\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", true)]
+    public void Project_recognised_lines_keep_their_read_order(string items, bool rename)
+    {
+        var original = "Type=Exe\r\n" + items + "Name=\"TestProject\"\r\nStartup=\"(None)\"\r\n";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(original, NullSink.Instance));
+        if (rename)
+            project.Forms[0].AbsolutePath = Path.Combine(TestDir, "Saved.frm");
+
+        new ProjectSerializer().Serialize(project, project.AbsolutePath!).Should()
+            .Be(rename ? original.Replace("Form1.frm", "Saved.frm") : original);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Project_slots_handle_added_and_removed_items(bool remove)
+    {
+        const string original = "Type=Exe\r\nName=\"TestProject\"\r\nModule=Module1; Module1.bas\r\nObject=kept\r\nForm=Form1.frm\r\nStartup=\"(None)\"\r\n";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(original, NullSink.Instance));
+        if (remove)
+            project.DeleteModule(project.Modules[0]);
+        else
+            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form2")
+            {
+                AbsolutePath = Path.Combine(TestDir, "Form2.frm"),
+            });
+        project.StartupForm = null;
+        var expected = remove
+            ? "Type=Exe\r\nName=\"TestProject\"\r\nForm=Form1.frm\r\nObject=kept\r\nStartup=\"(None)\"\r\n"
+            : original.Replace("Form=Form1.frm\r\n", "Form=Form1.frm\r\nForm=Form2.frm\r\n");
+
+        new ProjectSerializer().Serialize(project, project.AbsolutePath!).Should().Be(expected);
+    }
+
+    [Fact]
+    public void An_unsupported_item_keeps_its_slot_before_loaded_members()
+    {
+        const string original = "Type=Exe\r\nUserDocument=Doc1.dob\r\nObject=kept\r\nModule=Module1; Module1.bas\r\nName=\"TestProject\"\r\n";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(original, NullSink.Instance));
+
+        new ProjectSerializer().Serialize(project, project.AbsolutePath!).Should().Be(original);
     }
 
     [Fact]

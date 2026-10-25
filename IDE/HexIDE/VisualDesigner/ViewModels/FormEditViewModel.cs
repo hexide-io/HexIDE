@@ -1467,10 +1467,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             return;
 
         // this is a hack, the following line can be executed only after the window is created, it should be solved in a better way.
-        DispatcherTimer.RunOnce(() =>
+        DispatcherTimer.RunOnce(() => LoggedTimerCallback.Run("designer code navigation", () =>
         {
             Log.Debug("FormEditViewModel: Dispatching CreateOrNavigateToSubEvent({SubName})", subName);
             eventBus.Publish(new CreateOrNavigateToSubEvent(formDefinition!, subName));
-        }, TimeSpan.FromMilliseconds(16));
+        }), TimeSpan.FromMilliseconds(16));
     }
 }

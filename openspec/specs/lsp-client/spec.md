@@ -94,6 +94,11 @@ Full synchronization removes an entire class of desynchronization bug — a drop
 leaving the server's copy silently diverged from the editor's — at a cost that is negligible for source
 files of the size VB6 projects contain.
 
+This is deliberate for servers declaring either Full or Incremental synchronization: each change SHALL
+contain one event with the whole new text and no range. A server declaring None SHALL receive no changes.
+LSP permits full-document changes whatever sync kind the server advertises. Incremental sync is deferred
+until a server needs it to justify the desynchronization risk (hexide-io/HexIDE#282).
+
 The version is the server's only way to order what it receives, and a server may discard a change that is not
 later than what it holds. The open counts: a first change that repeated the open's version was lost to such a
 server (hexide-io/HexIDE#470).
@@ -208,7 +213,10 @@ backend under any licence can sit behind the seam without affecting the IDE's ow
 
 ### Requirement: The language client SHALL start and stop with the desktop session
 The client SHALL be started when the desktop IDE starts and stopped when it shuts down, requesting an
-orderly server shutdown before terminating the process.
+orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
+deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out. Both messages
+SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
+two seconds for termination before disposing the process handle.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
@@ -218,6 +226,11 @@ still goes away.
 - **WHEN** the IDE shuts down
 - **THEN** the server is asked to shut down and its process is ended
 - **AND** no server process outlives the IDE
+
+#### Scenario: A server never answers shutdown
+- **WHEN** the server receives `shutdown` but never answers it
+- **THEN** the client stops waiting after two seconds and attempts `exit`
+- **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
@@ -328,6 +341,10 @@ to have it honoured.
 - **WHEN** a feature requires exactly one server
 - **THEN** the user's entry is chosen over the default
 
+#### Scenario: Another advertiser loses a one-answer feature
+- **WHEN** folding ranges, document symbols, formatting or rename selects the highest-priority advertising claimant
+- **THEN** each other advertising claimant SHALL record a never-sent explanation naming the winner's registration id and capability, once per capability per connection
+
 ### Requirement: A server SHALL be given the project's working directory
 Each server SHALL be started with the current project's working directory as its working directory, and told
 that directory as its workspace root, unless its entry states otherwise.
@@ -409,6 +426,10 @@ be indistinguishable from a defect.
 #### Scenario: A field name is misspelled
 - **WHEN** an entry carries a field the IDE does not recognise
 - **THEN** the entry is kept and the unrecognised field is reported
+
+#### Scenario: A pipe role is misspelled
+- **WHEN** a pipe entry carries an unrecognised nonblank `pipeRole`
+- **THEN** the entry is kept, the value is reported, and the role falls back to `connect`
 
 ### Requirement: A newly named command SHALL be shown before it is run
 Where configuration names an executable to launch, and that command has not previously been seen for that
@@ -593,7 +614,9 @@ ambiguous it SHALL be offered only to servers whose claim establishes VB6: one t
 no other language uses — every VB6 source extension but `.cls` — or that declares the identifier `vb6`.
 Stated as "an extension no other language uses", the rule would be met by any server claiming any extension
 of its own, which is the opposite of its purpose. A file the project carries is not
-known to be VB6, and SHALL be routed by its extension alone. The alternative costs a started process and the
+known to be VB6, and SHALL be routed by its extension, except that a VB6 entry SHALL receive a carried
+`.cls` only when its first non-blank line equals `VERSION 1.0 CLASS` case-insensitively. This content
+claim SHALL be recorded on open or reload and retained through edits until the next open. The alternative costs a started process and the
 developer's source sent to a server with nothing to say about it, for every class module in the project.
 
 #### Scenario: Two servers claim the same language
@@ -613,6 +636,11 @@ developer's source sent to a server with nothing to say about it, for every clas
 - **GIVEN** the same server entry
 - **WHEN** a `.cls` file the project carries is opened
 - **THEN** that server receives it
+
+#### Scenario: A carried LaTeX class does not reach VB6
+- **WHEN** a carried `.cls` opens without `VERSION 1.0 CLASS` as its first non-blank line
+- **THEN** VB6 entries do not receive it, while other extension claimants still do
+- **AND** editing the signature does not change routing until it is reopened
 
 ### Requirement: Features that cannot combine SHALL select one server by stable identity
 Where combining answers is meaningless — formatting a document, or renaming a symbol — the IDE SHALL select
@@ -738,6 +766,11 @@ upward is worse than one that does not recognise the value at all.
 #### Scenario: A server explaining a misconfiguration
 - **WHEN** a server reports a problem with its own setup
 - **THEN** that report reaches a surface the developer can read, rather than only a discarded log level
+
+#### Scenario: Running commentary reaches the default log
+- **WHEN** a server sends `window/logMessage` with type 4 (Log)
+- **THEN** the client SHALL write it at Information so the default log retains it
+- **AND** type 5 (Debug) SHALL remain at Trace
 
 #### Scenario: A severity this client does not know
 - **WHEN** a server sends a severity introduced after the version this client targets
@@ -881,3 +914,44 @@ that line (hexide-io/HexIDE#1363).
 - **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
   alone
 - **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+
+### Requirement: A launched pipe server can be told its owner's process ID
+For a launched pipe server, the client SHALL replace every `{pid}` in the configured arguments with
+HexIDE's process ID as invariant decimal digits. This substitution SHALL work without an open workspace.
+The server is responsible for watching that process; the placeholder does not enforce process-tree cleanup
+after an unclean IDE shutdown.
+
+#### Scenario: A server accepts an owner-process argument
+- **WHEN** a pipe entry launches a command with `--owner {pid}` in its arguments
+- **THEN** the launched process receives `--owner` followed by HexIDE's process ID
+- **AND** no open project is required for that substitution
+
+### Requirement: WebSocket transport direction
+
+The client SHALL support `websocketRole` values `connect` (the default) and `listen` in server
+configuration, without changing the transport establishment interface. Listening SHALL accept an
+incoming WebSocket at the configured endpoint, use the same JSON-RPC Text-message framing as connecting,
+and release the listener on failure, cancellation or disposal.
+
+#### Scenario: Server dials the editor
+- **GIVEN** a WebSocket entry with `websocketRole` set to `listen`
+- **WHEN** the server opens a WebSocket to its endpoint while the client establishes the transport
+- **THEN** the client exchanges JSON-RPC messages over that incoming connection
+
+### Requirement: A listening WebSocket accepts only a local, non-browser dial
+
+Because whatever dials a listening endpoint is taken as the language server, the client SHALL listen only
+on a loopback endpoint (`localhost`, `127.0.0.1` or `[::1]`) and SHALL refuse any other host before binding.
+It SHALL refuse a dial from a non-loopback address, and a dial carrying an `Origin` header, which every
+browser sends on a WebSocket handshake and no language server process does, and SHALL go on listening for
+the server after a refusal.
+
+#### Scenario: An endpoint off this machine
+- **GIVEN** a WebSocket entry with `websocketRole` set to `listen` and an endpoint on `0.0.0.0` or a host name
+- **WHEN** the client establishes the transport
+- **THEN** nothing is bound and the connection's failure says the endpoint must be on this machine
+
+#### Scenario: A web page dials first
+- **GIVEN** a client listening on a loopback endpoint
+- **WHEN** a handshake carrying an `Origin` header arrives, and then one without
+- **THEN** the first is refused with 403 and the second is accepted as the server
