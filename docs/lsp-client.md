@@ -434,16 +434,15 @@ from the caller's list and still carries the marks.
 JSON element and read through `CodeText`, which renders a number as the digits it arrived as. A server
 using numeric codes is as usable as one using names, and neither can throw on the way in.
 
-It reaches every consumer that shows a diagnostic's text: the automation server's `get_diagnostics`, the
-add-in API and the AI-chat tool. It reaches nothing a human sees, because **the editor has nowhere to show
-a diagnostic's message at all** — there is no tooltip on a squiggle and no error list
-([#451](https://github.com/hexide-io/HexIDE/issues/451)). A code is most of what an error list would be
-for, so the two belong together.
+Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
+The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
+every personality, including Classic (#451), even with Auto Quick Info disabled. Codes and navigation
+still need an error list; that larger surface remains separate from the tooltip.
 
 Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
 [#453](https://github.com/hexide-io/HexIDE/issues/453). `tags` would change how a diagnostic is drawn
 rather than add text to it, which is a rendering decision rather than a plumbing one;
-`relatedInformation` is waiting on somewhere to render it (#451); and `data` is only meaningful if
+`relatedInformation` still needs a presentation beyond the message tooltip (#453); and `data` is only meaningful if
 code actions from a foreign server are relayed, which is an open question rather than a settled no.
 
 ### Some servers publish; some only answer

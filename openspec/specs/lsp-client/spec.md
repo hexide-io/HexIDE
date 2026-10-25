@@ -85,6 +85,21 @@ break callers silently, so the convention is part of the contract rather than an
 - **WHEN** hover is requested at a position with nothing to describe
 - **THEN** an absent result is returned rather than an empty one
 
+### Requirement: Diagnostic hover messages
+
+The editor SHALL show the messages of all diagnostic markers covering the hovered offset, including
+sources when supplied, combined with any quick info for that position. Diagnostic tips SHALL be available
+in every personality, including Classic, even when Auto Quick Info is disabled. Marker ranges SHALL
+include their start and exclude their end, including ranges widened for zero-width diagnostics.
+
+#### Scenario: Overlapping diagnostics and quick info
+- **WHEN** the pointer dwells over overlapping diagnostic markers and quick info is available
+- **THEN** the tooltip shows every matching message, its source when supplied, and the quick info
+
+#### Scenario: Diagnostic without quick info
+- **WHEN** the pointer dwells over a diagnostic with no quick info or with Auto Quick Info disabled
+- **THEN** the tooltip still shows the diagnostic message
+
 ### Requirement: Documents SHALL be synchronized in full
 The client SHALL send the entire document text on open and on every change, rather than a delta, and SHALL
 notify the server when a document closes. Each change SHALL carry a version later than the last message about

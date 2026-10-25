@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Diagnostic tooltips** (#451). Hovering a squiggle shows every overlapping message and its source
+  when supplied, alongside quick info, in every personality and with Auto Quick Info disabled.
+
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
   The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on
