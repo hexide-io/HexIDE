@@ -200,7 +200,11 @@ public partial class MainViewViewModel : ObservableObject
     public class DockFactory : Factory
     {
         private readonly IWindowStateService windowStateService;
-        private readonly IReadOnlyDictionary<string, IDockable> toolsByKey;
+        private readonly Dictionary<string, IDockable> toolsByKey;
+        private readonly Dictionary<string, ToolLayoutState> deferredTools = new();
+        private readonly Dictionary<string, int> savedOrders = new();
+        private double leftProportion = LayoutManifest.DefaultLeftProportion;
+        private double rightProportion = LayoutManifest.DefaultRightProportion;
 
         // Every tool's "home" region/order — the single source of truth for defaults and for
         // restoring a closed-then-reopened tool to its slot.
@@ -277,8 +281,17 @@ public partial class MainViewViewModel : ObservableObject
 
         private IRootDock BuildLayout(LayoutManifest m, IDocumentDock? reuseDocument)
         {
+            leftProportion = m.LeftProportion;
+            rightProportion = m.RightProportion;
+            savedOrders.Clear();
+            foreach (var state in m.Tools)
+                savedOrders[state.Key] = state.Order;
+            deferredTools.Clear();
+            foreach (var state in m.Tools.Where(t => t.Key.StartsWith("addin:", StringComparison.Ordinal)))
+                deferredTools[state.Key] = state;
+
             List<ToolLayoutState> OpenIn(DockRegion r) =>
-                m.Tools.Where(t => t.Open && t.Region == r).OrderBy(t => t.Order).ToList();
+                m.Tools.Where(t => toolsByKey.ContainsKey(t.Key) && t.Open && t.Region == r).OrderBy(t => t.Order).ToList();
 
             // LEFT — single ToolDock holding the left tool(s) (the toolbox).
             IToolDock? leftDock = null;
@@ -433,12 +446,12 @@ public partial class MainViewViewModel : ObservableObject
         {
             var main = layout.DefaultDockable as IDock;
 
-            var left = LayoutManifest.DefaultLeftProportion;
+            var left = leftProportion;
             if (main?.VisibleDockables?.OfType<IToolDock>().FirstOrDefault(d => d.Alignment == Alignment.Left)
                 is { Proportion: > 0 } ld)
                 left = ld.Proportion;
 
-            var right = LayoutManifest.DefaultRightProportion;
+            var right = rightProportion;
             if (Find<IProportionalDock>(layout, d => (d.Context as string) == nameof(RightDock))
                 is { Proportion: > 0 } rd)
                 right = rd.Proportion;
@@ -450,6 +463,16 @@ public partial class MainViewViewModel : ObservableObject
                 states.Add(located is { } loc
                     ? new ToolLayoutState(def.Key, true, loc.Region, loc.Order, loc.Proportion)
                     : def with { Open = false });
+            }
+
+            foreach (var key in deferredTools.Keys.Concat(toolsByKey.Keys.Where(k => k.StartsWith("addin:", StringComparison.Ordinal))).Distinct())
+            {
+                var saved = deferredTools.GetValueOrDefault(key)
+                    ?? new ToolLayoutState(key, false, DockRegion.Right, int.MaxValue, null);
+                var located = toolsByKey.TryGetValue(key, out var tool) ? Locate(layout, tool) : null;
+                states.Add(located is { } loc
+                    ? new ToolLayoutState(key, true, loc.Region, loc.Order, loc.Proportion)
+                    : toolsByKey.ContainsKey(key) ? saved with { Open = false } : saved);
             }
 
             return new LayoutManifest(LayoutManifest.CurrentVersion, left, right, states);
@@ -475,7 +498,7 @@ public partial class MainViewViewModel : ObservableObject
                 double? prop = double.IsNaN(td.Proportion) ? null : td.Proportion;
 
                 if (ReferenceEquals(parent, layout.DefaultDockable) && td.Alignment == Alignment.Left)
-                    return (DockRegion.Left, 0, prop);
+                    return (DockRegion.Left, td.VisibleDockables!.IndexOf(tool), prop);
 
                 var ctx = parent.Context as string;
                 if (ctx == nameof(RightDock))
@@ -517,11 +540,23 @@ public partial class MainViewViewModel : ObservableObject
 
         // ---- runtime open: place a tool into its home region, restoring its slot ----
 
+        public void RegisterAddinTool(IRootDock layout, AddinToolWindowViewModel tool)
+        {
+            var key = "addin:" + tool.Id;
+            toolsByKey[key] = tool;
+            if (!deferredTools.TryGetValue(key, out var saved) || saved.Open)
+                PlaceTool(layout, tool, rightFallback: true);
+        }
+
         public void PlaceTool(IRootDock layout, Tool tool, bool rightFallback)
         {
+            if (tool is AddinToolWindowViewModel)
+                toolsByKey["addin:" + tool.Id] = tool;
             var key = KeyOf(tool);
-            var region = key != null ? Home[key].Region : (rightFallback ? DockRegion.Right : DockRegion.Bottom);
-            var order = key != null ? Home[key].Order : int.MaxValue;
+            var placement = key != null ? deferredTools.GetValueOrDefault(key) ?? Home.GetValueOrDefault(key) : null;
+            var region = placement?.Region ?? (rightFallback ? DockRegion.Right : DockRegion.Bottom);
+            var order = placement?.Order ?? int.MaxValue;
+            var proportion = key != null ? deferredTools.GetValueOrDefault(key)?.Proportion : null;
 
             switch (region)
             {
@@ -529,7 +564,7 @@ public partial class MainViewViewModel : ObservableObject
                 {
                     var left = GetOrCreateLeftDock(layout);
                     left.VisibleDockables ??= CreateList<IDockable>();
-                    left.VisibleDockables.Add(tool);
+                    left.VisibleDockables.Insert(Math.Min(order, left.VisibleDockables.Count), tool);
                     left.ActiveDockable = tool;
                     InitDockable(tool, left);
                     SetFocusedDockable(left, tool);
@@ -538,7 +573,7 @@ public partial class MainViewViewModel : ObservableObject
                 case DockRegion.Right:
                 {
                     var rd = GetOrCreateRightDock(layout);
-                    var td = MakeToolDock(tool, Alignment.Top, FairProportion(rd));
+                    var td = MakeToolDock(tool, Alignment.Top, proportion ?? FairProportion(rd));
                     InsertToolDock(rd, td, order, documentFirst: false);
                     InitDockable(td, rd);
                     SetFocusedDockable(td, tool);
@@ -549,7 +584,7 @@ public partial class MainViewViewModel : ObservableObject
                 {
                     if (Find<IProportionalDock>(layout, d => (d.Context as string) == nameof(MiddleDock)) is not { } mid)
                         return;
-                    var td = MakeToolDock(tool, Alignment.Bottom, FairProportion(mid) ?? 0.3);
+                    var td = MakeToolDock(tool, Alignment.Bottom, proportion ?? FairProportion(mid) ?? 0.3);
                     InsertToolDock(mid, td, order, documentFirst: true);
                     InitDockable(td, mid);
                     SetFocusedDockable(td, tool);
@@ -602,7 +637,7 @@ public partial class MainViewViewModel : ObservableObject
             var rd = new ProportionalDock
             {
                 Orientation = Orientation.Vertical,
-                Proportion = LayoutManifest.DefaultRightProportion,
+                Proportion = rightProportion,
                 CanClose = false,
                 CanFloat = false,
                 IsCollapsable = false,
@@ -624,7 +659,7 @@ public partial class MainViewViewModel : ObservableObject
                 return existing;
             var left = CreateToolDock();
             left.Alignment = Alignment.Left;
-            left.Proportion = LayoutManifest.DefaultLeftProportion;
+            left.Proportion = leftProportion;
             left.VisibleDockables = CreateList<IDockable>();
             main.VisibleDockables ??= CreateList<IDockable>();
             main.VisibleDockables.Insert(0, new ProportionalDockSplitter());
@@ -644,7 +679,7 @@ public partial class MainViewViewModel : ObservableObject
 
         private int HomeOrderOf(IDockable dockable) =>
             dockable is IToolDock { ActiveDockable: { } active } && KeyOf(active) is { } k
-                ? Home[k].Order : int.MaxValue;
+                ? savedOrders.GetValueOrDefault(k, Home.GetValueOrDefault(k)?.Order ?? int.MaxValue) : int.MaxValue;
 
         private static T? Find<T>(IDockable node, Func<T, bool> predicate) where T : class, IDockable
         {
@@ -708,7 +743,7 @@ public partial class MainViewViewModel : ObservableObject
         AddinMenuService = addinMenuService;
         AddinCommandService = addinCommandService;
         _addinToolWindowService = addinToolWindowService;
-        addinToolWindowService.ToolRegistered   += tool => OpenOrActivateTool(tool, true);
+        addinToolWindowService.ToolRegistered   += tool => dockFactory.RegisterAddinTool(Layout, tool);
         addinToolWindowService.ShowRequested    += tool => OpenOrActivateTool(tool, true);
         addinToolWindowService.ToolUnregistered += tool =>
         {
@@ -1535,7 +1570,7 @@ public partial class MainViewViewModel : ObservableObject
         }
 
         // Place the tool back in its home region at its slot (fixes the reopen-to-end bug);
-        // unknown tools (add-ins) fall back to the right column.
+        // add-ins without saved placement fall back to the right column.
         dockFactory.PlaceTool(Layout, tool, right);
     }
 

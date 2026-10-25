@@ -281,6 +281,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Add-in tool windows retain their saved layout** (#50). Late registration restores the saved region,
+  order, size and open state; pending entries survive saves before the add-in loads.
+
 - **Cross-module Const initialisation** (#893). Module-level Consts and array bounds initialise a referenced
   module's declarations on demand, in either startup order. Module cycles raise "Circular dependencies between
   modules"; a class created by the test harness's top-level code sees the startup module's completed Consts.

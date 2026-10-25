@@ -197,3 +197,18 @@ write did not land.
 #### Scenario: Two projects with a document of the same name
 - **WHEN** an add-in names such a document without naming a project
 - **THEN** the call is refused and the add-in is told the name is ambiguous
+
+### Requirement: Add-in tool window placement SHALL survive delayed registration
+The IDE SHALL save contributed tool windows by their registration ID in a separate add-in key namespace,
+including their open state, left/right/bottom dock region, stack order and proportion. It SHALL retain saved entries
+before the matching add-in registers, including across eager saves, and apply them when registration arrives.
+Reset Window Layout SHALL discard saved add-in placements. A new tool SHALL use the right column by default.
+
+#### Scenario: An add-in registers after the layout is loaded
+- **WHEN** a saved add-in tool registers after startup
+- **THEN** an open tool returns to its saved region, order and proportion
+- **AND** a saved closed tool remains closed until explicitly shown
+
+#### Scenario: Saving before registration
+- **WHEN** the IDE saves its layout before a saved add-in tool registers
+- **THEN** its saved entry is preserved for later registration
