@@ -1492,6 +1492,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             variable.Value is not Control control)
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
 
+        // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+        if (AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out var inBoxValue) is { } inBox)
+            return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
         foreach (var prop in props)
@@ -2125,7 +2129,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (operand.Value is Avalonia.Controls.Control control)
         {
             var className = VB6BuiltIns.ControlTypeName(control);
-            var library = control is VBCommonDialog ? "MSComDlg" : "VB";
+            // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
+            var library = control switch
+            {
+                VBCommonDialog => "MSComDlg",
+                VBProgressBar bar => bar.Library.Name,
+                _ => "VB",
+            };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, "Control", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)

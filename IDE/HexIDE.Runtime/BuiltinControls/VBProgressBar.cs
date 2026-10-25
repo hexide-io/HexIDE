@@ -56,6 +56,9 @@ public class VBProgressBar : Control
     public VBBorder BorderStyle { get => GetValue(BorderStyleProperty); set => SetValue(BorderStyleProperty, value); }
     public VBOLEDropMode OLEDropMode { get => GetValue(OLEDropModeProperty); set => SetValue(OLEDropModeProperty, value); }
 
+    /// <summary>The library the control was read under: a 5.0 ProgressBar has no Orientation, Scrolling or Refresh.</summary>
+    public Components.InBox.ControlLibrary Library { get; init; } = Components.InBox.ControlLibraries.MSComctlLib;
+
     /// <summary>Drawn full whatever its Value, as VB6's designer draws one (measured): Value is not saved, so the designer
     /// has none to draw.</summary>
     public bool ShowFull { get => GetValue(ShowFullProperty); set => SetValue(ShowFullProperty, value); }

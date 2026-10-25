@@ -2266,6 +2266,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 variable.Value is not Control control)
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
 
+            // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+            if (ProgressBarMembers.TrySet(control, memberIdentifier, value) is { } inBox)
+                return inBox ? default
+                    : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
+
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
             foreach (var prop in props)

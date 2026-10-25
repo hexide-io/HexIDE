@@ -37,6 +37,41 @@ public sealed class ProgressBarComponentClass : InBoxComponentClass
 
     public override bool IsAlwaysWritten(PropertyClass property) => ReferenceEquals(property, AppearanceProperty);
 
+    private const MemberOrigin Both = MemberOrigin.Version5 | MemberOrigin.Version6;
+
+    /// <summary>
+    /// The ProgressBar's own members, as MSCOMCTL.OCX's and COMCTL32.OCX's type libraries declare them (the oracle's "In-box
+    /// controls: the ProgressBar"). 6.0 added Orientation, Scrolling and Refresh. Not implemented: MouseIcon and hWnd, OLEDrag,
+    /// and the OLE drag-and-drop events, which HexIDE never raises.
+    /// </summary>
+    public override IReadOnlyList<InBoxMember> Members { get; } =
+    [
+        new("Max", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("Min", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("MousePointer", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("MouseIcon", MemberKind.Property, Both, IsFrmProperty: true, Implemented: false),
+        new("Value", MemberKind.Property, Both, IsFrmProperty: false, Implemented: true),
+        new("OLEDropMode", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("Appearance", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("BorderStyle", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("Enabled", MemberKind.Property, Both, IsFrmProperty: true, Implemented: true),
+        new("hWnd", MemberKind.Property, Both, IsFrmProperty: false, Implemented: false),
+        new("OLEDrag", MemberKind.Method, Both, IsFrmProperty: false, Implemented: false),
+        new("Orientation", MemberKind.Property, MemberOrigin.Version6, IsFrmProperty: true, Implemented: true),
+        new("Scrolling", MemberKind.Property, MemberOrigin.Version6, IsFrmProperty: true, Implemented: true),
+        new("Refresh", MemberKind.Method, MemberOrigin.Version6, IsFrmProperty: false, Implemented: true),
+        new("MouseDown", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
+        new("MouseMove", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
+        new("MouseUp", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
+        new("Click", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
+        new("OLEStartDrag", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
+        new("OLEGiveFeedback", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
+        new("OLESetData", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
+        new("OLECompleteDrag", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
+        new("OLEDragOver", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
+        new("OLEDragDrop", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
+    ];
+
     /// <summary>100 x 50 px (measured: VB6 wrote 2646 and 1323 for ProgressBars read without extents and not sized since).</summary>
     public override (int X, int Y) DefaultExtent => (2646, 1323);
 
@@ -57,6 +92,7 @@ public sealed class ProgressBarComponentClass : InBoxComponentClass
             Appearance = instance.GetPropertyOrDefault(AppearanceProperty),
             BorderStyle = instance.GetPropertyOrDefault(BorderStyleProperty),
             OLEDropMode = instance.GetPropertyOrDefault(OLEDropModeProperty),
+            Library = LibraryOf(instance),
             // A Windows progress bar takes no focus, though VB6 gives it a TabIndex.
             Focusable = false,
         };
