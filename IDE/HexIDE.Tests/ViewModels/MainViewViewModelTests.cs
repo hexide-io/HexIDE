@@ -731,6 +731,32 @@ public class MainViewViewModelTests
         runner.IsRunning.Should().BeFalse();
     }
 
+    [AvaloniaTheory]
+    [InlineData("#If {0} Then\n#End If\n")]
+    [InlineData("Const X = {0}\n")]
+    public void F5_on_a_long_chain_reports_failure_and_survives(string declaration)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode(string.Format(declaration, string.Join(" + ", System.Linq.Enumerable.Repeat("1", 10000)))
+            + "Sub Main()\nEnd Sub\n");
+        project.AddModule(module);
+        project.StartsAtSubMain = true;
+        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+            Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
+            new HexIDE.Debugging.RunScope());
+        var failures = new List<string>();
+        runner.StartFailed += failures.Add;
+        runner.RunFailed += failures.Add;
+
+        runner.RunProject(project);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        failures.Should().ContainSingle();
+        runner.IsRunning.Should().BeFalse();
+    }
+
     // --- Breakpoints from the main window (the interpreter-debugger delta's restated scenarios) ---
 
     /// <summary>A code window on a module of the given project, keeping its marks in <paramref name="breakpoints"/>.</summary>

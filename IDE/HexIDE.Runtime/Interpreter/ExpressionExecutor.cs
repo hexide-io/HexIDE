@@ -219,6 +219,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
 
+    public override Task<object?> Visit(IParseTree tree)
+    {
+        // Flat operator chains pass the parser's nesting guard but still recurse through the evaluator.
+        if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            throw new VBRunTimeException(tree as Antlr4.Runtime.ParserRuleContext, VBStandardError.OutOfStackSpace);
+        return base.Visit(tree);
+    }
+
     public override async Task<object?> VisitChildren(IRuleNode node)
     {
       object? result = null;
