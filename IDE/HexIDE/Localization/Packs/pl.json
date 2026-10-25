@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe.",
     "Str.Automation.Minimize": "Minimalizuj",
     "Str.Automation.MaximizeRestore": "Maksymalizuj lub przywróć",
     "Str.Automation.ChooseColor": "Wybierz kolor",

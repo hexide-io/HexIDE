@@ -2,6 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Addins.Incompatible": "افزونه بارگیری نمی‌شود: طرح‌وارهٔ لازم {0}، حداقل HexIDE {1}؛ این ساخت از طرح‌وارهٔ {2} و HexIDE {3} پشتیبانی می‌کند. نیازمندی طرح‌واره یا نسخه پشتیبانی‌نشده یا نامعتبر است.",
     "Str.Automation.Minimize": "کمینه‌سازی",
     "Str.Automation.MaximizeRestore": "بیشینه‌سازی یا بازیابی",
     "Str.Automation.ChooseColor": "انتخاب رنگ",

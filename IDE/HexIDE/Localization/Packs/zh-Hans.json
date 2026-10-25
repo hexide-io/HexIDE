@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。",
     "Str.Automation.Minimize": "最小化",
     "Str.Automation.MaximizeRestore": "最大化或还原",
     "Str.Automation.ChooseColor": "选择颜色",

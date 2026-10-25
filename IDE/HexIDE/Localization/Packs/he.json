@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Addins.Incompatible": "לא ניתן לטעון את התוסף: הסכמה הנדרשת {0}, גרסת HexIDE מזערית {1}; בנייה זו תומכת בסכמה {2}, HexIDE {3}. דרישת הסכמה או הגרסה אינה נתמכת או אינה תקינה.",
     "Str.Automation.Minimize": "מזעור",
     "Str.Automation.MaximizeRestore": "הגדלה או שחזור",
     "Str.Automation.ChooseColor": "בחירת צבע",

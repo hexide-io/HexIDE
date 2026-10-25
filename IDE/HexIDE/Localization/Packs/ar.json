@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Addins.Incompatible": "تعذر تحميل الإضافة: المخطط المطلوب {0}، والحد الأدنى من HexIDE هو {1}؛ يدعم هذا الإصدار المخطط {2} وHexIDE {3}. متطلب المخطط أو الإصدار غير مدعوم أو غير صالح.",
     "Str.Automation.Minimize": "تصغير",
     "Str.Automation.MaximizeRestore": "تكبير أو استعادة",
     "Str.Automation.ChooseColor": "اختيار لون",

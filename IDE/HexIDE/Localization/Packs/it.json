@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Impossibile caricare il componente aggiuntivo: schema richiesto {0}, HexIDE minimo {1}; questa build supporta lo schema {2}, HexIDE {3}. Il requisito di schema o versione non è supportato o non è valido.",
     "Str.Automation.Minimize": "Riduci a icona",
     "Str.Automation.MaximizeRestore": "Ingrandisci o ripristina",
     "Str.Automation.ChooseColor": "Scegli colore",

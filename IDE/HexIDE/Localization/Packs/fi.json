@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen.",
     "Str.Automation.Minimize": "Pienennä",
     "Str.Automation.MaximizeRestore": "Suurenna tai palauta",
     "Str.Automation.ChooseColor": "Valitse väri",

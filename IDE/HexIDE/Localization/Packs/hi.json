@@ -2,6 +2,7 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "ऐड-इन लोड नहीं हो सकता: आवश्यक स्कीमा {0}, न्यूनतम HexIDE {1}; यह बिल्ड स्कीमा {2}, HexIDE {3} का समर्थन करता है। स्कीमा या संस्करण की आवश्यकता असमर्थित या अमान्य है।",
     "Str.Automation.Minimize": "छोटा करें",
     "Str.Automation.MaximizeRestore": "बड़ा करें या पुनर्स्थापित करें",
     "Str.Automation.ChooseColor": "रंग चुनें",

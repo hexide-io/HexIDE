@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig.",
     "Str.Automation.Minimize": "Minimieren",
     "Str.Automation.MaximizeRestore": "Maximieren oder wiederherstellen",
     "Str.Automation.ChooseColor": "Farbe auswählen",

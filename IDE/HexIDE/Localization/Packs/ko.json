@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "추가 기능을 로드할 수 없습니다. 필요한 스키마: {0}, 최소 HexIDE: {1}. 이 빌드는 스키마 {2}, HexIDE {3}을 지원합니다. 스키마 또는 버전 요구 사항이 지원되지 않거나 잘못되었습니다.",
     "Str.Automation.Minimize": "최소화",
     "Str.Automation.MaximizeRestore": "최대화 또는 복원",
     "Str.Automation.ChooseColor": "색 선택",

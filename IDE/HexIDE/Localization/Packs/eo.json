@@ -2,6 +2,7 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Ne eblas ŝargi aldonaĵon: postulata skemo {0}, minimuma HexIDE {1}; ĉi tiu kompilaĵo subtenas skemon {2}, HexIDE {3}. La skema aŭ versia postulo estas nesubtenata aŭ nevalida.",
     "Str.Automation.Minimize": "Minimumigi",
     "Str.Automation.MaximizeRestore": "Maksimumigi aŭ restarigi",
     "Str.Automation.ChooseColor": "Elekti koloron",

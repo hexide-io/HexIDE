@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "無法載入增益集：要求結構描述 {0}、最低 HexIDE {1}；此組建支援結構描述 {2}、HexIDE {3}。結構描述或版本要求不受支援或無效。",
     "Str.Automation.Minimize": "最小化",
     "Str.Automation.MaximizeRestore": "最大化或還原",
     "Str.Automation.ChooseColor": "選擇色彩",

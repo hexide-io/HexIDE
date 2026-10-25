@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Không thể tải phần bổ trợ: lược đồ yêu cầu {0}, HexIDE tối thiểu {1}; bản dựng này hỗ trợ lược đồ {2}, HexIDE {3}. Yêu cầu lược đồ hoặc phiên bản không được hỗ trợ hoặc không hợp lệ.",
     "Str.Automation.Minimize": "Thu nhỏ",
     "Str.Automation.MaximizeRestore": "Phóng to hoặc khôi phục",
     "Str.Automation.ChooseColor": "Chọn màu",

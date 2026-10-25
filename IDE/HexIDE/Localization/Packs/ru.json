@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Не удалось загрузить надстройку: требуется схема {0}, минимум HexIDE {1}; эта сборка поддерживает схему {2}, HexIDE {3}. Требование к схеме или версии не поддерживается или некорректно.",
     "Str.Automation.Minimize": "Свернуть",
     "Str.Automation.MaximizeRestore": "Развернуть или восстановить",
     "Str.Automation.ChooseColor": "Выбрать цвет",

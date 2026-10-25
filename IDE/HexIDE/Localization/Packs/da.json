@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Tilføjelsen kan ikke indlæses: krævet skema {0}, mindst HexIDE {1}; denne udgave understøtter skema {2}, HexIDE {3}. Skema- eller versionskravet understøttes ikke eller er ugyldigt.",
     "Str.Automation.Minimize": "Minimer",
     "Str.Automation.MaximizeRestore": "Maksimer eller gendan",
     "Str.Automation.ChooseColor": "Vælg farve",

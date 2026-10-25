@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Tidak dapat memuat add-in: skema yang diperlukan {0}, minimum HexIDE {1}; build ini mendukung skema {2}, HexIDE {3}. Persyaratan skema atau versi tidak didukung atau tidak valid.",
     "Str.Automation.Minimize": "Minimalkan",
     "Str.Automation.MaximizeRestore": "Maksimalkan atau pulihkan",
     "Str.Automation.ChooseColor": "Pilih warna",

@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Invoegtoepassing kan niet worden geladen: vereist schema {0}, minimaal HexIDE {1}; deze build ondersteunt schema {2}, HexIDE {3}. De schema- of versievereiste wordt niet ondersteund of is ongeldig.",
     "Str.Automation.Minimize": "Minimaliseren",
     "Str.Automation.MaximizeRestore": "Maximaliseren of herstellen",
     "Str.Automation.ChooseColor": "Kleur kiezen",

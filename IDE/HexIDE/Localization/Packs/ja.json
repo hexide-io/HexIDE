@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "アドインを読み込めません。必要なスキーマは {0}、HexIDE の最低バージョンは {1} です。このビルドはスキーマ {2}、HexIDE {3} に対応しています。スキーマまたはバージョンの要件が未対応または無効です。",
     "Str.Automation.Minimize": "最小化",
     "Str.Automation.MaximizeRestore": "最大化または元に戻す",
     "Str.Automation.ChooseColor": "色を選択",

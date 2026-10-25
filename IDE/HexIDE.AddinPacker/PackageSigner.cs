@@ -21,6 +21,7 @@ public sealed class PackRequest
     /// <summary>Optional package-relative path of a PNG logo. Copied + hashed like an <see cref="Include"/>
     /// file and recorded as the manifest's <c>logoPath</c> so it is signature-covered.</summary>
     public string? Logo { get; init; }
+    public string? MinHexideVersion { get; init; }
 }
 
 /// <summary>
@@ -89,6 +90,9 @@ public static class PackageSigner
 
     public static void Pack(PackRequest r)
     {
+        if (r.MinHexideVersion is { } minimum)
+            _ = System.Version.Parse(minimum);
+
         // Start from a clean output dir so the package is an EXACT match for the manifest — a stale
         // file left from a previous pack would (correctly) fail the verifier's completeness check.
         if (Directory.Exists(r.OutDir))
@@ -124,6 +128,8 @@ public static class PackageSigner
 
         var manifest = new AddinManifest
         {
+            Schema = AddinManifest.CurrentSchema,
+            MinHexideVersion = r.MinHexideVersion,
             Id = r.Id,
             Title = r.Title,
             Description = r.Description,

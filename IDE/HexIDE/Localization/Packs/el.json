@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Δεν είναι δυνατή η φόρτωση του προσθέτου: απαιτούμενο σχήμα {0}, ελάχιστο HexIDE {1}· αυτή η έκδοση υποστηρίζει σχήμα {2}, HexIDE {3}. Η απαίτηση σχήματος ή έκδοσης δεν υποστηρίζεται ή δεν είναι έγκυρη.",
     "Str.Automation.Minimize": "Ελαχιστοποίηση",
     "Str.Automation.MaximizeRestore": "Μεγιστοποίηση ή επαναφορά",
     "Str.Automation.ChooseColor": "Επιλογή χρώματος",

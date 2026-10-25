@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Kan ikke laste tillegget: påkrevd skjema {0}, minst HexIDE {1}; denne utgaven støtter skjema {2}, HexIDE {3}. Skjema- eller versjonskravet støttes ikke eller er ugyldig.",
     "Str.Automation.Minimize": "Minimer",
     "Str.Automation.MaximizeRestore": "Maksimer eller gjenopprett",
     "Str.Automation.ChooseColor": "Velg farge",

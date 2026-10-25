@@ -2,6 +2,7 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "No se puede cargar el complemento: esquema requerido {0}, HexIDE mínimo {1}; esta compilación admite el esquema {2}, HexIDE {3}. El requisito de esquema o versión no se admite o no es válido.",
     "Str.Automation.Minimize": "Minimizar",
     "Str.Automation.MaximizeRestore": "Maximizar o restaurar",
     "Str.Automation.ChooseColor": "Elegir color",

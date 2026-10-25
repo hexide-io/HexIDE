@@ -2,6 +2,7 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Addins.Incompatible": "ایڈ اِن لوڈ نہیں ہو سکتا: مطلوبہ اسکیما {0}، کم از کم HexIDE {1}؛ یہ بلڈ اسکیما {2}، HexIDE {3} کو سپورٹ کرتا ہے۔ اسکیما یا ورژن کی شرط غیر معاون یا غلط ہے۔",
     "Str.Automation.Minimize": "چھوٹا کریں",
     "Str.Automation.MaximizeRestore": "بڑا کریں یا بحال کریں",
     "Str.Automation.ChooseColor": "رنگ منتخب کریں",

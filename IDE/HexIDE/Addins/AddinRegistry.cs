@@ -131,6 +131,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
         var info = BuildInfo(packageDir, result);
 
+        if (result.Verdict == PackageVerdict.Incompatible)
+        {
+            var message = string.Format(_localization.GetString("Str.Addins.Incompatible"),
+                result.Manifest!.Schema, result.Manifest.MinHexideVersion ?? "—",
+                AddinManifest.CurrentSchema, PackageVerification.RunningVersion.ToString(3));
+            info = info with { CompatibilityError = message };
+            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
+            Log.Warning("AddinRegistry: {Dir} is incompatible ({Reason}) — not loaded", packageDir, result.Error);
+            return;
+        }
+
         if (!result.IsVerified && !allowUnsigned)
         {
             _contexts.Add(new AddinContext(info) { Status = AddinStatus.Untrusted, ErrorMessage = result.Error, PackageDirectory = packageDir });
@@ -362,7 +373,8 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         var ctx = _contexts.FirstOrDefault(c =>
             string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
         if (ctx is not null)
-            ctx.Status = enabled ? AddinStatus.Loaded : AddinStatus.Disabled;
+            ctx.Status = !enabled ? AddinStatus.Disabled
+                : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible : AddinStatus.Loaded;
     }
 
     public void RevokeConsent(string manifestHash)

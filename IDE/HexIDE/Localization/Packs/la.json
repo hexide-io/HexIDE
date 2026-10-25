@@ -2,6 +2,7 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Additamentum onerari non potest: schema requisitum {0}, HexIDE minimum {1}; haec versio schema {2}, HexIDE {3} sustinet. Requisitum schematis aut versionis non sustinetur aut invalidum est.",
     "Str.Automation.Minimize": "Minue",
     "Str.Automation.MaximizeRestore": "Amplifica vel restitue",
     "Str.Automation.ChooseColor": "Colorem elige",

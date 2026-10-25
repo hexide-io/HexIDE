@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Kan inte läsa in tillägget: krävt schema {0}, minst HexIDE {1}; denna version stöder schema {2}, HexIDE {3}. Schema- eller versionskravet stöds inte eller är ogiltigt.",
     "Str.Automation.Minimize": "Minimera",
     "Str.Automation.MaximizeRestore": "Maximera eller återställ",
     "Str.Automation.ChooseColor": "Välj färg",

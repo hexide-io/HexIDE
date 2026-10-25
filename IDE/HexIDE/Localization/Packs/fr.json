@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Addins.Incompatible": "Impossible de charger le complément : schéma requis {0}, HexIDE minimum {1} ; cette compilation prend en charge le schéma {2}, HexIDE {3}. Le schéma ou la version exigés ne sont pas pris en charge ou sont invalides.",
     "Str.Automation.Minimize": "Réduire",
     "Str.Automation.MaximizeRestore": "Agrandir ou restaurer",
     "Str.Automation.ChooseColor": "Choisir une couleur",
