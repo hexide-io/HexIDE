@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 컴파일에 실패했습니다:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "빌드는 성공했지만 다음 위치에서 실행 파일을 찾을 수 없습니다:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "실행 실패",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "이 작업을 수행하면 프로젝트가 다시 설정됩니다. 계속하시겠습니까?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "이 작업은 프로젝트를 다시 설정합니다. 그래도 진행하시겠습니까?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "폼 '{0}'을(를) 로드할 수 없어 프로젝트가 시작되지 않았습니다.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE는 아직 다음을 구현하지 않았습니다:\n\n{0}",
     "Str.NewProject.Msg.Title": "새 프로젝트",

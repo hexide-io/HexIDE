@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "A compilação do VB6 falhou:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "A compilação foi bem-sucedida mas o executável não foi encontrado em:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "A Execução Falhou",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Esta ação redefinirá o projeto. Deseja continuar?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Esta ação redefinirá o projeto. Deseja prosseguir mesmo assim?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Não foi possível carregar o formulário '{0}', por isso o projeto não foi iniciado.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "O HexIDE ainda não implementa isto:\n\n{0}",
     "Str.NewProject.Msg.Title": "Novo Projeto",

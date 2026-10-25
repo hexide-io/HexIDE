@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompilado malsukcesis:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Konstruado sukcesis sed la plenumebla dosiero ne estis trovita ĉe:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Rulado malsukcesis",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Ĉi tiu ago restarigos vian projekton. Ĉu vi volas daŭrigi?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Ĉi tiu ago restarigos vian projekton, ĉu tamen daŭrigi?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "La formularo '{0}' ne ŝargeblis, do la projekto ne startis.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ankoraŭ ne realigas ĉi tion:\n\n{0}",
     "Str.NewProject.Msg.Title": "Nova Projekto",

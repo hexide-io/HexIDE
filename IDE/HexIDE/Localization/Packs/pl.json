@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Kompilacja VB6 nie powiodła się:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Kompilacja powiodła się, ale nie znaleziono pliku wykonywalnego w lokalizacji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uruchomienie nie powiodło się",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Ta akcja zresetuje projekt. Czy chcesz kontynuować?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Ta akcja zresetuje projekt. Czy mimo to kontynuować?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Nie można załadować formularza '{0}', więc projekt nie został uruchomiony.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE jeszcze tego nie obsługuje:\n\n{0}",
     "Str.NewProject.Msg.Title": "Nowy projekt",
