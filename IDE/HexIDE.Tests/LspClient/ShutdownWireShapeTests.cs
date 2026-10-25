@@ -84,15 +84,19 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     }
 
     private ILspTransport? _transport;
+    private Task? _serverLoop;
+    private Task? _starting;
+    private readonly TaskCompletionSource _initializeSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private async Task<VBLspClient> ConnectedAsync(bool answerShutdown = true)
+    private async Task<VBLspClient> ConnectedAsync(
+        bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         _disposables.Add(serverSide);
 
         // A minimal server, spoken by hand. It answers initialize and shutdown so the client's own
         // sequence completes, records everything, and interprets nothing.
-        _ = Task.Run(async () =>
+        _serverLoop = Task.Run(async () =>
         {
             try
             {
@@ -114,6 +118,11 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     if (!doc.RootElement.TryGetProperty("id", out var id)) continue;   // notification
 
                     if (m.GetString() == "shutdown" && !answerShutdown) continue;
+                    if (m.GetString() == "initialize")
+                    {
+                        _initializeSeen.TrySetResult();
+                        if (!answerInitialize) continue;
+                    }
 
                     // Built by concatenation rather than an interpolated raw literal: the initialize
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
@@ -132,13 +141,16 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
         var transport = _transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
+        transport.LeaveServerRunning.Returns(leaveServerRunning);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
         _disposables.Add(client);
-        await client.StartAsync();
+        _starting = client.StartAsync();
+        if (answerInitialize) await _starting;
+        else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
     }
 
@@ -215,6 +227,25 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         var exit = FrameFor("exit");
         exit.ValueKind.Should().NotBe(JsonValueKind.Undefined);
         exit.TryGetProperty("params", out _).Should().BeFalse();
+        await _transport!.Received(1).DisposeAsync();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task StopOnlyClosesTheConnectionWhenShutdownIsNotAllowed(
+        bool answerInitialize, bool leaveServerRunning)
+    {
+        var client = await ConnectedAsync(answerInitialize: answerInitialize,
+            leaveServerRunning: leaveServerRunning);
+
+        await client.StopAsync();
+
+        // Drain the server loop through EOF before checking absence on the wire.
+        await _serverLoop!;
+        await _starting!;
+        FrameFor("shutdown").ValueKind.Should().Be(JsonValueKind.Undefined);
+        FrameFor("exit").ValueKind.Should().Be(JsonValueKind.Undefined);
         await _transport!.Received(1).DisposeAsync();
     }
 

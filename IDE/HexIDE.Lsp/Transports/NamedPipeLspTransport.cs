@@ -181,6 +181,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     public bool CanReconnect => _launch is null;
 
+    public bool LeaveServerRunning => _process is null;
+
     public event EventHandler? Closed;
 
     /// <summary>
@@ -517,8 +519,18 @@ public sealed class NamedPipeLspTransport : ILspTransport
         process.Exited -= OnServerExited;
         try
         {
+            // A server may still be starting children after initialize answers (#313).
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch { /* grace period elapsed, or already gone */ }
+
+        try
+        {
             if (!process.HasExited)
+            {
                 process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            }
         }
         catch { /* already gone */ }
 
