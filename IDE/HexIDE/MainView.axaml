@@ -68,6 +68,10 @@
                               ExecutingCommand="{x:Static vb:ApplicationCommands.DisabledCommand}" />
 
 
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveAsCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormAsCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}"
                               ExecutingCommand="{CompiledBinding SaveProject}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}"
@@ -247,7 +251,7 @@
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Project}">
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}" Command="{CompiledBinding AddFormCommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmodule}" Command="{CompiledBinding AddModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddClassModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" Command="{CompiledBinding AddClassModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddUserControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" Command="{CompiledBinding AddUserControlCommand}" />

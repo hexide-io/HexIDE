@@ -7,6 +7,7 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
@@ -101,6 +102,9 @@ public partial class MainViewViewModel : ObservableObject
         get => _layout;
         private set => SetProperty(ref _layout, value);
     }
+
+    public DelegateCommand SaveFormCommand { get; }
+    public DelegateCommand SaveFormAsCommand { get; }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
     public DelegateCommand StartExternalDebugCommand { get; }
@@ -869,6 +873,11 @@ public partial class MainViewViewModel : ObservableObject
             };
         }
 
+        SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
+            () => FocusedProjectUtil.FocusedForm != null);
+        SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
+            () => FocusedProjectUtil.FocusedForm != null);
+
         // F5 doubles as Continue in break mode (VB6 semantics): resume if paused, otherwise start.
         StartDefaultProjectCommand = new DelegateCommand(
             () =>
@@ -1010,7 +1019,13 @@ public partial class MainViewViewModel : ObservableObject
 
         // The Save/Remove "<form>" headers depend on the focused form, not just the project.
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedForm)
-            .Subscribe(_ => RaiseDynamicMenuHeaders());
+            .Subscribe(_ =>
+            {
+                RaiseDynamicMenuHeaders();
+                SaveFormCommand.RaiseCanExecutedChanged();
+                SaveFormAsCommand.RaiseCanExecutedChanged();
+                CommandManager.InvalidateRequerySuggested();
+            });
 
         // Re-localize every code-built header live when the language changes.
         localization.LanguageChanged += () =>
@@ -1071,6 +1086,21 @@ public partial class MainViewViewModel : ObservableObject
     {
         Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
         NYI();
+    }
+
+    private void SaveActiveForm(bool saveAs)
+    {
+        // Use the document's save path so form code keeps format-on-save.
+        if (documentDockService.ActiveDocument is FormEditViewModel designer)
+        {
+            if (saveAs) designer.SaveFormAs();
+            else designer.SaveForm();
+        }
+        else if (documentDockService.ActiveDocument is CodeEditorViewModel code)
+        {
+            if (saveAs) code.SaveFormAs();
+            else code.SaveForm();
+        }
     }
 
     public void SaveProject() => projectService.SaveAllProjects(false).ListenErrors();
