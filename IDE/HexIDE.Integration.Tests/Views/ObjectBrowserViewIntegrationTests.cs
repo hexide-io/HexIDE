@@ -4,7 +4,6 @@ using Avalonia.Automation.Peers;
 using Avalonia.VisualTree;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
-using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Integration.Tests.Automation;
 using HexIDE.Localization;
