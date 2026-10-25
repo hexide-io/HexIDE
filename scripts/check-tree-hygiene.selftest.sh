@@ -123,12 +123,31 @@ status=0
 
 # $1 = identity pattern (empty to leave the scan unarmed), $2 = index file (empty for the real one).
 run_guard() {
+  # Emulate Git for Windows' UTF-mode PCRE2 even under Linux's C locale (#1881).
+  # Force the mode for C/D, leaving A/B native to catch Linux continuation-byte hits.
+  if [ "${1:-}" = "$IDENTITY" ]; then
+    git() {
+      local arg utf_next=0
+      local -a args=()
+      for arg in "$@"; do
+        if [ "$utf_next" -eq 1 ]; then
+          case "$arg" in '(*UTF)'*) ;; *) arg="(*UTF)$arg";; esac
+          utf_next=0
+        fi
+        args+=("$arg")
+        [ "$arg" = "-nIP" ] && utf_next=1
+      done
+      command git "${args[@]}"
+    }
+    export -f git
+  fi
   if [ -n "${2:-}" ]; then
     output="$(cd "$FROM" && GIT_INDEX_FILE="$2" HEXIDE_IDENTITY_PATTERN="${1:-}" bash "../$GUARD" 2>&1)"
   else
     output="$(cd "$FROM" && HEXIDE_IDENTITY_PATTERN="${1:-}" bash "../$GUARD" 2>&1)"
   fi
   status=$?
+  unset -f git
 }
 
 seen()   { case "$output" in *"$2"*) ok "$1";; *) bad "$1 - nothing in the guard's output matched: $2";; esac; }
@@ -185,7 +204,7 @@ plant() {
   printf 'A note about %s.\n' "$NEIGHBOUR_C"                > "$PROBE/neighbour3.md"
   printf '%s\nours\n%s\ntheirs\n%s\n' "$MARK_OURS" "$MARK_SPLIT" "$MARK_THEIRS" > "$PROBE/conflict.md" # 8
 
-  printf '\xC2\x80\xC2\x94\xC2\x9F\n'                    > "$PROBE/c1.txt"       # 10, both ends and a mojibake control
+  printf '\xFF\xC2\x80\xC2\x94\xC2\x9F\n'                > "$PROBE/c1.txt"       # 10, both ends, mojibake control, invalid UTF-8
 
   # The three converted scans again, under a name git C-quotes. Each was blind to this until `-z`.
   printf 'not a real key\n'                                 > "$PROBE/$ACCENTED.pem"
@@ -287,6 +306,8 @@ echo "B. only material that should WARN"
 mkdir -p "$PROBE"
 printf 'not a real key\n' > "$PROBE/planted.key"
 printf '# planted\n\nDerived from %s6, with thanks.\n' "$UPSTREAM" > "$PROBE/attribution.md"
+# Valid punctuation has continuation bytes in the C1 range, but no C1 code points.
+printf '\xE2\x80\x94 \xE2\x80\x9Cquotes\xE2\x80\x9D\n' > "$PROBE/punctuation.txt"
 # A setext heading. Its underline is the bare middle marker of a conflict block, and it must not fail.
 printf 'Planted heading\n%s\n\nText.\n' "$MARK_SPLIT" > "$PROBE/setext.md"
 
