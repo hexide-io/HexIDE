@@ -112,6 +112,11 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
+`SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
+assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
+The isolated 6 ms Windows CI failure in #1937 has not yet been explained; these diagnostics distinguish
+an early initialize error from the expected timeout without accepting either as the same outcome.
+
 ---
 
 ## Describing the workspace
