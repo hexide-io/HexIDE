@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "مسح البحث",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "بحث",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "بحث",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "المكتبات",
+    "Str.Tool.ObjectBrowser.Panel.Members": "الأعضاء",
     "Str.Tool.ObjectBrowser.Panel.Classes": "الفئات",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "نتائج البحث",
     "Str.Tool.ObjectBrowser.Search.NoServer": "لم يبدأ تشغيل أي خادم لغة بعد. افتح نافذة تعليمات برمجية لبدء تشغيل أحدها.",

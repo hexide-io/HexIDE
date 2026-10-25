@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Εκκαθάριση αναζήτησης",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Αναζήτηση",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Αναζήτηση",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Βιβλιοθήκες",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Μέλη",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Κλάσεις",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Αποτελέσματα αναζήτησης",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Δεν έχει ξεκινήσει ακόμη κανένας διακομιστής γλώσσας. Ανοίξτε ένα παράθυρο κώδικα για να ξεκινήσει ένας.",

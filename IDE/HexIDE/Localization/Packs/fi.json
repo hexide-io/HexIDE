@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Tyhjennä haku",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Hae",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Hae",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Kirjastot",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Jäsenet",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Luokat",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Hakutulokset",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Kielipalvelinta ei ole vielä käynnistetty. Käynnistä sellainen avaamalla koodi-ikkuna.",

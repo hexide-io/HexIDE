@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "تلاش صاف کریں",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "تلاش کریں",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "تلاش کریں",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "لائبریریاں",
+    "Str.Tool.ObjectBrowser.Panel.Members": "ارکان",
     "Str.Tool.ObjectBrowser.Panel.Classes": "کلاسیں",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "تلاش کے نتائج",
     "Str.Tool.ObjectBrowser.Search.NoServer": "ابھی تک کوئی زبان سرور شروع نہیں ہوا۔ ایک شروع کرنے کے لیے کوڈ ونڈو کھولیں۔",

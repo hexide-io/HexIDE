@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Cancella ricerca",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Cerca",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Cerca",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Librerie",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Membri",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classi",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Risultati della ricerca",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Nessun server di linguaggio è ancora stato avviato. Apri una finestra del codice per avviarne uno.",

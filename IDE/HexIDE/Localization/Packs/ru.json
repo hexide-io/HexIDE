@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Очистить поиск",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Поиск",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Поиск",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Библиотеки",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Члены",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Классы",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Результаты поиска",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Ни один языковой сервер ещё не запущен. Откройте окно кода, чтобы запустить его.",

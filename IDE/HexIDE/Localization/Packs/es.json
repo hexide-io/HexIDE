@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Borrar búsqueda",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Buscar",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Buscar",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Bibliotecas",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Miembros",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Clases",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Resultados de la búsqueda",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Todavía no se ha iniciado ningún servidor de lenguaje. Abra una ventana de código para iniciar uno.",

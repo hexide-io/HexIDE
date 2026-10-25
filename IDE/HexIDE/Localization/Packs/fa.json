@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "پاک کردن جستجو",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "جستجو",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "جستجو",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "کتابخانه‌ها",
+    "Str.Tool.ObjectBrowser.Panel.Members": "اعضا",
     "Str.Tool.ObjectBrowser.Panel.Classes": "کلاس‌ها",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "نتایج جستجو",
     "Str.Tool.ObjectBrowser.Search.NoServer": "هنوز هیچ سرور زبانی راه‌اندازی نشده است. برای راه‌اندازی یکی، یک پنجرهٔ کد باز کنید.",

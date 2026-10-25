@@ -330,6 +330,8 @@
     "Str.Tool.ObjectBrowser.Toolbar.ClearSearch": "Zoekopdracht wissen",
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Zoeken",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Zoeken",
+    "Str.Tool.ObjectBrowser.Toolbar.Libraries": "Bibliotheken",
+    "Str.Tool.ObjectBrowser.Panel.Members": "Leden",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Klassen",
     "Str.Tool.ObjectBrowser.Panel.SearchResults": "Zoekresultaten",
     "Str.Tool.ObjectBrowser.Search.NoServer": "Er is nog geen taalserver gestart. Open een codevenster om er een te starten.",
