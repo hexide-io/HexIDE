@@ -745,7 +745,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 کمپائلیشن ناکام ہوگئی:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "بلڈ کامیاب رہی مگر قابلِ عمل فائل یہاں نہیں ملی:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "چلانا ناکام",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "یہ عمل آپ کے پروجیکٹ کو ری سیٹ کر دے گا۔ کیا آپ جاری رکھنا چاہتے ہیں؟",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "یہ عمل آپ کے پروجیکٹ کو ری سیٹ کر دے گا، پھر بھی آگے بڑھیں؟",
     "Str.ProjectRunner.StartupFormFailedToLoad": "فارم '{0}' لوڈ نہیں ہو سکا، اس لیے پروجیکٹ شروع نہیں ہوا۔\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ابھی تک اس کی معاونت نہیں کرتا:\n\n{0}",
     "Str.NewProject.Msg.Title": "نیا پروجیکٹ",

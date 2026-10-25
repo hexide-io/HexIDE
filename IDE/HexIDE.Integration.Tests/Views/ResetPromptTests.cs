@@ -47,7 +47,7 @@ public class ResetPromptTests : IDisposable
         // A run is in progress, so an edit asks whether to reset it, and the answer waits until a test gives it:
         // the prompt stays open for as long as the test needs, as a modal dialog would.
         debugController.IsSessionActive.Returns(true);
-        windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>())
+        windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>())
             .Returns(_ => answer.Task);
     }
 
@@ -179,7 +179,7 @@ public class ResetPromptTests : IDisposable
 
         Type(editor, "x");
 
-        windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+        windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel,
             Arg.Any<MessageBoxIcon>(), TopLevel.GetTopLevel(editor) as Window);
     }
 
@@ -474,10 +474,10 @@ public class ResetPromptTests : IDisposable
         Prompts().Should().Be(0);
     }
 
-    // ── What "No" puts back ─────────────────────────────────────────────────────────────────────────────
+    // ── What "Cancel" puts back ─────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
-    public void NoRevertsTheEdit()
+    public void CancelRevertsTheEdit()
     {
         var vm = OpenForm();
         var editor = Show(vm);
@@ -485,13 +485,13 @@ public class ResetPromptTests : IDisposable
         editor.CaretOffset = InCode(vm);
 
         Type(editor, "x");
-        Answer(MessageBoxResult.No);
+        Answer(MessageBoxResult.Cancel);
 
         vm.Document.Text.Should().Be(before);
     }
 
     [AvaloniaFact]
-    public void NoLeavesWhatTheEditDidNotTouchWhereItWas()
+    public void CancelLeavesWhatTheEditDidNotTouchWhereItWas()
     {
         // Only the span that differs is replaced. A whole-body replace would also restore the text, and would move
         // every anchor in the code, the folds and the caret among them, to the start of the replaced span.
@@ -502,27 +502,27 @@ public class ResetPromptTests : IDisposable
         editor.CaretOffset = InCode(vm);
 
         Type(editor, "x");
-        Answer(MessageBoxResult.No);
+        Answer(MessageBoxResult.Cancel);
 
         anchor.IsDeleted.Should().BeFalse();
         anchor.Offset.Should().Be(endSub, "the revert must not have replaced text the edit never touched");
     }
 
     [AvaloniaFact]
-    public void YesKeepsTheEdit()
+    public void OKKeepsTheEdit()
     {
         var vm = OpenForm();
         var editor = Show(vm);
         editor.CaretOffset = InCode(vm);
 
         Type(editor, "x");
-        Answer(MessageBoxResult.Yes);
+        Answer(MessageBoxResult.Ok);
 
         vm.Document.Text.Should().Contain("xUnload Me");
     }
 
     [AvaloniaFact]
-    public void NoAfterAHeaderRefreshKeepsTheNewHeaderAndRevertsOnlyTheEdit()
+    public void CancelAfterAHeaderRefreshKeepsTheNewHeaderAndRevertsOnlyTheEdit()
     {
         // The defect: the revert restored a whole-buffer snapshot holding the OLD header while the prefix held
         // the new one, and the split is by the prefix's length, so the next flush took the body from the
@@ -535,14 +535,14 @@ public class ResetPromptTests : IDisposable
         Type(editor, "x");
         var grown = FormCodeText.Prefix(vm.FormDefinition!).Replace("\"Orders\"", "\"Orders and more\"");
         vm.RefreshPrefix(grown);
-        Answer(MessageBoxResult.No);
+        Answer(MessageBoxResult.Cancel);
 
         vm.Document.Text.Should().Be(grown + code, "the header the designer wrote stays, and the edit goes");
         vm.BufferBody.Should().Be(code, "the split must agree with the text, or the next flush cuts the code");
     }
 
     [AvaloniaFact]
-    public void NoAfterAHeaderRefreshPutsTheCaretBackOnTheSameCode()
+    public void CancelAfterAHeaderRefreshPutsTheCaretBackOnTheSameCode()
     {
         // Measured live before this was fixed: the caret came back at its old offset, which a longer header had
         // moved to the line above.
@@ -552,13 +552,13 @@ public class ResetPromptTests : IDisposable
 
         Type(editor, "x");
         vm.RefreshPrefix(FormCodeText.Prefix(vm.FormDefinition!).Replace("\"Orders\"", "\"Orders and more\""));
-        Answer(MessageBoxResult.No);
+        Answer(MessageBoxResult.Cancel);
 
         editor.CaretOffset.Should().Be(InCode(vm));
     }
 
     [AvaloniaFact]
-    public void NoAfterAHeaderThatShrankStillSplitsInTheRightPlace()
+    public void CancelAfterAHeaderThatShrankStillSplitsInTheRightPlace()
     {
         // The other direction: a header that got shorter, where a stale split takes header text into the body.
         var vm = OpenForm();
@@ -569,7 +569,7 @@ public class ResetPromptTests : IDisposable
         Type(editor, "x");
         var shrunk = FormCodeText.Prefix(vm.FormDefinition!).Replace("   Caption         =   \"Orders\"\r\n", "");
         vm.RefreshPrefix(shrunk);
-        Answer(MessageBoxResult.No);
+        Answer(MessageBoxResult.Cancel);
 
         vm.Document.Text.Should().Be(shrunk + code);
         vm.BufferBody.Should().Be(code);
