@@ -127,6 +127,15 @@ controls to the other side of a form whose layout they did not change.
 - **WHEN** a form is open on the design surface under a right-to-left language
 - **THEN** the canvas and the controls on it are not mirrored
 
+#### Scenario: Icon direction under a right-to-left interface
+- **WHEN** a right-to-left language is active
+- **THEN** drawn command icons and tree chevrons SHALL follow Avalonia's inherited mirroring without an additional flip
+- **AND** Object Browser navigation glyphs drawn as text SHALL flip horizontally
+- **AND** Start's play icon SHALL retain its left-to-right appearance in menus and toolbars
+
+Scissors, magnifiers and other non-navigation icons retain their existing inherited mirroring; no additional
+exceptions are selected here (#40).
+
 ### Requirement: A pseudo-localized mode SHALL exist to find untranslated text
 The IDE SHALL provide a generated pseudo-localized mode covering every canonical key, in both directions,
 available to developers and not offered to end users.

@@ -350,7 +350,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ShowNextStatementCommand}" Header="{DynamicResource Str.Menu.Debug.ShowNextStatement}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Run}">
-                            <MenuItem Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
+                            <MenuItem Classes="play" Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartWithFullCompile}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartExternal}" Command="{CompiledBinding StartExternalDebugCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.Break}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pause}" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" />
@@ -457,7 +457,7 @@
                         </Button>
                         <Separator />
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Standard.Start">
-                            <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
+                            <Path Classes="play" Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Standard.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
@@ -548,7 +548,7 @@
                                         Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Debug.Start">
-                            <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
+                            <Path Classes="play" Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Debug.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />

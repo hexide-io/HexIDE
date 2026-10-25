@@ -60,12 +60,12 @@
             <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
                     ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Forward}"
                     Command="{CompiledBinding ForwardCommand}">
-                <TextBlock Text="▶" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <TextBlock Classes="directional" Text="▶" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
             </Button>
             <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
                     ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Back}"
                     Command="{CompiledBinding BackCommand}">
-                <TextBlock Text="◀" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <TextBlock Classes="directional" Text="◀" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
             </Button>
             <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
                     ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.CopySignature}"
