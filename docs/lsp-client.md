@@ -9,6 +9,9 @@ consume is bounded by the LSP specification, while what the bundled server can p
 HexIDE's CST-not-AST limit. Those bounds are different, and a feature can be perfectly reasonable on one
 side of the seam and forbidden on the other.
 
+An unrecognised `pipeRole` on a pipe entry is reported as a configuration problem; the entry remains
+registered with the `connect` fallback.
+
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).
 
@@ -576,6 +579,10 @@ anything, and failed entries remain failed.
 
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
+
+Stdio process logs include the configured server ID as a structured `Server` property and in the
+rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
+that supply no ID use the executable name.
 
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean

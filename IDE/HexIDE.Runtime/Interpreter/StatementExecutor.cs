@@ -1584,16 +1584,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A condition that raised under Resume Next enters its own branch, the Then or the ElseIf it was testing (null; see
         // ConditionMet).
         if (await ConditionMet(context.ifBlockStmt().ifConditionStmt().valueStmt(), context) is not false)
-            return await VisitBranch(context.ifBlockStmt().block());
+            return await VisitBranch(context.ifBlockStmt().ifBlockBody()?.block());
 
         foreach (var elseIf in context.ifElseIfBlockStmt())
         {
             if (await ConditionMet(elseIf.ifConditionStmt().valueStmt(), elseIf) is not false)
-                return await VisitBranch(elseIf.block());
+                return await VisitBranch(elseIf.ifBlockBody()?.block());
         }
 
         if (context.ifElseBlockStmt() is { } elseBlock)
-            return await VisitBranch(elseBlock.block());
+            return await VisitBranch(elseBlock.ifBlockBody()?.block());
 
         return default;
     }
@@ -2290,10 +2290,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
         {
+            if (procedureOrArrayCall.dictionaryCallStmt() != null)
+                throw new NotImplementedException("Bang access (!) in an assignment target is not supported: "
+                    + procedureOrArrayCall.GetText());
             if (procedureOrArrayCall.baseType() != null||
                 procedureOrArrayCall.iCS_S_NestedProcedureCall() != null ||
-                procedureOrArrayCall.typeHint() != null ||
-                procedureOrArrayCall.dictionaryCallStmt() != null)
+                procedureOrArrayCall.typeHint() != null)
                 throw new NotImplementedException();
 
             if (procedureOrArrayCall.argsCall().Length == 0)
@@ -3582,6 +3584,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
 
                 var asType = subStmt.asTypeClause();
+                if (isArray && asType?.type()?.complexType() is { } elementType)
+                {
+                    var (qualifier, typeName) = SplitTypeName(elementType.GetText());
+                    if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _))
+                        throw new NotImplementedException($"An array of the user-defined type {elementType.GetText()} is not supported (#178)");
+                }
                 Vb6Value value;
                 // The class or interface name a class-typed Dim was declared with, kept because an object slot
                 // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).

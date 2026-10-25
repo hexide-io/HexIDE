@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "Anggota",
     "Str.ProjectDocument.Section.References": "Referensi",
     "Str.ProjectDocument.Kind.RelatedDocument": "Dokumen Terkait",
+    "Str.Naming.Msg.EmptyName": "Nama tidak boleh kosong",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Nama harus unik dalam formulir",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' bukan nama yang valid. Nama diawali dengan huruf dan dilanjutkan dengan huruf, angka, dan garis bawah.",
     "Str.Naming.Msg.ReservedWord": "'{0}' tidak dapat menjadi nama, karena kata ini dicadangkan oleh VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' sudah menjadi nama sebuah form, modul, atau kelas di proyek ini. VB6 menempatkan semuanya dalam satu ruang nama, sehingga dua di antaranya tidak boleh bernama sama.",

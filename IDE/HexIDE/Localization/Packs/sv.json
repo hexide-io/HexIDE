@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "Medlemmar",
     "Str.ProjectDocument.Section.References": "Referenser",
     "Str.ProjectDocument.Kind.RelatedDocument": "Relaterat dokument",
+    "Str.Naming.Msg.EmptyName": "Namnet får inte vara tomt",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Namnet måste vara unikt i formuläret",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' är inte ett giltigt namn. Ett namn börjar med en bokstav och fortsätter med bokstäver, siffror och understreck.",
     "Str.Naming.Msg.ReservedWord": "'{0}' kan inte vara ett namn, eftersom VB6 reserverar ordet.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' är redan namnet på ett formulär, en modul eller en klass i det här projektet. I VB6 delar de ett och samma namnområde, så två av dem kan inte ha samma namn.",

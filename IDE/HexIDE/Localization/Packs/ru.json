@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "Элементы",
     "Str.ProjectDocument.Section.References": "Ссылки",
     "Str.ProjectDocument.Kind.RelatedDocument": "Связанный документ",
+    "Str.Naming.Msg.EmptyName": "Имя не может быть пустым",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Имя должно быть уникальным в форме",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' не является допустимым именем. Имя начинается с буквы, за которой могут идти буквы, цифры и знаки подчёркивания.",
     "Str.Naming.Msg.ReservedWord": "'{0}' не может быть именем, так как это слово зарезервировано в VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "Имя '{0}' уже занято формой, модулем или классом в этом проекте. В VB6 у них одно общее пространство имён, поэтому двух одинаковых имён быть не может.",

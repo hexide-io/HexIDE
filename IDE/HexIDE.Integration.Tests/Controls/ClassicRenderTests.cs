@@ -186,6 +186,39 @@ public class ClassicRenderTests
         }
     }
 
+    [AvaloniaFact]
+    public void LightPalette_ClearsContrastAA_OnClassic()
+    {
+        var app = Application.Current!;
+        var original = app.RequestedThemeVariant;
+        var definition = SyntaxHighlightingTheme.Definition;
+        var classic = new ResourceInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
+        };
+        var background = classic.Loaded[Classic.CommonControls.SystemColors.WindowBrushKey]
+            .Should().BeAssignableTo<ISolidColorBrush>().Subject.Color;
+
+        try
+        {
+            app.RequestedThemeVariant = ThemeVariant.Light;
+            Dispatcher.UIThread.RunJobs();
+
+            foreach (var color in definition.NamedHighlightingColors)
+            {
+                var solid = (color.Foreground?.GetBrush(null!)).Should()
+                    .BeAssignableTo<ISolidColorBrush>($"'{color.Name}' must have a solid foreground").Subject;
+                ContrastRatio(solid.Color, background).Should().BeGreaterThanOrEqualTo(4.5,
+                    $"'{color.Name}' must be legible on Classic's editor background");
+            }
+        }
+        finally
+        {
+            app.RequestedThemeVariant = original;
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
     /// <summary>
     /// The guard that would have caught the original bug before it shipped: every named colour must
     /// clear WCAG AA against the editor background of both dark packs (Dark #252526, Abyss #000C18).
@@ -201,7 +234,7 @@ public class ClassicRenderTests
         var names = new[]
         {
             "Comment", "String", "Number", "Constant",
-            "Keyword", "IOKeyword", "StorageModifier", "Type", "Function",
+            "Keyword", "IOKeyword", "StorageModifier", "Type", "Function", "MetadataKeyword",
         };
 
         try
@@ -213,9 +246,8 @@ public class ClassicRenderTests
             {
                 foreach (var name in names)
                 {
-                    var brush = definition.GetNamedColor(name)?.Foreground?.GetBrush(null!);
-                    if (brush is not ISolidColorBrush solid)
-                        continue;
+                    var solid = (definition.GetNamedColor(name)?.Foreground?.GetBrush(null!)).Should()
+                        .BeAssignableTo<ISolidColorBrush>($"'{name}' must have a solid foreground").Subject;
 
                     ContrastRatio(solid.Color, background).Should().BeGreaterThanOrEqualTo(4.5,
                         $"'{name}' must be legible on {background}");

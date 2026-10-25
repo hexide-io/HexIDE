@@ -222,7 +222,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Syntax highlighting | Done | In the editor itself, from `VB6.xshd.xml`, with a dark palette swapped in for a dark theme (`SyntaxHighlightingTheme`); not from the language server, as this row used to say. Keywords match regardless of case, including `Begin` and standalone `End` (#716). The header and member `Attribute` lines are drawn in the theme's read-only grey instead (#273) |
+| Syntax highlighting | Done | In the editor itself, from `VB6.xshd.xml`, with a dark palette swapped in for a dark theme (`SyntaxHighlightingTheme`); not from the language server, as this row used to say. Keywords match regardless of case, including `Begin` and standalone `End` (#716). The header and member `Attribute` lines are drawn in the theme's read-only grey instead (#273). Named syntax colours, including metadata keywords, are guarded at WCAG AA 4.5:1 on Classic, Dark and Abyss (#713) |
 | Error/warning squiggles | Done | Full LSP diagnostic pipeline; inline markers. The bundled server reports nothing that starts on a line of the header or of a member's `Attribute` lines (#273) |
 | Object/Procedure dropboxes | Done | Two combos at top; navigate to handler on select. Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. A match in a member's `Attribute` line can still take the caret there ([#702](https://github.com/hexide-io/HexIDE/issues/702)) |
 | Auto-complete (IntelliSense) | Partial | LSP completion: 87 keywords, 42 built-ins, and every name declared in the current file. **No position awareness** — the same list comes back wherever the caret is — and no member access (`obj.`) or cross-file symbols. Position awareness is ordinary work; the other two need name binding, which belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)) |
@@ -391,7 +391,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Form position preview on screen layout | Done | Live form thumbnail; reacts to StartUpPosition, Left, Top, Width, Height property changes |
+| Form position preview on screen layout | Done | Live form thumbnail with the current form name (including renames); hidden when there is no form to preview or the previewed form is removed. Reacts to StartUpPosition, Left, Top, Width, Height property changes. VB6 empty-project and multiple-form behaviour remains unmeasured (#576) |
 
 ---
 

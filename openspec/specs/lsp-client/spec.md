@@ -410,6 +410,10 @@ be indistinguishable from a defect.
 - **WHEN** an entry carries a field the IDE does not recognise
 - **THEN** the entry is kept and the unrecognised field is reported
 
+#### Scenario: A pipe role is misspelled
+- **WHEN** a pipe entry carries an unrecognised nonblank `pipeRole`
+- **THEN** the entry is kept, the value is reported, and the role falls back to `connect`
+
 ### Requirement: A newly named command SHALL be shown before it is run
 Where configuration names an executable to launch, and that command has not previously been seen for that
 entry, the IDE SHALL make the command visible to the user before acting on it.

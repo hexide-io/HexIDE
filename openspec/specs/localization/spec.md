@@ -26,6 +26,10 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Refusing an empty or duplicate component name
+- **WHEN** a control or form rename is refused because the name is empty or already used in the form
+- **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
+
 #### Scenario: Project-load diagnostics cross the runtime boundary
 - **WHEN** the runtime deserializer reports a form-load warning to the IDE
 - **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language
