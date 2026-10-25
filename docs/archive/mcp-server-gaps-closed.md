@@ -4868,7 +4868,7 @@ project never saved would be untrue. The field is per tab, and a form's designer
 markers do; the description says so. The title is unchanged, so it is still what `activate_document_tab` and
 `close_document_tab` match. Neither tool takes an argument, so neither schema has a `required` array.
 `DocumentTabsModifiedTests` fail before the fix. The archive view is not among them, since its entries are built only
-by reading a twinBASIC archive.
+by reading a real archive file.
 
 **Live (Windows, a Debug build of the fix, the hexide tools from a headless Claude Code session).** On a new
 project:
@@ -4890,3 +4890,7 @@ get_document_tabs {}                         → designer true, code true
 invoke_menu_item {"path":"File/Save Form1"}
 get_document_tabs {}                         → designer false, code false
 ```
+
+On a second new project, with the project view opened by `interact {"action":"double_click"}` on
+`TreeItem[Project1 (Project1.vbp)]`, `get_document_tabs` listed `{"title":"Project1.vbp","type":"code","isActive":true}`,
+with no `isModified`, beside Form1's designer with one. It still had none after `add_file` added a module.
