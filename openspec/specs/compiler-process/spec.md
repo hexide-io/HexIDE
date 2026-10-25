@@ -1,4 +1,9 @@
-## ADDED Requirements
+# compiler-process Specification
+
+## Purpose
+Start the compiler without the stock IDE or its native host, find its root endpoint and key, keep it from outliving HexIDE, and end it cleanly, as measured on BETA 1024. Tracks #1689.
+
+## Requirements
 
 ### Requirement: Compiler mode launch
 The adapter SHALL start the compiler as the install's `bin\STUB.exe --compiler=0`, with `bin\` as its working directory, no window and standard input closed, and SHALL NOT need the stock IDE or its native host. It SHALL NOT start it as `--ide=PID`, which is the page server of the IDE's front end.
@@ -44,3 +49,17 @@ The package list sent at initialization SHALL be the names of the folders under 
 #### Scenario: Packages asked for during preparation
 - **WHEN** preparation asks for a package
 - **THEN** the identifier names a folder under the install's `packages\`, and its `package.twinproj` answers the request
+
+### Requirement: Root exchange unchanged from BETA1011
+On BETA 1024 the adapter SHALL send the root requests in the encodings recorded on BETA1011, since BETA 1024 accepted every one: pre-initialize (command 22, `96` then `0,1,10000,0,`), initialize (command 0, flags 0), load (1), projects loaded (3), the answer to a settings request (24, four zero bytes), and the answer to a package request (4). Shutdown (9) is new to this adapter.
+
+#### Scenario: Recorded initialization replays
+- **WHEN** the compiler side of the BETA 1024 recording `Recordings/beta-1024/root-initialization.jsonl` is played against the root session
+- **THEN** the root session sends pre-initialize, initialize and shutdown byte for byte as recorded
+
+### Requirement: Language data required
+Initialization SHALL carry the install's language pack. On BETA 1024 a one-entry object does not complete it, as an empty one does not on BETA1011 (#1200).
+
+#### Scenario: One-entry language object
+- **WHEN** initialization carries a language object with a single entry
+- **THEN** no initialize reply arrives, and initialization times out (measured, BETA 1024)

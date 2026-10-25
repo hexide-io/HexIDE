@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace HexIDE.TwinBasic.Tests;
 
@@ -67,6 +68,59 @@ public sealed class LiveCompilerTests(ITestOutputHelper output)
 
         File.ReadAllBytes(project).Should().Equal(original, "the compiler is given a staged copy, never the project itself");
         stage.Delete(recursive: true);
+    }
+
+    /// <summary>
+    /// Records root initialization and shutdown on this beta (#1218, #1689). Nothing loads a project, since the package
+    /// contents that would cross are not ours to check in. Initialization carries the install's package names and its
+    /// language pack, which is <c>{language}</c> in the recording for the same reason. A one-entry object in its place
+    /// never completes initialization, as an empty one does not (#1200): measured, BETA 1024. The process id, the five
+    /// ports and the instance identity are placeholders too. Set <c>HEXIDE_TWINBASIC_RECORDING_DIR</c> to keep the file.
+    /// </summary>
+    [LiveCompilerFact]
+    public async Task Root_initialization_and_shutdown_are_recorded()
+    {
+        var install = LiveCompilerFactAttribute.Install!;
+        var pack = CompilerLanguagePack.Read(await File.ReadAllTextAsync(CompilerLanguagePack.PathIn(install), Token));
+        var languageJson = System.Text.Json.JsonSerializer.Serialize(pack);
+        using var languageObject = System.Text.Json.JsonDocument.Parse(languageJson);
+        var initialization = new CompilerRootInitialization(CompilerProcess.PackageNamesIn(install),
+            CompilerWireCodec.ReadLanguageData(languageObject.RootElement));
+        var beta = System.Text.RegularExpressions.Regex.Match(Path.GetFileName(Path.TrimEndingDirectorySeparator(install)), @"\d+$").Value;
+        if (beta.Length == 0) beta = "unknown";
+
+        using var compiler = await CompilerProcess.StartAsync(install, cancellationToken: Token);
+        var raw = new StringWriter();
+        var transport = await CompilerWebSocketTransport.ConnectAsync(compiler.RootEndpoint, cancellationToken: Token);
+        transport.RecordTo(new CompilerRecording(raw, new(1, beta, "Community", "root-initialization"),
+            new CompilerRecordingValues(new Dictionary<string, byte[]>())), "root");
+        using var root = await CompilerRootSession.InitializeAsync(transport, initialization, cancellationToken: Token);
+        await root.RequestShutdownAsync(Token);
+        (await compiler.WaitForExitAsync(TimeSpan.FromSeconds(10), Token)).Should().Be(0);
+
+        var info = root.Connection;
+        var redacted = CompilerRecordingTests.Redact(raw.ToString(), new CompilerRecordingValues(new Dictionary<string, byte[]>
+        {
+            ["{pid}"] = BitConverter.GetBytes(info.ProcessId),
+            ["{port:fs}"] = BitConverter.GetBytes(info.FileSystemPort),
+            ["{port:debugger}"] = BitConverter.GetBytes(info.DebuggerPort),
+            ["{port:language}"] = BitConverter.GetBytes(info.LanguagePort),
+            ["{port:formImage}"] = BitConverter.GetBytes(info.FormImagePort),
+            ["{port:liveBackup}"] = BitConverter.GetBytes(info.LiveBackupPort),
+            ["{instance}"] = Encoding.UTF8.GetBytes(info.ServerId),
+            ["{language}"] = Encoding.UTF8.GetBytes(languageJson),
+        }));
+        redacted.Length.Should().BeLessThan(16 * 1024, "the language pack is a placeholder, not kept");
+        foreach (var line in redacted.Split('\n', StringSplitOptions.RemoveEmptyEntries).Skip(1))
+        {
+            var frame = System.Text.Json.JsonSerializer.Deserialize<CompilerRecordedFrame>(line)!;
+            var bytes = Convert.FromBase64String(frame.Payload);
+            output.WriteLine($"{frame.Sequence} {frame.Direction} {bytes.Length} bytes: {Convert.ToHexString(bytes.AsSpan(0, Math.Min(bytes.Length, 16)))}");
+        }
+        redacted.Should().NotContain(info.ServerId, "the instance identity is a placeholder");
+
+        if (Environment.GetEnvironmentVariable("HEXIDE_TWINBASIC_RECORDING_DIR") is { Length: > 0 } keep)
+            await File.WriteAllTextAsync(Path.Combine(keep, "root-initialization.jsonl"), redacted, Token);
     }
 
     /// <summary>Answers with a package's file when the identifier names one under the install's packages folder.</summary>

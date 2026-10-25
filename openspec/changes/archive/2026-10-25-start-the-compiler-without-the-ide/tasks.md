@@ -8,5 +8,6 @@
 
 ## 2. Remaining on #1689
 
-- [ ] 2.1 Record step 1's exchange with the #1218 recorder, redacted, as the first BETA 1024 recording
-- [ ] 2.2 Compare the BETA 1024 op codes with #1204's BETA1011 run, and note any difference in the specs
+- [x] 2.1 Record step 1's exchange with the #1218 recorder, redacted, as the first BETA 1024 recording. Root
+  initialization and shutdown only: a project load would carry package contents, which are not ours to keep
+- [x] 2.2 Compare the BETA 1024 op codes with #1204's BETA1011 run, and note any difference in the specs
