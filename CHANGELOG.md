@@ -281,6 +281,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Made programs keep non-ASCII source text across machines** (#731). Make packages its source copies as UTF-8
+  with a BOM; source files keep their own encoding. Standalone `--check` now reads project and form files with
+  the IDE's source decoder.
+
 - **Delete Line and word deletion ask to reset a running project** (#1025). AvaloniaEdit's editing keys now
   arm the code window's reset prompt, including Delete Line, Delete Previous Word and Delete Next Word.
   A refused edit in the file header still asks nothing, and No restores the deleted code.

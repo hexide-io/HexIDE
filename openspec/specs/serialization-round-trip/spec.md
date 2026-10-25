@@ -643,3 +643,18 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
   IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
   and giving up the model that makes the IDE an editor rather than a text editor.
+
+### Requirement: Made programs SHALL carry source text independently of the host code page
+
+Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without
+changing the source documents' encodings. The source-encoding refusal before Make SHALL still apply.
+Standalone `--check` SHALL read project and form files with the IDE's source decoder.
+
+#### Scenario: A package made from ANSI sources runs on another code page
+- **WHEN** Make packages source text held in an ANSI document
+- **THEN** each packaged source file declares UTF-8 with a BOM and preserves that text
+- **AND** the original document retains its encoding
+
+#### Scenario: Check reads an ANSI project from disk
+- **WHEN** Standalone checks a project whose project or form files contain ANSI text
+- **THEN** it decodes those files as the IDE does, including UTF-8 BOM declarations
