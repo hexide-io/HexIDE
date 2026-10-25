@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
@@ -1128,22 +1127,21 @@ public class ProjectService : IProjectService
         if (exePath == null)
             throw new OperationCanceledException();
 
-        if (StandaloneRuntimeFiles() is not { } runtimeFiles)
+        if (StandaloneRunnerName() is not { } runnerName)
         {
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
         var standaloneFolder = Path.Join(RuntimeDirectory, "standalone");
-        var requiredNativeFiles = FindStandaloneRuntime(RuntimeDirectory, RuntimeInformation.RuntimeIdentifier, runtimeFiles);
-        if (runtimeFiles.Where((_, i) => requiredNativeFiles[i] is null).ToList() is { Count: > 0 } missing)
+        var runner = new FileInfo(Path.Join(standaloneFolder, runnerName));
+        if (!runner.Exists)
         {
             await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.RuntimeNotFound"),
-                standaloneFolder, string.Join(", ", missing)), icon: MessageBoxIcon.Information);
+                standaloneFolder, runnerName), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
-        var exeDir = Path.GetDirectoryName(exePath);
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
 
         Directory.CreateDirectory(tempPath);
@@ -1226,45 +1224,24 @@ public class ProjectService : IProjectService
             try { Directory.Delete(tempPath, true); } catch { /* best effort — the temp dir is disposable */ }
         }
 
-        foreach (var standaloneFile in requiredNativeFiles)
-        {
-            if (standaloneFile is not { Exists: true })
-                throw new Exception($"Required files doesn't exist, even tho it existed few lines above");
-            var fileName = standaloneFile.Name;
-            if (fileName.StartsWith("HexIDE.Standalone"))
-                fileName = Path.GetFileName(exePath);
-            standaloneFile.CopyTo(Path.Join(exeDir, fileName), true);
-        }
+        // The program is the runner, renamed, beside its project archive. The runner is one self-contained file holding .NET,
+        // its own assemblies and the native libraries, so nothing else goes with it (#1971). It used to be the runner's
+        // apphost and three native libraries, which ran only while the runner was compiled AOT; since #30 the apphost has
+        // needed HexIDE.Standalone.dll beside it, and no made program started.
+        runner.CopyTo(exePath, overwrite: true);
     }
 
     /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
     internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;
 
-    /// <summary>The runner a made program is, then the native libraries it needs, on this platform; null where none is built.</summary>
-    internal static string[]? StandaloneRuntimeFiles() =>
-        OperatingSystem.IsWindows() ? ["HexIDE.Standalone.exe", "av_libglesv2.dll", "libHarfBuzzSharp.dll", "libSkiaSharp.dll"]
-        : OperatingSystem.IsMacOS() ? ["HexIDE.Standalone", "libAvaloniaNative.dylib", "libHarfBuzzSharp.dylib", "libSkiaSharp.dylib"]
-        : OperatingSystem.IsLinux() ? ["HexIDE.Standalone", "libHarfBuzzSharp.so", "libSkiaSharp.so"]
-        : null;
-
     /// <summary>
-    /// Where each of <paramref name="files"/> is, or null where it is nowhere (#1947). Looked for beside the IDE's own
-    /// executable, not in the current directory, which is wherever the IDE was started from. The runner, the first file, is
-    /// only taken from <c>standalone/</c>. A native library is taken from there, or from the <c>runtimes/RID/native/</c>
-    /// folder a publish with no runtime identifier leaves it in, or else from the IDE's own copy, laid out either way.
+    /// The runner a made program is, in <c>standalone/</c> beside the IDE: one self-contained single-file executable per
+    /// platform (#1971). Null where none is built.
     /// </summary>
-    internal static FileInfo?[] FindStandaloneRuntime(string ideDirectory, string runtimeIdentifier, IReadOnlyList<string> files)
-    {
-        var standalone = Path.Join(ideDirectory, "standalone");
-        return [.. files.Select((name, i) => (i == 0
-                ? [Path.Join(standalone, name)]
-                : new[]
-                {
-                    Path.Join(standalone, name), Path.Join(standalone, "runtimes", runtimeIdentifier, "native", name),
-                    Path.Join(ideDirectory, name), Path.Join(ideDirectory, "runtimes", runtimeIdentifier, "native", name),
-                })
-            .Select(path => new FileInfo(path)).FirstOrDefault(f => f.Exists))];
-    }
+    internal static string? StandaloneRunnerName() =>
+        OperatingSystem.IsWindows() ? "HexIDE.Standalone.exe"
+        : OperatingSystem.IsMacOS() || OperatingSystem.IsLinux() ? "HexIDE.Standalone"
+        : null;
 
     // Only the disposable copies: a made program must read the same text on any host code page (#731).
     internal static void EncodePackageSources(ProjectDefinition project)
