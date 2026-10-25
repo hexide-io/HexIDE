@@ -1446,7 +1446,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (files is not { Count: > 0 })
             return;
 
-        var content = await System.IO.File.ReadAllTextAsync(files[0]);
+        var content = DocumentNewLines.Normalize(await System.IO.File.ReadAllTextAsync(files[0]), Document.Text);
         if (InsertPastReadOnlyRegion(selectionStart, selectionLength, content) is { } caret)
         {
             CaretOffset = caret;
@@ -1479,11 +1479,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (at == selectionStart)
             at = PastReadOnlyRegion(selectionStart + selectionLength);
 
-        var newline = Document.Text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        if (!content.EndsWith('\n'))
+        var newline = DocumentNewLines.Of(Document.Text);
+        content = TextUtilities.NormalizeNewLines(content, newline);
+        if (!content.EndsWith('\n') && !content.EndsWith('\r'))
             content += newline;
         // A region that runs to the end of a file with no final line break ends mid-line.
-        if (at > 0 && Document.GetCharAt(at - 1) != '\n')
+        if (at > 0 && Document.GetCharAt(at - 1) is not ('\n' or '\r'))
             content = newline + content;
 
         Document.Insert(at, content);
@@ -1715,7 +1716,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     public ContentReplacement ReplaceContent(string incoming)
     {
-        var result = GuardedContent.Replace(Document.Text, bufferPrefix.Length, incoming);
+        var result = GuardedContent.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text));
         if (result.NewText is { } text)
             ReplaceBody(text[bufferPrefix.Length..]);
         return result;
@@ -1831,8 +1832,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<WorkspaceEdit?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
 
-    public Task<string?> ShowInputBoxAsync(string prompt, string title, string defaultText)
-        => windowManager.InputBox(prompt, title, defaultText);
+    public Task<string?> ShowRenameInputBoxAsync(string defaultText)
+        => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),
+            localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
     public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
@@ -1954,7 +1956,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     private void InsertAtEnd(string beginCode, string endCode)
     {
-        var lineBreak = TextUtilities.GetNewLineFromDocument(Document, Document.LineCount);
+        var lineBreak = DocumentNewLines.Of(Document.Text);
         beginCode = TextUtilities.NormalizeNewLines(beginCode, lineBreak);
         endCode = TextUtilities.NormalizeNewLines(endCode, lineBreak);
 

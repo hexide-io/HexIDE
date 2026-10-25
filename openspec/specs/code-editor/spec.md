@@ -324,3 +324,24 @@ then the other open documents, and only then wrap within the active document.
 - **WHEN** the caret is at offset 0 and both the active document and another open document contain the search text
 - **AND** the developer uses plain-text Find Up under All Open Documents
 - **THEN** the last match in the other document is selected before any match in the active document
+
+### Requirement: Code writers SHALL follow the document's line ending
+
+Enter (including indentation and auto-close), Insert File, automation's document-mode `type_text`,
+procedure and event-stub insertion, and whole-content replacement SHALL write new line breaks in the
+current document's line ending. Whole replacements SHALL follow the same rule with or without a code
+window open. A document containing CRLF SHALL supply CRLF; otherwise an existing LF or lone CR SHALL
+supply its terminator. A document without a line break SHALL fall back to CRLF. Saving SHALL NOT normalize
+existing line endings merely because the file is saved (#530).
+
+#### Scenario: A client sends LF text for a CRLF file
+- **WHEN** an add-in, automation or AI Chat replaces a CRLF document's content with LF text
+- **THEN** the accepted replacement's line breaks are CRLF, and the document's own header is retained
+
+#### Scenario: An LF file is edited
+- **WHEN** Enter, Insert File or automation inserts a line break in an all-LF document
+- **THEN** the new line breaks are LF
+
+#### Scenario: No line ending exists yet
+- **WHEN** a writer introduces line breaks into an empty or single-line buffer
+- **THEN** it writes CRLF on every host

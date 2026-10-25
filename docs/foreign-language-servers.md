@@ -154,6 +154,10 @@ history is a fraction of that, and every version bump would add the same again p
 
 Linux uses musl builds where offered, so one binary runs on any distribution.
 
+A checksum mismatch deletes the download and records the expected and actual digests. The affected
+foreign-server tests skip with a checksum-specific reason; an ordinary test in `RequiredServersTests`
+fails even when `HEXIDE_REQUIRE_FOREIGN_LSP` is unset. Discovery never throws for a mismatch (#487).
+
 ### Digest provenance is recorded, because it differs
 
 - **rumdl** publishes a checksum file beside each asset. Its digests are taken from those — they attest
