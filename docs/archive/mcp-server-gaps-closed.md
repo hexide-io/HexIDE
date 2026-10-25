@@ -3654,8 +3654,8 @@ the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot 
 > by `double_click`, which the list takes on a press; select it, then `press_key` Tab or Enter, which is #941's.
 >
 > **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools,
-> with `Private Sub Probe()` and `    MsgBox(` typed into Form1's code by
-> keyboard `type_text`:
+> after keyboard `type_text` of `Private Sub Probe()` and a line break into Form1's code (auto-indent and the automatic
+> `End Sub` followed), `open_file` at line 19, column 5, and keyboard `type_text` of `MsgBox(`:
 >
 > - `take_snapshot {}` showed the parameter info beside the caret: `MsgBox([Prompt], [Buttons As VbMsgBoxStyle =
 >   vbOKOnly], [Title], [HelpFile], [Context]) As VbMsgBoxResult`.
@@ -3667,8 +3667,9 @@ the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot 
 >   `…/None[TextEditor]/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[Dim]` and on, each with `selectionItem`.
 > - `interact` `select` with value `MsgBox` on `List[PART_ListBox]` replied "selected 'MsgBox' (it was scrolled out
 >   of view, so the list was scrolled to it first)", and inserted nothing.
-> - The whole-window `dump_visual_tree {}` was 76,000 to 84,000 characters each time, which Claude Code would not
->   take inline and saved to a file, so the dumps above were rooted at the `TextEditor`.
+> - **Not met through the client: the default whole-window dump.** `dump_visual_tree {}` was 75,575 to 83,944
+>   characters each time, which Claude Code would not take inline and saved to a file, so the dumps above were rooted
+>   at the `TextEditor`: [#1982](https://github.com/hexide-io/HexIDE/issues/1982).
 
 ## `set_control_property` cannot set Font, and its refusal implies a text form that does not exist
 
@@ -3729,8 +3730,8 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 > → Label2.Font is now Tahoma, 12 pt, bold, charset 0, and the file is saved.
 > ```
 >
-> `take_snapshot` drew Label1 in it: its text is 76 pixels wide at 150% scaling, where Tahoma at that size is 69
-> regular and 79 bold. The saved `Form1.frm` gives both Labels `Name = "Tahoma"`, `Size = 12`, `Charset = 0` and
+> `take_snapshot` drew Label1 in it: the ink of its text is 76 pixels wide at 150% scaling, where Tahoma's ink for
+> `Label1` at that size is 65 regular and 76 bold. The saved `Form1.frm` gives both Labels `Name = "Tahoma"`, `Size = 12`, `Charset = 0` and
 > `Weight = 700`.
 
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
@@ -3838,7 +3839,7 @@ does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 > `inlineWidth`, `inlineHeight` and `inlineScale` describe it, so `boundingRect × inlineScale` finds a control in it.
 > Path-only stays the default: an image costs a few thousand tokens. Measured on Windows through the server's HTTP
 > endpoint: a 3840×2054 window came back as a 1568×838 PNG of 75 KB, and a call without `inline` has no image block.
-> Not yet run through Claude Code over a tunnel. Guarded by `InlineSnapshotTests`.
+> Guarded by `InlineSnapshotTests`. Run through Claude Code since, over a tunnel and locally (#1330, below).
 >
 > **Live (#1330, 2026-10-25), over a tunnel.** From a Claude Code session on Windows, through an SSH tunnel to a
 > Debug build of main at beada72 on an openSUSE Leap 16 VM:
@@ -3853,8 +3854,9 @@ does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 >
 > - A 1418×671 window: `take_snapshot {"inline": true}` returned `inlineWidth` 1418, `inlineHeight` 671 and
 >   `inlineScale` 1.5, and one `image/png` block the client showed. The block is a PNG of 1418×671.
-> - A 1920×974 window: it returned `inlineWidth` 1568, `inlineHeight` 795 and `inlineScale` 1.225, fitted to 1568
->   on the longest side as above, with an image block the client showed.
+> - A 1920×974 window, in another session where the call was sent as `{"inline":"true"}` and the client turned it into
+>   the boolean: it returned `inlineWidth` 1568, `inlineHeight` 795 and `inlineScale` 1.225, fitted to 1568 on the
+>   longest side as above, followed by an image block. That run did not measure the block.
 > - `take_snapshot {}` again had no image.
 
 ## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
@@ -4342,18 +4344,18 @@ window had focus, as that decides the dialog's owner.
 >
 > - **Ten runs, each one click on Command1, answered with End.** The call was
 >   `interact {"target":"Window/Button[Command1]","action":"click","window":"auto"}`.
->   - In 8 of 10, the `modalDialog` note named "'HexIDE' (the run-time error dialog: 'Compile error:…',
->     Continue/End/Debug/Help), … opened during this call".
->   - In the other 2, the wait named it instead, and the note left it out, as above. The wait gave the title alone:
->     "(the program is still running Timer1_Timer, and has a window open over its form, 'HexIDE'; it may hold the
->     program until it is answered, …)".
->   - So the dialog was named in all ten, but in two only as `'HexIDE'`, the reset prompt's title too:
->     [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
+>   - **The note named it in 8 of 10, against the 10 of 10 measured above:**
+>     `'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help), … opened during this call`.
+>   - In the other 2 only the wait gave it, and the note left it out, as above. The wait gave the title alone:
+>     `(the program is still running Timer1_Timer, and has a window open over its form, 'HexIDE'; it may hold the
+>     program until it is answered, …)`. So those two replies never said what it was, and the reset prompt has the
+>     same title: [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
 > - **With that dialog left open, a click on Command2:**
 >   - the wait's text named the MsgBox, as "a MsgBox holds its handler", by its title `'DialogProbe'`;
 >   - the note named the error dialog as "still open and waits for an answer; this call reached past it, as a
 >     person could not".
-> - **Answering the MsgBox** gave a list of handlers "still running" that the form doesn't have:
+> - **Answering the MsgBox** gave a "still running" list of Command2_Click, Timer1_Timer, Command2_GotFocus and
+>   Command2_LostFocus. The form has no handler for the last two:
 >   [#1976](https://github.com/hexide-io/HexIDE/issues/1976).
 
 ## `interact` reported actions done without reading them back, and acted where visibility could not be read (#1280)
@@ -4565,16 +4567,17 @@ reads `[5]` as the gutter's line 6, and nothing in the reply says otherwise.
 > get_bookmarks {"name":"frmSetup"}
 > → {…,"lines":[95,96],"note":"BattleshipForms/frmSetup has bookmarks on lines 95, 96, counting from 1 at the top of
 >    the file, as the gutter does."}
-> set_bookmarks {"name":"Form1","lines":[18]}                (a new project)
-> → Project1/Form1 now has a bookmark on line 18, counting from 1 at the top of the file, as the gutter does.
-> set_bookmarks {"name":"Form1","lines":[10,11]}
+> set_bookmarks {"name":"Form1","lines":[10,11]}             (a new project, an earlier run)
 > → 10, 11 are in a read-only part of Project1/Form1: its header (1..17) or the Attribute lines that describe a
 >    member. Neither ever runs, so no bookmark can go there; its code starts at 18, counting from 1 at the top of the
 >    file, as the gutter does. Nothing was changed.
+> set_bookmarks {"name":"Form1","lines":[18]}
+> → Project1/Form1 now has a bookmark on line 18, counting from 1 at the top of the file, as the gutter does.
 > ```
 >
-> A new project's lines 10 and 11, which the measurement above used, are now in Form1's header, which takes no
-> bookmark. A `get_bookmarks` reply with no lines has no note, as above.
+> **The `[10, 11]` measured above could not be reproduced on a new project.** Those lines were refused as header
+> lines, and the header rule predates the fix. The two-line note was shown on `frmSetup` instead. A `get_bookmarks`
+> reply with no lines has no note, as above.
 
 ## `type_text` in keyboard mode stopped only for a dialog over its own window (#1257)
 
@@ -4684,7 +4687,8 @@ it and dumping it.
 > - **The first `select` was refused**, with "'ObjectSelector' has no selectable items realized — 'expand' it first,
 >   then select". It was sent after an `inspect_element` and a dump made with the dropdown open, and the dropdown
 >   had closed between the calls: the next `expand` replied "expanded", not "already open". Why it closed was not
->   established. The refusal said what to do.
+>   established, and it happened once in this run. The refusal said what to do, and the retry worked. Not filed
+>   without a reproduction.
 
 ## Keyboard typing went into code under a dialog left open over the window (#1290)
 
@@ -4754,8 +4758,9 @@ second copy of an item or a row for one out of view, and a path to it resolved.
 > - **The dump that followed** (`interactiveOnly` false, `maxDepth` 6) listed the four rows in view, Width, Top,
 >   StartUpPosition and Left. Each appeared once, and nothing out of view was listed.
 > - **The dump's order is the reverse of the screen's:** [#1966](https://github.com/hexide-io/HexIDE/issues/1966).
-> - **After `scroll` `home`,** Width, the selected row, stayed listed with `isOffscreen: true`, as a row the list
->   still holds.
+> - **Not met: a row out of view is listed.** After `scroll` `home` and a collapse of Appearance, the next dump
+>   listed Width, the selected row, with `isOffscreen: true`, and so did the one after Appearance was expanded. The
+>   fix says rows out of view are left out: [#1981](https://github.com/hexide-io/HexIDE/issues/1981).
 > - **Collapsing the Appearance category** left its rows listed once each with `isHidden: true`, and expanding it
 >   showed them once each again. That was done with its toggle, since the row itself refuses `collapse`:
 >   [#1967](https://github.com/hexide-io/HexIDE/issues/1967).
@@ -4775,9 +4780,9 @@ selection "ListItem". The Object Browser's class, member and search lists were a
 >
 > - **Rows are named by name.** In the Object Browser the class rows are `ListItem[Form1]`, `ListItem[CheckBox]`
 >   and the rest, and CommandButton's member rows are `ListItem[Caption]`, `ListItem[Click]` and the rest.
-> - **Selection.** `interact` `select` with value `Form1` on `…/List[Classes]` replied "selected 'Form1'", as did
->   value `Click` on `…/List[Members]` with CommandButton selected. `inspect_element` on each list named that
->   selection in `selectionItems`.
+> - **Selection.** `interact` `select` with value `Form1` on `…/List[Classes]` replied "selected 'Form1'". With value
+>   `Click` on `…/List[Members]`, CommandButton selected, it replied "selected 'Click'". `inspect_element` on each list
+>   named that selection in `selectionItems`.
 > - **Form1's own member list was empty,** since the browser lists only a project form's code procedures:
 >   [#1968](https://github.com/hexide-io/HexIDE/issues/1968).
 

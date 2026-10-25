@@ -616,9 +616,9 @@ CLAUDE.md's *Parallel sessions* section says how, and tells a session to check t
 ## Three texts still name a waiting dialog only by its title, which two of the IDE's dialogs share (narrowed 2026-10-25)
 
 **Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
-dialog are titled `'HexIDE'`. One holds a `MessageBox` with OK and Cancel, the other a `RuntimeErrorView` with Continue,
-End, Debug and Help. Separately, the only call found that lists the open windows was one naming a window that doesn't
-exist, `window: "x"`, which is refused with the list.
+dialog are titled `'HexIDE'`. One held a `MessageBox` with Yes and No (OK and Cancel since #1360, measured 2026-10-25),
+the other a `RuntimeErrorView` with Continue, End, Debug and Help. The other half of #1365, that only a call naming a
+window that doesn't exist lists the open ones, is done: #1624 says so in the `window` description.
 
 **Narrowed (#1624, measured under #1330 on 2026-10-25).** The `modalDialog` note now says what the dialog is:
 `'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help)`, or
@@ -632,11 +632,9 @@ Three texts still give the title alone:
 
 The calls are in [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
 
-**Workaround.** Read the `modalDialog` note of the next reply that has one, or dump the dialog before answering it. Name
-an unknown window to get the list of open ones.
+**Workaround.** Read the `modalDialog` note of the next reply that has one, or dump the dialog before answering it.
 
-**Suggested fix.** Use the note's description in the three texts, as #1975 says, and give the open windows on
-request, or say in the `window` description that an unknown name lists them.
+**Suggested fix.** Use the note's description in the three texts.
 [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
 
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
