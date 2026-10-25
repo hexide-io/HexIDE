@@ -53,21 +53,19 @@ public class NamedPipeWorkspacePlaceholderTests
 
         var seen = new List<string>();
         var gate = new Lock();
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         transport.Notice += (_, n) =>
         {
             if (n.Kind != TransportNoticeKind.StandardError) return;
             lock (gate) seen.Add(n.Text);
+            reported.TrySetResult();
         };
 
         await transport.ConnectAsync(
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTime.UtcNow < deadline)
-        {
-            lock (gate) { if (seen.Count > 0) break; }
-            await Task.Delay(25, TestContext.Current.CancellationToken);
-        }
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "the launched pipe server's standard-error argument echo", TestContext.Current.CancellationToken);
 
         lock (gate) return [.. seen];
     }

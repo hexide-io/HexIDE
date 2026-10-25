@@ -1103,7 +1103,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (LiveDocumentUri is not { } uri) return;
         var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
         _symbols = symbols;
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshProcedureNames());
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Event names come from the component, not symbols. Rebuilding that bound list reselects the
+            // handler and moves a new stub's caret from its body to its declaration (#1865).
+            if (SelectedObject == GeneralObject || SelectedObject is null)
+                RefreshProcedureNames();
+        });
     }
 
     private void RefreshProcedureNames()
@@ -1415,6 +1421,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     public bool RefusesTyping(int offset, int length) =>
         IsReadOnly || IsReadOnlyRegion(offset, length);
+
+    /// <inheritdoc/>
+    public (int Offset, int Length) WidenDeletion(int offset, int length) =>
+        ReadOnlySections.WidenDeletion(offset, length);
 
     /// <inheritdoc/>
     public Func<int, int, bool> SnapshotReadOnlyRegions()
@@ -1774,8 +1784,24 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             }
         }
 
-        var lastFirst = new List<TextChange>(edits);
+        var lastFirst = new List<TextChange>();
+        foreach (var edit in edits)
+        {
+            var span = edit.Text.Length == 0 ? WidenDeletion(edit.Offset, edit.Length) : (edit.Offset, edit.Length);
+            lastFirst.Add(new TextChange(span.Item1, span.Item2, edit.Text));
+        }
         lastFirst.Sort((a, b) => b.Offset.CompareTo(a.Offset));
+        for (var i = 1; i < lastFirst.Count; i++)
+        {
+            var edit = lastFirst[i];
+            if (edit.Offset + edit.Length > lastFirst[i - 1].Offset
+                && ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"The edit at line {at.Line}, column {at.Column} would change "
+                       + WhatAnEditChanges(regions, edit) + ", which only the IDE changes. Nothing was changed.";
+            }
+        }
         var after = Document.Text;
         foreach (var edit in lastFirst)
             after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);

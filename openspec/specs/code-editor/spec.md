@@ -195,7 +195,11 @@ An add-in's range edits SHALL also be compared as a complete resulting document 
 that result changes, adds or loses a described member run under the same comparison as a whole replacement.
 The refusal SHALL name the members. This includes promoting an orphan, extending a run at its end, mixing a
 run into an orphan and inserting a whole new described member. The existing region check SHALL run first;
-a range edit deleting a run with its declaration remains refused. Developer input and formatting are unchanged.
+an edit explicitly reaching into a run remains refused. An empty range edit deleting a declaration's whole
+text SHALL widen over its run, as a key deletion does. A set whose widened spans overlap another edit
+SHALL be refused without changing the document. Find's Replace and Replace All SHALL likewise widen
+empty replacements over the runs of declarations they empty; non-empty replacements SHALL keep those runs.
+Formatting is unchanged.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
@@ -317,6 +321,14 @@ handler from being generated.
 - **GIVEN** a control whose caption contains `Sub Command1_Click`
 - **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
 - **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent
+
+### Requirement: New event handlers SHALL keep the caret in their body
+Selecting an event without a handler in the Procedure box SHALL generate its stub and place the caret on the
+blank line inside it. A diagnostics or document-symbol refresh SHALL NOT navigate the caret out of that body.
+
+#### Scenario: Typing after a new handler's diagnostics arrive
+- **WHEN** the developer selects an event with no handler and the language server publishes diagnostics
+- **THEN** typing lands on the blank body line between the declaration and `End Sub`
 
 ### Requirement: Delete SHALL work without a selection
 The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's

@@ -404,7 +404,7 @@ public sealed class ConversationLog : IAsyncDisposable
     public void EndRequests(string connectionId, ConversationDirection? origin = null, string? correlationId = null,
         ConversationOutcome outcome = ConversationOutcome.Abandoned)
     {
-        if (outcome is not (ConversationOutcome.Cancelled or ConversationOutcome.Abandoned))
+        if (outcome is not (ConversationOutcome.Cancelled or ConversationOutcome.Abandoned or ConversationOutcome.TimedOut))
             throw new ArgumentOutOfRangeException(nameof(outcome));
         if (!_queue.Writer.TryWrite(new Pending(connectionId, default, default, default, null, correlationId,
                 0, null, null, EndOutcome: outcome, EndOrigin: origin)))
