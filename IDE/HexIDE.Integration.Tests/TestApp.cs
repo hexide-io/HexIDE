@@ -16,6 +16,7 @@ public class TestApp : Application
 {
     public override void Initialize()
     {
+        HeadlessFontWarmUp.Run();
         RequestedThemeVariant = ThemeVariant.Light;
         Styles.Add(new SimpleTheme());
         Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
