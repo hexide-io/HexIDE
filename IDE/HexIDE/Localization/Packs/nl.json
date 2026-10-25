@@ -788,6 +788,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' is al de naam van een formulier, module of klasse in dit project. VB6 plaatst ze in één naamruimte, dus kunnen er geen twee dezelfde naam hebben.",
     "Str.Naming.Msg.ProjectNameTaken": "Er is al een project met de naam '{0}' geladen. Twee projecten in één projectgroep kunnen niet dezelfde naam hebben.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is al de naam van een formulier, module of klasse in dit project.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is geen geldige naam: een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is geen geldige naam: een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens.",
+    "Str.ProjectLoad.ParseFailed": "Kan formulierbestand niet parseren: {0}",
+    "Str.ProjectLoad.InvalidForm": "Dit is geen geldig formulierbestand",
+    "Str.ProjectLoad.UnknownControl": "Klasse {0} van besturingselement {1} is geen ondersteunde klasse van besturingselementen — bewaard als onbekend.",
+    "Str.ProjectLoad.InvalidValue": "Eigenschap {0} in {1} had een ongeldige waarde.",
+    "Str.ProjectLoad.MissingOffset": "Eigenschap {0} in {1}: .frx-offset niet gevonden.",
+    "Str.ProjectLoad.MissingRecord": "Eigenschap '{0}' in '{1}' verwijst naar een record dat niet in het bijbehorende bestand staat, waardoor het formulier niet kan worden opgeslagen.",
+    "Str.ProjectLoad.Heading": "Kan het project niet correct deserialiseren:",
+    "Str.ProjectLoad.MoreWarnings": "...en nog {0} waarschuwingen (zie het logboek voor de volledige lijst).",
+    "Str.ProjectLoad.ActiveXDocuments": "Dit project bevat ActiveX Document-bestanden (.dob) die niet worden ondersteund in HexIDE en zijn overgeslagen:\n\n{0}\n\nActiveX Documents hadden Internet Explorer of Office-invoegmappen als host nodig, die beide inmiddels vrijwel buiten gebruik zijn. Dit projecttype valt buiten het bereik van HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Bewerkingen geweigerd: {0}. Er is niets gewijzigd."
   }
 }

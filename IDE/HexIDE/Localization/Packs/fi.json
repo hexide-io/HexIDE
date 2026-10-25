@@ -788,6 +788,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi. VB6:ssa niillä on yhteinen nimiavaruus, joten kahdella ei voi olla samaa nimeä.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekti nimeltä '{0}' on jo ladattu. Kahdella saman ryhmän projektilla ei voi olla samaa nimeä.",
     "Str.Naming.Msg.AdoptedNameTaken": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka ei ole kelvollinen nimi: nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla."
+    "Str.Naming.Msg.AdoptedNameNotValid": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka ei ole kelvollinen nimi: nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla.",
+    "Str.ProjectLoad.ParseFailed": "Lomaketiedoston jäsentäminen epäonnistui: {0}",
+    "Str.ProjectLoad.InvalidForm": "Tämä ei ole kelvollinen lomaketiedosto",
+    "Str.ProjectLoad.UnknownControl": "Ohjausobjektin {1} luokka {0} ei ole tuettu ohjausobjektiluokka — säilytetty tuntemattomana.",
+    "Str.ProjectLoad.InvalidValue": "Ominaisuuden {0} arvo kohteessa {1} oli virheellinen.",
+    "Str.ProjectLoad.MissingOffset": "Ominaisuus {0} kohteessa {1}: siirtymää .frx-tiedostossa ei löytynyt.",
+    "Str.ProjectLoad.MissingRecord": "Ominaisuus '{0}' kohteessa '{1}' viittaa tietueeseen, jota sen oheistiedostossa ei ole, joten lomaketta ei voi tallentaa.",
+    "Str.ProjectLoad.Heading": "Projektin deserialisointi ei onnistunut oikein:",
+    "Str.ProjectLoad.MoreWarnings": "...ja {0} muuta varoitusta (katso koko luettelo lokista).",
+    "Str.ProjectLoad.ActiveXDocuments": "Tämä projekti sisältää ActiveX-asiakirjatiedostoja (.dob), joita HexIDE ei tue ja jotka on ohitettu:\n\n{0}\n\nActiveX-asiakirjat tarvitsivat isännäksi Internet Explorerin tai Officen salkut, jotka molemmat ovat käytännössä poistuneet käytöstä. Tämä projektityyppi ei kuulu HexIDEn tuettuun toiminta-alueeseen.",
+    "Str.CodeEditor.RangeEditRefused": "Muokkaukset hylättiin: {0}. Mitään ei muutettu."
   }
 }

@@ -25,6 +25,12 @@ exactly that gap until a server nobody here had written was pointed at the clien
 drives five foreign servers across four different LSP frameworks, including `vscode-languageserver-node`, the
 library the specification is written around.
 
+The bundled-server tests in `HexIDE.Tests` skip when the executable is missing or more than a minute
+older than a C# or `.g4` grammar file under `LspServer/HexIDE.VbLspServer`, excluding `bin/` and `obj/`.
+Editing the server test project does not make that executable stale. Rebuild with
+`cd LspServer && dotnet build HexIDE.VbLspServer/`; `HEXIDE_REQUIRE_FOREIGN_LSP=1` makes a missing or
+stale bundled server fail rather than skip.
+
 ---
 
 ## The wire contract
@@ -570,6 +576,11 @@ anything, and failed entries remain failed.
 
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
+
+Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
+with or without an open workspace. A server can use it to watch its owner and exit after an unclean
+IDE shutdown. This is cooperative: servers that ignore it can still outlive a crash. Clean shutdown
+continues to kill the launched process tree. See [configuration](language-servers.md#placeholders-in-arguments).
 
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message

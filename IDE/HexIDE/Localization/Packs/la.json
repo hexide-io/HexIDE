@@ -788,6 +788,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' iam est nomen formae, moduli aut classis in hoc incepto. VB6 eis unum spatium nominum dat, itaque duo idem nomen habere non possunt.",
     "Str.Naming.Msg.ProjectNameTaken": "Inceptum nomine '{0}' iam oneratum est. Duo incepta in uno grege idem nomen habere non possunt.",
     "Str.Naming.Msg.AdoptedNameTaken": "Plica '{1}' non addita est. Nomen eius est '{0}', quod iam est nomen formae, moduli aut classis in hoc incepto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "Plica '{1}' non addita est. Nomen eius est '{0}', quod nomen validum non est: nomen a littera incipit, deinde litteris, numeris et lineolis subscriptis continuatur."
+    "Str.Naming.Msg.AdoptedNameNotValid": "Plica '{1}' non addita est. Nomen eius est '{0}', quod nomen validum non est: nomen a littera incipit, deinde litteris, numeris et lineolis subscriptis continuatur.",
+    "Str.ProjectLoad.ParseFailed": "Fasciculus formae resolvi non potuit: {0}",
+    "Str.ProjectLoad.InvalidForm": "Hic fasciculus formae validus non est",
+    "Str.ProjectLoad.UnknownControl": "Classis {0} elementi {1} non est classis elementorum accepta — ut ignota servata est.",
+    "Str.ProjectLoad.InvalidValue": "Proprietas {0} in {1} valorem invalidum habuit.",
+    "Str.ProjectLoad.MissingOffset": "Proprietas {0} in {1}: distantia in .frx non inventa est.",
+    "Str.ProjectLoad.MissingRecord": "Proprietas '{0}' in '{1}' ad indicium refert quod fasciculus socius non continet; ideo forma servari non potest.",
+    "Str.ProjectLoad.Heading": "Proiectum rite deserializari non potuit:",
+    "Str.ProjectLoad.MoreWarnings": "...et {0} monita alia (index integer in actis est).",
+    "Str.ProjectLoad.ActiveXDocuments": "Hoc proiectum fasciculos ActiveX Document (.dob) continet, qui ab HexIDE non sustinentur et omissi sunt:\n\n{0}\n\nDocumenta ActiveX Internet Explorer aut colligatores Office tamquam hospites requirebant; utrique iam fere obsoleverunt. Hoc genus proiecti extra fines HexIDE est.",
+    "Str.CodeEditor.RangeEditRefused": "Mutationes recusatae: {0}. Nihil mutatum est."
   }
 }

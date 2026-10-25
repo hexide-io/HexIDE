@@ -2,6 +2,15 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.ParseFailed": "Failed to parse form file: {0}",
+    "Str.ProjectLoad.InvalidForm": "This is not a valid form file",
+    "Str.ProjectLoad.UnknownControl": "Class {0} of control {1} is not a supported control class — preserved as unknown.",
+    "Str.ProjectLoad.InvalidValue": "Property {0} in {1} had an invalid value.",
+    "Str.ProjectLoad.MissingOffset": "Property {0} in {1}: .frx offset not found.",
+    "Str.ProjectLoad.MissingRecord": "Property '{0}' in '{1}' cites a record its companion does not hold, so the form cannot be saved.",
+    "Str.ProjectLoad.Heading": "Couldn't properly deserialize the project:",
+    "Str.ProjectLoad.MoreWarnings": "...and {0} more warnings (see log for full list).",
+    "Str.ProjectLoad.ActiveXDocuments": "This project contains ActiveX Document files (.dob) which are not supported in HexIDE and have been skipped:\n\n{0}\n\nActiveX Documents required Internet Explorer or Office binders as a host, both of which are effectively defunct. This project type is out of scope for HexIDE.",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",
     "Str.Archive.ReadOnly": "Read-only archive preview. Editing, build and run are unavailable.",
@@ -788,6 +797,7 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' is already the name of a form, module or class in this project. VB6 gives them one namespace, so two cannot share a name.",
     "Str.Naming.Msg.ProjectNameTaken": "A project named '{0}' is already loaded. Two projects in one group cannot share a name.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' was not added. It is named '{0}', which is already the name of a form, module or class in this project.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' was not added. It is named '{0}', which is not a valid name: a name starts with a letter and continues with letters, digits and underscores."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' was not added. It is named '{0}', which is not a valid name: a name starts with a letter and continues with letters, digits and underscores.",
+    "Str.CodeEditor.RangeEditRefused": "Edits refused: {0}. Nothing was changed."
   }
 }
