@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "ウォッチ",
     "Str.Tool.CallStack.Title": "呼び出し履歴",
     "Str.Tool.ObjectBrowser.Title": "オブジェクト ブラウザー",
+    "Str.StatusBar.LanguageServerProgress": "言語サーバー: {0}",
     "Str.StatusBar.Ready": "準備完了",
     "Str.FindReplace.Msg.TitleFind": "検索",
     "Str.FindReplace.Msg.TitleReplace": "置換",

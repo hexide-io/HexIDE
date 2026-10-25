@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Overvågninger",
     "Str.Tool.CallStack.Title": "Kaldsstabel",
     "Str.Tool.ObjectBrowser.Title": "Objektoversigt",
+    "Str.StatusBar.LanguageServerProgress": "Sprogserver: {0}",
     "Str.StatusBar.Ready": "Klar",
     "Str.FindReplace.Msg.TitleFind": "Søg",
     "Str.FindReplace.Msg.TitleReplace": "Erstat",

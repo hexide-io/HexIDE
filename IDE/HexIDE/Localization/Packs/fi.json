@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Tarkkailtavat",
     "Str.Tool.CallStack.Title": "Kutsupino",
     "Str.Tool.ObjectBrowser.Title": "Objektiselain",
+    "Str.StatusBar.LanguageServerProgress": "Kielipalvelin: {0}",
     "Str.StatusBar.Ready": "Valmis",
     "Str.FindReplace.Msg.TitleFind": "Etsi",
     "Str.FindReplace.Msg.TitleReplace": "Korvaa",

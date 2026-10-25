@@ -695,6 +695,7 @@
     "Str.Tool.Watches.Title": "Watches",
     "Str.Tool.CallStack.Title": "Call Stack",
     "Str.Tool.ObjectBrowser.Title": "Object Browser",
+    "Str.StatusBar.LanguageServerProgress": "Language server: {0}",
     "Str.StatusBar.Ready": "Ready",
     "Str.StatusBar.FileReloaded": "Reloaded {0}",
     "Str.FindReplace.Msg.TitleFind": "Find",

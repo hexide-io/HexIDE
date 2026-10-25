@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "المراقبات",
     "Str.Tool.CallStack.Title": "مكدس الاستدعاءات",
     "Str.Tool.ObjectBrowser.Title": "مستعرض الكائنات",
+    "Str.StatusBar.LanguageServerProgress": "خادم اللغة: {0}",
     "Str.StatusBar.Ready": "جاهز",
     "Str.FindReplace.Msg.TitleFind": "بحث",
     "Str.FindReplace.Msg.TitleReplace": "استبدال",

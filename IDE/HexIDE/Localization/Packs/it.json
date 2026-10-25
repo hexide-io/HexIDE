@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Espressioni di controllo",
     "Str.Tool.CallStack.Title": "Stack di chiamate",
     "Str.Tool.ObjectBrowser.Title": "Visualizzatore oggetti",
+    "Str.StatusBar.LanguageServerProgress": "Server di linguaggio: {0}",
     "Str.StatusBar.Ready": "Pronto",
     "Str.FindReplace.Msg.TitleFind": "Trova",
     "Str.FindReplace.Msg.TitleReplace": "Sostituisci",

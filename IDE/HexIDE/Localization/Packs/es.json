@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Inspecciones",
     "Str.Tool.CallStack.Title": "Pila de llamadas",
     "Str.Tool.ObjectBrowser.Title": "Examinador de objetos",
+    "Str.StatusBar.LanguageServerProgress": "Servidor de lenguaje: {0}",
     "Str.StatusBar.Ready": "Listo",
     "Str.FindReplace.Msg.TitleFind": "Buscar",
     "Str.FindReplace.Msg.TitleReplace": "Reemplazar",

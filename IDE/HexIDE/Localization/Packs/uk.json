@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Спостереження",
     "Str.Tool.CallStack.Title": "Стек викликів",
     "Str.Tool.ObjectBrowser.Title": "Оглядач об'єктів",
+    "Str.StatusBar.LanguageServerProgress": "Мовний сервер: {0}",
     "Str.StatusBar.Ready": "Готово",
     "Str.FindReplace.Msg.TitleFind": "Знайти",
     "Str.FindReplace.Msg.TitleReplace": "Замінити",

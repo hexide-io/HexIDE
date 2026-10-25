@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Espions",
     "Str.Tool.CallStack.Title": "Pile des appels",
     "Str.Tool.ObjectBrowser.Title": "Explorateur d'objets",
+    "Str.StatusBar.LanguageServerProgress": "Serveur de langage : {0}",
     "Str.StatusBar.Ready": "Prêt",
     "Str.FindReplace.Msg.TitleFind": "Rechercher",
     "Str.FindReplace.Msg.TitleReplace": "Remplacer",

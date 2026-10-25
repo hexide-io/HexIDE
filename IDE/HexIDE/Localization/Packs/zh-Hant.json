@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "監看式",
     "Str.Tool.CallStack.Title": "呼叫堆疊",
     "Str.Tool.ObjectBrowser.Title": "物件瀏覽器",
+    "Str.StatusBar.LanguageServerProgress": "語言伺服器：{0}",
     "Str.StatusBar.Ready": "就緒",
     "Str.FindReplace.Msg.TitleFind": "尋找",
     "Str.FindReplace.Msg.TitleReplace": "取代",

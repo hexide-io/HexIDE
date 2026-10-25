@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "वॉच",
     "Str.Tool.CallStack.Title": "कॉल स्टैक",
     "Str.Tool.ObjectBrowser.Title": "ऑब्जेक्ट ब्राउज़र",
+    "Str.StatusBar.LanguageServerProgress": "भाषा सर्वर: {0}",
     "Str.StatusBar.Ready": "तैयार",
     "Str.FindReplace.Msg.TitleFind": "ढूँढें",
     "Str.FindReplace.Msg.TitleReplace": "बदलें",

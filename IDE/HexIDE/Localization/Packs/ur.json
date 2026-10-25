@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "واچز",
     "Str.Tool.CallStack.Title": "کال اسٹیک",
     "Str.Tool.ObjectBrowser.Title": "آبجیکٹ براؤزر",
+    "Str.StatusBar.LanguageServerProgress": "زبان سرور: {0}",
     "Str.StatusBar.Ready": "تیار",
     "Str.FindReplace.Msg.TitleFind": "تلاش کریں",
     "Str.FindReplace.Msg.TitleReplace": "تبدیل کریں",

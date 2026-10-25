@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Theo dõi",
     "Str.Tool.CallStack.Title": "Ngăn xếp lời gọi",
     "Str.Tool.ObjectBrowser.Title": "Trình duyệt đối tượng",
+    "Str.StatusBar.LanguageServerProgress": "Máy chủ ngôn ngữ: {0}",
     "Str.StatusBar.Ready": "Sẵn sàng",
     "Str.FindReplace.Msg.TitleFind": "Tìm kiếm",
     "Str.FindReplace.Msg.TitleReplace": "Thay thế",

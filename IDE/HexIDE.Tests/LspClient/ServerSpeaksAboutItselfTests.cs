@@ -185,7 +185,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
     {
         var client = Substitute.For<ILspClient>();
         var statusBar = Substitute.For<IStatusBarService>();
-        using var sut = new LanguageServerMessageReporter(client, statusBar);
+        using var sut = new LanguageServerMessageReporter(client, statusBar, Substitute.For<HexIDE.Localization.ILocalizationService>());
 
         client.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(
             client, new ShowMessageParams(LspMessageType.Error, "cannot find latexmk"));
@@ -199,7 +199,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
     {
         var client = Substitute.For<ILspClient>();
         var statusBar = Substitute.For<IStatusBarService>();
-        using var sut = new LanguageServerMessageReporter(client, statusBar);
+        using var sut = new LanguageServerMessageReporter(client, statusBar, Substitute.For<HexIDE.Localization.ILocalizationService>());
 
         client.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(
             client, new ShowMessageParams(LspMessageType.Error, "fatal"));
@@ -220,7 +220,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
     {
         var client = Substitute.For<ILspClient>();
         var statusBar = Substitute.For<IStatusBarService>();
-        using var sut = new LanguageServerMessageReporter(client, statusBar);
+        using var sut = new LanguageServerMessageReporter(client, statusBar, Substitute.For<HexIDE.Localization.ILocalizationService>());
 
         client.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(
             client, new ShowMessageParams(LspMessageType.Info, "line one\r\n  line two\n\nline three"));
@@ -234,7 +234,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
     {
         var client = Substitute.For<ILspClient>();
         var statusBar = Substitute.For<IStatusBarService>();
-        using var sut = new LanguageServerMessageReporter(client, statusBar);
+        using var sut = new LanguageServerMessageReporter(client, statusBar, Substitute.For<HexIDE.Localization.ILocalizationService>());
 
         client.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(
             client, new ShowMessageParams(LspMessageType.Info, new string('x', 5000)));
@@ -249,7 +249,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
         // A server sending nothing should not blank the status bar over whatever it was saying.
         var client = Substitute.For<ILspClient>();
         var statusBar = Substitute.For<IStatusBarService>();
-        using var sut = new LanguageServerMessageReporter(client, statusBar);
+        using var sut = new LanguageServerMessageReporter(client, statusBar, Substitute.For<HexIDE.Localization.ILocalizationService>());
 
         client.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(
             client, new ShowMessageParams(LspMessageType.Info, "   \r\n  "));
@@ -262,7 +262,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
     {
         var client = Substitute.For<ILspClient>();
         var statusBar = Substitute.For<IStatusBarService>();
-        var sut = new LanguageServerMessageReporter(client, statusBar);
+        var sut = new LanguageServerMessageReporter(client, statusBar, Substitute.For<HexIDE.Localization.ILocalizationService>());
         sut.Dispose();
 
         client.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(

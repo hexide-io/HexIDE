@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Pantauan",
     "Str.Tool.CallStack.Title": "Tumpukan Pemanggilan",
     "Str.Tool.ObjectBrowser.Title": "Penjelajah Objek",
+    "Str.StatusBar.LanguageServerProgress": "Server bahasa: {0}",
     "Str.StatusBar.Ready": "Siap",
     "Str.FindReplace.Msg.TitleFind": "Cari",
     "Str.FindReplace.Msg.TitleReplace": "Ganti",

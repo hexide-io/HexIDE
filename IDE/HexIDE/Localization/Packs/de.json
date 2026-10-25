@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Überwachung",
     "Str.Tool.CallStack.Title": "Aufrufliste",
     "Str.Tool.ObjectBrowser.Title": "Objektkatalog",
+    "Str.StatusBar.LanguageServerProgress": "Sprachserver: {0}",
     "Str.StatusBar.Ready": "Bereit",
     "Str.FindReplace.Msg.TitleFind": "Suchen",
     "Str.FindReplace.Msg.TitleReplace": "Ersetzen",

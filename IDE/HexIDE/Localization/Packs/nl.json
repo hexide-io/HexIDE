@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Bewakingen",
     "Str.Tool.CallStack.Title": "Aanroepstack",
     "Str.Tool.ObjectBrowser.Title": "Objectbrowser",
+    "Str.StatusBar.LanguageServerProgress": "Taalserver: {0}",
     "Str.StatusBar.Ready": "Gereed",
     "Str.FindReplace.Msg.TitleFind": "Zoeken",
     "Str.FindReplace.Msg.TitleReplace": "Vervangen",

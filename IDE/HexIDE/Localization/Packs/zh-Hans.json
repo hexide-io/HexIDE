@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "监视",
     "Str.Tool.CallStack.Title": "调用堆栈",
     "Str.Tool.ObjectBrowser.Title": "对象浏览器",
+    "Str.StatusBar.LanguageServerProgress": "语言服务器：{0}",
     "Str.StatusBar.Ready": "就绪",
     "Str.FindReplace.Msg.TitleFind": "查找",
     "Str.FindReplace.Msg.TitleReplace": "替换",

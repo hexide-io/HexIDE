@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Контрольные значения",
     "Str.Tool.CallStack.Title": "Стек вызовов",
     "Str.Tool.ObjectBrowser.Title": "Обозреватель объектов",
+    "Str.StatusBar.LanguageServerProgress": "Языковой сервер: {0}",
     "Str.StatusBar.Ready": "Готово",
     "Str.FindReplace.Msg.TitleFind": "Найти",
     "Str.FindReplace.Msg.TitleReplace": "Заменить",

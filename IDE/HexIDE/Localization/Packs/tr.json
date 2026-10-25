@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "İzlemeler",
     "Str.Tool.CallStack.Title": "Çağrı Yığını",
     "Str.Tool.ObjectBrowser.Title": "Nesne Tarayıcısı",
+    "Str.StatusBar.LanguageServerProgress": "Dil sunucusu: {0}",
     "Str.StatusBar.Ready": "Hazır",
     "Str.FindReplace.Msg.TitleFind": "Bul",
     "Str.FindReplace.Msg.TitleReplace": "Değiştir",

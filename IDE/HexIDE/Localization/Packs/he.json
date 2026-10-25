@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "מעקבים",
     "Str.Tool.CallStack.Title": "מחסנית קריאות",
     "Str.Tool.ObjectBrowser.Title": "דפדפן אובייקטים",
+    "Str.StatusBar.LanguageServerProgress": "שרת שפה: {0}",
     "Str.StatusBar.Ready": "מוכן",
     "Str.FindReplace.Msg.TitleFind": "חיפוש",
     "Str.FindReplace.Msg.TitleReplace": "החלפה",

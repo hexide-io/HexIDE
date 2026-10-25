@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Language-server work progress** (#360): attached servers can create progress tokens and report
+  indexing in the status bar. Progress finishes immediately on end or disconnect; titles and messages
+  are flattened and capped, with a localized prefix in every shipped language.
+
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
   The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on

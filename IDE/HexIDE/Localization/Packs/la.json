@@ -695,6 +695,7 @@
     "Str.Tool.Watches.Title": "Observationes",
     "Str.Tool.CallStack.Title": "Acervus Vocationum",
     "Str.Tool.ObjectBrowser.Title": "Explorator Obiectorum",
+    "Str.StatusBar.LanguageServerProgress": "Minister linguae: {0}",
     "Str.StatusBar.Ready": "Paratus",
     "Str.StatusBar.FileReloaded": "{0} renovata",
     "Str.FindReplace.Msg.TitleFind": "Invenire",

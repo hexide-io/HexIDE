@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Czujki",
     "Str.Tool.CallStack.Title": "Stos wywołań",
     "Str.Tool.ObjectBrowser.Title": "Przegladarka obiektow",
+    "Str.StatusBar.LanguageServerProgress": "Serwer językowy: {0}",
     "Str.StatusBar.Ready": "Gotowe",
     "Str.FindReplace.Msg.TitleFind": "Znajdź",
     "Str.FindReplace.Msg.TitleReplace": "Zamień",

@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "조사식",
     "Str.Tool.CallStack.Title": "호출 스택",
     "Str.Tool.ObjectBrowser.Title": "개체 찾아보기",
+    "Str.StatusBar.LanguageServerProgress": "언어 서버: {0}",
     "Str.StatusBar.Ready": "준비",
     "Str.FindReplace.Msg.TitleFind": "찾기",
     "Str.FindReplace.Msg.TitleReplace": "바꾸기",

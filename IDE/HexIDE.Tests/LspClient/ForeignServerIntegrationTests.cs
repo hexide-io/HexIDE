@@ -30,6 +30,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     private const string SloppyMarkdown = "##Heading without a space\n\n\n\nsome text\n\n\n";
 
     private LspClientRegistry? _registry;
+    private string? _progressWorkspace;
 
     /// <summary>
     /// The wire, recorded, so a failure here can say what happened rather than only what did not.
@@ -48,7 +49,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     /// A registry holding one connection to the foreign server, claiming Markdown. No VB6 server — this
     /// isolates the foreign path so a failure cannot be masked by ours answering instead.
     /// </summary>
-    private LspClientRegistry ForeignMarkdownRegistry()
+    private LspClientRegistry ForeignMarkdownRegistry(ILspWorkspace? workspace = null)
     {
         // No locator, mocked or otherwise. The transport is told what to launch, which is the whole point:
         // a locator that answers "where is THE server" cannot describe a second one, so faking it was the
@@ -66,7 +67,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
                 new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
                 loggerFactory.CreateLogger<VBLspClient>(),
                 ForeignServer.Markdown.LanguageId,
-                capture: _capture, connectionId: "foreign.markdown"));
+                capture: _capture, connectionId: "foreign.markdown", workspace: workspace));
 
         _registry = new LspClientRegistry([registration], loggerFactory.CreateLogger<LspClientRegistry>());
         return _registry;
@@ -306,6 +307,45 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         }
     }
 
+    [ForeignServerFact]
+    public async Task UnpromptedInboundMethodsAreAccountedForAndProgressIsDelivered()
+    {
+        // Current rumdl indexes only when given a workspace; a document alone emits no progress.
+        _progressWorkspace = Directory.CreateTempSubdirectory("hexide-progress-").FullName;
+        File.WriteAllText(Path.Combine(_progressWorkspace, "README.md"), SloppyMarkdown);
+        var workspace = Substitute.For<ILspWorkspace>();
+        workspace.Directory.Returns(_progressWorkspace);
+        workspace.Folders.Returns([new LspWorkspaceFolder("progress", _progressWorkspace)]);
+        var sut = ForeignMarkdownRegistry(workspace);
+        var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        sut.ProgressReceived += (_, p) =>
+        {
+            if (p.Value.Kind == "end") ended.TrySetResult();
+        };
+        await sut.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
+        try { await ended.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
+        catch (TimeoutException)
+        {
+            await _capture.DrainAsync();
+            throw new InvalidOperationException("No progress end arrived. The conversation was: " +
+                string.Join(" | ", _capture.Snapshot().Select(e =>
+                    $"{e.Direction} {e.Kind} {e.Method} {e.Outcome} {e.Detail}".Trim())));
+        }
+        await _capture.DrainAsync();
+
+        var methods = _capture.Snapshot("foreign.markdown")
+            .Where(e => e.Direction == ConversationDirection.Received &&
+                e.Kind is ConversationEntryKind.Request or ConversationEntryKind.Notification)
+            .Select(e => e.Method).Distinct().ToArray();
+        methods.Should().Contain("$/progress");
+        methods.Should().OnlyContain(m => new[]
+        {
+            "$/progress", "window/workDoneProgress/create", "client/registerCapability",
+            "client/unregisterCapability", "textDocument/publishDiagnostics", "window/logMessage",
+            "window/showMessage", "$/logTrace", "workspace/diagnostic/refresh",
+        }.Contains(m), "a new unsolicited method needs an explicit handling decision");
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_registry is not null)
@@ -313,6 +353,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             try { await _registry.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
 
+        if (_progressWorkspace is not null) Directory.Delete(_progressWorkspace, recursive: true);
         await _capture.DisposeAsync();
     }
 }

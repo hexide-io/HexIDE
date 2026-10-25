@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Bevakningar",
     "Str.Tool.CallStack.Title": "Anropsstack",
     "Str.Tool.ObjectBrowser.Title": "Objektläsare",
+    "Str.StatusBar.LanguageServerProgress": "Språkserver: {0}",
     "Str.StatusBar.Ready": "Klar",
     "Str.FindReplace.Msg.TitleFind": "Sök",
     "Str.FindReplace.Msg.TitleReplace": "Ersätt",

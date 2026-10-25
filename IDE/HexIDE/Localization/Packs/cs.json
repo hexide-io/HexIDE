@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Sledování",
     "Str.Tool.CallStack.Title": "Zásobník volání",
     "Str.Tool.ObjectBrowser.Title": "Prohlížeč objektů",
+    "Str.StatusBar.LanguageServerProgress": "Jazykový server: {0}",
     "Str.StatusBar.Ready": "Připraveno",
     "Str.FindReplace.Msg.TitleFind": "Najít",
     "Str.FindReplace.Msg.TitleReplace": "Nahradit",

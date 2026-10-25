@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "Παρακολουθήσεις",
     "Str.Tool.CallStack.Title": "Στοίβα κλήσεων",
     "Str.Tool.ObjectBrowser.Title": "Περιήγηση αντικειμένων",
+    "Str.StatusBar.LanguageServerProgress": "Διακομιστής γλώσσας: {0}",
     "Str.StatusBar.Ready": "Έτοιμο",
     "Str.FindReplace.Msg.TitleFind": "Εύρεση",
     "Str.FindReplace.Msg.TitleReplace": "Αντικατάσταση",

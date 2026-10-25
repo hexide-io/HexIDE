@@ -695,6 +695,7 @@
     "Str.Tool.Watches.Title": "Observoj",
     "Str.Tool.CallStack.Title": "Voka Stako",
     "Str.Tool.ObjectBrowser.Title": "Objekta Foliumilo",
+    "Str.StatusBar.LanguageServerProgress": "Lingva servilo: {0}",
     "Str.StatusBar.Ready": "Preta",
     "Str.StatusBar.FileReloaded": "Reŝargita {0}",
     "Str.FindReplace.Msg.TitleFind": "Trovi",

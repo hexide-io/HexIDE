@@ -696,6 +696,7 @@
     "Str.Tool.Watches.Title": "دیده‌بان‌ها",
     "Str.Tool.CallStack.Title": "پشته فراخوانی",
     "Str.Tool.ObjectBrowser.Title": "مرورگر اشیاء",
+    "Str.StatusBar.LanguageServerProgress": "سرور زبان: {0}",
     "Str.StatusBar.Ready": "آماده",
     "Str.FindReplace.Msg.TitleFind": "یافتن",
     "Str.FindReplace.Msg.TitleReplace": "جایگزینی",
