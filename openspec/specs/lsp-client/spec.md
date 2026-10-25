@@ -610,7 +610,9 @@ ambiguous it SHALL be offered only to servers whose claim establishes VB6: one t
 no other language uses — every VB6 source extension but `.cls` — or that declares the identifier `vb6`.
 Stated as "an extension no other language uses", the rule would be met by any server claiming any extension
 of its own, which is the opposite of its purpose. A file the project carries is not
-known to be VB6, and SHALL be routed by its extension alone. The alternative costs a started process and the
+known to be VB6, and SHALL be routed by its extension, except that a VB6 entry SHALL receive a carried
+`.cls` only when its first non-blank line equals `VERSION 1.0 CLASS` case-insensitively. This content
+claim SHALL be recorded on open or reload and retained through edits until the next open. The alternative costs a started process and the
 developer's source sent to a server with nothing to say about it, for every class module in the project.
 
 #### Scenario: Two servers claim the same language
@@ -630,6 +632,11 @@ developer's source sent to a server with nothing to say about it, for every clas
 - **GIVEN** the same server entry
 - **WHEN** a `.cls` file the project carries is opened
 - **THEN** that server receives it
+
+#### Scenario: A carried LaTeX class does not reach VB6
+- **WHEN** a carried `.cls` opens without `VERSION 1.0 CLASS` as its first non-blank line
+- **THEN** VB6 entries do not receive it, while other extension claimants still do
+- **AND** editing the signature does not change routing until it is reopened
 
 ### Requirement: Features that cannot combine SHALL select one server by stable identity
 Where combining answers is meaningless — formatting a document, or renaming a symbol — the IDE SHALL select
