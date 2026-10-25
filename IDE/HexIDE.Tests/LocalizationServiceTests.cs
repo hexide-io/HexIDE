@@ -218,6 +218,8 @@ public class LocalizationServiceTests
 
         sut.ActiveLanguage.Should().Be("ar");
         sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);   // neutral ar declares direction:"rtl"
+        Application.Current!.Resources.TryGetResource(LocalizationService.FlowDirectionKey, null, out var direction).Should().BeTrue();
+        direction.Should().Be(FlowDirection.RightToLeft, "a menu opened from code reads the language's direction from here (#1944)");
         var file = sut.GetString("Str.Menu.File");
         file.Should().NotBe("_File");        // actually translated to Arabic
         file.Should().NotContain("_");       // mnemonics omitted for Arabic

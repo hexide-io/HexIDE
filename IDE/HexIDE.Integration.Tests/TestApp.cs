@@ -31,6 +31,11 @@ public class TestApp : Application
         {
             Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
         });
+        // As App.axaml does: code reads left to right under a right-to-left language (#1944).
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/CodeDirection.axaml"),
+        });
         // As App.axaml does: access-key captions name their controls without the "_" marker (#578).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
