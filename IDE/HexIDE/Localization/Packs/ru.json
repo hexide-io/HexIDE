@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Прервать",
     "Str.Menu.Run.End": "Завершить",
     "Str.Menu.Run.Restart": "Перезапустить",
-    "Str.Menu.Run.StartWithVB6": "Старт с VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Старт с VB6",
     "Str.Menu.Tools": "Сервис",
     "Str.Menu.Tools.AddProcedure": "Добавить процедуру...",
     "Str.Menu.Tools.ProcedureAttributes": "Атрибуты процедуры...",

@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Dura_klat",
     "Str.Menu.Run.End": "_Bitir",
     "Str.Menu.Run.Restart": "_Yeniden Başlat",
-    "Str.Menu.Run.StartWithVB6": "_VB6 ile Başlat (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "_VB6 ile Başlat",
     "Str.Menu.Tools": "_Araçlar",
     "Str.Menu.Tools.AddProcedure": "_Yordam Ekle...",
     "Str.Menu.Tools.ProcedureAttributes": "Yordam _Öznitelikleri...",

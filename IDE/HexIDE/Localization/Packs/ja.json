@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "中断",
     "Str.Menu.Run.End": "終了",
     "Str.Menu.Run.Restart": "再起動",
-    "Str.Menu.Run.StartWithVB6": "VB6 で開始 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6 で開始",
     "Str.Menu.Tools": "ツール",
     "Str.Menu.Tools.AddProcedure": "プロシージャの追加...",
     "Str.Menu.Tools.ProcedureAttributes": "プロシージャ属性...",
