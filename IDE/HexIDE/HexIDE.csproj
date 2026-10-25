@@ -54,6 +54,7 @@
         <AvaloniaResource Include="Keymaps\Packs\*.json" />
         <None Remove="Localization\Packs\*.json" />
         <AvaloniaResource Include="Localization\Packs\*.json" />
+        <AvaloniaResource Remove="Localization\Packs\zz.json;Localization\Packs\zz-ZZ.json" />
     </ItemGroup>
 
     <ItemGroup>
