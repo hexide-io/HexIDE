@@ -391,7 +391,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Form position preview on screen layout | Done | Live form thumbnail; reacts to StartUpPosition, Left, Top, Width, Height property changes |
+| Form position preview on screen layout | Done | Live form thumbnail with the current form name (including renames); hidden when there is no form to preview or the previewed form is removed. Reacts to StartUpPosition, Left, Top, Width, Height property changes. VB6 empty-project and multiple-form behaviour remains unmeasured (#576) |
 
 ---
 
