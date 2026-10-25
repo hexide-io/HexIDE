@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Alle Prozeduren)",
     "Str.Tool.CallStack.Column.Frame": "Prozedur",
     "Str.Tool.CallStack.Column.Line": "Zeile",
+    "Str.Tool.CallStack.RowName": "{0}, Zeile {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objektkatalog schließen",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektkatalog",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gehe zu Definition",

@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Όλες οι διαδικασίες)",
     "Str.Tool.CallStack.Column.Frame": "Διαδικασία",
     "Str.Tool.CallStack.Column.Line": "Γραμμή",
+    "Str.Tool.CallStack.RowName": "{0}, γραμμή {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Κλείσιμο περιήγησης αντικειμένων",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Περιήγηση αντικειμένων",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Μετάβαση στον ορισμό",

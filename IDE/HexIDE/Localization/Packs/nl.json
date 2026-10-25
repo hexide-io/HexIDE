@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Alle procedures)",
     "Str.Tool.CallStack.Column.Frame": "Procedure",
     "Str.Tool.CallStack.Column.Line": "Regel",
+    "Str.Tool.CallStack.RowName": "{0}, regel {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objectbrowser sluiten",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objectbrowser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Naar definitie gaan",

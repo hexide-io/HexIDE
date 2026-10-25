@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Všechny procedury)",
     "Str.Tool.CallStack.Column.Frame": "Procedura",
     "Str.Tool.CallStack.Column.Line": "Řádek",
+    "Str.Tool.CallStack.RowName": "{0}, řádek {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zavřít prohlížeč objektů",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Prohlížeč objektů",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Přejít na definici",

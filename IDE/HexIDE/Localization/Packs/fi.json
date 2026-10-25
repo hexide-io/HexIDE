@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Kaikki proseduurit)",
     "Str.Tool.CallStack.Column.Frame": "Proseduuri",
     "Str.Tool.CallStack.Column.Line": "Rivi",
+    "Str.Tool.CallStack.RowName": "{0}, rivi {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Sulje objektiselain",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektiselain",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Siirry määritykseen",

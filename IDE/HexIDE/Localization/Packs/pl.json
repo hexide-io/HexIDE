@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Wszystkie procedury)",
     "Str.Tool.CallStack.Column.Frame": "Procedura",
     "Str.Tool.CallStack.Column.Line": "Wiersz",
+    "Str.Tool.CallStack.RowName": "{0}, wiersz {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zamknij Przegladarke obiektow",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Przegladarka obiektow",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Przejdz do definicji",
