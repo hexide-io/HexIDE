@@ -14,6 +14,7 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly SemaphoreSlim _changeGate = new(1, 1);
     // What each source currently says about each document. This connection's server is one source; an
     // external compiler injecting through this client is another, and neither may erase the other.
     private readonly DiagnosticLedger _diagnostics = new();
@@ -404,6 +405,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
 
@@ -810,26 +812,38 @@ public sealed class VBLspClient : ILspClient
 
     public async Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
     {
-        _openDocuments.AddOrUpdate(uri,
-            _ => new TrackedDocument(version, text),
-            (_, tracked) => tracked with { Version = version, Text = text });
-        var rpc = _rpc;
-        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsChanges(_capabilities?.Value)) return;
+        // Keep the version check, tracking and send ordered: a debounce can cross a newer flush (#720).
+        await _changeGate.WaitAsync();
+        try
+        {
+            while (true)
+            {
+                if (_openDocuments.TryGetValue(uri, out var tracked))
+                {
+                    if (version <= tracked.Version) return;
+                    if (_openDocuments.TryUpdate(uri, tracked with { Version = version, Text = text }, tracked)) break;
+                }
+                else if (_openDocuments.TryAdd(uri, new TrackedDocument(version, text))) break;
+            }
+            var rpc = _rpc;
+            if (rpc is null || !_initialized || !ServerCapabilities.AcceptsChanges(_capabilities?.Value)) return;
 
-        // Not until the server has been opened on it. A change to a document it has never heard of is not one a
-        // server can apply, and a foreign server measured here ignores it. The open still to come, from the replay
-        // or from the registry once its last claimant has started, carries this text instead, because it was
-        // tracked above (#719).
-        if (!IsOpenOnThisConnection(uri)) return;
-        var p = new DidChangeTextDocumentParams(
-            new VersionedTextDocumentIdentifier(uri, version),
-            [new TextDocumentContentChangeEvent(text)]);
-        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
-        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
+            // Not until the server has been opened on it. A change to a document it has never heard of is not one a
+            // server can apply, and a foreign server measured here ignores it. The open still to come, from the replay
+            // or from the registry once its last claimant has started, carries this text instead, because it was
+            // tracked above (#719).
+            if (!IsOpenOnThisConnection(uri)) return;
+            var p = new DidChangeTextDocumentParams(
+                new VersionedTextDocumentIdentifier(uri, version),
+                [new TextDocumentContentChangeEvent(text)]);
+            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
+            catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
 
-        // After the notification rather than before it: the answer is supposed to describe the text the
-        // server has just been given, and asking first would describe the text before this edit.
-        PullDiagnosticsInBackground(uri);
+            // After the notification rather than before it: the answer is supposed to describe the text the
+            // server has just been given, and asking first would describe the text before this edit.
+            PullDiagnosticsInBackground(uri);
+        }
+        finally { _changeGate.Release(); }
     }
 
     public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
@@ -1689,15 +1703,23 @@ public sealed class VBLspClient : ILspClient
             // Both take NO parameters (LSP 3.17), and the distinction is not pedantry.
             // `InvokeAsync(name)` is StreamJsonRpc's POSITIONAL overload and puts `"params":[]` on
             // the wire, which rumdl (tower-lsp) and an OmniSharp-based server both REJECT; and
-            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. Only omitting the
+            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. `"params":null` is
+            // rejected too: rumdl 0.2.64 answers -32602, "Unexpected params: null" (#368). Only omitting the
             // member is accepted by every server measured, and it is what the specification and
-            // vscode-languageserver-node send. A null argument object is what omits it.
+            // vscode-languageserver-node send. In the parameter-object overload below, a null argument
+            // object omits the member; JSON null on the wire is not equivalent to absence.
             //
             // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
             // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
             // that we never shut it down, and any supervisor reads every clean exit as a crash.
             // See hexide-io/HexIDE#312.
-            try { await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null); } catch { }
+            // A live but wedged server must not hold IDE shutdown indefinitely (#392).
+            try
+            {
+                await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null)
+                    .WaitAsync(TimeSpan.FromSeconds(2));
+            }
+            catch { }
             try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
         }
         DisposeRpc();
@@ -1709,6 +1731,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
     }
@@ -1743,6 +1766,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
         RaiseStateChanged();
@@ -1841,7 +1865,7 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
-        /// The server's own log output, written through at the severity it declared.
+        /// The server's own log output. Log is retained at Information; Debug goes to Trace.
         ///
         /// <para>
         /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
@@ -2006,9 +2030,8 @@ public sealed class VBLspClient : ILspClient
         /// Maps the protocol's message levels onto the logger's.
         /// </summary>
         /// <remarks>
-        /// <c>Log</c> becomes Debug rather than Information: it is the level a server uses for running
-        /// commentary, and promoting it would bury the two levels that mean something. <c>Debug</c>, added
-        /// in 3.18, is noisier still and goes to Trace.
+        /// <c>Log</c> becomes Information so running commentary reaches the default log.
+        /// <c>Debug</c>, added in 3.18, is noisier and goes to Trace.
         ///
         /// <para>
         /// <b>An unrecognised value goes to Trace, and the arm here previously had that exactly backwards.</b>
@@ -2026,7 +2049,7 @@ public sealed class VBLspClient : ILspClient
             LspMessageType.Error => LogLevel.Error,
             LspMessageType.Warning => LogLevel.Warning,
             LspMessageType.Info => LogLevel.Information,
-            LspMessageType.Log => LogLevel.Debug,
+            LspMessageType.Log => LogLevel.Information,
             LspMessageType.Debug => LogLevel.Trace,
             _ => LogLevel.Trace,
         };
@@ -2155,6 +2178,14 @@ public sealed class VBLspClient : ILspClient
         return false;
     }
 
+    /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
+    public void NotePrioritySkip(string capabilityName, string winnerId)
+    {
+        if (!_prioritySkips.TryAdd(capabilityName, 0)) return;
+        Note(ConversationDirection.Sent, ConversationEntryKind.NeverSent, null,
+            $"not asked: '{winnerId}' has priority for '{capabilityName}'");
+    }
+
     /// <summary>
     /// Says once, at warning, that a wanted capability was not advertised.
     ///
@@ -2202,7 +2233,8 @@ public sealed class VBLspClient : ILspClient
     /// Completion, signature help, highlighting and folding are each driven by a
     /// <see cref="CancellationTokenSource"/> that is replaced on the next keystroke, so a superseded request
     /// throwing <see cref="OperationCanceledException"/> is the design working. Warning on those would emit
-    /// a line per keypress and bury exactly what this exists to surface.
+    /// a line per keypress and bury exactly what this exists to surface. Server replies ContentModified
+    /// (-32801) and RequestCancelled (-32800) are superseded requests too, and keep the warning unspent.
     /// </para>
     ///
     /// <para>
@@ -2214,7 +2246,8 @@ public sealed class VBLspClient : ILspClient
     /// </remarks>
     private void WarnRequestFailedOnce(string method, Exception ex, CancellationToken cancellationToken)
     {
-        if (ex is OperationCanceledException || cancellationToken.IsCancellationRequested)
+        if (ex is OperationCanceledException || cancellationToken.IsCancellationRequested
+            || ex is RemoteInvocationException { ErrorCode: -32801 or -32800 })
         {
             _logger.LogDebug(ex, "{Method} was superseded before it completed", method);
             return;
@@ -2233,6 +2266,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever
     /// <see cref="_warnedCapabilities"/> is, so a reconnect to a different server reports afresh.</summary>

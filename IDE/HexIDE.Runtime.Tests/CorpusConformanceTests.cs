@@ -69,23 +69,6 @@ public class CorpusConformanceTests
         ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
         ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
 
-        // EMPTY-INLINE-IF-BODY (1)
-        //   `If True Then:` with the body on the NEXT line. The colon commits VB6 to the single-line form
-        //   with an EMPTY body, so the construct is complete on that line and the following statement is
-        //   an ordinary one — no End If is wanted or allowed. `inlineIfBody` requires at least one
-        //   blockStmt, so HexIDE has no parse: the inline alternative wants a statement it cannot find,
-        //   and the block alternative wants an END_IF that is not there.
-        //
-        //   Found by inspection rather than by the corpus, in the gap between two cases that DO cover the
-        //   neighbours — `If x Then: <body on the same line>` (legal, and fixed here by making the
-        //   whitespace after THEN optional) and `If x Then:` followed by an End If (illegal, and currently
-        //   a false acceptance under COLON-ENDS-THE-THEN-LINE). Two cases either side and the middle one
-        //   missing, which is how a false rejection hides.
-        //
-        //   Not fixed here because the fix — permitting an empty inlineIfBody — is the same edit as
-        //   COLON-ENDS-THE-THEN-LINE and conflicts with it if done separately. They ship together.
-        ["rem-forms/then-colon-with-the-body-on-the-next-line"] = "EMPTY-INLINE-IF-BODY",
-
         // OTHER-REJECTION (5) — individually caused; see each case's own why in the corpus.
         ["continuation-basics/cont-after-member-dot"] = "OTHER-REJECTION",
         ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "OTHER-REJECTION",

@@ -9,6 +9,178 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## Replies that report or act on a document without taking its name do not say which project's it is — **CLOSED** (#886, 2026-10-24)
+
+**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
+loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
+that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
+group holding a `Form1` in each of two projects:
+
+```
+step_over {}               → "note": "Paused at Form1 line 9 (Step)."
+                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
+get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
+invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
+                             as invoke_designer_redo, get_undo_state and invoke_format_command
+get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
+get_open_editors {}        → each editor's title, and 'activeWindow' as a title
+```
+
+None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
+`project`; the run-control notes beside them do not. A tab's title starts with its project's name
+(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
+the IDE's language, and not the `project` and `document` every naming tool takes and returns.
+
+**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
+lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
+designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
+a name.
+
+**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
+locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
+tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
+Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
+SHALL identify it by its project and its name", is only partly met.
+[#886](https://github.com/hexide-io/HexIDE/issues/886).
+
+
+**Fixed (#886).** Run-control pause notes include the running project; locals and watches replies carry
+`project` (the project in which watch expressions are evaluated). Designer undo state and undo/redo/format
+replies carry `project` and `document`, including refusals after finding a designer. Tab listings carry the
+same identity; `get_open_editors` adds structured `editors` and `activeEditor` alongside its existing titles.
+Activate and close accept `name` with optional `project` through `NamedDocuments`; `type` chooses code or
+designer when both are open. Title addressing remains available for tool tabs, and duplicate matches are
+refused. Headless guards cover the reply shapes and lookup wiring; direct tests cover tab targeting.
+Live verification of focus, close prompts and grouped-project replies remains the supervisor's check.
+
+---
+
+## Every automation route to a new document saves it — **CLOSED** (#502, 2026-10-24)
+
+**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
+the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
+by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
+`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
+into `%TEMP%` before the first tool call
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
+file.
+
+**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
+*ordinary* state: nothing is written until the project is saved. #273 names such a document
+`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
+servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
+through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
+spelling is dead code.
+
+**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
+`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
+`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
+writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
+of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
+
+**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
+which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
+change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
+its lines count from the top of that header. So a line number read before then is out by the header's height after
+it. **Workaround:** read the content again after any designer change or save before using a line number from it.
+Where a created form's first header should come from, so that it holds one from the start, is
+[#885](https://github.com/hexide-io/HexIDE/issues/885).
+
+**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
+leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
+way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
+can reach the state the product will normally be in once #500 lands. Until then, any verification of
+`untitled:` naming through this surface is verifying something the surface itself prevents.
+
+**Fixed.** #500 made `add_file` pathless: its description and reply explain the null path and the Save Project
+pickers. #502 adds `--newproject-unsaved` (also `/newproject-unsaved`), which creates the initial project and
+form without saving. It wins over `--newproject` and a positional path; `--newproject` keeps its existing save.
+For an `untitled:` check launch with `--capture-lsp --newproject-unsaved`, then open Form1's code and inspect
+its `didOpen`. No new VB6 behaviour is inferred: this uses #489's measured no-file state. The initial-header
+limitation above remains open as #885 in the live gaps document.
+
+## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
+→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
+```
+
+Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
+Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
+reference before a command runs, which the form-designer spec requires of the designer. The same goes for
+`remove_from_selection`. Cross-platform by code reading.
+
+**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
+reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
+A snapshot shows the reference with the solid handles.
+
+**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
+removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
+the reference is #928.
+
+**Fixed.** Multi-item selection replies list the primary first and name it as the designer reference for Align
+and Make Same. Removing it reports the replacement. The action description says how to choose it: select it
+first. Headless regression tests cover both selection orders and removal; live designer verification remains
+for the supervising session. Selection semantics (#928) are unchanged.
+
+## No call double-clicks a running form — **CLOSED** (#1389, 2026-10-24)
+
+**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
+the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
+`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
+never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
+with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
+
+**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
+
+**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
+with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
+[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
+
+**Fixed.** `interact {"target":"<a running form>","action":"click","value":"10,5 double"}` sends press,
+release, press and release, with the second press carrying ClickCount 2; `10,5 right double` uses the right button,
+and plain `double` uses the centre. Between clicks it waits for the first release's program work. If the target
+has hidden, closed or detached, the reply says the second click was not sent. The reply names the double click,
+button and coordinates. `double_click` keeps its selection and DoubleTapped behavior for the Project Explorer;
+its reply now names DoubleTapped, says no pointer press was sent, and points to `click` with `double` for DblClick.
+Running-form integration tests pin the vb6.exe event order already recorded in the oracle and #1031's tests.
+
+## A control's path changes when it gains a provider, so a saved path stops resolving as text grows — **CLOSED** (#1436, 2026-10-23)
+
+**Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
+"interactiveOnly":false}`, with `<Imm>` the Immediate window's `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, gave
+`<Imm>/Pane[PART_ScrollViewer]/None` for its text area, and `type_text` on that path worked for three lines. The fourth
+`type_text` on the same path answered `no child matching 'Pane[PART_ScrollViewer]' under '<Imm>'`. A fresh dump showed
+`<Imm>/None[Editor]`, the TextEditor, now with `providers: ["scroll"]`, holding the scroll viewer. The control view hides a
+`None` node with no provider and no focus, and the editor stopped qualifying once its text overflowed.
+
+**Workaround.** Dump again and use the new path; `<Imm>/None[Editor]` takes `type_text` and `press_key` from then on.
+
+**Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
+hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
+[#1436](https://github.com/hexide-io/HexIDE/issues/1436).
+
+**Resolution.** Transparency ignores scrolling, including the synthetic scroll capability a TextEditor gains on
+content overflow. An x:Name alone still collapses; an AutomationId still keeps a wrapper. Range capability is
+read from the peer independently of current usable bounds, so `rangeValue` appearing cannot insert a segment.
+When a missed segment and its remaining path resolve under exactly one immediate control-view child, the refusal
+names that wrapper and the complete corrected path, without acting on it. The tool description states the rule.
+
+**Verification.** Headless production-view census: code editor, Immediate window, ListBox, a populated Properties
+grid with its production templates, and a running VB6 form. Before the change, named and unnamed TextEditor
+paths inserted a `None` segment on overflow, and the wrapper-miss refusal omitted the correction; those regression
+tests failed. The census moved only the overflowed Immediate editor: `None[Editor]` is collapsed, and its 16
+emitted descendants lose that segment, matching their paths before overflow. No paths moved on the other four
+surfaces; the code editor remains a node because its context menu advertises `expandCollapse`. The range regression
+also checks a `None` peer across an unusable-to-usable range. Integration suite: 2,063 passed. IDE unit suite:
+3,273 passed, 28 environment-dependent skips. ToolDescription tests: 31 passed. Debug desktop build: zero warnings.
+Tree hygiene passed. Live MCP verification was not run in this task, which prohibited MCP calls.
+
 ## `invoke_command` on a designer context-menu item looks in the wrong view model — **CLOSED** (#1336, 2026-10-23)
 
 **Symptom.** Recorded when #836 closed (#1271), read in the code and not run. The designer's context flyout binds
@@ -840,8 +1012,9 @@ damage reached a commit before it was spotted in `git diff`.
 
 **Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
 self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+source code of a form" *includes* the `Attribute` header, which is easy to omit when replacing only the
+procedures. VB6 hides it, but HexIDE showed it even before #273 made it part of the folded, read-only
+header. The original entry incorrectly called it invisible in HexIDE's editor. `VB_Name` is load-bearing.
 
 **Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
 use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
@@ -1281,8 +1454,11 @@ and replies with the watch list as if the call had done what was asked.
 >
 > **The entry's premise was partly wrong.** Avalonia's forced `Shutdown` still closes every window, so the
 > main window's `Closing` handler runs and saves window state and layout; it only loses its veto. A failed
-> launch therefore still writes the profile it shares, which is part of #557. No test pins the order in
-> `DesktopStartup` itself; that is #563.
+> launch therefore still writes the profile it shares, which is part of #557.
+>
+> **Regression coverage (#563).** `DesktopStartup` now delegates its posted cleanup to the internal
+> `ForcedExitCleanup` helper. `ForcedExitCleanupTests` pins loader disposal before exit, exit code 3
+> despite cleanup failures, and log closure after exit; deleting or reordering those steps fails the tests.
 
 **Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
 `desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,
@@ -4123,8 +4299,9 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > A reply records the loops running before its action, and counts the program idle only while every walk parked at
 > `DoEvents` was one of them. A loop the action found running is still the program's message loop, wherever the action
 > finds it, between two `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to
-> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at, since a handler
-> waiting there had not looped. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
+> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at: waiting on a
+> window now clears its earlier loop mark (#1318). The original fix covered only handlers with no DoEvents before
+> the window wait. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
 > the limit gets the usual note, naming only what the action set off: "(the program was still running Command1_Click 3s
 > later, so the form may still change)". Walks, not handler names, so a click that re-enters a handler parked under the
 > same name is told apart from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still
@@ -4441,3 +4618,147 @@ button, proving the product path worked.
 **Fix.** Keep target resolution and focus, then deliver raw KeyDown/KeyUp through the window input callback,
 with physical key and symbol metadata. Retain routed delivery when focus or platform input is unavailable,
 and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.
+
+
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+
+**Fixed (#1054).** The shared replacement guard compares member runs even when the header differs. One refusal
+names the header first, then every changed, added or removed member run, with the existing repair guidance.
+`DocumentContentTests` covers all three findings alongside a header change and verifies the document stays unchanged.
+
+## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
+
+**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
+member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
+`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
+Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
+place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
+a change it did not make, with no reason given.
+
+**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
+through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
+`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
+added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
+names `set_file_content` alone.
+
+**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
+re-qualified.
+
+**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
+is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
+
+
+**Fixed (#1043).** The form and module save paths collect the old and new qualifiers they rewrite. All three
+tools append that report to a successful reply’s `note`, explaining that VB6’s own Save writes the member’s
+name. Headless save tests cover both paths; source guards check all three tool replies. Live verification
+remains with the supervising session: on a fresh stale run for each tool, check the note names `Gone` and
+`Total`, and read back `Attribute Total.VB_Description`.
+
+## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
+→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
+interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
+→ opened menu 'ToolsMenuItem'
+```
+
+An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
+carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
+x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
+is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
+Cross-platform by code reading.
+
+**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
+label fallback, but that is read in code and was not tried.
+
+**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
+it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
+[#948](https://github.com/hexide-io/HexIDE/issues/948).
+
+
+**Fixed (#948).** Dumps and inspection now report the peer text as `label` when it differs from `name`.
+Paths keep x:Name and accept the label too; discovery searches include it, and interaction replies use it.
+Four headless regression cases cover these surfaces and failed before the fix. Live verification of the
+IDE menu remains for the supervising session.
+
+## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
+
+**Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
+its run `Attribute Total.VB_UserMemId = 0` folded into the declaration's row, and the caret put at the start of the
+body line below it, offset 790:
+
+```
+interact {"target":".../Custom[Root]","action":"set_property","value":"CaretOffset=790"}
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Back"}
+→ {"success":false,"error":"press_key refused: offset 789 is in the file's header or a member's Attribute lines,
+   which only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place that can be
+   edited starts at offset 790; put the caret there with interact set_property CaretOffset=790. ..."}
+```
+
+The refusal is right: Backspace there would join the body line to the run's last line. The advice is not. Offset
+790 is where the caret already was, so a caller that follows it presses the same key in the same place and is
+refused again, which a first-contact model can loop on. The reply also says "the file's header or a member's
+Attribute lines" although the IDE knows which, and since #273 task 4.5b names the member in an add-in's refusal
+(`GuardedContent.MemberNamedBy`). `type_text` gives the same wording: at offset 766, inside the run, it said
+"header or a member's Attribute lines" and pointed at 790.
+
+**Workaround.** Read the refused offset, not the advice. A backward deletion refused at the start of the line under a
+run has nowhere to go on that line; delete the declaration line whole instead (Ctrl+D, which takes the run with it).
+
+**Suggested fix.** Name the region: "the file's header" or "the Attribute lines describing Total" (`MemberNamedBy`).
+For a deleting key whose span ends at the caret, say that the text before the caret is the run's and that deleting
+the declaration line takes both, rather than pointing at the caret's own offset; keep the "nearest place" advice for
+an insertion or a forward deletion, where it moves the caller somewhere new.
+[#1042](https://github.com/hexide-io/HexIDE/issues/1042).
+
+**Fixed (#1042).** Refusals now name the header or the member through the same name reader as add-in refusals. A deletion ending at the caret explains that the preceding text belongs to that region; for a member, deleting its whole logical declaration removes its Attribute lines too. Insertions and forward deletions retain a new editable offset. Headless editor regressions cover all three cases and fail against the previous wording.
+
+## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+
+**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
+the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
+allow. The tool deletes nothing:
+
+```
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
+→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
+   Nothing was written. ..."}
+```
+
+`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
+deletable segments.
+
+**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
+`SelectionLength`) before pressing the key.
+
+**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
+[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+**Closed (#1055).** Delete and Backspace now reach the real key handler whenever the selection has
+editable segments. AvaloniaEdit's selection replacement asks the installed read-only section provider;
+no automation code computes the deletion. Replies name the protected remainder and report the caret
+and remaining selection. `type_text` uses that replacement API too, placing text in the last deletable
+segment as a person's typing does. Wholly protected spans still refuse with #1042's region wording.
+Verified by headless code-window integration tests, including unchanged protected text and post-edit selection.

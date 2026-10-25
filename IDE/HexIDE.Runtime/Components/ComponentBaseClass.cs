@@ -47,6 +47,7 @@ public abstract class ComponentBaseClass : IComponentClass
 
     public abstract string Name { get; }
     public abstract string VBTypeName { get; }
+    public string ClassName => VBTypeName[(VBTypeName.LastIndexOf('.') + 1)..];
 
     /// <summary>Visible controls (default) have Width/Height/Visible; invisible ones (Timer) override false.</summary>
     public virtual bool IsVisual => true;
@@ -113,9 +114,17 @@ public abstract class ComponentBaseClass : IComponentClass
 
     protected abstract Control InstantiateInternal(ComponentInstance instance);
 
+    /// <summary>
+    /// The control the designer draws, where VB6's designer draws a control differently from the running one: a Dropdown
+    /// List shows its name in its box (#1604). Otherwise the running control.
+    /// </summary>
+    public virtual Control InstantiateForDesigner(ComponentInstance instance) => Instantiate(instance);
+
     public Control Instantiate(ComponentInstance instance)
     {
         var control = InstantiateInternal(instance);
+        if (instance.TryGetProperty(MousePointerProperty, out var mousePointer))
+            AttachedProperties.SetMousePointer(control, mousePointer);
         // Disabled by its own Enabled, or by what it is: a UserControl whose .ctl saved Enabled = False is disabled wherever
         // it is placed, and the extender has no Enabled of its own (measured, #1101).
         control.IsEnabled = control.IsEnabled && instance.GetPropertyOrDefault(EnabledProperty);

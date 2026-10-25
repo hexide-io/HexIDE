@@ -139,6 +139,7 @@ public partial class VB6BuiltIns
     internal sealed class IntrinsicArgumentValues(int capacity) : List<Vb6Value>(capacity)
     {
         internal HashSet<int> Omitted { get; } = new();
+        internal long? LenVariableSize { get; set; }
 
         internal void AddArgument(Vb6Value value, bool omitted)
         {

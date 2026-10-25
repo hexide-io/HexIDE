@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using HexIDE.Runtime.ProjectElements;
 using Path = System.IO.Path;
@@ -57,17 +58,12 @@ public class ProjectSerializer
             knownKeyCount++;
         }
 
-        // KEY ORDER IS VB6'S, and it is load-bearing rather than cosmetic.
-        //
-        // VB6 writes Type, then References, then Objects, then the items, then Startup, then Name. This
-        // used to write Name first and References last, which is wrong twice over: the file comes back
-        // reordered, AND the unknown-line interleaving above silently misaligns. PositionHint is counted
-        // while READING, in file order — "how many known keys came before this unknown line" — so it only
-        // puts a line back in the right place if the writer visits the known keys in that same order.
-        // With Name written first, every hint was off by one from the start.
-        //
-        // `Object=` lines are unknown keys, and they land between Reference and Form by their hints alone.
-        WriteKnownLine($"{SerializedProject.TypeKey}={ProjectTypeToString(project.ProjectType)}");
+        // The template order is the default for new lines and projects with no read slots. Existing lines
+        // return to their read slots: VB6 also writes Form before Reference (measured, #855).
+        var lines = new List<(string Text, int? Slot)>();
+        void AddKnownLine(string line, int? slot = null) => lines.Add((line, slot));
+
+        AddKnownLine($"{SerializedProject.TypeKey}={ProjectTypeToString(project.ProjectType)}");
 
         foreach (var r in project.References)
         {
@@ -80,7 +76,7 @@ public class ProjectSerializer
             // path wherever the type library has not moved.
             var libPath = keptFrom is null ? r.LibPath ?? "" : SerializedProject.RebasePath(r.LibPath ?? "", keptFrom, writtenIn);
             var refName = r.Name ?? "";
-            WriteKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
+            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
         }
 
         foreach (var form in project.Forms)
@@ -89,7 +85,7 @@ public class ProjectSerializer
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, formPath));
-            WriteKnownLine($"{SerializedProject.FormKey}={relativePath}");
+            AddKnownLine($"{SerializedProject.FormKey}={relativePath}");
         }
 
         foreach (var module in project.Modules)
@@ -115,7 +111,7 @@ public class ProjectSerializer
             // loop above writes the path alone. Writing the `Name; File` shape for all four kinds here is
             // what HexIDE did until #483, which made every project it saved that held a UserControl or a
             // PropertyPage unopenable in VB6.
-            WriteKnownLine(module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
+            AddKnownLine(module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
                 ? $"{key}={relativePath}"
                 : $"{key}={module.Name}; {relativePath}");
         }
@@ -127,25 +123,18 @@ public class ProjectSerializer
         // written back as the line it arrived on, byte for byte: reclassifying is an inference about what
         // the developer meant, and rewriting their project file on an inference is a bigger liberty than
         // declining to. The line changes only when membership actually changes.
-        //
-        // Known trade, and it is deliberate: a reclassified line originally interleaved between two
-        // `Module=` lines re-emits after them, so such a file round-trips semantically rather than
-        // byte-for-byte. Preserving its exact slot needs a per-item ordinal the project model does not
-        // carry. Worth naming rather than hiding — but note the file this affects is corrupted outright
-        // today (an `Attribute VB_Name` header prepended to it on any Save Project), so a reordered line is
-        // a long way up from where it starts.
         foreach (var document in project.RelatedDocuments)
         {
             if (document.OriginalItemLine is { } original)
             {
-                WriteKnownLine(Kept(original));
+                AddKnownLine(Kept(original), document.OriginalItemSlot);
                 continue;
             }
             if (document.AbsolutePath == null)
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, document.AbsolutePath));
-            WriteKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}");
+            AddKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}");
         }
 
         // Preserved item lines (unsupported UserDocuments, missing-file forms): emit verbatim so the
@@ -156,8 +145,9 @@ public class ProjectSerializer
         // is merely unmodelled), so a writer that skips the counter leaves every unknown line after it one
         // position out. ActiveX Document Dll.vbp is the corpus case: its Name= came back ahead of the
         // HelpFile= and Command32= lines that had preceded it.
-        foreach (var preserved in project.PreservedItemLines)
-            WriteKnownLine(Kept(preserved));
+        for (var i = 0; i < project.PreservedItemLines.Count; i++)
+            AddKnownLine(Kept(project.PreservedItemLines[i]),
+                project.PreservedItemLineSlots.TryGetValue(i, out var slot) ? slot : null);
 
         // Startup form name survives even when the form itself couldn't be loaded (missing .frm), so the
         // Startup= line is never dropped. The live StartupForm (if any) takes precedence over the fallback.
@@ -173,19 +163,49 @@ public class ProjectSerializer
             ? SerializedProject.SubMainStartup
             : project.StartupForm?.Name ?? project.StartupFormName;
         if (!string.IsNullOrEmpty(startupName))
-            WriteKnownLine($"{SerializedProject.StartupKey}=\"{startupName.Replace("\"", "\"\"")}\"");
+            AddKnownLine($"{SerializedProject.StartupKey}=\"{startupName.Replace("\"", "\"\"")}\"");
 
-        // Name last of the known keys, which is where VB6 puts it: after Startup, and before the trailing
-        // run of unknowns (HelpContextID, CompatibleMode, MajorVer …) that the interleaving places by hint.
-        WriteKnownLine($"{SerializedProject.NameKey}=\"{(project.Name ?? "").Replace("\"", "\"\"")}\"");
+        // Name follows Startup in the default sequence; read slots can put either elsewhere.
+        AddKnownLine($"{SerializedProject.NameKey}=\"{(project.Name ?? "").Replace("\"", "\"\"")}\"");
 
         // After Name, as a known key, so it lands where VB6 writes it: HelpContextID, which VB6 writes between the two, is an
         // unknown line counted before it, and CompatibleMode, which follows it, one counted after (#42). Not written when
         // there is no description, as VB6 writes none. A file read with none has a slot made for it after HelpContextID
-        // (ProjectDeserializer.MakeRoomForDescription), which works only because this is the LAST known key: written into
-        // that slot, it raises the count past what the reader counted, and a known key written after it would be misplaced.
+        // (ProjectDeserializer.MakeRoomForDescription), splitting the trailing unknown run when a description is added.
         if (!string.IsNullOrEmpty(project.Description))
-            WriteKnownLine($"{SerializedProject.DescriptionKey}=\"{project.Description.Replace("\"", "\"\"")}\"");
+            AddKnownLine($"{SerializedProject.DescriptionKey}=\"{project.Description.Replace("\"", "\"\"")}\"");
+
+        // Reserve kept/reclassified entries first, so an earlier missing Form cannot trade slots with a
+        // loaded one. All other lines take the next unclaimed slot of their key, including renamed items.
+        var claimed = new bool[project.KnownLineKeys.Count];
+        var slots = new int?[lines.Count];
+        for (var i = 0; i < lines.Count; i++)
+            if (lines[i].Slot is { } slot && slot >= 0 && slot < claimed.Length && !claimed[slot])
+            {
+                slots[i] = slot;
+                claimed[slot] = true;
+            }
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (slots[i] is not null)
+                continue;
+            var key = lines[i].Text.Split('=', 2)[0];
+            for (var slot = 0; slot < claimed.Length; slot++)
+                if (!claimed[slot] && key.Equals(project.KnownLineKeys[slot], StringComparison.OrdinalIgnoreCase))
+                {
+                    slots[i] = slot;
+                    claimed[slot] = true;
+                    break;
+                }
+        }
+        var order = Enumerable.Range(0, lines.Count).Where(i => slots[i] is not null)
+            .OrderBy(i => slots[i]).ToList();
+        // New lines follow their predecessor in today's generation sequence; removed slots simply vanish.
+        for (var i = 0; i < lines.Count; i++)
+            if (slots[i] is null)
+                order.Insert(i == 0 ? 0 : order.IndexOf(i - 1) + 1, i);
+        foreach (var i in order)
+            WriteKnownLine(lines[i].Text);
 
         // Emit any remaining unknown lines that appeared after all known keys
         while (unknownIdx < unknowns.Count)

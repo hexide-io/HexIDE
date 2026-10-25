@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using AvaloniaEdit;
+using AvaloniaEdit.Editing;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -126,11 +127,11 @@ public class ResetPromptTests : IDisposable
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static void Press(TextEditor editor, Key key)
+    private static void Press(TextEditor editor, Key key, KeyModifiers modifiers = KeyModifiers.None)
     {
         editor.TextArea.RaiseEvent(new KeyEventArgs
         {
-            RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = KeyModifiers.None,
+            RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers,
         });
         Dispatcher.UIThread.RunJobs();
     }
@@ -225,6 +226,44 @@ public class ResetPromptTests : IDisposable
         Prompts().Should().Be(1);
     }
 
+    [AvaloniaTheory]
+    [InlineData(Key.D)]
+    [InlineData(Key.Back)]
+    [InlineData(Key.Delete)]
+    public void LibraryDeletionWhileRunningAsksToReset(Key key)
+    {
+        var vm = OpenForm();
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        editor.CaretOffset = InCode(vm) + (key == Key.Back ? "Unload".Length : 0);
+        var gesture = key == Key.D
+            ? AvaloniaEditCommands.DeleteLine.Gesture!
+            : editor.TextArea.DefaultInputHandler.Editing.KeyBindings.First(b =>
+                b.Command == (key == Key.Back ? EditingCommands.DeletePreviousWord : EditingCommands.DeleteNextWord)).Gesture!;
+
+        Press(editor, gesture.Key, gesture.KeyModifiers);
+
+        vm.Document.Text.Should().NotContain("Unload Me", "the deletion must actually land");
+        Prompts().Should().Be(1);
+        Answer(MessageBoxResult.No);
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void DeleteLineInTheHeaderWhileRunningDoesNotAsk()
+    {
+        var vm = OpenForm();
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        editor.CaretOffset = InHeader(vm);
+        var gesture = AvaloniaEditCommands.DeleteLine.Gesture!;
+
+        Press(editor, gesture.Key, gesture.KeyModifiers);
+
+        vm.Document.Text.Should().Be(before);
+        Prompts().Should().Be(0);
+    }
+
     [AvaloniaFact]
     public void BackspaceAtTheStartOfTheCodeWhileRunningDoesNotAsk()
     {
@@ -291,12 +330,43 @@ public class ResetPromptTests : IDisposable
         Prompts().Should().Be(0);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void DeleteWithNoSelectionDeletesTheNextCharacter(bool viaCommand, bool running)
+    {
+        debugController.IsSessionActive.Returns(running);
+        var vm = OpenForm();
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var offset = InCode(vm) + 2;
+        editor.CaretOffset = offset;
+
+        if (viaCommand)
+        {
+            ((CodeEditorView)windows[^1].Content!).Delete.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+        }
+        else
+            Press(editor, Key.Delete);
+
+        vm.Document.Text.Should().Be(before.Remove(offset, 1));
+        editor.CaretOffset.Should().Be(offset);
+        Prompts().Should().Be(running ? 1 : 0);
+        if (running)
+            Answer(MessageBoxResult.No);
+        else
+            editor.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
     public void DeletingASelectionInCodeWhileRunningAsksToReset()
     {
         // Delete is bound to the code window's Delete command, which takes the key before the text area sees it,
-        // so the key handler that asked never ran for it. The command deletes a selection; with nothing selected
-        // it deletes nothing at all, so the test selects.
+        // so the command must arm the reset prompt itself.
         var vm = OpenForm();
         var editor = Show(vm);
         editor.Select(InCode(vm), "Unload ".Length);

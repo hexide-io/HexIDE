@@ -13,9 +13,9 @@ namespace HexIDE.Tests.LspClient;
 /// What <c>shutdown</c> and <c>exit</c> look like on the wire.
 ///
 /// <para>
-/// LSP 3.17 defines both as taking <b>no parameters</b>, and the three ways of expressing "nothing" are not
-/// interchangeable to a real server. Measured against the three foreign servers this suite drives, and
-/// against a fourth, externally-authored one:
+/// LSP 3.17 defines both as taking <b>no parameters</b>, and the four ways of expressing "nothing" are not
+/// interchangeable to a real server. Measured against foreign servers this suite drives and an
+/// externally-authored one (hexide-io/HexIDE#312, #368):
 /// </para>
 ///
 /// <list type="table">
@@ -24,6 +24,9 @@ namespace HexIDE.Tests.LspClient;
 ///   overload.</description></item>
 /// <item><description><c>"params":{}</c> — REJECTED by rumdl. This is what <c>EmptyParams.Instance</c>
 ///   sends.</description></item>
+/// <item><description><c>"params":null</c> — REJECTED by rumdl 0.2.64 with <c>-32602</c>,
+///   <c>Unexpected params: null</c>. A null argument object in StreamJsonRpc's parameter-object overload
+///   omits the member; it does not send JSON null.</description></item>
 /// <item><description>member omitted — accepted by every server measured, and what the specification and
 ///   <c>vscode-languageserver-node</c> send.</description></item>
 /// </list>
@@ -39,7 +42,9 @@ namespace HexIDE.Tests.LspClient;
 /// <para>
 /// <b>Why a raw framing server rather than a <c>JsonRpc</c> one.</b> A <c>[JsonRpcMethod]</c> handler is
 /// told its arguments were bound; it cannot report whether <c>params</c> arrived as <c>[]</c>, as
-/// <c>{}</c>, or not at all — which is the entire question. This reads the bytes.
+/// <c>{}</c>, as <c>null</c>, or not at all — which is the entire question. This reads the bytes.
+/// The existing absence assertions reject all three present spellings; accepting null or empty
+/// parameters instead would weaken the guard.
 /// </para>
 /// </summary>
 public class ShutdownWireShapeTests : IAsyncDisposable
@@ -78,9 +83,12 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         }
     }
 
-    private async Task<VBLspClient> ConnectedAsync()
+    private ILspTransport? _transport;
+
+    private async Task<VBLspClient> ConnectedAsync(bool answerShutdown = true)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        _disposables.Add(serverSide);
 
         // A minimal server, spoken by hand. It answers initialize and shutdown so the client's own
         // sequence completes, records everything, and interprets nothing.
@@ -105,6 +113,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
                     if (!doc.RootElement.TryGetProperty("id", out var id)) continue;   // notification
 
+                    if (m.GetString() == "shutdown" && !answerShutdown) continue;
+
                     // Built by concatenation rather than an interpolated raw literal: the initialize
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
@@ -117,9 +127,10 @@ public class ShutdownWireShapeTests : IAsyncDisposable
             }
             catch (OperationCanceledException) { /* the test finished */ }
             catch (IOException) { /* the client hung up */ }
+            catch (ObjectDisposedException) { /* the test finished */ }
         }, _cts.Token);
 
-        var transport = Substitute.For<ILspTransport>();
+        var transport = _transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
@@ -190,6 +201,21 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         }
 
         methods.Should().Equal(["shutdown", "exit"]);
+    }
+
+    [Fact]
+    public async Task AnUnansweredShutdownStillSendsExitAndDisposesTheTransport()
+    {
+        var client = await ConnectedAsync(answerShutdown: false);
+
+        await client.StopAsync().WaitAsync(TimeSpan.FromSeconds(5), _cts.Token);
+        await ExitArrivedAsync();
+
+        FrameFor("shutdown").TryGetProperty("params", out _).Should().BeFalse();
+        var exit = FrameFor("exit");
+        exit.ValueKind.Should().NotBe(JsonValueKind.Undefined);
+        exit.TryGetProperty("params", out _).Should().BeFalse();
+        await _transport!.Received(1).DisposeAsync();
     }
 
     // ---- LSP framing, by hand ------------------------------------------------------------------

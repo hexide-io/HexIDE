@@ -26,6 +26,14 @@ behaves consistently instead of having a separate set of rules inside one region
 - **WHEN** several documents are open
 - **THEN** each has its own tab and the developer switches between them by selecting one
 
+### Requirement: Docked content SHALL remain fully opaque
+The IDE SHALL disable Dock's content-reveal animation before creating any dock controls, so presenting
+documents and tools again does not leave their contents semi-transparent.
+
+#### Scenario: Consecutive pane switches
+- **WHEN** the developer switches document tabs or tool panes twice consecutively
+- **THEN** every deferred content control and presenter in the active document and tool pane has opacity 1 after each switch
+
 ### Requirement: Opening an already-open document SHALL activate it
 Where a document is already open, opening it again SHALL bring its existing tab to the front rather than
 creating a second one.

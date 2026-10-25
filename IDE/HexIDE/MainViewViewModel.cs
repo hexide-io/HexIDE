@@ -7,6 +7,7 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
@@ -20,6 +21,7 @@ using HexIDE.Localization;
 using HexIDE.Themes;
 using HexIDE.Projects;
 using HexIDE.Runtime;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -102,6 +104,9 @@ public partial class MainViewViewModel : ObservableObject
         private set => SetProperty(ref _layout, value);
     }
 
+    public DelegateCommand SaveFormCommand { get; }
+    public DelegateCommand SaveFormAsCommand { get; }
+
     public DelegateCommand StartDefaultProjectCommand { get; }
     public DelegateCommand StartExternalDebugCommand { get; }
     public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
@@ -135,6 +140,16 @@ public partial class MainViewViewModel : ObservableObject
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
 
+    private void UpdateRunState()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(WindowTitle));
+        if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
+            StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
+        else
+            StatusBar.ClearMessage();
+    }
+
     public string Title
     {
         get
@@ -142,8 +157,10 @@ public partial class MainViewViewModel : ObservableObject
             var prefix = projectManager.CurrentGroup?.Name
                       ?? FocusedProjectUtil.FocusedOrStartupProject?.Name;
             return prefix == null
-                ? "HexIDE [design]"
-                : $"{prefix} - HexIDE " + (projectRunnerService.IsRunning ? "[run]" : "[design]");
+                ? localization.GetString("Str.MainWindow.NoProjectTitle")
+                : $"{prefix} - HexIDE " + localization.GetString(debugController.State == DebugState.Paused
+                    ? "Str.MainWindow.BreakTag"
+                    : projectRunnerService.IsRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
         }
     }
 
@@ -743,6 +760,8 @@ public partial class MainViewViewModel : ObservableObject
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info => RevealBreak(info.Module);
         StatusBar = statusBarService;
+        debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
+        debugController.Continued += () => Dispatcher.UIThread.Post(UpdateRunState);
         ToolBox = toolBox;
         Properties = properties;
         Immediate = immediate;
@@ -769,7 +788,7 @@ public partial class MainViewViewModel : ObservableObject
         // debounce changes ~400ms, and listen for programmatic open/close. Mouse-driven changes
         // (splitter resize, drag-dock) are funnelled in by the view via ScheduleLayoutSave().
         _layoutSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-        _layoutSaveTimer.Tick += (_, _) => FlushLayoutSaveDebounced();
+        _layoutSaveTimer.Tick += (_, _) => LoggedTimerCallback.Run("dock-layout save", FlushLayoutSaveDebounced);
         _lastSavedLayoutJson = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         dockFactory.LayoutChanged += ScheduleLayoutSave;
 
@@ -868,6 +887,11 @@ public partial class MainViewViewModel : ObservableObject
                     editorService.NavigateTo(location.Uri, location.Line, 1);
             };
         }
+
+        SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
+            () => FocusedProjectUtil.FocusedForm != null);
+        SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
+            () => FocusedProjectUtil.FocusedForm != null);
 
         // F5 doubles as Continue in break mode (VB6 semantics): resume if paused, otherwise start.
         StartDefaultProjectCommand = new DelegateCommand(
@@ -970,12 +994,7 @@ public partial class MainViewViewModel : ObservableObject
             .Subscribe(_ =>
             {
                 StartExternalDebugCommand.RaiseCanExecutedChanged();
-                OnPropertyChanged(nameof(Title));
-                OnPropertyChanged(nameof(WindowTitle));
-                if (projectRunnerService.IsRunning)
-                    StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
-                else
-                    StatusBar.ClearMessage();
+                UpdateRunState();
             });
 
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
@@ -1010,13 +1029,20 @@ public partial class MainViewViewModel : ObservableObject
 
         // The Save/Remove "<form>" headers depend on the focused form, not just the project.
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedForm)
-            .Subscribe(_ => RaiseDynamicMenuHeaders());
+            .Subscribe(_ =>
+            {
+                RaiseDynamicMenuHeaders();
+                SaveFormCommand.RaiseCanExecutedChanged();
+                SaveFormAsCommand.RaiseCanExecutedChanged();
+                CommandManager.InvalidateRequerySuggested();
+            });
 
         // Re-localize every code-built header live when the language changes.
         localization.LanguageChanged += () =>
         {
             RaiseDynamicMenuHeaders();
             UpdateUndoHeaders();
+            UpdateRunState();
         };
 
         // Options → Language → Customize commits-and-closes the modal dialog, then publishes this event so
@@ -1071,6 +1097,21 @@ public partial class MainViewViewModel : ObservableObject
     {
         Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
         NYI();
+    }
+
+    private void SaveActiveForm(bool saveAs)
+    {
+        // Use the document's save path so form code keeps format-on-save.
+        if (documentDockService.ActiveDocument is FormEditViewModel designer)
+        {
+            if (saveAs) designer.SaveFormAs();
+            else designer.SaveForm();
+        }
+        else if (documentDockService.ActiveDocument is CodeEditorViewModel code)
+        {
+            if (saveAs) code.SaveFormAs();
+            else code.SaveForm();
+        }
     }
 
     public void SaveProject() => projectService.SaveAllProjects(false).ListenErrors();

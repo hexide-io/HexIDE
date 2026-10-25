@@ -64,7 +64,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// no client is up is still what the re-open sends. Routed-path-only bookkeeping would re-open the
     /// document with the text from before that change and silently undo it.
     /// </param>
-    private sealed record OpenDocument(bool IsProjectMember, string Text);
+    /// <param name="HasVb6ClassHeader">The content claim at open, retained through edits.</param>
+    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader);
 
     /// <summary>
     /// Serialises workspace-move handling. Without it two opens can both pass the
@@ -233,7 +234,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // And recorded before the restart below, not after it, so that a change made while the restart stops
         // the old servers has a record to land in. No connection can hold it then, and the open at the end
         // sends what this records (#719).
-        _open[uri] = new OpenDocument(isProjectMember, text);
+        _open[uri] = new OpenDocument(isProjectMember, text,
+            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text));
 
         // Before anything starts or is used: a server told about one project must not go on serving
         // another. This document is named so the replay inside can skip it — it is opened below either
@@ -323,7 +325,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Asking only the top-priority claimant is what makes a second server attached to `.bas` an addition
     // rather than a corruption of what was already working.
     public Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "documentSymbolProvider") is { } c
+        TopClaimantAdvertising(uri, "documentSymbolProvider") is { } c
             ? c.RequestDocumentSymbolsAsync(uri, ct)
             : Task.FromResult<DocumentSymbol[]>([]);
 
@@ -332,7 +334,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // not merely a duplicate — it can take out folding for the whole document behind the debug-level
     // catch that wraps the update.
     public Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "foldingRangeProvider") is { } c
+        TopClaimantAdvertising(uri, "foldingRangeProvider") is { } c
             ? c.RequestFoldingRangesAsync(uri, ct)
             : Task.FromResult<FoldingRange[]>([]);
 
@@ -365,10 +367,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
     public Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+        TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
 
     public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.
@@ -550,6 +552,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     // ── Routing ─────────────────────────────────────────────────────────────────────────────────────
 
+    private static bool HasVb6ClassHeader(string text)
+    {
+        using var reader = new StringReader(text);
+        while (reader.ReadLine() is { } line)
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+                return line.Equals("VERSION 1.0 CLASS", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
+
     /// <summary>
     /// Every server that claims this document. Keyed on the EXTENSION, not on a language name, so two
     /// servers claiming one extension are both offered it even when they disagree about what to call it.
@@ -568,6 +581,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
         return _entries
             .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            // A carried class keeps its opening content claim through edits and server restarts (#279).
+            .Where(e => isProjectMember || extension != ".cls"
+                        || !DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId)
+                        || uri is not null && _open.TryGetValue(uri, out var record) && record.HasVb6ClassHeader)
             .Where(e => !isProjectMember
                         || DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId))
             .ToList();
@@ -590,9 +607,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// server with no formatter would silently block a lower one that has it. That is also how the
     /// established editor ecosystem behaves — its formatter conflict prompt lists only formatters.
     /// </summary>
-    private ILspClient? SoleClaimantFor(string? uri, string capability) =>
-        StartedClaimantsFor(uri)
-            .FirstOrDefault(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability));
+    private ILspClient? TopClaimantAdvertising(string? uri, string capability)
+    {
+        var advertisers = StartedClaimantsFor(uri)
+            .Where(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability)).ToList();
+        if (advertisers.Count == 0) return null;
+
+        var winner = advertisers[0];
+        foreach (var skipped in advertisers.Skip(1))
+            skipped.NotePrioritySkip(capability, OwnerOf(winner));
+        return winner;
+    }
 
     private async Task<T[]> GatherAsync<T>(string uri, Func<ILspClient, Task<T[]>> call)
     {
@@ -626,9 +651,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </para>
     ///
     /// <para>
-    /// Checked when a document opens rather than driven by a project event, because that is the moment the
-    /// answer matters and it keeps this layer free of the project model. A workspace nobody has asked
-    /// anything of costs nothing by being stale.
+    /// Checked on project saves and startup-project changes as well as document opens.
     /// </para>
     ///
     /// <para>
@@ -637,6 +660,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// cost paid repeatedly.
     /// </para>
     /// </summary>
+    public Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) =>
+        RestartIfWorkspaceMovedAsync(null, cancellationToken);
+
     private async Task RestartIfWorkspaceMovedAsync(string? triggeringUri, CancellationToken cancellationToken)
     {
         if (_workspace is null) return;

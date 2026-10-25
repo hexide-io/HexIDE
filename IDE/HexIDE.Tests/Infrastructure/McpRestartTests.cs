@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using HexIDE.Desktop.Server;
@@ -24,7 +26,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It did not, through two mechanisms, both of which come from the SDK's default transport being stateful:
+/// It did not, through two mechanisms, both of which come from the SDK's 1.x default transport being stateful:
 /// </para>
 /// <list type="bullet">
 /// <item><b>The session.</b> <c>initialize</c> issues an <c>Mcp-Session-Id</c> that every later request carries,
@@ -90,7 +92,7 @@ public class McpRestartTests
 
     /// <summary>
     /// A server built as <c>IdeServer</c> builds its own: Kestrel on loopback, the transport configured as given,
-    /// and the filter that explains a failing tool (#603).
+    /// the loopback gate, and the filter that explains a failing tool (#603).
     /// </summary>
     private static async Task<WebApplication> StartAsync(int port, Action<HttpServerTransportOptions> transport)
     {
@@ -102,6 +104,8 @@ public class McpRestartTests
             .WithHttpTransport(transport)
             .WithTools<Tools>(ReplyJson.Options), null);
         var app = builder.Build();
+        app.UseLoopbackOnly(port);
+        app.MapGet("/health", () => "ok");
         app.MapMcp("/mcp");
         await app.StartAsync(TestContext.Current.CancellationToken);
         return app;
@@ -140,6 +144,90 @@ public class McpRestartTests
 
     private static async Task<string> EchoAsync(McpClient client, string text) =>
         TextOf(await CallAsync(client, "echo", text));
+
+    [Theory]
+    [InlineData("POST", "/mcp", "evil.example", null)]
+    [InlineData("POST", "/mcp", "localhost", "http://evil.example")]
+    [InlineData("GET", "/health", "evil.example", null)]
+    public async Task A_foreign_host_or_origin_is_refused_before_the_endpoint(
+        string method, string path, string host, string? origin)
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var http = new HttpClient();
+            using var request = new HttpRequestMessage(new HttpMethod(method), $"http://localhost:{port}{path}");
+            request.Headers.Host = $"{host}:{port}";
+            if (origin is not null)
+                request.Headers.Add("Origin", origin);
+
+            using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task A_loopback_host_reaches_the_health_endpoint()
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var http = new HttpClient();
+            using var response = await http.GetAsync($"http://localhost:{port}/health", TestContext.Current.CancellationToken);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Be("ok");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task Discovery_advertises_the_sessionless_protocol_without_initializing()
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var http = new HttpClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:{port}/mcp");
+            request.Headers.Accept.ParseAdd("application/json, text/event-stream");
+            request.Headers.Add("MCP-Protocol-Version", "2026-07-28");
+            request.Headers.Add("Mcp-Method", "server/discover");
+            request.Content = new StringContent(
+                """
+                {"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{},
+                  "io.modelcontextprotocol/clientInfo":{"name":"HexIDE.Tests","version":"1"}
+                }}}
+                """,
+                Encoding.UTF8, "application/json");
+
+            using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+            var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+            response.Headers.Contains("Mcp-Session-Id").Should().BeFalse();
+            var json = response.Content.Headers.ContentType?.MediaType == "text/event-stream"
+                ? body.ReplaceLineEndings("\n").Split('\n').Single(line => line.StartsWith("data: "))[6..]
+                : body;
+            using var reply = JsonDocument.Parse(json);
+            reply.RootElement.TryGetProperty("error", out _).Should().BeFalse(json);
+            reply.RootElement.GetProperty("result").GetProperty("supportedVersions")
+                .EnumerateArray().Select(version => version.GetString()).Should().Contain("2026-07-28");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
 
     [Fact]
     public async Task A_client_attached_before_a_restart_is_answered_after_it()
@@ -478,6 +566,7 @@ public class McpRestartTests
         // was started for, and reports that session in /health.
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
             .And.MatchRegex(@"ToolFilters\.Register\([\s\S]*?ReplyJson\.Options\), session\)")
+            .And.Contain("app.UseLoopbackOnly(port);")
             .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");

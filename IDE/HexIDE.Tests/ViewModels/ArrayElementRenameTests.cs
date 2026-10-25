@@ -58,6 +58,7 @@ public class ArrayElementRenameTests
 
     public ArrayElementRenameTests()
     {
+        _loc.GetString("Str.Naming.Msg.NameNotUniqueInForm").Returns("Name must be unique in form");
         _loc.GetString("Str.Naming.Msg.NotAVb6Name").Returns("'{0}' is not a VB6 name");
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         _form = new FormDeserializer().Deserialize(project, Frm, new NullSink())!;
