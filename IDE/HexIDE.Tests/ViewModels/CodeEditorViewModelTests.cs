@@ -86,6 +86,53 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Initialization — Form ────────────────────────────────────────
 
+    [AvaloniaTheory]
+    [InlineData(false, "Form")]
+    [InlineData(true, "UserControl")]
+    public void RootEventEntry_UsesHandlerPrefix(bool userControl, string prefix)
+    {
+        var control = CreateUserControl();
+        control.FormPart!.UpdateRootTypeName("VB.UserControl");
+        var vm = userControl
+            ? CreateSut().Initialize(control)
+            : CreateSut().Initialize(TestHelpers.CreateForm(name: "MainForm"));
+
+        vm.ObjectNames.Should().Equal("(General)", prefix);
+        vm.SelectedObject = prefix;
+        vm.ProcedureNames.Should().Contain("Click");
+        vm.SelectedProcedure = "Click";
+        vm.BufferBody.Should().Contain($"Private Sub {prefix}_Click()");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Load")]
+    [InlineData("Resize")]
+    public void FormLifecycleEntry_WritesHandler(string eventName)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "MainForm"));
+        vm.SelectedObject = "Form";
+
+        vm.ProcedureNames.Should().Contain(eventName);
+        vm.SelectedProcedure = eventName;
+        vm.BufferBody.Should().Contain($"Private Sub Form_{eventName}()");
+    }
+
+    [AvaloniaFact]
+    public void FormLoadEntry_NavigatesToExistingHandler()
+    {
+        var form = TestHelpers.CreateForm(name: "MainForm");
+        form.UpdateCode("Private Sub Form_Load()\r\nEnd Sub\r\n");
+        var vm = CreateSut().Initialize(form);
+        var before = vm.Document.Text;
+        vm.SelectedObject = "Form";
+        vm.SelectedProcedure = "Load";
+
+        vm.Document.Text.Should().Be(before);
+        vm.CaretOffset.Should().Be(vm.Document.GetLineByOffset(
+            before.IndexOf("Private Sub Form_Load()", StringComparison.Ordinal)).EndOffset);
+        vm.ProcedureNames.Should().Contain("Load");
+    }
+
     [AvaloniaFact]
     public void Initialize_Form_SetsFormDefinition()
     {

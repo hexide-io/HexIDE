@@ -58,15 +58,23 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
 | `transport` | yes | `stdio`, `pipe` or `websocket`. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
-| `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
+| `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
+| `environment` | no | Map of environment variable names to string values, layered over the inherited environment for a launched stdio or pipe server. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
 | `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
+| `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
+
+Use the array form when quoting matters: `"arguments": ["host", "server --stdio"]` passes two arguments
+exactly as written, including spaces, quotes and empty strings. The legacy string form still uses .NET
+command-line parsing. HexIDE launches processes directly, with no shell and no tty; shell expansion and
+interactive SSH prompts are unavailable. Pipe placeholders also work within each array element. Both
+`arguments` and `environment` may be omitted or null.
 
 ### Extensions serve; the identifier names
 
@@ -235,6 +243,9 @@ indefinitely and silently.
 
 The **arguments are part of the command's identity**, not just the executable: `node` is harmless, and
 `node /tmp/something.js` is whatever that script says.
+So is the `environment`: `NODE_OPTIONS`, `LD_PRELOAD` or `PATH` change what the same command line runs,
+so adding or changing a variable is announced too. Reordering them is not, and an entry with none keeps
+the identity it had before.
 
 This applies to a `pipe` entry that carries a `command` exactly as it does to a `stdio` one. What
 decides it is whether HexIDE starts a process, not which transport the entry names — a pipe it merely
@@ -276,3 +287,19 @@ In order of likelihood:
   and a per-project file is written by whoever wrote the project.
 - **Discovery of servers already installed.** Nothing scans your machine for language servers.
 - **A user interface.** Today this file is the whole of it.
+
+For an incoming WebSocket, set `"websocketRole": "listen"` and an endpoint with a trailing slash
+(e.g. `ws://localhost:1234/lsp/`). HexIDE owns that HTTP listener until teardown and accepts one
+WebSocket connection per establishment attempt, with a ten-second timeout. A reconnect listens again.
+Listening uses the platform HTTP listener: Windows may require a URL reservation for the configured
+HTTP prefix, and `wss` requires an HTTPS certificate binding. Failure to bind, upgrade or accept is reported
+as a connection failure.
+
+**HexIDE listens on this machine only.** Whatever dials in is taken as the language server, and a language
+server can edit the document, so the endpoint must be `localhost`, `127.0.0.1` or `[::1]`; any other host is
+refused before anything is bound, and a server on another machine is reached with `connect` instead. A dial
+from another address is refused, and so is one carrying an `Origin` header: a browser sends one on every
+WebSocket handshake and a language server sends none, and a WebSocket is outside the browser's same-origin
+policy, so without that check any page open in a browser could dial the IDE first. A refused dial is logged,
+and the IDE goes on listening for the real server. There is still no authentication: another program on this
+machine can dial in.

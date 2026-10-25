@@ -415,6 +415,7 @@ public partial class CodeEditorView : UserControl
             // Apply tab width from settings
             TextEditor.Options.IndentationSize = vm.Settings.TabWidth;
             TextEditor.Options.ConvertTabsToSpaces = true;
+            TextEditor.Options.AllowToggleOverstrikeMode = true;
 
             // Push initial cursor position to status bar
             var caret = TextEditor.TextArea.Caret;
@@ -1557,6 +1558,7 @@ public partial class CodeEditorView : UserControl
             // Over a selection, Enter writes over it, as typing does and as Shift+Enter did (#1040): the selection goes,
             // and the line break goes where it was, as one change. Typing is not a deletion, so a described line's run is
             // not taken with it. A selection reaching a region only the IDE may change takes nothing, as typing there does.
+            var newline = DocumentNewLines.Of(TextEditor.Document.Text);
             using (TextEditor.Document.RunUpdate())
             {
                 var removed = false;
@@ -1595,12 +1597,12 @@ public partial class CodeEditorView : UserControl
                     TextEditor.TextArea.Selection.ReplaceSelectionWithText(string.Empty);
                     removed = true;
                 }
-                if (HandleEnterAutoClose())
+                if (HandleEnterAutoClose(newline))
                     e.Handled = true;
                 else if (removed)
                 {
                     // Auto-close failed: the line break still goes in this change, not as the editor's second one.
-                    TextEditor.Document.Insert(TextEditor.CaretOffset, "\n");
+                    TextEditor.Document.Insert(TextEditor.CaretOffset, newline);
                     e.Handled = true;
                 }
             }
@@ -1629,7 +1631,12 @@ public partial class CodeEditorView : UserControl
     /// Ends the step <see cref="OnEditorKeyDown"/> noted, once the key has been handled, whoever handled it (#273 task
     /// 4.3 review).
     /// </summary>
-    private void OnEditorKeyHandled(object? sender, KeyEventArgs e) => _stepRightFrom = -1;
+    private void OnEditorKeyHandled(object? sender, KeyEventArgs e)
+    {
+        _stepRightFrom = -1;
+        if (e.Key == Key.Insert && DataContext is CodeEditorViewModel vm)
+            vm.StatusBar.InsertMode = !TextEditor.TextArea.OverstrikeMode;
+    }
 
     /// <summary>
     /// Handles Enter key press: if the current logical line is a VB6 block opener,
@@ -1646,7 +1653,7 @@ public partial class CodeEditorView : UserControl
     /// looser one, which would take a declaration ending in a name like <c>Total_</c> for one continuing into the run,
     /// and break the line at the caret.
     /// </remarks>
-    private bool HandleEnterAutoClose()
+    private bool HandleEnterAutoClose(string newline)
     {
         try
         {
@@ -1678,7 +1685,7 @@ public partial class CodeEditorView : UserControl
             if (textAfterCaret.Trim().Length > 0)
             {
                 Log.Debug("[auto-close] Caret not at end of line, text after: '{TextAfter}'", textAfterCaret);
-                InsertNewlineWithIndent(doc, caretOffset, currentLineText);
+                InsertNewlineWithIndent(doc, caretOffset, currentLineText, newline);
                 return true;
             }
 
@@ -1687,7 +1694,7 @@ public partial class CodeEditorView : UserControl
             if (run is null && VbAutoCloseProvider.IsContinuationLine(currentLineText))
             {
                 Log.Debug("[auto-close] Continuation line, auto-indent only");
-                InsertNewlineWithIndent(doc, caretOffset, currentLineText);
+                InsertNewlineWithIndent(doc, caretOffset, currentLineText, newline);
                 return true;
             }
 
@@ -1756,7 +1763,7 @@ public partial class CodeEditorView : UserControl
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
                 var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent);
                 var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
-                var insertText = addCloser ? "\n" + bodyIndent + "\n" + indent + closer : "\n" + indent;
+                var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
                 // After the run: the provider places it, writing each line break as the described line's own. The
                 // caret goes to the end of the new line, or to the body line between the declaration and the closer.
@@ -1780,7 +1787,7 @@ public partial class CodeEditorView : UserControl
                         indent, insertText.Replace("\n", "\\n"));
 
                     doc.Insert(adjustedCaretOffset, insertText);
-                    caret.Offset = adjustedCaretOffset + 1 + bodyIndent.Length;
+                    caret.Offset = adjustedCaretOffset + newline.Length + bodyIndent.Length;
                 }
             }
             finally
@@ -1797,10 +1804,10 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    private void InsertNewlineWithIndent(TextDocument doc, int caretOffset, string currentLineText)
+    private void InsertNewlineWithIndent(TextDocument doc, int caretOffset, string currentLineText, string newline)
     {
         var indent = VbAutoCloseProvider.GetIndentation(currentLineText);
-        var insertText = "\n" + indent;
+        var insertText = newline + indent;
         doc.Insert(caretOffset, insertText);
         TextEditor.TextArea.Caret.Offset = caretOffset + insertText.Length;
     }
@@ -2317,7 +2324,7 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var newName = await vm.ShowInputBoxAsync("New name:", "Rename", oldName);
+            var newName = await vm.ShowRenameInputBoxAsync(oldName);
             if (newName is null || newName == oldName) return;
             // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
             // answer is refused with the rest rather than taken for Cancel, which answers null.

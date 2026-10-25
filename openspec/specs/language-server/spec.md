@@ -48,6 +48,14 @@ intention.
 - **WHEN** a different language backend is placed behind the seam
 - **THEN** it serves the IDE without any change to the IDE, provided it honours the contract below
 
+### Requirement: Syntax diagnostics SHALL name whitespace-only offending tokens
+The server SHALL describe a whitespace-only offending token as `end of line` in mismatched-input,
+extraneous-input and no-viable-alternative diagnostics.
+
+#### Scenario: An expression is unfinished at the end of a line
+- **WHEN** a newline is the offending token in an unfinished expression
+- **THEN** the diagnostic names `end of line` rather than displaying empty quotes
+
 ### Requirement: The server SHALL publish an empty diagnostic set when a document closes
 On being notified that a document closed, the server SHALL publish diagnostics for that document with an
 empty set, rather than publishing nothing.
@@ -136,6 +144,16 @@ nobody committed to maintaining, and it would make the seam harder to hand over 
 #### Scenario: Checking for undeclared variables
 - **WHEN** the undeclared-variable check runs without a symbol table covering intrinsics, controls and project types
 - **THEN** it is disabled by default, because it cannot distinguish an undeclared variable from a name it simply cannot see
+
+The retained scope analyzer SHALL exclude the names collected from the current form's designer header,
+the class and module names explicitly listed by its single owning `.vbp`, and its fixed built-in list
+(including `vbPixels`, #54). This baseline SHALL NOT bind references across files or enable the live
+check. Project names are supplied only when the project lookup is unambiguous and its compilation
+arguments are valid; a document with no owning project has no project baseline.
+
+#### Scenario: A control beside a real undeclared name
+- **WHEN** a form's header declares `Timer0` and `Label2`, and its code uses them alongside an undeclared name
+- **THEN** the directly invoked analyzer excludes those controls and still reports the undeclared name
 
 ### Requirement: The server SHALL advertise exactly the capabilities it implements
 The bundled server's `initialize` result SHALL declare every feature it has a live handler for, and SHALL

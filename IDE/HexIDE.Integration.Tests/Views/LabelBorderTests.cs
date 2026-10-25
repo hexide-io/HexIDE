@@ -18,7 +18,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// Appearance 3D is a sunken edge two pixels deep: shadow over dark shadow along the top and left, highlight under light
 /// along the bottom and right. Flat is one pixel of window frame. The BackColor fills what is left.
 /// </summary>
-public class LabelBorderTests
+public class LabelBorderTests : WindowTestFixture
 {
     // The probe's Labels: 20 pixels square, 300 twips, and grey or red.
     private const string Form = """

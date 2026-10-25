@@ -70,6 +70,17 @@ public class ConfiguredServerTests : IDisposable
     }
 
     [Fact]
+    public void WebSocketRole_IsRecognisedInConfiguration()
+    {
+        var result = ConfigurationFrom("""
+            {"version":1,"servers":[{"id":"ws","extensions":[".md"],"languageId":"markdown",
+            "transport":"websocket","endpoint":"ws://localhost:1234/","websocketRole":"listen"}]}
+            """);
+        result.Problems.Should().BeEmpty();
+        result.Entries.Should().ContainSingle().Which.WebSocketRole.Should().Be("listen");
+    }
+
+    [Fact]
     public void WithNoFileTheBundledServerIsRegisteredExactlyAsShipped()
     {
         // The case that must never depend on any of this working.
@@ -213,7 +224,7 @@ public class ConfiguredServerTests : IDisposable
             .Should().ContainSingle().Subject;
 
         entry.Command.Should().Be("/somewhere/HexIDE.VbLspServer");
-        entry.Arguments.Should().Be("--flag");
+        entry.Arguments!.Text.Should().Be("--flag");
         entry.WorkingDirectory.Should().BeEmpty(
             "left empty so the transport asks the workspace, and the server runs in whichever project is open");
     }

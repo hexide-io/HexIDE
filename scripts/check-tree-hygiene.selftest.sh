@@ -51,6 +51,16 @@ cd "$(dirname "$0")/.." || exit 2
 GUARD="scripts/check-tree-hygiene.sh"
 FROM="IDE"          # any tracked subdirectory; the guard must cd out of it by itself
 PROBE=".hygiene-selftest"
+DOC_PROBE="docs/zz-selftest-probe.md"
+SCRIPT_PROBE="scripts/check-selftest-probe.sh"
+ROOT_PROBE="zz-selftest-probe.md"
+# These live outside our scratch directory. Never overwrite or clean up somebody else's file.
+for probe in "$DOC_PROBE" "$SCRIPT_PROBE" "$ROOT_PROBE"; do
+  if [ -e "$probe" ] || [ -L "$probe" ]; then
+    echo "check-tree-hygiene.selftest: refusing to overwrite $probe"
+    exit 2
+  fi
+done
 failures=0
 checks=0
 
@@ -60,9 +70,9 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=130
-FAILURES_UNTRACKED=20
-FAILURES_STAGED=22
+EXPECTED_CHECKS=141
+FAILURES_UNTRACKED=23
+FAILURES_STAGED=25
 
 # Built rather than written, so the comparison is against the same bytes the guard emits and this file
 # needs no particular encoding to survive.
@@ -110,7 +120,7 @@ MARK_SPLIT="$(printf '=%.0s' 1 2 3 4 5 6 7)"
 # runs `git add` against the real index, which means an interrupted run leaves no staged files behind.
 STAGED_INDEX="$(mktemp -t hygiene-selftest-index.XXXXXX)"
 
-cleanup() { rm -rf "${PROBE:?}"; rm -f "$STAGED_INDEX"; }
+cleanup() { rm -rf "${PROBE:?}"; rm -f "$DOC_PROBE" "$SCRIPT_PROBE" "$ROOT_PROBE" "$STAGED_INDEX"; }
 trap cleanup EXIT
 trap 'cleanup; exit 130' INT TERM
 rm -rf "${PROBE:?}"
@@ -123,12 +133,31 @@ status=0
 
 # $1 = identity pattern (empty to leave the scan unarmed), $2 = index file (empty for the real one).
 run_guard() {
+  # Emulate Git for Windows' UTF-mode PCRE2 even under Linux's C locale (#1881).
+  # Force the mode for C/D, leaving A/B native to catch Linux continuation-byte hits.
+  if [ "${1:-}" = "$IDENTITY" ]; then
+    git() {
+      local arg utf_next=0
+      local -a args=()
+      for arg in "$@"; do
+        if [ "$utf_next" -eq 1 ]; then
+          case "$arg" in '(*UTF)'*) ;; *) arg="(*UTF)$arg";; esac
+          utf_next=0
+        fi
+        args+=("$arg")
+        [ "$arg" = "-nIP" ] && utf_next=1
+      done
+      command git "${args[@]}"
+    }
+    export -f git
+  fi
   if [ -n "${2:-}" ]; then
     output="$(cd "$FROM" && GIT_INDEX_FILE="$2" HEXIDE_IDENTITY_PATTERN="${1:-}" bash "../$GUARD" 2>&1)"
   else
     output="$(cd "$FROM" && HEXIDE_IDENTITY_PATTERN="${1:-}" bash "../$GUARD" 2>&1)"
   fi
   status=$?
+  unset -f git
 }
 
 seen()   { case "$output" in *"$2"*) ok "$1";; *) bad "$1 - nothing in the guard's output matched: $2";; esac; }
@@ -165,6 +194,9 @@ harness_self_check() {
 # Every probe the C and D runs need. Called twice; the D run stages some of them afterwards.
 plant() {
   mkdir -p "$PROBE"
+  printf 'A note about %s.\n' "$NEIGHBOUR_B" > "$DOC_PROBE"
+  printf '# see %s\n' "$MACHINE_PATH" > "$SCRIPT_PROBE"
+  printf '# planted\n\nSee [nothing](./no-such-file.md).\n' > "$ROOT_PROBE"
   printf 'not a real key\n'                                 > "$PROBE/planted.pem"   # 1a committable
   printf 'not a real key\n'                                 > "$PROBE/planted.key"   # 1a gitignored
   printf 'not a real key\n'                                 > "$PROBE/planted.p12"   # 1a committable
@@ -185,7 +217,7 @@ plant() {
   printf 'A note about %s.\n' "$NEIGHBOUR_C"                > "$PROBE/neighbour3.md"
   printf '%s\nours\n%s\ntheirs\n%s\n' "$MARK_OURS" "$MARK_SPLIT" "$MARK_THEIRS" > "$PROBE/conflict.md" # 8
 
-  printf '\xC2\x80\xC2\x94\xC2\x9F\n'                    > "$PROBE/c1.txt"       # 10, both ends and a mojibake control
+  printf '\xFF\xC2\x80\xC2\x94\xC2\x9F\n'                > "$PROBE/c1.txt"       # 10, both ends, mojibake control, invalid UTF-8
 
   # The three converted scans again, under a name git C-quotes. Each was blind to this until `-z`.
   printf 'not a real key\n'                                 > "$PROBE/$ACCENTED.pem"
@@ -231,6 +263,10 @@ assert_every_scan_reported() {
   seen "1a. ...and sees an accented filename"        "$FAILMARK private key file: $PROBE/$ACCENTED.pem"
   seen "2.  ...and sees an accented filename"        "$FAILMARK build artefact / backup in the tree: $PROBE/$ACCENTED.exe"
   seen "5.  ...and sees an accented filename"        "$FAILMARK dangling relative link: $PROBE/$ACCENTED.md->./no-such-file.md"
+
+  seen "6.  a new doc still needs an explicit allow-list decision" "$FAILMARK third-party project named outside the agreed places: $DOC_PROBE"
+  seen "3.  a new check script is still content-scanned" "$FAILMARK machine-specific absolute path: $SCRIPT_PROBE:1:"
+  seen "5.  root-level Markdown links are checked too" "$FAILMARK dangling relative link: $ROOT_PROBE->./no-such-file.md"
 
   seen "10. C1 control characters FAIL"             "$FAILMARK C1 control character: $PROBE/c1.txt:1:"
 
@@ -284,15 +320,31 @@ echo "B. only material that should WARN"
 # The warn half of the split, which no assertion in a failing run can reach: once anything fails, the exit
 # status is 1 whatever the key scan decided. A maintainer legitimately holds the dev signing key on disk
 # (HexIDE.Desktop.csproj gates on it), so an IGNORED key must warn and still pass.
-mkdir -p "$PROBE"
+mkdir -p "$PROBE/bin"
+printf 'MZ not a real binary\n' > "$PROBE/bin/ignored.exe"
+printf '# planted\n\nSee [nothing](./no-such-file.md).\n' > "$PROBE/bin/ignored.md"
 printf 'not a real key\n' > "$PROBE/planted.key"
 printf '# planted\n\nDerived from %s6, with thanks.\n' "$UPSTREAM" > "$PROBE/attribution.md"
+# Valid punctuation has continuation bytes in the C1 range, but no C1 code points.
+printf '\xE2\x80\x94 \xE2\x80\x9Cquotes\xE2\x80\x9D\n' > "$PROBE/punctuation.txt"
 # A setext heading. Its underline is the bare middle marker of a conflict block, and it must not fail.
 printf 'Planted heading\n%s\n\nText.\n' "$MARK_SPLIT" > "$PROBE/setext.md"
 
+printf 'target\n' > "$PROBE/real.md"
+printf 'target\n' > "$PROBE/real file.md"
+printf '%s\n' '[plain](./real.md)' > "$PROBE/plain-link.md"
+printf '%s\n' '[title](./real.md "Some Title")' > "$PROBE/titled-link.md"
+printf '%s\n' '[angle](<./real file.md>)' > "$PROBE/angle-link.md"
+printf '%s\n' '[escaped](./real%20file.md)' > "$PROBE/escaped-link.md"
+
 run_guard '' ''
+absent "5.  an existing plain destination passes" "$PROBE/plain-link.md->"
+absent "5.  an existing destination with a title passes" "$PROBE/titled-link.md->"
+absent "5.  an existing angle-bracket destination passes" "$PROBE/angle-link.md->"
+absent "5.  an existing percent-escaped destination passes" "$PROBE/escaped-link.md->"
 seen   "a gitignored key is seen and WARNS" "$WARNMARK private key material on disk, gitignored so not committable as things stand: $PROBE/planted.key"
 seen   "the upstream attribution is seen and WARNS" "$WARNMARK $UPSTREAM mentioned"
+absent "gitignored build output stays outside artefact and Markdown scans" "$PROBE/bin/"
 absent "nothing in a warn-only tree is reported as a failure" "$FAILMARK"
 absent "a setext heading underline is not taken for a conflict marker" "unresolved merge-conflict marker"
 seen   "the summary still says OK" "check-tree-hygiene: OK"
@@ -314,7 +366,7 @@ echo "D. the same probes, staged"
 # from the push this guard exists to gate -- and nothing above exercises it, because everything above is
 # untracked. Staged into a private index, so the repository's own is untouched.
 cp "$(git rev-parse --git-path index)" "$STAGED_INDEX"
-GIT_INDEX_FILE="$STAGED_INDEX" git add -f -- "$PROBE" >/dev/null 2>&1
+GIT_INDEX_FILE="$STAGED_INDEX" git add -f -- "$PROBE" "$DOC_PROBE" "$SCRIPT_PROBE" "$ROOT_PROBE" >/dev/null 2>&1
 
 run_guard "$IDENTITY" "$STAGED_INDEX"
 # "fail", not "warn": the severity flip is the assertion. A gitignored key that has been staged is one

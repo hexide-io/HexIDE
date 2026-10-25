@@ -243,6 +243,15 @@ jobs:
       - name: Build HexIDE.Desktop in Release (the configuration the server is absent from)
         run: dotnet build HexIDE.Desktop -f net10.0 -c Release
 
+      - name: Build HexIDE.Standalone in Release
+        run: dotnet build HexIDE.Standalone -f net10.0 -c Release
+
+      - name: Self-test the Release output guard
+        run: bash ../scripts/check-release-output.selftest.sh
+
+      - name: Verify Release excludes the automation server and its dependencies
+        run: bash ../scripts/check-release-output.sh HexIDE.Desktop/bin/Release/net10.0
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4

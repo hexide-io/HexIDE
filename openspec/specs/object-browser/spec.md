@@ -9,12 +9,6 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
-> **Known divergences.** The requirements below state intended behaviour. Three are not currently met — the
-> member list is cached and does not reflect later edits, double-click opens the containing file rather than
-> the member's definition, and Escape does not close the window. Tracked in
-> [#24](https://github.com/hexide-io/HexIDE/issues/24). They are stated as requirements rather than written
-> down to match the code, because the code is wrong here, not the intent.
-
 ## Requirements
 
 ### Requirement: The browser SHALL show everything visible to the project
@@ -175,3 +169,12 @@ points them away from the reason.
 #### Scenario: A search that genuinely finds nothing
 - **WHEN** a capable server is asked and returns no symbols
 - **THEN** the browser says nothing matched, naming the query
+
+### Requirement: Browser inputs and lists have localized automation names
+The library selector, search field, search-results list, class list and member list SHALL expose distinct,
+localized automation names describing their purpose.
+
+#### Scenario: Identifying browser controls
+- **WHEN** a screen reader or automation caller inspects the Object Browser
+- **THEN** each input and list is named in the selected IDE language
+- **AND** the class and member lists can be distinguished without positional indices

@@ -14,6 +14,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
+using HexIDE.Utils;
 
 namespace HexIDE.Automation;
 
@@ -2581,6 +2582,9 @@ public static class UiAutomationDriver
 
             surface.Focus();
 
+            var insertedText = AreaOf(surface) is { } textArea
+                ? DocumentNewLines.Normalize(text, textArea.Document.Text) : text;
+
             // A person's typing writes over a standing selection (#1040), as one change.
             using var change = AreaOf(surface)?.Document.RunUpdate();
 
@@ -2592,7 +2596,7 @@ public static class UiAutomationDriver
             // replacement; its surrounding span is more than the box, so it is not placed past a run (#1040 review).
             if (AreaOf(surface) is { Selection: RectangleSelection { IsEmpty: false } box } boxArea)
             {
-                HexIDE.Forms.Views.CodeEditorView.WriteOverBox(boxArea, box, text);
+                HexIDE.Forms.Views.CodeEditorView.WriteOverBox(boxArea, box, insertedText);
                 return new InteractOutcome(true, TypedMechanism,
                     $"typed {text.Length} char(s) into {surface.GetType().Name}"
                     + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
@@ -2602,7 +2606,7 @@ public static class UiAutomationDriver
             if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
                 && (codeArea.Selection.IsEmpty ? (codeArea.Caret.Offset, 0)
                     : (codeArea.Selection.SurroundingSegment.Offset, codeArea.Selection.SurroundingSegment.Length)) is var (from, span)
-                && window.InsertLineBreakPastRun(from, span, text) is { } placed)
+                && window.InsertLineBreakPastRun(from, span, insertedText) is { } placed)
             {
                 // The replaced text's selection would carry over onto what replaced it, for the next write to go over.
                 codeArea.ClearSelection();
@@ -2626,13 +2630,13 @@ public static class UiAutomationDriver
             {
                 case TextEditor editor:
                     var eo = editor.CaretOffset;
-                    editor.Document.Insert(eo, text);
-                    editor.CaretOffset = eo + text.Length;
+                    editor.Document.Insert(eo, insertedText);
+                    editor.CaretOffset = eo + insertedText.Length;
                     break;
                 case TextArea area:
                     var ao = area.Caret.Offset;
-                    area.Document.Insert(ao, text);
-                    area.Caret.Offset = ao + text.Length;
+                    area.Document.Insert(ao, insertedText);
+                    area.Caret.Offset = ao + insertedText.Length;
                     break;
                 case TextBox textBox:
                     // One assignment, so what is bound to the box sees one change and one undo takes it back.

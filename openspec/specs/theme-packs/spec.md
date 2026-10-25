@@ -80,6 +80,10 @@ one panel that did not change rather than as an error.
 - **WHEN** chrome needs a colour the theme does not define
 - **THEN** a key is added to the definition layer and every theme inherits a default for it
 
+#### Scenario: A form designer without an MDI ancestor
+- **WHEN** a form designer is opened as a Dock document
+- **THEN** its caption bar uses the `ActiveTitleBarBrush` resource resolved at the bar, without an MDI ancestor binding
+
 ### Requirement: Shipped dark packs SHALL declare all mapped colours
 Dark and Abyss SHALL carry every colour key supported by the theme-pack mapping. Their warning banners
 SHALL use dark backgrounds, with foreground contrast of at least 4.5:1 and border contrast of at least 3:1
