@@ -711,6 +711,7 @@
     "Str.StatusBar.LineColumn": "Ln {0}, Col {1}",
     "Str.StatusBar.Insert": "INS",
     "Str.StatusBar.Overtype": "OVR",
+    "Str.StatusBar.LanguageServerProgress": "Language server: {0}",
     "Str.StatusBar.Ready": "Ready",
     "Str.StatusBar.FileReloaded": "Reloaded {0}",
     "Str.FindReplace.Msg.TitleFind": "Find",

@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Brs {0}, Kol {1}",
     "Str.StatusBar.Insert": "SISIP",
     "Str.StatusBar.Overtype": "TIMPA",
+    "Str.StatusBar.LanguageServerProgress": "Server bahasa: {0}",
     "Str.StatusBar.Ready": "Siap",
     "Str.FindReplace.Msg.TitleFind": "Cari",
     "Str.FindReplace.Msg.TitleReplace": "Ganti",

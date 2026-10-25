@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "שורה {0}, עמודה {1}",
     "Str.StatusBar.Insert": "הוספה",
     "Str.StatusBar.Overtype": "דריסה",
+    "Str.StatusBar.LanguageServerProgress": "שרת שפה: {0}",
     "Str.StatusBar.Ready": "מוכן",
     "Str.FindReplace.Msg.TitleFind": "חיפוש",
     "Str.FindReplace.Msg.TitleReplace": "החלפה",

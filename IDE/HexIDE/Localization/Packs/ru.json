@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Стр {0}, Стлб {1}",
     "Str.StatusBar.Insert": "ВСТ",
     "Str.StatusBar.Overtype": "ЗАМ",
+    "Str.StatusBar.LanguageServerProgress": "Языковой сервер: {0}",
     "Str.StatusBar.Ready": "Готово",
     "Str.FindReplace.Msg.TitleFind": "Найти",
     "Str.FindReplace.Msg.TitleReplace": "Заменить",

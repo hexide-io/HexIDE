@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "줄 {0}, 열 {1}",
     "Str.StatusBar.Insert": "삽입",
     "Str.StatusBar.Overtype": "덮어쓰기",
+    "Str.StatusBar.LanguageServerProgress": "언어 서버: {0}",
     "Str.StatusBar.Ready": "준비",
     "Str.FindReplace.Msg.TitleFind": "찾기",
     "Str.FindReplace.Msg.TitleReplace": "바꾸기",

@@ -711,6 +711,7 @@
     "Str.StatusBar.LineColumn": "Lin {0}, Col {1}",
     "Str.StatusBar.Insert": "INS",
     "Str.StatusBar.Overtype": "SUP",
+    "Str.StatusBar.LanguageServerProgress": "Minister linguae: {0}",
     "Str.StatusBar.Ready": "Paratus",
     "Str.StatusBar.FileReloaded": "{0} renovata",
     "Str.FindReplace.Msg.TitleFind": "Invenire",

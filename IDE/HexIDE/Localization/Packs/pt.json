@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Lin {0}, Col {1}",
     "Str.StatusBar.Insert": "INS",
     "Str.StatusBar.Overtype": "SOB",
+    "Str.StatusBar.LanguageServerProgress": "Servidor de linguagem: {0}",
     "Str.StatusBar.Ready": "Pronto",
     "Str.FindReplace.Msg.TitleFind": "Localizar",
     "Str.FindReplace.Msg.TitleReplace": "Substituir",

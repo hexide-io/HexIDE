@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Sat {0}, Süt {1}",
     "Str.StatusBar.Insert": "EKL",
     "Str.StatusBar.Overtype": "ÜZY",
+    "Str.StatusBar.LanguageServerProgress": "Dil sunucusu: {0}",
     "Str.StatusBar.Ready": "Hazır",
     "Str.FindReplace.Msg.TitleFind": "Bul",
     "Str.FindReplace.Msg.TitleReplace": "Değiştir",

@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "سطر {0}، ستون {1}",
     "Str.StatusBar.Insert": "درج",
     "Str.StatusBar.Overtype": "بازنویسی",
+    "Str.StatusBar.LanguageServerProgress": "سرور زبان: {0}",
     "Str.StatusBar.Ready": "آماده",
     "Str.FindReplace.Msg.TitleFind": "یافتن",
     "Str.FindReplace.Msg.TitleReplace": "جایگزینی",

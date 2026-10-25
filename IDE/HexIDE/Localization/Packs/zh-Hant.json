@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "行 {0}，欄 {1}",
     "Str.StatusBar.Insert": "插入",
     "Str.StatusBar.Overtype": "覆寫",
+    "Str.StatusBar.LanguageServerProgress": "語言伺服器：{0}",
     "Str.StatusBar.Ready": "就緒",
     "Str.FindReplace.Msg.TitleFind": "尋找",
     "Str.FindReplace.Msg.TitleReplace": "取代",

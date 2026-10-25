@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Z. {0}, Sp. {1}",
     "Str.StatusBar.Insert": "EINF",
     "Str.StatusBar.Overtype": "ÜB",
+    "Str.StatusBar.LanguageServerProgress": "Sprachserver: {0}",
     "Str.StatusBar.Ready": "Bereit",
     "Str.FindReplace.Msg.TitleFind": "Suchen",
     "Str.FindReplace.Msg.TitleReplace": "Ersetzen",

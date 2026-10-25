@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Dòng {0}, Cột {1}",
     "Str.StatusBar.Insert": "CHÈN",
     "Str.StatusBar.Overtype": "ĐÈ",
+    "Str.StatusBar.LanguageServerProgress": "Máy chủ ngôn ngữ: {0}",
     "Str.StatusBar.Ready": "Sẵn sàng",
     "Str.FindReplace.Msg.TitleFind": "Tìm kiếm",
     "Str.FindReplace.Msg.TitleReplace": "Thay thế",

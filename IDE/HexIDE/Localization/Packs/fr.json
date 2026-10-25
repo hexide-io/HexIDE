@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "Li {0}, Col {1}",
     "Str.StatusBar.Insert": "INS",
     "Str.StatusBar.Overtype": "RFP",
+    "Str.StatusBar.LanguageServerProgress": "Serveur de langage : {0}",
     "Str.StatusBar.Ready": "Prêt",
     "Str.FindReplace.Msg.TitleFind": "Rechercher",
     "Str.FindReplace.Msg.TitleReplace": "Remplacer",

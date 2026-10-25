@@ -712,6 +712,7 @@
     "Str.StatusBar.LineColumn": "سطر {0}، عمود {1}",
     "Str.StatusBar.Insert": "إدراج",
     "Str.StatusBar.Overtype": "استبدال",
+    "Str.StatusBar.LanguageServerProgress": "خادم اللغة: {0}",
     "Str.StatusBar.Ready": "جاهز",
     "Str.FindReplace.Msg.TitleFind": "بحث",
     "Str.FindReplace.Msg.TitleReplace": "استبدال",
