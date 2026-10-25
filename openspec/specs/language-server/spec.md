@@ -107,6 +107,20 @@ producing symbols that do not match the diagnostics beside them.
 - **WHEN** a document changes and both diagnostics and symbols are produced
 - **THEN** both are derived from a single parse of that text
 
+### Requirement: Option prefixes preserve procedure parsing on syntax errors
+The server SHALL retain the same procedure tree and syntax diagnostics for a malformed procedure preceded
+by Option lines as for the same source without those lines, with diagnostic positions shifted accordingly.
+It SHALL continue to accept an options-only module with a trailing colon separator.
+
+#### Scenario: Option Explicit before a broken first procedure
+- **WHEN** Option Explicit directly precedes a Sub containing `x = = 1` and `List0.`
+- **THEN** that Sub remains in the parse tree and document symbols
+- **AND** diagnostics match those without the Option line, shifted down one line
+
+#### Scenario: Options only with a trailing separator
+- **WHEN** a module contains only `Option Explicit:` or `Option Explicit: Option Base 1:`
+- **THEN** no syntax diagnostics are produced
+
 ### Requirement: The server SHALL confine itself to syntactic analysis
 The server SHALL operate on the syntax tree only, and SHALL NOT build a bound semantic model, resolve names
 across documents, or perform project-wide analysis.
@@ -308,6 +322,19 @@ whole file, the code's real errors included, and give no reason why.
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
 - **THEN** there is no answer
+
+### Requirement: Physical line endings
+
+The server SHALL count CR, LF and CRLF as line ends in every position it reads or sends, including files
+with mixed endings. Formatting and protected-region blanking SHALL preserve the original terminators.
+
+#### Scenario: A diagnostic below a lone CR
+- **WHEN** an opened document contains a syntax error after a lone CR
+- **THEN** the published diagnostic uses the same zero-based physical line and character as the editor
+
+#### Scenario: Protected regions in a file with lone CR endings
+- **WHEN** a whole file uses lone CR line endings
+- **THEN** formatting, rename, highlight and diagnostics respect the same header and member-attribute lines as the IDE
 
 ### Requirement: Completion SHALL preserve declaration kinds and unique labels
 The server SHALL return completion labels unique under ordinal case-insensitive comparison, preferring a

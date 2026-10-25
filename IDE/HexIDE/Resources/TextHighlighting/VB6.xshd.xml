@@ -18,7 +18,7 @@
     <Color name="MetadataKeyword" foreground="#CD00CD" />
 
     <!-- Main Rules -->
-    <RuleSet>
+    <RuleSet ignoreCase="true">
         <!-- Comments -->
         <Span color="Comment" begin="'" />
         <Span color="Comment" begin="REM " ignoreCase="true" />

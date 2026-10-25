@@ -338,7 +338,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
     public IBrush ForeColor => instance.GetPropertyOrDefault(VBProperties.ForeColorProperty).ToBrush();
 
     // The root's class is the designer's kind, not the form component every root shares (#1544).
-    public string BaseClassName => instance.BaseClass is FormComponentClass ? parentViewModel.RootClassName : instance.BaseClass.Name;
+    public string BaseClassName => instance.BaseClass is FormComponentClass ? parentViewModel.RootClassName : instance.BaseClass.ClassName;
 
     /// <summary>
     /// The control's name as the automation tools address it: <c>optSize(1)</c> for a control array's element, its bare

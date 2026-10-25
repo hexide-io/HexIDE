@@ -101,6 +101,80 @@ public class UncreatableControlTests
             Dispatcher.UIThread.RunJobs();
     }
 
+    private static string BoundText(string property = "DataSource", bool nested = false)
+    {
+        var text = "   Begin VB.TextBox Text1\r\n"
+            + $"      {property} = \"Data1\"\r\n"
+            + "      DataField = \"Author\"\r\n"
+            + "      Text = \"Text1\"\r\n"
+            + "      Height = 375\r\n      Width = 1215\r\n   End\r\n";
+        return nested ? "   Begin VB.Frame Frame1\r\n      Height = 2000\r\n      Width = 3000\r\n"
+            + text + "   End\r\n" : text;
+    }
+
+    [AvaloniaTheory]
+    [InlineData("DataSource", false)]
+    [InlineData("dAtAsOuRcE", false)]
+    [InlineData("DataSource", true)]
+    public void A_bound_control_refuses_the_start_before_Load(string property, bool nested)
+    {
+        var (runner, controller) = Runner();
+        var reported = new List<string>();
+        runner.StartFailed += reported.Add;
+        try
+        {
+            runner.RunProject(Project(Form("Form1", BoundText(property, nested),
+                "Private Sub Form_Load()\r\n    Err.Raise 5\r\nEnd Sub\r\n")));
+
+            reported.Should().ContainSingle().Which.Should().Be(
+                "Form 'Form1' failed: Not implemented yet: HexIDE does not implement data binding: Text1 has DataSource Data1.");
+            runner.IsRunning.Should().BeFalse();
+            runner.RunningProject.Should().BeNull();
+            controller.IsSessionActive.Should().BeFalse();
+        }
+        finally
+        {
+            runner.EndProject();
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_made_program_refuses_a_bound_control()
+    {
+        using var cancel = new CancellationTokenSource();
+        try
+        {
+            Action start = () => _ = VBLoader.RunMadeProgram(Project(Form("Form1", BoundText())), cancel.Token, out _);
+
+            start.Should().Throw<NotImplementedException>()
+                .WithMessage("HexIDE does not implement data binding: Text1 has DataSource Data1.");
+        }
+        finally
+        {
+            cancel.Cancel();
+            Pump();
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_control_with_DataField_alone_still_runs()
+    {
+        var (runner, _) = Runner();
+        var reported = new List<string>();
+        runner.StartFailed += reported.Add;
+        try
+        {
+            runner.RunProject(Project(Form("Form1", BoundText().Replace("      DataSource = \"Data1\"\r\n", ""))));
+
+            reported.Should().BeEmpty();
+            runner.IsRunning.Should().BeTrue();
+        }
+        finally
+        {
+            runner.EndProject();
+        }
+    }
+
     [AvaloniaFact]
     public void A_startup_form_holding_one_does_not_start_and_says_which_control()
     {

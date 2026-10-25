@@ -181,15 +181,16 @@ file that looks correct and is not.
 ### Requirement: A file the IDE will not save SHALL be presented as read-only
 Where the IDE would refuse to save a file, its editing surfaces SHALL be read-only and SHALL state the
 reason, while remaining open for viewing. It SHALL remain runnable unless it holds a control the engine
-cannot create, which is refused when it is run (see `interpreter-core`).
+cannot create or a data-bound control, which is refused when it is run (see `interpreter-core`).
 
 Discovering the refusal at save time means discovering it after the work is done. A developer who has spent
 an hour on a form and is then told it cannot be written has lost the hour — and the refusal, which exists to
 protect them, is what took it. Saying so up front turns the same limitation into something they can plan
 around, and keeping the file viewable and runnable preserves the reason they opened the IDE at all.
 
-The exception is a control the engine cannot create. Running a form without one is running a different program:
-code naming it finds nothing, and a form whose code never names it behaves as if it had never held it. That is a
+The exception is a control the engine cannot create or a data-bound control (#859). Leaving out a control or
+its binding runs a different program: an absent control is not found by code, and an unbound control shows
+its design-time value instead of the current record. That is a
 wrong result rather than a late error, so such a form is refused when it is run, and stays viewable
 (hexide-io/HexIDE#857).
 
@@ -198,11 +199,12 @@ wrong result rather than a late error, so such a form is refused when it is run,
 - **THEN** its editors are read-only and state why
 
 #### Scenario: Running a project containing one
-- **WHEN** a project containing such a file is run, and the file holds no control the engine cannot create
+- **WHEN** a project containing such a file is run, and the file holds neither a control the engine cannot create
+  nor a data-bound control
 - **THEN** it runs
 
 #### Scenario: Running a form holding a control the engine cannot create
-- **WHEN** a project is run whose form holds a control the engine cannot create
+- **WHEN** a project is run whose form holds a control the engine cannot create or a data-bound control
 - **THEN** that form is refused when it is built to run, naming the control, and it can still be opened and viewed
 
 ### Requirement: Round-trip fidelity SHALL be measured against real projects
@@ -630,6 +632,27 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **WHEN** an automation caller sets its content to text containing `→` and saves
 - **THEN** the reply says the save was refused, naming the module, code page 1252 and `→`, and no dialog is shown
 
+### Requirement: Recognised project lines SHALL retain their read order
+
+The writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
+retain its source slot even when its path is rebased. Other lines SHALL take the next unclaimed slot of
+their key, so a renamed form stays in its slot. A line with no remaining slot SHALL follow its predecessor
+in the default writer sequence; unused slots SHALL be omitted. A project with no recorded slots SHALL use
+the default writer sequence. Unknown lines SHALL retain their recognised-line count hints, rather than
+being anchored to slots; adding or removing an item may therefore shift them.
+
+#### Scenario: A form before a reference is renamed
+
+- **GIVEN** a project whose `Form=` line precedes `Reference=`, with an unknown line between them
+- **WHEN** the form is renamed and the project is saved
+- **THEN** the renamed `Form=` line retains its slot before the unknown line and the reference
+
+#### Scenario: A missing form precedes a loaded form
+
+- **GIVEN** two `Form=` lines, the first naming a missing file and the second a loaded form
+- **WHEN** the project is saved, including to another folder
+- **THEN** the missing form's line remains first and both paths name the same files from the destination
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.
@@ -638,6 +661,20 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
   the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
   reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
   original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
-  IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
-  and giving up the model that makes the IDE an editor rather than a text editor.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
+
+### Requirement: Made programs SHALL carry source text independently of the host code page
+
+Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without
+changing the source documents' encodings. The source-encoding refusal before Make SHALL still apply.
+Standalone `--check` SHALL read project and form files with the IDE's source decoder.
+
+#### Scenario: A package made from ANSI sources runs on another code page
+- **WHEN** Make packages source text held in an ANSI document
+- **THEN** each packaged source file declares UTF-8 with a BOM and preserves that text
+- **AND** the original document retains its encoding
+
+#### Scenario: Check reads an ANSI project from disk
+- **WHEN** Standalone checks a project whose project or form files contain ANSI text
+- **THEN** it decodes those files as the IDE does, including UTF-8 BOM declarations

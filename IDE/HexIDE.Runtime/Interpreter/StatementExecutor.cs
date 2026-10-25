@@ -138,6 +138,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // that push, so the paused statement has no temp frame open here to clobber).
                 stmtFrames.Push(new List<Vb6Value>());
                 try { await Visit(assign); }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
                 return string.Empty;
             }
@@ -334,6 +335,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var target = new TextTarget();
         stmtFrames.Push(new List<Vb6Value>());
         try { await PrintList(list, target, _ => { }); }
+        catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
         finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
         var text = target.Text;
         return (text.EndsWith("\r\n", StringComparison.Ordinal) ? text[..^2] : text).Replace("\r\n", "\n");
@@ -444,6 +446,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     ret = await Visit(stmt);
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -614,7 +617,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var name = sub.ambiguousIdentifier().GetText();
             // What the value reads is checked against VB6's rules for a constant expression first (measured).
-            ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
+            await ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
             var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value, fillingConstant: true))
@@ -3520,26 +3523,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitVariableStmt(VB6Parser.VariableStmtContext context)
     {
-        if (context.WITHEVENTS() != null)
-        {
-            // `[Private] WithEvents src As Clock` re-run per-instance at New (a class field): seed each slot to
-            // Nothing (a class-typed object ref). The sink NAME was recorded in the class's PrePass; the sink is
-            // registered when the var is Set. Not added to ownedSlots — fields aren't scope-released.
-            foreach (var sub in context.variableListStmt().variableSubStmt())
-                interpreter.ExecutionContext.AllocVariable(currentEnv, sub.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
-            return default;
-        }
-
         // `Dim`, `Private`, and `Public` module/local declarations all allocate the same way (visibility isn't
         // tracked). Class fields are usually declared `Private`/`Public`. A procedure's `Static` was declared at entry
         // with the rest; outside a procedure it does not compile (measured, #1491).
-        if (context.DIM() != null || context.visibility() != null || Statics is not null)
+        foreach (var subStmt in context.variableListStmt().variableSubStmt())
         {
-            foreach (var subStmt in context.variableListStmt().variableSubStmt())
+            if (subStmt.WITHEVENTS() != null)
+                // Re-seed the field per instance; Set registers the sink recorded by PrePass.
+                interpreter.ExecutionContext.AllocVariable(currentEnv, subStmt.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
+            else if (context.DIM() != null || context.visibility() != null || Statics is not null)
                 await DeclareLocal(subStmt);
+            else
+                throw new VBCompileErrorException("Invalid outside procedure");
         }
-        else
-            throw new VBCompileErrorException("Invalid outside procedure");
 
         return default;
     }
@@ -3576,7 +3572,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     isArray = true;
                     if (ownedSlots == null && subStmt.subscripts() is { } bounds)
-                        ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
+                        await ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
                     dimensions = await ExtractDimensions(subStmt.subscripts());
                     // A dimension whose upper bound is below its lower is "Range has no values", at module and procedure
                     // level, from a literal or a Const (measured: `Dim d(-1)`, `Dim d(1 To N)` with N 0, `Dim d(5, 2 To 1)`).
@@ -4170,9 +4166,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitImplicitCallStmt_InBlock(VB6Parser.ImplicitCallStmt_InBlockContext context) => await base.VisitImplicitCallStmt_InBlock(context);
 
-    public async Task Execute(VB6Parser.BlockContext block)
+    public async Task Execute(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
-        await ExecuteProcedureBody(block);
+        await ExecuteProcedureBody(block, moduleDeclarations);
     }
 
     // Runs a procedure body's TOP-LEVEL statements with an explicit program counter so On Error GoTo <label>,
@@ -4290,7 +4286,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
-    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block)
+    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
         var stmts = block.blockStmt();
         _bodyStmts = stmts;   // Set Next Statement targets this top-level list
@@ -4307,6 +4303,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         while (pc < stmts.Length)
         {
+            // Execute's harness body runs after its declarations, through the same statement/error/debugger loop.
+            if (moduleDeclarations is { } declarations && BasicInterpreter.IsModuleDeclaration(stmts[pc]) != declarations)
+            {
+                pc++;
+                continue;
+            }
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
@@ -4343,6 +4345,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     pc++;
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -4435,13 +4438,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         currentLine = line;
         ErrorLocation.Note(error, currentModule.Name, line);
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
-        return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
+        return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
     // loop, so the innermost statement notes it before a handler or a halt sees it. At the statement's line, where a
     // halt stops; a condition notes its own first (ConditionMet).
-    private bool Locate(Exception error, ParserRuleContext stmt) => ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line);
+    private bool Locate(Exception error, ParserRuleContext stmt)
+    {
+        var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
+            ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
+            : null;
+        return ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line, statement);
+    }
 
     // An error raised in a statement loop's own catch, which that loop's Locate cannot see: at the statement running.
     private T Raised<T>(T error) where T : Exception

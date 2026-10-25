@@ -214,6 +214,19 @@ public class ProjectDeserializer
                 // Unknown key — preserve verbatim for round-trip
                 project.UnknownPreSectionLines.Add((knownKeyCount, trimmed));
             }
+            if (knownKeyCount > project.KnownLineKeys.Count)
+            {
+                var slot = project.KnownLineKeys.Count;
+                project.KnownLineKeys.Add(key);
+                if (project.RelativeFormPaths.Count > project.FormLineSlots.Count)
+                    project.FormLineSlots.Add(slot);
+                if (project.RelativeModulePaths.Count > project.ModuleLineSlots.Count)
+                    project.ModuleLineSlots.Add(slot);
+                if (project.RelativeRelatedDocPaths.Count > project.RelatedDocumentLineSlots.Count)
+                    project.RelatedDocumentLineSlots.Add(slot);
+                if (project.PreservedItemLines.Count > project.PreservedItemLineSlots.Count)
+                    project.PreservedItemLineSlots.Add(slot);
+            }
         }
 
         if (project.Description is null)
@@ -249,6 +262,13 @@ public class ProjectDeserializer
 
 public class SerializedProject
 {
+    // Recognised keys in read order; item lists retain their source slot even if loading reclassifies them.
+    public List<string> KnownLineKeys { get; } = new();
+    public List<int> FormLineSlots { get; } = new();
+    public List<int> ModuleLineSlots { get; } = new();
+    public List<int> RelatedDocumentLineSlots { get; } = new();
+    public List<int> PreservedItemLineSlots { get; } = new();
+
     public VBProjectType ProjectType { get; set; }
     public string? Name { get; set; }
     public string? Description { get; set; }

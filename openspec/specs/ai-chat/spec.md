@@ -142,6 +142,11 @@ any other modification.
 - **WHEN** a reply contains a fenced code block
 - **THEN** that block is offered for direct application to the active document
 
+#### Scenario: Applying a block preserves its ending
+- **WHEN** the developer applies a fenced code block
+- **THEN** the panel SHALL remove only the single LF or CRLF immediately before the closing fence
+- **AND** preserve all preceding final line breaks, blank lines and trailing spaces or tabs in the applied content
+
 ### Requirement: A change the IDE refuses SHALL be reported as refused, with its reason
 Where the IDE refuses a change to a file that the assistant asked for, or that the developer applied from a
 reply, nothing SHALL be written, the assistant SHALL be told that the change was refused and why, and the
