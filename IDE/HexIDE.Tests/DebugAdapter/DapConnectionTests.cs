@@ -299,9 +299,10 @@ public class DapConnectionTests
         failure.Message.Should().Contain("event queue");
     }
 
-    private sealed class BlockingOutput : Stream
+    private sealed class BlockingOutput(bool failOnDisposal = false) : Stream
     {
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Writes { get; private set; }
         public bool Disposed { get; private set; }
         public override bool CanRead => false;
@@ -313,6 +314,12 @@ public class DapConnectionTests
         {
             Writes++;
             Entered.TrySetResult();
+            if (failOnDisposal)
+            {
+                // Model a process pipe whose in-flight write resumes after its handle is disposed.
+                await _disposed.Task;
+                throw new ObjectDisposedException("SafeFileHandle");
+            }
             // A stream may already have written part of the header when cancellation is observed.
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
         }
@@ -321,7 +328,25 @@ public class DapConnectionTests
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
+        protected override void Dispose(bool disposing) { Disposed = true; _disposed.TrySetResult(); base.Dispose(disposing); }
+    }
+
+    [Fact]
+    public async Task Disposal_during_an_in_flight_write_reports_a_connection_failure()
+    {
+        var input = new Pipe();
+        var output = new BlockingOutput(failOnDisposal: true);
+        await using var client = new DapConnection(input.Reader.AsStream(), output);
+        var pending = client.RequestAsync("launch", cancellationToken: TestContext.Current.CancellationToken);
+        await output.Entered.Task.WaitAsync(Patience, TestContext.Current.CancellationToken);
+        var queued = client.RequestAsync("threads", cancellationToken: TestContext.Current.CancellationToken);
+        await client.DisposeAsync().AsTask().WaitAsync(Patience, TestContext.Current.CancellationToken);
+        await ((Func<Task>)(() => pending.WaitAsync(Patience, TestContext.Current.CancellationToken))).Should().ThrowExactlyAsync<IOException>();
+        await ((Func<Task>)(() => queued.WaitAsync(Patience, TestContext.Current.CancellationToken))).Should().ThrowExactlyAsync<IOException>();
+        (await client.Completion).Should().BeNull();
+        output.Disposed.Should().BeTrue();
+        output.Writes.Should().Be(1);
+        await input.Writer.CompleteAsync();
     }
 
     [Fact]
