@@ -246,9 +246,16 @@ public sealed class LanguageServerConfigLoader
         // there is nothing to announce.
         if (string.IsNullOrWhiteSpace(entry.Command)) return null;
 
-        return string.IsNullOrWhiteSpace(entry.Arguments)
+        var command = string.IsNullOrWhiteSpace(entry.Arguments?.ToString())
             ? entry.Command.Trim()
-            : $"{entry.Command.Trim()} {entry.Arguments.Trim()}";
+            : $"{entry.Command.Trim()} {entry.Arguments!.ToString()}";
+
+        // So is the environment: NODE_OPTIONS, LD_PRELOAD or PATH change what the same command line runs. Sorted,
+        // so reordering the map is not a new command; absent or empty, so an entry with none keeps the identity it
+        // had before environments existed.
+        if (entry.Environment is not { Count: > 0 } environment) return command;
+        var variables = environment.OrderBy(v => v.Key, StringComparer.Ordinal).Select(v => $"{v.Key}={v.Value}");
+        return $"{command} [environment: {string.Join("; ", variables)}]";
     }
 
     /// <summary>
@@ -344,8 +351,9 @@ public sealed class LanguageServerConfigLoader
         if (transport is "websocket")
         {
             Note("command", entry.Command);
-            Note("arguments", entry.Arguments);
+            Note("arguments", entry.Arguments?.ToString());
             Note("workingDirectory", entry.WorkingDirectory);
+            Note("environment", entry.Environment);
         }
 
         if (transport is "stdio" or "websocket")
@@ -355,7 +363,10 @@ public sealed class LanguageServerConfigLoader
         }
 
         if (transport is "stdio" or "pipe")
+        {
             Note("endpoint", entry.Endpoint);
+            Note("websocketRole", entry.WebSocketRole);
+        }
 
         if (ignored.Count == 0) return;
 
@@ -403,6 +414,19 @@ public sealed class LanguageServerConfigLoader
                 $"'{entry.Id}' asks for trace level '{trace.Trim()}', which is not one of "
               + $"'{LspTraceValue.Off}', '{LspTraceValue.Messages}' or '{LspTraceValue.Verbose}'. "
               + "Tracing is off for this server.",
+                false,
+                LanguageServerConfigProblemKind.Configuration));
+        }
+
+        if (string.Equals(entry.Transport?.Trim(), "pipe", StringComparison.OrdinalIgnoreCase)
+            && entry.PipeRole is { } pipeRole && !string.IsNullOrWhiteSpace(pipeRole)
+            && !string.Equals(pipeRole.Trim(), "connect", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(pipeRole.Trim(), "listen", StringComparison.OrdinalIgnoreCase))
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entry.Id,
+                $"'{entry.Id}' asks for pipeRole '{pipeRole.Trim()}', which is not one of "
+              + "'connect' or 'listen'. Falling back to 'connect' for this server.",
                 false,
                 LanguageServerConfigProblemKind.Configuration));
         }

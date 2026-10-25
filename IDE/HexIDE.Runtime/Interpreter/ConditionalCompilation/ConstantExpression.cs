@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
 
 namespace HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
@@ -46,7 +47,19 @@ internal static class ConstantExpression
         try
         {
             var expression = parser.valueStmt();
-            return parser.CurrentToken.Type == TokenConstants.EOF ? expression : null;
+            if (parser.CurrentToken.Type != TokenConstants.EOF)
+                return null;
+            // A flat chain passes the parser's rule-depth guard but builds a deep, left-associated tree.
+            var pending = new Stack<(IParseTree Node, int Depth)>();
+            pending.Push((expression, 1));
+            while (pending.TryPop(out var item))
+            {
+                if (item.Depth > ParseDepthGuard.DefaultMaxDepth)
+                    return null;
+                for (var i = 0; i < item.Node.ChildCount; i++)
+                    pending.Push((item.Node.GetChild(i), item.Depth + 1));
+            }
+            return expression;
         }
         catch (Exception)   // the bail, the lexer's refusal, or the depth guard: not an expression
         {

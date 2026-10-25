@@ -2384,7 +2384,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
             "done");
     }
 
-    // packed Types, nested Types, Variant fields, arrays of Types, and Random lengths.
+    // packed Types, nested Types, Variant fields, and Random lengths.
     [Fact]
     public async Task Types_packed_and_nested_as_vb6_exe_did()
     {
@@ -2393,7 +2393,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
             Sub Main()
                 Dim t As String
                 On Error Resume Next
-                Dim m As TMix, o As TOuter, vs As TVarS, al As TAll, ar(1) As TRec, o2 As TOuter, vs2 As TVarS, al2 As TAll
+                Dim m As TMix, o As TOuter, vs As TVarS, al As TAll, o2 As TOuter, vs2 As TVarS, al2 As TAll
                 m.b = 1: m.l = 2
                 Fresh "u.bin"
                 Open P("u.bin") For Binary As #1

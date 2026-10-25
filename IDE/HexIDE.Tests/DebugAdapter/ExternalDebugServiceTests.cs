@@ -111,7 +111,7 @@ public class ExternalDebugServiceTests
             await WatchUpdated(() => watches.Rows[2].Value == "frame:7:answer");
             await service.EvaluateAsync("callerValue = 99");
             await WatchUpdated(() => watches.Rows[0].Children.Any(child => child.Value == "99"));
-            watches.SelectedRow = watches.Rows[1];
+            watches.SelectedItem = watches.Rows[1];
             watches.DeleteSelected();
             watches.ExternalService.Watches.Count.Should().Be(2);
             await WatchUpdated(() => watches.Rows.Count == 2 && watches.Rows[1].Value == "frame:7:answer");

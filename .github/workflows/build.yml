@@ -243,6 +243,23 @@ jobs:
       - name: Build HexIDE.Desktop in Release (the configuration the server is absent from)
         run: dotnet build HexIDE.Desktop -f net10.0 -c Release
 
+      - name: Build HexIDE.Standalone in Release
+        run: dotnet build HexIDE.Standalone -f net10.0 -c Release
+
+      - name: Self-test the Release output guard
+        run: bash ../scripts/check-release-output.selftest.sh
+
+      - name: Verify Release excludes the automation server and its dependencies
+        run: bash ../scripts/check-release-output.sh HexIDE.Desktop/bin/Release/net10.0
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ runner.os }}
+          path: IDE/**/TestResults/**
+          retention-days: 7
+
   # ── The same tests, on the two platforms that have only ever been BUILD targets ───────────────────
   #
   # build-ide above is the whole of the per-push suite and it is ubuntu-only, while publish.yml has
@@ -348,6 +365,14 @@ jobs:
       - name: Run Integration Tests (headless Avalonia UI)
         run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
 
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ runner.os }}
+          path: IDE/**/TestResults/**
+          retention-days: 7
+
   build-lsp-server:
     needs: changes
     # Runs unless `changes` affirmatively said skip. A status-check function is required
@@ -373,6 +398,14 @@ jobs:
 
       - name: Build VB LSP Server
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.job }}-${{ runner.os }}
+          path: LspServer/**/TestResults/**
+          retention-days: 7
 
   # Repo-wide guard: the tree must stay 100% MIT — no GPL-licensed artifacts may reappear.
   guard-mit:

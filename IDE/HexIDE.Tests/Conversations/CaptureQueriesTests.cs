@@ -629,7 +629,7 @@ public class CaptureQueriesTests : IAsyncDisposable
     {
         _log.Arm("vb6", true);
         var client = Connect("vb6");
-        await client.NotifyAsync("note", "file:///C:/Users/quintana/Ledger/Form1.frm");
+        await client.NotifyAsync("note", "file:///C:/Fixtures/quintana/Ledger/Form1.frm");
 
         var note = (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(Method: "note"))).Entries.Single();
         var body = await CaptureQueries.FetchAsync(

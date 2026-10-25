@@ -297,6 +297,13 @@ public class ResizeAdorner : TemplatedControl
         base.OnPointerMoved(e);
         OnHandlePointerMoved(null, e);
     }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        // StartDrag captures the adorner itself, so the release need not pass through a handle.
+        OnHandlePointerReleased(null, e);
+    }
 }
 
 public enum ResizeXDirection

@@ -9,15 +9,9 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
-> **Known divergences.** The requirements below state intended behaviour. Three are not currently met — the
-> member list is cached and does not reflect later edits, double-click opens the containing file rather than
-> the member's definition, and Escape does not close the window. Tracked in
-> [#24](https://github.com/hexide-io/HexIDE/issues/24). They are stated as requirements rather than written
-> down to match the code, because the code is wrong here, not the intent.
-> VBA built-ins load from a capable running server, with distinct no-server, no-provider and empty-answer
-> entries shown only when VBA is selected; All Libraries includes real classes only. If the browser was
-> opened before a server started, selecting VBA or All Libraries again retries;
-> automatic refresh on server startup remains outstanding ([#903](https://github.com/hexide-io/HexIDE/issues/903)).
+> **Known divergence.** If the browser was opened before a language server started, the VBA library fills
+> in only when VBA or All Libraries is selected again; it does not refresh on its own when the server starts
+> ([#1957](https://github.com/hexide-io/HexIDE/issues/1957)).
 
 ## Requirements
 
@@ -34,6 +28,13 @@ filtering once you know where you are looking.
 #### Scenario: Browsing everything
 - **WHEN** the browser is opened
 - **THEN** types from the project, the runtime library, the built-in functions and referenced libraries are all reachable
+
+The runtime control library SHALL use the unqualified class name from each component's VB type name,
+rather than its default instance-name prefix, for listing, search, member headings and membership.
+
+#### Scenario: Browsing an intrinsic control class
+- **WHEN** the developer browses the VB library or searches for `CommandButton`
+- **THEN** the class is listed as `CommandButton`, rather than `Command`
 
 #### Scenario: Narrowing to one library
 - **WHEN** the developer selects a single library
@@ -172,3 +173,12 @@ points them away from the reason.
 #### Scenario: A search that genuinely finds nothing
 - **WHEN** a capable server is asked and returns no symbols
 - **THEN** the browser says nothing matched, naming the query
+
+### Requirement: Browser inputs and lists have localized automation names
+The library selector, search field, search-results list, class list and member list SHALL expose distinct,
+localized automation names describing their purpose.
+
+#### Scenario: Identifying browser controls
+- **WHEN** a screen reader or automation caller inspects the Object Browser
+- **THEN** each input and list is named in the selected IDE language
+- **AND** the class and member lists can be distinguished without positional indices

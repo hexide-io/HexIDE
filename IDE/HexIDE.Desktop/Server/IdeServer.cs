@@ -1,4 +1,3 @@
-using HexIDE.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -31,6 +30,7 @@ internal static class IdeServer
         builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(port));
 
         builder.Services.AddSingleton(context);
+        builder.Services.AddHttpContextAccessor();
         // A call from another agent session is refused before anything else (#1306), and an exception a tool did not
         // catch is reported with its type and message rather than the SDK's bare "An error occurred invoking" (#603).
         ToolFilters.Register(builder.Services
@@ -45,24 +45,7 @@ internal static class IdeServer
 
         var app = builder.Build();
 
-        // Ahead of every endpoint, health included: that endpoint reports the open project's name and
-        // whether language services are up, which is not something to hand to whoever asks.
-        app.Use(async (context, next) =>
-        {
-            if (!LoopbackOnly.Allows(
-                    context.Request.Host.Host,
-                    context.Request.Host.Port,
-                    port,
-                    context.Request.Headers.Origin.ToString()))
-            {
-                // Refused, and saying so. A 404 would be quieter but would leave a developer whose client
-                // is genuinely misconfigured unable to tell "wrong address" from "turned me away".
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return;
-            }
-
-            await next(context);
-        });
+        app.UseLoopbackOnly(port);
 
         app.MapGet("/health", (IdeContext ctx) => Results.Ok(new HealthResponse(
             Status: "ok",

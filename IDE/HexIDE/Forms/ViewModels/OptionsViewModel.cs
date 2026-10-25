@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexIDE.Addins;
@@ -61,7 +62,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     public OptionsViewModel(ISettingsService settings, IThemeService themeService, IKeymapService keymapService,
                             ILanguageSwitchService languageSwitch, IAddinRegistry addinRegistry,
                             AddinOptionsService addinOptions, IDeveloperModeService devMode,
-                            ILocalizationService localization, IEventBus eventBus)
+                            ILocalizationService localization, IEventBus eventBus, string? initialNodeKey = null)
     {
         _settings = settings;
         _themeService = themeService;
@@ -76,7 +77,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         _originalLanguage = languageSwitch.ActiveLanguage;
 
         BuildTree();
-        SelectedNode = FirstLeaf(RootNodes);
+        SelectedNode = RootNodes.FirstOrDefault(n => n.Key == initialNodeKey) ?? FirstLeaf(RootNodes);
 
         // The Language page lives in this dialog and previews live, so re-localize the tree (and the
         // dialog title) when the language changes mid-dialog. Unsubscribed on close (Ok/Cancel).
@@ -133,9 +134,10 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     private void BuildAddinsGroup()
     {
         var addins = _addinRegistry.GetAll();
-        if (addins.Count == 0) return;
 
         var group = Group("Str.Options.Node.AddIns");
+        if (addins.Count == 0)
+            group.Add(Group("Str.Options.Node.NoAddins"));
         foreach (var info in addins)
         {
             var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath));

@@ -44,7 +44,7 @@ public class CodeEditorPopupTests : IDisposable
         lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
         [
             new CompletionItem("MsgBox", CompletionItemKind.Function),
-            new CompletionItem("Mid", CompletionItemKind.Function),
+            new CompletionItem("Mid", CompletionItemKind.Function, "Returns part of a string."),
         ]);
         lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
             new SignatureHelp([new SignatureInformation("MsgBox(Prompt, [Buttons], [Title])", null,
@@ -122,6 +122,63 @@ public class CodeEditorPopupTests : IDisposable
         selected.Success.Should().BeTrue(selected.Error);
         var list = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList;
         list.SelectedItem.Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("MsgBox");
+    }
+
+    [AvaloniaFact]
+    public void Completion_description_is_readable_under_the_list_after_selecting_an_item()
+    {
+        var (window, view, editor) = Show();
+        view.TriggerCompletion();
+        Pump();
+        var tree = UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false);
+        var editorPath = UiAutomationDriver.Find(tree, "TextEditor", 50).Matches.Single().Path;
+        var itemPath = UiAutomationDriver.Find(tree, "Mid", 50).Matches.Single(n =>
+            n.Path.StartsWith(editorPath + "/", StringComparison.Ordinal) &&
+            n.Path.EndsWith("/ListItem[Mid]", StringComparison.Ordinal)).Path;
+        var (item, error) = UiAutomationDriver.Resolve(window, itemPath);
+        item.Should().NotBeNull(error);
+        UiAutomationDriver.Interact(item!, "select", null).Success.Should().BeTrue();
+        Pump();
+
+        var list = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList;
+        var listPath = UiAutomationDriver.Find(tree, "PART_ListBox", 50).Matches
+            .Single(n => n.Path.StartsWith(editorPath + "/", StringComparison.Ordinal)).Path;
+        var description = UiAutomationDriver.Find(
+            UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false),
+            "Returns part of a string.", 50).Matches.Should().ContainSingle(n =>
+                n.Path.StartsWith(listPath + "/", StringComparison.Ordinal)).Subject;
+        var (text, resolveError) = UiAutomationDriver.Resolve(window, description.Path);
+        text.Should().NotBeNull(resolveError);
+        text.Should().BeOfType<TextBlock>().Which.Text.Should().Be("Returns part of a string.");
+
+        list.SelectedItem = list.CompletionData.Single(i => i.Text == "MsgBox");
+        Pump();
+        UiAutomationDriver.Find(UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false),
+            "Returns part of a string.", 50).Total.Should().Be(0, "an item without a description closes the tooltip");
+    }
+
+    [AvaloniaFact]
+    public void Double_click_commits_the_completion_item_into_the_document()
+    {
+        var (window, view, editor) = Show();
+        view.TriggerCompletion();
+        Pump();
+        var tree = UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false);
+        var editorPath = UiAutomationDriver.Find(tree, "TextEditor", 50).Matches.Single().Path;
+        var itemPath = UiAutomationDriver.Find(tree, "Mid", 50).Matches.Single(n =>
+            n.Path.StartsWith(editorPath + "/", StringComparison.Ordinal) &&
+            n.Path.EndsWith("/ListItem[Mid]", StringComparison.Ordinal)).Path;
+        var (item, error) = UiAutomationDriver.Resolve(window, itemPath);
+        item.Should().NotBeNull(error);
+
+        var outcome = UiAutomationDriver.Interact(item!, "double_click", null);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        Pump();
+
+        // The item is committed. Whether it replaces the typed M or appends to it, as the list does today, is #941's,
+        // so this accepts either rather than pinning that defect.
+        editor.Document.Text.ReplaceLineEndings("\n").Should().MatchRegex(@"\n    M?Mid\n");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
     }
 
     [AvaloniaFact]

@@ -69,23 +69,6 @@ public class CorpusConformanceTests
         ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
         ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
 
-        // EMPTY-INLINE-IF-BODY (1)
-        //   `If True Then:` with the body on the NEXT line. The colon commits VB6 to the single-line form
-        //   with an EMPTY body, so the construct is complete on that line and the following statement is
-        //   an ordinary one — no End If is wanted or allowed. `inlineIfBody` requires at least one
-        //   blockStmt, so HexIDE has no parse: the inline alternative wants a statement it cannot find,
-        //   and the block alternative wants an END_IF that is not there.
-        //
-        //   Found by inspection rather than by the corpus, in the gap between two cases that DO cover the
-        //   neighbours — `If x Then: <body on the same line>` (legal, and fixed here by making the
-        //   whitespace after THEN optional) and `If x Then:` followed by an End If (illegal, and currently
-        //   a false acceptance under COLON-ENDS-THE-THEN-LINE). Two cases either side and the middle one
-        //   missing, which is how a false rejection hides.
-        //
-        //   Not fixed here because the fix — permitting an empty inlineIfBody — is the same edit as
-        //   COLON-ENDS-THE-THEN-LINE and conflicts with it if done separately. They ship together.
-        ["rem-forms/then-colon-with-the-body-on-the-next-line"] = "EMPTY-INLINE-IF-BODY",
-
         // OTHER-REJECTION (5) — individually caused; see each case's own why in the corpus.
         ["continuation-basics/cont-after-member-dot"] = "OTHER-REJECTION",
         ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "OTHER-REJECTION",
@@ -315,21 +298,12 @@ public class CorpusConformanceTests
         ["separator-in-control-flow/rem-after-then-is-still-block"] = "REM-IS-TRIVIA-NOT-A-STATEMENT",
         ["separator-vs-label/rem-without-colon"] = "REM-IS-TRIVIA-NOT-A-STATEMENT",
 
-        // HIDDEN-CONTINUATION-FAKES-ADJACENCY (3)
-        //   A VB6 continuation is WHITESPACE-EQUIVALENT, not a character-level splice: the mandatory space
-        //   before the `_` survives the join, so `tot _` / `al` is two names and `x _` / `$` is a name with
-        //   whitespace before its type character. HexIDE swallows the whole run, leading whitespace
-        //   included, into one hidden token, so the parser sees the flanking tokens as DIRECTLY ADJACENT
-        //   and `ambiguousIdentifier : (IDENTIFIER | ambiguousKeyword)+` fuses them. Those rules are
-        //   already correct — the same probes with a plain space fail to parse — so this is purely the
-        //   invisibility of the token.
-        //
-        //   Lexer fix: emit the continuation as a visible WS-typed token that absorbs the next line's
-        //   indentation. WS-typed, never NEWLINE-typed: `label-after-continuation-midline` is currently
-        //   CORRECT precisely because the hidden continuation makes the physical/logical line distinction
-        //   unrepresentable, and a NEWLINE would turn a mid-line `Skip:` into a line-head label.
-        ["continuation-in-strings-comments/continuation-splitting-a-token"] = "HIDDEN-CONTINUATION-FAKES-ADJACENCY",
-        ["continuation-vs-identifier/continuation-splits-identifier"] = "HIDDEN-CONTINUATION-FAKES-ADJACENCY",
+        // The names are now separate (#224), but the grammar still accepts an implicit call to `tot`
+        // with `al = 5` as its argument. Retain that existing permissive acceptance.
+        ["continuation-vs-identifier/continuation-splits-identifier"] = "SPLIT-NAME-CALL-AS-STATEMENT",
+
+        // A continuation before a type character still has today's hidden-token handling; #224 only
+        // separates word fragments, and does not change this refusal gap.
         ["gap-fill/continuation-splits-identifier-from-type-character"] = "HIDDEN-CONTINUATION-FAKES-ADJACENCY",
 
         // COLON-ENDS-THE-THEN-LINE (2)

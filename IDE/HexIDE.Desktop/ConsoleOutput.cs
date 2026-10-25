@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace HexIDE.Desktop;
 
@@ -33,11 +34,9 @@ internal readonly record struct ConsoleTarget(bool Colour, int Width);
 /// attaching is neither possible nor needed.
 /// </para>
 /// <para>
-/// <b>Attached and redirected are different questions, and both get asked.</b> <c>--help &gt; file</c>
-/// run from a terminal attaches successfully, answers <c>Console.WindowWidth</c> with the terminal's
-/// width, and sends the bytes to the file. So a successful attach says nothing about where the output is
-/// going; <see cref="Console.IsOutputRedirected"/> does, and it is checked before either colour or width
-/// is trusted.
+/// Inherited files and pipes must be used before attaching: attaching can replace the handle the
+/// caller supplied, and a caller without a console cannot be attached to at all. Redirected output
+/// uses plain text and an unlimited width; only terminal output needs console capabilities.
 /// </para>
 /// </remarks>
 internal static class ConsoleOutput
@@ -81,8 +80,8 @@ internal static class ConsoleOutput
     public static bool Write(string text) => Write(_ => text);
 
     /// <summary>
-    /// Attaches to the launching console, asks what it can show, and writes what <paramref name="render"/>
-    /// produces for that. Returns whether anyone could see it, as <see cref="Write(string)"/> does.
+    /// Uses inherited output or the launching console, and writes what <paramref name="render"/>
+    /// produces for that target. Returns whether anyone could see it, as <see cref="Write(string)"/> does.
     /// </summary>
     /// <remarks>
     /// The console is left as it was found. Showing colour on Windows means switching the console's output
@@ -90,9 +89,24 @@ internal static class ConsoleOutput
     /// launched us: a code page left at 65001 changes how that shell shows every later command's output,
     /// which is a side effect nobody asked <c>--help</c> for.
     /// </remarks>
-    public static bool Write(Func<ConsoleTarget, string> render)
+    public static bool Write(Func<ConsoleTarget, string> render) =>
+        Write(render, OpenRedirectedOutput, TryAttachToParentConsole);
+
+    internal static bool Write(Func<ConsoleTarget, string> render,
+        Func<Stream?> openRedirectedOutput, Func<bool> attach, Encoding? redirectedEncoding = null)
     {
-        if (!TryAttachToParentConsole()) return false;
+        using var output = openRedirectedOutput();
+        if (output != null)
+        {
+            // The console's encoding without its preamble. A StreamWriter writes the preamble first, and
+            // Console.OutputEncoding carries one whenever anything in the process set it to Encoding.UTF8, so a
+            // redirected file would start with a byte-order mark that whatever reads it has to strip.
+            var text = render(new ConsoleTarget(false, int.MaxValue)) + Environment.NewLine + Environment.NewLine;
+            output.Write((redirectedEncoding ?? Console.OutputEncoding).GetBytes(text));
+            return true;
+        }
+
+        if (!attach()) return false;
 
         var redirected = Console.IsOutputRedirected;
         Action? restoreMode = null;
@@ -162,6 +176,19 @@ internal static class ConsoleOutput
         restore = () => SetConsoleMode(handle, mode);
         return true;
     }
+
+    private static Stream? OpenRedirectedOutput()
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        var handle = GetStdHandle(StdOutputHandle);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return null;
+        var type = GetFileType(handle);
+        if (type != 1 && type != 3) return null; // FILE_TYPE_DISK or FILE_TYPE_PIPE
+        return new FileStream(new SafeFileHandle(handle, ownsHandle: false), FileAccess.Write);
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint GetFileType(IntPtr hFile);
 
     private static int WindowWidth()
     {

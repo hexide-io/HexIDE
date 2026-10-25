@@ -22,7 +22,7 @@ namespace HexIDE.Tests.LspClient;
 /// <para>
 /// Ordinary <c>[Fact]</c>s, deliberately. They are discovered whatever the environment, so when CI cannot
 /// obtain a server the run goes red here with a message naming which one — rather than going green with
-/// less coverage than anyone thinks.
+/// less coverage than anyone thinks. Checksum mismatches fail here even outside CI (#487).
 /// </para>
 /// </summary>
 public class RequiredServersTests
@@ -37,30 +37,35 @@ public class RequiredServersTests
           + "quietly cover less.");
     }
 
+    internal static void CheckServer(ForeignServerSource source, Func<string?> find, bool required)
+    {
+        var path = find();
+        source.ChecksumMismatch.Should().BeNull("{0}", source.ChecksumMismatch);
+        if (!required) return;
+
+        path.Should().NotBeNull(
+            $"{ForeignServer.RequiredVariable} is set, so the '{source.Key}' language server must be obtainable");
+    }
+
     [Fact]
     public void TheMarkdownServerIsAvailableWhenItIsRequired() =>
-        RequireOrIgnore("markdown", () => ForeignServer.Markdown.Find() is not null,
-            "the Markdown language server");
+        CheckServer(ForeignServer.Markdown.Source, ForeignServer.Markdown.Find, ForeignServer.IsRequired);
 
     [Fact]
     public void TheLatexServerIsAvailableWhenItIsRequired() =>
-        RequireOrIgnore("latex", () => ForeignServer.Latex.Find() is not null,
-            "the LaTeX language server");
+        CheckServer(ForeignServer.Latex.Source, ForeignServer.Latex.Find, ForeignServer.IsRequired);
 
     [Fact]
     public void TheCppServerIsAvailableWhenItIsRequired() =>
-        RequireOrIgnore("cpp", () => ForeignServer.Cpp.Find() is not null,
-            "the C/C++ language server");
+        CheckServer(ForeignServer.Cpp.Source, ForeignServer.Cpp.Find, ForeignServer.IsRequired);
 
     [Fact]
     public void ThePythonServerIsAvailableWhenItIsRequired() =>
-        RequireOrIgnore("python", () => ForeignServer.Python.Find() is not null,
-            "the Python language server (the only pull-model server here)");
+        CheckServer(ForeignServer.Python.Source, ForeignServer.Python.Find, ForeignServer.IsRequired);
 
     [Fact]
     public void TheReferenceServerIsAvailableWhenItIsRequired() =>
-        RequireOrIgnore("json", () => ForeignServer.Json.Find() is not null,
-            "the reference JSON language server (which needs Node)");
+        CheckServer(ForeignServer.Json.Source, ForeignServer.Json.Find, ForeignServer.IsRequired);
 
     [Fact]
     public void TheProtocolModelIsAvailableWhenItIsRequired() =>

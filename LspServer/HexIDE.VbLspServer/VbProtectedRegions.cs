@@ -33,9 +33,9 @@ namespace HexIDE.VbLspServer;
 /// the two in step.
 /// </para>
 /// <para>
-/// <b>Lines, not offsets</b>, because every answer here speaks LSP positions. Lines split on <c>\n</c> with a
-/// trailing <c>\r</c> stripped, exactly as <see cref="VbTextHelpers.FindAllOccurrences"/> splits them, so a
-/// line number means the same thing to both.
+/// <b>Lines, not offsets</b>, because every answer here speaks LSP positions. Lines split on CR, LF and
+/// CRLF, exactly as <see cref="VbTextHelpers.FindAllOccurrences"/> splits them, so a line number means the
+/// same thing to both.
 /// </para>
 /// </remarks>
 internal sealed class VbProtectedRegions
@@ -86,6 +86,9 @@ internal sealed class VbProtectedRegions
     /// by the same rule (<c>ReadOnlyRegions.DeclaredNames</c>).
     /// </remarks>
     public bool Declares(string word) => declaredNames.Contains(word);
+
+    /// <summary>The names declared by the designer block, for the scope check's baseline.</summary>
+    internal IEnumerable<string> DesignerNames => declaredNames;
 
     /// <summary>
     /// True when <paramref name="line"/> (0-based) is in the header or is an attribute line of a run that
@@ -158,11 +161,7 @@ internal sealed class VbProtectedRegions
         var pos = 0;
         while (pos < source.Length)
         {
-            var newline = source.IndexOf('\n', pos);
-            var next = newline < 0 ? source.Length : newline + 1;
-            var end = newline < 0 ? source.Length : newline;
-            if (end > pos && source[end - 1] == '\r')
-                end--;
+            var (end, next) = VbTextHelpers.LineEnd(source, pos);
 
             if (!IsProtected(line))
                 result.Append(source, pos, end - pos);
@@ -201,11 +200,7 @@ internal sealed class VbProtectedRegions
         var pos = 0;
         while (pos < source.Length)
         {
-            var newline = source.IndexOf('\n', pos);
-            var end = newline < 0 ? source.Length : newline;
-            var next = newline < 0 ? source.Length : newline + 1;
-            if (end > pos && source[end - 1] == '\r')
-                end--;
+            var (end, next) = VbTextHelpers.LineEnd(source, pos);
             lines.Add(source[pos..end]);
             pos = next;
         }

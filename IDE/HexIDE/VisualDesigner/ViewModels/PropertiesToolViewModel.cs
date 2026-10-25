@@ -10,6 +10,9 @@ using HexIDE.Runtime.Components;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner.Commands;
 using HexIDE.IDE;
+using HexIDE.Events;
+using HexIDE.Forms.ViewModels;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Dock.Model.Mvvm.Controls;
@@ -24,6 +27,7 @@ public partial class PropertiesToolViewModel : Tool
     public IEventBus EventBus { get; }
     private readonly IWindowManager windowManager;
     private readonly ILocalizationService localization;
+    private ModuleDefinition? currentModule;
 
     /// <summary>
     /// Localized property-grid description (key <c>Str.PropDesc.{name}</c>) with the English text
@@ -75,67 +79,138 @@ public partial class PropertiesToolViewModel : Tool
 
         documentDockService
             .ObservePropertyChanged(x => x.ActiveDocument)
-            .Subscribe(document =>
-            {
-                Properties.Clear();
-                CategorizedProperties.Clear();
-                currentDocumentSub?.Dispose();
-                currentDocument = null;
-                OnPropertyChanged(nameof(ComponentsProxy));
-                if (currentComponent != null)
+            .Subscribe(ShowDocument);
+        eventBus.Subscribe<ModulePropertiesSelectedEvent>(e =>
+        {
+            if (e.Module != null)
+                ShowModule(e.Module);
+            else if (currentModule != null)
+                ShowDocument(documentDockService.ActiveDocument);
+        });
+    }
+
+    private void ShowDocument(BaseEditorWindowViewModel? document)
+    {
+        if (document is CodeEditorViewModel { ModuleDefinition: { } module })
+        {
+            ShowModule(module);
+            return;
+        }
+        currentModule = null;
+        SelectedProperty = null;
+        Properties.Clear();
+        CategorizedProperties.Clear();
+        currentDocumentSub?.Dispose();
+        currentDocument = null;
+        OnPropertyChanged(nameof(ComponentsProxy));
+        if (currentComponent != null)
+        {
+            currentComponent.Instance.OnComponentPropertyChanged -= OnComponentValueChanged;
+            currentComponent = null;
+        }
+        if (document is FormEditViewModel formEditViewModel)
+        {
+            currentDocument = formEditViewModel;
+            OnPropertyChanged(nameof(ComponentsProxy));
+            currentDocumentSub = formEditViewModel.ObservePropertyChanged(y => y.SelectedComponent)
+                .Subscribe(component =>
                 {
-                    currentComponent.Instance.OnComponentPropertyChanged -= OnComponentValueChanged;
-                    currentComponent = null;
-                }
-                if (document is FormEditViewModel formEditViewModel)
-                {
-                    currentDocument = formEditViewModel;
-                    OnPropertyChanged(nameof(ComponentsProxy));
-                    currentDocumentSub = formEditViewModel.ObservePropertyChanged(y => y.SelectedComponent)
-                        .Subscribe(component =>
+                    Properties.Clear();
+                    CategorizedProperties.Clear();
+
+                    if (currentComponent != null)
+                    {
+                        currentComponent.Instance.OnComponentPropertyChanged -= OnComponentValueChanged;
+                        currentComponent = null;
+                    }
+
+                    if (component != null)
+                    {
+                        currentComponent = component;
+                        Dictionary<PropertyClass, PropertyViewModel> properties = new();
+                        foreach (var propertyClass in PropertyText.InWindowOrder(component.Instance.BaseClass))
                         {
-                            Properties.Clear();
-                            CategorizedProperties.Clear();
-
-                            if (currentComponent != null)
+                            var prop = properties[propertyClass] = new PropertyViewModel(this, propertyClass, Displayed(component.Instance, propertyClass));
+                            Properties.Add(prop);
+                        }
+                        foreach (var categoryGroup in component.Instance.BaseClass.Properties.GroupBy(p => p.Category))
+                        {
+                            CategorizedProperties.Add(new PropertyCategoryViewModel(this, categoryGroup.Key));
+                            foreach (var propertyClass in categoryGroup.OrderBy(prop => prop.Name))
                             {
-                                currentComponent.Instance.OnComponentPropertyChanged -= OnComponentValueChanged;
-                                currentComponent = null;
+                                var prop = properties[propertyClass];
+                                CategorizedProperties.Add(prop);
                             }
+                        }
 
-                            if (component != null)
-                            {
-                                currentComponent = component;
-                                Dictionary<PropertyClass, PropertyViewModel> properties = new();
-                                foreach (var propertyClass in PropertyText.InWindowOrder(component.Instance.BaseClass))
-                                {
-                                    var prop = properties[propertyClass] = new PropertyViewModel(this, propertyClass, Displayed(component.Instance, propertyClass));
-                                    Properties.Add(prop);
-                                }
-                                foreach (var categoryGroup in component.Instance.BaseClass.Properties.GroupBy(p => p.Category))
-                                {
-                                    CategorizedProperties.Add(new PropertyCategoryViewModel(this, categoryGroup.Key));
-                                    foreach (var propertyClass in categoryGroup.OrderBy(prop => prop.Name))
-                                    {
-                                        var prop = properties[propertyClass];
-                                        CategorizedProperties.Add(prop);
-                                    }
-                                }
+                        SelectedProperty = Properties.FirstOrDefault(x => x.PropertyClass == lastSelectedPropertyClass) ??
+                                           /* hardcoded default properties */
+                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.CaptionProperty) ??
+                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.IntervalProperty) ??
+                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.ShapeProperty) ??
+                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.NameProperty);
 
-                                SelectedProperty = Properties.FirstOrDefault(x => x.PropertyClass == lastSelectedPropertyClass) ??
-                                                   /* hardcoded default properties */
-                                                   Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.CaptionProperty) ??
-                                                   Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.IntervalProperty) ??
-                                                   Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.ShapeProperty) ??
-                                                   Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.NameProperty);
+                        currentComponent.Instance.OnComponentPropertyChanged += OnComponentValueChanged;
+                    }
 
-                                currentComponent.Instance.OnComponentPropertyChanged += OnComponentValueChanged;
-                            }
+                    OnPropertyChanged(nameof(SelectedComponentProxy));
+                });
+        }
+    }
 
-                            OnPropertyChanged(nameof(SelectedComponentProxy));
-                        });
-                }
-            });
+    private void ShowModule(ModuleDefinition? module)
+    {
+        currentDocumentSub?.Dispose();
+        currentDocumentSub = null;
+        currentDocument = null;
+        if (currentComponent != null)
+            currentComponent.Instance.OnComponentPropertyChanged -= OnComponentValueChanged;
+        currentComponent = null;
+        currentModule = module;
+        Properties.Clear();
+        CategorizedProperties.Clear();
+        SelectedProperty = null;
+        OnPropertyChanged(nameof(ComponentsProxy));
+        OnPropertyChanged(nameof(SelectedComponentProxy));
+        if (module == null)
+            return;
+        var row = new PropertyViewModel(this, VBProperties.NameProperty, module.Name);
+        Properties.Add(row);
+        CategorizedProperties.Add(row);
+        SelectedProperty = row;
+    }
+
+    private void RenameModule(object? value)
+    {
+        var module = currentModule!;
+        var proposed = value as string;
+        var refusal = !ProjectNaming.IsValidName(proposed)
+            ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
+            : ProjectNaming.IsNameTaken(module.Owner, proposed!, DocumentIdentity.For(module))
+                ? string.Format(localization.GetString("Str.Naming.Msg.DocumentNameTaken"), proposed)
+                : null;
+        try
+        {
+            if (refusal != null)
+                throw new DataValidationException(refusal);
+            if (module.Name == proposed)
+                return;
+            if (module.FormPart is { } form)
+            {
+                form.Components[0].SetProperty(VBProperties.NameProperty, proposed!);
+                form.NotifyRootPropertiesChanged();
+            }
+            module.Name = proposed!;
+            if (module.FormPart is { } designer)
+                EventBus.Publish(new FormLayoutChangedEvent(designer));
+            EventBus.Publish(new DocumentNameChangedEvent(DocumentIdentity.For(module)));
+        }
+        catch (DataValidationException e)
+        {
+            windowManager.MessageBox(e.Message, icon: MessageBoxIcon.Error).ListenErrors();
+            var row = Properties[0];
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(module.Name));
+        }
     }
 
     private void OnComponentValueChanged(ComponentInstance instance, PropertyClass property)
@@ -168,6 +243,11 @@ public partial class PropertiesToolViewModel : Tool
 
     public void UpdateValue(PropertyClass propertyClass, object? value)
     {
+        if (currentModule != null && propertyClass == VBProperties.NameProperty)
+        {
+            RenameModule(value);
+            return;
+        }
         if (currentDocument == null || currentDocument.SelectedComponent == null)
             return;
 

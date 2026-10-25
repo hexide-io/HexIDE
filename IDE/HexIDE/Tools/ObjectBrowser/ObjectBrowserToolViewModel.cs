@@ -171,7 +171,7 @@ public partial class ObjectBrowserToolViewModel : Document
         var lib = new OBLibraryViewModel("VB");
         foreach (var component in componentRegistry.Components)
         {
-            var cls = new OBClassViewModel(component.Name, OBClassKind.ClassModule, "VB");
+            var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
             foreach (var prop in component.Properties)
                 cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
             foreach (var evt in component.Events)
@@ -329,8 +329,12 @@ public partial class ObjectBrowserToolViewModel : Document
             SelectedClass = null;
     }
 
+    private int memberRequestVersion;
+
     private void OnClassSelectionChanged()
     {
+        memberRequestVersion++;
+        IsLoadingMembers = false;
         FilteredMembers.Clear();
         SelectedMember = null;
         GoToDefinitionCommand.RaiseCanExecutedChanged();
@@ -338,17 +342,17 @@ public partial class ObjectBrowserToolViewModel : Document
 
         if (SelectedClass == null) return;
 
-        if (SelectedClass.Members.Count > 0)
+        if (!SelectedClass.CanNavigate && SelectedClass.Members.Count > 0)
         {
             PopulateFilteredMembers(SelectedClass);
             return;
         }
 
         if (lspClient.IsRunning && SelectedClass.CanNavigate)
-            LoadMembersAsync(SelectedClass).ListenErrors();
+            LoadMembersAsync(SelectedClass, memberRequestVersion).ListenErrors();
     }
 
-    private async Task LoadMembersAsync(OBClassViewModel classVm)
+    private async Task LoadMembersAsync(OBClassViewModel classVm, int requestVersion)
     {
         IsLoadingMembers = true;
         try
@@ -358,6 +362,9 @@ public partial class ObjectBrowserToolViewModel : Document
                 : DocumentWireName.For(classVm.FormDefinition!);
 
             var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
+            if (requestVersion != memberRequestVersion) return;
+
+            classVm.Members.Clear();
 
             // Flattened: a server may report the module as one symbol holding its members, and the browser
             // lists members rather than the container. Skipping the container itself would need to know
@@ -370,7 +377,8 @@ public partial class ObjectBrowserToolViewModel : Document
             foreach (var sym in members)
             {
                 var (kind, signature) = MapSymbol(sym);
-                classVm.Members.Add(new OBMemberViewModel(sym.Name, kind, signature));
+                classVm.Members.Add(new OBMemberViewModel(sym.Name, kind, signature,
+                    declarationPosition: sym.SelectionRange.Start));
             }
 
             if (ReferenceEquals(SelectedClass, classVm))
@@ -382,7 +390,7 @@ public partial class ObjectBrowserToolViewModel : Document
         }
         finally
         {
-            IsLoadingMembers = false;
+            if (requestVersion == memberRequestVersion) IsLoadingMembers = false;
         }
     }
 
@@ -687,6 +695,14 @@ public partial class ObjectBrowserToolViewModel : Document
     private void GoToDefinition()
     {
         if (SelectedClass == null) return;
+        if (SelectedClass.CanNavigate && SelectedMember?.DeclarationPosition is { } position)
+        {
+            var uri = SelectedClass.ModuleDefinition != null
+                ? DocumentWireName.For(SelectedClass.ModuleDefinition)
+                : DocumentWireName.For(SelectedClass.FormDefinition!);
+            editorService.NavigateTo(uri, position.Line + 1, position.Character + 1);
+            return;
+        }
         if (SelectedClass.ModuleDefinition != null)
             editorService.EditCode(SelectedClass.ModuleDefinition);
         else if (SelectedClass.FormDefinition != null)

@@ -11,7 +11,7 @@ namespace HexIDE.Addins;
 /// ephemeral chain. The IDE wraps this with its baked-in root (see <c>HexIDE.Addins.PackageVerifier</c>).
 ///
 /// Signatures are checked over the <b>raw bytes on disk</b> (never a re-serialization), so there is no
-/// canonical-form coupling between signer and verifier. Order: parse manifest → verify intermediate
+/// canonical-form coupling between signer and verifier. Order: parse manifest → check compatibility → verify intermediate
 /// (by root) → verify publisher (by intermediate) → verify manifest (by publisher) → hash every file.
 /// </summary>
 public static class PackageVerification
@@ -24,6 +24,8 @@ public static class PackageVerification
         "publisher.json", "publisher.sig",
         "intermediate.json", "intermediate.sig",
     };
+
+    public static Version RunningVersion { get; } = typeof(PackageVerification).Assembly.GetName().Version!;
 
     public static PackageVerificationResult Verify(string packageDirectory, string? rootPublicKeyBase64,
                                                    string? firstPartyPublicKeyBase64 = null)
@@ -64,6 +66,21 @@ public static class PackageVerification
         // ever sees an unsafe value — even from an otherwise-valid signature.
         if (!IsSafeRelative(manifest.Entry.Replace('\\', '/')))
             return Untrusted("entry path is not a safe package-relative path");
+
+        PackageVerificationResult Incompatible(string error) =>
+            new(PackageVerdict.Incompatible, manifest, null, null, error) { ManifestHash = manifestHash };
+
+        if (manifest.Schema > AddinManifest.CurrentSchema)
+            return Incompatible($"requires manifest schema {manifest.Schema}; this build supports {AddinManifest.CurrentSchema}");
+        if (manifest.MinHexideVersion is { } minimum)
+        {
+            if (!Version.TryParse(minimum, out var required))
+                return Incompatible($"invalid minHexideVersion: {minimum}");
+            // Missing build/revision components mean zero, so 1.4 and 1.4.0 compare equally.
+            required = new Version(required.Major, required.Minor, Math.Max(0, required.Build), Math.Max(0, required.Revision));
+            if (required > RunningVersion)
+                return Incompatible($"built for HexIDE {minimum} or later; this is {RunningVersion.ToString(3)}");
+        }
 
         if (string.IsNullOrEmpty(rootPublicKeyBase64))
             return Untrusted("no root public key available");

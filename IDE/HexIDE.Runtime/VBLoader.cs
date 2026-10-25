@@ -24,6 +24,12 @@ namespace HexIDE.Runtime;
 
 public class VBLoader
 {
+    /// <summary>
+    /// The icon a form with no Icon line runs with, where the host has one: the made program's runner gives its own. Null
+    /// leaves Avalonia's, the executable's icon on Windows (#1594).
+    /// </summary>
+    public static Avalonia.Controls.WindowIcon? DefaultFormIcon { get; set; }
+
     /// <param name="standardLibrary">
     /// The run's library, which shows a CommonDialog's dialogs (#1084). Without one a form holding a CommonDialog is
     /// refused, as a form holding any control HexIDE can't create is.
@@ -35,7 +41,7 @@ public class VBLoader
         IBasicStandardLibrary? standardLibrary = null,
         VbObject? form = null)
     {
-        RefuseUncreatableControls(element, standardLibrary is not null);
+        RefuseUnsupportedControls(element, standardLibrary is not null);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -630,17 +636,26 @@ public class VBLoader
     }
 
     /// <summary>
-    /// A form holding a control HexIDE cannot create is refused before any control is placed (#857). Left out, the control
-    /// made the form a different program: code naming it read Empty, was told the name was not defined, or skipped a call
+    /// A form holding a control HexIDE cannot create, or a data-bound control, is refused before placement (#857, #859).
+    /// Left out, the control made the form a different program: code naming it read Empty, was told the name was not defined, or skipped a call
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUncreatableControls(FormDefinition element, bool canShowDialogs)
+    private static void RefuseUnsupportedControls(FormDefinition element, bool canShowDialogs)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
             if (!(canShowDialogs && CommonDialogBlock(block) is not null))
                 DescribeUncreatable(block, lines);
+        foreach (var component in element.Components)
+            foreach (var property in component.UnknownRawProperties)
+                if (property.Name.Equals("DataSource", StringComparison.OrdinalIgnoreCase))
+                {
+                    var line = property.Lines.FirstOrDefault() ?? "";
+                    var source = DesignTimeValue(line[(line.IndexOf('=') + 1)..].Trim());
+                    var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+                    lines.Add($"HexIDE does not implement data binding: {name} has DataSource {source.Value}.");
+                }
         if (lines.Count > 0)
             throw new NotImplementedException(string.Join("\n", lines.Distinct()));
     }

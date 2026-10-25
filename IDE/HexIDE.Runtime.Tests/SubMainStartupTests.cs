@@ -57,15 +57,15 @@ public class SubMainStartupTests : BaseVBTestFixture
         debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
     }
 
-    [Fact]
-    public async Task A_Const_reading_a_module_initialised_later_is_refused()
+    [Theory]
+    [InlineData("Module2.M")]
+    [InlineData("M")]
+    public async Task A_Const_initialises_a_later_module_before_Main(string name)
     {
-        // Measured: 4 in VB6, in either list order. Here Module2's declarations run after Module1's, and HexIDE does not
-        // initialise a module on demand yet (#893), so M would be Empty.
-        var run = () => RunMain("Const C = Module2.M + 1\nSub Main()\n    Debug.Print C\nEnd Sub\n",
+        await RunMain($"Const C = {name} + 1\nSub Main()\n    Debug.Print C\nEnd Sub\n",
             ("Module2", "Public Const M = 3\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Module2.M*whose declarations have not run yet*#893*");
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
     }
 
     [Fact]

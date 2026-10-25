@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -255,7 +256,7 @@ public class HoverThroughWindowInputTests
     private readonly ILspClient lsp = Substitute.For<ILspClient>();
     private readonly List<Position> hoverAsks = [];
 
-    private (Window Window, TextEditor Editor, CodeEditorViewModel Vm) ShowEditor()
+    private (Window Window, TextEditor Editor, CodeEditorViewModel Vm) ShowEditor(ExternalDebugService? external = null)
     {
         lsp.IsRunning.Returns(true);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
@@ -277,7 +278,7 @@ public class HoverThroughWindowInputTests
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), externalDebugger: external);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Option Explicit\r\n\r\nPrivate Sub Foo()\r\n    Mid\r\nEnd Sub\r\n");
         vm.Initialize(module);
@@ -289,6 +290,78 @@ public class HoverThroughWindowInputTests
         editor.TextArea.Caret.Offset = editor.Document.Text.IndexOf("    Mid", StringComparison.Ordinal) + 5;
         for (var i = 0; i < 5; i++) { Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
         return (window, editor, vm);
+    }
+
+    [AvaloniaFact]
+    public async Task Scrolled_hover_requests_the_visible_identifier()
+    {
+        var (window, editor, vm) = ShowEditor();
+        try
+        {
+            editor.Text = string.Join("\n", Enumerable.Range(1, 150).Select(i => $"identifier{i}"));
+            editor.ScrollToLine(80);
+            for (var i = 0; i < 5; i++) { Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            var view = editor.TextArea.TextView;
+            view.ScrollOffset.Y.Should().BeGreaterThan(0);
+            var point = view.GetVisualPosition(new AvaloniaEdit.TextViewPosition(80, 4), AvaloniaEdit.Rendering.VisualYPosition.TextMiddle) - view.ScrollOffset;
+            var target = view.TranslatePoint(point, editor)!.Value;
+            UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            hoverAsks.Should().ContainSingle();
+            hoverAsks[0].Line.Should().Be(79);
+            var asked = hoverAsks[0];
+            var line = editor.Document.GetLineByNumber(asked.Line + 1);
+            editor.Document.GetText(line).Should().Be("identifier80");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task External_hover_uses_a_stopped_frame_and_quick_info_after_continue()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-hover-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new HexIDE.Conversations.ConversationLog();
+        var external = new ExternalDebugService(log);
+        var config = Path.Combine(directory, "launch.json");
+        var executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""), System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory());
+        await File.WriteAllTextAsync(config, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, "evaluate-running" },
+            adapterId = "fixture", launch = new { },
+        }), TestContext.Current.CancellationToken);
+        var run = external.StartAsync(config);
+        var (window, editor, vm) = ShowEditor(external);
+        try
+        {
+            for (var i = 0; i < 200 && !external.CanEvaluateHover; i++) await Settle(20);
+            external.CanEvaluateHover.Should().BeTrue();
+            editor.Text = "answer";
+            for (var i = 0; i < 5; i++) { Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
+            var view = editor.TextArea.TextView;
+            var point = view.GetVisualPosition(new AvaloniaEdit.TextViewPosition(1, 3), AvaloniaEdit.Rendering.VisualYPosition.TextMiddle) - view.ScrollOffset;
+            var target = view.TranslatePoint(point, editor)!.Value;
+            UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            ToolTip.GetTip(editor)?.ToString().Should().Be("answer = frame:0:answer");
+            hoverAsks.Should().BeEmpty();
+            UiAutomationDriver.EndHover(editor);
+            await external.CommandAsync("continue");
+            for (var i = 0; i < 200 && external.Stop is not null; i++) await Settle(20);
+            external.IsActive.Should().BeTrue();
+            external.Stop.Should().BeNull();
+            UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            hoverAsks.Should().ContainSingle();
+            ToolTip.GetTip(editor)?.ToString().Should().Contain("Sub Foo()");
+        }
+        finally
+        {
+            window.Close(); vm.Dispose();
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            Directory.Delete(directory, true);
+        }
     }
 
     // The editor's quick info through the window's input, twice at the same point: once with the tool's end of hover
@@ -319,6 +392,49 @@ public class HoverThroughWindowInputTests
             ToolTip.GetIsOpen(editor).Should().BeTrue();
             ToolTip.GetTip(editor)?.ToString().Should().Contain("Sub Foo()");
             hoverAsks.Should().HaveCount(endedBetween ? 2 : 1);
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public async Task Diagnostic_hover_combines_overlaps_sources_and_optional_quick_info(bool autoQuickInfo, bool hasQuickInfo)
+    {
+        var (window, editor, vm) = ShowEditor();
+        vm.Settings.AutoQuickInfo.Returns(autoQuickInfo);
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(hasQuickInfo
+                ? new HoverResult(new MarkupContent("plaintext", "Quick info")) : null));
+        var line = editor.Document.GetLocation(editor.CaretOffset).Line - 1;
+        try
+        {
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [
+                    new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(line, 4), new Position(line, 7)),
+                        "First message", DiagnosticSeverity.Error, Source: "Server"),
+                    new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(line, 5), new Position(line, 5)),
+                        "Second message", DiagnosticSeverity.Warning)]));
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            var tip = ToolTip.GetTip(editor)?.ToString();
+            tip.Should().Contain("Server: First message").And.Contain("Second message");
+            if (autoQuickInfo && hasQuickInfo) tip.Should().Contain("Quick info");
+            else tip.Should().NotContain("Quick info");
+
+            editor.CaretOffset = editor.Document.GetLineByNumber(line + 1).Offset + 7;
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await Settle(700);
+            var outsideTip = ToolTip.GetTip(editor)?.ToString() ?? "";
+            outsideTip.Should().NotContain("First message");
+            outsideTip.Should().NotContain("Second message");
+
+            UiAutomationDriver.EndHover(editor);
+            Dispatcher.UIThread.RunJobs();
+            ToolTip.GetTip(editor).Should().BeNull();
         }
         finally { window.Close(); vm.Dispose(); }
     }

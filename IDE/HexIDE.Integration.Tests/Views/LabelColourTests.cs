@@ -20,7 +20,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <c>docs/vb6-fidelity-oracle.md</c>: read-backs logged by the program, and what painted read with
 /// <c>GetPixel</c> in an interactive session. Here the painting is read from a real Skia frame of the hosted form.
 /// </summary>
-public class LabelColourTests
+public class LabelColourTests : WindowTestFixture
 {
     private const string Form = """
         VERSION 5.00
@@ -290,17 +290,33 @@ public class LabelColourTests
         debug[1].Value.Should().Be(0);
     }
 
-    [AvaloniaFact]
-    public async Task A_Labels_Appearance_reads_back_and_setting_it_is_refused_even_under_On_Error()
+    [AvaloniaTheory]
+    [InlineData(0, 1, -2147483633L, VbSystemColor.Btnface)]
+    [InlineData(1, 0, -2147483643L, VbSystemColor.Window)]
+    public async Task Setting_Appearance_resets_BackColor_and_repaints_the_border(
+        int initial, int assigned, long expected, VbSystemColor background)
     {
-        // VB6 resets BackColor with Appearance (measured); until #796 that is refused, and untrappably, because a
-        // trappable error swallowed by On Error Resume Next would leave the old BackColor, a wrong value.
-        var (_, _, ctx, env) = LaidOnBackdrop();
-        (await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print Label1.Appearance\r\n"))[0].Value.Should().Be(1);
+        // The two measured transitions start with a white, Fixed Single label (#796).
+        var form = Form.Replace("Begin VB.Label Label1", $"Begin VB.Label Label1\r\n              Appearance = {initial}\r\n              BorderStyle = 1")
+            .Replace("BackColor       =   &H000000FF&", "BackColor       =   &H00FFFFFF&");
+        var (canvas, window, ctx, env) = ContainerRuntimeHarness.Laid(form);
+        var label = Label(canvas, "Label1");
+        PaintedNearBottomLeft(window, label).Should().Be(Colors.White);
 
-        var (_, _, ctx2, env2) = LaidOnBackdrop();
-        var act = () => ContainerRuntimeHarness.Run(ctx2, env2, "On Error Resume Next\r\nLabel1.Appearance = 0\r\n");
-        (await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("#796");
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            $"On Error Resume Next\r\nLabel1.Appearance = {assigned}\r\nDebug.Print Err.Number\r\nDebug.Print Label1.Appearance\r\nDebug.Print Label1.BackColor\r\n");
+
+        debug[0].Value.Should().Be(0);
+        debug[1].Value.Should().Be(assigned);
+        debug[2].Should().Be(new Vb6Value(expected));
+        PaintedNearBottomLeft(window, label).Should().Be(SystemColour(background));
+        Color Resource(VbSystemColor colour) =>
+            ((ISolidColorBrush)window.FindResource(colour.GetKey())!).Color;
+        Color Edge(int x) => PaintedAt(window,
+            label.TranslatePoint(new Point(x, label.Bounds.Height / 2), window)!.Value);
+        Edge(0).Should().Be(Resource(assigned == 1 ? VbSystemColor.Btnshadow : VbSystemColor.Windowframe));
+        Edge(1).Should().Be(assigned == 1 ? Resource(VbSystemColor._3DDKSHADOW) : SystemColour(background));
+        Edge(2).Should().Be(SystemColour(background));
     }
 
     [AvaloniaFact]

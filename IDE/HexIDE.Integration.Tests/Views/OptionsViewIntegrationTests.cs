@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
@@ -52,6 +53,34 @@ public class OptionsViewIntegrationTests
         registry.GetAll().Returns([SampleAddin]);
         registry.GetStatus(SampleAddin.AssemblyPath).Returns(AddinStatus.Loaded);
         return (settings, theme, keymap, languageSwitch, registry, new AddinOptionsService());
+    }
+
+    [AvaloniaTheory]
+    [InlineData("tab", "Str.Options.EditorFormatting.Indentation.TabWidth", "Tab _width:", "Tab width:")]
+    [InlineData("width", "Str.Options.Grid.Width", "_Width:", "Width:")]
+    [InlineData("height", "Str.Options.Grid.Height", "_Height:", "Height:")]
+    public void NumericOptionField_IsNamedByItsLocalizedLabel(string field, string key, string caption, string expected)
+    {
+        var settings = Substitute.For<ISettingsService>();
+        Control view = field == "tab"
+            ? new EditorFormattingPageView { DataContext = new EditorFormattingPageViewModel(settings) }
+            : new FormDesignerGridPageView { DataContext = new FormDesignerGridPageViewModel(settings) };
+        view.Resources[key] = caption;
+        var window = new Window { Content = view, Width = 420, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var boxes = view.GetVisualDescendants().OfType<TextBox>().ToArray();
+            var box = boxes[field == "height" ? 1 : 0];
+            var peer = ControlAutomationPeer.CreatePeerForElement(box);
+            peer.GetName().Should().Be(expected);
+
+            view.Resources[key] = "名前:";
+            Dispatcher.UIThread.RunJobs();
+            peer.GetName().Should().Be("名前:", "a language without access-key markers still names the field");
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]
