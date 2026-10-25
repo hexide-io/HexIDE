@@ -21,6 +21,13 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Syntax keywords match regardless of case
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+
+#### Scenario: Keywords differ from the definition's casing
+- **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
+- **THEN** each word receives its named keyword colour from the syntax definition
+
 ### Requirement: The code window SHALL hold the whole file
 The code window for a form, module, class, UserControl or PropertyPage SHALL hold the file's complete text.
 It SHALL be the text of the file as it stands, and after a save it SHALL be the text that save wrote.
@@ -276,3 +283,31 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+### Requirement: Event-handler searches SHALL start after the header
+Both designer double-click navigation and the Object/Procedure boxes SHALL search for an event handler starting
+at the end of the file header. Text in designer properties SHALL NOT intercept navigation or prevent a missing
+handler from being generated.
+
+#### Scenario: A caption names an event handler
+- **GIVEN** a control whose caption contains `Sub Command1_Click`
+- **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
+- **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent
+
+### Requirement: Delete SHALL work without a selection
+The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
+forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
+
+#### Scenario: Deleting inside code with nothing selected
+- **WHEN** the developer presses Delete with the caret inside editable code and no selection
+- **THEN** the next character is removed
+- **AND** if a run is active, the reset prompt is shown and answering No restores the edit
+
+### Requirement: Find SHALL wrap after searching other open documents
+Under All Open Documents, Find SHALL search the active document in the chosen direction without wrapping,
+then the other open documents, and only then wrap within the active document.
+
+#### Scenario: Find Up from the start of the active document
+- **WHEN** the caret is at offset 0 and both the active document and another open document contain the search text
+- **AND** the developer uses plain-text Find Up under All Open Documents
+- **THEN** the last match in the other document is selected before any match in the active document

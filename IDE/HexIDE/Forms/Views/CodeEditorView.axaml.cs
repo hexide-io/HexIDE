@@ -137,7 +137,10 @@ public partial class CodeEditorView : UserControl
         {
             ArmResetPrompt();
             WidenSelectionForDeletion(wholeLineWhenEmpty: false);
-            TextEditor.Delete();
+            if (TextEditor.TextArea.Selection.IsEmpty)
+                EditingCommands.Delete.Execute(null, TextEditor.TextArea);
+            else
+                TextEditor.Delete();
         }, () => true);
         // A paste at the end of a described line is the window's own, so a line break in it can go past the run
         // (task 4.5); the library's paste puts the text wherever the caret is, and only the text says whether it may.

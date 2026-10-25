@@ -47,6 +47,7 @@ public abstract class ComponentBaseClass : IComponentClass
 
     public abstract string Name { get; }
     public abstract string VBTypeName { get; }
+    public string ClassName => VBTypeName[(VBTypeName.LastIndexOf('.') + 1)..];
 
     /// <summary>Visible controls (default) have Width/Height/Visible; invisible ones (Timer) override false.</summary>
     public virtual bool IsVisual => true;
