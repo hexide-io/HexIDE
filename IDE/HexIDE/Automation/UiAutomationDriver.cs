@@ -193,9 +193,14 @@ public static class UiAutomationDriver
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
-            control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
-                window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
+            control is Window window ? ReadFrame(window) : null);
+    }
+
+    private static WindowFrameState ReadFrame(Window window)
+    {
+        var (style, exStyle, note) = NativeWindowFrame.Read(window);
+        return new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(), window.CanMinimize,
+            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle);
     }
 
     /// <summary>
@@ -4296,9 +4301,15 @@ public record UiNodeDetail(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     WindowFrameState? Frame = null);
 
-/// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
+/// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
-    bool ShowInTaskbar, string WindowState, string NativeStyleNote);
+    bool ShowInTaskbar, string WindowState,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? NativeStyleNote,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    uint? NativeStyle = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    uint? NativeExStyle = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);

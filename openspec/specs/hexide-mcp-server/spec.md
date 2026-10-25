@@ -388,9 +388,31 @@ SHALL report none for an IDE started without one.
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
 
+### Requirement: Native window frames are observable
+
+Window inspection SHALL report `nativeStyle` and `nativeExStyle` as unsigned 32-bit masks read from the
+Windows HWND, or a `nativeStyleNote` explaining why they cannot be read. These SHALL remain distinct from
+the Avalonia frame properties. Other controls SHALL have no frame section.
+
+The snapshot tool SHALL accept optional `includeFrame`, default false. When true on Windows, it SHALL
+capture the visible DWM frame rectangle from the desktop, report client-origin offsets in image pixels,
+and explain that overlapping windows are included and popups outside that rectangle are clipped.
+Unavailable captures SHALL return an actionable error without a client-only fallback.
+
+#### Scenario: Capturing a running form with its caption
+
+- **WHEN** a caller requests `includeFrame: true` for a visible Windows form fully on screen
+- **THEN** the PNG includes the frame and the reply reports the client origin within it
+- **AND** the same offsets and scale map inspected bounds into the full and inline images
+
+#### Scenario: The host cannot capture the frame
+
+- **WHEN** the window has no Windows HWND, is minimized, or extends outside the desktop
+- **THEN** frame capture returns an error explaining the limitation and what to do next
+
 ### Requirement: Snapshot coordinates include popup overhang
 
-A snapshot SHALL include the window and its open native popups at their relative screen positions,
+By default, a snapshot SHALL include the client area and its open native popups at their relative screen positions,
 including popups extending left of or above the window. The reply SHALL report the window origin in
 full-image pixels as `windowOffsetX` and `windowOffsetY`, zero when no left or top overhang exists.
 Tool descriptions SHALL explain how to map inspected window-relative bounds into both returned images.

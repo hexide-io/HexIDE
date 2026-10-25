@@ -40,10 +40,11 @@ public static class SnapshotComposer
             $"hexide_snapshot_{utcNow.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture)}Z_{count}.png");
     }
 
-    /// <summary>
-    /// Renders <paramref name="window"/> with every open popup drawn in its real position.
-    /// Returns null when the window has no area to capture.
-    /// </summary>
+    /// <summary>Captures the visible Windows frame rectangle, or explains why the host cannot.</summary>
+    public static Bitmap? CaptureFrame(Window window, out PixelPoint windowOffset, out string? error) =>
+        NativeWindowFrame.Capture(window, out windowOffset, out error);
+
+    /// <summary>Renders the client and open popups; returns null when the window has no area.</summary>
     public static RenderTargetBitmap? Capture(Window window) => Capture(window, out _);
 
     public static RenderTargetBitmap? Capture(Window window, out PixelPoint windowOffset)

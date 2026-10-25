@@ -738,14 +738,19 @@ it is a tool window.
 P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
 real caller uses.
 
-**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
-`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
-There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
-explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
-This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
+**Implemented; Windows live verification pending (#1595).** `inspect_element` on a Window reports the
+Avalonia frame and now reads `nativeStyle` / `nativeExStyle` as unsigned 32-bit Win32 bit masks from its HWND.
+`nativeStyleNote` explains when those reads are unavailable, including on headless and non-Windows hosts.
+`take_snapshot(window: "B3x1", includeFrame: true)` captures the DWM frame rectangle from the Windows desktop,
+with client-origin offsets for mapping inspected bounds. It refuses unsupported, minimized or partly off-screen
+windows rather than silently returning a client-only image. The reply explains that screen capture includes
+occluding windows and clips popups to the frame rectangle; the default client/popup render is unchanged.
 
-**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
-the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
+**Required live check.** On Windows at 150% scaling, inspect a running Fixed Dialog and tool window, compare
+both style masks with `GetWindowLong`, and capture each with `includeFrame: true` (also with `inline: true`).
+Confirm caption, border and buttons, client-origin coordinate mapping, an overlapping window, and the explicit
+refusal for a minimized or partly off-screen window. Keep this entry open until those checks pass.
+[#1595](https://github.com/hexide-io/HexIDE/issues/1595).
 
 ## No tool says which control has the focus, and `press_key` moves it there
 

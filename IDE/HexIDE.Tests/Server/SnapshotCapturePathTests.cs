@@ -10,6 +10,22 @@ namespace HexIDE.Tests.Server;
 public class SnapshotCapturePathTests
 {
     [Fact]
+    public void Frame_capture_is_opt_in_and_explains_screen_capture_limits()
+    {
+        var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
+        tool.Parameters.Should().Contain(p => p.Name == "includeFrame" && p.Optional && p.Type == "bool");
+        tool.Description.Should().Contain("includeFrame").And.Contain("occluded").And.Contain("Windows");
+    }
+
+    [Fact]
+    public void Frame_capture_failure_is_returned_instead_of_a_client_only_image()
+    {
+        var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
+        tool.Body.Should().Contain("CaptureFrame(active, out windowOffset, out var frameError)")
+            .And.Contain("new SnapshotResult(null, frameError, activeDialog)");
+    }
+
+    [Fact]
     public void The_tool_explains_and_returns_the_window_offset()
     {
         var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
