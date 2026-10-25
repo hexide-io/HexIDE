@@ -915,6 +915,21 @@ that line (hexide-io/HexIDE#1363).
   alone
 - **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
 
+### Requirement: Subprocess launch SHALL accept argument lists and environment overrides
+For stdio and launched pipe servers, the IDE SHALL accept nullable `arguments` as either a legacy
+command-line string or an array of strings. Arrays SHALL be forwarded through `ProcessStartInfo.ArgumentList`
+without trimming their elements. Pipe placeholders SHALL expand within each element. A nullable
+`environment` map SHALL override only the named inherited environment variables. Processes SHALL be launched
+without a shell or tty.
+
+#### Scenario: Arguments needing embedded quoting
+- **WHEN** an entry supplies an argument array containing spaces, quotes or empty strings
+- **THEN** the child receives each element as one argument with its contents preserved
+
+#### Scenario: One environment override
+- **WHEN** an entry supplies an environment variable value
+- **THEN** the child receives that value and inherits variables not named in the map
+
 ### Requirement: A launched pipe server can be told its owner's process ID
 For a launched pipe server, the client SHALL replace every `{pid}` in the configured arguments with
 HexIDE's process ID as invariant decimal digits. This substitution SHALL work without an open workspace.
