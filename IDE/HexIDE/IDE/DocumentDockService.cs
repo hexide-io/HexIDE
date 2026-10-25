@@ -13,7 +13,7 @@ namespace HexIDE.IDE;
 
 public sealed class DocumentDockService : IDocumentDockService, IDisposable
 {
-    private readonly Lazy<MainViewViewModel.DockFactory> factory;
+    private readonly DockFactoryReference factory;
     private readonly IEventBus eventBus;
     private readonly IDisposable projectUnloadedSub;
     private readonly List<BaseEditorWindowViewModel> openDocuments = new();
@@ -39,7 +39,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         var match = dock.VisibleDockables.FirstOrDefault(predicate);
         if (match is null) return false;
 
-        factory.Value.SetFocusedDockable(dock, match);
+        factory.Value!.SetFocusedDockable(dock, match);
         dock.ActiveDockable = match;
         return true;
     }
@@ -61,11 +61,11 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
             return true;
         }
 
-        factory.Value.CloseDockable(match);
+        factory.Value!.CloseDockable(match);
         return true;
     }
 
-    public DocumentDockService(Lazy<MainViewViewModel.DockFactory> factory, IEventBus eventBus)
+    public DocumentDockService(DockFactoryReference factory, IEventBus eventBus)
     {
         this.factory = factory;
         this.eventBus = eventBus;
@@ -76,7 +76,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         });
     }
 
-    private DocumentDock? Dock => factory.Value.DocumentDock;
+    private DocumentDock? Dock => factory.Value?.DocumentDock;
 
     public bool TryActivate<T>(Func<T, bool> predicate) where T : BaseEditorWindowViewModel
     {
@@ -86,7 +86,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         var match = openDocuments.OfType<T>().FirstOrDefault(predicate);
         if (match is null) return false;
 
-        factory.Value.SetFocusedDockable(dock, match);
+        factory.Value!.SetFocusedDockable(dock, match);
         dock.ActiveDockable = match;
         return true;
     }
@@ -110,8 +110,8 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         vm.IsActive = true;
 
         dock.VisibleDockables!.Add(vm);
-        factory.Value.InitDockable(vm, dock);
-        factory.Value.SetFocusedDockable(dock, vm);
+        factory.Value!.InitDockable(vm, dock);
+        factory.Value!.SetFocusedDockable(dock, vm);
         dock.ActiveDockable = vm;
     }
 
@@ -136,7 +136,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     private void OnCloseRequest(IMdiWindow window)
     {
         if (window is BaseEditorWindowViewModel vm && Dock is not null)
-            factory.Value.CloseDockable(vm);
+            factory.Value!.CloseDockable(vm);
     }
 
     private void OnVisibleDockablesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -157,7 +157,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     public void CloseDocument(BaseEditorWindowViewModel vm)
     {
         if (Dock is not null)
-            factory.Value.CloseDockable(vm);
+            factory.Value!.CloseDockable(vm);
     }
 
     public void CloseAll()
@@ -166,7 +166,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         foreach (var doc in docs)
         {
             if (Dock is not null)
-                factory.Value.CloseDockable(doc);
+                factory.Value!.CloseDockable(doc);
         }
     }
 

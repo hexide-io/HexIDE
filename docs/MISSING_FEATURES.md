@@ -76,7 +76,7 @@
 | Properties Window | F4 | Done | Selecting a module, class, UserControl or PropertyPage in Project Explorer offers `(Name)` with project naming checks; renaming keeps the designer root and `VB_Name` together and leaves the filename unchanged (#493) |
 | Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height) |
 | Property Pages | — | Missing | Windows-only; see below. `IPropertyPage`/`IPropertyPageSite` COM runtime display |
-| Toolbox | — | Done | |
+| Toolbox | — | Done | Default and Reset place it on the left; reopening retains its home and is captured for restart (#895) |
 | Color Palette | — | Done | |
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
 | Toolbars > Edit | — | Done | 12 buttons: IntelliSense, indent/outdent, breakpoint, bookmarks |
