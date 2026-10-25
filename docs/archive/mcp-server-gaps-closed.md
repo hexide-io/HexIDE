@@ -66,11 +66,26 @@ confirm the resulting mark or fold as well, since delivery alone does not prove 
 
 **Verification.** Existing `InteractClickTests` cover target-relative coordinates, pointer press/release
 on a peerless Border, and delivery to the control at the point rather than necessarily the addressed
-control. No product behaviour changes in #707. The live check remains for the supervising session:
-record the concrete `interact` calls and replies, toggle a breakpoint and a bookmark through their
-gutters (including beside a folded header), and fold then unfold a section through its marker. Check
-the marks and fold state after each click, and record the exact working coordinates and editor path
-here. This paperwork pass used no MCP tools and does not claim those live checks passed.
+control. No product behaviour changes in #707.
+
+**Live check (2026-10-25, Windows, Debug build).** The breakpoint margin is now in the control tree as its own
+node, so target it, not the editor:
+
+```json
+{"target":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None/List/Custom[BreakpointMargin]","action":"click","value":"7,75","window":"ide"}
+```
+
+Its reply was `clicked the left button at (7, 75) on 'BreakpointMargin'`; `get_breakpoints` then gave `[21]`, and the
+same call again gave `[]`. The margin is 14 units wide: the same row addressed on the editor at `10,77` fell on its
+edge, landed on `ScrollContentPresenter`, and toggled nothing, which the reply's "landing on" names. The fold marker
+has no node, so it is clicked through the editor:
+
+```json
+{"target":"…/Custom[Root]/None[TextEditor]","action":"click","value":"66,10","window":"ide"}
+```
+
+Its reply named `FoldingMarginMarker`; the form's header unfolded, and the same call folded it again. Bookmarks have
+no gutter click to drive. Not checked live: a breakpoint click beside a folded header.
 
 
 ---
