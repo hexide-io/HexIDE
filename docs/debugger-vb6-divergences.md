@@ -462,7 +462,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   something else stops it. Set Next Statement from the menu already refuses any line that is not a statement.
 - **A mark can still be on such a line, and can still be removed.** This row used to say that only an older
   sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
-  read-only line, from either format, and logs it (`UserSidecarService.OffReadOnlyLines`). What can still put
+  read-only line, and logs it (`UserSidecarService.OffReadOnlyLines`). Since #884, file-relative header
+  marks from versions 2 and 3 are retained at their file lines; member Attribute marks are still dropped. What can still put
   one there is an edit or a reload, because a breakpoint or a bookmark is a bare line number and does not
   follow its line. Once a project is open, only `HeaderRefresher.ShiftMarks` moves marks, by the header's
   change in length, at a designer change, a save or a reload. A designer change and a save add or remove no
@@ -497,7 +498,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   folded header is one row that starts at the top of the file. Unfolded, F9, Ctrl+F2 or a click in the gutter
   beside the line removes it, as do Clear All Breakpoints, Clear All Bookmarks, and `set_breakpoints` or
   `set_bookmarks` with it left out; a set that keeps it is accepted, so a read-then-write round trip is never
-  refused. Left alone, it lasts until the project is next opened, when the sidecar's load drops it.
+  refused. Left alone, a member Attribute mark lasts until the project is next opened, when the sidecar's load
+  drops it; a header mark saved in version 3 remains counted from the file's top (#884).
 - **Why:** those lines never execute, so a breakpoint there is never hit and Run To Cursor would run to the end;
   and folded, the header is one visible line standing for many, so a mark set there would land on a line the
   developer cannot see.
@@ -528,11 +530,12 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   below a continued `Attribute` line ([#968](https://github.com/hexide-io/HexIDE/issues/968)).
 - **Status:** **by design** (#273 tasks 3.6 and 3.16). A sidecar written before the change counts from the
   first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
-  on (task 3.17). Two ways a sidecar can still restore marks in another numbering are open: a conflicted
-  external change, whose header change never reaches the stores
-  ([#884](https://github.com/hexide-io/HexIDE/issues/884)), and a form HexIDE has just created, whose header
-  first appears at its first designer change, save or reload, so the sidecar cannot tell whether its marks
-  already count it ([#885](https://github.com/hexide-io/HexIDE/issues/885)).
+  on (task 3.17). Sidecar version 3 anchors code marks after the full header, so a conflicted external header
+  change that never reaches the stores no longer moves those marks on reopen (#884). Its stored offsets are
+  converted at the persistence boundary; the stores and every public surface still use file lines. A newly
+  created form's header still first appears at its first designer change, save or reload
+  ([#885](https://github.com/hexide-io/HexIDE/issues/885)); version 3 can now distinguish its code marks from
+  marks already in a header.
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 
