@@ -301,7 +301,7 @@ default Error Trapping setting.
 
 VB6's IDE halts this way, and leaving the procedure abandoned while the program carried on let timers and clicks run
 on whatever state it had left half-updated. Measured on vb6.exe: the dialog, what runs behind it, the break's location,
-the retry, and the event boundary (`docs/vb6-fidelity-oracle.md`, "An unhandled run-time error"). The exception for a
+the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error"). The exception for a
 class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 
 #### Scenario: An event procedure divides by zero

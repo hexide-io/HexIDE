@@ -157,7 +157,7 @@ each one says which.
 **When you need it:** you are changing what the interpreter computes, meaning a result type, an error
 number, a rounding rule, a coercion or a `Format` edge. HexIDE decides those by running the real VB6
 compiler, not by reading documentation. The documentation has been wrong often enough that a test's
-expected value has to come from `vb6.exe`. [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md)
+expected value has to come from `vb6.exe`. [`docs/vb6-fidelity-oracle/README.md`](docs/vb6-fidelity-oracle/README.md)
 records every behaviour measured so far, so check it first. Your question may already be answered there.
 
 **What it needs:** Windows and **your own licensed copy of Visual Basic 6**, installed on the machine you

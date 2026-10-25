@@ -103,7 +103,7 @@ public class ProjectSerializer
             };
 
             // Two shapes, and VB6 is strict about which key takes which — all five measured, not assumed
-            // (docs/vb6-fidelity-oracle.md, 2026-09-20). `Module=` and `Class=` REQUIRE the `Name; File`
+            // (docs/vb6-fidelity-oracle/a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which.md, 2026-09-20). `Module=` and `Class=` REQUIRE the `Name; File`
             // form: given `Module=Mod1.bas`, VB6 refuses the whole project with "The project file … is
             // corrupt, and can't be loaded", naming no line. The designer kinds require the bare path:
             // given `UserControl=Gauge; Gauge.ctl`, VB6 reads the entire value as a filename and fails with
