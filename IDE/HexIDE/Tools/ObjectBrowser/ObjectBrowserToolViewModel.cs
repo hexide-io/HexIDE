@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -128,6 +129,7 @@ public partial class ObjectBrowserToolViewModel : Document
         ForwardCommand = new DelegateCommand(GoForward, () => _navIndex < _navHistory.Count - 1);
         CloseCommand = new DelegateCommand(Close);
 
+        connections.ConnectionsChanged += OnConnectionsChanged;
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
         focusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
@@ -188,6 +190,19 @@ public partial class ObjectBrowserToolViewModel : Document
         vbaLibrary = new OBLibraryViewModel("VBA") { IsLoaded = false };
         Libraries.Add(vbaLibrary);
         ReorderLibraries();
+    }
+
+    private void OnConnectionsChanged(object? sender, EventArgs e)
+    {
+        // Registry notifications can arrive from a transport thread.
+        if (Dispatcher.UIThread.CheckAccess()) Retry();
+        else Dispatcher.UIThread.Post(Retry);
+
+        void Retry()
+        {
+            if (vbaLibrary is { IsLoaded: false } lib && lib.Classes.Any(c => c.IsStatus))
+                LoadVbaLibraryAsync(lib).ListenErrors();
+        }
     }
 
     private async Task LoadVbaLibraryAsync(OBLibraryViewModel lib)
