@@ -67,7 +67,7 @@
 | Object | Shift+F7 | Done | Opens form designer for active form |
 | Definition | — | Done | LSP go-to-definition |
 | Last Position | — | Stub | Always disabled |
-| Object Browser | — | Partial | Two-panel browser implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), Back/Forward, Go-to-Definition, LSP member loading, description panel; pre-launch gaps: Unicode placeholder icons pending bitmap replacement (#11), plus three behavioural defects — member list cached so later edits do not appear, double-click opens the containing file rather than the member definition, Escape does not close (#24) |
+| Object Browser | — | Partial | Two-panel browser implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), Back/Forward, Go-to-Definition, LSP member loading, description panel; pre-launch gaps: Unicode placeholder icons pending bitmap replacement (#11), plus three behavioural defects — member list cached so later edits do not appear, double-click opens the containing file rather than the member definition, Escape does not close (#24); VBA built-ins load from a capable running server, with status entries shown only under VBA and retry on library selection; automatic refresh on server startup remains outstanding (#903) |
 | Immediate Window | Ctrl+G | Done (Phase 4 + P7c) | Editable buffer; `?expr`/`Print expr`/bare expr evaluates against the paused frame. A `?` line prints as `Debug.Print` does, ` 5 ` for 5 and lists with `;` and `,`, as VB6's Immediate window was measured to (#1386); a bare **assignment or `Set` now EXECUTES** and mutates the frame (`count = 5` assigns, `?count = 5` compares — P7c); user Sub/Function calls still rejected (deadlock-prone — D14–D15); Debug.Print output lands here; MCP `evaluate` |
 | Locals Window | — | Done (Phase 3 + P8) | Expandable tree (Expression/Value/Type) of the paused frame; UDT/array/object drill-in, cycle+depth guarded; a **live control expands to its VB6 property surface** (P8, D7) and tree **expansion is preserved across a break** (D10); native `TreeView` (TreeDataGrid is commercially licensed in 12.x); MCP `get_locals`. Residual: form `Me`/child-control-tree/proxy expansion (D7) |
 | Watch Window | — | Done (P6a) | Watches window (Expression/Value/Type/Context, expandable tree), re-evaluates each watch on every break, blanks on continue; Add/Edit/Delete + the three VB6 watch types; MCP `add_watch`/`get_watches` |
@@ -210,7 +210,7 @@
 | Project Explorer | Done | Opens/focuses tool window |
 | Properties | Done | Opens/focuses tool window |
 | Form Layout | Done | Opens Form Layout tool window with live form position thumbnail |
-| Object Browser | Partial | Opens Object Browser document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24) |
+| Object Browser | Partial | Opens Object Browser document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24); VBA built-ins load from a capable running server, with status entries shown only under VBA and retry on library selection; automatic refresh on server startup remains outstanding (#903) |
 | ToolBox | Done | |
 | Data View | Stub | Button present; no Data View window |
 | Position display (twips) | Done | Shows selected component position |
@@ -422,7 +422,7 @@
 | Save Changes | Partial | Per-file checkbox UI present; selective-save logic unclear |
 | Font | Done | |
 | About | Done | |
-| Object Browser | Partial | Implemented as a Document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24) |
+| Object Browser | Partial | Implemented as a Document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24); VBA built-ins load from a capable running server, with status entries shown only under VBA and retry on library selection; automatic refresh on server startup remains outstanding (#903) |
 | Color dialog (property editor) | Done | Inline picker in Properties grid |
 | Input Box (VB6 runtime) | Done | |
 | Message Box (VB6 runtime) | Done | |
@@ -535,7 +535,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Object Browser (F2) | Partial | Implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), LSP member loading, description panel, Go-to-Definition; pre-launch gaps: Unicode placeholder icons pending bitmap replacement (#11), plus three behavioural defects — member list cached so later edits do not appear, double-click opens the containing file rather than the member definition, Escape does not close (#24) |
+| Object Browser (F2) | Partial | Implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), LSP member loading, description panel, Go-to-Definition; pre-launch gaps: Unicode placeholder icons pending bitmap replacement (#11), plus three behavioural defects — member list cached so later edits do not appear, double-click opens the containing file rather than the member definition, Escape does not close (#24); VBA built-ins load from a capable running server, with status entries shown only under VBA and retry on library selection; automatic refresh on server startup remains outstanding (#903) |
 | Data Tips (hover during debug) | Done | Hover a variable in break mode → its live value (`id = value`), evaluated against the paused frame (branches the editor hover pipeline); native debugger P6c |
 | Edit-and-Continue | Affordance | True hot-patch is a permanent wall for the tree-walker (execution position is the live C# call stack, not a re-pointable PC) — a compiling backend's lane. But editing code while running/paused pops VB6's own "This action will reset your project. Do you want to continue?" prompt (Yes stops + keeps the edit, No reverts) — a faithful, recognisable affordance rather than a dead end |
 | Breakpoint condition / hit count | Partial | VB6's watch-based conditional break shipped (Break-When-True/Changed watches evaluated at the pause-gate — P6b). Modern VS-style per-line breakpoint condition + hit count is a deferred additive Evolution item (reuses the same gate machinery) |
