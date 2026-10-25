@@ -621,7 +621,8 @@ The IDE SHALL route a document by its language identity, derived from the docume
 offer it to **every** registered server claiming that language, subject to the ambiguity rule below, rather
 than selecting one. Where more than one
 server answers, the IDE SHALL combine their results: diagnostics from all sources SHALL be shown together,
-and list-shaped results SHALL be concatenated.
+and list-shaped results SHALL be concatenated except where a feature defines its own selection or merge
+rule. Completion SHALL follow the bounded, deduplicated merge below.
 
 Routing to a single server is the simpler design and the wrong one. The arrangement it forecloses — a
 language server and a separate linter or checker on the same file — is ordinary rather than exotic, and it is
@@ -1013,3 +1014,27 @@ the server after a refusal.
 - **GIVEN** a client listening on a loopback endpoint
 - **WHEN** a handshake carrying an `Origin` header arrives, and then one without
 - **THEN** the first is refused with 403 and the second is accepted as the server
+
+### Requirement: Completion SHALL merge within a bounded popup budget
+The registry SHALL ask every document claimant concurrently and return when all answer or one
+second from the request elapses. It SHALL include only answers received within that budget and SHALL
+deduplicate by ordinal label and kind, retaining the complete item from the higher-priority server or the
+earlier registration on a tie. Late answers SHALL be dropped, logged at debug level, and recorded in the
+protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
+deadline and caller cancellation.
+
+#### Scenario: Two servers offer the same completion
+- **WHEN** two timely answers contain the same label and kind
+- **THEN** the higher-priority claimant's item is shown once, with its detail and insertion text
+- **AND** registration order breaks equal-priority ties
+
+#### Scenario: One server answers late
+- **WHEN** one claimant answers within a second and another answers after it
+- **THEN** the timely items are returned at the budget boundary
+- **AND** the late answer is recorded and dropped without changing the open list
+- **AND** cancellation or timeout without a reply retains its own outcome and is not recorded as a late answer
+
+#### Scenario: Claimants advertise different trigger characters
+- **WHEN** the editor receives a character in the union of the document claimants' completion triggers
+- **THEN** it requests completion only from claimants advertising that character
+- **AND** letters continue to use the ordinary completion route

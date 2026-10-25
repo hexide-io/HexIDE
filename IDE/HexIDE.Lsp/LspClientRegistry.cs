@@ -343,8 +343,72 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // ── Merged features ─────────────────────────────────────────────────────────────────────────────
     // Completions genuinely combine: two servers offer different candidates for one prefix, and dropping
     // either would hide something the user could have typed. This is the case the merge helpers exist for.
+    public IReadOnlyList<string> CompletionTriggerCharacters(string uri) =>
+        StartedClaimantsFor(uri).SelectMany(CompletionTriggers).Distinct(StringComparer.Ordinal).ToArray();
+
+    private static IEnumerable<string> CompletionTriggers(ILspClient client)
+    {
+        if (client.AdvertisedCapabilities is not { } caps
+            || !ServerCapabilities.Supports(caps, "completionProvider")) yield break;
+        var provider = caps.GetProperty("completionProvider");
+        if (provider.ValueKind != JsonValueKind.Object
+            || !provider.TryGetProperty("triggerCharacters", out var triggers)
+            || triggers.ValueKind != JsonValueKind.Array) yield break;
+        foreach (var trigger in triggers.EnumerateArray())
+            if (trigger.ValueKind == JsonValueKind.String && trigger.GetString() is { } value)
+                yield return value;
+    }
+
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(string uri, Position position,
+        string triggerCharacter, CancellationToken ct = default) =>
+        GatherCompletionAsync(uri, position, triggerCharacter, ct);
+
     public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestCompletionAsync(uri, position, ct));
+        GatherCompletionAsync(uri, position, null, ct);
+
+    private async Task<CompletionItem[]> GatherCompletionAsync(
+        string uri, Position position, string? triggerCharacter, CancellationToken ct)
+    {
+        var budget = TimeSpan.FromSeconds(1);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        using var waiting = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var deadline = Task.Delay(budget, waiting.Token);
+        var pending = StartedClaimantsFor(uri)
+            .Where(c => triggerCharacter is null
+                || CompletionTriggers(c).Contains(triggerCharacter, StringComparer.Ordinal))
+            .Select(AskAsync).ToArray();
+        try
+        {
+            await Task.WhenAny(Task.WhenAll(pending), deadline);
+            ct.ThrowIfCancellationRequested();
+            // Registration order is already priority order. Never let response order choose the winner.
+            return pending.Where(t => t.IsCompletedSuccessfully).SelectMany(t => t.Result)
+                .DistinctBy(i => (i.Label, i.Kind)).ToArray();
+        }
+        finally { waiting.Cancel(); }
+
+        async Task<CompletionItem[]> AskAsync(ILspClient client)
+        {
+            try
+            {
+                // Keep the request's own deadline and cancellation; the popup budget only stops waiting.
+                var timely = false;
+                var items = await client.RequestCompletionAsync(uri, position, ct, () =>
+                {
+                    timely = clock.Elapsed <= budget;
+                    if (timely || ct.IsCancellationRequested) return;
+                    _logger.LogDebug("Completion from {Id} answered after the popup opened; discarded.", OwnerOf(client));
+                    client.NoteLateCompletion();
+                });
+                if (timely) return items;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Completion failed for {Id}", OwnerOf(client));
+            }
+            return [];
+        }
+    }
 
     // ── First-answer features ───────────────────────────────────────────────────────────────────────
     // Nothing here can usefully merge two answers into one, but any claimant may legitimately have it, so
