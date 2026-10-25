@@ -254,6 +254,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
+| Form caption bar | Done | Uses the active title-bar brush without an MDI ancestor, including in Dock documents (#896); active/inactive styling is deferred |
 | Draw control from toolbox | Done | Click-drag on canvas spawns control |
 | Grid display | Done | Visual dot grid; configurable size |
 | Snap to grid | Done | Controlled by Options |
@@ -266,9 +267,9 @@
 | Double-click → open event handler | Done | Generates handler stub; opens code editor. Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. A match in a member's `Attribute` line can still take the caret there ([#702](https://github.com/hexide-io/HexIDE/issues/702)) |
 | Properties grid integration | Done | Bidirectional; all property types |
 | Color picker (via Color Palette) | Done | |
-| Font picker (via Property grid) | Done | |
+| Font picker (via Property grid) | Done | An uninstalled current family is listed and selected without substituting a rendering fallback (#912) |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |
-| Multi-select | Done | Rubber-band and Ctrl+click; group drag; primary/secondary handles |
+| Multi-select | Done | Rubber-band and Ctrl+click; group drag; primary/secondary handles. The last selected control is the reference for Align and Make Same Size and is shown in Properties (#928); rubber-band keeps the first matched control as its reference |
 | Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar. Centers and Middles land where VB6's do, in whole twips (#929, measured) |
 | Make Same Size commands | Done | Same Width / Height / Size via Format > Make Same Size |
 | Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented. Make Equal truncates the gap to a whole twip and leaves the outermost controls, as VB6 does (#929, measured across) |
@@ -333,7 +334,7 @@
 |---|---|---|
 | Cursor / pointer tool | Done | |
 | Label | Done | |
-| TextBox | Partial | Text, Change, the colours, focus and the mouse events run. A drawn TextBox starts with its name as its Text, as VB6's designer gives it ([#926](https://github.com/hexide-io/HexIDE/issues/926)). SelStart, SelLength and SelText read and write at run time as vb6.exe measured ([#1150](https://github.com/hexide-io/HexIDE/issues/1150)). MultiLine and ScrollBars lay the box out as in VB6: Enter breaks a MultiLine box's line, it wraps unless it has a horizontal scroll bar, and it draws the bars it asks for ([#1340](https://github.com/hexide-io/HexIDE/issues/1340)). Its own Font is drawn, and its font members read and write as below ([#915](https://github.com/hexide-io/HexIDE/issues/915)). MaxLength, Locked, PasswordChar and Alignment are kept in the file but not applied at run time. Every control with a font, and the form, reads and writes FontName, FontSize, FontBold, FontItalic, FontUnderline and FontStrikethru as vb6.exe measured, sizes snapped to whole pixels and bitmap fonts to their own heights ([#1343](https://github.com/hexide-io/HexIDE/issues/1343)); the Font object itself is [#934](https://github.com/hexide-io/HexIDE/issues/934) |
+| TextBox | Partial | Text, Change, the colours, focus and the mouse events run. A drawn TextBox starts with its name as its Text, as VB6's designer gives it ([#926](https://github.com/hexide-io/HexIDE/issues/926)). SelStart, SelLength and SelText read and write at run time as vb6.exe measured ([#1150](https://github.com/hexide-io/HexIDE/issues/1150)). MultiLine and ScrollBars lay the box out as in VB6: Enter breaks a MultiLine box's line, it wraps unless it has a horizontal scroll bar, and it draws the bars it asks for ([#1340](https://github.com/hexide-io/HexIDE/issues/1340)). Short single-line boxes adapt their vertical padding to the measured font line height to keep their text visible at 285 and 315 twips ([#914](https://github.com/hexide-io/HexIDE/issues/914)). Its own Font is drawn, and its font members read and write as below ([#915](https://github.com/hexide-io/HexIDE/issues/915)). MaxLength, Locked, PasswordChar and Alignment are kept in the file but not applied at run time. Every control with a font, and the form, reads and writes FontName, FontSize, FontBold, FontItalic, FontUnderline and FontStrikethru as vb6.exe measured, sizes snapped to whole pixels and bitmap fonts to their own heights ([#1343](https://github.com/hexide-io/HexIDE/issues/1343)); the Font object itself is [#934](https://github.com/hexide-io/HexIDE/issues/934) |
 | Frame | Done | ToolTipText, read and set as vb6.exe does (#1403). |
 | CommandButton | Done | ToolTipText, read and set as vb6.exe does (#1403). The arrow keys move to the previous or next control in its container, as in VB6 (#1625). |
 | CheckBox | Done | GotFocus and LostFocus, as vb6.exe raises them (#1101). The arrow keys move to the previous or next control in its container, as in VB6 (#1625). |

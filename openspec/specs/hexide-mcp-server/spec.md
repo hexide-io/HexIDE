@@ -14,6 +14,19 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Shutdown SHALL preserve the reply and a cancelled IDE's server
+`shutdown_ide` SHALL close the main window only after its HTTP response completes. Server cancellation
+and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
+available. The reply reports a request, not confirmation of process exit.
+
+#### Scenario: Shutdown is requested through a tool call
+- **WHEN** `shutdown_ide` returns its result
+- **THEN** the main-window close is deferred until the HTTP response completes
+
+#### Scenario: A close is cancelled
+- **WHEN** shutdown is requested but the IDE stays open
+- **THEN** the automation server and its context remain available
+
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
 On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
 so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
@@ -420,3 +433,15 @@ waiting on a window before the action.
 - **WHEN** a watch finds the program between two DoEvents, with an unrelated dialog already open
 - **AND** the action queues a handler that opens no window
 - **THEN** the old dialog does not end the program wait or get named as holding the handler
+
+### Requirement: Discovery and legacy clients share a stateless transport
+The automation server SHALL support discovery for the 2026-07-28 protocol revision and SHALL keep both discovery
+and legacy initialize clients stateless, without issuing an MCP session ID or offering a standalone GET stream.
+
+#### Scenario: Discovery without initialization
+- **WHEN** a client sends `server/discover` without first sending `initialize`
+- **THEN** the server advertises `2026-07-28` among its supported versions and issues no MCP session ID
+
+#### Scenario: Rebuild with an attached client
+- **WHEN** the server restarts on the same endpoint after a client has connected
+- **THEN** that client's next tool call is answered without a stale transport session
