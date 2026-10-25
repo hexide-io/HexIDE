@@ -355,7 +355,10 @@ public sealed class LanguageServerConfigLoader
         }
 
         if (transport is "stdio" or "pipe")
+        {
             Note("endpoint", entry.Endpoint);
+            Note("websocketRole", entry.WebSocketRole);
+        }
 
         if (ignored.Count == 0) return;
 

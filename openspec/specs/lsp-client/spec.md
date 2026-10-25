@@ -881,3 +881,33 @@ that line (hexide-io/HexIDE#1363).
 - **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
   alone
 - **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+
+### Requirement: WebSocket transport direction
+
+The client SHALL support `websocketRole` values `connect` (the default) and `listen` in server
+configuration, without changing the transport establishment interface. Listening SHALL accept an
+incoming WebSocket at the configured endpoint, use the same JSON-RPC Text-message framing as connecting,
+and release the listener on failure, cancellation or disposal.
+
+#### Scenario: Server dials the editor
+- **GIVEN** a WebSocket entry with `websocketRole` set to `listen`
+- **WHEN** the server opens a WebSocket to its endpoint while the client establishes the transport
+- **THEN** the client exchanges JSON-RPC messages over that incoming connection
+
+### Requirement: A listening WebSocket accepts only a local, non-browser dial
+
+Because whatever dials a listening endpoint is taken as the language server, the client SHALL listen only
+on a loopback endpoint (`localhost`, `127.0.0.1` or `[::1]`) and SHALL refuse any other host before binding.
+It SHALL refuse a dial from a non-loopback address, and a dial carrying an `Origin` header, which every
+browser sends on a WebSocket handshake and no language server process does, and SHALL go on listening for
+the server after a refusal.
+
+#### Scenario: An endpoint off this machine
+- **GIVEN** a WebSocket entry with `websocketRole` set to `listen` and an endpoint on `0.0.0.0` or a host name
+- **WHEN** the client establishes the transport
+- **THEN** nothing is bound and the connection's failure says the endpoint must be on this machine
+
+#### Scenario: A web page dials first
+- **GIVEN** a client listening on a loopback endpoint
+- **WHEN** a handshake carrying an `Origin` header arrives, and then one without
+- **THEN** the first is refused with 403 and the second is accepted as the server

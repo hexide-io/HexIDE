@@ -574,7 +574,7 @@ anything, and failed entries remain failed.
 
 ### Transports
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two

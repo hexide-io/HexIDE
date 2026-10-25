@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Incoming WebSocket language servers** (#384). Set `websocketRole` to `listen` to let a server
+  dial HexIDE at the configured endpoint; the default remains `connect`.
+
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
   The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on
