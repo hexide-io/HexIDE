@@ -60,7 +60,7 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=79
+EXPECTED_CHECKS=82
 FAILURES_UNTRACKED=20
 FAILURES_STAGED=22
 
@@ -370,6 +370,17 @@ output="$(cd "$UNREADABLE/clean" && GIT_CEILING_DIRECTORIES="$ceiling" bash scri
 status=$?
 seen   "a readable tree with nothing to report says OK" "check-tree-hygiene: OK"
 absent "...and prints no warning count when there are none" "warning(s)"
+echo
+echo "F. a temp location that cannot hold a file"
+
+# A regular file cannot hold a temp file, even when the selftest runs as root. Unlike chmod,
+# this reliably denies creation on every host without changing permissions on a shared directory.
+printf 'not a directory\n' > "$UNREADABLE/not-a-directory"
+output="$(cd "$UNREADABLE/clean" && TMPDIR="$UNREADABLE/not-a-directory" GIT_CEILING_DIRECTORIES="$ceiling" bash scripts/check-tree-hygiene.sh 2>&1)"
+status=$?
+exited "when temp creation fails, the guard refuses to pass (exit 2)" 2
+seen   "...and explains that it cannot create a temp file" "cannot create a temp file"
+absent "...and never claims the tree is clean" "check-tree-hygiene: OK"
 rm -rf "${UNREADABLE:?}"
 
 echo

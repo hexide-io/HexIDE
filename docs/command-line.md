@@ -69,7 +69,9 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
   VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
   directory.
-- **Logs are not per-user files** and stay in their usual place.
+- **Logs are not per-user files** and stay in their usual place. IDE log pruning keeps at least the seven
+  most recent sessions and deletes an older session only when all its parts were last modified more than
+  seven days ago. Frequent launches across profiles do not shorten that window.
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.
 - **A malformed one refuses to start, as a malformed `--server-port` does.** Given with nothing after it —
@@ -127,6 +129,9 @@ looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 **`--help` is answered before anything starts.** No window, no project, no port — it prints and exits. On
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
+An inherited file or pipe is used directly, before trying to attach to a console. In particular, a
+Windows batch file can capture help and refusals with `HexIDE.Desktop.exe --help > out.txt 2>&1`,
+even when the batch file's cmd has no console window.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
 terminal rather than a file or pipe, `NO_COLOR` unset, `TERM` not set to `dumb`, and a terminal that takes

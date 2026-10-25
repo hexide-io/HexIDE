@@ -220,6 +220,38 @@ public sealed class LoggingSetupTests : IDisposable
     }
 
     [Theory]
+    [InlineData(-6)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void PruningKeepsRecentlyModifiedSessionsBeyondTheFloor(int daysFromNow)
+    {
+        GivenSessionFiles("20260101-000000", parts: 2);
+        GivenSessionFiles("20260201-000000", parts: 1);
+        foreach (var file in Directory.GetFiles(_dir, "ide-20260101-000000*"))
+        {
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddDays(daysFromNow));
+        }
+
+        LoggingSetup.PruneOldLogs(_dir, "ide-", keepSessions: 1);
+
+        Directory.GetFiles(_dir).Should().HaveCount(3,
+            "recently modified sessions survive even when later launches exceed the floor");
+    }
+
+    [Fact]
+    public void PruningKeepsEveryPartWhenOnlyTheNewestPartWasModifiedRecently()
+    {
+        GivenSessionFiles("20260101-000000", parts: 3);
+        GivenSessionFiles("20260201-000000", parts: 1);
+        File.SetLastWriteTimeUtc(Path.Combine(_dir, "ide-20260101-000000_002.log"), DateTime.UtcNow);
+
+        LoggingSetup.PruneOldLogs(_dir, "ide-", keepSessions: 1);
+
+        Directory.GetFiles(_dir, "ide-20260101-000000*").Should().HaveCount(3,
+            "a session still writing must keep its older parts too");
+    }
+
+    [Theory]
     [InlineData("ide-20260911-120000.log", "20260911-120000")]
     [InlineData("ide-20260911-120000_001.log", "20260911-120000")]
     [InlineData("ide-20260911-120000_147.log", "20260911-120000")]
@@ -262,6 +294,10 @@ public sealed class LoggingSetupTests : IDisposable
         for (var part = 1; part < parts; part++)
         {
             File.WriteAllText(Path.Combine(_dir, $"ide-{stamp}_{part:000}.log"), $"{stamp} part {part}\n");
+        }
+        foreach (var file in Directory.GetFiles(_dir, $"ide-{stamp}*"))
+        {
+            File.SetLastWriteTimeUtc(file, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         }
     }
 

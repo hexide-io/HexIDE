@@ -33,7 +33,7 @@ startRule
 
 module
     : WS? NEWLINE* (moduleHeader NEWLINE+)? moduleReferences? NEWLINE* controlProperties? NEWLINE* moduleConfig? NEWLINE* moduleAttributes? NEWLINE*
-        moduleOptions? NEWLINE* moduleBody? NEWLINE* WS?
+        (moduleOptions | moduleBody)? NEWLINE* WS?
     ;
 
 moduleReferences
@@ -307,7 +307,7 @@ dateStmt
 
 // `Lib WS? "x"` / `Alias WS? "x"` - measured, not reasoned; see the note on selectCaseStmt.
 declareStmt
-    : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (
+    : (visibility WS)? DECLARE WS (PTRSAFE WS)? (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (
         WS ALIAS WS? STRINGLITERAL
     )? (WS? argList)? (WS asTypeClause)?
     ;
@@ -718,7 +718,7 @@ valueStmt
     ;
 
 variableStmt
-    : (DIM | STATIC | visibility) WS (WITHEVENTS WS)? variableListStmt
+    : (DIM | STATIC | visibility) WS variableListStmt
     ;
 
 variableListStmt
@@ -726,7 +726,7 @@ variableListStmt
     ;
 
 variableSubStmt
-    : ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (
+    : (WITHEVENTS WS)? ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (
         WS asTypeClause
     )?
     ;
@@ -777,8 +777,9 @@ iCS_B_ProcedureCall
     : certainIdentifier (WS argsCall)?
     ;
 
+// Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
-    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt?
+    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?
     // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
     // VB6's "Syntax error" (measured, #1409).
     | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*
@@ -883,6 +884,7 @@ baseType
 certainIdentifier
     : IDENTIFIER (ambiguousKeyword | IDENTIFIER)*
     | ambiguousKeyword (ambiguousKeyword | IDENTIFIER)+
+    | PTRSAFE
     ;
 
 comparisonOperator
@@ -1008,6 +1010,7 @@ ambiguousKeyword
     | CONST
     | DATE
     | DECLARE
+    | PTRSAFE
     | DEFBOOL
     | DEFBYTE
     | DEFCUR
