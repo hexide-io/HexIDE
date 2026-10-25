@@ -281,6 +281,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Cross-module Const initialisation** (#893). Module-level Consts and array bounds initialise a referenced
+  module's declarations on demand, in either startup order. Module cycles raise "Circular dependencies between
+  modules"; a class created by the test harness's top-level code sees the startup module's completed Consts.
+
 - **Made programs keep non-ASCII source text across machines** (#731). Make packages its source copies as UTF-8
   with a BOM; source files keep their own encoding. Standalone `--check` now reads project and form files with
   the IDE's source decoder.
