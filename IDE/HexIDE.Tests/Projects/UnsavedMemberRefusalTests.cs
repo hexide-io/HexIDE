@@ -19,7 +19,7 @@ namespace HexIDE.Tests.Projects;
 /// <para>
 /// For the startup form that is worse than a missing file. The project file still said <c>Startup="Form1"</c>,
 /// and vb6.exe compiles that silently, exit 0, into a program that starts at <c>Sub Main</c> instead
-/// (hexide-io/HexIDE#497, measured in <c>docs/vb6-fidelity-oracle.md</c>). VB6 cannot write such a file: its
+/// (hexide-io/HexIDE#497, measured in <c>docs/vb6-fidelity-oracle/when-a-document-gets-a-file-and-what-a-dangling-startup-does.md</c>). VB6 cannot write such a file: its
 /// prompt is one Yes over the whole list. So the save is refused before anything is written, and the unload
 /// that asked for it does not happen.
 /// </para>

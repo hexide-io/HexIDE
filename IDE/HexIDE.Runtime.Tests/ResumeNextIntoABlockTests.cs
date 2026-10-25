@@ -10,7 +10,7 @@ namespace HexIDE.Runtime.Tests;
 ///
 /// <para>
 /// Every expectation here was measured on vb6.exe, built both as native code and as p-code; the probes and their output
-/// are in docs/vb6-fidelity-oracle.md, "Resume Next into a block". Where the two builds agree, the test pins VB6. Where
+/// are in docs/vb6-fidelity-oracle/resume-next-into-a-block.md, "Resume Next into a block". Where the two builds agree, the test pins VB6. Where
 /// they differ, which is only a For whose header raised and a Select Case whose selector raised, the test pins the model
 /// HexIDE follows and says so in its name.
 /// </para>
@@ -439,7 +439,7 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     // ---- #971's review: what a raised header does depends on the counter's type, and the bounds convert into it. Measured
-    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle.md, "Resume Next into a block", "Review round one").
+    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle/resume-next-into-a-block.md, "Resume Next into a block", "Review round one").
 
     public static TheoryData<string, string, string[]> CounterTypes => new()
     {

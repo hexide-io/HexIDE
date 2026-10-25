@@ -24,7 +24,7 @@ namespace HexIDE.Runtime.Tests;
 /// <b>Where the expectations come from.</b> Not from us. <c>scripts/vb6-legality.ps1 -CaptureOutput</c>
 /// rewrites each case's <c>Debug.Print</c> to a helper that appends to a file, compiles it with the real
 /// vb6.exe, RUNS it, and records what the file received. So a row here is an observation of the actual
-/// compiler, in the same class of evidence as <c>docs/vb6-fidelity-oracle.md</c> — and unlike a hand-written
+/// compiler, in the same class of evidence as <c>docs/vb6-fidelity-oracle/README.md</c> — and unlike a hand-written
 /// unit test it cannot be satisfied by asserting whatever the interpreter happens to do. That distinction
 /// is not hypothetical: <c>ModuleScopeTests</c> pins a UDT field declared <c>As Long</c> as coming back
 /// <b>Integer</b>, green, with a comment noting it is wrong. Only an oracle-backed expectation catches that.

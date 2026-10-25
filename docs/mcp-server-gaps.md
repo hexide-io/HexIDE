@@ -432,6 +432,46 @@ that change.
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
 
+
+
+## The code window's gutters are not in the control tree, so a gutter click cannot be driven
+
+**Symptom (2026-10-01, during #273 task 3.12's live check).**
+`dump_visual_tree {"root":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None","interactiveOnly":false,"maxDepth":4}`
+returns the `TextArea` with two children: an empty `ItemsControl` and the hidden `PART_Watermark`. The
+breakpoint gutter, the bookmark gutter and the line-number margin are all absent, because AvaloniaEdit's
+`AbstractMargin` has no automation peer, so `interact` has nothing to click. The task's own named case, a
+click on a folded header, could only be tested headlessly (`MarkGutterOnReadOnlyLineTests`, which raises
+the press on the gutter itself).
+
+**Workaround.** Place the caret with `interact set_property CaretOffset=N` on the code view, then
+`invoke_menu_item Debug/Toggle Breakpoint` or `Edit/Bookmarks/Toggle Bookmark`. That reaches the same
+toggle a gutter click calls, but not the gutter's own mapping from a point to a visual line, which is
+what decides what a click on a folded row marks.
+
+**Suggested fix.** Undecided: a peer on the gutters that `interact` can drive with a line, a `click` action
+on `interact` at a point relative to its target (which would cover other drawn surfaces too), or a
+dedicated tool if the authoring policy justifies one. Filed as
+[#707](https://github.com/hexide-io/HexIDE/issues/707).
+
+**The fold margin is the same (2026-10-02, during #273 task 3.14's live check).**
+`dump_visual_tree {"interactiveOnly":false,"maxDepth":40}` over the whole window has no node whose class is
+`FoldingMargin` or `FoldingMarginMarker`, so a fold cannot be expanded or folded by its marker. The
+`TextEditor` node does report `expandCollapse`, which reads as the answer and is not: `inspect_element` on it
+shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
+`expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
+CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
+folds one again in that build. Since #1014, Edit → Toggle Fold can toggle the innermost section at the caret
+or starting on its row, including a member run beside its procedure fold. This supplies a command workaround;
+it does not address clicking the margin itself. A `click` action on `interact` would cover this margin as well
+as the gutters.
+
+**A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
+the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
+it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
+run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
+run stays folded.
+
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 
 **Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it

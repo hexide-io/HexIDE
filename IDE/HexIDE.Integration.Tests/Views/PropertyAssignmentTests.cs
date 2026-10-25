@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 ///
 /// <para>
 /// The expectations are <c>vb6.exe</c> output, recorded under <i>Assigning to a control property</i> in
-/// <c>docs/vb6-fidelity-oracle.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
+/// <c>docs/vb6-fidelity-oracle/assigning-to-a-control-property.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
 /// read back and <c>Err.Number</c> logged. Each case resets the property first, so a refused assignment shows as
 /// the reset value unchanged. The oracle machine is en-GB, and every case runs in that locale.
 /// </para>

@@ -53,6 +53,8 @@
                               ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
                               ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ToggleFold}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ToggleBookmark}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}"
@@ -137,6 +139,7 @@
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
                         <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NextBookmark}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />

@@ -20,7 +20,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Measured in VB6's IDE (docs/vb6-fidelity-oracle.md, "Where VB6's designer puts a control's block"): the first block in
+/// Measured in VB6's IDE (docs/vb6-fidelity-oracle/where-vb6s-designer-puts-a-controls-block.md, "Where VB6's designer puts a control's block"): the first block in
 /// a container is the control drawn on top, in the designer and at run time. Each container's blocks run windowed
 /// controls first, then windowless ones (Label, Shape, Line, Image), which are drawn under every windowed control. A new
 /// or pasted control goes first in its plane's run, and Bring to Front and Send to Back move a block to the start or the

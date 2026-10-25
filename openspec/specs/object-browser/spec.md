@@ -40,6 +40,11 @@ rather than its default instance-name prefix, for listing, search, member headin
 - **WHEN** the developer selects a single library
 - **THEN** only that library's types are listed
 
+#### Scenario: Project membership or names change
+- **WHEN** a form or module is added, removed or renamed, or its project is renamed
+- **THEN** the browser SHALL update the project library and its sorted class list, respecting the current filter
+- **AND** removed classes SHALL no longer be reachable through navigation history
+
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,
 along with any description available for it.
