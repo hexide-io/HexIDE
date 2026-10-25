@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Fermi panelon",
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
     "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
-
     "Str.Archive.ProjectFormat": "{0} (nurlega arkivo)",
     "Str.Archive.Hidden": "Montri kaŝitajn arkivajn erojn",
     "Str.Archive.ReadOnly": "Nurlega antaŭvido de arkivo. Redaktado, konstruado kaj rulado ne disponeblas.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Ne eblis ĝuste malseriigi la projekton:",
     "Str.ProjectLoad.MoreWarnings": "...kaj {0} pliaj avertoj (vidu la protokolon por la plena listo).",
     "Str.ProjectLoad.ActiveXDocuments": "Ĉi tiu projekto enhavas ActiveX-dokumentajn dosierojn (.dob), kiuj ne estas subtenataj en HexIDE kaj estis preterlasitaj:\n\n{0}\n\nActiveX-dokumentoj postulis Internet Explorer aŭ Office-bindilojn kiel gastiganton; ambaŭ nun praktike ne plu estas uzataj. Ĉi tiu projekttipo estas ekster la amplekso de HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Redaktoj rifuzitaj: {0}. Nenio estis ŝanĝita."
+    "Str.CodeEditor.RangeEditRefused": "Redaktoj rifuzitaj: {0}. Nenio estis ŝanĝita.",
+    "Str.Dialog.MessageBox.Button.Ok": "Bone",
+    "Str.Dialog.MessageBox.Button.Cancel": "Nuligi",
+    "Str.Dialog.MessageBox.Button.Yes": "Jes",
+    "Str.Dialog.MessageBox.Button.No": "Ne",
+    "Str.Dialog.MessageBox.Button.Abort": "Ĉesigi",
+    "Str.Dialog.MessageBox.Button.Retry": "Reprovi",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignori"
   }
 }

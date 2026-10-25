@@ -16,7 +16,6 @@
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
     "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
-
     "Str.Archive.ProjectFormat": "{0} (केवल-पठन संग्रह)",
     "Str.Archive.Hidden": "संग्रह की छिपी प्रविष्टियाँ दिखाएँ",
     "Str.Archive.ReadOnly": "संग्रह का केवल-पठन पूर्वावलोकन। संपादन, बिल्ड और चलाना उपलब्ध नहीं हैं।",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "प्रोजेक्ट को डेटा से ठीक से पुनर्स्थापित नहीं किया जा सका:",
     "Str.ProjectLoad.MoreWarnings": "...और {0} अन्य चेतावनियाँ (पूरी सूची के लिए लॉग देखें)।",
     "Str.ProjectLoad.ActiveXDocuments": "इस प्रोजेक्ट में ActiveX Document फ़ाइलें (.dob) हैं जो HexIDE में समर्थित नहीं हैं और छोड़ दी गई हैं:\n\n{0}\n\nActiveX Documents को होस्ट के रूप में Internet Explorer या Office बाइंडर की आवश्यकता थी, जो दोनों अब व्यावहारिक रूप से अप्रचलित हैं। यह प्रोजेक्ट प्रकार HexIDE के दायरे से बाहर है।",
-    "Str.CodeEditor.RangeEditRefused": "संपादन अस्वीकार किए गए: {0}। कुछ भी नहीं बदला गया।"
+    "Str.CodeEditor.RangeEditRefused": "संपादन अस्वीकार किए गए: {0}। कुछ भी नहीं बदला गया।",
+    "Str.Dialog.MessageBox.Button.Ok": "ठीक है",
+    "Str.Dialog.MessageBox.Button.Cancel": "रद्द करें",
+    "Str.Dialog.MessageBox.Button.Yes": "हाँ",
+    "Str.Dialog.MessageBox.Button.No": "नहीं",
+    "Str.Dialog.MessageBox.Button.Abort": "निरस्त करें",
+    "Str.Dialog.MessageBox.Button.Retry": "पुनः प्रयास करें",
+    "Str.Dialog.MessageBox.Button.Ignore": "अनदेखा करें"
   }
 }

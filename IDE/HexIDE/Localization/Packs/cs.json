@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
-
     "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",
     "Str.Archive.ReadOnly": "Náhled archivu jen pro čtení. Úpravy, sestavení a spuštění nejsou dostupné.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Projekt se nepodařilo správně deserializovat:",
     "Str.ProjectLoad.MoreWarnings": "...a dalších {0} upozornění (úplný seznam najdete v protokolu).",
     "Str.ProjectLoad.ActiveXDocuments": "Tento projekt obsahuje soubory dokumentů ActiveX (.dob), které HexIDE nepodporuje a které byly přeskočeny:\n\n{0}\n\nDokumenty ActiveX vyžadovaly jako hostitele Internet Explorer nebo pořadače Office; obojí je dnes prakticky nepoužívané. Tento typ projektu je mimo rozsah HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Úpravy odmítnuty: {0}. Nic nebylo změněno."
+    "Str.CodeEditor.RangeEditRefused": "Úpravy odmítnuty: {0}. Nic nebylo změněno.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Zrušit",
+    "Str.Dialog.MessageBox.Button.Yes": "Ano",
+    "Str.Dialog.MessageBox.Button.No": "Ne",
+    "Str.Dialog.MessageBox.Button.Abort": "Přerušit",
+    "Str.Dialog.MessageBox.Button.Retry": "Opakovat",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorovat"
   }
 }

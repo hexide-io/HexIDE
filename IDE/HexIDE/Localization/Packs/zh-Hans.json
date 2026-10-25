@@ -16,7 +16,6 @@
     "Str.Dock.Close": "关闭窗格",
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
     "Str.Dock.ScrollRight": "向右滚动选项卡",
-
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",
     "Str.Archive.ReadOnly": "只读归档预览。无法编辑、生成或运行。",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "无法正确反序列化项目：",
     "Str.ProjectLoad.MoreWarnings": "……还有 {0} 条警告（完整列表请参阅日志）。",
     "Str.ProjectLoad.ActiveXDocuments": "此项目包含 HexIDE 不支持的 ActiveX 文档文件 (.dob)，已跳过这些文件：\n\n{0}\n\nActiveX 文档需要 Internet Explorer 或 Office 活页夹作为宿主，而两者实际上均已淘汰。此项目类型不在 HexIDE 的支持范围内。",
-    "Str.CodeEditor.RangeEditRefused": "编辑被拒绝：{0}。未作任何更改。"
+    "Str.CodeEditor.RangeEditRefused": "编辑被拒绝：{0}。未作任何更改。",
+    "Str.Dialog.MessageBox.Button.Ok": "确定",
+    "Str.Dialog.MessageBox.Button.Cancel": "取消",
+    "Str.Dialog.MessageBox.Button.Yes": "是",
+    "Str.Dialog.MessageBox.Button.No": "否",
+    "Str.Dialog.MessageBox.Button.Abort": "中止",
+    "Str.Dialog.MessageBox.Button.Retry": "重试",
+    "Str.Dialog.MessageBox.Button.Ignore": "忽略"
   }
 }

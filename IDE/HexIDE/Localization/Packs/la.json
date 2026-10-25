@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Tabulam claude",
     "Str.Dock.ScrollLeft": "Schedas sinistrorsum volve",
     "Str.Dock.ScrollRight": "Schedas dextrorsum volve",
-
     "Str.Archive.ProjectFormat": "{0} (archivum solum legendum)",
     "Str.Archive.Hidden": "Elementa archivi occulta ostendere",
     "Str.Archive.ReadOnly": "Praevisio archivi solum legendi. Editio, compilatio et exsecutio non praesto sunt.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Proiectum rite deserializari non potuit:",
     "Str.ProjectLoad.MoreWarnings": "...et {0} monita alia (index integer in actis est).",
     "Str.ProjectLoad.ActiveXDocuments": "Hoc proiectum fasciculos ActiveX Document (.dob) continet, qui ab HexIDE non sustinentur et omissi sunt:\n\n{0}\n\nDocumenta ActiveX Internet Explorer aut colligatores Office tamquam hospites requirebant; utrique iam fere obsoleverunt. Hoc genus proiecti extra fines HexIDE est.",
-    "Str.CodeEditor.RangeEditRefused": "Mutationes recusatae: {0}. Nihil mutatum est."
+    "Str.CodeEditor.RangeEditRefused": "Mutationes recusatae: {0}. Nihil mutatum est.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Cancella",
+    "Str.Dialog.MessageBox.Button.Yes": "Ita",
+    "Str.Dialog.MessageBox.Button.No": "Minime",
+    "Str.Dialog.MessageBox.Button.Abort": "Interrumpe",
+    "Str.Dialog.MessageBox.Button.Retry": "Retenta",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignora"
   }
 }

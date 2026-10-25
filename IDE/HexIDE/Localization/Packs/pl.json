@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
     "Str.Dock.ScrollRight": "Przewiń karty w prawo",
-
     "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",
     "Str.Archive.ReadOnly": "Podgląd archiwum tylko do odczytu. Edycja, kompilacja i uruchamianie są niedostępne.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Nie udało się poprawnie zdeserializować projektu:",
     "Str.ProjectLoad.MoreWarnings": "...i jeszcze {0} ostrzeżeń (pełna lista znajduje się w dzienniku).",
     "Str.ProjectLoad.ActiveXDocuments": "Ten projekt zawiera pliki ActiveX Document (.dob), które nie są obsługiwane przez HexIDE i zostały pominięte:\n\n{0}\n\nDokumenty ActiveX wymagały programu Internet Explorer lub skoroszytów programu Office jako hosta. Oba te rozwiązania praktycznie wyszły już z użycia. Ten typ projektu nie mieści się w zakresie HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Odrzucono zmiany: {0}. Nic nie zmieniono."
+    "Str.CodeEditor.RangeEditRefused": "Odrzucono zmiany: {0}. Nic nie zmieniono.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Anuluj",
+    "Str.Dialog.MessageBox.Button.Yes": "Tak",
+    "Str.Dialog.MessageBox.Button.No": "Nie",
+    "Str.Dialog.MessageBox.Button.Abort": "Przerwij",
+    "Str.Dialog.MessageBox.Button.Retry": "Ponów próbę",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignoruj"
   }
 }

@@ -16,7 +16,6 @@
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
     "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
-
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",
     "Str.Archive.ReadOnly": "پیش‌نمایش بایگانی فقط‌خواندنی است. ویرایش، ساخت و اجرا در دسترس نیستند.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "بازسازی پروژه از داده‌های سریال‌شده به‌درستی انجام نشد:",
     "Str.ProjectLoad.MoreWarnings": "...و {0} هشدار دیگر (برای فهرست کامل، گزارش را ببینید).",
     "Str.ProjectLoad.ActiveXDocuments": "این پروژه شامل فایل‌های سند ActiveX ‏(.dob) است که در HexIDE پشتیبانی نمی‌شوند و از آن‌ها صرف‌نظر شده است:\n\n{0}\n\nاسناد ActiveX به Internet Explorer یا کلاسورهای Office به‌عنوان میزبان نیاز داشتند که هر دو عملاً منسوخ شده‌اند. این نوع پروژه خارج از محدودهٔ HexIDE است.",
-    "Str.CodeEditor.RangeEditRefused": "ویرایش‌ها رد شدند: {0}. چیزی تغییر نکرد."
+    "Str.CodeEditor.RangeEditRefused": "ویرایش‌ها رد شدند: {0}. چیزی تغییر نکرد.",
+    "Str.Dialog.MessageBox.Button.Ok": "تأیید",
+    "Str.Dialog.MessageBox.Button.Cancel": "انصراف",
+    "Str.Dialog.MessageBox.Button.Yes": "بله",
+    "Str.Dialog.MessageBox.Button.No": "خیر",
+    "Str.Dialog.MessageBox.Button.Abort": "توقف",
+    "Str.Dialog.MessageBox.Button.Retry": "تلاش مجدد",
+    "Str.Dialog.MessageBox.Button.Ignore": "نادیده گرفتن"
   }
 }

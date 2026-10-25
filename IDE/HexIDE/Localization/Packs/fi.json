@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
     "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
-
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
     "Str.Archive.ReadOnly": "Arkiston esikatselu on vain luku -tilassa. Muokkaus, kääntäminen ja suoritus eivät ole käytettävissä.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Projektin deserialisointi ei onnistunut oikein:",
     "Str.ProjectLoad.MoreWarnings": "...ja {0} muuta varoitusta (katso koko luettelo lokista).",
     "Str.ProjectLoad.ActiveXDocuments": "Tämä projekti sisältää ActiveX-asiakirjatiedostoja (.dob), joita HexIDE ei tue ja jotka on ohitettu:\n\n{0}\n\nActiveX-asiakirjat tarvitsivat isännäksi Internet Explorerin tai Officen salkut, jotka molemmat ovat käytännössä poistuneet käytöstä. Tämä projektityyppi ei kuulu HexIDEn tuettuun toiminta-alueeseen.",
-    "Str.CodeEditor.RangeEditRefused": "Muokkaukset hylättiin: {0}. Mitään ei muutettu."
+    "Str.CodeEditor.RangeEditRefused": "Muokkaukset hylättiin: {0}. Mitään ei muutettu.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Peruuta",
+    "Str.Dialog.MessageBox.Button.Yes": "Kyllä",
+    "Str.Dialog.MessageBox.Button.No": "Ei",
+    "Str.Dialog.MessageBox.Button.Abort": "Keskeytä",
+    "Str.Dialog.MessageBox.Button.Retry": "Yritä uudelleen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ohita"
   }
 }

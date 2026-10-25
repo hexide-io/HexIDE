@@ -43,6 +43,15 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **AND** the row's string representation uses the same text for selection summaries without a container
 - **AND** a language change while stopped is reflected when the rows are next rebuilt
 
+### Requirement: Program message box buttons SHALL use the IDE language
+Message boxes opened through the IDE SHALL resolve their OK, Cancel, Abort, Retry, Ignore, Yes and No
+captions through the localization service when shown. The program's prompt and title SHALL remain its
+own text. The standalone runner, which has no localization service, SHALL retain English button captions.
+
+#### Scenario: A program asks a question in a French IDE
+- **WHEN** a program opens a Yes/No message box in an IDE using French
+- **THEN** its buttons read Oui and Non and return the same results as their English counterparts
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.

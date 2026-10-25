@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
-
     "Str.Archive.ProjectFormat": "{0} (αρχειοθήκη μόνο για ανάγνωση)",
     "Str.Archive.Hidden": "Εμφάνιση κρυφών καταχωρίσεων αρχειοθήκης",
     "Str.Archive.ReadOnly": "Προεπισκόπηση αρχειοθήκης μόνο για ανάγνωση. Η επεξεργασία, η μεταγλώττιση και η εκτέλεση δεν είναι διαθέσιμες.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Δεν ήταν δυνατή η σωστή αποσειριοποίηση του έργου:",
     "Str.ProjectLoad.MoreWarnings": "...και {0} ακόμη προειδοποιήσεις (δείτε το αρχείο καταγραφής για την πλήρη λίστα).",
     "Str.ProjectLoad.ActiveXDocuments": "Αυτό το έργο περιέχει αρχεία εγγράφων ActiveX (.dob), τα οποία δεν υποστηρίζονται στο HexIDE και παραλείφθηκαν:\n\n{0}\n\nΤα έγγραφα ActiveX απαιτούσαν το Internet Explorer ή τους φακέλους αρχειοθέτησης του Office ως περιβάλλον φιλοξενίας, τα οποία έχουν πλέον ουσιαστικά καταργηθεί. Αυτός ο τύπος έργου είναι εκτός του πεδίου εφαρμογής του HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Οι αλλαγές απορρίφθηκαν: {0}. Δεν άλλαξε τίποτα."
+    "Str.CodeEditor.RangeEditRefused": "Οι αλλαγές απορρίφθηκαν: {0}. Δεν άλλαξε τίποτα.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Άκυρο",
+    "Str.Dialog.MessageBox.Button.Yes": "Ναι",
+    "Str.Dialog.MessageBox.Button.No": "Όχι",
+    "Str.Dialog.MessageBox.Button.Abort": "Ματαίωση",
+    "Str.Dialog.MessageBox.Button.Retry": "Επανάληψη",
+    "Str.Dialog.MessageBox.Button.Ignore": "Παράβλεψη"
   }
 }

@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
     "Str.Dock.ScrollRight": "Rulla flikar åt höger",
-
     "Str.Archive.ProjectFormat": "{0} (skrivskyddat arkiv)",
     "Str.Archive.Hidden": "Visa dolda arkivposter",
     "Str.Archive.ReadOnly": "Skrivskyddad förhandsvisning av arkivet. Redigering, kompilering och körning är inte tillgängliga.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Kunde inte deserialisera projektet korrekt:",
     "Str.ProjectLoad.MoreWarnings": "...och ytterligare {0} varningar (se loggen för hela listan).",
     "Str.ProjectLoad.ActiveXDocuments": "Det här projektet innehåller ActiveX-dokumentfiler (.dob) som inte stöds i HexIDE och har hoppats över:\n\n{0}\n\nActiveX-dokument krävde Internet Explorer eller Office-samlingsmappar som värd, och båda är i praktiken avvecklade. Den här projekttypen ligger utanför HexIDEs omfattning.",
-    "Str.CodeEditor.RangeEditRefused": "Ändringar avvisades: {0}. Ingenting ändrades."
+    "Str.CodeEditor.RangeEditRefused": "Ändringar avvisades: {0}. Ingenting ändrades.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Avbryt",
+    "Str.Dialog.MessageBox.Button.Yes": "Ja",
+    "Str.Dialog.MessageBox.Button.No": "Nej",
+    "Str.Dialog.MessageBox.Button.Abort": "Avbryt",
+    "Str.Dialog.MessageBox.Button.Retry": "Försök igen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorera"
   }
 }

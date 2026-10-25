@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Đóng ngăn",
     "Str.Dock.ScrollLeft": "Cuộn thẻ sang trái",
     "Str.Dock.ScrollRight": "Cuộn thẻ sang phải",
-
     "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",
     "Str.Archive.ReadOnly": "Bản xem trước kho lưu trữ chỉ đọc. Không thể chỉnh sửa, biên dịch hoặc chạy.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Không thể giải tuần tự dự án đúng cách:",
     "Str.ProjectLoad.MoreWarnings": "...và {0} cảnh báo khác (xem nhật ký để biết danh sách đầy đủ).",
     "Str.ProjectLoad.ActiveXDocuments": "Dự án này chứa các tệp Tài liệu ActiveX (.dob) không được HexIDE hỗ trợ và đã bị bỏ qua:\n\n{0}\n\nTài liệu ActiveX cần Internet Explorer hoặc Trình đóng tập Office làm môi trường lưu trú, nhưng cả hai về cơ bản đều đã ngừng được sử dụng. Loại dự án này nằm ngoài phạm vi của HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Đã từ chối chỉnh sửa: {0}. Không có gì thay đổi."
+    "Str.CodeEditor.RangeEditRefused": "Đã từ chối chỉnh sửa: {0}. Không có gì thay đổi.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Hủy",
+    "Str.Dialog.MessageBox.Button.Yes": "Có",
+    "Str.Dialog.MessageBox.Button.No": "Không",
+    "Str.Dialog.MessageBox.Button.Abort": "Hủy bỏ",
+    "Str.Dialog.MessageBox.Button.Retry": "Thử lại",
+    "Str.Dialog.MessageBox.Button.Ignore": "Bỏ qua"
   }
 }

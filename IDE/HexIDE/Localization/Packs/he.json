@@ -16,7 +16,6 @@
     "Str.Dock.Close": "סגירת החלונית",
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
     "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
-
     "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",
     "Str.Archive.ReadOnly": "תצוגה מקדימה של הארכיון לקריאה בלבד. עריכה, בנייה והרצה אינן זמינות.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "לא ניתן היה לשחזר כראוי את הפרויקט מהנתונים:",
     "Str.ProjectLoad.MoreWarnings": "...ועוד {0} אזהרות (הרשימה המלאה ביומן).",
     "Str.ProjectLoad.ActiveXDocuments": "פרויקט זה מכיל קובצי ActiveX Document (.dob) שאינם נתמכים ב-HexIDE ולכן דולגו:\n\n{0}\n\nמסמכי ActiveX נזקקו ל-Internet Explorer או לקלסרים של Office כמארח, ושניהם למעשה יצאו משימוש. סוג פרויקט זה אינו בתחום התמיכה של HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "העריכות נדחו: {0}. דבר לא השתנה."
+    "Str.CodeEditor.RangeEditRefused": "העריכות נדחו: {0}. דבר לא השתנה.",
+    "Str.Dialog.MessageBox.Button.Ok": "אישור",
+    "Str.Dialog.MessageBox.Button.Cancel": "ביטול",
+    "Str.Dialog.MessageBox.Button.Yes": "כן",
+    "Str.Dialog.MessageBox.Button.No": "לא",
+    "Str.Dialog.MessageBox.Button.Abort": "בטל פעולה",
+    "Str.Dialog.MessageBox.Button.Retry": "נסה שוב",
+    "Str.Dialog.MessageBox.Button.Ignore": "התעלם"
   }
 }

@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
     "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
-
     "Str.Archive.ProjectFormat": "{0} (arquivo só de leitura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas do arquivo",
     "Str.Archive.ReadOnly": "Visualização do arquivo só de leitura. Edição, compilação e execução não estão disponíveis.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Não foi possível desserializar corretamente o projeto:",
     "Str.ProjectLoad.MoreWarnings": "...e mais {0} avisos (consulte o registo para ver a lista completa).",
     "Str.ProjectLoad.ActiveXDocuments": "Este projeto contém ficheiros de documentos ActiveX (.dob) que não são suportados no HexIDE e foram ignorados:\n\n{0}\n\nOs documentos ActiveX exigiam o Internet Explorer ou os dossiers do Office como anfitrião, ambos praticamente descontinuados. Este tipo de projeto está fora do âmbito do HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Edições recusadas: {0}. Nada foi alterado."
+    "Str.CodeEditor.RangeEditRefused": "Edições recusadas: {0}. Nada foi alterado.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Cancelar",
+    "Str.Dialog.MessageBox.Button.Yes": "Sim",
+    "Str.Dialog.MessageBox.Button.No": "Não",
+    "Str.Dialog.MessageBox.Button.Abort": "Abortar",
+    "Str.Dialog.MessageBox.Button.Retry": "Tentar novamente",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorar"
   }
 }

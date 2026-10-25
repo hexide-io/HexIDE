@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
     "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
-
     "Str.Archive.ProjectFormat": "{0} (archive en lecture seule)",
     "Str.Archive.Hidden": "Afficher les entrées masquées de l’archive",
     "Str.Archive.ReadOnly": "Aperçu de l’archive en lecture seule. La modification, la compilation et l’exécution ne sont pas disponibles.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Le projet n'a pas pu être désérialisé correctement :",
     "Str.ProjectLoad.MoreWarnings": "...et {0} autres avertissements (consultez le journal pour la liste complète).",
     "Str.ProjectLoad.ActiveXDocuments": "Ce projet contient des fichiers de documents ActiveX (.dob), qui ne sont pas pris en charge dans HexIDE et ont été ignorés :\n\n{0}\n\nLes documents ActiveX nécessitaient Internet Explorer ou les classeurs Office comme hôte, tous deux désormais pratiquement abandonnés. Ce type de projet sort du périmètre de HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Modifications refusées : {0}. Rien n’a été modifié."
+    "Str.CodeEditor.RangeEditRefused": "Modifications refusées : {0}. Rien n’a été modifié.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Annuler",
+    "Str.Dialog.MessageBox.Button.Yes": "Oui",
+    "Str.Dialog.MessageBox.Button.No": "Non",
+    "Str.Dialog.MessageBox.Button.Abort": "Abandonner",
+    "Str.Dialog.MessageBox.Button.Retry": "Réessayer",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer"
   }
 }

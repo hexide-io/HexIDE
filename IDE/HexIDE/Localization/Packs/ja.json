@@ -16,7 +16,6 @@
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
     "Str.Dock.ScrollRight": "タブを右にスクロール",
-
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",
     "Str.Archive.ReadOnly": "読み取り専用のアーカイブプレビューです。編集、ビルド、実行は利用できません。",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "プロジェクトを正しく逆シリアル化できませんでした:",
     "Str.ProjectLoad.MoreWarnings": "...ほかに {0} 件の警告があります（全一覧はログを参照）。",
     "Str.ProjectLoad.ActiveXDocuments": "このプロジェクトには HexIDE でサポートされていない ActiveX Document ファイル（.dob）が含まれているため、スキップされました:\n\n{0}\n\nActiveX Document はホストとして Internet Explorer または Office バインダーを必要としていましたが、いずれも現在は事実上使われていません。このプロジェクトの種類は HexIDE の対象外です。",
-    "Str.CodeEditor.RangeEditRefused": "編集は拒否されました: {0}。何も変更されていません。"
+    "Str.CodeEditor.RangeEditRefused": "編集は拒否されました: {0}。何も変更されていません。",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "キャンセル",
+    "Str.Dialog.MessageBox.Button.Yes": "はい",
+    "Str.Dialog.MessageBox.Button.No": "いいえ",
+    "Str.Dialog.MessageBox.Button.Abort": "中止",
+    "Str.Dialog.MessageBox.Button.Retry": "再試行",
+    "Str.Dialog.MessageBox.Button.Ignore": "無視"
   }
 }

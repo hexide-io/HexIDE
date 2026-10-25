@@ -16,7 +16,6 @@
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
     "Str.Dock.ScrollRight": "向右捲動索引標籤",
-
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",
     "Str.Archive.ReadOnly": "唯讀封存預覽。無法編輯、建置或執行。",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "無法正確還原序列化的專案：",
     "Str.ProjectLoad.MoreWarnings": "……還有 {0} 則警告（完整清單請參閱記錄）。",
     "Str.ProjectLoad.ActiveXDocuments": "此專案包含 HexIDE 不支援的 ActiveX 文件檔案 (.dob)，已略過這些檔案：\n\n{0}\n\nActiveX 文件需要 Internet Explorer 或 Office 活頁夾作為裝載程式，而兩者實際上均已淘汰。此專案類型不在 HexIDE 的支援範圍內。",
-    "Str.CodeEditor.RangeEditRefused": "編輯遭拒：{0}。未作任何變更。"
+    "Str.CodeEditor.RangeEditRefused": "編輯遭拒：{0}。未作任何變更。",
+    "Str.Dialog.MessageBox.Button.Ok": "確定",
+    "Str.Dialog.MessageBox.Button.Cancel": "取消",
+    "Str.Dialog.MessageBox.Button.Yes": "是",
+    "Str.Dialog.MessageBox.Button.No": "否",
+    "Str.Dialog.MessageBox.Button.Abort": "中止",
+    "Str.Dialog.MessageBox.Button.Retry": "重試",
+    "Str.Dialog.MessageBox.Button.Ignore": "忽略"
   }
 }

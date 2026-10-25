@@ -820,6 +820,13 @@
     "Str.Dock.MaximizeRestore": "Maximize or restore pane",
     "Str.Dock.Close": "Close pane",
     "Str.Dock.ScrollLeft": "Scroll tabs left",
-    "Str.Dock.ScrollRight": "Scroll tabs right"
+    "Str.Dock.ScrollRight": "Scroll tabs right",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Cancel",
+    "Str.Dialog.MessageBox.Button.Yes": "Yes",
+    "Str.Dialog.MessageBox.Button.No": "No",
+    "Str.Dialog.MessageBox.Button.Abort": "Abort",
+    "Str.Dialog.MessageBox.Button.Retry": "Retry",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignore"
   }
 }

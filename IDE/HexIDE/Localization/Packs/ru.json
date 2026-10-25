@@ -16,7 +16,6 @@
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
     "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
-
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",
     "Str.Archive.ReadOnly": "Просмотр архива только для чтения. Редактирование, сборка и запуск недоступны.",
@@ -821,6 +820,13 @@
     "Str.ProjectLoad.Heading": "Не удалось корректно десериализовать проект:",
     "Str.ProjectLoad.MoreWarnings": "...и ещё {0} предупреждений (полный список см. в журнале).",
     "Str.ProjectLoad.ActiveXDocuments": "Этот проект содержит файлы документов ActiveX (.dob), которые не поддерживаются в HexIDE и были пропущены:\n\n{0}\n\nДля размещения документов ActiveX требовались Internet Explorer или подшивки Office; оба средства практически вышли из употребления. Этот тип проекта не входит в область поддержки HexIDE.",
-    "Str.CodeEditor.RangeEditRefused": "Правки отклонены: {0}. Ничего не изменено."
+    "Str.CodeEditor.RangeEditRefused": "Правки отклонены: {0}. Ничего не изменено.",
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Отмена",
+    "Str.Dialog.MessageBox.Button.Yes": "Да",
+    "Str.Dialog.MessageBox.Button.No": "Нет",
+    "Str.Dialog.MessageBox.Button.Abort": "Прервать",
+    "Str.Dialog.MessageBox.Button.Retry": "Повторить",
+    "Str.Dialog.MessageBox.Button.Ignore": "Пропустить"
   }
 }
