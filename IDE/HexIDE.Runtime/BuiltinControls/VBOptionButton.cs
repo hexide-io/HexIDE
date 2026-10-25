@@ -79,7 +79,7 @@ public class VBOptionButton : RadioButton
 
         // Value → IsChecked, including the FALSE direction. `Option1.Value = False` on the selected member
         // of a group is honoured by VB6 and leaves the group with NOTHING selected — it is not refused, and
-        // no other member is promoted in its place (measured; see docs/vb6-fidelity-oracle.md). That is only
+        // no other member is promoted in its place (measured; see docs/vb6-fidelity-oracle/assigning-to-a-control-property.md). That is only
         // reachable from code: a user cannot clear a group by clicking.
         ValueProperty.Changed.AddClassHandler<VBOptionButton>((option, _) => option.IsChecked = option.Value);
 

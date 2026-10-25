@@ -2,6 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.IO;
+using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
+using HexIDE.Runtime.Serialization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data;
@@ -241,6 +246,38 @@ public partial class PropertiesToolViewModel : Tool
         }
     }
 
+    internal static byte[]? ExportablePicture(PropertyClass property, object? value) =>
+        property == VBProperties.PictureProperty || property == VBProperties.IconProperty
+        || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty
+            ? FrxImageHelper.PicturePayload(value as byte[]) : null;
+
+    internal async Task ExportPictureAsync(PropertyClass property, object? value)
+    {
+        if (ExportablePicture(property, value) is not { } payload) return;
+        try
+        {
+            var extension = FrxImageHelper.DetectKind(payload) switch
+            {
+                FrxImageHelper.FrxBlobKind.Bitmap => "bmp",
+                FrxImageHelper.FrxBlobKind.Icon => "ico",
+                FrxImageHelper.FrxBlobKind.Cursor => "cur",
+                _ => "bin",
+            };
+            var path = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = localization.GetString("Str.Tool.Properties.ExportPicture"),
+                SuggestedFileName = property.Name + "." + extension,
+                DefaultExtension = extension,
+            });
+            if (path != null) await File.WriteAllBytesAsync(path, payload);
+        }
+        catch (Exception e)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Tool.ProtocolInspector.ExportFailed"),
+                e.Message), icon: MessageBoxIcon.Error);
+        }
+    }
+
     public void UpdateValue(PropertyClass propertyClass, object? value)
     {
         if (currentModule != null && propertyClass == VBProperties.NameProperty)
@@ -370,14 +407,21 @@ public partial class PropertyViewModel : BasePropertyViewModel
         PropertyClass = propertyClass;
         Name = propertyClass.Name;
         this.value = value;
+        ExportPictureCommand = new AsyncRelayCommand(() => parent.ExportPictureAsync(PropertyClass, Value), () => CanExportPicture);
         Description = parent.ResolvePropertyDescription(propertyClass);
     }
 
     public void OnValueChanged()
     {
         parent.UpdateValue(PropertyClass, Value);
+        OnPropertyChanged(nameof(CanExportPicture));
+        ExportPictureCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Value));
     }
+
+    public bool CanExportPicture => PropertiesToolViewModel.ExportablePicture(PropertyClass, Value) != null;
+
+    public IAsyncRelayCommand ExportPictureCommand { get; }
 
     public string Name { get; }
 
@@ -390,5 +434,7 @@ public partial class PropertyViewModel : BasePropertyViewModel
     {
         this.value = newValue;
         OnPropertyChanged(nameof(Value));
+        OnPropertyChanged(nameof(CanExportPicture));
+        ExportPictureCommand.NotifyCanExecuteChanged();
     }
 }

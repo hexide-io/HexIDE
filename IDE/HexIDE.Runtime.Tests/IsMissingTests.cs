@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// <c>IsMissing</c>, and what an omitted argument actually is.
 ///
 /// <para>Every expectation is measured against real <c>vb6.exe</c> — see <i>IsMissing and the shape of an
-/// omitted argument</i> in <c>docs/vb6-fidelity-oracle.md</c>. The measurements matter because the obvious
+/// omitted argument</i> in <c>docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md</c>. The measurements matter because the obvious
 /// guesses are wrong twice over: an omitted argument is <b>not</b> Empty, and an <c>Optional</c> with a
 /// non-Variant declared type or a default is <b>never</b> missing.</para>
 ///
