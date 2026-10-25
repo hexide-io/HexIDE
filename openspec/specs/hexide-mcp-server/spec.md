@@ -113,11 +113,17 @@ day it lands, with nothing to add.
 The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
 accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
-dropdown toggles and property color/font picker buttons SHALL likewise have localized names describing their actions.
+dropdown toggles, property color/font picker buttons and all eight scroll bar line/page buttons SHALL likewise
+have localized names describing their actions.
 
 #### Scenario: Discovering an icon-only dock button
 - **WHEN** a caller discovers a dock pane's close button
 - **THEN** its name describes closing the pane in the active language, rather than naming the glyph's .NET type
+
+#### Scenario: Discovering scroll bar buttons after a language change
+- **WHEN** a caller inspects a vertical or horizontal scroll bar after changing the IDE language
+- **THEN** its line and page buttons expose action names in the active language, including on existing controls
+- **AND** path matching accepts those names
 
 ### Requirement: A purpose-built tool SHALL be justified against the generic mechanism
 A new dedicated tool SHALL be added only where the generic mechanism genuinely cannot reach the surface, and
