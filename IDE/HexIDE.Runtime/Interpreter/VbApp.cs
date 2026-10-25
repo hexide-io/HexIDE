@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// </summary>
 /// <param name="Title">
 /// The <c>.vbp</c> <c>Title=</c> value, falling back to <c>Name=</c> when the key is absent — measured, see
-/// the App section of <c>docs/vb6-fidelity-oracle.md</c>. Quotes already stripped.
+/// the App section of <c>docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md</c>. Quotes already stripped.
 /// </param>
 /// <param name="ExeName">
 /// The <c>.vbp</c> file's own name without its extension. Not the project <c>Name</c>, and not
@@ -33,7 +33,7 @@ public record AppInfo(
 
     /// <summary>
     /// Derive what a running program reports about itself from the project it belongs to, using VB6's
-    /// <b>design-time</b> rules (see the App section of <c>docs/vb6-fidelity-oracle.md</c>).
+    /// <b>design-time</b> rules (see the App section of <c>docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md</c>).
     /// </summary>
     public static AppInfo FromProject(ProjectElements.ProjectDefinition project)
     {
@@ -85,7 +85,7 @@ public record AppInfo(
             // VB6 writes this key quoted — `Title="Project1"` appears in its own templates — and its own
             // reader then strips the LEADING quote only, so a real VB6 app carries a stray `"` at the end
             // of App.Title. That is a defect rather than a design, so both quotes come off here. Recorded
-            // as a deliberate divergence in docs/vb6-fidelity-oracle.md.
+            // as a deliberate divergence in docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md.
             if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
                 value = value[1..^1];
             else if (value.Length >= 1 && value[0] == '"')

@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The text VB6 makes of a Single, a Double, a Currency, a Decimal and a Date (#772, #771). Unless a test says
-/// otherwise, every expectation is a row measured on vb6.exe under an en-GB locale (docs/vb6-fidelity-oracle.md,
+/// otherwise, every expectation is a row measured on vb6.exe under an en-GB locale (docs/vb6-fidelity-oracle/turning-a-number-or-a-date-into-text.md,
 /// "Turning a number or a date into text"), so each is asserted in en-GB explicitly: CI runs in the invariant
 /// culture and a developer may run in any, and the date patterns differ between them. The tests that are not
 /// measurements are the ones about what the oracle cannot show: values VB6 cannot make, and locales other than

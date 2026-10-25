@@ -5,7 +5,7 @@ namespace HexIDE.Tests.ProjectElements;
 
 /// <summary>
 /// VB6's own naming rules, measured against the real compiler and recorded in
-/// <c>docs/vb6-fidelity-oracle.md</c>: a name is unique within a project across every kind, two projects of
+/// <c>docs/vb6-fidelity-oracle/module-name-uniqueness-is-per-project-and-filenames-are-free.md</c>: a name is unique within a project across every kind, two projects of
 /// one group may not share a name, and both comparisons ignore case.
 /// </summary>
 public sealed class ProjectNamingTests

@@ -24,7 +24,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// used to let another event start inside a handler, deterministically rather than on a loaded machine.
 /// </summary>
 /// <remarks>
-/// What VB6 does is measured (vb6-fidelity-oracle.md, <em>One handler at a time</em>): a handler a statement raises runs to
+/// What VB6 does is measured (vb6-fidelity-oracle/one-handler-at-a-time.md, <em>One handler at a time</em>): a handler a statement raises runs to
 /// its end inside that statement; nothing else runs inside a handler unless it calls <c>DoEvents</c>; and a Timer is never
 /// delivered inside its own handler, and delivers one tick, not several, once the handler keeping it waiting ends.
 /// </remarks>

@@ -317,6 +317,22 @@ public class MemberRunFollowsItsLineTests : IDisposable
         placed.Tail.Should().Be("\r\n    Debug.Print 0");
     }
 
+    [AvaloniaTheory]
+    [InlineData("\r\n")]
+    [InlineData("")]
+    public void APastedDeclarationWithItsOwnRunGoesWholeAfterTheExistingRun(string trailingNewline)
+    {
+        var vm = OpenCode();
+        var run = RunOf(vm, "Go");
+        const string pasted = "Public Event Opened()\r\nAttribute Opened.VB_Description = \"Opens\"";
+
+        var placed = vm.ReadOnlySections.PlaceLineBreak(run.Anchor, 0, pasted + trailingNewline)!;
+
+        placed.Head.Should().BeEmpty();
+        placed.TailAt.Should().Be(run.LastContentEnd);
+        placed.Tail.Should().Be("\r\n" + pasted);
+    }
+
     [AvaloniaFact]
     public void EveryLineBreakIsWrittenInTheDescribedLinesNewline()
     {
