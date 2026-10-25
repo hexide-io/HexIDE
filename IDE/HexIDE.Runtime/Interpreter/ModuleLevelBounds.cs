@@ -115,6 +115,10 @@ internal sealed class ModuleLevelBounds
     // `position` is where the expression sits: a name it reads must be declared before it.
     private async Task Walk(IParseTree node, bool inConst, int position)
     {
+        // This validation precedes ExpressionExecutor, so its recursive walk needs its own stack probe.
+        if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            throw new VBRunTimeException(node as Antlr4.Runtime.ParserRuleContext, VBStandardError.OutOfStackSpace);
+
         switch (node)
         {
             case VB6Parser.ICS_S_MembersCallContext members:
