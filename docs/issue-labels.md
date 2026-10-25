@@ -20,7 +20,7 @@ not something a filer should have to get right.
 the point — the wide reading is what two careful people already split on.
 
 An issue takes **exactly one** `type`, **exactly one** `size`, **zero or more** `area` (prefer one, at
-most three), **zero or more** `state` (usually none).
+most three), **zero or more** `state` (usually none), **zero or more** `initiative` (usually none).
 
 ---
 
@@ -369,6 +369,20 @@ Fails intermittently. Takes the **area of the code at fault**. `ci` applies only
 An umbrella. Apply **only** when the work itself lives in other, separately filed issues. An issue that
 enumerates sub-tasks it will close **under its own number** is not `tracking`, however explicitly it
 says it exists to track them.
+
+---
+
+## Axis 5 — initiative (zero or more; usually none)
+
+An initiative label is named for another product HexIDE is being made to work with; the current set is on
+GitHub, each with the same name as its organisation project. It applies when the issue **exists to make HexIDE
+work with that product**: the work would not be done but for it. A product named only as where a generic bug
+was found, or as one target among several, does not qualify. That is the landing rule's counterpart, and it is
+why these are not areas: the fix still lands in an area, and takes that area as well.
+
+Each initiative's project adds labelled issues itself, so label the issue and the board follows; nobody curates
+a board by hand. Releases are milestones, not labels: `Alpha` holds what must land before the first public
+alpha.
 
 ---
 
