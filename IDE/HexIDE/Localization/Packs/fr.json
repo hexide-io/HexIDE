@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Environnement",
     "Str.Options.Node.Editor": "Éditeur",
     "Str.Options.Node.FormDesigner": "Concepteur de feuilles",
+    "Str.Menu.AddIns.Manager": "_Gestionnaire de modules complémentaires…",
+    "Str.Options.Node.NoAddins": "(aucun module complémentaire installé)",
     "Str.Options.Node.AddIns": "Modules complémentaires",
     "Str.Options.Node.General": "Général",
     "Str.Options.Node.Theme": "Thème",

@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Ambiente",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Estruturador de Formulários",
+    "Str.Menu.AddIns.Manager": "_Gestor de suplementos…",
+    "Str.Options.Node.NoAddins": "(nenhum suplemento instalado)",
     "Str.Options.Node.AddIns": "Suplementos",
     "Str.Options.Node.General": "Geral",
     "Str.Options.Node.Theme": "Tema",

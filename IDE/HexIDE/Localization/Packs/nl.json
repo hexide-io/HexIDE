@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Omgeving",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Formulierontwerper",
+    "Str.Menu.AddIns.Manager": "_Beheer van invoegtoepassingen…",
+    "Str.Options.Node.NoAddins": "(geen invoegtoepassingen geïnstalleerd)",
     "Str.Options.Node.AddIns": "Invoegtoepassingen",
     "Str.Options.Node.General": "Algemeen",
     "Str.Options.Node.Theme": "Thema",

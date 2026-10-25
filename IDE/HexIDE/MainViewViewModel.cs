@@ -1198,7 +1198,11 @@ public partial class MainViewViewModel : ObservableObject
 
     public void MakeProject() => projectService.MakeProject().ListenErrors();
 
-    public void OpenOptions() => windowManager.ShowDialog(new OptionsViewModel(settingsService, themeService, keymapService, languageSwitch, addinRegistry, addinOptionsService, developerModeService, localization, eventBus));
+    public void OpenOptions() => OpenOptionsAt(null);
+
+    public void OpenAddInManager() => OpenOptionsAt("Str.Options.Node.AddIns");
+
+    private void OpenOptionsAt(string? initialNodeKey) => windowManager.ShowDialog(new OptionsViewModel(settingsService, themeService, keymapService, languageSwitch, addinRegistry, addinOptionsService, developerModeService, localization, eventBus, initialNodeKey));
 
     public void About()
     {

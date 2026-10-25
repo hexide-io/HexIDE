@@ -788,6 +788,8 @@
     "Str.Options.Node.Environment": "Environment",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Form Designer",
+    "Str.Menu.AddIns.Manager": "Add-In _Manager…",
+    "Str.Options.Node.NoAddins": "(no add-ins installed)",
     "Str.Options.Node.AddIns": "Add-Ins",
     "Str.Options.Node.General": "General",
     "Str.Options.Node.Theme": "Theme",

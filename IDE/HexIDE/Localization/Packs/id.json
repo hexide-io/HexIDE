@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Lingkungan",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Perancang Form",
+    "Str.Menu.AddIns.Manager": "_Pengelola Add-In…",
+    "Str.Options.Node.NoAddins": "(tidak ada add-in terpasang)",
     "Str.Options.Node.AddIns": "Add-In",
     "Str.Options.Node.General": "Umum",
     "Str.Options.Node.Theme": "Tema",
