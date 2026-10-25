@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Miljö",
     "Str.Options.Node.Editor": "Redigerare",
     "Str.Options.Node.FormDesigner": "Formulärdesigner",
+    "Str.Menu.AddIns.Manager": "_Tilläggshanteraren…",
+    "Str.Options.Node.NoAddins": "(inga tillägg installerade)",
     "Str.Options.Node.AddIns": "Tillägg",
     "Str.Options.Node.General": "Allmänt",
     "Str.Options.Node.Theme": "Tema",

@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Môi trường",
     "Str.Options.Node.Editor": "Trình soạn thảo",
     "Str.Options.Node.FormDesigner": "Trình thiết kế biểu mẫu",
+    "Str.Menu.AddIns.Manager": "_Trình quản lý phần bổ trợ…",
+    "Str.Options.Node.NoAddins": "(chưa cài đặt phần bổ trợ nào)",
     "Str.Options.Node.AddIns": "Phần bổ trợ",
     "Str.Options.Node.General": "Chung",
     "Str.Options.Node.Theme": "Chủ đề",

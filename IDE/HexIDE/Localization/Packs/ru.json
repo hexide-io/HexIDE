@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Среда",
     "Str.Options.Node.Editor": "Редактор",
     "Str.Options.Node.FormDesigner": "Конструктор форм",
+    "Str.Menu.AddIns.Manager": "Диспетчер надстроек…",
+    "Str.Options.Node.NoAddins": "(нет установленных надстроек)",
     "Str.Options.Node.AddIns": "Надстройки",
     "Str.Options.Node.General": "Общие",
     "Str.Options.Node.Theme": "Тема",

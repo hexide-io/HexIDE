@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "محیط",
     "Str.Options.Node.Editor": "ویرایشگر",
     "Str.Options.Node.FormDesigner": "طراح فرم",
+    "Str.Menu.AddIns.Manager": "مدیر افزونه‌ها…",
+    "Str.Options.Node.NoAddins": "(هیچ افزونه‌ای نصب نشده است)",
     "Str.Options.Node.AddIns": "افزونه‌ها",
     "Str.Options.Node.General": "عمومی",
     "Str.Options.Node.Theme": "زمینه",

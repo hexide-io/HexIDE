@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Miljø",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Formulardesigner",
+    "Str.Menu.AddIns.Manager": "_Administrer tilføjelsesprogrammer…",
+    "Str.Options.Node.NoAddins": "(ingen tilføjelsesprogrammer installeret)",
     "Str.Options.Node.AddIns": "Tilføjelsesprogrammer",
     "Str.Options.Node.General": "Generelt",
     "Str.Options.Node.Theme": "Tema",

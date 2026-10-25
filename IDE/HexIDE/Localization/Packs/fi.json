@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Ympäristö",
     "Str.Options.Node.Editor": "Editori",
     "Str.Options.Node.FormDesigner": "Lomakesuunnittelu",
+    "Str.Menu.AddIns.Manager": "_Apuohjelmien hallinta…",
+    "Str.Options.Node.NoAddins": "(apuohjelmia ei ole asennettu)",
     "Str.Options.Node.AddIns": "Apuohjelmat",
     "Str.Options.Node.General": "Yleiset",
     "Str.Options.Node.Theme": "Teema",

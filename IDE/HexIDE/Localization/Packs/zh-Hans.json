@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "环境",
     "Str.Options.Node.Editor": "编辑器",
     "Str.Options.Node.FormDesigner": "窗体设计器",
+    "Str.Menu.AddIns.Manager": "加载项管理器…",
+    "Str.Options.Node.NoAddins": "(未安装加载项)",
     "Str.Options.Node.AddIns": "加载项",
     "Str.Options.Node.General": "常规",
     "Str.Options.Node.Theme": "主题",

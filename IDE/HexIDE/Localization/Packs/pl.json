@@ -793,6 +793,8 @@
     "Str.Options.Node.Environment": "Środowisko",
     "Str.Options.Node.Editor": "Edytor",
     "Str.Options.Node.FormDesigner": "Projektant formularzy",
+    "Str.Menu.AddIns.Manager": "_Menedżer dodatków…",
+    "Str.Options.Node.NoAddins": "(brak zainstalowanych dodatków)",
     "Str.Options.Node.AddIns": "Dodatki",
     "Str.Options.Node.General": "Ogólne",
     "Str.Options.Node.Theme": "Motyw",
