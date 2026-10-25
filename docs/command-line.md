@@ -129,6 +129,9 @@ looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 **`--help` is answered before anything starts.** No window, no project, no port — it prints and exits. On
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
+An inherited file or pipe is used directly, before trying to attach to a console. In particular, a
+Windows batch file can capture help and refusals with `HexIDE.Desktop.exe --help > out.txt 2>&1`,
+even when the batch file's cmd has no console window.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
 terminal rather than a file or pipe, `NO_COLOR` unset, `TERM` not set to `dumb`, and a terminal that takes
