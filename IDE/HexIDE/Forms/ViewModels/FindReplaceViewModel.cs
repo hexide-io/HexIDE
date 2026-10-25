@@ -288,7 +288,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             // header, because it was not in the code window, and a match there is text only the IDE changes.
             if (!editor.IsReadOnlyDocument && IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
             {
-                editor.Document.Replace(editor.SelectionStart, editor.SelectionLength, ReplaceText);
+                var span = ReplaceText.Length == 0
+                    ? editor.WidenDeletion(editor.SelectionStart, editor.SelectionLength)
+                    : (editor.SelectionStart, editor.SelectionLength);
+                editor.Document.Replace(span.Item1, span.Item2, ReplaceText);
                 editor.CaretOffset = editor.SelectionStart + ReplaceText.Length;
                 editor.SelectionLength = 0;
             }
@@ -344,7 +347,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
                 if (result is null) break;
 
                 pos = result.Value.offset;
-                doc.Replace(result.Value.offset, result.Value.length, ReplaceText);
+                var span = ReplaceText.Length == 0
+                    ? target.WidenDeletion(result.Value.offset, result.Value.length)
+                    : (result.Value.offset, result.Value.length);
+                doc.Replace(span.Item1, span.Item2, ReplaceText);
                 count++;
             }
         }

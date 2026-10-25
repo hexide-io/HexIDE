@@ -632,6 +632,45 @@ public class FindReplaceViewModelTests
         "    Total = 0\r\n" +
         "End Function\r\n";
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void EmptyReplacementTakesTheDeclarationsRun(bool all, bool variable)
+    {
+        var declaration = variable ? "Public Count As Long" : "Public Sub Go()";
+        var run = variable ? "Attribute Count.VB_VarDescription = \"Count\"" : "Attribute Go.VB_Description = \"Go\"";
+        var code = "Option Explicit\r\n" + declaration + "\r\n" + run + "\r\n' after\r\n";
+        using var editor = CreateMockEditor(code);
+        using var other = CreateMockEditor(code);
+        SetOpenDocuments(editor, other);
+        var sut = CreateSut();
+        sut.SearchText = declaration;
+        sut.ReplaceText = "";
+        sut.Scope = FindScope.AllOpenDocuments;
+
+        if (all) sut.ReplaceAllCommand.Execute(null);
+        else
+        {
+            sut.FindNextCommand.Execute(null);
+            sut.ReplaceOneCommand.Execute(null);
+        }
+
+        var expected = "Option Explicit\r\n\r\n' after\r\n";
+        editor.Document.Text.Should().Be(expected);
+        other.Document.Text.Should().Be(all ? expected : code);
+        editor.Document.UndoStack.Undo();
+        editor.Document.Text.Should().Be(code);
+        sut.Scope = FindScope.CurrentModule;
+        sut.ReplaceText = declaration + " ' retyped";
+        editor.CaretOffset = 0;
+        editor.SelectionLength = 0;
+        sut.FindNextCommand.Execute(null);
+        sut.ReplaceOneCommand.Execute(null);
+        editor.Document.Text.Should().Be(code.Replace(declaration, sut.ReplaceText));
+    }
+
     [AvaloniaFact]
     public void ReplaceOne_NeverJoinsAMembersAttributeLineOntoItsDeclaration()
     {

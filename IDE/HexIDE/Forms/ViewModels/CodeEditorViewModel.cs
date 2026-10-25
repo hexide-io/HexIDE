@@ -1406,6 +1406,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         IsReadOnly || IsReadOnlyRegion(offset, length);
 
     /// <inheritdoc/>
+    public (int Offset, int Length) WidenDeletion(int offset, int length) =>
+        ReadOnlySections.WidenDeletion(offset, length);
+
+    /// <inheritdoc/>
     public Func<int, int, bool> SnapshotReadOnlyRegions()
     {
         var regions = ReadOnlyRegionsNow;
@@ -1762,8 +1766,24 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             }
         }
 
-        var lastFirst = new List<TextChange>(edits);
+        var lastFirst = new List<TextChange>();
+        foreach (var edit in edits)
+        {
+            var span = edit.Text.Length == 0 ? WidenDeletion(edit.Offset, edit.Length) : (edit.Offset, edit.Length);
+            lastFirst.Add(new TextChange(span.Item1, span.Item2, edit.Text));
+        }
         lastFirst.Sort((a, b) => b.Offset.CompareTo(a.Offset));
+        for (var i = 1; i < lastFirst.Count; i++)
+        {
+            var edit = lastFirst[i];
+            if (edit.Offset + edit.Length > lastFirst[i - 1].Offset
+                && ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"The edit at line {at.Line}, column {at.Column} would change "
+                       + WhatAnEditChanges(regions, edit) + ", which only the IDE changes. Nothing was changed.";
+            }
+        }
         var after = Document.Text;
         foreach (var edit in lastFirst)
             after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
