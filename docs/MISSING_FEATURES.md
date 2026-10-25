@@ -204,7 +204,7 @@
 | Find | Done | |
 | Undo | Done | |
 | Redo | Done | |
-| Start | Done | |
+| Start | Done | Play icon keeps its right-pointing appearance under RTL languages (#40) |
 | Break | Done | Requests a pause at the next statement gate while the interpreter is running |
 | End | Done | |
 | Project Explorer | Done | Opens/focuses tool window |
