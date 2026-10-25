@@ -281,6 +281,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The bundled language server counts lone CR line endings** (#1052). Diagnostics, folds, rename, highlight
+  and formatting now use the editor's line numbers in files with CR, LF or CRLF, and keep off the same protected lines.
+
 - **Reversed scroll bars run in the right direction** (#787). A bar loaded with Min greater than Max keeps
   its Value, accepts values between either endpoint, and reverses the thumb-to-value mapping.
 

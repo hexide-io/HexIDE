@@ -349,6 +349,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
     {
         findRoot ??= FindUpwards;
         yield return ("inline form", Form);
+        yield return ("inline form with lone CR", Form.ReplaceLineEndings("\r"));
         yield return ("inline class", Class);
         yield return ("inline class with orphans", ClassWithOrphans);
         yield return ("inline form with the reader's shapes", FormWithReaderShapes);
@@ -420,22 +421,37 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         var starts = new List<int> { 0 };
         for (var i = 0; i < text.Length; i++)
         {
-            if (text[i] == '\n')
+            if (text[i] is '\r' or '\n')
+            {
+                if (text[i] == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+                    i++;
                 starts.Add(i + 1);
+            }
         }
         return starts;
     }
 
-    private static string[] Lines(string text) => text.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+    private static string[] Lines(string text) => text.ReplaceLineEndings("\n").Split('\n');
 
     /// <summary><paramref name="text"/> with two spaces after every line that has anything on it.</summary>
-    private static string WithTrailingSpaces(string text) =>
-        string.Join('\n', text.Split('\n').Select(line =>
+    private static string WithTrailingSpaces(string text)
+    {
+        var result = new System.Text.StringBuilder();
+        var starts = LineStarts(text);
+        for (var i = 0; i < starts.Count; i++)
         {
-            var cr = line.EndsWith('\r') ? "\r" : "";
-            var content = line.TrimEnd('\r');
-            return content.Trim().Length > 0 ? content + "  " + cr : line;
-        }));
+            var next = i + 1 < starts.Count ? starts[i + 1] : text.Length;
+            var end = next;
+            while (end > starts[i] && text[end - 1] is '\r' or '\n')
+                end--;
+            var content = text[starts[i]..end];
+            result.Append(content);
+            if (content.Trim().Length > 0)
+                result.Append("  ");
+            result.Append(text, end, next - end);
+        }
+        return result.ToString();
+    }
 
     /// <summary>The words of <paramref name="line"/> outside string literals and comments, with where each starts.</summary>
     private static IEnumerable<(string Word, int Character)> Words(string line)
