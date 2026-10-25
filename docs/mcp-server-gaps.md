@@ -589,19 +589,6 @@ the eventual picker takes it. Prefer the tools that await their save and report 
 pending-answer feedback to document saves. Waiting for dispatcher idle or adding a fixed delay would not establish
 completion. The remaining scope is [#1335](https://github.com/hexide-io/HexIDE/issues/1335).
 
-## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally
-
-**Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
-HTTP endpoint rather than a client's tool call ("a 3840×2054 window came back as a 1568×838 PNG of 75 KB"), and
-says "Not yet run through Claude Code over a tunnel". A raw request shows nothing about what a client does with the
-image block, and a client on another machine receiving the image is what #957 was filed for. Covered headless by
-`InlineSnapshotTests` only.
-
-**Workaround.** Without `inline`, copy the file from the IDE's machine by hand.
-
-**Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
-IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
-
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
 **Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
@@ -626,20 +613,31 @@ reach 5123, and an IDE there serves both, since neither names itself.
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
 
-## A reply names a waiting dialog only by its title, and two of the IDE's dialogs share one
+## Three texts still name a waiting dialog only by its title, which two of the IDE's dialogs share (narrowed 2026-10-25)
 
 **Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
-dialog appear in a reply's note as `"'HexIDE', a modal dialog over 'Project1 - HexIDE [run]', is open and waits for an
-answer…"`. One holds a `MessageBox` with Yes and No, and the other a `RuntimeErrorView` with Continue, End, Debug and
-Help. Only `dump_visual_tree {"window":"HexIDE","maxDepth":3}` tells them apart, through class names. Separately, the
-only call found that lists the open windows was one naming a window that doesn't exist, `window: "x"`, which is refused
-with the list.
+dialog are titled `'HexIDE'`. One holds a `MessageBox` with OK and Cancel, the other a `RuntimeErrorView` with Continue,
+End, Debug and Help. Separately, the only call found that lists the open windows was one naming a window that doesn't
+exist, `window: "x"`, which is refused with the list.
 
-**Workaround.** Dump the dialog before answering it, and read its buttons. Name an unknown window to get the list.
+**Narrowed (#1624, measured under #1330 on 2026-10-25).** The `modalDialog` note now says what the dialog is:
+`'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help)`, or
+`'HexIDE' (a message box: "This action will reset your project, proceed anyway?", OK/Cancel)`.
 
-**Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
-windows on request, or say in the `window` description that an unknown name lists them.
-[#1365](https://github.com/hexide-io/HexIDE/issues/1365).
+Three texts still give the title alone:
+
+- the program wait's "has a window open over its form, 'HexIDE'";
+- keyboard `type_text`'s stop when a dialog opens part way;
+- the refusal from `type_text` and `press_key` while a modal dialog is open.
+
+The calls are in [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
+
+**Workaround.** Read the `modalDialog` note of the next reply that has one, or dump the dialog before answering it. Name
+an unknown window to get the list of open ones.
+
+**Suggested fix.** Use the note's description in the three texts, as #1975 says, and give the open windows on
+request, or say in the `window` description that an unknown name lists them.
+[#1975](https://github.com/hexide-io/HexIDE/issues/1975).
 
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
