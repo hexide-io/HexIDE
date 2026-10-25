@@ -122,6 +122,8 @@ calls of any kind.
 2. Branch off the default branch; keep each PR focused and its commits tidy.
 3. Make sure the build is green and the relevant tests pass locally. CI runs the IDE and LSP builds/tests.
 4. Describe *what* and *why* in the PR. Screenshots help for any UI change.
+5. Record a user-visible change in its own file under [`changelog.d/`](changelog.d/README.md), named for
+   the issue, not in `CHANGELOG.md`: two pull requests then never edit the same lines.
 
 ## AI-assisted contributions
 
