@@ -786,6 +786,7 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' ya es el nombre de un formulario, módulo o clase de este proyecto. VB6 les da un único espacio de nombres, así que dos no pueden compartir nombre.",
     "Str.Naming.Msg.ProjectNameTaken": "Ya está cargado un proyecto llamado '{0}'. Dos proyectos de un mismo grupo no pueden compartir nombre.",
     "Str.Naming.Msg.AdoptedNameTaken": "No se agregó '{1}'. Se llama '{0}', que ya es el nombre de un formulario, módulo o clase de este proyecto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "No se agregó '{1}'. Se llama '{0}', que no es un nombre válido: un nombre comienza por una letra y continúa con letras, dígitos y guiones bajos."
+    "Str.Naming.Msg.AdoptedNameNotValid": "No se agregó '{1}'. Se llama '{0}', que no es un nombre válido: un nombre comienza por una letra y continúa con letras, dígitos y guiones bajos.",
+    "Str.CodeEditor.RangeEditRefused": "Ediciones rechazadas: {0}. No se cambió nada."
   }
 }

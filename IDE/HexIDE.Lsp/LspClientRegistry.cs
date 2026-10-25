@@ -626,9 +626,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </para>
     ///
     /// <para>
-    /// Checked when a document opens rather than driven by a project event, because that is the moment the
-    /// answer matters and it keeps this layer free of the project model. A workspace nobody has asked
-    /// anything of costs nothing by being stale.
+    /// Checked on project saves and startup-project changes as well as document opens.
     /// </para>
     ///
     /// <para>
@@ -637,6 +635,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// cost paid repeatedly.
     /// </para>
     /// </summary>
+    public Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) =>
+        RestartIfWorkspaceMovedAsync(null, cancellationToken);
+
     private async Task RestartIfWorkspaceMovedAsync(string? triggeringUri, CancellationToken cancellationToken)
     {
         if (_workspace is null) return;

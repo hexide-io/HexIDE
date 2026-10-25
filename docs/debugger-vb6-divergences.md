@@ -55,8 +55,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Why:** honest + muscle-memory-recognisable — VB6's own dialog, surfaced for the whole edit set the interpreter
   can't hot-patch. Reframes the wall as a familiar behaviour.
 - **Status:** **shipped** (commit 1e52d8f, 2026-08-09), live-verified. A genuine live-apply subset (edits to
-  procedures NOT on the current call stack) is a possible later refinement — constrained today because a live run
-  loads only the startup form's code.
+  procedures NOT on the current call stack) is a possible later refinement. A form's run loads the project's
+  standard and class modules too (#258); `.ctl` and `.pag` are not loaded as free-standing modules by that path.
 - **Since #273 task 3.13 (2026-10-02):** the prompt asks only about an edit that lands. A keystroke in the
   file's header or a member's `Attribute` lines writes nothing, and no longer asks to reset the run for it; nor
   does a designer change or a save, each of which rewrites the header as the IDE's own edit (a designer change
