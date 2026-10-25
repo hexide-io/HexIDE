@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "中断",
     "Str.Menu.Run.End": "结束",
     "Str.Menu.Run.Restart": "重新启动",
-    "Str.Menu.Run.StartWithVB6": "用 VB6 启动 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "用 VB6 启动",
     "Str.Menu.Tools": "工具",
     "Str.Menu.Tools.AddProcedure": "添加过程...",
     "Str.Menu.Tools.ProcedureAttributes": "过程属性...",

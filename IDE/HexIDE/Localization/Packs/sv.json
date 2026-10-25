@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Bry_t",
     "Str.Menu.Run.End": "_Avsluta",
     "Str.Menu.Run.Restart": "Starta _om",
-    "Str.Menu.Run.StartWithVB6": "Starta med _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Starta med _VB6",
     "Str.Menu.Tools": "_Verktyg",
     "Str.Menu.Tools.AddProcedure": "Lägg till _procedur...",
     "Str.Menu.Tools.ProcedureAttributes": "Procedur_attribut...",

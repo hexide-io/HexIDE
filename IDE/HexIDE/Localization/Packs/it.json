@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "_Interrompi",
     "Str.Menu.Run.End": "_Termina",
     "Str.Menu.Run.Restart": "_Riavvia",
-    "Str.Menu.Run.StartWithVB6": "Avvia con _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Avvia con _VB6",
     "Str.Menu.Tools": "S_trumenti",
     "Str.Menu.Tools.AddProcedure": "Aggiungi _routine...",
     "Str.Menu.Tools.ProcedureAttributes": "_Attributi della routine...",

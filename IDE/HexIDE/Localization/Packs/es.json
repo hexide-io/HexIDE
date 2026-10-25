@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "_Interrumpir",
     "Str.Menu.Run.End": "_Finalizar",
     "Str.Menu.Run.Restart": "_Reiniciar",
-    "Str.Menu.Run.StartWithVB6": "Iniciar con _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Iniciar con _VB6",
     "Str.Menu.Tools": "_Herramientas",
     "Str.Menu.Tools.AddProcedure": "Agregar _Procedimiento...",
     "Str.Menu.Tools.ProcedureAttributes": "_Atributos de Procedimiento...",

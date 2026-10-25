@@ -160,7 +160,7 @@
     "Str.Menu.Run.Break": "Brea_k",
     "Str.Menu.Run.End": "_End",
     "Str.Menu.Run.Restart": "_Restart",
-    "Str.Menu.Run.StartWithVB6": "Start with _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Start with _VB6",
     "Str.Menu.Tools": "_Tools",
     "Str.Menu.Tools.AddProcedure": "Add _Procedure...",
     "Str.Menu.Tools.ProcedureAttributes": "Procedure _Attributes...",

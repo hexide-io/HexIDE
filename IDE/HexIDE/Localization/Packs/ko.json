@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "중단",
     "Str.Menu.Run.End": "끝내기",
     "Str.Menu.Run.Restart": "다시 시작",
-    "Str.Menu.Run.StartWithVB6": "VB6으로 시작 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6으로 시작",
     "Str.Menu.Tools": "도구",
     "Str.Menu.Tools.AddProcedure": "프로시저 추가...",
     "Str.Menu.Tools.ProcedureAttributes": "프로시저 특성...",

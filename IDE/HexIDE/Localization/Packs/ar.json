@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "إيقاف مؤقت",
     "Str.Menu.Run.End": "إنهاء",
     "Str.Menu.Run.Restart": "إعادة التشغيل",
-    "Str.Menu.Run.StartWithVB6": "البدء باستخدام VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "البدء باستخدام VB6",
     "Str.Menu.Tools": "أدوات",
     "Str.Menu.Tools.AddProcedure": "إضافة إجراء...",
     "Str.Menu.Tools.ProcedureAttributes": "سمات الإجراء...",

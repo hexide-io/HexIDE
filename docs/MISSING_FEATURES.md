@@ -148,7 +148,7 @@
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running. Paused execution shows a localized break title tag and clears the running status message (#837) |
 | End | — | Done | |
 | Restart | Shift+F5 | Done | |
-| Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed |
+| Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
 
 ---
 

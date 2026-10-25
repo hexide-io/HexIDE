@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Stan_s",
     "Str.Menu.Run.End": "_Avslutt",
     "Str.Menu.Run.Restart": "_Start på nytt",
-    "Str.Menu.Run.StartWithVB6": "Start med _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Start med _VB6",
     "Str.Menu.Tools": "Verk_tøy",
     "Str.Menu.Tools.AddProcedure": "Legg til _prosedyre...",
     "Str.Menu.Tools.ProcedureAttributes": "Prosedyre_attributter...",

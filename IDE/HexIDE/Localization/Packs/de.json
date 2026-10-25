@@ -204,7 +204,7 @@
     "Str.Menu.Run.Break": "Unter_brechen",
     "Str.Menu.Run.End": "_Beenden",
     "Str.Menu.Run.Restart": "_Neu starten",
-    "Str.Menu.Run.StartWithVB6": "Mit _VB6 starten (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Mit _VB6 starten",
     "Str.Menu.Tools": "E_xtras",
     "Str.Menu.Tools.AddProcedure": "_Prozedur hinzufügen...",
     "Str.Menu.Tools.ProcedureAttributes": "Prozedur_attribute...",
