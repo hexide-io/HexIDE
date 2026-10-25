@@ -675,6 +675,11 @@ advertises the capability supplies the single answer (registration order breaks 
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
 
+Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
+Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
+Use synthetic paths outside a user profile in fixtures. Windows clone roots under `Repos` warn
+about portability; installed tool paths remain allowed (#366).
+
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
 The inspector reads strictly more, and the difference is not one of convenience:
