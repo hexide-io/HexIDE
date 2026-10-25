@@ -15,11 +15,12 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using ModelContextProtocol.Server;
+using Microsoft.AspNetCore.Http;
 
 namespace HexIDE.Desktop.Server;
 
 [McpServerToolType]
-internal sealed class HexIdeTools(IdeContext ctx)
+internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpContextAccessor = null)
 {
     [McpServerTool(Name = "get_project_info")]
     [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set.")]
@@ -1972,9 +1973,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                  "prompt; the IDE then stays up if the user cancels.")]
     public async Task<ShutdownResult> ShutdownIdeAsync(bool force = true, CancellationToken ct = default)
     {
-        // Tear down synchronously, so the reply can say what actually happened, then post the main-window
-        // close. Closing every window here instead would end the process mid-request and the caller would
-        // see a dropped connection rather than a result.
+        var response = httpContextAccessor?.HttpContext?.Response
+            ?? throw new InvalidOperationException("Shutdown requires an HTTP response to finish before closing the IDE.");
+
+        // Tear down synchronously so the reply says what happened. The main window stays open until the
+        // response completes: merely posting its close can still end the process before the reply is sent.
         var (projectStopped, dialogsClosed) = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             Static.ForceCloseWithoutPrompt = force;
@@ -2017,11 +2020,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             return (stopped, closed);
         });
 
-        Dispatcher.UIThread.Post(() =>
+        response.OnCompleted(() =>
         {
-            var lifetime = Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-            lifetime?.MainWindow?.Close();
+            Dispatcher.UIThread.Post(() =>
+            {
+                var lifetime = Avalonia.Application.Current!.ApplicationLifetime as
+                    Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                lifetime?.MainWindow?.Close();
+            });
+            return Task.CompletedTask;
         });
 
         return new ShutdownResult(true, projectStopped, dialogsClosed,

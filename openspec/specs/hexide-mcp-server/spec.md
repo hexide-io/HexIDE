@@ -14,6 +14,19 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Shutdown SHALL preserve the reply and a cancelled IDE's server
+`shutdown_ide` SHALL close the main window only after its HTTP response completes. Server cancellation
+and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
+available. The reply reports a request, not confirmation of process exit.
+
+#### Scenario: Shutdown is requested through a tool call
+- **WHEN** `shutdown_ide` returns its result
+- **THEN** the main-window close is deferred until the HTTP response completes
+
+#### Scenario: A close is cancelled
+- **WHEN** shutdown is requested but the IDE stays open
+- **THEN** the automation server and its context remain available
+
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
 On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
 so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
