@@ -144,4 +144,59 @@ public class ControlLibraryTests
 
         log.Select(v => v.Value?.ToString()).Should().Equal("Empty");
     }
+
+    // Measured, native and p-code: 1, 0 and 1, each a Long.
+    [Fact]
+    public async Task A_constant_resolves_qualified_by_its_library_its_enum_or_both()
+    {
+        var log = await Run("""
+            Debug.Print MSComctlLib.ccOrientationVertical, TypeName(MSComctlLib.ccOrientationVertical)
+            Debug.Print ScrollingConstants.ccScrollingStandard, MSComctlLib.ScrollingConstants.ccScrollingSmooth
+            """, ControlLibraries.MSComctlLib);
+
+        log.Select(v => v.Value?.ToString()).Should().Equal("1", "Long", "0", "1");
+    }
+
+    [Fact]
+    public async Task The_50_library_qualifies_its_own_constants()
+    {
+        var log = await Run("Debug.Print ComctlLib.sldVertical, OrientationConstants.sldHorizontal", ControlLibraries.ComctlLib);
+
+        log.Select(v => v.Value?.ToString()).Should().Equal("1", "0");
+    }
+
+    // An enum is strict about its members, as the in-box libraries' are (measured there: `DragConstants.vbYes` is refused).
+    [Theory]
+    [InlineData("Debug.Print ScrollingConstants.ccOrientationVertical")]
+    [InlineData("Debug.Print MSComctlLib.ScrollingConstants.ccOrientationVertical")]
+    [InlineData("Debug.Print MSComctlLib.NoSuchConstant")]
+    public async Task A_member_the_qualifier_does_not_declare_is_not_found(string code)
+    {
+        var act = () => Run(code, ControlLibraries.MSComctlLib);
+
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Method or data member not found*");
+    }
+
+    // An enum both libraries declare is the in-box library's, which VB6 references first: BorderStyleConstants is VBRUN's,
+    // and MSComctlLib's is reached through its library. Not measured: the order is VB6's reference order.
+    [Fact]
+    public async Task An_enum_an_in_box_library_also_declares_is_the_in_box_librarys()
+    {
+        var log = await Run("Debug.Print BorderStyleConstants.vbBSDash, MSComctlLib.BorderStyleConstants.ccFixedSingle",
+            ControlLibraries.MSComctlLib);
+
+        log.Select(v => v.Value?.ToString()).Should().Equal("2", "1");
+    }
+
+    // A referenced library's enum is a Long, as an in-box library's is, and was an object, Nothing, before #1082.
+    [Theory]
+    [InlineData("ScrollingConstants")]
+    [InlineData("MSComctlLib.ScrollingConstants")]
+    public async Task A_librarys_enum_declares_a_Long(string type)
+    {
+        var log = await Run($"Dim s As {type}\r\nDebug.Print TypeName(s), s\r\ns = ccScrollingSmooth\r\nDebug.Print s",
+            ControlLibraries.MSComctlLib);
+
+        log.Select(v => v.Value?.ToString()).Should().Equal("Long", "0", "1");
+    }
 }

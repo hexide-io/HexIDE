@@ -94,8 +94,9 @@ up first.
 
 Three things that cost time before they were written down:
 
-- **Registering the sample OCXs fails** on a modern machine, which blocks any probe needing `MSComctlLib`,
-  `TabDlg` or `SHDocVwCtl`.
+- **Registering the sample OCXs fails** on a modern machine, which blocks any probe needing `TabDlg` or
+  `SHDocVwCtl`. `MSComctlLib` and `ComctlLib` are not blocked: MSCOMCTL.OCX and COMCTL32.OCX are registered in
+  the oracle guest already, and the #1082 probes built and ran against both.
 - **A `.vbp` must be CRLF.** `vb6.exe` will not read one with LF line endings.
 - **`/make` writes its log per form**, not per project, so a failure is reported in a file named after the
   form rather than in the build output the caller was watching.

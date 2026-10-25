@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -79,17 +80,20 @@ public class VBProgressBar : Control
 
     public override void Render(DrawingContext context)
     {
-        var width = (int)Math.Round(Bounds.Width);
-        var height = (int)Math.Round(Bounds.Height);
-        if (width <= 0 || height <= 0)
-            return;
-        void Fill(VbSystemColor colour, int x, int y, int w, int h)
-        {
-            if (w > 0 && h > 0)
-                context.FillRectangle(VBColor.FromSystemColor(colour).ToBrush(), new Rect(x, y, w, h));
-        }
+        foreach (var (colour, x, y, w, h) in Paint((int)Math.Round(Bounds.Width), (int)Math.Round(Bounds.Height)))
+            context.FillRectangle(VBColor.FromSystemColor(colour).ToBrush(), new Rect(x, y, w, h));
+    }
 
-        Fill(VbSystemColor.Btnface, 0, 0, width, height);
+    /// <summary>
+    /// The bar as rectangles of system colours, each painted over the ones before it: what <see cref="Render"/> draws, as
+    /// whole pixels, for a test to set against VB6's own (corpus/inbox-controls/look).
+    /// </summary>
+    public IEnumerable<(VbSystemColor Colour, int X, int Y, int Width, int Height)> Paint(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            yield break;
+
+        yield return (VbSystemColor.Btnface, 0, 0, width, height);
 
         var inset = 0;
         if (Appearance == VBAppearance._3D)
@@ -98,22 +102,22 @@ public class VBProgressBar : Control
                 inset = 1;
             // The sunken edge: shadow then dark shadow at the top and left, light then highlight at the bottom and right.
             var (l, t, r, b) = (inset, inset, width - 1 - inset, height - 1 - inset);
-            Fill(VbSystemColor.Btnshadow, l, t, r - l, 1);
-            Fill(VbSystemColor.Btnshadow, l, t, 1, b - t);
-            Fill(VbSystemColor._3DDKSHADOW, l + 1, t + 1, r - l - 2, 1);
-            Fill(VbSystemColor._3DDKSHADOW, l + 1, t + 1, 1, b - t - 2);
-            Fill(VbSystemColor._3DLIGHT, l + 1, b - 1, r - l - 1, 1);
-            Fill(VbSystemColor._3DLIGHT, r - 1, t + 1, 1, b - t - 1);
-            Fill(VbSystemColor.Btnhighlight, l, b, r - l + 1, 1);
-            Fill(VbSystemColor.Btnhighlight, r, t, 1, b - t + 1);
+            yield return (VbSystemColor.Btnshadow, l, t, r - l, 1);
+            yield return (VbSystemColor.Btnshadow, l, t, 1, b - t);
+            yield return (VbSystemColor._3DDKSHADOW, l + 1, t + 1, r - l - 2, 1);
+            yield return (VbSystemColor._3DDKSHADOW, l + 1, t + 1, 1, b - t - 2);
+            yield return (VbSystemColor._3DLIGHT, l + 1, b - 1, r - l - 1, 1);
+            yield return (VbSystemColor._3DLIGHT, r - 1, t + 1, 1, b - t - 1);
+            yield return (VbSystemColor.Btnhighlight, l, b, r - l + 1, 1);
+            yield return (VbSystemColor.Btnhighlight, r, t, 1, b - t + 1);
             inset += 2;
         }
         else if (BorderStyle == VBBorder.FixedSingle)
         {
-            Fill(VbSystemColor.Windowframe, 0, 0, width, 1);
-            Fill(VbSystemColor.Windowframe, 0, height - 1, width, 1);
-            Fill(VbSystemColor.Windowframe, 0, 0, 1, height);
-            Fill(VbSystemColor.Windowframe, width - 1, 0, 1, height);
+            yield return (VbSystemColor.Windowframe, 0, 0, width, 1);
+            yield return (VbSystemColor.Windowframe, 0, height - 1, width, 1);
+            yield return (VbSystemColor.Windowframe, 0, 0, 1, height);
+            yield return (VbSystemColor.Windowframe, width - 1, 0, 1, height);
             inset = 1;
         }
 
@@ -123,27 +127,23 @@ public class VBProgressBar : Control
         var areaWidth = width - 2 * (inset + 1);
         var areaHeight = height - 2 * (inset + 1);
         if (areaWidth <= 0 || areaHeight <= 0)
-            return;
+            yield break;
 
         var vertical = Orientation == VBOrientation.Vertical;
         var length = vertical ? areaHeight : areaWidth;
         var thickness = vertical ? areaWidth : areaHeight;
         var filled = ShowFull ? length : FillLength(length, VbMin, VbMax, VbValue);
         if (filled <= 0)
-            return;
+            yield break;
 
-        void Bar(int from, int extent)
-        {
-            if (vertical)
-                Fill(VbSystemColor.Highlight, areaLeft, areaTop + areaHeight - from - extent, areaWidth, extent);
-            else
-                Fill(VbSystemColor.Highlight, areaLeft + from, areaTop, extent, areaHeight);
-        }
+        (VbSystemColor, int, int, int, int) Bar(int from, int extent) => vertical
+            ? (VbSystemColor.Highlight, areaLeft, areaTop + areaHeight - from - extent, areaWidth, extent)
+            : (VbSystemColor.Highlight, areaLeft + from, areaTop, extent, areaHeight);
 
         if (Scrolling == VBScrolling.Smooth)
         {
-            Bar(0, filled);
-            return;
+            yield return Bar(0, filled);
+            yield break;
         }
 
         var block = BlockLength(thickness);
@@ -156,7 +156,7 @@ public class VBProgressBar : Control
             var extent = Math.Min(block, length - 1 - from);
             if (extent <= 0)
                 break;
-            Bar(from, extent);
+            yield return Bar(from, extent);
         }
     }
 }

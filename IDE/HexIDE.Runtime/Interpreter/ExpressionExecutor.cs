@@ -1662,6 +1662,34 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
 
+        // A referenced control library (#1082): `MSComctlLib.ccOrientationVertical`, and through one of its enums,
+        // `MSComctlLib.ScrollingConstants.ccScrollingSmooth`, which is strict as the in-box libraries' enums are.
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibrary)
+        {
+            var library = qualifier.ControlLibrary!;
+            if (argsCtx == null && library.TryBare(memberName, out var c))
+                return await ThenTheRest(c);
+            if (argsCtx == null && idx + 1 < members.Length && library.ContainerName(memberName) is { } container)
+            {
+                var inner = MemberName(members[idx + 1]);
+                if (MemberArgs(members[idx + 1]) == null && library.TryInContainer(container, inner, out var cv))
+                {
+                    idx++;
+                    return await ThenTheRest(cv);
+                }
+                throw new VBMethodOrDataMemberNotFoundException(inner, Vb6Value.ValueType.EmptyVariant);
+            }
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
+
+        // `ScrollingConstants.ccScrollingStandard`: one of a referenced control library's enums (#1082).
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibraryContainer)
+        {
+            if (argsCtx == null && qualifier.ControlLibrary!.TryInContainer(qualifier.Name!, memberName, out var cv))
+                return await ThenTheRest(cv);
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
+
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Enum)
         {
             // MyEnum.Member -> the member's Long value.
