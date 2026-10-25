@@ -372,3 +372,13 @@ variables and parameters as Variable.
 #### Scenario: Completing Date without a declaration
 - **WHEN** completion is requested for a document without a Date declaration
 - **THEN** Date appears once, with completion kind Function (3)
+
+### Requirement: Symbol and scope visitors SHALL bound parse-tree recursion
+The symbol, declaration and Option Explicit visitors SHALL stop descending at 500 active
+`VisitChildren` calls, so a left-associated expression cannot overflow their call stacks.
+Traversal SHALL continue with subsequent statements after a bounded subtree is skipped.
+
+#### Scenario: A long addition chain below the source-size gate
+- **WHEN** a parsed module contains 100,000 additions followed by declarations and another procedure
+- **THEN** symbol and declaration collection completes and retains the later declarations and procedure
+- **AND** Option Explicit checking can still report an undeclared reference in a later statement

@@ -12,10 +12,10 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
-**Known robustness gap (#1223):** the parse-depth guard does not bound left-associated operator trees.
-The isolated [depth probes](parse-depth-probes.md) find stack overflows in symbol/type/scope visitors
-and the real `didOpen` path at the 100,000-addition sample, while direct diagnostics still parse it.
-This is outstanding hardening work, not a language-analysis boundary.
+**Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
+`VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
+[probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;
+expression interiors beyond the bound are skipped. The interpreter's expression-walk overflow remains.
 
 ---
 
