@@ -214,7 +214,10 @@ backend under any licence can sit behind the seam without affecting the IDE's ow
 ### Requirement: The language client SHALL start and stop with the desktop session
 The client SHALL be started when the desktop IDE starts and stopped when it shuts down, requesting an
 orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
-deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out. Both messages
+deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out, but only
+after `initialize` has been answered. An externally owned pipe server SHALL receive neither message;
+teardown SHALL close only its connection. A launched pipe server SHALL get two seconds to exit before
+its remaining process tree is killed, including during bring-up. Both messages
 SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
 two seconds for termination before disposing the process handle.
 
@@ -224,8 +227,8 @@ still goes away.
 
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
-- **THEN** the server is asked to shut down and its process is ended
-- **AND** no server process outlives the IDE
+- **THEN** an initialized server owned by HexIDE is asked to shut down and its process is ended
+- **AND** an externally owned pipe server is left running
 
 #### Scenario: A server never answers shutdown
 - **WHEN** the server receives `shutdown` but never answers it

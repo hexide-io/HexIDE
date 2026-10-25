@@ -56,7 +56,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `id` | yes | Identifies the entry. Reusing a default's id **replaces** that default wholesale, keeping its position. |
 | `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
-| `transport` | yes | `stdio`, `pipe` or `websocket`. |
+| `transport` | yes | `stdio`, `pipe` or `websocket`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
 | `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
@@ -196,6 +196,10 @@ which the reader then has to translate back into "no project was open".
 `{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
 Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
 the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
+A launched pipe server gets two seconds to exit before that kill, even during bring-up. Once `initialize`
+has answered, HexIDE first attempts `shutdown` (with its own two-second deadline) and `exit`. Before
+that reply, neither is sent. A pipe server HexIDE did not launch is left running: teardown closes only
+the connection, without `shutdown` or `exit` (#313).
 
 ### `workingDirectory` is a different question
 

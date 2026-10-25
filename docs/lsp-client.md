@@ -50,8 +50,11 @@ stale bundled server fail rather than skip.
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
-On stop, the client allows two seconds for the parameterless `shutdown` request to answer, then
-attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
+`shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
+on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
+HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport kills any remaining child and waits up to two seconds for termination before
 disposing its process handle.
 

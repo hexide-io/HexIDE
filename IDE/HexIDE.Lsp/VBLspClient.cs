@@ -21,6 +21,7 @@ public sealed class VBLspClient : ILspClient
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
+    private volatile bool _initializeAnswered;
 
     // What the connected server said it supports, kept exactly as it arrived. Raw is the single source of
     // truth: a typed view is one Deserialize away, whereas a summary cannot be turned back into the answer.
@@ -402,6 +403,7 @@ public sealed class VBLspClient : ILspClient
 
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
     {
+        _initializeAnswered = false;
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
@@ -474,6 +476,7 @@ public sealed class VBLspClient : ILspClient
     /// <summary>Unsubscribes and disposes the current JSON-RPC connection (leaving the transport intact).</summary>
     private void DisposeRpc()
     {
+        _initializeAnswered = false;
         var rpc = _rpc;
         _rpc = null;
         if (rpc is not null)
@@ -552,6 +555,7 @@ public sealed class VBLspClient : ILspClient
             raw = await _rpc
                 .InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams, cancellationToken)
                 .WaitAsync(_initializeTimeout, cancellationToken);
+            _initializeAnswered = true;
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1698,7 +1702,7 @@ public sealed class VBLspClient : ILspClient
         try { await reconnectTask; } catch { /* loop is best-effort */ }
 
         var rpc = _rpc;
-        if (rpc is not null)
+        if (rpc is not null && _initializeAnswered && !_transport.LeaveServerRunning)
         {
             // Both take NO parameters (LSP 3.17), and the distinction is not pedantry.
             // `InvokeAsync(name)` is StreamJsonRpc's POSITIONAL overload and puts `"params":[]` on
