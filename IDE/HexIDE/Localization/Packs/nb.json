@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Mislyktes",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Avbrutt",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Forlatt",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tidsavbrudd",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Ingen språkserver har koblet til ennå, så ingenting er registrert. En server starter ved det første dokumentet i et språk den håndterer — åpne en fil og se igjen. Ingenting trenger å aktiveres for at meldinger skal vises.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "En server er tilkoblet, og ingenting har gått over linjen ennå, eller opptaket ble tømt.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Meldinger er registrert, og ingen av dem samsvarer med dette filteret. Tøm filtrene for å se hva som finnes.",

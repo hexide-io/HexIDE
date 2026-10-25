@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Misslyckat",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Avbrutet",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Övergivet",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tidsgränsen överskreds",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Ingen språkserver har anslutit ännu, så ingenting är registrerat. En server startar vid det första dokumentet på ett språk den hanterar — öppna en fil och titta igen. Ingenting behöver aktiveras för att meddelanden ska listas.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "En server är ansluten och ingenting har gått över ledningen ännu, eller så har registreringen rensats.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Meddelanden är registrerade, och inget av dem matchar det här filtret. Rensa filtren för att se vad som finns.",

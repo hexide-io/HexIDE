@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Gagal",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Dibatalkan",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Ditinggalkan",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Waktu habis",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Belum ada server bahasa yang terhubung, jadi belum ada yang direkam. Sebuah server dimulai pada dokumen pertama dari bahasa yang dicakupnya — bukalah sebuah berkas lalu lihat lagi. Tidak ada yang perlu diaktifkan agar pesan tercantum di sini.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Sebuah server terpasang dan belum ada apa pun yang melintas, atau rekamannya sudah dikosongkan.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Ada pesan yang direkam, dan tidak satu pun cocok dengan filter ini. Kosongkan filternya untuk melihat apa yang ada.",

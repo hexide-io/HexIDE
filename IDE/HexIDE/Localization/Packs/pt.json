@@ -658,6 +658,7 @@
     "Str.Tool.ProtocolInspector.Outcome.Failed": "Falhada",
     "Str.Tool.ProtocolInspector.Outcome.Cancelled": "Cancelada",
     "Str.Tool.ProtocolInspector.Outcome.Abandoned": "Abandonada",
+    "Str.Tool.ProtocolInspector.Outcome.TimedOut": "Tempo esgotado",
     "Str.Tool.ProtocolInspector.Empty.NoServers": "Ainda não se ligou nenhum servidor de linguagem, pelo que não há nada registado. Os servidores arrancam no primeiro documento de uma linguagem que abrangem — abra um ficheiro e veja de novo. Não é preciso ativar nada para que as mensagens sejam listadas.",
     "Str.Tool.ProtocolInspector.Empty.Nothing": "Há um servidor associado e ainda nada foi transmitido, ou o registo foi limpo.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Há mensagens registadas e nenhuma corresponde a este filtro. Limpe os filtros para ver o que existe.",
