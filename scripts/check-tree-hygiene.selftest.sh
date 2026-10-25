@@ -60,7 +60,7 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=78
+EXPECTED_CHECKS=130
 FAILURES_UNTRACKED=20
 FAILURES_STAGED=22
 
@@ -370,6 +370,37 @@ status=$?
 exited "when temp creation fails, the guard refuses to pass (exit 2)" 2
 seen   "...and explains that it cannot create a temp file" "cannot create a temp file"
 absent "...and never claims the tree is clean" "check-tree-hygiene: OK"
+# Each path fixture runs alone: a finding in one cannot hide a miss in another. The fixture
+# directory is excluded only from path scans in the real tree, and copied to a scanned name here.
+echo
+echo "G. path spellings, individually untracked and staged"
+for fixture in scripts/fixtures/tree-hygiene/*/*.txt; do
+  kind="$(basename "$(dirname "$fixture")")"
+  cp "$fixture" "$UNREADABLE/clean/probe.txt"
+  for tracked in untracked staged; do
+    if [ "$tracked" = staged ]; then
+      ( cd "$UNREADABLE/clean" && git add probe.txt )
+    fi
+    output="$(cd "$UNREADABLE/clean" && HEXIDE_IDENTITY_PATTERN= bash scripts/check-tree-hygiene.sh 2>&1)"
+    status=$?
+    case "$kind" in
+      bad)
+        exited "$fixture ($tracked) exits 1" 1
+        seen "$fixture ($tracked) reports the path failure" "$FAILMARK machine-specific absolute path: probe.txt:1:"
+        ;;
+      warn)
+        exited "$fixture ($tracked) exits 0" 0
+        seen "$fixture ($tracked) reports the clone-root warning" "$WARNMARK machine-specific clone root: probe.txt:1:"
+        ;;
+      good)
+        exited "$fixture ($tracked) exits 0" 0
+        absent "$fixture ($tracked) has no path finding" "probe.txt:1:"
+        ;;
+    esac
+  done
+  ( cd "$UNREADABLE/clean" && git rm -q --cached probe.txt )
+  rm "$UNREADABLE/clean/probe.txt"
+done
 rm -rf "${UNREADABLE:?}"
 
 echo

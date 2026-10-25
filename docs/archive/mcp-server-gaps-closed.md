@@ -1656,7 +1656,7 @@ checked. The stack trace is kept out of the reply. Authentication stays #352.
 > **Fixed.** `set_file_content`, `add_file`, `set_control_property` and `add_control` catch their own write
 > failures and put the exception's message in their reply. Those messages now go through
 > `ToolFailures.WithoutProfile`, the same redaction #603's backstop applies. That redaction now also covers the
-> forward-slash spelling of the profile, as a `file:///C:/Users/…` URI carries it, in both the long and the 8.3
+> forward-slash spelling of the profile, as a `file:///<drive>:/Users/…` URI carries it, in both the long and the 8.3
 > short form. It is for the report, not a security control; the server's exposure is #352.
 
 **Measured.** With the target file read-only, each of the three writing tools tried answered `Access to the

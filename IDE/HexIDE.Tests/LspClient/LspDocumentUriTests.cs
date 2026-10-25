@@ -15,7 +15,7 @@ public class LspDocumentUriTests
     {
         // Measured against a real third-party LSP server: client sent `C:`, server answered `c:`.
         // Before the fix this returned false and every diagnostic from that server was discarded.
-        LspDocumentUri.AreSame("file:///C:/Users/dev/Clean.bas", "file:///c:/Users/dev/Clean.bas")
+        LspDocumentUri.AreSame("file:///C:/Fixtures/dev/Clean.bas", "file:///c:/Fixtures/dev/Clean.bas")
             .Should().Be(OperatingSystem.IsWindows(),
                 "Windows filesystems are case-insensitive, so the two name one file — but on a "
               + "case-sensitive platform this URI shape is not meaningful and must not be assumed equal");

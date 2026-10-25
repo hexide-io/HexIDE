@@ -198,9 +198,9 @@ would present exactly as the original bug class did: green locally, red on CI.
 # $10M+ revenue, and this file is instructions a contributor follows. See hexide-io/HexIDE#253.
 podman machine init && podman machine start
 
-# Any suite, in a container on CI's own Ubuntu version.
+# Any suite, in a container on CI's own Ubuntu version. Replace <clone-root> with your checkout.
 podman run --rm \
-  -v "C:\Repos\GitHub\HexIDE\HexIDE:/repo" \
+  -v "<clone-root>:/repo" \
   -v hexide-nuget:/root/.nuget \
   -w /repo/IDE \
   mcr.microsoft.com/dotnet/sdk:10.0-noble \

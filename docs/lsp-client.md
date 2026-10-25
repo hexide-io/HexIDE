@@ -639,6 +639,11 @@ documents run together are not a third one.
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
 
+Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
+Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
+Use synthetic paths outside a user profile in fixtures. Windows clone roots under `Repos` warn
+about portability; installed tool paths remain allowed (#366).
+
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
 The inspector reads strictly more, and the difference is not one of convenience:
