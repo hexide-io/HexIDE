@@ -619,6 +619,12 @@ anything, and failed entries remain failed.
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+exercised against a real foreign server; the other two are covered against fakes. Named-pipe
+process-notice and workspace-argument tests await the specific stderr/exit/close callbacks, with a
+two-minute safety bound for a loaded runner (#892). A timeout names the callback still awaited and
+reports scheduling uncertainty; it does not establish that the server omitted an exit code.
+
 Stdio process logs include the configured server ID as a structured `Server` property and in the
 rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
 that supply no ID use the executable name.
