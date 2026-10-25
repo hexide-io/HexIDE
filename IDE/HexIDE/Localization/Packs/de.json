@@ -786,6 +786,16 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' ist bereits der Name eines Formulars, Moduls oder Klassenmoduls in diesem Projekt. VB6 kennt dafür nur einen Namensraum, daher können zwei nicht denselben Namen tragen.",
     "Str.Naming.Msg.ProjectNameTaken": "Ein Projekt mit dem Namen '{0}' ist bereits geladen. Zwei Projekte in einer Projektgruppe können nicht denselben Namen tragen.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' wurde nicht hinzugefügt. Der darin festgelegte Name '{0}' ist bereits der Name eines Formulars, Moduls oder Klassenmoduls in diesem Projekt.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' wurde nicht hinzugefügt. Der darin festgelegte Name '{0}' ist kein gültiger Name: Ein Name beginnt mit einem Buchstaben und besteht danach aus Buchstaben, Ziffern und Unterstrichen."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' wurde nicht hinzugefügt. Der darin festgelegte Name '{0}' ist kein gültiger Name: Ein Name beginnt mit einem Buchstaben und besteht danach aus Buchstaben, Ziffern und Unterstrichen.",
+    "Str.ProjectLoad.ParseFailed": "Formulardatei konnte nicht analysiert werden: {0}",
+    "Str.ProjectLoad.InvalidForm": "Dies ist keine gültige Formulardatei",
+    "Str.ProjectLoad.UnknownControl": "Die Klasse {0} des Steuerelements {1} ist keine unterstützte Steuerelementklasse — als unbekannt beibehalten.",
+    "Str.ProjectLoad.InvalidValue": "Die Eigenschaft {0} in {1} hatte einen ungültigen Wert.",
+    "Str.ProjectLoad.MissingOffset": "Eigenschaft {0} in {1}: Offset in .frx nicht gefunden.",
+    "Str.ProjectLoad.MissingRecord": "Die Eigenschaft '{0}' in '{1}' verweist auf einen Datensatz, den die Begleitdatei nicht enthält. Das Formular kann deshalb nicht gespeichert werden.",
+    "Str.ProjectLoad.Heading": "Das Projekt konnte nicht korrekt deserialisiert werden:",
+    "Str.ProjectLoad.MoreWarnings": "...und {0} weitere Warnungen (vollständige Liste siehe Protokoll).",
+    "Str.ProjectLoad.ActiveXDocuments": "Dieses Projekt enthält ActiveX-Dokumentdateien (.dob), die in HexIDE nicht unterstützt werden und übersprungen wurden:\n\n{0}\n\nActiveX-Dokumente benötigten Internet Explorer oder Office-Sammelmappen als Host; beide werden praktisch nicht mehr verwendet. Dieser Projekttyp liegt außerhalb des Funktionsumfangs von HexIDE.",
+    "Str.CodeEditor.RangeEditRefused": "Änderungen abgelehnt: {0}. Es wurde nichts geändert."
   }
 }

@@ -802,9 +802,28 @@ public class SeveralFormsTests
         run.Opened["Form2"].IsVisible.Should().BeTrue();
     }
 
-    // `Form2.Show(1)`, with no space, is #1064: vb6.exe compiles it, and HexIDE's grammar refuses every member call statement
-    // spelled that way.
+    [AvaloniaFact]
+    public void Unspaced_parenthesised_member_arguments_show_and_move()
+    {
+        // Oracle: Several forms, measurement 13 (#1064), native and p-code.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show(0)
+                Text1.Move(100)
+                Debug.Print "left " & Text1.Left
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "left 100");
+        run.Opened["Form2"].IsVisible.Should().BeTrue();
+    }
+
     [AvaloniaTheory]
+    [InlineData("Form2.Show(1)")]
     [InlineData("Form2.Show (1)")]
     [InlineData("Call Form2.Show(vbModal)")]
     [InlineData("With Form2: .Show vbModal: End With")]

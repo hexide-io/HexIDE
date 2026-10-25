@@ -6,7 +6,7 @@ using HexIDE.Themes;
 namespace HexIDE.Tests.Themes;
 
 /// <summary>
-/// The code window's read-only text colour in every theme the IDE ships (hexide-io/HexIDE#273 task 3.15).
+/// Shipped theme completeness and text contrast (hexide-io/HexIDE#273 task 3.15 and #712).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -56,6 +56,44 @@ public class ShippedThemePackTests
     public void EveryShippedPackCarriesTheKey(string pack)
     {
         ColoursOf(pack).Should().ContainKey(Key);
+    }
+
+    public static IEnumerable<object[]> DarkPackKeys =>
+        from pack in new[] { "Dark", "Abyss" }
+        from key in ColorKeyMapping.Table.Keys
+        select new object[] { pack, key };
+
+    [Theory]
+    [MemberData(nameof(DarkPackKeys))]
+    public void EveryDarkPackCarriesEveryMappedKey(string pack, string key)
+    {
+        ColoursOf(pack).Should().ContainKey(key);
+    }
+
+    [Theory]
+    [InlineData("Dark", "ValidationError", "Window")]
+    [InlineData("Abyss", "ValidationError", "Window")]
+    [InlineData("Dark", "WarningBannerForeground", "WarningBannerBackground")]
+    [InlineData("Abyss", "WarningBannerForeground", "WarningBannerBackground")]
+    public void WarningAndValidationTextIsLegible(string pack, string foreground, string background)
+    {
+        var colours = ColoursOf(pack);
+        SyntaxHighlightingTheme.ContrastRatio(Color.Parse(colours[foreground]), Color.Parse(colours[background]))
+            .Should().BeGreaterThanOrEqualTo(Legible);
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Abyss")]
+    public void WarningBannerUsesADarkBackgroundAndVisibleBorder(string pack)
+    {
+        var colours = ColoursOf(pack);
+        var background = Color.Parse(colours["WarningBannerBackground"]);
+        SyntaxHighlightingTheme.ContrastRatio(background, Colors.White).Should().BeGreaterThanOrEqualTo(Legible);
+        var border = Color.Parse(colours["WarningBannerBorder"]);
+        SyntaxHighlightingTheme.ContrastRatio(border, background).Should().BeGreaterThanOrEqualTo(3);
+        SyntaxHighlightingTheme.ContrastRatio(border, Color.Parse(colours["Window"]))
+            .Should().BeGreaterThanOrEqualTo(3);
     }
 
     [Fact]
