@@ -214,6 +214,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 // Fresh debug session: clear any prior break/abort state, then apply the current breakpoints so the
                 // very first statement can already be a break.
                 debugController.Reset();
+                var session = debugController.Session;
                 ApplyBreakpoints(projectDefinition);
                 ApplyWatchBreaks();   // push Break-When-True/Changed watches so the run can break on them from line 1
                 if (runTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
@@ -229,9 +230,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 // (#754). Listened for only while this run is live, so a fault from a run that has already
                 // ended is logged and nothing else.
                 Exception? fault = null;
-                void OnFaulted(VBWindowContext _, Exception e)
+                void OnFaulted(VBWindowContext sender, Exception e)
                 {
-                    if (fault is not null)
+                    if (!sender.IsInDebugSession(debugController, session) || fault is not null)
                         return;   // the first fault ends the run; any after it come from the same collapse
                     fault = e;
                     // Abort first, as EndProject does. A fault is caught where its own event procedure was
@@ -252,7 +253,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 // fault's. Unlike a fault, End needs no Stop() here: the interpreter's own Ending flag already stops
                 // every walk of it, ahead of the debugger's gate, and a run has one interpreter today. The finally
                 // below stops the controller once the form has closed.
-                void OnEndReached(BasicInterpreter _) => Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+                void OnEndReached(BasicInterpreter sender)
+                {
+                    if (sender.IsInDebugSession(debugController, session))
+                        Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+                }
 
                 VBWindowContext.Faulted += OnFaulted;
                 BasicInterpreter.EndReached += OnEndReached;
@@ -386,6 +391,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             RunningProject = projectDefinition;
 
             debugController.Reset();
+            var session = debugController.Session;
             ApplyBreakpoints(projectDefinition);
             ApplyWatchBreaks();
             if (runTo is { } rt)
@@ -402,9 +408,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
             // A fault in an event procedure of a form Main showed ends the run, as on the form path (#754).
             Exception? fault = null;
-            void OnFaulted(VBWindowContext _, Exception e)
+            void OnFaulted(VBWindowContext sender, Exception e)
             {
-                if (fault is not null)
+                if (!sender.IsInDebugSession(debugController, session) || fault is not null)
                     return;
                 fault = e;
                 debugController.Stop();
@@ -412,7 +418,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
             }
 
             // End in any procedure, Main's or a form's, ends the run and reports nothing (#775).
-            void OnEndReached(BasicInterpreter _) => Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+            void OnEndReached(BasicInterpreter sender)
+            {
+                if (sender.IsInDebugSession(debugController, session))
+                    Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+            }
 
             VBWindowContext.Faulted += OnFaulted;
             BasicInterpreter.EndReached += OnEndReached;
@@ -661,9 +671,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 e.Handled = true;
                 heldBy.ActivateForm();
             }, RoutingStrategies.Tunnel);
-            // The context raises Resize as the window is shown, and then only for a change of size or state (#994). The
-            // subscriptions report each value from the first, which the context ignores until the form is shown.
-            this.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(_ => windowContext.WindowResized()));
+            // Report layout and setters through the same extent comparison (#994, #1570). A size setter reports
+            // immediately, even during Load; the later layout finds nothing new.
+            this.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(_ =>
+            {
+                sizePending = false;
+                windowContext.WindowResized();
+            }));
+            this.GetObservable(WidthProperty).Subscribe(new ActionObserver<double>(_ => SizeSet()));
+            this.GetObservable(HeightProperty).Subscribe(new ActionObserver<double>(_ => SizeSet()));
             this.GetObservable(MDIHostPanel.WindowStateProperty).Subscribe(new ActionObserver<WindowState>(_ => windowContext.WindowResized()));
             this.GetObservable(IsVisibleProperty).Subscribe(new ActionObserver<bool>(visible =>
             {
@@ -679,6 +695,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
             }));
         }
 
+        private bool sizePending;
+
+        private void SizeSet()
+        {
+            sizePending = true;
+            windowContext.WindowResized(sizeSet: true);
+        }
+
         /// <inheritdoc/>
         public (Size Size, WindowState State) Extent
         {
@@ -687,8 +711,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 var state = MDIHostPanel.GetWindowState(this);
                 if (state == WindowState.Minimized)
                     return (default, state);
-                // Until the host has arranged it, the window is the size it was made.
-                var size = Bounds.Size == default ? new Size(Width, Height) : Bounds.Size;
+                // Until the host has arranged a size assignment, use the requested size.
+                var size = sizePending || Bounds.Size == default ? new Size(Width, Height) : Bounds.Size;
                 var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
                 return (new Size(Math.Round(size.Width * scaling), Math.Round(size.Height * scaling)), state);
             }

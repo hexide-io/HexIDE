@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using AvaloniaEdit;
+using AvaloniaEdit.Editing;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -126,11 +127,11 @@ public class ResetPromptTests : IDisposable
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static void Press(TextEditor editor, Key key)
+    private static void Press(TextEditor editor, Key key, KeyModifiers modifiers = KeyModifiers.None)
     {
         editor.TextArea.RaiseEvent(new KeyEventArgs
         {
-            RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = KeyModifiers.None,
+            RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers,
         });
         Dispatcher.UIThread.RunJobs();
     }
@@ -223,6 +224,44 @@ public class ResetPromptTests : IDisposable
 
         vm.Document.Text.Should().Contain("nload Me").And.NotContain("Unload Me");
         Prompts().Should().Be(1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.D)]
+    [InlineData(Key.Back)]
+    [InlineData(Key.Delete)]
+    public void LibraryDeletionWhileRunningAsksToReset(Key key)
+    {
+        var vm = OpenForm();
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        editor.CaretOffset = InCode(vm) + (key == Key.Back ? "Unload".Length : 0);
+        var gesture = key == Key.D
+            ? AvaloniaEditCommands.DeleteLine.Gesture!
+            : editor.TextArea.DefaultInputHandler.Editing.KeyBindings.First(b =>
+                b.Command == (key == Key.Back ? EditingCommands.DeletePreviousWord : EditingCommands.DeleteNextWord)).Gesture!;
+
+        Press(editor, gesture.Key, gesture.KeyModifiers);
+
+        vm.Document.Text.Should().NotContain("Unload Me", "the deletion must actually land");
+        Prompts().Should().Be(1);
+        Answer(MessageBoxResult.No);
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void DeleteLineInTheHeaderWhileRunningDoesNotAsk()
+    {
+        var vm = OpenForm();
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        editor.CaretOffset = InHeader(vm);
+        var gesture = AvaloniaEditCommands.DeleteLine.Gesture!;
+
+        Press(editor, gesture.Key, gesture.KeyModifiers);
+
+        vm.Document.Text.Should().Be(before);
+        Prompts().Should().Be(0);
     }
 
     [AvaloniaFact]
