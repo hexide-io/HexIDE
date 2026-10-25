@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "_Bestand invoegen",
     "Str.CodeEditor.Context.ToggleBreakpoint": "_Onderbrekingspunt in-/uitschakelen",
     "Str.CodeEditor.Context.Bookmarks": "_Bladwijzers",
+    "Str.Menu.Edit.ToggleFold": "_Invouwen omschakelen",
+    "Str.CodeEditor.Context.ToggleFold": "_Invouwen omschakelen",
     "Str.CodeEditor.Context.ToggleBookmark": "Bladwijzer _in-/uitschakelen",
     "Str.CodeEditor.Context.NextBookmark": "Vol_gende bladwijzer",
     "Str.CodeEditor.Context.PreviousBookmark": "Vo_rige bladwijzer",

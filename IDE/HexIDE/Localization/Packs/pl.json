@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "Wstaw _plik",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Przełącz punkt p_rzerwania",
     "Str.CodeEditor.Context.Bookmarks": "_Zakładki",
+    "Str.Menu.Edit.ToggleFold": "_Przełącz zwijanie",
+    "Str.CodeEditor.Context.ToggleFold": "_Przełącz zwijanie",
     "Str.CodeEditor.Context.ToggleBookmark": "_Przełącz zakładkę",
     "Str.CodeEditor.Context.NextBookmark": "_Następna zakładka",
     "Str.CodeEditor.Context.PreviousBookmark": "_Poprzednia zakładka",

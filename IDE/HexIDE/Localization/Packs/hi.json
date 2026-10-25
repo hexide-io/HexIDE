@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "फ़ाइल सम्मिलित करें",
     "Str.CodeEditor.Context.ToggleBreakpoint": "ब्रेकपॉइंट टॉगल करें",
     "Str.CodeEditor.Context.Bookmarks": "बुकमार्क",
+    "Str.Menu.Edit.ToggleFold": "फ़ोल्ड टॉगल करें",
+    "Str.CodeEditor.Context.ToggleFold": "फ़ोल्ड टॉगल करें",
     "Str.CodeEditor.Context.ToggleBookmark": "बुकमार्क टॉगल करें",
     "Str.CodeEditor.Context.NextBookmark": "अगला बुकमार्क",
     "Str.CodeEditor.Context.PreviousBookmark": "पिछला बुकमार्क",

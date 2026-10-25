@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "_Dosya Ekle",
     "Str.CodeEditor.Context.ToggleBreakpoint": "_Kesme Noktasını Değiştir",
     "Str.CodeEditor.Context.Bookmarks": "_Yer İmleri",
+    "Str.Menu.Edit.ToggleFold": "_Katlamayı Değiştir",
+    "Str.CodeEditor.Context.ToggleFold": "_Katlamayı Değiştir",
     "Str.CodeEditor.Context.ToggleBookmark": "_Yer İmini Değiştir",
     "Str.CodeEditor.Context.NextBookmark": "_Sonraki Yer İmi",
     "Str.CodeEditor.Context.PreviousBookmark": "_Önceki Yer İmi",

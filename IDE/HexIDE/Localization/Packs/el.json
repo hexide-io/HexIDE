@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "Εισαγωγή &αρχείου",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Εναλλαγή &σημείου διακοπής",
     "Str.CodeEditor.Context.Bookmarks": "&Σελιδοδείκτες",
+    "Str.Menu.Edit.ToggleFold": "Εναλλαγή αναδίπλωσης",
+    "Str.CodeEditor.Context.ToggleFold": "Εναλλαγή αναδίπλωσης",
     "Str.CodeEditor.Context.ToggleBookmark": "&Εναλλαγή σελιδοδείκτη",
     "Str.CodeEditor.Context.NextBookmark": "&Επόμενος σελιδοδείκτης",
     "Str.CodeEditor.Context.PreviousBookmark": "&Προηγούμενος σελιδοδείκτης",

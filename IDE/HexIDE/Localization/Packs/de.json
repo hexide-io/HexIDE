@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "_Datei einfügen",
     "Str.CodeEditor.Context.ToggleBreakpoint": "_Haltepunkt umschalten",
     "Str.CodeEditor.Context.Bookmarks": "_Lesezeichen",
+    "Str.Menu.Edit.ToggleFold": "_Faltung umschalten",
+    "Str.CodeEditor.Context.ToggleFold": "_Faltung umschalten",
     "Str.CodeEditor.Context.ToggleBookmark": "Lesezeichen _umschalten",
     "Str.CodeEditor.Context.NextBookmark": "_Nächstes Lesezeichen",
     "Str.CodeEditor.Context.PreviousBookmark": "_Vorheriges Lesezeichen",

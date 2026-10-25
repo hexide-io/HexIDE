@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "ファイルの挿入",
     "Str.CodeEditor.Context.ToggleBreakpoint": "ブレークポイントの設定/解除",
     "Str.CodeEditor.Context.Bookmarks": "ブックマーク",
+    "Str.Menu.Edit.ToggleFold": "折りたたみの切り替え",
+    "Str.CodeEditor.Context.ToggleFold": "折りたたみの切り替え",
     "Str.CodeEditor.Context.ToggleBookmark": "ブックマークの設定/解除",
     "Str.CodeEditor.Context.NextBookmark": "次のブックマーク",
     "Str.CodeEditor.Context.PreviousBookmark": "前のブックマーク",

@@ -358,6 +358,8 @@
     "Str.CodeEditor.Context.InsertFile": "فائل داخل کریں",
     "Str.CodeEditor.Context.ToggleBreakpoint": "بریک پوائنٹ ٹوگل کریں",
     "Str.CodeEditor.Context.Bookmarks": "بک مارکس",
+    "Str.Menu.Edit.ToggleFold": "تہہ بندی ٹوگل کریں",
+    "Str.CodeEditor.Context.ToggleFold": "تہہ بندی ٹوگل کریں",
     "Str.CodeEditor.Context.ToggleBookmark": "بک مارک ٹوگل کریں",
     "Str.CodeEditor.Context.NextBookmark": "اگلا بک مارک",
     "Str.CodeEditor.Context.PreviousBookmark": "پچھلا بک مارک",

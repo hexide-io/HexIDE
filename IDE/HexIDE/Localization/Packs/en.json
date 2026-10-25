@@ -319,6 +319,8 @@
     "Str.CodeEditor.Context.InsertFile": "Insert _File",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Toggle _Breakpoint",
     "Str.CodeEditor.Context.Bookmarks": "_Bookmarks",
+    "Str.Menu.Edit.ToggleFold": "Toggle _Fold",
+    "Str.CodeEditor.Context.ToggleFold": "Toggle _Fold",
     "Str.CodeEditor.Context.ToggleBookmark": "_Toggle Bookmark",
     "Str.CodeEditor.Context.NextBookmark": "_Next Bookmark",
     "Str.CodeEditor.Context.PreviousBookmark": "_Previous Bookmark",
