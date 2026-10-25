@@ -201,15 +201,25 @@ fi
 
 # 5. Dangling relative links in Markdown. Resolve each link target for real, rather than
 #    assuming a prefix is broken — most of them resolve, and the few that do not are
-#    exactly what this is for.
+#    exactly what this is for. Titles and angle brackets are Markdown syntax, not part of the path.
 links="$(mktemp)" || { echo "check-tree-hygiene: cannot create a temp file; refusing to report a pass." >&2; exit 2; }
 trap 'rm -f "$links"' EXIT
 while IFS= read -r -d '' md; do
   dir="$(dirname "$md")"
-  grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' | while IFS= read -r target; do
+  grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' |
+    sed 's/^<\([^>]*\)>.*$/\1/;t;s/[[:space:]]\{1,\}"[^"]*"[[:space:]]*$//' | while IFS= read -r target; do
     case "$target" in http://*|https://*|\#*|mailto:*|"") continue;; esac
     target="${target%%#*}"
     [ -z "$target" ] && continue
+    # Decode once, after removing the fragment: %23 belongs to a filename, not an anchor.
+    encoded="$target"
+    target=""
+    while [[ "$encoded" =~ ^([^%]*)%([[:xdigit:]]{2})(.*)$ ]]; do
+      printf -v byte '%b' "\\x${BASH_REMATCH[2]}"
+      target+="${BASH_REMATCH[1]}$byte"
+      encoded="${BASH_REMATCH[3]}"
+    done
+    target+="$encoded"
     if [ ! -e "$dir/$target" ] && [ ! -e "$target" ]; then
       printf '%s->%s\n' "$md" "$target"
     fi

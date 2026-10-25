@@ -60,7 +60,7 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=78
+EXPECTED_CHECKS=82
 FAILURES_UNTRACKED=20
 FAILURES_STAGED=22
 
@@ -290,7 +290,18 @@ printf '# planted\n\nDerived from %s6, with thanks.\n' "$UPSTREAM" > "$PROBE/att
 # A setext heading. Its underline is the bare middle marker of a conflict block, and it must not fail.
 printf 'Planted heading\n%s\n\nText.\n' "$MARK_SPLIT" > "$PROBE/setext.md"
 
+printf 'target\n' > "$PROBE/real.md"
+printf 'target\n' > "$PROBE/real file.md"
+printf '%s\n' '[plain](./real.md)' > "$PROBE/plain-link.md"
+printf '%s\n' '[title](./real.md "Some Title")' > "$PROBE/titled-link.md"
+printf '%s\n' '[angle](<./real file.md>)' > "$PROBE/angle-link.md"
+printf '%s\n' '[escaped](./real%20file.md)' > "$PROBE/escaped-link.md"
+
 run_guard '' ''
+absent "5.  an existing plain destination passes" "$PROBE/plain-link.md->"
+absent "5.  an existing destination with a title passes" "$PROBE/titled-link.md->"
+absent "5.  an existing angle-bracket destination passes" "$PROBE/angle-link.md->"
+absent "5.  an existing percent-escaped destination passes" "$PROBE/escaped-link.md->"
 seen   "a gitignored key is seen and WARNS" "$WARNMARK private key material on disk, gitignored so not committable as things stand: $PROBE/planted.key"
 seen   "the upstream attribution is seen and WARNS" "$WARNMARK $UPSTREAM mentioned"
 absent "nothing in a warn-only tree is reported as a failure" "$FAILMARK"
