@@ -33,6 +33,8 @@ public class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.ScopeAllOpenDocuments").Returns("All Open Documents");
         localization.GetString("Str.FindReplace.Msg.NotFound").Returns("The search text '{0}' was not found.");
         localization.GetString("Str.FindReplace.Msg.ReplacementsMade").Returns("{0} replacement(s) made.");
+        localization.GetString("Str.FindReplace.Msg.ProtectedOnly").Returns("Protected only: {0}");
+        localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped").Returns("{0} replaced; {1} skipped.");
         localization.GetString("Str.FindReplace.Msg.InvalidRegex").Returns("Invalid regular expression pattern.");
         localization.GetString("Str.FindReplace.Msg.NothingToSearch")
             .Returns("There is nothing here for Find to search.");
@@ -296,7 +298,93 @@ public class FindReplaceViewModelTests
         var codeStart = FormWithCommand1.IndexOf("Private Sub", StringComparison.Ordinal);
         editor.Document.Text.Should().Be(
             FormWithCommand1[..codeStart] + FormWithCommand1[codeStart..].Replace("Command1", "cmdOK"));
-        _windowManager.Received(1).MessageBox("2 replacement(s) made.", "Replace",
+        _windowManager.Received(1).MessageBox("2 replaced; 2 skipped.", "Replace",
+            MessageBoxButtons.Ok, MessageBoxIcon.Information);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ProtectedOnlyMatches_AreExplained(bool pattern, bool replaceOne)
+    {
+        var editor = CreateMockEditor(FormWithCommand1);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Caption";
+        sut.UsePatternMatching = pattern;
+
+        (replaceOne ? sut.ReplaceOneCommand : sut.FindNextCommand).Execute(null);
+
+        _windowManager.Received(1).MessageBox("Protected only: Caption", "Find",
+            MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        editor.SelectionLength.Should().Be(0);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ReplaceAll_ReportsProtectedMatchesAcrossScope(bool pattern, bool allDocuments)
+    {
+        var editor = CreateMockEditor(FormWithCommand1);
+        var other = CreateMockEditor("Attribute VB_Name = \"Caption\"\r\nPrivate Sub Total()\r\n" +
+            "Attribute Total.VB_Description = \"Caption\"\r\nEnd Sub\r\n");
+        SetOpenDocuments(editor, other);
+        var sut = CreateSut();
+        sut.SearchText = "Caption";
+        sut.ReplaceText = "Changed";
+        sut.UsePatternMatching = pattern;
+        sut.Scope = allDocuments ? FindScope.AllOpenDocuments : FindScope.CurrentModule;
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox($"0 replaced; {(allDocuments ? 3 : 1)} skipped.", "Replace",
+            MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        editor.Document.Text.Should().Be(FormWithCommand1);
+        other.Document.Text.Should().NotContain("Changed");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FindNext_ExplainsMemberAttributeMatchesInAnotherDocument(bool pattern)
+    {
+        var editor = CreateMockEditor("Option Explicit\r\n");
+        var other = CreateMockEditor("Private Sub Total()\r\n" +
+            "Attribute Total.VB_Description = \"description\"\r\nEnd Sub\r\n");
+        SetOpenDocuments(editor, other);
+        var sut = CreateSut();
+        sut.SearchText = "description";
+        sut.UsePatternMatching = pattern;
+        sut.Scope = FindScope.AllOpenDocuments;
+
+        sut.FindNextCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox("Protected only: description", "Find",
+            MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        other.SelectionLength.Should().Be(0);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReplaceAll_SkippedCountHonoursCaseAndWholeWord(bool pattern)
+    {
+        var editor = CreateMockEditor("Attribute VB_Name = \"needle Needle needles\"\r\n" +
+            "Private Sub Total()\r\nEnd Sub\r\n");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "needle";
+        sut.MatchCase = true;
+        sut.WholeWordOnly = true;
+        sut.UsePatternMatching = pattern;
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox("0 replaced; 1 skipped.", "Replace",
             MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
@@ -502,14 +590,14 @@ public class FindReplaceViewModelTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void SearchingForTextOnlyTheHeaderHolds_IsNotFound(bool pattern)
+    public void SearchingForTextOnlyTheHeaderHolds_ExplainsWhyItIsSkipped(bool pattern)
     {
         var sut = SearchingTheFormFor("VB_Name", caret: 0, FindDirection.Down, pattern);
 
         sut.FindNextCommand.Execute(null);
 
         ActiveEditor.SelectionLength.Should().Be(0);
-        _windowManager.Received(1).MessageBox("The search text 'VB_Name' was not found.", "Find",
+        _windowManager.Received(1).MessageBox("Protected only: VB_Name", "Find",
             MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
@@ -1082,7 +1170,7 @@ public class FindReplaceViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService);
+            windowStateService, new DockFactoryReference());
 
         return new MainViewViewModel(
             windowManager,

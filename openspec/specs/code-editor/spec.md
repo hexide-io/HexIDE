@@ -288,6 +288,9 @@ nowhere else.
 
 ### Requirement: Find SHALL NOT match inside a read-only region
 Find, Find Next and Replace SHALL search only text outside read-only regions.
+If matches exist only in those regions within the selected scope, Find SHALL explain that the text is in the
+header or a procedure's Attribute lines, which only the IDE changes. Replace All SHALL report the number of
+matches skipped in those regions beside the number of replacements made, including when none were made.
 
 VB6's Find never searched the header, because the header was not in its code window. A search that now stopped
 inside a folded designer block would land the developer on text they cannot change, in a region they cannot
@@ -296,6 +299,14 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+#### Scenario: Search text exists only in protected regions
+- **WHEN** Find Next finds no searchable match but the selected scope contains a match in a read-only region
+- **THEN** the message explains why Find skips the header and procedure Attribute lines instead of saying not found
+
+#### Scenario: Replace All leaves protected matches alone
+- **WHEN** Replace All encounters matches in the header or procedure Attribute lines within the selected scope
+- **THEN** its message reports both the replacements made and the matches skipped, using the selected search options
 
 ### Requirement: Event-handler searches SHALL start after the header
 Both designer double-click navigation and the Object/Procedure boxes SHALL search for an event handler starting
@@ -345,3 +356,13 @@ existing line endings merely because the file is saved (#530).
 #### Scenario: No line ending exists yet
 - **WHEN** a writer introduces line breaks into an empty or single-line buffer
 - **THEN** it writes CRLF on every host
+
+### Requirement: Insert toggles overtype with immediate status feedback
+The code window SHALL toggle between insert and overtype mode when Insert is pressed.
+The status bar SHALL reflect the new mode immediately, without requiring the caret to move.
+
+#### Scenario: Toggle overtype and return to insert
+- **WHEN** the developer presses Insert in a focused code window
+- **THEN** overtype mode is enabled and the status bar displays the localized overtype label
+- **WHEN** the developer presses Insert again
+- **THEN** insert mode is restored and the status bar displays the localized insert label

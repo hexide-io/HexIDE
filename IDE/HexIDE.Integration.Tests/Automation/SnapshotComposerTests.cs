@@ -27,7 +27,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// instead. They render for real under Skia (<c>UseHeadlessDrawing = false</c> in <c>TestApp</c>), as
 /// <c>ClassicRenderTests</c> does.</para>
 /// </summary>
-public class SnapshotComposerTests
+public class SnapshotComposerTests : WindowTestFixture
 {
     // A colour no chrome uses, so finding it proves the popup's own content was drawn rather than
     // something underneath happening to be that shade.
