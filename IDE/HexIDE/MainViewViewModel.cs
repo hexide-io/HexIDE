@@ -241,8 +241,25 @@ public partial class MainViewViewModel : ObservableObject
             TranslationEditorViewModel translationEditor,
             LanguageServersToolViewModel languageServers,
             HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
-            IWindowStateService windowStateService)
+            IWindowStateService windowStateService,
+            DockFactoryReference documentDockFactory)
         {
+            ArgumentNullException.ThrowIfNull(toolBox);
+            ArgumentNullException.ThrowIfNull(project);
+            ArgumentNullException.ThrowIfNull(properties);
+            ArgumentNullException.ThrowIfNull(formLayout);
+            ArgumentNullException.ThrowIfNull(immediate);
+            ArgumentNullException.ThrowIfNull(locals);
+            ArgumentNullException.ThrowIfNull(watches);
+            ArgumentNullException.ThrowIfNull(callStack);
+            ArgumentNullException.ThrowIfNull(colorPalette);
+            ArgumentNullException.ThrowIfNull(objectBrowser);
+            ArgumentNullException.ThrowIfNull(translationEditor);
+            ArgumentNullException.ThrowIfNull(languageServers);
+            ArgumentNullException.ThrowIfNull(protocolInspector);
+            ArgumentNullException.ThrowIfNull(windowStateService);
+            ArgumentNullException.ThrowIfNull(documentDockFactory);
+
             this.windowStateService = windowStateService;
             toolsByKey = new Dictionary<string, IDockable>
             {
@@ -259,6 +276,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["translationEditor"] = translationEditor,
                 ["languageServers"]   = languageServers,
             };
+            documentDockFactory.Value = this;
         }
 
         public override IToolDock CreateToolDock()
