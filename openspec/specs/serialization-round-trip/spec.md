@@ -181,15 +181,16 @@ file that looks correct and is not.
 ### Requirement: A file the IDE will not save SHALL be presented as read-only
 Where the IDE would refuse to save a file, its editing surfaces SHALL be read-only and SHALL state the
 reason, while remaining open for viewing. It SHALL remain runnable unless it holds a control the engine
-cannot create, which is refused when it is run (see `interpreter-core`).
+cannot create or a data-bound control, which is refused when it is run (see `interpreter-core`).
 
 Discovering the refusal at save time means discovering it after the work is done. A developer who has spent
 an hour on a form and is then told it cannot be written has lost the hour — and the refusal, which exists to
 protect them, is what took it. Saying so up front turns the same limitation into something they can plan
 around, and keeping the file viewable and runnable preserves the reason they opened the IDE at all.
 
-The exception is a control the engine cannot create. Running a form without one is running a different program:
-code naming it finds nothing, and a form whose code never names it behaves as if it had never held it. That is a
+The exception is a control the engine cannot create or a data-bound control (#859). Leaving out a control or
+its binding runs a different program: an absent control is not found by code, and an unbound control shows
+its design-time value instead of the current record. That is a
 wrong result rather than a late error, so such a form is refused when it is run, and stays viewable
 (hexide-io/HexIDE#857).
 
@@ -198,11 +199,12 @@ wrong result rather than a late error, so such a form is refused when it is run,
 - **THEN** its editors are read-only and state why
 
 #### Scenario: Running a project containing one
-- **WHEN** a project containing such a file is run, and the file holds no control the engine cannot create
+- **WHEN** a project containing such a file is run, and the file holds neither a control the engine cannot create
+  nor a data-bound control
 - **THEN** it runs
 
 #### Scenario: Running a form holding a control the engine cannot create
-- **WHEN** a project is run whose form holds a control the engine cannot create
+- **WHEN** a project is run whose form holds a control the engine cannot create or a data-bound control
 - **THEN** that form is refused when it is built to run, naming the control, and it can still be opened and viewed
 
 ### Requirement: Round-trip fidelity SHALL be measured against real projects
@@ -641,3 +643,18 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
   IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
   and giving up the model that makes the IDE an editor rather than a text editor.
+
+### Requirement: Made programs SHALL carry source text independently of the host code page
+
+Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without
+changing the source documents' encodings. The source-encoding refusal before Make SHALL still apply.
+Standalone `--check` SHALL read project and form files with the IDE's source decoder.
+
+#### Scenario: A package made from ANSI sources runs on another code page
+- **WHEN** Make packages source text held in an ANSI document
+- **THEN** each packaged source file declares UTF-8 with a BOM and preserves that text
+- **AND** the original document retains its encoding
+
+#### Scenario: Check reads an ANSI project from disk
+- **WHEN** Standalone checks a project whose project or form files contain ANSI text
+- **THEN** it decodes those files as the IDE does, including UTF-8 BOM declarations

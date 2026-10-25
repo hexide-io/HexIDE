@@ -545,9 +545,49 @@ public class LocalizationServiceTests
 
         // The selected id stays the "system" sentinel...
         sut.ActiveLanguage.Should().Be("system");
-        // ...but the effective strings come from the OS-resolved pack (English here, the only file pack),
-        // so a known key still resolves rather than echoing back.
-        sut.GetString("Str.Menu.File").Should().Be("_File");
+        // ...but a known key resolves through a real pack rather than echoing back.
+        sut.GetString("Str.Menu.File").Should().NotBe("Str.Menu.File");
+    }
+
+    [Fact]
+    public void Initialize_CapturesUiCultureBeforeInvariantPin()
+    {
+        var root = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !System.IO.File.Exists(System.IO.Path.Combine(root.FullName, "IDE", "HexIDE", "App.axaml.cs")))
+            root = root.Parent;
+        root.Should().NotBeNull();
+        var source = System.IO.File.ReadAllText(System.IO.Path.Combine(root!.FullName, "IDE", "HexIDE", "App.axaml.cs"))
+            .ReplaceLineEndings("\n");
+        var capture = source.IndexOf("LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;", StringComparison.Ordinal);
+        capture.Should().BeGreaterThanOrEqualTo(0);
+        capture.Should().BeLessThan(source.IndexOf("CultureInfo.DefaultThreadCurrentCulture =", StringComparison.Ordinal));
+        capture.Should().BeLessThan(source.IndexOf("CultureInfo.DefaultThreadCurrentUICulture =", StringComparison.Ordinal));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("de-DE", "de")]
+    [InlineData("fr-CD", "fr")]
+    [InlineData("en-GB", "en-GB")]
+    public void Apply_System_UsesCapturedUiCulture(string culture, string expectedPack)
+    {
+        var previous = LocalizationService.OsUICulture;
+        var previousDefault = CultureInfo.DefaultThreadCurrentUICulture;
+        try
+        {
+            LocalizationService.OsUICulture = CultureInfo.GetCultureInfo(culture);
+            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+            var sut = CreateSut();
+            sut.Apply("system");
+
+            sut.ActiveLanguage.Should().Be("system");
+            sut.GetString("Str.Menu.Format.CenterInForm").Should()
+                .Be(sut.GetStringFrom(expectedPack, "Str.Menu.Format.CenterInForm"));
+        }
+        finally
+        {
+            LocalizationService.OsUICulture = previous;
+            CultureInfo.DefaultThreadCurrentUICulture = previousDefault;
+        }
     }
 
     [AvaloniaFact]
