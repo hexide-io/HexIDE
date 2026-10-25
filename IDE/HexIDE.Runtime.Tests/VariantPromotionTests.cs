@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// VB6 treats a DECLARED type as a ceiling and a Variant as having none: overflowing the first is Err 6,
 /// overflowing the second widens Integer → Long → Double.
 ///
-/// Every expectation is measured — see docs/vb6-fidelity-oracle.md. The rule is not "driven by the result"
+/// Every expectation is measured — see docs/vb6-fidelity-oracle/variant-arithmetic-promotes-a-declared-type-is-a-ceiling.md. The rule is not "driven by the result"
 /// as #122 originally recorded: it is driven by **operand provenance**, and a literal counts as fixed, not
 /// as a Variant. Two rows below exist purely to pin that, because getting them wrong would silently promote
 /// `i = i + 1` past a declared Integer's ceiling — the common shape, not a rare one.

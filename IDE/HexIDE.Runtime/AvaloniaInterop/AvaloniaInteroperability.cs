@@ -299,7 +299,7 @@ public static class AvaloniaInteroperability
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Measured on vb6.exe (docs/vb6-fidelity-oracle.md, "Assigning to a control property"). A String property
+    /// Measured on vb6.exe (docs/vb6-fidelity-oracle/assigning-to-a-control-property.md, "Assigning to a control property"). A String property
     /// takes CStr of anything (<c>Label1.Caption = 5</c> is "5", <c>= True</c> is "True", Empty is ""). A numeric
     /// property parses a String and raises 13 when it cannot, and rounds half to even. Null raises 94 everywhere.
     /// Each of these raises before the property changes. That is exactly <see cref="VbNumeric.CoerceOnStore"/>,

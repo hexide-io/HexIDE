@@ -320,7 +320,7 @@ and record it in the issue.
 > carried over. Note for anyone verifying: `gh issue list --label` reads a search index that lags a
 > rename by a minute or so and will report zero — check the issues' own labels instead.
 
-> The answer comes from real vb6.exe. Measure it, then record it in docs/vb6-fidelity-oracle.md.
+> The answer comes from real vb6.exe. Measure it, then record it in docs/vb6-fidelity-oracle/README.md.
 
 - Apply **only** when the issue cannot be closed without running real `vb6.exe` and recording the
   result. If the answer is already visible in the checked-in VB6-authored corpus, leave it off.

@@ -1216,7 +1216,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // A type-declaration character on the call (#742). `$` is the one a program reaches first, the library's string
         // functions written `Trim$` and `Left$` (#1071). The name is looked up without it by the ordinary search, and the
-        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle.md). The other characters still
+        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The other characters still
         // stop the run.
         var dollar = false;
         if (procOrArrayCall.typeHint() is { } hint)

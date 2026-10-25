@@ -25,7 +25,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// answers it, as a person would.
 /// </summary>
 /// <remarks>
-/// Measured (vb6-fidelity-oracle.md, <em>An unhandled run-time error</em>): the dialog offers End and Debug; nothing runs
+/// Measured (vb6-fidelity-oracle/an-unhandled-run-time-error.md, <em>An unhandled run-time error</em>): the dialog offers End and Debug; nothing runs
 /// behind it; Debug breaks at the faulting statement with its procedure live; Continue runs that statement again, all of
 /// it; End raises no Unload or Terminate. A handler in the code that raised an event never sees the event's error.
 /// </remarks>

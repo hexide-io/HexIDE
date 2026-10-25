@@ -27,7 +27,7 @@
 > - **§5's launch call** was written against the 0-of-22 position and no longer describes the decision in
 >   front of anyone.
 > - **§6's open questions are partly answered.** The oracle results live in
->   [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md), which now carries the corpus-wide `/make` result,
+>   [`vb6-fidelity-oracle/what-the-corpus-prints-not-just-whether-it-parses.md`](vb6-fidelity-oracle/what-the-corpus-prints-not-just-whether-it-parses.md), which now carries the corpus-wide `/make` result,
 >   the `Scale*` rule and the two-rectangle finding.
 >
 > **The live number is not in this file.** It is `KnownVb6Failures` in
@@ -237,7 +237,7 @@ Alpha with an explicit, honest limitation note — "HexIDE can open and run VB6 
 
 ## 6. Open questions for the oracle
 
-Every one is a sub-five-minute experiment in the VB6 IDE at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE`. Record results in `docs/vb6-fidelity-oracle.md`.
+Every one is a sub-five-minute experiment in the VB6 IDE at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE`. Record results in `docs/vb6-fidelity-oracle/README.md`.
 
 | Q | Experiment | Decides |
 |---|---|---|
