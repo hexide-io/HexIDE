@@ -8,6 +8,13 @@ on:
     branches:
       - '**'
 
+# One run per pull request at a time: a newer push supersedes the run before it. Superseded runs used to keep going and
+# hold the few macOS runners the whole queue shares; on 2026-10-26 a merge batch waited 65 minutes behind superseded
+# runs of PRs that had since been rebased. Pushes to a branch are never cancelled, so every commit on main is built.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # The fewest tests each suite may run and still pass (#1448). One run of the Integration suite went green after 978 of its
 # 1682 tests and said nothing about it: no warning, no skip, exit code 0. That is the fail-open shape the foreign-server
 # fixture exists to prevent, one level up. Microsoft.Testing.Platform's --minimum-expected-tests turns a short run into a
