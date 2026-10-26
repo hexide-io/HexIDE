@@ -11,6 +11,8 @@
     <Color name="Keyword" foreground="#0000B0" />
     <Color name="Function" foreground="#74531F" />
     <Color name="Number" foreground="#A31515" />
+    <Color name="Identifier" foreground="#222222" />
+    <Color name="Operator" foreground="#222222" />
     <Color name="Type" foreground="#0000B1" />
     <Color name="Constant" foreground="#A31515" />
     <Color name="IOKeyword" foreground="#0000B0" />

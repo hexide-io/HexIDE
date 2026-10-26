@@ -217,6 +217,23 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task SemanticTokensUseTheHighestPriorityFullProviderAndKeepItsLegend()
+    {
+        var unsupported = FakeServer();
+        var first = FakeServer(capabilitiesJson: """{"semanticTokensProvider":{"full":true,"legend":{"tokenTypes":["class"]}}}""");
+        var second = FakeServer(capabilitiesJson: """{"semanticTokensProvider":{"full":true,"legend":{"tokenTypes":["keyword"]}}}""");
+        var expected = new SemanticTokenResult([0, 0, 1, 0, 0], ["class"]);
+        first.RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>()).Returns(expected);
+        var sut = Registry(Registration("unsupported", unsupported, priority: 10),
+            Registration("first", first, priority: 5), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "x", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSemanticTokensAsync(Vb6Doc, TestContext.Current.CancellationToken)).Should().BeSameAs(expected);
+        await unsupported.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
+        await second.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task FoldsComeFromOneServerToo()
     {
         // Sharper than the symbol case: AvaloniaEdit's FoldingManager takes one ordered set of sections,

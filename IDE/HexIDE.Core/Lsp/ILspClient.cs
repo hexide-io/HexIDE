@@ -215,6 +215,8 @@ public interface ILspClient : IAsyncDisposable
     Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/foldingRange and returns the list of fold ranges, or empty.</summary>
+    Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default);
+
     Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>

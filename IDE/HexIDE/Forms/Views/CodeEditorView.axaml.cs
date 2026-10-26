@@ -45,6 +45,8 @@ public partial class CodeEditorView : UserControl
     private Point _lastHoverPoint;
     private FoldingManager? _foldingManager;
     private CancellationTokenSource? _foldCts;
+    private SemanticTokensColorizer? _semanticColorizer;
+    private int _semanticVersion;
     private CompletionWindow? _completionWindow;
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
@@ -332,6 +334,10 @@ public partial class CodeEditorView : UserControl
             _foldingManager = FoldingManager.Install(TextEditor.TextArea);
             TextEditor.TextArea.Caret.PositionChanged += KeepCaretOffFoldedRunsEnd;
             ApplyFolds(vm, []);
+            _semanticColorizer = new SemanticTokensColorizer();
+            TextEditor.TextArea.TextView.LineTransformers.Insert(
+                TextEditor.TextArea.TextView.LineTransformers.IndexOf(_readOnlyColorizer), _semanticColorizer);
+            _ = RequestSemanticTokensAsync(vm, CancellationToken.None);
             _ = RequestFoldingsAsync(vm, CancellationToken.None);
 
             // Bookmark gutter margin
@@ -588,6 +594,10 @@ public partial class CodeEditorView : UserControl
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = null;
+        _semanticVersion++;
+        if (_semanticColorizer is not null)
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_semanticColorizer);
+        _semanticColorizer = null;
 
         TextEditor.PointerMoved -= OnPointerMoved;
         TextEditor.PointerExited -= OnPointerExited;
@@ -644,6 +654,12 @@ public partial class CodeEditorView : UserControl
         // an edit turns into an orphan has to lose its fold now rather than when a server next answers (task 4.3).
         if (!OwnFoldsAreCurrent(vm))
             ApplyFolds(vm, null);
+        _semanticVersion++;
+        if (_semanticColorizer is { } semantic)
+        {
+            semantic.Tokens = [];
+            TextEditor.TextArea.TextView.Redraw();
+        }
         ScheduleFolding(vm);
     }
 
@@ -1041,6 +1057,7 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        _semanticVersion++;
         if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
     }
 
@@ -1057,7 +1074,26 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
-            await RequestFoldingsAsync(vm, token);
+            await Task.WhenAll(RequestFoldingsAsync(vm, token), RequestSemanticTokensAsync(vm, token));
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task RequestSemanticTokensAsync(CodeEditorViewModel vm, CancellationToken token)
+    {
+        var version = _semanticVersion;
+        var colorizer = _semanticColorizer;
+        if (colorizer is null) return;
+        try
+        {
+            var result = await vm.RequestSemanticTokensAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested || version != _semanticVersion
+                    || !ReferenceEquals(colorizer, _semanticColorizer) || !ReferenceEquals(DataContext, vm)) return;
+                colorizer.Tokens = SemanticTokensColorizer.Decode(vm.Document, result);
+                TextEditor.TextArea.TextView.Redraw();
+            });
         }
         catch (OperationCanceledException) { }
     }
