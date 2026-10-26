@@ -196,7 +196,9 @@ public static class UiAutomationDriver
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
                 window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
+                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null,
+            peer.GetProvider<IExpandCollapseProvider>() is { } expansion
+                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
     }
 
     /// <summary>
@@ -4478,7 +4480,8 @@ public record UiNodeDetail(
     // The value pattern's writability, independent of the range pattern's flag. Null without that pattern.
     bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    WindowFrameState? Frame = null);
+    WindowFrameState? Frame = null,
+    string? ExpandCollapseState = null);
 
 /// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

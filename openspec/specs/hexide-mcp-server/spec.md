@@ -591,3 +591,13 @@ Combining `double` with `to` SHALL be refused before pressing.
 
 - **WHEN** a drag names another control's path as its release destination
 - **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture
+
+### Requirement: Properties category expansion
+
+Categorized Properties rows SHALL expose an expand/collapse provider driven by the category's open state. Their toggle SHALL use the localized category header as its accessible name. `inspect_element` SHALL report `expandCollapseState` from an available expand/collapse provider.
+
+#### Scenario: Opening and closing a category row
+- **WHEN** `interact` expands or collapses a showing category row
+- **THEN** its open state and property visibility follow the requested state
+- **AND** repeating the action succeeds without toggling the state
+- **AND** inspection reports the current expansion state, including after using the category toggle
