@@ -61,6 +61,26 @@ public class PasteAsCommentTests
     }
 
     [AvaloniaTheory]
+    [InlineData("    Debug.Print \"in\"", 4, 0, "    'x = 1\n    'z = 3\n    Debug.Print \"in\"")]
+    [InlineData("    oldDebug.Print \"in\"", 4, 3, "    'x = 1\n    'z = 3\n    Debug.Print \"in\"")]
+    [InlineData("x = 0: Debug.Print \"in\"", 7, 0, "x = 0: 'x = 1\n'z = 3\nDebug.Print \"in\"")]
+    public void PasteBeforeCodeKeepsFollowingCodeUncommented(string original, int start, int length, string expected)
+    {
+        var view = new CodeEditorView();
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        editor.Text = original;
+        editor.Select(start, length);
+        editor.Document.UndoStack.ClearAll();
+
+        view.InsertAsComment("x = 1\nz = 3");
+
+        editor.Text.ReplaceLineEndings("\n").Should().Be(expected);
+        editor.Undo();
+        editor.Text.ReplaceLineEndings("\n").Should().Be(original);
+        editor.CanUndo.Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
     [InlineData("first\n  second", "\r\n")]
     [InlineData("first\r\n  second", "\n")]
     [InlineData("first\r  second", "\r\n")]

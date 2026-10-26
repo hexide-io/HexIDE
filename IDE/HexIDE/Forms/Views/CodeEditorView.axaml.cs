@@ -2053,6 +2053,9 @@ public partial class CodeEditorView : UserControl
         var lines = text.ReplaceLineEndings("\n").Split('\n');
         var continuationIndent = area.Selection is RectangleSelection { IsEmpty: false } ? "" : indentation;
         var commented = "'" + string.Join(newline + continuationIndent + "'", lines);
+        if (EditedSpan() is var (selectionOffset, selectionLength)
+            && selectionOffset + selectionLength < area.Document.GetLineByOffset(selectionOffset + selectionLength).EndOffset)
+            commented += newline + indentation;
         using (area.Document.RunUpdate())
         {
             if (area.Selection is RectangleSelection { IsEmpty: false } box)
