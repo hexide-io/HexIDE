@@ -9,8 +9,8 @@ name: Compiler beta check
 #     with every channel attached, and record the root initialization and compare it with the newest recording
 #     committed for this beta or an earlier one. A difference fails the run and names each frame that differs.
 #     HEXIDE_REQUIRE_TWINBASIC makes a skipped live test a failure, so a download that went wrong cannot pass;
-#   * uploads the recording and the test log, and reports the result in two issues: one per failing beta, opened on its
-#     first failure, and one compatibility record, whose body is a table of every beta checked and its last result.
+#   * uploads the recording and the test log, and reports the result in issues: a compatibility record, whose body is a
+#     table of every beta checked and its last result, and one issue per break, opened only when none is already open.
 #
 # The compiler is launch-and-watch only: started without the IDE, exchanged messages with, and stopped. Nothing reads or
 # alters its files. No licence key is read or sent, since the Community Edition is enough.
@@ -119,8 +119,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      # One row per beta in the record, rewritten by each run. A failing beta gets an issue of its own the first time,
-      # and later runs on the same beta leave it alone, so a daily run cannot comment the same failure every day.
+      # One row per beta in the record, rewritten by each run. A failure opens an issue only when none of its kind is
+      # open, so a daily run cannot report the same break every day.
       - name: Report the result
         if: always() && github.event_name != 'pull_request'
         env:
@@ -139,14 +139,13 @@ jobs:
           $beta = if ($env:BETA) { $env:BETA } else { '?' }
           $today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 
-          # A PowerShell array literal reaches a native command as separate arguments, so each comma list given to gh is quoted.
-          function Find-Issue([string] $title) {
-            $found = gh issue list --repo $env:GITHUB_REPOSITORY --state open --label twinbasic --search "in:title $title" `
-                       --json 'number,title' | ConvertFrom-Json
-            ($found | Where-Object title -eq $title | Select-Object -First 1).number
-          }
-
-          $record = Find-Issue $env:RECORD_TITLE
+          # Every open issue with the label, matched by title here rather than through GitHub's search, whose tokenising
+          # and indexing lag can miss one, and a miss opens a duplicate. A PowerShell array literal reaches a native
+          # command as separate arguments, so each comma list given to gh is quoted. ConvertFrom-Json emits a JSON array as
+          # one object, so wrapping it in @() would nest it; piping $open enumerates it.
+          $open = gh issue list --repo $env:GITHUB_REPOSITORY --state open --label twinbasic --limit 200 --json 'number,title' |
+                  ConvertFrom-Json
+          $record = ($open | Where-Object title -eq $env:RECORD_TITLE | Select-Object -First 1).number
           $rows = @{}
           if ($record) {
             $old = (gh issue view $record --repo $env:GITHUB_REPOSITORY --json body | ConvertFrom-Json).body
@@ -159,10 +158,20 @@ jobs:
                   "| Beta | Result | Checked | Run |`n|---|---|---|---|`n$table`n"
           $file = Join-Path $env:RUNNER_TEMP record.md
           Set-Content -Path $file -Value $body -NoNewline
-          if ($record) { gh issue edit $record --repo $env:GITHUB_REPOSITORY --body-file $file | Out-Null }
-          else { gh issue create --repo $env:GITHUB_REPOSITORY --title $env:RECORD_TITLE --body-file $file --label 'chore,trivial,twinbasic' }
+          if ($record) {
+            gh issue edit $record --repo $env:GITHUB_REPOSITORY --body-file $file | Out-Null
+            $recordUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/issues/$record"
+          } else {
+            $recordUrl = gh issue create --repo $env:GITHUB_REPOSITORY --title $env:RECORD_TITLE --body-file $file --label 'chore,trivial,ci,twinbasic'
+          }
 
           if ($result -eq 'passed') { exit 0 }
+          # One open issue per kind of failure, whichever beta it names. Betas ship most days, so a per-beta issue would
+          # open a new one every day until someone acted, and the record already carries each beta's result.
+          $kind = if ($env:DOWNLOAD -eq 'failure') { '^The twinBASIC beta check could not ' } else { '^twinBASIC beta \d+ fails the compiler adapter''s tests$' }
+          $already = $open | Where-Object { $_.title -match $kind } | Select-Object -First 1
+          if ($already) { "Issue #$($already.number), '$($already.title)', is already open for this kind of failure."; exit 0 }
+
           if ($env:DOWNLOAD -eq 'failure') {
             $title = if ($beta -ne '?') { "The twinBASIC beta check could not download beta $beta" }
                      else { "The twinBASIC beta check could not find a beta" }
@@ -183,10 +192,9 @@ jobs:
                     "- **A protocol change that HexIDE should follow:** fix the adapter, then keep the new recording.`n" +
                     "- **An expected change:** read the recording, and keep it as ``IDE/HexIDE.TwinBasic.Tests/Recordings/beta-$beta``, " +
                     "with a README as ``beta-1024`` has. Later runs then compare with it.`n`n" +
-                    "Opened by the compiler beta check (#1219). Later runs on this beta update the [compatibility record](" +
-                    "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/issues?q=is%3Aissue+is%3Aopen+in%3Atitle+compatibility+record) instead of commenting here."
+                    "Opened by the compiler beta check (#1219). While this is open, later failing runs, on this beta or a newer " +
+                    "one, update the [compatibility record]($recordUrl) instead of opening another issue."
           }
-          if (Find-Issue $title) { "Issue '$title' is already open."; exit 0 }
           Set-Content -Path $file -Value $body -NoNewline
           gh issue create --repo $env:GITHUB_REPOSITORY --title $title --body-file $file --label 'bug,small,twinbasic'
 
