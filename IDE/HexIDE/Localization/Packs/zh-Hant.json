@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "剪下",
     "Str.Menu.Edit.Copy": "複製",
     "Str.Menu.Edit.Paste": "貼上",
+    "Str.Menu.Edit.PasteAsComment": "貼上為註解",
     "Str.Menu.Edit.PasteLink": "貼上連結",
     "Str.Menu.Edit.Remove": "移除",
     "Str.Menu.Edit.Delete": "刪除",

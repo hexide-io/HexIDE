@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "_Ausschneiden",
     "Str.Menu.Edit.Copy": "_Kopieren",
     "Str.Menu.Edit.Paste": "_Einfügen",
+    "Str.Menu.Edit.PasteAsComment": "Als _Kommentar einfügen",
     "Str.Menu.Edit.PasteLink": "Verknüpfung ein_fügen",
     "Str.Menu.Edit.Remove": "Entfernen",
     "Str.Menu.Edit.Delete": "_Löschen",

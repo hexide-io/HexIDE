@@ -64,6 +64,7 @@
     "Str.Menu.Edit.Cut": "E_xscinde",
     "Str.Menu.Edit.Copy": "_Describe",
     "Str.Menu.Edit.Paste": "_Agglutina",
+    "Str.Menu.Edit.PasteAsComment": "Ut _commentarium inserere",
     "Str.Menu.Edit.PasteLink": "Agglutina Ne_xum",
     "Str.Menu.Edit.Remove": "Aufer",
     "Str.Menu.Edit.Delete": "_Dele",
