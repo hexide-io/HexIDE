@@ -62,6 +62,7 @@ internal static class ColorKeyMapping
             ["WarningBannerBorder"]     = ("WarningBannerBorderBrush",                    true),
             ["WarningBannerForeground"] = ("WarningBannerForegroundBrush",                true),
             ["ValidationError"]         = ("ValidationErrorBrush",                        true),
+            ["InactiveCodeText"]        = ("InactiveCodeTextBrush",                        true),
             // The code window's read-only text and fold labels (#273 task 3.15). Every shipped pack carries it,
             // because the light default misses the contrast bar on a dark editor; ShippedThemePackTests checks.
             ["ReadOnlyText"]            = ("ReadOnlyTextBrush",                           true),

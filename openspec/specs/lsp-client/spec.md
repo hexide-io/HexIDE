@@ -92,6 +92,21 @@ break callers silently, so the convention is part of the contract rather than an
 - **WHEN** hover is requested at a position with nothing to describe
 - **THEN** an absent result is returned rather than an empty one
 
+### Requirement: Hover content unions
+
+The client SHALL accept hover contents as `MarkupContent`, a `MarkedString`, or `MarkedString[]`.
+It SHALL preserve markup content's kind and value, normalize marked strings to Markdown (language-tagged
+values as fenced code blocks), and join array parts with blank lines. Any supplied hover range SHALL
+be preserved.
+
+#### Scenario: A server replies with a legacy Markdown string
+- **WHEN** a hover reply contains `{"contents":"answered"}`
+- **THEN** the client returns Markdown content with value `answered` for the editor's tooltip
+
+#### Scenario: A server replies with mixed marked strings
+- **WHEN** hover contents is an array of Markdown strings and language-tagged values
+- **THEN** the client returns their Markdown text and fenced code blocks separated by blank lines
+
 ### Requirement: Diagnostic hover messages
 
 The editor SHALL show the messages of all diagnostic markers covering the hovered offset, including
@@ -240,8 +255,9 @@ deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or
 after `initialize` has been answered. An externally owned pipe server SHALL receive neither message;
 teardown SHALL close only its connection. A launched pipe server SHALL get two seconds to exit before
 its remaining process tree is killed, including during bring-up. Both messages
-SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
-two seconds for termination before disposing the process handle.
+SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
+kill the remaining process tree and wait up to two seconds for termination before disposing the process
+handle. The process exit code SHALL remain observable in the conversation during client stop.
 
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
@@ -268,6 +284,16 @@ still goes away.
 - **WHEN** the server receives `shutdown` but never answers it
 - **THEN** the client stops waiting after two seconds and attempts `exit`
 - **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
+
+#### Scenario: A stdio server handles exit cleanly
+- **WHEN** the server exits within two seconds of receiving `exit` after `shutdown`
+- **THEN** it is allowed to terminate without being killed
+- **AND** its exit code is recorded in the conversation
+
+#### Scenario: A stdio wrapper ignores exit
+- **WHEN** a launched stdio server remains alive after the exit grace period
+- **THEN** its process tree is killed, including its server child
+- **AND** the observed exit code is recorded before transport disposal finishes
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
@@ -633,7 +659,8 @@ The IDE SHALL route a document by its language identity, derived from the docume
 offer it to **every** registered server claiming that language, subject to the ambiguity rule below, rather
 than selecting one. Where more than one
 server answers, the IDE SHALL combine their results: diagnostics from all sources SHALL be shown together,
-and list-shaped results SHALL be concatenated.
+and list-shaped results SHALL be concatenated except where a feature defines its own selection or merge
+rule. Completion SHALL follow the bounded, deduplicated merge below.
 
 Routing to a single server is the simpler design and the wrong one. The arrangement it forecloses — a
 language server and a separate linter or checker on the same file — is ordinary rather than exotic, and it is
@@ -1025,3 +1052,106 @@ the server after a refusal.
 - **GIVEN** a client listening on a loopback endpoint
 - **WHEN** a handshake carrying an `Origin` header arrives, and then one without
 - **THEN** the first is refused with 403 and the second is accepted as the server
+
+### Requirement: An entry's arguments SHALL be adjustable without replacing it
+The configuration SHALL let a user add arguments to an entry by its identifier, apart from the entry, so that an entry whose command the user cannot write can still be adjusted. The arguments SHALL be added to the entry's own, never replace them, and SHALL apply to whichever entry holds the identifier after layering. They SHALL be added in the entry's own form, and a different form SHALL be reported and left out.
+
+#### Scenario: An argument for the bundled server
+- **WHEN** the configuration adds arguments for the bundled server's identifier
+- **THEN** the bundled server is started with its found command and those arguments
+
+#### Scenario: Arguments in a different form
+- **WHEN** an entry's arguments are a command line and the added ones are a list, or the reverse
+- **THEN** the entry is left as it was and the problem is reported
+
+#### Scenario: Arguments for no server
+- **WHEN** added arguments name an identifier no entry has, or an entry the IDE starts no process for
+- **THEN** they are reported and change nothing
+
+### Requirement: Consented workspace artefacts
+
+A server registration MAY declare a workspace-relative artefact path, provider id and provider settings.
+The client SHALL resolve providers through an interface and DI registration, and SHALL materialise the
+artefact before launching the server. Providers SHALL return content without writing; backend schemas
+SHALL remain outside the core artefact service.
+
+**Known limit.** Between the recheck after consent and the replace, a process that can write into the workspace at that moment could
+swap a parent folder for a link, and the temporary file and the replace would follow it. .NET offers no handle-relative
+file API to close this. It needs a concurrent local writer inside the workspace, which could edit the project's sources
+anyway, so it is recorded rather than defended.
+
+#### Scenario: Scoped consent
+- **WHEN** an absent or still-owned artefact needs writing
+- **THEN** the prompt names the server and local file and offers Allow, Deny and Allow Always
+- **AND** Allow covers the server/workspace for the session, Allow Always persists that pair, and Deny launches without writing and logs why
+- **AND** a decision covers only the declaration it was asked for: a changed artefact path or provider asks again
+- **AND** persistent grants are listed and resettable in Options
+
+#### Scenario: Path and ownership protection
+- **WHEN** a declaration is absolute, drive-qualified, escapes via parent segments, or resolves outside the root through links
+- **THEN** the client refuses the write
+- **WHEN** a file exists whose bytes differ from the client's last recorded write
+- **THEN** the client leaves it alone without prompting and launches the server anyway
+- **WHEN** the target is a directory, an empty file (as a FIFO or a device presents), or larger than any artefact the client writes
+- **THEN** the client treats it as not owned without opening or reading it, leaves it alone, and launches the server anyway
+- **AND** a candidate for ownership is hashed through a stream, never read whole
+
+#### Scenario: Atomic and unchanged writes
+- **WHEN** generated bytes match the owned target
+- **THEN** the client skips the write and preserves its write time
+- **WHEN** generated bytes differ
+- **THEN** the client writes a temporary file in the same directory and atomically replaces the target, checking ownership under a lock
+- **AND** a failure while writing leaves the previous target intact
+
+#### Scenario: Nothing to describe
+- **WHEN** a provider returns nothing for a project, such as clangd for a project carrying no C/C++ files
+- **THEN** the client neither prompts nor writes
+- **AND** it deletes the target only if the target still holds the client's last recorded write, within the same path confinement and ownership lock as a replace
+- **AND** it leaves a file whose bytes differ alone, recording why on the server's connection
+
+#### Scenario: A failed or refused write remains visible
+- **WHEN** a path is refused, consent denied, a provider throws, a write fails, or an existing foreign file is left alone
+- **THEN** the reason is recorded as a local failure note on the server's connection in the protocol inspector
+- **AND** the server still launches
+- **AND** notes name the configured workspace-relative path and exception type, never the resolved absolute target or exception message, so exports do not expose workspace locations
+
+#### Scenario: Material project changes
+- **WHEN** forms, modules or carried files are added, removed or renamed, or references change
+- **THEN** the artefact is regenerated after debouncing, subject to the same consent and ownership checks
+- **AND** regeneration sends no watched-file notification in this phase (#456)
+
+#### Scenario: Clangd compilation database
+- **WHEN** the clangd provider is configured
+- **THEN** it emits one compilation command per carried C/C++ file, using configured compiler arguments followed by that file, with its containing directory as working directory
+- **AND** it emits nothing for a project carrying no C/C++ files
+- **AND** a real clangd test observes diagnostics changing when the generated arguments define HEXIDE_PROBE
+
+#### Scenario: Capability boundaries
+- **WHEN** a server declares no artefact
+- **THEN** no artefact is generated for it
+- **AND** the capability grants neither writes outside the workspace nor writes without consent
+- **AND** the public add-in provider contract and `.rdproj` provider remain outside phase 1
+
+### Requirement: Completion SHALL merge within a bounded popup budget
+The registry SHALL ask every document claimant concurrently and return when all answer or one
+second from the request elapses. It SHALL include only answers received within that budget and SHALL
+deduplicate by ordinal label and kind, retaining the complete item from the higher-priority server or the
+earlier registration on a tie. Late answers SHALL be dropped, logged at debug level, and recorded in the
+protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
+deadline and caller cancellation.
+
+#### Scenario: Two servers offer the same completion
+- **WHEN** two timely answers contain the same label and kind
+- **THEN** the higher-priority claimant's item is shown once, with its detail and insertion text
+- **AND** registration order breaks equal-priority ties
+
+#### Scenario: One server answers late
+- **WHEN** one claimant answers within a second and another answers after it
+- **THEN** the timely items are returned at the budget boundary
+- **AND** the late answer is recorded and dropped without changing the open list
+- **AND** cancellation or timeout without a reply retains its own outcome and is not recorded as a late answer
+
+#### Scenario: Claimants advertise different trigger characters
+- **WHEN** the editor receives a character in the union of the document claimants' completion triggers
+- **THEN** it requests completion only from claimants advertising that character
+- **AND** letters continue to use the ordinary completion route

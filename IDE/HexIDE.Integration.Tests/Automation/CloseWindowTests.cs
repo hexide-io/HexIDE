@@ -69,6 +69,31 @@ public class CloseWindowTests
         finally { window.Close(); }
     }
 
+    // Two of the IDE's dialogs are titled 'HexIDE', so the refusal says what the one over the window is (#1975 review).
+    [AvaloniaFact]
+    public void The_refusal_says_what_the_dialog_over_the_window_is()
+    {
+        var owner = new Window { Title = "Form1", Width = 300, Height = 200 };
+        owner.Show();
+        var dialog = new Window
+        {
+            Title = "HexIDE",
+            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+        };
+        _ = dialog.ShowDialog(owner);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Close(owner).Error.Should().StartWith(
+                "'Form1' has a dialog open over it, 'HexIDE' (a message box: \"Reset?\", OK/Cancel), and takes no close");
+        }
+        finally
+        {
+            dialog.Close();
+            owner.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void A_window_under_a_modal_dialog_is_refused_and_the_dialog_can_be_closed()
     {
