@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
+    "Str.LspArtifact.Title": "Файли робочої області",
+    "Str.LspArtifact.Prompt": "Сервер {0} запитав дозвіл на запис локального файлу {1}.",
+    "Str.LspArtifact.Allow": "Дозволити",
+    "Str.LspArtifact.Deny": "Відхилити",
+    "Str.LspArtifact.Always": "Завжди дозволяти",
+    "Str.LspArtifact.Grants": "Нижче наведено сервери, яким дозволено створювати файли робочої області. Скиньте дозвіл, щоб запитати знову в наступному сеансі.",
+    "Str.LspArtifact.Reset": "Скинути",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",
     "Str.Archive.ReadOnly": "Перегляд архіву лише для читання. Редагування, збирання та запуск недоступні.",

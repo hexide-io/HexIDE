@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             x:DataType="vm:WorkspaceArtifactPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.WorkspaceArtifactPageView">
+    <StackPanel Spacing="12">
+        <TextBlock Text="{DynamicResource Str.LspArtifact.Grants}" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{CompiledBinding Grants}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:WorkspaceArtifactGrant">
+                    <StackPanel Margin="0,4" Spacing="4">
+                        <TextBlock Text="{CompiledBinding Server}" FontWeight="Bold" />
+                        <TextBlock Text="{CompiledBinding Workspace}" TextWrapping="Wrap" />
+                        <Button Content="{DynamicResource Str.LspArtifact.Reset}"
+                                Command="{CompiledBinding $parent[ItemsControl].((vm:WorkspaceArtifactPageViewModel)DataContext).ResetCommand}"
+                                CommandParameter="{CompiledBinding}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

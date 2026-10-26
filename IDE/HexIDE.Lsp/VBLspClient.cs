@@ -1385,7 +1385,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        RequestCompletionAsync(uri, position, cancellationToken, static () => { });
+
+    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
+        CancellationToken cancellationToken, Action onAnswer)
     {
         if (_rpc is null || !_initialized || !CanServe("completionProvider")) return [];
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
@@ -1393,6 +1397,7 @@ public sealed class VBLspClient : ILspClient
         {
             var result = await InvokeRequestAsync<CompletionList?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            onAnswer();
             return result?.Items ?? [];
         }
         catch (Exception ex)
@@ -2266,6 +2271,11 @@ public sealed class VBLspClient : ILspClient
         WarnUnavailableOnce("experimental." + capabilityName);
         return false;
     }
+
+    /// <summary>Records an answer discarded by the registry's completion budget.</summary>
+    public void NoteLateCompletion() =>
+        Note(ConversationDirection.Local, ConversationEntryKind.Note, "textDocument/completion",
+            "answered after the popup opened; completion discarded");
 
     /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
     public void NotePrioritySkip(string capabilityName, string winnerId)

@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Imaginem exportare...",
+    "Str.LspArtifact.Title": "Fasciculi spatii laboris",
+    "Str.LspArtifact.Prompt": "Servitor {0} fasciculum localem {1} scribere rogavit.",
+    "Str.LspArtifact.Allow": "Permitte",
+    "Str.LspArtifact.Deny": "Nega",
+    "Str.LspArtifact.Always": "Semper permitte",
+    "Str.LspArtifact.Grants": "Infra sunt servitores quibus fasciculos spatii laboris creare licet. Licentiam restitue ut proxima sessione iterum rogeris.",
+    "Str.LspArtifact.Reset": "Restitue",
     "Str.Archive.ProjectFormat": "{0} (archivum solum legendum)",
     "Str.Archive.Hidden": "Elementa archivi occulta ostendere",
     "Str.Archive.ReadOnly": "Praevisio archivi solum legendi. Editio, compilatio et exsecutio non praesto sunt.",
