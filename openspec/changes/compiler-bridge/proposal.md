@@ -24,8 +24,11 @@ behind in core (#1690). This change records those decisions before any bridge co
   (#1210) gives suites somewhere to install from. Whether it gets its own repository sooner is the maintainer's
   decision.
 
-**Out of scope:** building the bridge; the package format (#1210); the mapping from the compiler's language-channel
-messages to LSP. That mapping waits on a decision about observing the stock IDE's traffic, recorded in design.md.
+- **The first LSP mapping.** The compiler's language channel turns out to be JSON-RPC that is already LSP by most
+  names. design.md maps each observed message to LSP 3.17, and lists where the channel departs from JSON-RPC.
+  The observation was made with the compiler's author's permission.
+
+**Out of scope:** building the bridge, and the package format (#1210).
 
 ## Impact
 

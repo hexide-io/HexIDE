@@ -2,7 +2,7 @@
 
 - [x] 1.1 Record how an archive's documents reach a language server (design.md, Decision 1)
 - [x] 1.2 Record the bridge's process shape and lifetime (Decision 2)
-- [ ] 1.3 Record the first LSP mapping from the compiler's language channel (Decision 3: blocked on the licence question)
+- [x] 1.3 Record the first LSP mapping from the compiler's language channel (Decision 3)
 - [x] 1.4 Record where the bridge lives (Decision 4; the maintainer decides on a repository)
 - [x] 1.5 Record what core keeps (Decision 5)
 

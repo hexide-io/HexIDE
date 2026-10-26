@@ -101,23 +101,67 @@ archive-entry:/Sources/Module%201.ext?container=file%3A%2F%2F%2FC%3A%2Fwork%2FDe
 
 ## Decision 3: the first LSP mapping
 
-**Not recorded. Blocked on a licence question.**
+**The language channel is already JSON-RPC 2.0, and mostly LSP by name.** The bridge's job is renaming, framing and
+filling gaps, not translating a foreign protocol.
 
-The method was to observe the stock IDE on beta 1024, with the compiler started by #1689's launch.
-- **The capture route:** the IDE's front end runs in WebView2. Its loader ignores the usual environment variable and
-  policy for extra browser arguments, but honours the one that names the runtime folder. That made DevTools reachable.
-- **The stop:** the front end then opened on the vendor's licence agreement. That agreement forbids reverse
-  engineering, decompiling or disassembling, except to the extent that UK law prohibits that restriction.
-- **Nothing was captured or accepted.** Whether observing the IDE's local traffic falls under that clause, and whether
-  to accept the agreement, are the maintainer's decisions. They are on the dashboard as `q-1690-licence`.
+**Provenance, which matters here.** The mapping comes from observing the stock IDE on beta 1024, with the
+compiler's author's permission and the maintainer's decision (recorded on #1690, 2026-10-26).
+- Only what crossed the IDE's own WebSockets was recorded, through DevTools on its WebView2 front end.
+- Nothing in the compiler was read, disassembled or decompiled, and neither was the front end's code.
+- Raw captures stayed on the machine that made them. This table records message shapes, not their content.
 
-What is known without that observation:
-- The language channel is one of the three service sockets attached after project load (`compiler-channel-lifecycle`).
-- Its messages are carried without interpretation. None has been decoded.
-- The bridge's first slice, diagnostics, needs this mapping.
+**Do not take this as permission to repeat the observation without asking the author.** The vendor's licence restricts
+reverse engineering.
 
-The preferred source is documentation from the compiler's author, since the protocol is moving from JSON to binary
-anyway. Observation is the fallback, if the maintainer clears it.
+### The channels
+
+The front end opens four WebSockets on the compiler: `root`, `fs`, `language` and `debugger`, each on its own port,
+behind the same key.
+- **`language`** carries UTF-8 JSON. The compiler sends binary frames, and the IDE sends text frames.
+- **`fs`** is binary. The IDE asks for the project tree, and for a file by its project path. The compiler answers from
+  the project it loaded, so document text reaches the front end over `fs`, never `language`.
+- **The compiler names documents** by its own URI scheme and the project-relative path:
+  `<scheme>:/<Project>/Sources/<Module>.twin`. The bridge translates between those names and archive entry URIs.
+  Decision 1's ordinal segments are exactly that path.
+
+### Message by message
+
+Positions are zero-based lines and characters, as in LSP.
+
+| Observed on `language` | Shape | LSP 3.17 | What the bridge does |
+|---|---|---|---|
+| Compiler → IDE notification `textDocument/publishDiagnostics` | `uri`; `diagnostics[{range, code, message, severity}]`; also `errorCount`, `warningCount`, `hintCount`, `infoCount` and `docVersion` | `textDocument/publishDiagnostics` | Rename the URI. `docVersion` becomes `version`; drop the counts. **Diagnostics need nothing else.** |
+| IDE → compiler request `textDocument/hover` | `textDocument{uri}`, `position`; answered `{contents: MarkupContent (markdown), range, selectionRange}` | `textDocument/hover` | Rename; drop `selectionRange` |
+| IDE → compiler request `textDocument/definition` | as hover; answered with one `{uri, range, selectionRange}` | `textDocument/definition` | Answer a `Location`, or a `LocationLink` if the client takes them |
+| IDE → compiler request `textDocument/completion` | `textDocument{uri, version}`, `position`, `context{triggerCharacter}`, plus `origCaretLine` and `origCaretColumn`; answered `{lazyRequestId, items[{l, t, i}], isIncomplete}` | `textDocument/completion` | `l` → `label` and `t` → `kind`; the values seen match `CompletionItemKind`: 7, 8, 9, 13, 14, 22. Keep `i` and `lazyRequestId` in `data` |
+| IDE → compiler request `textDocument/lazyCompletion` | `{lazyRequestId, requests[{x, i}]}`; answered `{results[{x, type?, aliasType?, uri?, line?}]}`, or error 123 when the id is stale | `completionItem/resolve` | Resolve one item at a time from `data`, and put `type` or `aliasType` in `detail` |
+| IDE → compiler request `textDocument/didChangeV2` | **Not JSON:** `:<header length>,<JSON header>` then CRLF then the document's full text. The header has `textDocument{uri, version}`, `contentChanges: ""`, `isActiveEditor`, `caretLine`, `caretColumn` and `activeDebugLines`. Answered with the decorations below | `didOpen` and `didChange`, full sync | Send the full text on each change, and cache the decorations for the requests below |
+| IDE → compiler request `textDocument/getDecorations` | `textDocument{uri, version}`; answered with the decorations: `semanticTokens`, `lineSeperators`, `codeLens`, `breakpoints`, `symbols`, `scopes`, `extraDecorations` | none | Ask after open, and cache |
+| (in the decorations) `symbols` | `{name, detail, kind, range, selectionRange}` | `textDocument/documentSymbol` | Answer from the cache |
+| (in the decorations) `codeLens` | `{range, command{title, command, arguments}}` | `textDocument/codeLens` | Answer from the cache; HexIDE cannot run the command |
+| IDE → compiler request `textDocument/getSemanticTokens` | `textDocument`, `pages[n]`; answered `{semanticTokens{<page>: [int…]}}` | `textDocument/semanticTokens/full` | **Not decoded.** The legend and paging are unknown, so it is not mapped yet |
+| IDE → compiler request `textDocument/foldingRange` | `textDocument{uri}`, `docVersion`; answered with an array of arrays of `{startLine, endLine, tbBlockType?, hasErrors?}` | `textDocument/foldingRange` | Flatten, and drop the extras |
+| Compiler → IDE request `custom/applyEdit` | `{PreserveCaretPosition, edit{documentChanges[{textDocument{version, uri}, edits[{range, newText, noUndo}]}]}}`, sent while typing: the compiler tidies the line | `workspace/applyEdit` | Archive entries are read-only and are never edited, so it shouldn't arrive. If it does, answer `applied: false` |
+| Compiler → IDE request `custom/provideCustomControls` | `{customControls[…], customForms[]}` | none | Answer it in the bridge, and don't forward it: it is designer data |
+
+**Not observed:** signature help, find references and rename. The stock IDE sent nothing on the language channel for
+any of them, so they aren't mapped. The bridge doesn't advertise them.
+
+### Where it departs from JSON-RPC
+
+The bridge normalises all of these.
+- **Ids:** responses carry the request's id as a string, even when the request's id was a number.
+- **The version member:** the IDE's requests carry no `jsonrpc` member.
+- **The result key:** `lazyCompletion` answers under `results`, not `result`.
+- **Document names:** completion requests name the document without its scheme.
+- **Framing:** `didChangeV2` is not JSON (above).
+
+### Still to measure
+
+- **Character units on a line with non-ASCII text.** UTF-16 is expected, since the front end is JavaScript, but it
+  hasn't been measured.
+- **The semantic-token encoding.**
+- **What the compiler sends when a second document changes in the background.**
 
 ## Decision 4: where the bridge lives
 
@@ -159,8 +203,9 @@ approve.
 
 ## Risks
 
-- **The mapping may not exist in a usable form.** If the language channel turns out to be IDE-shaped rather than
-  request-shaped, the bridge has to keep the state the IDE kept, such as open documents and their versions.
+- **The protocol is moving.** The compiler's author has said the protocol is going from JSON to binary. The mapping
+  above is per beta, so the bridge should record each beta's traffic and replay it in CI (#1218), and check each new
+  beta (#1219).
 - **One process serves every container.** If one compiler hangs it shouldn't stall the others, so each compiler
   session runs on its own I/O loop, as the channel lifecycle already does per socket.
 - **Archive entries are read-only.** Diagnostics and navigation fit that. Formatting, rename and code actions return
