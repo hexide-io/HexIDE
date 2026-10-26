@@ -42,6 +42,13 @@ public sealed record AutoNew(string ClassName, string Name);
 public sealed class AutoInstanceNeeded(int location, AutoNew autoNew)
     : NotImplementedException($"{autoNew.Name} is declared As New, and is used where HexIDE can't yet make its object (#435).")
 {
+    public AutoInstanceNeeded(VbUdt bag, string field, AutoNew autoNew) : this(-1, autoNew)
+    {
+        Field = new UdtFieldRef(bag, field);
+    }
+
+    public UdtFieldRef? Field { get; }
+
     /// <summary>The slot to fill.</summary>
     public int Location { get; } = location;
 

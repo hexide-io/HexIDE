@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:HexIDE.Controls"
         xmlns:converters="clr-namespace:HexIDE.Converters">
     <!--
         The automation name of a button-like control is what a person reads on it. A caption with an access
@@ -15,5 +16,76 @@
                 <Binding Path="$self.(ToolTip.Tip)" />
             </MultiBinding>
         </Setter>
+    </Style>
+    <!-- Localize the base theme's scroll bar button names (#1868). -->
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_LineUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineUp}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_PageUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageUp}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_PageDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageDown}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_LineDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineDown}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineLeft}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_PageUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageLeft}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_PageDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageRight}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineRight}" />
+    </Style>
+    <!-- Name Dock's icon-only template parts at the control, so peers and path matching agree (#542). -->
+    <Style Selector="ToolChromeControl /template/ Button#PART_MenuButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Menu}" />
+    </Style>
+    <Style Selector="ToolChromeControl /template/ Button#PART_PinButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Pin}" />
+    </Style>
+    <Style Selector="ToolChromeControl /template/ Button#PART_MaximizeRestoreButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.MaximizeRestore}" />
+    </Style>
+    <Style Selector="ToolChromeControl /template/ Button#PART_CloseButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Close}" />
+    </Style>
+    <Style Selector="ScrollViewer#PART_ScrollViewer /template/ RepeatButton[HorizontalAlignment=Stretch][VerticalAlignment=Stretch][(Grid.Column)=0], ScrollViewer#PART_ScrollViewer /template/ RepeatButton[HorizontalAlignment=Left]">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.ScrollLeft}" />
+    </Style>
+    <Style Selector="ScrollViewer#PART_ScrollViewer /template/ RepeatButton[HorizontalAlignment=Stretch][VerticalAlignment=Stretch][(Grid.Column)=2], ScrollViewer#PART_ScrollViewer /template/ RepeatButton[HorizontalAlignment=Right]">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.ScrollRight}" />
+    </Style>
+    <Style Selector="ScrollViewer#PART_ScrollViewer /template/ RepeatButton[HorizontalAlignment=Stretch][VerticalAlignment=Stretch][(Grid.Row)=0], ScrollViewer#PART_ScrollViewer /template/ RepeatButton[VerticalAlignment=Top]">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.ScrollUp}" />
+    </Style>
+    <Style Selector="ScrollViewer#PART_ScrollViewer /template/ RepeatButton[HorizontalAlignment=Stretch][VerticalAlignment=Stretch][(Grid.Row)=2], ScrollViewer#PART_ScrollViewer /template/ RepeatButton[VerticalAlignment=Bottom]">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.ScrollDown}" />
+    </Style>
+    <Style Selector="DocumentTabStripItem /template/ ContentPresenter#PART_ClosePresenter Button, DocumentTabStripItem /template/ ContentPresenter#PART_CompactClosePresenter Button">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.Close}" />
+    </Style>
+    <Style Selector="controls|MDICaptionButtons /template/ Button#PART_MinimizeButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.Minimize}" />
+    </Style>
+    <Style Selector="controls|MDICaptionButtons /template/ Button#PART_RestoreButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.MaximizeRestore}" />
+    </Style>
+    <Style Selector="controls|MDICaptionButtons /template/ Button#PART_CloseButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.Close}" />
+    </Style>
+    <Style Selector="ComboBox /template/ ToggleButton#toggle">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.ToggleList}" />
+    </Style>
+    <Style Selector="controls|PropertyFontBox /template/ Button#PART_OpenFontWindowButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.ChooseFont}" />
+    </Style>
+    <Style Selector="controls|PropertyColorBox /template/ Button">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.ChooseColor}" />
     </Style>
 </Styles>

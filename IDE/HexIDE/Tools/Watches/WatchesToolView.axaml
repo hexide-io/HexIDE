@@ -25,7 +25,7 @@
         </DockPanel>
 
         <TreeView Grid.Row="1" ItemsSource="{CompiledBinding Rows}"
-                  SelectedItem="{CompiledBinding SelectedRow, Mode=TwoWay}">
+                  SelectedItem="{CompiledBinding SelectedItem, Mode=TwoWay}">
             <TreeView.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="{DynamicResource Str.Tool.Watches.Menu.Edit}"

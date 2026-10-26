@@ -6,24 +6,63 @@ using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
-/// The single home for VB6 numeric semantics: the arithmetic result-type table, checked narrowing
-/// (out-of-range -> Overflow, Err 6), and the integer <c>\</c>/<c>Mod</c> operators (operands banker's-rounded
-/// to an integer first; divide-by-zero -> Err 11). The rules here were verified against real <c>vb6.exe</c>.
-///
-/// Phase-2.3 scope is the numeric core — Byte/Integer/Long/Single/Double (plus Boolean and Empty, which behave
-/// as Integer/0). Currency/Decimal/Date are not reachable from source until 2.5; if they reach here they fall
-/// back to a Double computation, which 2.5 will replace with their precise (4-dp / serial) semantics.
-///
-/// Verified VB6 facts encoded here: Byte+Byte -> Byte (overflows at 255); Boolean/Byte -> Integer;
-/// Int+Int -> Int, Int+Long -> Long; <c>/</c> is Double except when the widest operand is Single;
-/// <c>5.5 Mod 2</c> = 0 as Long; <c>7.6 \ 2</c> = 4 as Long; CInt rounds half-to-even.
+/// The single home for VB6 numeric semantics: the per-operator arithmetic result-type tables, checked narrowing
+/// (out-of-range -> Overflow, Err 6), and the integer <c>\</c>/<c>Mod</c> operators (operands banker's-rounded to an
+/// integer first; divide-by-zero -> Err 11). The rules here were verified against real <c>vb6.exe</c>.
 /// </summary>
 public static class VbNumeric
 {
-    // Arithmetic ladder rank. Boolean and Empty behave as Integer; Byte stays Byte (Byte+Byte -> Byte).
-    // Verified against vb6.exe: Currency DOMINATES Double for + - * (10@ + 1.5 -> Currency), and Decimal is
-    // the widest exact type. Date is NOT on this ladder — Add/Sub special-case it (Date+n -> Date,
-    // Date-Date -> Double), and * / \ Mod ^ coerce a Date operand to its Double serial via the fallback path.
+    // Oracle: "Numeric type pairs — five arithmetic tables" (2026-09-03).
+    // Rows/columns: Byte, Integer, Long, Single, Double, Currency, Decimal.
+    // B/I/L/S/F/C/D are those result types. + and - share AddTypes; backslash and Mod share IntegerTypes.
+    private static readonly string[] AddTypes =
+    [
+        "BILSFCD", // Byte
+        "IILSFCD", // Integer
+        "LLLFFCD", // Long
+        "SSFSFCD", // Single
+        "FFFFFCD", // Double
+        "CCCCCCD", // Currency
+        "DDDDDDD", // Decimal
+    ];
+    private static readonly string[] MultiplyTypes =
+    [
+        "BILSFCD", // Byte
+        "IILSFCD", // Integer
+        "LLLFFCD", // Long
+        "SSFSFFD", // Single
+        "FFFFFFD", // Double
+        "CCCFFCD", // Currency
+        "DDDDDDD", // Decimal
+    ];
+    private static readonly string[] DivideTypes =
+    [
+        "FFFSFFD", // Byte
+        "FFFSFFD", // Integer
+        "FFFFFFD", // Long
+        "SSFSFFD", // Single
+        "FFFFFFD", // Double
+        "FFFFFFD", // Currency
+        "DDDDDDD", // Decimal
+    ];
+    private static readonly string[] IntegerTypes =
+    [
+        "BILLLLL", // Byte
+        "IILLLLL", // Integer
+        "LLLLLLL", // Long
+        "LLLLLLL", // Single
+        "LLLLLLL", // Double
+        "LLLLLLL", // Currency
+        "LLLLLLL", // Decimal
+    ];
+    // The fifth table, ^, is uniformly Double and is encoded directly in Power.
+
+    private static VT ResultType(string[] table, int left, int right) =>
+        CoreType("BILSFCD".IndexOf(table[left][right]));
+
+    // The tables' row and column index; not a promotion ladder. Boolean and Empty index as Integer. Date has no
+    // index: Add/Sub special-case it (Date+n -> Date, Date-Date -> Double), and * / \ Mod ^ coerce a Date operand
+    // to its Double serial through the fallback path. Also used by the unary and comparison helpers.
     private static int CoreRank(VT t)
     {
         if (t == VT.Byte) return 0;
@@ -103,16 +142,20 @@ public static class VbNumeric
             return new Vb6Value(op == '+' ? da + db : op == '-' ? da - db : da * db);
         }
 
-        var rt = CoreType(Math.Max(lr, rr));
+        var rt = ResultType(op == '*' ? MultiplyTypes : AddTypes, lr, rr);
         if (rt == VT.Currency || rt == VT.Decimal)
         {
-            // In + and -, a Double beside a Currency becomes a Currency first, by its exact binary value, and the sum is
-            // taken in Currency: 2@ + 0.00005 is 2.0001, where the sum taken in Double would round to 2 (measured, #966).
-            // A Currency times a Double is a Double in VB6, which this path does not yet give (#230).
-            decimal a = rt == VT.Currency && op != '*' && l.Type == VT.Double ? CurrencyDecimal(l, ctx) : ToDecimal(l),
-                b = rt == VT.Currency && op != '*' && r.Type == VT.Double ? CurrencyDecimal(r, ctx) : ToDecimal(r);
+            // In + and -, a Single or Double beside a Currency becomes a Currency first, by its exact binary value, and
+            // the sum is taken in Currency: 2@ + 0.00005 is 2.0001, where a sum taken in Double would round to 2, and
+            // 1@ + 0.00005! is 1 where 1@ + 0.00005 is 1.0001 (measured, #966, #230). The * table makes a Currency times
+            // a Single or Double a Double, so * never reaches here with one.
             decimal res;
-            try { res = op == '+' ? a + b : op == '-' ? a - b : a * b; }
+            try
+            {
+                decimal a = rt == VT.Currency ? CurrencyOperand(l, ctx) : ToDecimal(l);
+                decimal b = rt == VT.Currency ? CurrencyOperand(r, ctx) : ToDecimal(r);
+                res = op == '+' ? a + b : op == '-' ? a - b : a * b;
+            }
             catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
             return rt == VT.Currency ? MakeCurrency(res, ctx) : Vb6Value.NewDecimal(res);
         }
@@ -141,13 +184,18 @@ public static class VbNumeric
             throw new VBRunTimeException(ctx, a == 0.0 && l.Type != VT.Decimal && r.Type != VT.Decimal
                 ? VBStandardError.Overflow
                 : VBStandardError.DivisionByZero);
-        // Result is Single iff the widest core operand is Single (no Long/Double). int/int -> Double.
         int lr = CoreRank(l.Type), rr = CoreRank(r.Type);
-        bool single = lr >= 0 && rr >= 0 && Math.Max(lr, rr) == 3;
+        var rt = lr >= 0 && rr >= 0 ? ResultType(DivideTypes, lr, rr) : VT.Double;
+        if (rt == VT.Decimal)
+        {
+            try { return Vb6Value.NewDecimal(ToDecimal(l) / ToDecimal(r)); }
+            catch (DivideByZeroException) { throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero); }
+            catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
+        }
         // Through NarrowDouble on BOTH paths. The Single path always went through it; the Double path did
         // not, so `1E+308 / 0.0001` handed back an infinity instead of the Overflow vb6.exe raises.
         double res = a / b;
-        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx, l.HasFixedType && r.HasFixedType);
+        return NarrowDouble(res, rt, ctx, l.HasFixedType && r.HasFixedType);
     }
 
     // ===== \ (integer division) and Mod =====
@@ -252,7 +300,7 @@ public static class VbNumeric
     /// a Long 3 and `TypeName(l)` is "Long", where a Variant would hold an Integer.
     ///
     /// <para>
-    /// Every rule here is vb6.exe output (see <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle.md):
+    /// Every rule here is vb6.exe output (see <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle/verified-findings.md):
     /// String takes anything (`5` → "5", `True` → "True"); Boolean is CBool (any non-zero is True, "banana"
     /// is Err 13); a numeric target parses a String and raises Err 13 on garbage, rounds half-to-even
     /// (`12.5` → 12, `12.6` → 13) and range-checks (`Dim b As Byte : b = 300` is Err 6); Empty is 0 or "";
@@ -320,8 +368,11 @@ public static class VbNumeric
         return RoundCurrency(numerator, denominator, ctx);
     }
 
-    private static decimal CurrencyDecimal(Vb6Value doubleValue, ParserRuleContext? ctx) =>
-        (decimal)CurrencyFromDouble((double)doubleValue.Value!, ctx).Value!;
+    // A Currency operand of + or -: a Single or Double by its exact binary value, anything else as it stands.
+    private static decimal CurrencyOperand(Vb6Value value, ParserRuleContext? ctx) =>
+        value.Type == VT.Single || value.Type == VT.Double
+            ? (decimal)CurrencyFromDouble(ToDouble(value), ctx).Value!
+            : ToDecimal(value);
 
     private static (BigInteger Numerator, BigInteger Denominator) DoubleFraction(double value, ParserRuleContext? ctx)
     {
@@ -356,7 +407,7 @@ public static class VbNumeric
         return Vb6Value.NewCurrency((decimal)units / 10000m);
     }
 
-    private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);
+    private static double SerialOf(Vb6Value v) => v.Value is VbDate dt ? dt.Serial : ToDouble(v);
 
     /// <summary>
     /// The order of two numbers, a Date by its serial: exactly where neither is a Single or a Double, and as Doubles otherwise.
@@ -374,9 +425,9 @@ public static class VbNumeric
 
     private static bool TryToSerial(Vb6Value v, out double serial)
     {
-        if (v.Value is DateTime dt)
+        if (v.Value is VbDate dt)
         {
-            serial = dt.ToOADate();
+            serial = dt.Serial;
             return true;
         }
         return TryToDouble(v, out serial);
@@ -384,8 +435,9 @@ public static class VbNumeric
 
     private static Vb6Value FromSerial(double serial, ParserRuleContext? ctx)
     {
-        try { return new Vb6Value(DateTime.FromOADate(serial)); }
-        catch (ArgumentException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
+        return VbDate.InRange(serial)
+            ? new Vb6Value(new VbDate(serial))
+            : throw new VBRunTimeException(ctx, VBStandardError.Overflow);
     }
 
     private static decimal ToDecimal(Vb6Value v) => v.Value switch
@@ -402,11 +454,11 @@ public static class VbNumeric
 
     // ===== helpers =====
 
-    private static VT IntResultType(VT l, VT r) =>
-        IsByteIntBool(l) && IsByteIntBool(r) ? VT.Integer : VT.Long;
-
-    private static bool IsByteIntBool(VT t) =>
-        t == VT.Byte || t == VT.Integer || t == VT.Boolean || t == VT.EmptyVariant;
+    private static VT IntResultType(VT l, VT r)
+    {
+        int li = CoreRank(l), ri = CoreRank(r);
+        return li >= 0 && ri >= 0 ? ResultType(IntegerTypes, li, ri) : VT.Long;
+    }
 
     /// <summary>
     /// Land an integral result on its target type.

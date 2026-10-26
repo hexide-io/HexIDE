@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 /// The global <c>App</c> object (issue #136).
 ///
 /// <para>Every expectation here is the <b>design-time</b> answer, measured against real VB6 under F5 — see
-/// the App section of <c>docs/vb6-fidelity-oracle.md</c>. That matters because VB6's own answers differ
+/// the App section of <c>docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md</c>. That matters because VB6's own answers differ
 /// between F5 and a compiled exe, and HexIDE's interpreter is permanently in F5's position: there is no
 /// built executable, so no version resource to read.</para>
 ///
@@ -169,7 +169,7 @@ public class AppObjectTests
         // VB6 writes this key quoted — `Title="Project1"` is in its own templates — and its reader then
         // strips the LEADING quote only, so a real VB6 app shows `Project1"` in App.Title. A trailing
         // quote in an application's name is a defect, not a design, so HexIDE removes both.
-        // See docs/vb6-fidelity-oracle.md.
+        // See docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md.
         var info = AppInfo.FromProject(ProjectWith("NameKey", "Title=\"TitleKey\""));
 
         info.Title.Should().Be("TitleKey");

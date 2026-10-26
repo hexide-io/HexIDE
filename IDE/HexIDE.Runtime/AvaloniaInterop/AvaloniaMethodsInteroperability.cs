@@ -14,6 +14,12 @@ public static class AvaloniaMethodsInteroperability
 {
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        VBProps.RefuseIfRemoved(c);
+        // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
+        // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
+        // is 438 late-bound (measured).
+        if (ProgressBarMembers.TryCall(c, method) is { } inBox)
+            return inBox ? Vb6Value.Nothing : throw new VBMethodOrDataMemberNotFoundException(method, Vb6Value.ValueType.Control);
         // A form's Show and Hide, on a window the program drives (#822). Its load came first, where the member was looked
         // up. A modal Show waits for the form, so only a statement, through CallAsync, can make one.
         if (c is IFormView view)
@@ -60,8 +66,8 @@ public static class AvaloniaMethodsInteroperability
             }
         }
 
-        if (method.Equals("move", StringComparison.OrdinalIgnoreCase) && c is not Window)
-            return Move(c, args);
+        if (method.Equals("move", StringComparison.OrdinalIgnoreCase))
+            return c is Window form ? MoveForm(form, args) : Move(c, args);
 
         if (method.Equals("zorder", StringComparison.OrdinalIgnoreCase) && c is not Window)
             return ZOrder(c, args);
@@ -129,6 +135,48 @@ public static class AvaloniaMethodsInteroperability
     }
 
     /// <summary>
+    /// A form's Move (#1569), as measured on vb6.exe ("A form's Move" in the oracle):
+    /// <list type="bullet">
+    /// <item>Left, then Top, Width and Height where they are given, always in twips: a form has no container, and its own
+    /// ScaleMode doesn't apply. A half twip rounds to even.</item>
+    /// <item>Every value is checked before any is set: a negative size is 5, a value past a Long in twips 6, and Null 94,
+    /// with the form left where it was.</item>
+    /// <item>A change of size raises one Resize, with both new, where assigning Width and then Height raises two.</item>
+    /// <item><c>Move</c> with nothing, or with Left left out, is "Argument not optional", and five arguments "Wrong number of
+    /// arguments", both compile errors. <c>Move 600, , 4800</c> compiles, and raises 448 with nothing moved.</item>
+    /// </list>
+    /// Left and Top go where an assignment to them puts them, which doesn't yet move the window (#852).
+    /// </summary>
+    private static Vb6Value MoveForm(Window form, IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count == 0 || args[0].IsMissing)
+            throw new VBCompileErrorException("Argument not optional");
+        if (args.Count > 4)
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+        if (args.Any(a => a.IsMissing))
+            throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
+        // Session 0 ignores a WindowState, so this was not measured: the console is where VB6 can be asked.
+        if (form.WindowState != WindowState.Normal)
+            throw new NotImplementedException("A form's Move while it is minimized or maximized is not implemented: what VB6 "
+                + "does then was not measured (#1569)");
+        for (var i = 0; i < args.Count; i++)
+        {
+            if (AvaloniaInteroperability.ConvertForAssignment(MoveOrder[i], args[i]) is not double twips)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            if (i >= 2 && twips < 0)
+                throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+            ControlPositions.ToPixels(form, MoveOrder[i], twips);   // 6 past a Long, before anything moves
+        }
+        using (form is VBFormRuntime runtime ? runtime.ResizeOnce() : null)
+        {
+            for (var i = 0; i < args.Count; i++)
+                if (!AvaloniaInteroperability.TrySet(form, MoveOrder[i], args[i]))
+                    throw new NotImplementedException($"The Move method is not implemented for {VBProps.GetName(form) ?? form.GetType().Name}");
+        }
+        return Vb6Value.Nothing;
+    }
+
+    /// <summary>
     /// A control's ZOrder (#1503), as measured on vb6.exe at run time ("What ZOrder does at run time" in the oracle):
     /// <list type="bullet">
     /// <item>0, the default, puts it over every control of its plane in its container, and 1 under them. A Label never
@@ -167,6 +215,7 @@ public static class AvaloniaMethodsInteroperability
     /// </summary>
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        VBProps.RefuseIfRemoved(c);
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);

@@ -41,7 +41,7 @@ public class ValueModelTests
     {
         new Vb6Value(5L).Type.Should().Be(VT.Long);
         new Vb6Value((byte)5).Type.Should().Be(VT.Byte);
-        new Vb6Value(new DateTime(2000, 1, 1)).Type.Should().Be(VT.Date);
+        new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1))).Type.Should().Be(VT.Date);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class ValueModelTests
     public void DateDefault_IsVb6Epoch_1899_12_30()
     {
         // VB6 serial 0 (a Dim'd-but-unset Date) is 1899-12-30 00:00 — previously this threw.
-        new Vb6Value(VT.Date).Value.Should().Be(new DateTime(1899, 12, 30));
+        new Vb6Value(VT.Date).Value.Should().Be(new VbDate(0));
     }
 
     [Fact]
@@ -102,6 +102,6 @@ public class ValueModelTests
     {
         (new Vb6Value(5L).TryCompareTo(new Vb6Value(3L)) > 0).Should().BeTrue();
         (Vb6Value.NewCurrency(1.2346m).TryCompareTo(Vb6Value.NewCurrency(1.2345m)) > 0).Should().BeTrue();
-        (new Vb6Value(new DateTime(2001, 1, 1)).TryCompareTo(new Vb6Value(new DateTime(2000, 1, 1))) > 0).Should().BeTrue();
+        (new Vb6Value(VbDate.FromDateTime(new DateTime(2001, 1, 1))).TryCompareTo(new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1)))) > 0).Should().BeTrue();
     }
 }

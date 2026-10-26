@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Phase 2.5 — Date / Currency / Variant runtime semantics. Every expectation was verified against vb6.exe:
-/// Date literals + arithmetic (Date+n -> Date, Date-Date -> Double); Currency dominates the + - * ladder
+/// Date literals + arithmetic (Date+n -> Date, Date-Date -> Double); Currency dominates Double for + and -
 /// (10@ + 1.5 -> Currency) with 4-dp banker's rounding and Overflow (Err 6); Empty/Null concatenate as "".
 /// </summary>
 public class DateCurrencyVariantTests : BaseVBTestFixture
@@ -17,21 +17,21 @@ public class DateCurrencyVariantTests : BaseVBTestFixture
     public async Task DateLiteral_ParsesInvariantUsFormat()
     {
         await Run("Debug.Print #1/1/2000#\n");
-        AssertDebugLog([new Vb6Value(new DateTime(2000, 1, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1)))]);
     }
 
     [Fact]
     public async Task DatePlusNumber_IsDate()
     {
         await Run("Debug.Print #1/1/2000# + 31\n");
-        AssertDebugLog([new Vb6Value(new DateTime(2000, 2, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 2, 1)))]);
     }
 
     [Fact]
     public async Task DateMinusNumber_IsDate()
     {
         await Run("Debug.Print #1/1/2000# - 1\n");
-        AssertDebugLog([new Vb6Value(new DateTime(1999, 12, 31))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(1999, 12, 31)))]);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class DateCurrencyVariantTests : BaseVBTestFixture
     [Fact]
     public async Task CurrencyPlusDouble_IsCurrency_NotDouble()
     {
-        // The surprise verified against vb6.exe: Currency dominates Double in + - *.
+        // The surprise verified against vb6.exe: Currency dominates Double in + and - (the multiplication table differs, #230).
         await Run("Debug.Print 10@ + 1.5\n");
         AssertDebugLog([Vb6Value.NewCurrency(11.5m)]);
     }

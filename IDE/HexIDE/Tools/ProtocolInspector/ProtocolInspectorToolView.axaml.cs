@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Folding;
 using HexIDE.Controls;
@@ -14,6 +16,8 @@ namespace HexIDE.Tools.ProtocolInspector;
 
 public partial class ProtocolInspectorToolView : UserControl
 {
+    private readonly DispatcherTimer _trafficTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private Visual[] _visibilityAncestors = [];
     private FoldingManager? _folding;
     private TextEditor? _body;
     private IDisposable? _foldLabelSub;
@@ -21,6 +25,7 @@ public partial class ProtocolInspectorToolView : UserControl
     public ProtocolInspectorToolView()
     {
         InitializeComponent();
+        _trafficTimer.Tick += (_, _) => (DataContext as ProtocolInspectorToolViewModel)?.NoteTraffic();
 
         if (this.FindControl<TextEditor>("Body") is not { } editor) return;
         _body = editor;
@@ -45,15 +50,32 @@ public partial class ProtocolInspectorToolView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _visibilityAncestors = [.. this.GetSelfAndVisualAncestors()];
+        foreach (var visual in _visibilityAncestors) visual.PropertyChanged += VisibilityChanged;
+        UpdateTrafficPolling();
         if (_body is { } editor)
             _foldLabelSub = ReadOnlyText.Follow(this, _ => editor.TextArea.TextView.Redraw());
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        foreach (var visual in _visibilityAncestors) visual.PropertyChanged -= VisibilityChanged;
+        _visibilityAncestors = [];
+        _trafficTimer.Stop();
         _foldLabelSub?.Dispose();
         _foldLabelSub = null;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void VisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == IsVisibleProperty) UpdateTrafficPolling();
+    }
+
+    private void UpdateTrafficPolling()
+    {
+        if (Array.TrueForAll(_visibilityAncestors, visual => visual.IsVisible)) _trafficTimer.Start();
+        else _trafficTimer.Stop();
     }
 
     /// <summary>

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -44,8 +46,17 @@ public static class SnapshotComposer
     /// Renders <paramref name="window"/> with every open popup drawn in its real position.
     /// Returns null when the window has no area to capture.
     /// </summary>
-    public static RenderTargetBitmap? Capture(Window window)
+    public static RenderTargetBitmap? Capture(Window window) => Capture(window, out _, out _);
+
+    /// <summary>
+    /// As <see cref="Capture(Window)"/>, with where the window's origin lies in the image and the popups it left out,
+    /// each with why.
+    /// </summary>
+    public static RenderTargetBitmap? Capture(Window window, out PixelPoint windowOffset,
+        out IReadOnlyList<LeftOutPopup> leftOut)
     {
+        windowOffset = default;
+        leftOut = [];
         var scaling = window.DesktopScaling;
         var windowRect = ScreenRect(window, window.ClientSize, scaling);
         if (windowRect.Width <= 0 || windowRect.Height <= 0)
@@ -54,27 +65,94 @@ public static class SnapshotComposer
         var popups = new List<TopLevel>();
         CollectOpenPopupRoots(window, window, popups);
 
-        // Union first, so a menu hanging off the window's edge widens the canvas rather than being cut.
-        var canvas = windowRect;
         var placements = new List<(Visual Visual, PixelRect Rect)>();
+        var noArea = new List<LeftOutPopup>();
         foreach (var popup in popups)
         {
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
-            if (rect.Width <= 0 || rect.Height <= 0) continue;
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                noArea.Add(new LeftOutPopup(KindOf(popup), rect, "which has no area to draw"));
+                continue;
+            }
             placements.Add((popup, rect));
-            canvas = canvas.Union(rect);
         }
+
+        // Where the platform reports no screens, or only ones with no area, none rules a popup out.
+        var screens = window.Screens?.All.Select(s => s.Bounds).Where(b => b.Width > 0 && b.Height > 0).ToList();
+        var image = Compose(window, windowRect, placements, scaling, screens is { Count: > 0 } ? screens : null,
+            out windowOffset, out leftOut);
+        if (noArea.Count > 0)
+            leftOut = [.. noArea, .. leftOut];
+        return image;
+    }
+
+    /// <summary>
+    /// A popup the snapshot does not show: what it holds, where it was reported in screen pixels, and why it was left out.
+    /// </summary>
+    public sealed record LeftOutPopup(string Kind, PixelRect Rect, string Reason);
+
+    /// <summary>
+    /// The most bytes one render target is given: 16,384 × 16,384 pixels' worth, 1 GiB. A render target's size in bytes is
+    /// an Int32, so a canvas past 2 GiB overflowed it, and a negative size threw "Positive number required" (#1960). A
+    /// popup reported far from the window would do it, for example at (-32000, -32000), since the canvas is the union of
+    /// the window and its popups. Where the popup in #1960 was really reported is not established.
+    /// </summary>
+    private const long MaxCanvasBytes = 16384L * 16384 * 4;
+
+    // What a popup holds, a MenuFlyoutPresenter or a ComboBox's list, which is how a reply can tell popups apart.
+    private static string KindOf(Visual popup) =>
+        popup is ContentControl { Content: Control content } ? content.GetType().Name : popup.GetType().Name;
+
+    internal static RenderTargetBitmap Compose(Visual window, PixelRect windowRect,
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, out PixelPoint windowOffset)
+        => Compose(window, windowRect, placements, scaling, null, out windowOffset, out _);
+
+    // Explicit screen rectangles let headless tests exercise desktop composition without overlay popups.
+    internal static RenderTargetBitmap Compose(Visual window, PixelRect windowRect,
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, IReadOnlyList<PixelRect>? screens,
+        out PixelPoint windowOffset, out IReadOnlyList<LeftOutPopup> leftOut)
+    {
+        // A popup on no screen is not on screen, so a picture of what is on screen leaves it out. One that would make
+        // the image too big to allocate is left out too, rather than costing the whole snapshot. Either is named. The
+        // extent is reckoned in longs: a rectangle's right edge is an Int32, and a popup's own size can be the largest
+        // one, which is what a cast from an infinite size gives.
+        var canvas = windowRect;
+        var dropped = new List<LeftOutPopup>();
+        placements = placements.Where(p =>
+        {
+            if (screens is not null && !screens.Any(screen => screen.Intersects(p.Rect)))
+            {
+                dropped.Add(new LeftOutPopup(KindOf(p.Visual), p.Rect, "which is on none of the screens"));
+                return false;
+            }
+            var width = Math.Max((long)canvas.X + canvas.Width, (long)p.Rect.X + p.Rect.Width) - Math.Min(canvas.X, p.Rect.X);
+            var height = Math.Max((long)canvas.Y + canvas.Height, (long)p.Rect.Y + p.Rect.Height) - Math.Min(canvas.Y, p.Rect.Y);
+            if (width * height * 4 > MaxCanvasBytes)
+            {
+                dropped.Add(new LeftOutPopup(KindOf(p.Visual), p.Rect,
+                    $"which would make the image {width} × {height} pixels with what is drawn before it, more than "
+                    + "16,384 × 16,384 pixels' worth"));
+                return false;
+            }
+            canvas = canvas.Union(p.Rect);
+            return true;
+        }).ToList();
+        leftOut = dropped;
+        windowOffset = new PixelPoint(windowRect.X - canvas.X, windowRect.Y - canvas.Y);
 
         var bitmap = new RenderTargetBitmap(canvas.Size, new Vector(96 * scaling, 96 * scaling));
 
-        // The window goes down through Render, not through the drawing context. That path was already
-        // correct and stays pixel-for-pixel what a snapshot used to be; routing it through DrawImage
-        // instead came out `scaling` times too large on a 150% display, which reads as a rendering fault
-        // and is really a units one — the context works in device-independent pixels while every rect here
-        // is a device pixel.
-        bitmap.Render(window);
-        if (placements.Count == 0)
-            return bitmap;
+        // Keep the direct render when the window is at the canvas origin. Otherwise it needs the
+        // same pixel-source / DIP-destination composition as the popups, leaving room for the overhang.
+        if (windowOffset == default)
+        {
+            bitmap.Render(window);
+            if (placements.Count == 0)
+                return bitmap;
+        }
+        else
+            placements.Insert(0, (window, windowRect));
 
         using (var ctx = bitmap.CreateDrawingContext(false))
         {

@@ -238,6 +238,168 @@ public sealed class SidecarMigrationTests : IDisposable
     private static int[] Lines(JsonObject sidecar, string kind, string document) =>
         sidecar[kind]![document]!.AsArray().Select(n => n!.GetValue<int>()).ToArray();
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task MigratedMarksSurviveAnUnappliedHeaderChange(int version)
+    {
+        var vbp = Stage();
+        var key = version == 1 ? "breakpoints" : "fileBreakpoints";
+        var bookmarkKey = version == 1 ? "bookmarks" : "fileBookmarks";
+        var line = version == 1 ? 10 : 30;
+        File.WriteAllText(SidecarPath,
+            $$"""{ "version": {{version}}, "{{key}}": { "Orders": [{{line}}] }, "{{bookmarkKey}}": { "Orders": [{{line - 1}}] } }""");
+        var opened = await Open(vbp);
+        var orders = Doc(opened.Project, "Orders");
+        LineOf(orders, opened.Breakpoints.GetBreakpoints(orders).Single()).Should().Be("    total = 12.5 * 3");
+
+        // A conflicted external edit stays on disk; neither the model nor its marks move before close.
+        File.WriteAllText(Path.Join(dir, "Orders.frm"), OrdersFrm.Replace(
+            "   Caption         =   \"Orders\"", "   Caption         =   \"Orders\"\r\n   ' extra header line"));
+        await opened.Sidecar.SaveAsync(opened.Project);
+        Close(opened.Project);
+        var reopened = await Open(vbp);
+        orders = Doc(reopened.Project, "Orders");
+        LineOf(orders, reopened.Breakpoints.GetBreakpoints(orders).Single()).Should().Be("    total = 12.5 * 3");
+        LineOf(orders, reopened.Bookmarks.GetBookmarks(orders).Single() + 1).Should().Be("    total = 12.5 * 3");
+        ReadJson(SidecarPath)["version"]!.GetValue<int>().Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task VersionThreeKeepsHeaderMarksAtTheirFileLines(int version)
+    {
+        var vbp = Stage();
+        var bookmarkKey = version == 2 ? "fileBookmarks" : "headerBookmarks";
+        var breakpointKey = version == 2 ? "fileBreakpoints" : "headerBreakpoints";
+        File.WriteAllText(SidecarPath,
+            $$"""{ "version": {{version}}, "{{bookmarkKey}}": { "Orders": [1] }, "{{breakpointKey}}": { "Orders": [2] } }""");
+        var opened = await Open(vbp);
+        var orders = Doc(opened.Project, "Orders");
+        opened.Bookmarks.GetBookmarks(orders).Should().Equal(1);
+        opened.Breakpoints.GetBreakpoints(orders).Should().Equal(2);
+        await opened.Sidecar.SaveAsync(opened.Project);
+        Lines(ReadJson(SidecarPath), "headerBookmarks", "Orders").Should().Equal(1);
+        Lines(ReadJson(SidecarPath), "headerBreakpoints", "Orders").Should().Equal(2);
+    }
+
+    [Theory]
+    [InlineData("Orders", 5, false)]
+    [InlineData("Utils", 5, false)]
+    [InlineData("Ledger", 4, false)]
+    [InlineData("Gauge", 6, false)]
+    [InlineData("Orders", 5, true)]
+    [InlineData("Utils", 5, true)]
+    [InlineData("Ledger", 4, true)]
+    [InlineData("Gauge", 6, true)]
+    public async Task VersionThreeWritesCodeOffsetsAndReopensAfterHeaderChange(string name, int offset, bool shorter)
+    {
+        var vbp = Stage();
+        var path = Path.Join(dir, Marked[name].File);
+        if (shorter)
+        {
+            var original = File.ReadAllText(path);
+            File.WriteAllText(path, original.Insert(original.IndexOf("Attribute VB_Name", StringComparison.Ordinal),
+                "Attribute VB_Description = \"extra header line\"\r\n"));
+        }
+        var opened = await Open(vbp);
+        var document = Doc(opened.Project, name);
+        var statement = Marked[name].Statement;
+        var line = Array.IndexOf(CodeWindowText.Of(document).Text.ReplaceLineEndings("\n").Split('\n'), statement) + 1;
+        opened.Bookmarks.SetBookmarks(document, [line - 1]);
+        opened.Breakpoints.SetDocument(document, [line]);
+        await opened.Sidecar.SaveAsync(opened.Project);
+        var written = ReadJson(SidecarPath);
+        written["version"]!.GetValue<int>().Should().Be(3);
+        Lines(written, "codeBookmarks", name).Should().Equal(offset - 1);
+        Lines(written, "codeBreakpoints", name).Should().Equal(offset);
+        written.ContainsKey("fileBookmarks").Should().BeFalse();
+        written.ContainsKey("fileBreakpoints").Should().BeFalse();
+
+        var text = File.ReadAllText(path);
+        var attribute = text.IndexOf(shorter ? "Attribute VB_Description" : "Attribute VB_Name", StringComparison.Ordinal);
+        File.WriteAllText(path, shorter
+            ? text.Remove(attribute, text.IndexOf('\n', attribute) - attribute + 1)
+            : text.Insert(attribute, "Attribute VB_Description = \"extra header line\"\r\n"));
+        Close(opened.Project);
+        var reopened = await Open(vbp);
+        document = Doc(reopened.Project, name);
+        LineOf(document, reopened.Bookmarks.GetBookmarks(document).Single() + 1).Should().Be(statement);
+        LineOf(document, reopened.Breakpoints.GetBreakpoints(document).Single()).Should().Be(statement);
+    }
+
+    [Fact]
+    public async Task VersionThreeJoinsOlderEntriesAndCarriesUnplaceableMarks()
+    {
+        var vbp = Stage();
+        File.WriteAllText(SidecarPath,
+            """
+            { "version": 4,
+              "codeBookmarks": { "Orders": [4], "Absent": [7] },
+              "codeBreakpoints": { "Orders": [5], "Absent": [8] },
+              "headerBookmarks": { "Absent": [0] }, "headerBreakpoints": { "Absent": [1] },
+              "bookmarks": { "Orders": [10] }, "fileBreakpoints": { "Orders": [32] },
+              "future": { "keep": true } }
+            """);
+        var opened = await Open(vbp);
+        var orders = Doc(opened.Project, "Orders");
+        opened.Bookmarks.GetBookmarks(orders).Should().Equal(29, 30);
+        opened.Breakpoints.GetBreakpoints(orders).Should().Equal(30, 32);
+        var written = ReadJson(SidecarPath);
+        written["version"]!.GetValue<int>().Should().Be(4);
+        written["future"]!["keep"]!.GetValue<bool>().Should().BeTrue();
+        written.ContainsKey("bookmarks").Should().BeFalse();
+        written.ContainsKey("fileBreakpoints").Should().BeFalse();
+        Lines(written, "codeBookmarks", "Absent").Should().Equal(7);
+        Lines(written, "codeBreakpoints", "Absent").Should().Equal(8);
+        Lines(written, "headerBookmarks", "Absent").Should().Equal(0);
+        Lines(written, "headerBreakpoints", "Absent").Should().Equal(1);
+    }
+
+    [Fact]
+    public async Task VersionThreeValidatesOffsetsAndKeepsOnlyExplicitHeaderMarksOnReadOnlyLines()
+    {
+        var vbp = Stage();
+        File.WriteAllText(SidecarPath,
+            """
+            { "version": 3,
+              "codeBookmarks": { "Utils": [-1, 0, 3, 4, 99, 2147483647] },
+              "codeBreakpoints": { "Utils": [0, 1, 4, 5, 99, 2147483647] },
+              "headerBookmarks": { "Utils": [-1, 0, 4, 99] },
+              "headerBreakpoints": { "Utils": [0, 1, 5, 99] } }
+            """);
+        var opened = await Open(vbp);
+        var utils = Doc(opened.Project, "Utils");
+        opened.Bookmarks.GetBookmarks(utils).Should().Equal(0, 1, 5);
+        opened.Breakpoints.GetBreakpoints(utils).Should().Equal(1, 2, 6);
+        await opened.Sidecar.SaveAsync(opened.Project);
+        var written = ReadJson(SidecarPath);
+        Lines(written, "codeBookmarks", "Utils").Should().Equal(0, 4);
+        Lines(written, "codeBreakpoints", "Utils").Should().Equal(1, 5);
+        Lines(written, "headerBookmarks", "Utils").Should().Equal(0);
+        Lines(written, "headerBreakpoints", "Utils").Should().Equal(1);
+    }
+
+    [Fact]
+    public async Task VersionTwoMigrationRetriesItsWriteWithoutKeepingConsumedFileEntries()
+    {
+        var vbp = Stage();
+        const string original = """{ "version": 2, "fileBookmarks": { "Orders": [29] }, "fileBreakpoints": { "Orders": [30] } }""";
+        File.WriteAllText(SidecarPath, original);
+        Directory.CreateDirectory(SidecarPath + ".tmp");
+        var opened = await Open(vbp);
+        File.ReadAllText(SidecarPath).Should().Be(original);
+
+        Directory.Delete(SidecarPath + ".tmp");
+        await opened.Sidecar.SaveAsync(opened.Project);
+        var written = ReadJson(SidecarPath);
+        Lines(written, "codeBookmarks", "Orders").Should().Equal(4);
+        Lines(written, "codeBreakpoints", "Orders").Should().Equal(5);
+        written.ContainsKey("fileBookmarks").Should().BeFalse();
+        written.ContainsKey("fileBreakpoints").Should().BeFalse();
+    }
+
     // ── The user-sidecar delta's scenarios ───────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -307,7 +469,7 @@ public sealed class SidecarMigrationTests : IDisposable
         JsonNode.DeepEquals(written["breakpoints"], original["breakpoints"]).Should().BeTrue();
         JsonNode.DeepEquals(written["bookmarks"], original["bookmarks"]).Should().BeTrue();
         Lines(written, "fileBreakpoints", "Gone").Should().Equal(2, 5);
-        Lines(written, "fileBreakpoints", "Utils").Should().Equal(6);
+        Lines(written, "codeBreakpoints", "Utils").Should().Equal(5);
     }
 
     /// <summary>
@@ -341,7 +503,7 @@ public sealed class SidecarMigrationTests : IDisposable
         Close(first.Project);
 
         var between = ReadJson(SidecarPath);
-        between["version"]!.GetValue<int>().Should().Be(2, "this build rewrote the file");
+        between["version"]!.GetValue<int>().Should().Be(3, "this build rewrote the file");
         Lines(between, "breakpoints", "Gone").Should().Equal([oldLine], "the entry was carried as it was");
 
         File.WriteAllText(Path.Join(dir, "Gone.bas"), goneBas);
@@ -351,8 +513,8 @@ public sealed class SidecarMigrationTests : IDisposable
         var breakpoint = second.Breakpoints.GetBreakpoints(gone).Should().ContainSingle().Subject;
         LineOf(gone, breakpoint).Should().Be("    Debug.Print 1", "the mark is on the statement it was set on");
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", "Gone").Should().Equal(breakpoint);
-        Lines(written, "fileBreakpoints", "Utils").Should().Equal(6);
+        Lines(written, "codeBreakpoints", "Gone").Should().Equal(breakpoint - CodeWindowText.Of(gone).HeaderLineCount);
+        Lines(written, "codeBreakpoints", "Utils").Should().Equal(5);
         written.ContainsKey("breakpoints").Should().BeFalse("the entry left the old keys once it was migrated");
     }
 
@@ -417,7 +579,8 @@ public sealed class SidecarMigrationTests : IDisposable
         opened.Breakpoints.SetDocument(gone, [2]);
         await opened.Sidecar.SaveAsync(opened.Project);
 
-        Lines(ReadJson(SidecarPath), "fileBreakpoints", "Gone").Should().Equal(2, 5);
+        Lines(ReadJson(SidecarPath), "fileBreakpoints", "Gone").Should().Equal(5);
+        Lines(ReadJson(SidecarPath), "codeBreakpoints", "Gone").Should().Equal(1);
     }
 
     /// <summary>
@@ -449,8 +612,8 @@ public sealed class SidecarMigrationTests : IDisposable
         // The second opening reads a migrated file. Without this, an opening that never wrote its migration would
         // pass too: reading the same earlier sidecar twice gives the same marks and writes nothing either time.
         var afterFirst = ReadJson(SidecarPath);
-        afterFirst["version"]!.GetValue<int>().Should().Be(2, "the first opening migrated the file");
-        afterFirst["fileBreakpoints"]!.AsObject().Select(p => p.Key).Should()
+        afterFirst["version"]!.GetValue<int>().Should().Be(3, "the first opening migrated the file");
+        afterFirst["codeBreakpoints"]!.AsObject().Select(p => p.Key).Should()
             .BeEquivalentTo(["Orders", "Utils", "Ledger", "Gauge"], "every entry that could be placed was moved");
         afterFirst["breakpoints"]!.AsObject().Select(p => p.Key).Should().Equal("Absent");
 
@@ -509,11 +672,11 @@ public sealed class SidecarMigrationTests : IDisposable
             "a bookmark counts from 0 and a breakpoint from 1, and the two were on one statement");
 
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", name).Should().Equal(breakpoint);
-        Lines(written, "fileBookmarks", name).Should().Equal(breakpoint - 1);
+        Lines(written, "codeBreakpoints", name).Should().Equal(breakpoint - CodeWindowText.Of(document).HeaderLineCount);
+        Lines(written, "codeBookmarks", name).Should().Equal(breakpoint - 1 - CodeWindowText.Of(document).HeaderLineCount);
         written.ContainsKey("breakpoints").Should().BeFalse("every entry was placed, so none is left in the old keys");
         written.ContainsKey("bookmarks").Should().BeFalse();
-        written["version"]!.GetValue<int>().Should().Be(2);
+        written["version"]!.GetValue<int>().Should().Be(3);
     }
 
     private static string FixtureText(string file) => file switch
@@ -569,9 +732,9 @@ public sealed class SidecarMigrationTests : IDisposable
         readOnlyDrops.Should().Contain(m => m.Contains("Shop/Utils"));
 
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", "Orders").Should().Equal(breakpoint);
-        written["fileBreakpoints"]!.AsObject().ContainsKey("Utils").Should().BeFalse();
-        written.ContainsKey("fileBookmarks").Should().BeFalse();
+        Lines(written, "codeBreakpoints", "Orders").Should().Equal(breakpoint - 25);
+        written["codeBreakpoints"]!.AsObject().ContainsKey("Utils").Should().BeFalse();
+        written.ContainsKey("codeBookmarks").Should().BeFalse();
         written.ContainsKey("breakpoints").Should().BeFalse(
             "Utils' entry was migrated although its only line was dropped, so it is not left in the old keys");
         written.ContainsKey("bookmarks").Should().BeFalse("nor is the form's bookmark, every line of which was dropped");
@@ -599,21 +762,14 @@ public sealed class SidecarMigrationTests : IDisposable
         opened.Breakpoints.GetBreakpoints(Doc(opened.Project, "Utils")).Should().BeEmpty();
         log.Messages.Should().Contain(m => m.Contains("Dropped breakpoints on") && m.Contains("99"));
         var written = ReadJson(SidecarPath);
-        written["version"]!.GetValue<int>().Should().Be(2, "the file was rewritten as the project opened");
+        written["version"]!.GetValue<int>().Should().Be(3, "the file was rewritten as the project opened");
         written.ContainsKey("breakpoints").Should().BeFalse();
-        written.ContainsKey("fileBreakpoints").Should().BeFalse("nothing was left to place");
+        written.ContainsKey("codeBreakpoints").Should().BeFalse("nothing was left to place");
     }
 
-    /// <summary>
-    /// A mark under the new keys on a read-only line is dropped and logged as well. No build writes one there, but
-    /// the file can change between sessions and a sidecar can be edited by hand, and the rule is about the line.
-    /// </summary>
-    /// <remarks>
-    /// Nothing here is migrated, so nothing is written as the project opens: a drop is not a migration. The next
-    /// save leaves the dropped marks out.
-    /// </remarks>
+    /// <summary>Version 2 header marks stay file-relative; member Attribute marks are still dropped.</summary>
     [Fact]
-    public async Task AMarkUnderTheNewKeysOnAReadOnlyLineIsDroppedToo()
+    public async Task MigratingFileMarksKeepsHeaderLinesAndDropsMemberAttributes()
     {
         var vbp = Stage();
         const string text = """{ "version": 2, "fileBreakpoints": { "Ledger": [5, 16] }, "fileBookmarks": { "Utils": [4, 5] } }""";
@@ -625,21 +781,15 @@ public sealed class SidecarMigrationTests : IDisposable
         var ledger = Doc(opened.Project, "Ledger");
         var utils = Doc(opened.Project, "Utils");
         LineOf(ledger, 5).Should().Be("  DataBindingBehavior = 0  'vbNone", "line 5 is in the class's header");
-        LineOf(utils, 5).Should().Be("Attribute Twice.VB_Description = \"Doubles a number\"",
-            "the bookmark numbered 4 is on the fifth line, which describes a member");
-        opened.Breakpoints.GetBreakpoints(ledger).Should().Equal(16);
+        opened.Breakpoints.GetBreakpoints(ledger).Should().Equal(5, 16);
         opened.Bookmarks.GetBookmarks(utils).Should().Equal(5);
+        log.Messages.Where(m => m.Contains("read-only lines")).Should().ContainSingle()
+            .Which.Should().Contain("Shop/Utils").And.Contain("bookmark");
 
-        var readOnlyDrops = log.Messages.Where(m => m.Contains("read-only lines")).ToList();
-        readOnlyDrops.Should().HaveCount(2);
-        readOnlyDrops.Should().Contain(m => m.Contains("Shop/Ledger") && m.Contains("breakpoint"));
-        readOnlyDrops.Should().Contain(m => m.Contains("Shop/Utils") && m.Contains("bookmark"));
-        File.ReadAllText(SidecarPath).Should().Be(text, "a drop is not a migration, and writes nothing by itself");
-
-        await opened.Sidecar.SaveAsync(opened.Project);
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", "Ledger").Should().Equal(16);
-        Lines(written, "fileBookmarks", "Utils").Should().Equal(5);
+        Lines(written, "headerBreakpoints", "Ledger").Should().Equal(5);
+        Lines(written, "codeBreakpoints", "Ledger").Should().Equal(3);
+        Lines(written, "codeBookmarks", "Utils").Should().Equal(4);
     }
 
     /// <summary>
@@ -704,7 +854,7 @@ public sealed class SidecarMigrationTests : IDisposable
         LineOf(ledger, lines[1]).Should().Be("    mBalance = mBalance + amount", "the version-1 line, moved");
 
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", "Ledger").Should().Equal(lines);
+        Lines(written, "codeBreakpoints", "Ledger").Should().Equal(lines.Select(line => line - 13));
         written.ContainsKey("breakpoints").Should().BeFalse();
     }
 
@@ -732,9 +882,9 @@ public sealed class SidecarMigrationTests : IDisposable
         await opened.Sidecar.SaveAsync(opened.Project);
 
         var written = ReadJson(SidecarPath);
-        written.Select(p => p.Key).Should().BeEquivalentTo("version", "fileBookmarks", "fileBreakpoints");
-        written["fileBookmarks"]!.AsObject().Select(p => p.Key).Should().Equal("Ledger");
-        written["fileBreakpoints"]!.AsObject().Select(p => p.Key).Should().Equal("Utils");
+        written.Select(p => p.Key).Should().BeEquivalentTo("version", "codeBookmarks", "codeBreakpoints");
+        written["codeBookmarks"]!.AsObject().Select(p => p.Key).Should().Equal("Ledger");
+        written["codeBreakpoints"]!.AsObject().Select(p => p.Key).Should().Equal("Utils");
     }
 
     /// <summary>
@@ -778,7 +928,7 @@ public sealed class SidecarMigrationTests : IDisposable
         Close(opened.Project);
 
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", "Ledger").Should().Equal(16);
+        Lines(written, "codeBreakpoints", "Ledger").Should().Equal(3);
         written["breakpoints"]!.AsObject().Select(p => p.Key).Should().Equal(["Absent"],
             "the entry that was migrated is gone from the old keys, and the one that was not is still there");
     }
@@ -809,7 +959,7 @@ public sealed class SidecarMigrationTests : IDisposable
         await opened.Sidecar.SaveAsync(opened.Project);
 
         var written = ReadJson(SidecarPath);
-        Lines(written, "fileBreakpoints", "Ledger").Should().Equal(16);
+        Lines(written, "codeBreakpoints", "Ledger").Should().Equal(3);
         written.ContainsKey("breakpoints").Should().BeTrue("the entry is no longer what the load moved");
         Lines(written, "breakpoints", "Ledger").Should().Equal([3, 4], "it is kept as the earlier build wrote it");
         Close(opened.Project);
@@ -875,7 +1025,7 @@ public sealed class SidecarMigrationTests : IDisposable
 
         var written = ReadJson(SidecarOf(project));
         Lines(written, "fileBreakpoints", "Absent").Should().Equal(4);
-        Lines(written, "fileBreakpoints", "Utils").Should().Equal(3);
+        Lines(written, "codeBreakpoints", "Utils").Should().Equal(2);
         Lines(written, "breakpoints", "Gone").Should().Equal(2);
     }
 
@@ -903,13 +1053,13 @@ public sealed class SidecarMigrationTests : IDisposable
         utils.Module!.Name = "Helpers";
         await sidecar.SaveAsync(project);
         var renamed = ReadJson(SidecarOf(project));
-        renamed["fileBreakpoints"]!.AsObject().Select(p => p.Key).Should().Equal(["Helpers"],
+        renamed["codeBreakpoints"]!.AsObject().Select(p => p.Key).Should().Equal(["Helpers"],
             "the old name's entry is not kept beside the new one");
 
         breakpoints.SetDocument(utils, []);
         utils.Module!.Name = "Utils";
         await sidecar.SaveAsync(project);
-        ReadJson(SidecarOf(project)).ContainsKey("fileBreakpoints").Should().BeFalse(
+        ReadJson(SidecarOf(project)).ContainsKey("codeBreakpoints").Should().BeFalse(
             "the mark removed while it was renamed does not come back with the name");
     }
 }

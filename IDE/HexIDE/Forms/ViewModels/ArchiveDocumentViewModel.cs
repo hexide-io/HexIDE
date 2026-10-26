@@ -19,6 +19,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     public override object? Icon => null;
     protected override string ComputeTitle() => Entry.Name;
     public bool IsReadOnlyDocument => true;
+    public override bool CanHoldUnsavedChanges => false;
     public bool IsReadOnlyRegion(int offset, int length) => false;
     public Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => true;
 

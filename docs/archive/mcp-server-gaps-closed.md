@@ -9,6 +9,374 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## A waiting dialog's buttons included its check boxes and radio buttons — **CLOSED** (#2079, 2026-10-26)
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** Opening Tools > Options gave
+`'Options' (Prompt for project/Reload files changed outside the IDE/Reset All/Restore Defaults/OK/Cancel), a modal
+dialog over 'Project1 - HexIDE [design]', opened during this call …`. The first two are check boxes on the page that
+was showing, not ways to answer the dialog. All three runs that opened Options showed it.
+
+**Cause.** `OpenDialogs.DescriptionOf` listed every `Button` it found, and Avalonia's `CheckBox` and `RadioButton`
+derive from `ToggleButton`, which derives from `Button`.
+
+**Fixed (#2079).** The list leaves out every `ToggleButton`. The five texts that describe a waiting dialog all go
+through `DescriptionOf` (#1975), so all five gain the fix. Guarded by `OpenDialogsTests`.
+
+## `take_snapshot` threw "Positive number required" with a text box's flyout reopened in a dialog — **CLOSED** (#1960, 2026-10-26)
+
+**Symptom (2026-10-25, Windows, IDE in Arabic).** With Replace open and its first box's Cut/Copy/Paste flyout reopened by a
+second `interact` `expand`, `take_snapshot()` and `take_snapshot(window: 'استبدال')` failed with an unhandled
+`System.ArgumentException: Positive number required (Parameter 'size')`, thrown from `RenderTargetBitmap`'s constructor
+in `SnapshotComposer.Compose`. Escape closed the flyout and the next snapshot worked.
+
+**Workaround (before the fix).** Close the popup, then take the snapshot.
+
+**Cause (by decompiling Avalonia 12.0.4 and its Skia backend).** That message comes only from a render target whose
+sides are each at least 1 and whose size in bytes, an `Int32`, has wrapped negative: past 2 GiB. A side below 1 gives a
+different message. The canvas is the union of the window and every open popup in screen pixels, so a popup reported
+far from the window does it: one at (-32000, -32000) throws the same exception. One whose own size is the largest
+`Int32` does too. Where the reopened flyout was really reported is not established.
+
+**Fixed (#1960).** `Compose` leaves out a popup that lies on no screen, and one that would take the image past
+16,384 × 16,384 pixels' worth, reckoning the extent in longs. `take_snapshot`'s `note` names each: what it held, where
+it was reported in screen pixels, and why. A popup with no area is named too. The window and every other popup are
+drawn. `SnapshotComposerTests` and `SnapshotLeftOutNoteTests` pin it. A wrap that lands positive is worse than the
+exception, since the canvas is then too small for what is drawn into it, and the cap covers that as well.
+
+**What is still owed.** If a snapshot carries the note, its coordinates are what explains the original placement.
+
+**Live (#1960, 2026-10-26).** Windows, a Debug build of the fix, from a Claude Code session's hexide tools. The report's
+steps did not reproduce the failure: across six cycles of `collapse` and `expand` on Replace's first box (three in English,
+three in Arabic, the dialog titled `استبدال`), 14 snapshots each drew the flyout inside the 546×291 dialog, with no note.
+Where the reported flyout really was placed is not established, so the fix is pinned by the composer's tests, not by a
+live reproduction.
+
+## Four texts named a waiting dialog only by its title, which two of the IDE's dialogs share — **CLOSED** (#1975, 2026-10-26)
+
+**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
+dialog are titled `'HexIDE'`. One held a `MessageBox` with Yes and No (OK and Cancel since #1360, measured 2026-10-25),
+the other a `RuntimeErrorView` with Continue, End, Debug and Help. The other half of #1365, that only a call naming a
+window that doesn't exist lists the open ones, is done: #1624 says so in the `window` description.
+
+**Narrowed (#1624, measured under #1330 on 2026-10-25).** The `modalDialog` note now says what the dialog is:
+`'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help)`, or
+`'HexIDE' (a message box: "This action will reset your project, proceed anyway?", OK/Cancel)`.
+
+Three texts still give the title alone:
+
+- the program wait's "has a window open over its form, 'HexIDE'";
+- keyboard `type_text`'s stop when a dialog opens part way;
+- the refusal from `type_text` and `press_key` while a modal dialog is open.
+
+The calls are in [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
+
+**Workaround.** Read the `modalDialog` note of the next reply that has one, or dump the dialog before answering it.
+
+**Suggested fix.** Use the note's description in the three texts.
+[#1975](https://github.com/hexide-io/HexIDE/issues/1975).
+
+**Fixed (#1975).** The program wait, keyboard `type_text`'s stop, the refusal from `type_text` and `press_key`, and
+`interact` `close`'s refusal for a window with a dialog over it now describe the dialog as the `modalDialog` note does,
+through the same `OpenDialogs.DescriptionOf`. That is its title, then its kind, first line and buttons where it has them.
+A dialog of a kind the describer doesn't know, an InputBox among them, gives its title and buttons. One with no title is
+"one with no title" in all five texts. The wait describes a MsgBox once it has built its text and buttons, which it does
+after it shows. Guarded by `ProgramWaitTests`, `TypeKeysTests` and `CloseWindowTests`.
+
+**Live (#1975, 2026-10-26).** Windows, a Debug build of the fix, from a Claude Code session's hexide tools, on a form with
+a 40 ms Timer, a button calling an undefined Sub and a button showing `MsgBox "Hello"`:
+
+- The wait, for the MsgBox: `has a window open over its form, 'DialogProbe' (a message box: "Hello", OK); a MsgBox holds
+  its handler`.
+- The wait, for the compile error, on 3 of 10 clicks, with the note naming it on the other 7: `has a window open over its
+  form, 'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help)`.
+- Keyboard `type_text` into the code window while running: `typed 1 of 3 key(s) into TextEditor, then stopped: 'HexIDE'
+  (a message box: "This action will reset your project, proceed anyway?", OK/Cancel) opened over the window`.
+- With that prompt open, `type_text` and `press_key` were refused with replies starting `'HexIDE' (a message box: "This
+  action will reset your project, proceed anyway?", OK/Cancel), a modal dialog over 'DialogProbe - HexIDE [run]'`.
+
+## `dump_visual_tree {}` on the IDE window was more than Claude Code takes inline — **CLOSED** (#1982, 2026-10-26)
+
+**Symptom (2026-10-25, #1330's check of #942, Windows).** `dump_visual_tree {}`, the call a first-time caller makes,
+returned 66,822 to 83,944 characters on the IDE's main window. Claude Code saved each reply to a file and told the model
+to read it in chunks, so nothing could be read from the reply itself.
+
+**Fixed (#1982).** Claude Code (2.1.310) saves an MCP tool's text reply over 50,000 characters to a file, counting
+characters, not tokens. So a tree over 40,000 characters is now cut at the most levels down that fit, and the reply's
+`note` says how large the whole tree was, where it was cut and how to see the rest: a node marked `truncated` holds
+more, so dump again with its path as `root`, or use `match`. A node with too many children to fit even one level down
+says so. The note is written before the tree, so a client that keeps only the start of a long reply still has it. The
+tool's description says so too. Guarded by `DumpFitsReplyTests`.
+
+**Live (#1982, 2026-10-26).** Windows, a Debug build of the fix, from a Claude Code session's hexide tools, with Form1's
+code and designer open:
+
+- `dump_visual_tree {}` came back inline: `The tree to maxDepth 20 is about 75,967 characters, more than some clients
+  take inline in a reply, so it was cut at maxDepth 7, about 33,631 characters.` Every `truncated` node was at level 7.
+  After review the note says "cut 7 levels down" instead, since under `interactiveOnly` a cut is not the same tree as a
+  dump with that `maxDepth`.
+- `dump_visual_tree {"interactiveOnly": false}`: about 108,281 characters, cut at maxDepth 6, about 35,875, inline.
+- A dump rooted at a truncated node, the designer's `Custom[Root]`, listed its children, with no note.
+- `maxDepth: 3` came back whole, with no note.
+
+The cut is one depth everywhere, so hidden toolbars came back whole while the open document was cut:
+[#2033](https://github.com/hexide-io/HexIDE/issues/2033).
+
+## `dump_visual_tree` kept a row a list had scrolled away from, with `isOffscreen: true` — **CLOSED** (#1981, 2026-10-26)
+
+**Symptom (2026-10-25, #1330's check of #1292, Windows).** In the Properties window, after `select` with value `Width`
+scrolled the list to that row, `scroll` `home` and a collapse of Appearance, the next dump listed Width with
+`isOffscreen: true`, first, before the rows in view. #1292 had left rows out of view out.
+
+**Cause.** A virtualizing panel keeps its list's tab-once row realized when it scrolls out of view, so a Tab into the
+list can land on it, and selecting a row makes it that row (Avalonia 12.0.4's `VirtualizingStackPanel`, decompiled). It
+is arranged where it would be, outside the view, and its index is real, so #1292's test for a released row kept it.
+
+**Fixed (#1981).** A row a virtualizing panel holds apart from the rows it has realized for the view, one its list
+still indexes but no longer counts as realized, is left out of the dump, of path addressing and of `select`'s
+candidates, as rows out of view are. It is told by membership, not position: a hidden row's bounds are stale, and the
+held row's place is an estimate. `select` with its value now scrolls to it and says so, as for any row out of view.
+`press_key`, `type_text` and hover no longer reach an editor in it. A row with keyboard focus in it, or with a dropdown
+of its own open, is still listed. A hidden row in view is listed with `isHidden: true` as before, and a
+non-virtualizing list's rows out of view are listed as before. `dump_visual_tree`'s description now says a long ListBox
+lists its rows in view. Guarded by `HeldRowTests`.
+
+## `toggle` read the state back before work it set off had run, so a refused uncheck was reported as done — **CLOSED** (#2050, 2026-10-26)
+
+**Symptom (2026-10-26, #1103, Windows).** The Components dialog refuses an uncheck of a library a form uses, and puts
+the box back from posted work. `interact {"window":"Components","target":"…/CheckBox[Microsoft Windows Common
+Controls 6.0 (SP6)]","action":"toggle"}` answered `toggled 'Microsoft Windows Common Controls 6.0 (SP6)': it is
+now off`. After the refusal's message box was answered, `inspect_element` read `"toggleState": true`.
+
+**Fixed (#2050).** On the IDE's own windows, `toggle` now reads the state back once the dispatcher has run what is
+queued ahead of `Background`, so a box put back from a posted callback is reported as put back: `…, but its handler or
+a binding put it back: it is still on`. A refusal that waits for its message box to be answered can't be known
+before the reply, so when a dialog opened during the call the reply adds `a dialog opened during this call, which
+modalDialog names, and the state may change again once it is answered`. A running form's toggle was
+already read once its program had run (#1280). Guarded by `ToggleSettledTests`.
+
+## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally — **CLOSED** (#1330, 2026-10-25)
+
+**Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
+HTTP endpoint rather than a client's tool call ("a 3840×2054 window came back as a 1568×838 PNG of 75 KB"), and
+says "Not yet run through Claude Code over a tunnel". A raw request shows nothing about what a client does with the
+image block, and a client on another machine receiving the image is what #957 was filed for. Covered headless by
+`InlineSnapshotTests` only.
+
+**Workaround.** Without `inline`, copy the file from the IDE's machine by hand.
+
+**Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
+IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
+
+**Closed (#1330).** Checked through Claude Code's hexide tools, from Windows, on a Debug build of main at beada72.
+
+- **On an openSUSE Leap 16 VM through an SSH tunnel:** `take_snapshot {"inline": true}` returned its JSON, with
+  `inlineWidth` 1440 and `inlineHeight` 756, and one `image/png` block the client showed. Read from the client's own
+  stream, the block is a 1440×756 PNG.
+- **On the IDE's own machine:** the same call returned a block of 1418×671, its `inlineWidth` and `inlineHeight`.
+- **Without `inline`:** `take_snapshot {}` had no image either way.
+
+The measurements are under #957's entry below.
+
+## The code window's gutters are not in the control tree, so a gutter click cannot be driven — **CLOSED** (#707, 2026-10-25)
+
+**Symptom (2026-10-01, during #273 task 3.12's live check).**
+`dump_visual_tree {"root":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None","interactiveOnly":false,"maxDepth":4}`
+returns the `TextArea` with two children: an empty `ItemsControl` and the hidden `PART_Watermark`. The
+breakpoint gutter, the bookmark gutter and the line-number margin are all absent, because AvaloniaEdit's
+`AbstractMargin` has no automation peer, so `interact` has nothing to click. The task's own named case, a
+click on a folded header, could only be tested headlessly (`MarkGutterOnReadOnlyLineTests`, which raises
+the press on the gutter itself).
+
+**Workaround.** Place the caret with `interact set_property CaretOffset=N` on the code view, then
+`invoke_menu_item Debug/Toggle Breakpoint` or `Edit/Bookmarks/Toggle Bookmark`. That reaches the same
+toggle a gutter click calls, but not the gutter's own mapping from a point to a visual line, which is
+what decides what a click on a folded row marks.
+
+**Suggested fix.** Undecided: a peer on the gutters that `interact` can drive with a line, a `click` action
+on `interact` at a point relative to its target (which would cover other drawn surfaces too), or a
+dedicated tool if the authoring policy justifies one. Filed as
+[#707](https://github.com/hexide-io/HexIDE/issues/707).
+
+**The fold margin is the same (2026-10-02, during #273 task 3.14's live check).**
+`dump_visual_tree {"interactiveOnly":false,"maxDepth":40}` over the whole window has no node whose class is
+`FoldingMargin` or `FoldingMarginMarker`, so a fold cannot be expanded or folded by its marker. The
+`TextEditor` node does report `expandCollapse`, which reads as the answer and is not: `inspect_element` on it
+shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
+`expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
+CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
+folds one again. A `click` action on `interact` would cover this margin as well as the gutters.
+
+**A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
+the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
+it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
+run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
+run stays folded.
+
+**Fixed by #1033; paperwork in #707.** `interact` now takes `action: "click"` with a
+point relative to its target. `UiAutomationDriver.DoClick` translates that point into window coordinates
+and hit-tests the rendered window, then delivers pointer press and release to what it hits. The margin
+needs no automation peer: address the editor that contains it. The old `expandCollapse` trap above still
+applies; use `click` for a fold marker, not `expand` on the editor.
+
+Call shape (substitute the discovered editor path and the measured point; this is a recipe, not a
+record of a live call made in this pass):
+
+```json
+{"target":"<editor path from dump_visual_tree>","action":"click","value":"<x>,<y> left","window":"ide"}
+```
+
+Discover the editor with `dump_visual_tree {"window":"ide","interactiveOnly":false,"maxDepth":40}`,
+then `inspect_element {"target":"<editor path>","window":"ide"}` for its bounds. Use
+`take_snapshot {"window":"ide"}` to locate the desired gutter and row; subtract the editor's origin
+from the point in the window to obtain `x,y`. Coordinates depend on layout, font, scrolling and scaling;
+there is no fixed gutter offset to reuse across sessions. The click reply names what the hit test reached;
+confirm the resulting mark or fold as well, since delivery alone does not prove a toggle.
+
+**Verification.** Existing `InteractClickTests` cover target-relative coordinates, pointer press/release
+on a peerless Border, and delivery to the control at the point rather than necessarily the addressed
+control. No product behaviour changes in #707.
+
+**Live check (2026-10-25, Windows, Debug build).** The breakpoint margin is now in the control tree as its own
+node, so target it, not the editor:
+
+```json
+{"target":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None/List/Custom[BreakpointMargin]","action":"click","value":"7,75","window":"ide"}
+```
+
+Its reply was `clicked the left button at (7, 75) on 'BreakpointMargin'`; `get_breakpoints` then gave `[21]`, and the
+same call again gave `[]`. The margin is 14 units wide: the same row addressed on the editor at `10,77` fell on its
+edge, landed on `ScrollContentPresenter`, and toggled nothing, which the reply's "landing on" names. The fold marker
+has no node, so it is clicked through the editor:
+
+```json
+{"target":"…/Custom[Root]/None[TextEditor]","action":"click","value":"66,10","window":"ide"}
+```
+
+Its reply named `FoldingMarginMarker`; the form's header unfolded, and the same call folded it again. Bookmarks have
+no gutter click to drive. Not checked live: a breakpoint click beside a folded header.
+
+
+---
+
+## Replies that report or act on a document without taking its name do not say which project's it is — **CLOSED** (#886, 2026-10-24)
+
+**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
+loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
+that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
+group holding a `Form1` in each of two projects:
+
+```
+step_over {}               → "note": "Paused at Form1 line 9 (Step)."
+                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
+get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
+invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
+                             as invoke_designer_redo, get_undo_state and invoke_format_command
+get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
+get_open_editors {}        → each editor's title, and 'activeWindow' as a title
+```
+
+None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
+`project`; the run-control notes beside them do not. A tab's title starts with its project's name
+(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
+the IDE's language, and not the `project` and `document` every naming tool takes and returns.
+
+**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
+lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
+designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
+a name.
+
+**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
+locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
+tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
+Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
+SHALL identify it by its project and its name", is only partly met.
+[#886](https://github.com/hexide-io/HexIDE/issues/886).
+
+
+**Fixed (#886).** Run-control pause notes include the running project; locals and watches replies carry
+`project` (the project in which watch expressions are evaluated). Designer undo state and undo/redo/format
+replies carry `project` and `document`, including refusals after finding a designer. Tab listings carry the
+same identity; `get_open_editors` adds structured `editors` and `activeEditor` alongside its existing titles.
+Activate and close accept `name` with optional `project` through `NamedDocuments`; `type` chooses code or
+designer when both are open. Title addressing remains available for tool tabs, and duplicate matches are
+refused. Headless guards cover the reply shapes and lookup wiring; direct tests cover tab targeting.
+Live verification of focus, close prompts and grouped-project replies remains the supervisor's check.
+
+---
+
+## Every automation route to a new document saves it — **CLOSED** (#502, 2026-10-24)
+
+**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
+the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
+by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
+`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
+into `%TEMP%` before the first tool call
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
+file.
+
+**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
+*ordinary* state: nothing is written until the project is saved. #273 names such a document
+`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
+servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
+through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
+spelling is dead code.
+
+**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
+`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
+`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
+writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
+of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
+
+**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
+which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
+change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
+its lines count from the top of that header. So a line number read before then is out by the header's height after
+it. **Workaround:** read the content again after any designer change or save before using a line number from it.
+Where a created form's first header should come from, so that it holds one from the start, is
+[#885](https://github.com/hexide-io/HexIDE/issues/885).
+
+**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
+leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
+way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
+can reach the state the product will normally be in once #500 lands. Until then, any verification of
+`untitled:` naming through this surface is verifying something the surface itself prevents.
+
+**Fixed.** #500 made `add_file` pathless: its description and reply explain the null path and the Save Project
+pickers. #502 adds `--newproject-unsaved` (also `/newproject-unsaved`), which creates the initial project and
+form without saving. It wins over `--newproject` and a positional path; `--newproject` keeps its existing save.
+For an `untitled:` check launch with `--capture-lsp --newproject-unsaved`, then open Form1's code and inspect
+its `didOpen`. No new VB6 behaviour is inferred: this uses #489's measured no-file state. The initial-header
+limitation above remains open as #885 in the live gaps document.
+
+## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
+→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
+```
+
+Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
+Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
+reference before a command runs, which the form-designer spec requires of the designer. The same goes for
+`remove_from_selection`. Cross-platform by code reading.
+
+**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
+reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
+A snapshot shows the reference with the solid handles.
+
+**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
+removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
+the reference is #928.
+
+**Fixed.** Multi-item selection replies list the primary first and name it as the designer reference for Align
+and Make Same. Removing it reports the replacement. The action description says how to choose it: select it
+first. Headless regression tests cover both selection orders and removal; live designer verification remains
+for the supervising session. Selection semantics (#928) are unchanged.
+
 ## No call double-clicks a running form — **CLOSED** (#1389, 2026-10-24)
 
 **Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
@@ -893,8 +1261,9 @@ damage reached a commit before it was spotted in `git diff`.
 
 **Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
 self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+source code of a form" *includes* the `Attribute` header, which is easy to omit when replacing only the
+procedures. VB6 hides it, but HexIDE showed it even before #273 made it part of the folded, read-only
+header. The original entry incorrectly called it invisible in HexIDE's editor. `VB_Name` is load-bearing.
 
 **Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
 use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
@@ -1334,8 +1703,11 @@ and replies with the watch list as if the call had done what was asked.
 >
 > **The entry's premise was partly wrong.** Avalonia's forced `Shutdown` still closes every window, so the
 > main window's `Closing` handler runs and saves window state and layout; it only loses its veto. A failed
-> launch therefore still writes the profile it shares, which is part of #557. No test pins the order in
-> `DesktopStartup` itself; that is #563.
+> launch therefore still writes the profile it shares, which is part of #557.
+>
+> **Regression coverage (#563).** `DesktopStartup` now delegates its posted cleanup to the internal
+> `ForcedExitCleanup` helper. `ForcedExitCleanupTests` pins loader disposal before exit, exit code 3
+> despite cleanup failures, and log closure after exit; deleting or reordering those steps fails the tests.
 
 **Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
 `desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,
@@ -1533,7 +1905,7 @@ checked. The stack trace is kept out of the reply. Authentication stays #352.
 > **Fixed.** `set_file_content`, `add_file`, `set_control_property` and `add_control` catch their own write
 > failures and put the exception's message in their reply. Those messages now go through
 > `ToolFailures.WithoutProfile`, the same redaction #603's backstop applies. That redaction now also covers the
-> forward-slash spelling of the profile, as a `file:///C:/Users/…` URI carries it, in both the long and the 8.3
+> forward-slash spelling of the profile, as a `file:///<drive>:/Users/…` URI carries it, in both the long and the 8.3
 > short form. It is for the report, not a security control; the server's exposure is #352.
 
 **Measured.** With the target file read-only, each of the three writing tools tried answered `Access to the
@@ -3425,6 +3797,24 @@ the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot 
 > a popup is drawn in the window's own overlay; there the walk also meets each popup a second time under `Window`,
 > as it does a context menu. Still out of reach: the description tooltip beside a list item, and committing an item
 > by `double_click`, which the list takes on a press; select it, then `press_key` Tab or Enter, which is #941's.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools,
+> after keyboard `type_text` of `Private Sub Probe()` and a line break into Form1's code (auto-indent and the automatic
+> `End Sub` followed), `open_file` at line 19, column 5, and keyboard `type_text` of `MsgBox(`:
+>
+> - `take_snapshot {}` showed the parameter info beside the caret: `MsgBox([Prompt], [Buttons As VbMsgBoxStyle =
+>   vbOKOnly], [Title], [HelpFile], [Context]) As VbMsgBoxResult`.
+> - **The signature text needs `interactiveOnly: false`.** Rooted at the `TextEditor`, that dump lists it as
+>   `Text[#1]` and `Text[Prompt]`. The default lists only the popup's hidden overload arrows, `Button[PART_UP]` and
+>   `Button[PART_DOWN]`.
+> - After `press_key` Ctrl+Space, `take_snapshot {}` showed the list at the caret, with the parameter info over its top
+>   rows. The default dump rooted at the `TextEditor` listed its rows as
+>   `…/None[TextEditor]/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[Dim]` and on, each with `selectionItem`.
+> - `interact` `select` with value `MsgBox` on `List[PART_ListBox]` replied "selected 'MsgBox' (it was scrolled out
+>   of view, so the list was scrolled to it first)", and inserted nothing.
+> - **Not met through the client: the default whole-window dump.** `dump_visual_tree {}` was 75,575 to 83,944
+>   characters each time, which Claude Code would not take inline and saved to a file, so the dumps above were rooted
+>   at the `TextEditor`: [#1982](https://github.com/hexide-io/HexIDE/issues/1982).
 
 ## `set_control_property` cannot set Font, and its refusal implies a text form that does not exist
 
@@ -3472,6 +3862,22 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 > refused real faces, `Wingdings 2` and `MS Shell Dlg 2` among them, so a control in one showed a font that could not
 > be set back. The control's own face, and one FontName takes here, are now faces whatever their names end in, and a
 > refusal of the guess says why ([#1311](https://github.com/hexide-io/HexIDE/issues/1311)).
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools,
+> with two Labels added to a new project's Form1:
+>
+> ```
+> set_control_property {"formName":"Form1","controlName":"Label1","property":"Font","value":"Tahoma, 12 pt, bold"}
+> → Label1.Font is now Tahoma, 12 pt, bold, charset 0, and the file is saved.
+> get_form_controls {"formName":"Form1","controlName":"Label1"}
+> → {"name":"Font","value":"Tahoma, 12 pt, bold, charset 0","settable":true}
+> set_control_property {… "controlName":"Label2","property":"Font","value":"Tahoma, 12 pt, bold, charset 0"}
+> → Label2.Font is now Tahoma, 12 pt, bold, charset 0, and the file is saved.
+> ```
+>
+> `take_snapshot` drew Label1 in it: the ink of its text is 76 pixels wide at 150% scaling, where Tahoma's ink for
+> `Label1` at that size is 65 regular and 76 bold. The saved `Form1.frm` gives both Labels `Name = "Tahoma"`, `Size = 12`, `Charset = 0` and
+> `Weight = 700`.
 
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
@@ -3578,7 +3984,25 @@ does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 > `inlineWidth`, `inlineHeight` and `inlineScale` describe it, so `boundingRect × inlineScale` finds a control in it.
 > Path-only stays the default: an image costs a few thousand tokens. Measured on Windows through the server's HTTP
 > endpoint: a 3840×2054 window came back as a 1568×838 PNG of 75 KB, and a call without `inline` has no image block.
-> Not yet run through Claude Code over a tunnel. Guarded by `InlineSnapshotTests`.
+> Guarded by `InlineSnapshotTests`. Run through Claude Code since, over a tunnel and locally (#1330, below).
+>
+> **Live (#1330, 2026-10-25), over a tunnel.** From a Claude Code session on Windows, through an SSH tunnel to a
+> Debug build of main at beada72 on an openSUSE Leap 16 VM:
+>
+> - `take_snapshot {"inline": true}` returned its JSON, with `inlineWidth` 1440, `inlineHeight` 756 and
+>   `inlineScale` 1, and one `image/png` block, which the client showed.
+> - That block, read from the client's own stream, is a PNG of 1440×756.
+> - `take_snapshot {}` returned the JSON alone, with no `inline*` fields and no image.
+>
+> **Live (#1330, 2026-10-25), on the IDE's machine.** From a Claude Code session on Windows, against a Debug build of
+> main at beada72 on the same machine:
+>
+> - A 1418×671 window: `take_snapshot {"inline": true}` returned `inlineWidth` 1418, `inlineHeight` 671 and
+>   `inlineScale` 1.5, and one `image/png` block the client showed. The block is a PNG of 1418×671.
+> - A 1920×974 window, in another session where the call was sent as `{"inline":"true"}` and the client turned it into
+>   the boolean: it returned `inlineWidth` 1568, `inlineHeight` 795 and `inlineScale` 1.225, fitted to 1568 on the
+>   longest side as above, followed by an image block. That run did not measure the block.
+> - `take_snapshot {}` again had no image.
 
 ## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
 
@@ -3630,6 +4054,26 @@ deliberately. Cross-platform by code reading.
 > connection that closed on an error is not marked, because a deliberate stop can close it the same way. Guarded by `ConversationFailuresTests`,
 > `TheRecordSeesTheProcessTests` (each fault site through a real client, including stopping), `CaptureQueriesTests`,
 > `ProtocolInspectorToolViewModelTests`, `ConversationExportTests`, `DapCaptureTests` and the process-notice tests.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools.
+> The setup: a session profile whose `lsp-servers.json` adds a `.txt` server whose `command` does not exist, and a
+> project carrying `notes.txt`.
+>
+> ```
+> open_file {"name":"notes.txt"}
+> list_lsp_messages {"failuresOnly":true}
+> → {"messages":[{"sequence":2,"connectionId":"broken-txt",…,"direction":"Local","kind":"Lifecycle",
+>    "detail":"could not connect: could not start 'C:/nonexistent/no-such-server.exe' … The system cannot find the
+>    file specified.","hasBody":false,"fault":true}],"matched":1,…}
+> ```
+>
+> - **Without the filter**, the list adds sequence 1, `connecting`, with no `fault`.
+> - **In Tools ▸ Protocol Inspector**, `interact` `toggle` on `CheckBox[Failures only]` replied "it is now on". The
+>   counts read "1 shown" and "1 failed".
+> - **`take_snapshot`** drew the row in full: its time, `•` and `broken-txt` in normal text, and the failure in bold
+>   red in the Method column.
+> - **The filtered dump** also lists a recycled grid row holding the same failure, marked `isHidden`:
+>   [#1977](https://github.com/hexide-io/HexIDE/issues/1977).
 >
 > **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
 > A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
@@ -3716,6 +4160,18 @@ a refusal that names what it looked for. [#836](https://github.com/hexide-io/Hex
 >
 > Guarded by `InvokeCommandMethodTests`, and by `XamlCommandBindingsTests`, which read HexIDE's own assembly so an
 > Avalonia change to the names fails there.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools, on
+> a new project.
+>
+> - **`inspect_element` on the Project Explorer.** On `…/Pane[Project Group - Group1]/Custom`, its `ProjectToolView`,
+>   it listed six methods, `DeleteForm` among them with `kind: "method"`. The `Tree` under it inherits that
+>   DataContext and lists no members of its own.
+> - **`invoke_command` `OnInitialized` on that node** replied "no ICommand property or Command-bound method
+>   'OnInitialized' on ProjectToolViewModel; …".
+> - **`invoke_command` `DeleteForm`, with `TreeItem[Form1 (Form1.frm)]` selected,** replied "called method
+>   'DeleteForm' on ProjectToolViewModel; no Can method guards it, so check that it did what was meant". No prompt
+>   opened, and `get_project_info` then listed no forms.
 
 ## A missing or mistyped tool argument is reported as a defect in the tool, asking to be reported
 
@@ -3763,6 +4219,25 @@ The reply said the opposite of what happened and asked for a bug report, for eve
 > ```
 >
 > Guarded by `McpRestartTests`, through a real server and the SDK's client.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools:
+>
+> ```
+> inspect_element {"path":"Window"}
+> → 'inspect_element' refused its arguments, and nothing was done: 'target' is required; it takes no 'path'
+>    parameter. Its input schema names each parameter and its type.
+> set_bookmarks {"name":"Form1","lines":null}
+> → 'set_bookmarks' refused its arguments, and nothing was done: 'lines' must be array, not null. …
+> hover {"target":"…/Custom/List/Button[Mouse]","dwellMs":3000000000,"window":"ide"}
+> → 'hover' refused its arguments, and nothing was done: 'dwellMs': The JSON value could not be converted to
+>    System.Int32. Path: $ | LineNumber: 0 | BytePositionInLine: 10. …
+> ```
+>
+> - **The third falls short of the fix above.** It names the argument but not that it is out of range, and the
+>   serializer's raw message is still there: [#1965](https://github.com/hexide-io/HexIDE/issues/1965).
+> - **`take_snapshot {"inline":"true"}` never reached the server as a string.** Claude Code converted it to the
+>   boolean the schema asks for, and the call succeeded. That refusal is checked only by the SDK-client tests in
+>   `McpRestartTests`.
 
 ## Replies escaped every apostrophe and non-ASCII character, as if bound for a web page (#753)
 
@@ -3791,6 +4266,11 @@ same way.
 > Guarded by `ReadableJsonEncoderTests`, which include a round trip of random text. `McpRestartTests` run through a real
 > server and the SDK's client, and `OpenDialogNoteTests` cover the rewritten reply. A source test holds the IDE's
 > server to the same options.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools:
+> `add_file {"name":"Ж1","type":"Module"}` was refused as above. The text
+> the client showed has `'Ж1'` and `'Ж' (U+0416)` as characters, and its apostrophes as themselves, with no `\u`
+> escape anywhere. The only backslashes are JSON's own, before the quotes in `\"Ж1\"`.
 
 ## `expand` also opens a control's context menu or flyout, and no description says so
 
@@ -3840,6 +4320,22 @@ list, and have `collapse` with nothing open say there is nothing to close.
 >
 > Guarded by `LogicallyParentedPopupTests`, which cover the four routes to a popup, `CodeEditorPopupTests`,
 > `MenuPopupTests` and `InteractClickDescriptionTests`.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools, in
+> Tools ▸ Options ▸ Form Designer ▸ Grid, a page with two TextBoxes:
+>
+> ```
+> interact {"target":"Window/Custom/Custom/Edit[Grid Width:]","action":"expand","window":"Options"}
+> → opened flyout on 'Grid Width:'
+> dump_visual_tree {"window":"Options","root":"Window/Custom/Custom","interactiveOnly":false,"maxDepth":10}
+> → MenuItem[Cut], MenuItem[Copy] (both disabled) and MenuItem[Paste] under Edit[Grid Width:], none under Edit[Grid Height:]
+> expand again   → the flyout on 'Grid Width:' was already open
+> collapse       → closed flyout on 'Grid Width:'
+> collapse again → the flyout on 'Grid Width:' was not open; there is nothing to close
+> ```
+>
+> With the code window's completion list open, `collapse` on its `TextEditor` was refused: "'TextEditor' has a popup
+> open that collapse does not close, such as the completion list; press_key Escape closes it".
 
 ## `set_control_property` could not reach a control-array element, and wrote to the first when given the array's name (#1252)
 
@@ -3859,6 +4355,26 @@ the file, and replied as though the caller's element had been set.
 > the rows apart before naming one. A name with an index on a control that is no array says so. Renaming one element
 > still takes it out of its array with no way back, as the Properties window does; the reply says so, and #1276 holds the
 > fix. A source test checks that both tools resolve with `NamedOne`.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools, on
+> a copy of the battleship demo:
+>
+> ```
+> set_control_property {"formName":"frmSetup","controlName":"optSize","property":"Caption","value":"Seven"}
+> → Nothing was changed: 'optSize' names a control array of 3, Index 0, 1, 2; name one element, such as optSize(0)
+> move_control {"formName":"frmSetup","controlName":"optSize","left":20,"top":72}
+> → Nothing was moved: 'optSize' names a control array of 3, Index 0, 1, 2; name one element, such as optSize(0)
+> set_control_property {… "controlName":"optSize(1)","property":"Caption","value":"Seven"}
+> → optSize(1).Caption is now 'Seven', and the file is saved.
+> move_control {… "controlName":"optSize(2)","left":216,"top":72}
+> → optSize(2) is at Left 216, Top 72, Width 73, Height 17, … It lies at least partly outside frmSetup, …
+> set_control_property {… "controlName":"cmdOK(0)","property":"Caption","value":"Go"}
+> → Nothing was changed: 'cmdOK' is not a control array, so it takes no index; name it as cmdOK
+> ```
+>
+> `get_form_controls` then gave optSize(1) the caption Seven and optSize(2) left 216, and `take_snapshot` showed
+> both. The saved `frmSetup.frm` has `Caption = "Seven"` in Index 1's block and `Left = 3240` in Index 2's. The
+> move was saved by the next property save, since `move_control` does not save.
 
 ## Putting the caret on a line still took offset arithmetic (#700)
 
@@ -3884,6 +4400,25 @@ times, then Home.
 > battleship demo with an Attribute run added to `Game.Init`: a line past the end opened nothing; `frmBoard` opened at
 > line 150 showed it; `Game` at the run's end opened the run with the caret there; and `type_text` wrote where
 > `open_file(frmSetup, line 94, column 5)` put the caret. Guarded by `CaretPlacementTests` and `OpenFileCaretTests`.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools, on
+> a copy of the battleship demo with
+> `Attribute Init.VB_Description` and `Attribute Init.VB_HelpID` added under `Game.Init`:
+>
+> ```
+> open_file {"name":"frmBoard","line":999}
+> → Nothing was opened: in BattleshipForms/frmBoard, line 999 is not one of its lines, numbered 1 to 153
+> open_file {"name":"frmBoard","line":150}
+> → … The caret is at line 150, column 1: offset 4942 in the text get_file_content returns.
+> open_file {"name":"Game","line":25,"column":29}
+> → … The caret is at line 25, column 29: offset 707 in the text get_file_content returns.
+> open_file {"name":"frmSetup","line":94,"column":5}, then type_text "Rem " into its TextEditor
+> → get_file_content: line 94 reads "    Rem If optSize(2).Value Then"
+> ```
+>
+> `get_document_tabs` after the first call listed no frmBoard tab. `take_snapshot` after the second showed line 150
+> in view, with "Ln 150, Col 1" in the status bar. After the third, it showed the two Attribute lines unfolded under
+> `Init`, with the caret after the second's `1` and "Ln 25, Col 29".
 
 ## Two parameter descriptions told a caller something other than what was meant (#1258)
 
@@ -3947,6 +4482,26 @@ window had focus, as that decides the dialog's owner.
 > Guarded by `OpenDialogsTests`, `OpenDialogNoteTests` (through the filter) and `ProgramWaitTests` (the compile error
 > shown over the form unawaited as the IDE shows it, a MsgBox beside a dialog left open, twice, and a window that is not
 > a box).
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools.
+> The form is the one above: a 40 ms Timer looping 3000 times, Command1
+> calling `NoSuchSub`, and Command2 showing `MsgBox "Hello"`.
+>
+> - **Ten runs, each one click on Command1, answered with End.** The call was
+>   `interact {"target":"Window/Button[Command1]","action":"click","window":"auto"}`.
+>   - **The note named it in 8 of 10, against the 10 of 10 measured above:**
+>     `'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help), … opened during this call`.
+>   - In the other 2 only the wait gave it, and the note left it out, as above. The wait gave the title alone:
+>     `(the program is still running Timer1_Timer, and has a window open over its form, 'HexIDE'; it may hold the
+>     program until it is answered, …)`. So those two replies never said what it was, and the reset prompt has the
+>     same title: [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
+> - **With that dialog left open, a click on Command2:**
+>   - the wait's text named the MsgBox, as "a MsgBox holds its handler", by its title `'DialogProbe'`;
+>   - the note named the error dialog as "still open and waits for an answer; this call reached past it, as a
+>     person could not".
+> - **Answering the MsgBox** gave a "still running" list of Command2_Click, Timer1_Timer, Command2_GotFocus and
+>   Command2_LostFocus. The form has no handler for the last two:
+>   [#1976](https://github.com/hexide-io/HexIDE/issues/1976).
 
 ## `interact` reported actions done without reading them back, and acted where visibility could not be read (#1280)
 
@@ -3987,6 +4542,11 @@ control (#1069) read visibility with a fallback of "shown", so a read that threw
 > - the Options checkboxes.
 >
 > Guarded by `ReadBackTests` and `ProgramWaitTests`.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools: in
+> Tools ▸ Options, `interact` `toggle` on
+> `Window/Custom/Custom/CheckBox[Reload files changed outside the IDE]` with `window` "Options" replied "toggled 'Reload
+> files changed outside the IDE': it is now off", then "… it is now on".
 
 ## take_snapshot's default capture picks a modeless dialog (#1264)
 
@@ -4052,6 +4612,20 @@ window included, and have a failed path under `auto` name the window it was reso
 >
 > Guarded by `ForegroundWindowTests`, which resolve real paths in two windows through `ForegroundWindow.Resolve`. The
 > server's six path-taking call sites go through that method.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools, on
+> a new project with Edit ▸ Find open:
+>
+> ```
+> inspect_element {"target":"Window/Custom[MainView]"}
+> → no child matching 'Custom[MainView]' under 'Window'. The path was looked for in 'Find', the window "auto" picked
+>    over the IDE's own; it resolves in the IDE's own window, which window "ide" reaches
+> inspect_element {"target":"Window/Custom[MainVeiw]"}
+> → no child matching 'Custom[MainVeiw]' under 'Window'. The path was looked for in 'Find', the window "auto" picked
+>    over the IDE's own
+> inspect_element {"target":"Find/x"}
+> → path must start with 'Window' (got 'Find')
+> ```
 
 ## A collapsed ComboBox reports only its selected item, which reads as "the item is missing" (#1263)
 
@@ -4129,6 +4703,26 @@ reads `[5]` as the gutter's line 6, and nothing in the reply says otherwise.
 > one in its header, now say the same, for every mark tool. The wording is `MarkLineRules`', where tests reach it.
 > Measured through the server's HTTP endpoint on a new project, and guarded by `MarkLineRulesTests` and
 > `LineNumberingDescriptionTests`.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools:
+>
+> ```
+> set_bookmarks {"name":"frmSetup","lines":[95,96]}          (a copy of the battleship demo)
+> → BattleshipForms/frmSetup now has bookmarks on lines 95, 96, counting from 1 at the top of the file, as the gutter does.
+> get_bookmarks {"name":"frmSetup"}
+> → {…,"lines":[95,96],"note":"BattleshipForms/frmSetup has bookmarks on lines 95, 96, counting from 1 at the top of
+>    the file, as the gutter does."}
+> set_bookmarks {"name":"Form1","lines":[10,11]}             (a new project, an earlier run)
+> → 10, 11 are in a read-only part of Project1/Form1: its header (1..17) or the Attribute lines that describe a
+>    member. Neither ever runs, so no bookmark can go there; its code starts at 18, counting from 1 at the top of the
+>    file, as the gutter does. Nothing was changed.
+> set_bookmarks {"name":"Form1","lines":[18]}
+> → Project1/Form1 now has a bookmark on line 18, counting from 1 at the top of the file, as the gutter does.
+> ```
+>
+> **The `[10, 11]` measured above could not be reproduced on a new project.** Those lines were refused as header
+> lines, and the header rule predates the fix. The two-line note was shown on `frmSetup` instead. A `get_bookmarks`
+> reply with no lines has no note, as above.
 
 ## `type_text` in keyboard mode stopped only for a dialog over its own window (#1257)
 
@@ -4176,8 +4770,9 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > A reply records the loops running before its action, and counts the program idle only while every walk parked at
 > `DoEvents` was one of them. A loop the action found running is still the program's message loop, wherever the action
 > finds it, between two `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to
-> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at, since a handler
-> waiting there had not looped. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
+> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at: waiting on a
+> window now clears its earlier loop mark (#1318). The original fix covered only handlers with no DoEvents before
+> the window wait. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
 > the limit gets the usual note, naming only what the action set off: "(the program was still running Command1_Click 3s
 > later, so the form may still change)". Walks, not handler names, so a click that re-enters a handler parked under the
 > same name is told apart from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still
@@ -4224,6 +4819,21 @@ it and dumping it.
 > selection box item. An item's own text is kept, whatever the template shows. Guarded by `InspectItemCountTests`, one
 > on the real `PropertiesToolView`. A list box's unrealized rows, and rows a multi-block template leaves unnamed (the
 > Object Browser's lists), are #1299.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools,
+> with Command1 selected on a new project's Form1:
+>
+> - **Closed and expanded.** `inspect_element` on `…/Pane[Properties]/Custom/ComboBox[ObjectSelector]` gave
+>   `"selectionItems":["Command1"]` and `"value":"Command1"` both times.
+> - **The expanded dump** named its rows `ComboBoxItem[Form1]` and `ComboBoxItem[Command1]`, each holding the name
+>   and the class as two `Text` nodes.
+> - **`interact` `select` with value `Form1`** replied "selected 'Form1' and closed the dropdown, as a click does",
+>   and `inspect_element` then gave `Form1`.
+> - **The first `select` was refused**, with "'ObjectSelector' has no selectable items realized — 'expand' it first,
+>   then select". It was sent after an `inspect_element` and a dump made with the dropdown open, and the dropdown
+>   had closed between the calls: the next `expand` replied "expanded", not "already open". Why it closed was not
+>   established, and it happened once in this run. The refusal said what to do, and the retry worked. Not filed
+>   without a reproduction.
 
 ## Keyboard typing went into code under a dialog left open over the window (#1290)
 
@@ -4235,7 +4845,8 @@ focus passed. #1257 stops the typing for a dialog that opens during it, not one 
 
 > **Fixed.** The reset prompt is shown over the code editor's own window, which it holds, as VB6's prompt holds the IDE
 > (`IWindowManager.MessageBox` takes an owner), unless that window is minimized, which would hide it. Keyboard
-> `type_text` and `press_key` are refused before a key is sent, ahead of their other checks, while a modal dialog is open
+> `type_text` and `press_key` are refused before a key is sent, once they have found the control the keys would reach
+> and found it showing, while a modal dialog is open
 > over the window they act in, directly or through dialogs between; a control in a native popup counts as in the window
 > the popup opened from. The refusal names the dialog on top, which takes the keys: "'Reset?', a modal dialog
 > over 'Project1 - HexIDE', is open and waits for an answer, so a person's keys would go to it, not to TextArea; nothing
@@ -4247,6 +4858,28 @@ focus passed. #1257 stops the typing for a dialog that opens during it, not one 
 > **Measured since (#1329).** "As VB6's prompt holds the IDE" was a claim, not a measurement. VB6's prompt is owned by
 > the running form, and it holds the IDE and the program together. HexIDE's holds the one window that owns it. The
 > oracle's section "The reset prompt: which edits raise it, and which windows it holds" has both.
+>
+> **Live (#1330, 2026-10-25), the keyboard half.** Windows, a Debug build of main at beada72, from a Claude Code
+> session's hexide tools, with Form1 running and its code window in front
+> (`TE` is its `TextEditor`):
+>
+> ```
+> type_text {"target":TE,"text":"Rem ","mode":"keyboard","window":"ide"}
+> → typed 1 of 4 key(s) into TextEditor, then stopped: 'HexIDE' opened over the window, and a person's next key would
+>    go to it. Answer it, then send the rest
+> type_text {"target":TE,"text":"XYZ","mode":"keyboard","window":"ide"}
+> → 'HexIDE', a modal dialog over 'DialogProbe - HexIDE [run]', is open and waits for an answer, so a person's keys
+>    would go to it, not to TextEditor; nothing was typed. …
+> ```
+>
+> - **After the refusal**, `get_file_content` held no `XYZ`. The first key, `R`, had landed, as the edit that raises
+>   the prompt does, and Cancel took it out.
+> - **The native popup branch is reachable this way.** A completion list opened with Ctrl+Space stays open when a
+>   keyboard `M` raises the prompt. Then
+>   `press_key {"target":"TE/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[Dim]","key":"Enter","window":"ide"}`
+>   was refused the same way: "… not to ListBoxItem; nothing was pressed."
+> - **Both refusals name the prompt by its title alone:** [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
+> - **The list closed** when the prompt was cancelled.
 
 ## dump_visual_tree listed a row its list had let go of (#1292)
 
@@ -4261,6 +4894,21 @@ second copy of an item or a row for one out of view, and a path to it resolved.
 > view are left out with the rest, as generated rows out of view always were. Guarded by `SelectScrolledOutRowTests`:
 > after a `select` scrolls and puts the list back, and the released row's item shows again, the dump lists the rows the
 > list holds, each once, and neither a path nor an id reaches the released row.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools,
+> with Form1 selected and the Categorized tab showing.
+>
+> - **`interact` `select` with value `Width`** on `…/List[CategorizedProperties]` replied "selected 'Width' (it was
+>   scrolled out of view, so the list was scrolled to it first)".
+> - **The dump that followed** (`interactiveOnly` false, `maxDepth` 6) listed the four rows in view, Width, Top,
+>   StartUpPosition and Left. Each appeared once, and nothing out of view was listed.
+> - **The dump's order is the reverse of the screen's:** [#1966](https://github.com/hexide-io/HexIDE/issues/1966).
+> - **Not met: a row out of view is listed.** After `scroll` `home` and a collapse of Appearance, the next dump
+>   listed Width, the selected row, with `isOffscreen: true`, and so did the one after Appearance was expanded. The
+>   fix says rows out of view are left out: [#1981](https://github.com/hexide-io/HexIDE/issues/1981).
+> - **Collapsing the Appearance category** left its rows listed once each with `isHidden: true`, and expanding it
+>   showed them once each again. That was done with its toggle, since the row itself refuses `collapse`:
+>   [#1967](https://github.com/hexide-io/HexIDE/issues/1967).
 
 ## List rows of view models with no ToString were named by their type, or not at all (#1299)
 
@@ -4272,6 +4920,16 @@ selection "ListItem". The Object Browser's class, member and search lists were a
 > `OBLibraryViewModel` beside them already did. A survey of the IDE's lists found no other rows of this shape. A
 > driver fallback naming such a row by the text it shows was tried and dropped: paths and `select` match on the peer's
 > name, so the dump would have shown a name no tool accepts. Guarded by `ListRowNameTests`.
+>
+> **Live (#1330, 2026-10-25).** Windows, a Debug build of main at beada72, from a Claude Code session's hexide tools.
+>
+> - **Rows are named by name.** In the Object Browser the class rows are `ListItem[Form1]`, `ListItem[CheckBox]`
+>   and the rest, and CommandButton's member rows are `ListItem[Caption]`, `ListItem[Click]` and the rest.
+> - **Selection.** `interact` `select` with value `Form1` on `…/List[Classes]` replied "selected 'Form1'". With value
+>   `Click` on `…/List[Members]`, CommandButton selected, it replied "selected 'Click'". `inspect_element` on each list
+>   named that selection in `selectionItems`.
+> - **Form1's own member list was empty,** since the browser lists only a project form's code procedures:
+>   [#1968](https://github.com/hexide-io/HexIDE/issues/1968).
 
 ## 7. A declarative `ToolTip.Tip` cannot be made to open (narrowed 2026-09-08)
 
@@ -4496,6 +5154,89 @@ with physical key and symbol metadata. Retain routed delivery when focus or plat
 and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.
 
 
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+
+**Fixed (#1054).** The shared replacement guard compares member runs even when the header differs. One refusal
+names the header first, then every changed, added or removed member run, with the existing repair guidance.
+`DocumentContentTests` covers all three findings alongside a header change and verifies the document stays unchanged.
+
+## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
+
+**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
+member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
+`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
+Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
+place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
+a change it did not make, with no reason given.
+
+**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
+through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
+`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
+added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
+names `set_file_content` alone.
+
+**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
+re-qualified.
+
+**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
+is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
+
+
+**Fixed (#1043).** The form and module save paths collect the old and new qualifiers they rewrite. All three
+tools append that report to a successful reply’s `note`, explaining that VB6’s own Save writes the member’s
+name. Headless save tests cover both paths; source guards check all three tool replies. Live verification
+remains with the supervising session: on a fresh stale run for each tool, check the note names `Gone` and
+`Total`, and read back `Attribute Total.VB_Description`.
+
+## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
+→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
+interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
+→ opened menu 'ToolsMenuItem'
+```
+
+An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
+carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
+x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
+is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
+Cross-platform by code reading.
+
+**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
+label fallback, but that is read in code and was not tried.
+
+**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
+it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
+[#948](https://github.com/hexide-io/HexIDE/issues/948).
+
+
+**Fixed (#948).** Dumps and inspection now report the peer text as `label` when it differs from `name`.
+Paths keep x:Name and accept the label too; discovery searches include it, and interaction replies use it.
+Four headless regression cases cover these surfaces and failed before the fix. Live verification of the
+IDE menu remains for the supervising session.
+
 ## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
 
 **Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
@@ -4527,3 +5268,111 @@ an insertion or a forward deletion, where it moves the caller somewhere new.
 [#1042](https://github.com/hexide-io/HexIDE/issues/1042).
 
 **Fixed (#1042).** Refusals now name the header or the member through the same name reader as add-in refusals. A deletion ending at the caret explains that the preceding text belongs to that region; for a member, deleting its whole logical declaration removes its Attribute lines too. Insertions and forward deletions retain a new editable offset. Headless editor regressions cover all three cases and fail against the previous wording.
+
+## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+
+**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
+the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
+allow. The tool deletes nothing:
+
+```
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
+→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
+   Nothing was written. ..."}
+```
+
+`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
+deletable segments.
+
+**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
+`SelectionLength`) before pressing the key.
+
+**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
+[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+**Closed (#1055).** Delete and Backspace now reach the real key handler whenever the selection has
+editable segments. AvaloniaEdit's selection replacement asks the installed read-only section provider;
+no automation code computes the deletion. Replies name the protected remainder and report the caret
+and remaining selection. `type_text` uses that replacement API too, placing text in the last deletable
+segment as a person's typing does. Wholly protected spans still refuse with #1042's region wording.
+Verified by headless code-window integration tests, including unchanged protected text and post-edit selection.
+
+## `get_document_tabs` doesn't say whether a tab has unsaved changes — **CLOSED** (#1945, 2026-10-25)
+
+**Symptom (2026-10-25, Debug build with #1797).** With #1797's unsaved-changes marker live, a designer tab draws
+`Project1 - Form1 (Form) *`, but the reply gives the title without the `*` and has no other field for the state.
+After `add_control` (Form1, CommandButton), `interact click` on `ListItem[Command1]` and `press_key Delete`:
+
+```
+get_document_tabs {}
+→ {"tabs":[{"title":"Project1 - Form1 (Form)","type":"designer","isActive":true,...}]}
+```
+
+`take_snapshot` showed the `*`. A client couldn't tell a modified document from a saved one without a screenshot,
+and a script that edits and then saves had nothing to assert against.
+
+**Workaround (before the fix).** `take_snapshot`, and read the tab.
+
+**Fixed (#1945).** Each tab that can be saved, in `get_document_tabs` and in `get_open_editors`' `editors` and
+`activeEditor`, carries `isModified`, read from the tab's own `IsModified`, which is what the `*` is drawn from. A
+carried file has it too, without `project` or `document`. A tool tab, and the read-only project and archive views, have
+no `isModified`: they hold nothing to save, and a `false` would read as "saved", which for the project view of a
+project never saved would be untrue. The field is per tab, and a form's designer and code tabs can differ, as their
+markers do; the description says so. The title is unchanged, so it is still what `activate_document_tab` and
+`close_document_tab` match. Neither tool takes an argument, so neither schema has a `required` array.
+`DocumentTabsModifiedTests` fail before the fix. The archive view is not among them, since its entries are built only
+by reading a real archive file.
+
+**Live (Windows, a Debug build of the fix, the hexide tools from a headless Claude Code session).** On a new
+project:
+
+```
+get_document_tabs {}                         → Form1's designer, "isModified":false
+add_control {"formName":"Form1","type":"CommandButton","x":40,"y":40,"width":81,"height":33}
+get_document_tabs {}                         → "isModified":false (add_control saves the form)
+interact {"target":"…/ListItem[Command1]","action":"click"}
+press_key {"target":"…/ListItem[Command1]","key":"Delete"}
+get_document_tabs {}                         → "isModified":true
+take_snapshot {"window":"ide"}               → the tab reads "Project1 - Form1 (Form) *"
+get_open_editors {}                          → "isModified":true in editors[0] and activeEditor
+invoke_menu_item {"path":"View/Object Browser"}
+get_document_tabs {}                         → {"title":"Object Browser","type":"tool","isActive":true}
+open_file {"name":"Form1"}
+type_text {"target":"…/None[TextEditor]","text":"' typed"}
+get_document_tabs {}                         → designer true, code true
+invoke_menu_item {"path":"File/Save Form1"}
+get_document_tabs {}                         → designer false, code false
+```
+
+On a second new project, with the project view opened by `interact {"action":"double_click"}` on
+`TreeItem[Project1 (Project1.vbp)]`, `get_document_tabs` listed `{"title":"Project1.vbp","type":"code","isActive":true}`,
+with no `isModified`, beside Form1's designer with one. It still had none after `add_file` added a module.
+
+
+## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
+
+**Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
+control, moves with the button held, and a release somewhere else. `interact {"target":"<a Label on a running form>",
+"action":"click","value":"10,5"}` presses and releases at that one point, and `click`'s own remarks call a drag
+"beyond it". No other call raises a pointer press.
+
+**Workaround.** None through the surface. `MouseEventTests` drives the drags headlessly with `MouseDown`, `MouseMove`
+and `MouseUp`.
+
+**Suggested fix.** Let `click` take a release point, as in `10,5 to 200,30`: press on the target, move with the button
+held, release at the second point to whatever holds the pointer.
+[#1402](https://github.com/hexide-io/HexIDE/issues/1402).
+
+**The designer has the same gap (2026-10-26, #2039).** Drawing a control with a tool is a drag too, and which container
+it goes into depends on where the drag began. `add_control` places as a drag begun at its top-left would, so the rule was
+checked live through it. A drag up and to the left, where the two differ, was driven only headlessly, by
+`DrawIntoContainerTests`, through the view's own pointer handlers.
+
+
+**Fixed (#1402).** `click` accepts `10,5 to 200,30` or `10,5 to <path>:300,190`, with a full
+`dump_visual_tree` path (spaces included). Release coordinates are relative to that control, or the target
+without a path. Button and keys precede `to`; `double` cannot accompany it. Eight held moves and the release
+follow the press's work, routed to the pointer capturer or the hit-tested control. The reply names the press
+landing, release point and recipient, marking capture explicitly. Headless tests cover capture routing,
+running-form release on/off, ListBox selection and drawing a toolbox control in the designer.
+Live verification remains the supervisor's check.

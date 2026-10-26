@@ -42,6 +42,9 @@ public interface ISearchableDocument
     /// </summary>
     bool IsReadOnlyRegion(int offset, int length) => false;
 
+    /// <summary>A deletion takes any metadata attached to a declaration it empties.</summary>
+    (int Offset, int Length) WidenDeletion(int offset, int length) => (offset, length);
+
     /// <summary>
     /// <see cref="IsReadOnlyRegion"/> against the buffer as it stands now, found once, for a caller about to
     /// make many replacements.

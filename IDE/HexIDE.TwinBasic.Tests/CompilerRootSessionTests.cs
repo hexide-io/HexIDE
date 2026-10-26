@@ -1,7 +1,23 @@
 namespace HexIDE.TwinBasic.Tests;
 
-public sealed class CompilerRootSessionTests
+public sealed class CompilerRootSessionTests : SocketTrackingTest
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Failed_peer_creation_disposes_sockets(int acquisition)
+    {
+        var remaining = acquisition;
+        AfterAcquire = () =>
+        {
+            if (--remaining == 0) throw new IOException("Injected peer creation failure");
+        };
+        await FluentActions.Awaiting(async () => { using var peer = await CompilerSessionTestPeer.Create(); })
+            .Should().ThrowExactlyAsync<IOException>().WithMessage("Injected peer creation failure");
+        AssertNoOpenSockets();
+    }
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     [Fact]

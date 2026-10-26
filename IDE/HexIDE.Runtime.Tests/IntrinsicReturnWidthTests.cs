@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// #193 — the integer-returning intrinsics have a FIXED declared return type in VB6, and it is not the
 /// same one for all of them. Every row here is oracle-pinned against vb6.exe (see "Return widths of the
-/// integer-returning intrinsics" in docs/vb6-fidelity-oracle.md).
+/// integer-returning intrinsics" in docs/vb6-fidelity-oracle/a-typed-selector-and-a-variant-one.md).
 ///
 /// The bug was that none of these chose a type: they built their result from a C# <c>int</c>, and
 /// <c>Vb6Value(int)</c> applies a MAGNITUDE rule — anything fitting Int16 is reported as an Integer. That
