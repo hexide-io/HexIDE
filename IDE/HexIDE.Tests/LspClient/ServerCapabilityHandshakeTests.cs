@@ -160,6 +160,28 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         hover!.Contents.Value.Should().Be("stub hover");
     }
 
+    [Theory]
+    [InlineData("\"answered\"", "markdown", "answered")]
+    [InlineData("{\"language\":\"vb\",\"value\":\"answered\"}", "markdown", "```vb\nanswered\n```")]
+    [InlineData("[\"answered\"]", "markdown", "answered")]
+    [InlineData("[\"intro\",{\"language\":\"vb\",\"value\":\"answered\"}]", "markdown", "intro\n\n```vb\nanswered\n```")]
+    [InlineData("{\"kind\":\"plaintext\",\"value\":\"answered\"}", "plaintext", "answered")]
+    [InlineData("{\"kind\":\"markdown\",\"value\":\"**answered**\"}", "markdown", "**answered**")]
+    public async Task HoverContents_AcceptsEveryProtocolShape(string contents, string kind, string text)
+    {
+        var server = new StubServer("""{"hoverProvider":true}""", contents);
+        var sut = ClientTalkingToServer(server);
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+
+        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0), TestContext.Current.CancellationToken);
+
+        hover.Should().NotBeNull();
+        server.HoverRequests.Should().Be(1);
+        hover!.Contents.Kind.Should().Be(kind);
+        hover.Contents.Value.ReplaceLineEndings("\n").Should().Be(text);
+        hover.Range.Should().Be(new HexIDE.Lsp.Messages.Range(new Position(0, 1), new Position(0, 3)));
+    }
+
     [Fact]
     public async Task AnAdvertisedCapabilityInItsOptionsFormStillPermitsTheRequest()
     {
@@ -209,8 +231,8 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         }
     }
 
-    /// <summary>A minimal server: answers initialize with the given capabilities, ignores everything else.</summary>
-    private sealed class StubServer(string capabilitiesJson)
+    /// <summary>A minimal server answering initialize and hover with the given JSON.</summary>
+    private sealed class StubServer(string capabilitiesJson, string? hoverContents = null)
     {
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) =>
@@ -219,9 +241,17 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }
 
+        public int HoverRequests { get; private set; }
+
         [JsonRpcMethod("textDocument/hover", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement Hover(JsonElement _) =>
-            JsonDocument.Parse("""{"contents":{"kind":"plaintext","value":"stub hover"}}""").RootElement.Clone();
+        public JsonElement Hover(JsonElement _)
+        {
+            HoverRequests++;
+            var contents = hoverContents ?? """{"kind":"plaintext","value":"stub hover"}""";
+            return JsonDocument.Parse($$$$"""
+                {"contents":{{{{contents}}}},"range":{"start":{"line":0,"character":1},"end":{"line":0,"character":3}}}
+                """).RootElement.Clone();
+        }
     }
 
     /// <summary>A server that refuses to initialize — the negative case for the control above.</summary>

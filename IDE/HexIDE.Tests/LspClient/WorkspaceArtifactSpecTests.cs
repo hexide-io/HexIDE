@@ -284,5 +284,15 @@ public class WorkspaceArtifactSpecTests : IDisposable
         var registration = registrations.Should().ContainSingle().Subject;
         registration.Id.Should().Be("probe");
         registration.WorkspaceArtifact.Should().BeNull();
+        registration.WorkspaceArtifactRefused.Should().BeTrue("so the launch can say so on the connection (#2073)");
+    }
+
+    [Fact]
+    public void AnEntryDeclaringNoArtefactIsNotMarkedRefused()
+    {
+        var registrations = new LanguageServerRegistrationFactory(
+            Substitute.For<ILoggerFactory>(), artifactProviders: Registry("p"))
+            .Create([new LanguageServerEntry { Id = "probe", Extensions = [".xyz"], Transport = "stdio", Command = "probe-server" }]);
+        registrations.Should().ContainSingle().Which.WorkspaceArtifactRefused.Should().BeFalse();
     }
 }
