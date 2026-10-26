@@ -76,6 +76,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "Dec_laration",
     "Str.Menu.View.LastPosition": "Last Positio_n",
+    "Str.Tool.RecentEdits.Title": "Recent Edits",
     "Str.Menu.View.ObjectBrowser": "_Object Browser",
     "Str.Menu.View.ImmediateWindow": "_Immediate Window",
     "Str.Menu.View.LocalsWindow": "Local_s Window",

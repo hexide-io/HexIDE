@@ -1252,6 +1252,7 @@ public class FindReplaceViewModelTests
             new AddinToolWindowService(),
             windowStateService,
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc));
     }
 }

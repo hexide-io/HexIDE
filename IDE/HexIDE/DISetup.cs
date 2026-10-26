@@ -56,6 +56,8 @@ public partial class DISetup
                 return new WatchesToolViewModel(localization, watches, debugger, windows, external);
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
+            .Bind().As(Singleton).To<RecentEditHistory>()
+            .Bind().As(Singleton).To<RecentEditsToolViewModel>()
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
@@ -64,6 +66,26 @@ public partial class DISetup
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
+            .Bind<CodeEditorViewModel>().As(Transient).To(ctx =>
+            {
+                // Resolve optional services explicitly to bound the constructor alternatives in the graph.
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<IEditorService>(out var editors);
+                ctx.Inject<IProjectService>(out var projects);
+                ctx.Inject<IEventBus>(out var events);
+                ctx.Inject<ILspClient>(out var lsp);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IStatusBarService>(out var status);
+                ctx.Inject<IBookmarkService>(out var bookmarks);
+                ctx.Inject<IBreakpointService>(out var breakpoints);
+                ctx.Inject<IDebugController>(out var debugger);
+                ctx.Inject<IRunScope>(out var runScope);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ExternalDebugService>(out var external);
+                ctx.Inject<RecentEditHistory>(out var history);
+                return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
+                    bookmarks, breakpoints, debugger, runScope, localization, external, history);
+            })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
@@ -242,7 +264,16 @@ public partial class DISetup
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
-            .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To<AddinRegistry>()
+            .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
+            {
+                // Use the production constructor rather than searching the test-only path overloads.
+                ctx.Inject<IPackageVerifier>(out var verifier);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IDeveloperModeService>(out var developerMode);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new AddinRegistry(verifier, settings, developerMode, windows, localization);
+            })
             .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")

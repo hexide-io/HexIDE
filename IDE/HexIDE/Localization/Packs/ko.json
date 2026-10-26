@@ -115,6 +115,7 @@
     "Str.Menu.View.Definition": "정의",
     "Str.Menu.View.Declaration": "선언",
     "Str.Menu.View.LastPosition": "마지막 위치",
+    "Str.Tool.RecentEdits.Title": "최근 편집",
     "Str.Menu.View.ObjectBrowser": "개체 찾아보기",
     "Str.Menu.View.ImmediateWindow": "직접 실행 창",
     "Str.Menu.View.LocalsWindow": "지역 변수 창",

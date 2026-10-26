@@ -225,6 +225,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.Definition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.Declaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LastPosition}" IsEnabled="False" />
+                            <MenuItem Header="{DynamicResource Str.Tool.RecentEdits.Title}" Command="{CompiledBinding OpenRecentEditsTool}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.ObjectBrowser}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Objectbrowser}" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" />
                             <Separator />

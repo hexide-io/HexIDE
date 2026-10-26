@@ -196,6 +196,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </summary>
     private LspDocumentSession? session;
+    private readonly HexIDE.Tools.RecentEditHistory? recentEditHistory;
 
     /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
     public bool AwaitingDiagnostics => session?.AwaitingDiagnostics ?? false;
@@ -212,8 +213,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Tools.RecentEditHistory? recentEditHistory = null)
     {
+        this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
@@ -889,6 +892,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;
@@ -931,6 +935,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;

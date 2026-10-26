@@ -115,6 +115,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "Dekl_aration",
     "Str.Menu.View.LastPosition": "Seneste positio_n",
+    "Str.Tool.RecentEdits.Title": "Seneste redigeringer",
     "Str.Menu.View.ObjectBrowser": "_Objektbrowser",
     "Str.Menu.View.ImmediateWindow": "_Kommandovindue",
     "Str.Menu.View.LocalsWindow": "Vindue for lokale _variabler",

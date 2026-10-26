@@ -115,6 +115,7 @@
     "Str.Menu.View.Definition": "定義",
     "Str.Menu.View.Declaration": "宣言",
     "Str.Menu.View.LastPosition": "最後の位置",
+    "Str.Tool.RecentEdits.Title": "最近の編集",
     "Str.Menu.View.ObjectBrowser": "オブジェクトブラウザー",
     "Str.Menu.View.ImmediateWindow": "イミディエイトウィンドウ",
     "Str.Menu.View.LocalsWindow": "ローカルウィンドウ",

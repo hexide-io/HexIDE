@@ -115,6 +115,7 @@
     "Str.Menu.View.Definition": "_Määritys",
     "Str.Menu.View.Declaration": "_Esittely",
     "Str.Menu.View.LastPosition": "Edellinen sija_inti",
+    "Str.Tool.RecentEdits.Title": "Viimeisimmät muokkaukset",
     "Str.Menu.View.ObjectBrowser": "_Objektiselain",
     "Str.Menu.View.ImmediateWindow": "_Komentoikkuna",
     "Str.Menu.View.LocalsWindow": "_Paikallismuuttujat-ikkuna",

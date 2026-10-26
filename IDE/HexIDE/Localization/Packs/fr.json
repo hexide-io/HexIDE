@@ -115,6 +115,7 @@
     "Str.Menu.View.Definition": "_Définition",
     "Str.Menu.View.Declaration": "Déclarat_ion",
     "Str.Menu.View.LastPosition": "Dernière positio_n",
+    "Str.Tool.RecentEdits.Title": "Modifications récentes",
     "Str.Menu.View.ObjectBrowser": "_Explorateur d'objets",
     "Str.Menu.View.ImmediateWindow": "Fenêtre _Exécution",
     "Str.Menu.View.LocalsWindow": "Fenêtre Variable_s locales",
