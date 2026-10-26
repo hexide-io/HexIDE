@@ -631,5 +631,6 @@ added afterwards.
 - [Len of declared scalars and numeric expressions (#780)](len-of-declared-scalars-and-numeric-expressions.md#len-of-declared-scalars-and-numeric-expressions-780)
 - [A For loop with a fraction (2026-10-24, #983)](a-for-loop-with-a-fraction.md#a-for-loop-with-a-fraction-2026-10-24-983)
 - [In-box controls: the ProgressBar (2026-10-25, #1082)](in-box-controls-the-progressbar.md#in-box-controls-the-progressbar-2026-10-25-1082)
+- [The Components dialog and an in-box library's lines (2026-10-26, #1103, design-time)](the-components-dialog-and-an-in-box-librarys-lines.md#the-components-dialog-and-an-in-box-librarys-lines-2026-10-26-1103-design-time)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
 - [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
