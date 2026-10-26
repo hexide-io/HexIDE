@@ -467,8 +467,10 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 A `dump_visual_tree` tree exceeding the 40,000-character tree budget SHALL first omit children below
 hidden nodes, retaining the hidden nodes and marking omitted children with `truncated`. The requested
 root SHALL retain its immediate children so a caller can retrieve more by rooting a subsequent dump at
-an omitted branch. If necessary, the server SHALL then cut the deepest levels to the greatest depth
-that fits, retaining at least one level. The reply note SHALL explain each kind of omission and how to
+an omitted branch. If necessary, the server SHALL then cut other branches to the greatest depth
+that fits, retaining at least one level and preserving the active document subtree (to the requested
+maxDepth) and its ancestors. If the active document alone prevents fitting, the note SHALL explain
+that it remains over budget and advise scoping with `root`. The reply note SHALL explain each kind of omission and how to
 retrieve the rest. A tree that fits SHALL remain unchanged; `match` searches SHALL search the unpruned
 tree to the requested depth.
 
@@ -477,6 +479,12 @@ tree to the requested depth.
 - **THEN** the visible document retains its full requested depth
 - **AND** hidden toolbars retain addressable paths and `truncated` markers
 - **AND** the note explains that hidden children were omitted and can be retrieved using `root`
+
+#### Scenario: Visible chrome still competes with the designer
+- **WHEN** a whole-IDE dump with a designer open remains over budget after hidden children are omitted
+- **THEN** the active designer's subtree retains its controls to the requested depth
+- **AND** other visible branches lose depth before the designer
+- **AND** the note identifies the preserved active document and explains how to retrieve omitted branches
 
 ### Requirement: Pointer drags through interact
 

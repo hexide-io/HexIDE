@@ -138,6 +138,31 @@ public class DumpFitsReplyTests
         note.Should().Contain("children below hidden nodes were omitted").And.Contain("levels down");
     }
 
+    [Fact]
+    public void Active_document_keeps_its_depth_while_other_visible_branches_are_cut()
+    {
+        var document = Deep("Window/Host/Document", 4);
+        var tree = Node("Window", Deep("Window/Tools"), Node("Window/Host", document));
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree, document.Path);
+
+        Flat(fitted).Single(n => n.Node.Path == document.Path).Node.Should().BeEquivalentTo(document);
+        Size(fitted).Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
+        note.Should().Contain("active document");
+    }
+
+    [Fact]
+    public void An_active_document_too_large_to_fit_is_kept_and_the_note_says_so()
+    {
+        var document = Deep("Window/Host/Document");
+        var tree = Node("Window", Node("Window/Host", document), Deep("Window/Tools"));
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree, document.Path);
+
+        Flat(fitted).Single(n => n.Node.Path == document.Path).Node.Should().BeEquivalentTo(document);
+        note.Should().Contain("active document").And.Contain("still over").And.Contain("scope it with 'root'");
+    }
+
     // The note comes before the tree, so a client that keeps only the start of a long reply still has it.
     [Fact]
     public void The_note_is_written_before_the_tree()
