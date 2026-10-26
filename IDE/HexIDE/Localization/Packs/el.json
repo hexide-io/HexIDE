@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Μεγιστοποίηση ή επαναφορά παραθύρου",
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
-    "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά"
+    "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής"
   }
 }

@@ -395,3 +395,17 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **THEN** overtype mode is enabled and the status bar displays the localized overtype label
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Indentation guides
+
+The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.
+
+#### Scenario: Nested indentation
+- **WHEN** the caret enters a nested indented block
+- **THEN** that block's guide is emphasised throughout its contiguous indentation run
+- **AND** equally indented blocks elsewhere retain the normal guide colour
+
+#### Scenario: Guides disabled
+- **WHEN** Show indent guides is turned off and options are applied
+- **THEN** open code windows stop drawing guides
+- **AND** the preference survives restarting the IDE

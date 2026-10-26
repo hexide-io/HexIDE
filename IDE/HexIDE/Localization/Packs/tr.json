@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Paneli büyüt veya geri yükle",
     "Str.Dock.Close": "Paneli kapat",
     "Str.Dock.ScrollLeft": "Sekmeleri sola kaydır",
-    "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır"
+    "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster"
   }
 }

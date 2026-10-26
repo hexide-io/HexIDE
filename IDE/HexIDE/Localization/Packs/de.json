@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Fenster maximieren oder wiederherstellen",
     "Str.Dock.Close": "Fenster schließen",
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
-    "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen"
+    "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen"
   }
 }

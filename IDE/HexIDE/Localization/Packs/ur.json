@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "پینل بڑا کریں یا بحال کریں",
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
-    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں"
+    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں"
   }
 }

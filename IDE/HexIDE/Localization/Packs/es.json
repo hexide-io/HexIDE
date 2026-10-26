@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maximizar o restaurar panel",
     "Str.Dock.Close": "Cerrar panel",
     "Str.Dock.ScrollLeft": "Desplazar pestañas a la izquierda",
-    "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha"
+    "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guías de sangría"
   }
 }

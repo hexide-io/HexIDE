@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "창 최대화 또는 복원",
     "Str.Dock.Close": "창 닫기",
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
-    "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤"
+    "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "들여쓰기 안내선 표시"
   }
 }

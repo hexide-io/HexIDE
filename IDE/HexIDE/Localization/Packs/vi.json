@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Phóng to hoặc khôi phục ngăn",
     "Str.Dock.Close": "Đóng ngăn",
     "Str.Dock.ScrollLeft": "Cuộn thẻ sang trái",
-    "Str.Dock.ScrollRight": "Cuộn thẻ sang phải"
+    "Str.Dock.ScrollRight": "Cuộn thẻ sang phải",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Hiện đường dẫn thụt lề"
   }
 }

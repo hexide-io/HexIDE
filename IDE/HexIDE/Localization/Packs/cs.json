@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maximalizovat nebo obnovit panel",
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
-    "Str.Dock.ScrollRight": "Posunout karty doprava"
+    "Str.Dock.ScrollRight": "Posunout karty doprava",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení"
   }
 }

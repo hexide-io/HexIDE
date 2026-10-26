@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "ペインの最大化または元に戻す",
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
-    "Str.Dock.ScrollRight": "タブを右にスクロール"
+    "Str.Dock.ScrollRight": "タブを右にスクロール",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示"
   }
 }

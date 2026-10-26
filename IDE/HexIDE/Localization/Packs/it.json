@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Ingrandisci o ripristina pannello",
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
-    "Str.Dock.ScrollRight": "Scorri schede a destra"
+    "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione"
   }
 }

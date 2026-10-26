@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "最大化或还原窗格",
     "Str.Dock.Close": "关闭窗格",
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
-    "Str.Dock.ScrollRight": "向右滚动选项卡"
+    "Str.Dock.ScrollRight": "向右滚动选项卡",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线"
   }
 }

@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "फलक बड़ा करें या पुनर्स्थापित करें",
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
-    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें"
+    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ"
   }
 }

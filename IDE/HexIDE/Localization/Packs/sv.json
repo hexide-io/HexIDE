@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maximera eller återställ panel",
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
-    "Str.Dock.ScrollRight": "Rulla flikar åt höger"
+    "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer"
   }
 }

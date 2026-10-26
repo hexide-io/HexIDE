@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Развернуть или восстановить панель",
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
-    "Str.Dock.ScrollRight": "Прокрутить вкладки вправо"
+    "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов"
   }
 }

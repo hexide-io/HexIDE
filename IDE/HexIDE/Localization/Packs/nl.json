@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Paneel maximaliseren of herstellen",
     "Str.Dock.Close": "Paneel sluiten",
     "Str.Dock.ScrollLeft": "Tabbladen naar links schuiven",
-    "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven"
+    "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen"
   }
 }

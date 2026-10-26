@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Tabulam amplifica vel restitue",
     "Str.Dock.Close": "Tabulam claude",
     "Str.Dock.ScrollLeft": "Schedas sinistrorsum volve",
-    "Str.Dock.ScrollRight": "Schedas dextrorsum volve"
+    "Str.Dock.ScrollRight": "Schedas dextrorsum volve",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Lineas indentationis monstrare"
   }
 }

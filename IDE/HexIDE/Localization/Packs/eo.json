@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maksimumigi aŭ restarigi panelon",
     "Str.Dock.Close": "Fermi panelon",
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
-    "Str.Dock.ScrollRight": "Rulumi langetojn dekstren"
+    "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn"
   }
 }

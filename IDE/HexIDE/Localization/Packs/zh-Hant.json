@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "最大化或還原窗格",
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
-    "Str.Dock.ScrollRight": "向右捲動索引標籤"
+    "Str.Dock.ScrollRight": "向右捲動索引標籤",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "顯示縮排參考線"
   }
 }

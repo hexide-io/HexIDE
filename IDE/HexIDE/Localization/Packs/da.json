@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maksimer eller gendan panel",
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
-    "Str.Dock.ScrollRight": "Rul faner til højre"
+    "Str.Dock.ScrollRight": "Rul faner til højre",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis indrykningslinjer"
   }
 }

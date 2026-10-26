@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maksimalkan atau pulihkan panel",
     "Str.Dock.Close": "Tutup panel",
     "Str.Dock.ScrollLeft": "Gulir tab ke kiri",
-    "Str.Dock.ScrollRight": "Gulir tab ke kanan"
+    "Str.Dock.ScrollRight": "Gulir tab ke kanan",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Tampilkan panduan indentasi"
   }
 }

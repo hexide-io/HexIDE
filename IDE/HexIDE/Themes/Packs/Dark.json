@@ -3,6 +3,8 @@
   "description": "Dark colour scheme for the Modern shell (VS Code-inspired)",
   "themeVariant": "Dark",
   "colors": {
+    "IndentGuide": "#404048",
+    "ActiveIndentGuide": "#909098",
     "AppWorkspace":              "#1E1E1E",
     "Window":                   "#252526",
     "WindowText":               "#D4D4D4",

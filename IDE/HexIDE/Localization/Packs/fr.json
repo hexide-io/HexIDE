@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Agrandir ou restaurer le volet",
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
-    "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite"
+    "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation"
   }
 }

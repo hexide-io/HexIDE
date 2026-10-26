@@ -56,6 +56,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
 
     // ── Editor properties ───────────────────────────────────────
@@ -202,6 +203,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras properties ────────────────────────────────
 
+    public bool ShowIndentGuides
+    {
+        get => _showIndentGuides;
+        set => SetProperty(ref _showIndentGuides, value);
+    }
+
     public bool IsMinimapVisible
     {
         get => _isMinimapVisible;
@@ -264,6 +271,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsEditToolbarVisible = _isEditToolbarVisible,
                 IsDebugToolbarVisible = _isDebugToolbarVisible,
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
+                ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
                 Window = new SettingsData.WindowDataJson
                 {
@@ -334,6 +342,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isEditToolbarVisible = data.IsEditToolbarVisible;
             _isDebugToolbarVisible = data.IsDebugToolbarVisible;
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
+            ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
             if (data.Window is { } w)
                 _window = new WindowData(w.State, w.X, w.Y, w.Width, w.Height);
@@ -417,6 +426,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("isFormEditorToolbarVisible")]
         public bool IsFormEditorToolbarVisible { get; set; } = SettingsDefaults.IsFormEditorToolbarVisible;
+
+        [JsonPropertyName("showIndentGuides")]
+        public bool ShowIndentGuides { get; set; } = SettingsDefaults.ShowIndentGuides;
 
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;

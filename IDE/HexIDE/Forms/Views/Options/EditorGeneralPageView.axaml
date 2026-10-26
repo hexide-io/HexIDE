@@ -18,6 +18,7 @@
         </HeaderedContentControl>
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.Display.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
+                <CheckBox IsChecked="{CompiledBinding ShowIndentGuides}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowIndentGuides}" />
                 <CheckBox IsChecked="{CompiledBinding IsMinimapVisible}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowMinimap}" />
             </StackPanel>
         </HeaderedContentControl>

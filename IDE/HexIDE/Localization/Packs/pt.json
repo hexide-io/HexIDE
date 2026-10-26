@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maximizar ou restaurar painel",
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
-    "Str.Dock.ScrollRight": "Deslocar separadores para a direita"
+    "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação"
   }
 }

@@ -126,6 +126,8 @@ public interface ISettingsService : INotifyPropertyChanged
     /// <summary>Show the code-editor minimap (default: visible).</summary>
     bool IsMinimapVisible { get; set; }
 
+    bool ShowIndentGuides { get; set; }
+
     // ── Window state ────────────────────────────────────────────
 
     /// <summary>

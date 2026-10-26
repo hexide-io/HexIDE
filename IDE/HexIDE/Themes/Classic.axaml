@@ -19,6 +19,8 @@
         that IDE chrome and the form/code-editor windows depend on.
     -->
 
+    <SolidColorBrush x:Key="IndentGuideBrush" Color="#E0E0E0" />
+    <SolidColorBrush x:Key="ActiveIndentGuideBrush" Color="#909090" />
     <!-- MDI desktop (Win11 VB6-on-Win11 pixel-sampled: #ABABAB) -->
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.AppWorkspaceBrushKey}"   Color="#ABABAB" />
     <!-- Window / document background (white) -->

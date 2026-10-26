@@ -80,6 +80,7 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private IndentGuideRenderer? _indentGuideRenderer;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
     private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
     private Action? _onExternalDebugChanged;
@@ -322,6 +323,9 @@ public partial class CodeEditorView : UserControl
             // rebuild. (#270)
             OnMarkersChanged(vm.Markers);
 
+            _indentGuideRenderer = new IndentGuideRenderer(TextEditor, vm.Settings);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_indentGuideRenderer);
+
             // Document highlights (background renderer, behind squiggles)
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
@@ -483,6 +487,8 @@ public partial class CodeEditorView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Minimap.Detach();
+        _indentGuideRenderer?.Dispose();
+        _indentGuideRenderer = null;
 
         // PaletteChanged is a static event: a Dock document-move re-materialises this view, so an
         // unremoved handler leaks it for the process lifetime and fires a stale redraw per theme

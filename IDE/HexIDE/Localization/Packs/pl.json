@@ -861,6 +861,7 @@
     "Str.Dock.MaximizeRestore": "Maksymalizuj lub przywróć panel",
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
-    "Str.Dock.ScrollRight": "Przewiń karty w prawo"
+    "Str.Dock.ScrollRight": "Przewiń karty w prawo",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć"
   }
 }
