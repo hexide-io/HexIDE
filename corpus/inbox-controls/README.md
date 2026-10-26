@@ -44,7 +44,7 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 ## `pending/`
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
-controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087). The `.vbp` files beside them are hand-written, as in `input/`.
+controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088). The `.vbp` files beside them are hand-written, as in `input/`.
 
 | Folder | What it is |
 |---|---|
@@ -54,4 +54,5 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
 | `statusbar/` | Two StatusBars: one with four configured panels (a Spring with Key, Tag and ToolTipText, a Date panel, a disabled Caps panel, an invisible Contents panel), and one in Simple style with ShowTips off. The panels' `Object.Width` and `MinWidth` are HIMETRIC (#1087) |
 | `statusbar-picture/` | A StatusBar whose first panel holds a bitmap and second an icon, written by hand and saved again by VB6, which kept the `.frx` byte for byte and put each `Picture` line first in its panel (#1087) |
+| `toolbar/` | Two Toolbars, written by hand and saved by VB6: nine buttons of every Style bound to an ImageList, with a dropdown's ButtonMenus, and a bar with its own properties off their defaults, ShowTips set False in the Properties window and saved as `ToolTips` (#1088). The `.frx` is the ImageList's |
 | `defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |
