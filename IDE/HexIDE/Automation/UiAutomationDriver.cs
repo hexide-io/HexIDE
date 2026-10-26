@@ -3809,16 +3809,14 @@ public static class UiAutomationDriver
     /// </summary>
     private static Control? AnchorOf(Control addressed, Control receiver)
     {
-        if (ReferenceEquals(addressed, receiver) || IsUnder(addressed, receiver))
+        if (ReferenceEquals(addressed, receiver) || IsUnderInView(addressed, receiver))
             return receiver;
         return addressed.GetVisualDescendants().OfType<TextEditor>()
             .FirstOrDefault(e => ReferenceEquals(e.TextArea, receiver));
     }
 
-    // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried here first and answered
-    // false for a window over a control inside it (measured in the headless tests), so it is not relied on.
-    private static bool IsUnder(Visual ancestor, Visual target) => target.GetVisualAncestors().Contains(ancestor);
-
+    // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried first and answered false for a
+    // window over a control inside it (measured in the headless tests), so it is not relied on.
     /// <summary>
     /// Whether <paramref name="target"/> is below <paramref name="ancestor"/> in the control view, which nests an open
     /// popup's content under the control that owns it, as the dump does. On the desktop a flyout's items have a visual
