@@ -312,8 +312,18 @@ public partial class MainViewViewModel : ObservableObject
 
         private IRootDock BuildLayout(LayoutManifest m, IDocumentDock? reuseDocument)
         {
+            var knownStates = new List<ToolLayoutState>();
+            var unknownKeys = new HashSet<string>();
+            foreach (var state in m.Tools)
+            {
+                if (toolsByKey.ContainsKey(state.Key))
+                    knownStates.Add(state);
+                else if (unknownKeys.Add(state.Key))
+                    Log.Warning("DockFactory: Skipping unknown layout tool key {Key}", state.Key);
+            }
+
             List<ToolLayoutState> OpenIn(DockRegion r) =>
-                m.Tools.Where(t => t.Open && t.Region == r).OrderBy(t => t.Order).ToList();
+                knownStates.Where(t => t.Open && t.Region == r).OrderBy(t => t.Order).ToList();
 
             // LEFT — single ToolDock holding the left tool(s) (the toolbox).
             IToolDock? leftDock = null;
