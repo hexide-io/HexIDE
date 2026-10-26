@@ -12,7 +12,8 @@ compared with an earlier one ([#534](https://github.com/hexide-io/HexIDE/issues/
   measured before the first run. The prompt is the task and nothing else.
 - **Tools.** `--allowedTools` names the hexide tools and `Read`, since a snapshot comes back as a path. Claude Code
   still allows its read-only tools without asking, and the models used `Glob`, `Grep` and read-only `Bash` and
-  `PowerShell` to look around an empty directory. None reached anything outside it. A later run should pass
+  `PowerShell` to look around the empty directory, and found nothing there. Opus used `Read` on the project's `.frm`, whose
+  path `get_project_info` gave it, which a caller with `Read` is entitled to. A later run should pass
   `--disallowedTools` for those.
 - **IDE.** A fresh Debug build per run, started with `--newproject` in a profile directory of its own, nothing armed.
 - **Outcome.** One of these:
@@ -44,11 +45,11 @@ Build: main at `d0014388`, as merged for batch 36 with #2044, #2048 and #2049, p
 | Haiku 5.5 | 2 | wrong | 11 | 0 | Added the button, then made the *form* red, reading "its background" as the form's, and said so. |
 | Haiku 5.5 | 3 | reached | 12 | 0 | Set the design-time `Caption`, ran, and called the snapshot blank: it holds no title bar (#2078). |
 | Haiku 5.5 | 4 | reached | 15 | 0 | Options, Editor > General, the check box, OK; reopened the dialog to confirm. |
-| Sonnet 5.5 | 1 | asked | 4 | 0 | As Haiku. |
+| Sonnet 5.5 | 1 | asked | 4 | 0 | `get_diagnostics` said no server had started, and `get_lsp_capture_state` showed no connections; it answered "nothing yet" and offered to open the code. |
 | Sonnet 5.5 | 2 | reached | 8 | 1 | `Style` refused as not found (#913); set `BackColor` and confirmed by snapshot. |
 | Sonnet 5.5 | 3 | reached | 7 | 1 | The failed call was a `PowerShell` listing. Set the `Caption`, ran, and read the title from `activeDialog` (#2078). |
 | Sonnet 5.5 | 4 | reached | 10 | 1 | Tried `Editor/General` as a path, refused without a next step (#2080), then dumped. |
-| Opus 5.5 | 1 | asked | 4 | 0 | As Haiku. |
+| Opus 5.5 | 1 | asked | 4 | 0 | `get_diagnostics`, `get_project_info` and `list_lsp_messages`; it answered as the others did and offered to open the code. |
 | Opus 5.5 | 2 | reached | 10 | 1 | `Style` refused (#913); confirmed by property, snapshot and the saved `.frm`; warned that vb6.exe wouldn't show it red. |
 | Opus 5.5 | 3 | reached | 8 | 0 | Wrote a `Form_Load` setting `Me.Caption`, ran, confirmed from `activeDialog`, stopped. |
 | Opus 5.5 | 4 | reached | 8 | 0 | `match` found nothing on the page not showing (#2032), so it dumped the dialog and found it. |
