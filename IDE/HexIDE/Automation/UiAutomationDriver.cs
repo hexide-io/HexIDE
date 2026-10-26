@@ -3080,6 +3080,11 @@ public static class UiAutomationDriver
             var beforePath = before is null ? "nothing"
                 : (top is Control window ? PathWithin(window, "Window", before) : null)
                   ?? PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
+            // Named before the key goes, as the receiver was when it was pressed: Escape on a flyout's item closes the flyout,
+            // and the item has no path once it has (#2030).
+            var where = ReferenceEquals(target, control)
+                ? string.Empty
+                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
             var focused = target.IsFocused || target.Focus();
             var after = top?.FocusManager?.GetFocusedElement() as Control;
             var focusMove = !ReferenceEquals(before, after)
@@ -3098,9 +3103,6 @@ public static class UiAutomationDriver
             // nothing happens", and in each the answer was that the event went to a control other than the
             // one the caller meant — which the old reply had no way to say.
             var chord = mods == KeyModifiers.None ? string.Empty : mods + "+";
-            var where = ReferenceEquals(target, control)
-                ? string.Empty
-                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
             var changed = partial is not null && deletionArea is not null
                 ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
                   + partial.Left + SelectionState(deletionArea)
