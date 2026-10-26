@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A Const's <c>As</c> type converts its value as a store into a variable of that type does, at module and procedure
 /// level, and a value the type cannot hold is VB6's compile error. Every row was measured with <c>vb6.exe /make</c>, and
-/// run where it built; the probes are in docs/vb6-fidelity-oracle.md, "A Const's As type". HexIDE stored the value as the
+/// run where it built; the probes are in docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md, "A Const's As type". HexIDE stored the value as the
 /// initialiser gave it, whatever the As clause said, and a module array's bounds now trust what a Const holds.
 /// </summary>
 public class ConstAsTypeTests : BaseVBTestFixture

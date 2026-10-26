@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// fractional twip, such as <c>Left = 4192.5</c>, which VB6 never holds.
 /// </summary>
 /// <remarks>
-/// Every expected value here is VB6's, measured in its IDE (docs/vb6-fidelity-oracle.md, "Where the Format commands
+/// Every expected value here is VB6's, measured in its IDE (docs/vb6-fidelity-oracle/where-the-format-commands-put-a-control.md, "Where the Format commands
 /// put a control"). VB6 works in whole twips and halves each size on its own, truncating: Center in Form gives
 /// ScaleWidth\2 - Width\2, Align Centers gives the reference's Left + its Width\2 - the control's Width\2, and Make
 /// Equal spacing truncates the gap and leaves the last control where it was. Each case is one where the exact answer is
@@ -195,7 +195,7 @@ public class FormatCommandTwipsTests
     }
 
     // Each control VB6 added by a double-click on its tool, on a 6000 x 4500 form with the 120-twip grid, as it saved it
-    // (docs/vb6-fidelity-oracle.md, "The size of a control added from the toolbox"): its own size, centred by that size,
+    // (docs/vb6-fidelity-oracle/the-size-of-a-control-added-from-the-toolbox.md, "The size of a control added from the toolbox"): its own size, centred by that size,
     // then on the grid.
     [AvaloniaTheory]
     [InlineData("CommandButton", "1215", "495", "2400", "2040")]

@@ -920,28 +920,34 @@ public static class UiAutomationDriver
         var was = Safe<ToggleState?>(() => toggle.ToggleState, null);
         toggle.Toggle();
         if (inProgram)
-            return Ok($"toggled '{label}'") with { Settled = () => Moved("the program") };
-        return Safe<ToggleState?>(() => toggle.ToggleState, null) is null || was is null
+            return Ok($"toggled '{label}'") with
+            {
+                Settled = () => ToggleMoved(was, Safe<ToggleState?>(() => toggle.ToggleState, null), radio, "the program"),
+            };
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        return now is null || was is null
             ? Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
                   + "Dump it to see")
-            : Ok($"toggled '{label}'{Moved("its handler or a binding")}");
-
-        string Moved(string who) => (was, Safe<ToggleState?>(() => toggle.ToggleState, null)) switch
-        {
-            (null, _) or (_, null) => ", but whether it moved could not be read back",
-            var (from, to) when from != to => $": it is now {Words(to.Value)}",
-            (_, var to) => radio
-                ? $", and it is still {Words(to!.Value)}: a click does not turn a radio button off; select another to"
-                : $", but {who} put it back: it is still {Words(to!.Value)}",
-        };
-
-        static string Words(ToggleState state) => state switch
-        {
-            ToggleState.On => "on",
-            ToggleState.Off => "off",
-            _ => "neither on nor off",
-        };
+            : Ok($"toggled '{label}'{ToggleMoved(was, now, radio, "its handler or a binding")}");
     }
+
+    /// <summary>The clause a toggle's reply ends with: the state it moved to, or that it stayed, and why.</summary>
+    private static string ToggleMoved(ToggleState? was, ToggleState? now, bool radio, string who) => (was, now) switch
+    {
+        (null, _) or (_, null) => ", but whether it moved could not be read back",
+        var (from, to) when from != to => $": it is now {ToggleWords(to.Value)}",
+        // Only a radio button left on was not turned off by a click; one left off was turned on and put back (#2050 review).
+        (_, var to) => radio && to == ToggleState.On
+            ? $", and it is still {ToggleWords(to!.Value)}: a click does not turn a radio button off; select another to"
+            : $", but {who} put it back: it is still {ToggleWords(to!.Value)}",
+    };
+
+    private static string ToggleWords(ToggleState state) => state switch
+    {
+        ToggleState.On => "on",
+        ToggleState.Off => "off",
+        _ => "neither on nor off",
+    };
 
     /// <summary>
     /// The reply to an expand or collapse sent through <paramref name="provider"/>, from its state read back. A
@@ -1034,7 +1040,7 @@ public static class UiAutomationDriver
         if (window.OwnedWindows.FirstOrDefault(w => w.IsDialog && w.IsVisible) is { } over)
         {
             OpenDialogs.NamedInReply(over);
-            return Err($"'{title}' has a dialog open over it, '{TitleOf(over)}', and takes no close until that is "
+            return Err($"'{title}' has a dialog open over it, {OpenDialogs.DescriptionOf(over)}, and takes no close until that is "
                        + "answered, as a person finds; nothing was done. Answer or close that dialog first");
         }
         if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
@@ -1135,7 +1141,7 @@ public static class UiAutomationDriver
         // Only where a row has no container: the item count holds the hidden rows too, so comparing it with the rows that
         // show sent every miss in a list with a hidden row here, to scroll nothing and say it had (#1256).
         if (matches.Count == 0 && control is ListBox virtualized
-            && Enumerable.Range(0, virtualized.ItemCount).Any(i => virtualized.ContainerFromIndex(i) is null))
+            && Enumerable.Range(0, virtualized.ItemCount).Any(i => OutOfView(virtualized, i)))
         {
             HashSet<int> hidden = [.. hiddenRows.Select(r => virtualized.IndexFromContainer(r.Control)).Where(i => i >= 0)];
             (matches, facet, broughtIntoView, var hiddenRefusal) = MatchAmongUnrealized(virtualized, value, hidden);
@@ -1256,7 +1262,7 @@ public static class UiAutomationDriver
         string? hiddenRefusal = null;
         for (var index = 0; index < list.ItemCount; index++)
         {
-            if (list.ContainerFromIndex(index) is not null) continue;
+            if (!OutOfView(list, index)) continue;
             list.ScrollIntoView(index);
             list.UpdateLayout();
             var rows = SelectableCandidates(list);
@@ -1277,6 +1283,10 @@ public static class UiAutomationDriver
         }
         return ([], "", false, hiddenRefusal);
     }
+
+    // A row with no container, or one held out of view, which the walk leaves out (#1981): either is scrolled to to be seen.
+    private static bool OutOfView(ListBox list, int index) =>
+        list.ContainerFromIndex(index) is not { } row || HeldOutOfView(row);
 
     // What a miss says of the rows left out as not showing.
     private static string HiddenNote(int count) => count switch
@@ -1586,7 +1596,8 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
-    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. Every other action is
+    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. A <c>toggle</c> reads its
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -1597,6 +1608,8 @@ public static class UiAutomationDriver
     /// </remarks>
     public static async Task<InteractOutcome> InteractAsync(Control control, string action, string? value, TimeSpan? frameWait = null)
     {
+        if (string.Equals(Normalise(action), "toggle", StringComparison.Ordinal))
+            return await ToggleSettledAsync(control, action, value);
         if (!string.Equals(Normalise(action), "click", StringComparison.Ordinal))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
@@ -1610,6 +1623,52 @@ public static class UiAutomationDriver
             };
         return outcome;
     }
+
+    /// <summary>
+    /// A toggle, replied to with its state once the work it set off has run. Its own read comes straight after it, so a
+    /// refusal that put the box back from a posted callback, as a binding's write does, was reported as done (#2050). On
+    /// the IDE's own windows the state is read again once the dispatcher has run what is queued ahead of Background; a
+    /// running form's is read by the wait for its program. A dialog the toggle opened may still change it, so the reply
+    /// says so.
+    /// </summary>
+    private static async Task<InteractOutcome> ToggleSettledAsync(Control control, string action, string? value)
+    {
+        var peer = Safe<AutomationPeer?>(() => ControlAutomationPeer.CreatePeerForElement(control), null);
+        var toggle = peer is null ? null : Safe<IToggleProvider?>(() => peer.GetProvider<IToggleProvider>(), null);
+        var before = toggle is null ? null : Safe<ToggleState?>(() => toggle.ToggleState, null);
+        // Named before the toggle, as invoke names its target (#578): what the toggle sets off may close its window, or
+        // change a caption that follows the state.
+        var label = peer is null ? null : LabelOf(control, peer);
+        // Known by what they show, as typing knows them (#1257): a MsgBox whose form hides moves to a window of its own.
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (toggle is null || before is null || InProgram(control) || outcome is not { Success: true, Settled: null })
+            return outcome;
+
+        // Bounded: a program that keeps the dispatcher busy above Background would otherwise hold the reply for as long as
+        // it runs, and an earlier read is better than none.
+        var settled = Avalonia.Threading.Dispatcher.UIThread
+            .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+        var ran = await Task.WhenAny(settled, Task.Delay(ToggleSettleWait)) == settled;
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        if (now is null)
+            return Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
+                       + "Dump it to see");
+        var opened = OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
+        return outcome with
+        {
+            Detail = $"toggled '{label}'"
+                     + ToggleMoved(before, now, control is RadioButton, "its handler or a binding")
+                     + (ran ? "" : $"; read before the work it set off had finished, which took longer than "
+                                   + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms")
+                     + (opened ? "; a dialog opened during this call, which modalDialog names, and the state may change "
+                                 + "again once it is answered" : ""),
+        };
+    }
+
+    /// <summary>How long a toggle's reply waits for the work it set off before reading its state anyway.</summary>
+    public static readonly TimeSpan ToggleSettleWait = TimeSpan.FromSeconds(2);
 
     /// <summary>Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.</summary>
     public static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
@@ -1735,7 +1794,11 @@ public static class UiAutomationDriver
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,
-                        Title = dialog?.Title,
+                        // What it is, as the note says it: the title alone is 'HexIDE' for two of the IDE's dialogs (#1975).
+                        Description = dialog is null ? null : OpenDialogs.DescriptionOf(dialog),
+                        // A MsgBox builds its text and buttons once it has loaded, after it shows, so a poll that sees it
+                        // first waits for the next one rather than describe an empty box (#1975 review).
+                        Built = dialog?.Content is not Control { IsLoaded: false },
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
                         Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
                         Opened = OpenedForms(watch),
@@ -1768,14 +1831,14 @@ public static class UiAutomationDriver
                 };
             // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
             // goes now. Worded to hold for a window that is not modal too, such as a form the handler showed.
-            if (state.Dialog is { } dialog)
+            if (state.Dialog is { } dialog && state.Built)
             {
                 // Named here, so the reply's note of open dialogs leaves it out (#1253).
                 OpenDialogs.NamedInReply(dialog);
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
-                             + "its form, " + (string.IsNullOrEmpty(state.Title) ? "with no title" : $"'{state.Title}'")
+                             + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
                              + $"{opened})",
@@ -2308,7 +2371,7 @@ public static class UiAutomationDriver
                 && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem)
                 // A row a list has let go of, as scrolling leaves a recycled one holding the last item it showed: it
                 // stood in for that item, so a select refused it, or found it twice (#1256 review).
-                && !Released(c))
+                && !Released(c) && !HeldOutOfView(c))
             {
                 result.Add(new MeaningfulChild(c, info));
             }
@@ -2326,8 +2389,23 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
+    // A row a virtualizing list keeps though it is scrolled out of view: the list's tab-once row, the one a Tab into the list
+    // lands on, which selecting a row makes it. The panel keeps it for that Tab, apart from the rows it has realized for
+    // the view, and arranges it where it would be, outside the view, so no person sees it: it is left out as rows out of
+    // view are. Its index is real, so Released keeps it. Told by membership, not geometry: a hidden row's bounds are stale,
+    // and the held row's place is an estimate (#1981 review). Kept while focus is in it, a person's keys going there, or
+    // while a dropdown it holds is open, which is on screen (#1981).
+    private static bool HeldOutOfView(Control c) =>
+        c is ListBoxItem or TreeViewItem or TabItem
+        && c.GetVisualParent() is VirtualizingPanel { IsItemsHost: true }
+        && !c.IsKeyboardFocusWithin
+        && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
+        && owner.IndexFromContainer(c) >= 0
+        && !owner.GetRealizedContainers().Contains(c)
+        && !c.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen);
+
     private static bool InReleasedRow(Control c) =>
-        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(r => Released(r) || HeldOutOfView(r));
 
     private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
 
@@ -2761,7 +2839,7 @@ public static class UiAutomationDriver
                         : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
                         $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"'{TitleOf(dialog)}' opened {where}, and a person's next key would go to it. Answer it, then "
+                        + $"{OpenDialogs.DescriptionOf(dialog)} opened {where}, and a person's next key would go to it. Answer it, then "
                         + "send the rest");
                 }
             }
@@ -2973,7 +3051,7 @@ public static class UiAutomationDriver
             return null;
         foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
             OpenDialogs.NamedInReply(dialog);
-        return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
+        return $"{OpenDialogs.DescriptionOf(holding)}, a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
             + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
             + "'window' set to its title shows it, and interact answers it";
     }
@@ -3951,7 +4029,7 @@ public static class UiAutomationDriver
             }
             // A row its list has let go of is no row of it, though it still shows the item it last held: listed, it was a
             // second copy of an item, or a row for one out of view, and a path to it reached a row no person sees (#1292).
-            else if (v is Control released && Released(released))
+            else if (v is Control released && (Released(released) || HeldOutOfView(released)))
             {
             }
             else if (v is Control c)
@@ -4087,7 +4165,7 @@ public static class UiAutomationDriver
                     foreach (var d in Descendants(content)) yield return d;
             }
             // As the control-view walk leaves it out: a released row reached by its id was the row the dump no longer lists (#1292 review).
-            else if (v is Control released && Released(released))
+            else if (v is Control released && (Released(released) || HeldOutOfView(released)))
             {
             }
             else if (v is Control c)

@@ -368,8 +368,26 @@ public partial class VB6BuiltIns
     /// <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
         => VB6InBoxLibraries.TryBare(name, out constant)
-           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant));
+           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant))
+           || TryControlLibraryConstant(name, out constant);
 
     /// <summary>Whether the project references the CommonDialog control, whose constants then resolve (#1084).</summary>
     internal bool CommonDialogReferenced { get; set; }
+
+    /// <summary>
+    /// The in-box control libraries the project references, in its order (#1082). Their constants resolve as the
+    /// CommonDialog's do, after the four in-box libraries, and only while the project references the library: a bare
+    /// <c>ccScrollingSmooth</c> without MSCOMCTL.OCX is an undeclared variable, as in VB6. The 5.0 and 6.0 libraries
+    /// declare their 152 shared names with the same values in the same enums (measured), so their order never changes a value.
+    /// </summary>
+    internal IReadOnlyList<Components.InBox.ControlLibrary> ControlLibraries { get; set; } = [];
+
+    private bool TryControlLibraryConstant(string name, out Vb6Value constant)
+    {
+        foreach (var library in ControlLibraries)
+            if (library.TryBare(name, out constant))
+                return true;
+        constant = default;
+        return false;
+    }
 }

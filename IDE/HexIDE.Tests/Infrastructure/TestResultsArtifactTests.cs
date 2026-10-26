@@ -18,7 +18,7 @@ public class TestResultsArtifactTests
 
         var uploads = Regex.Matches(body, @"(?ms)^      - name: [^\n]*\n.*?(?=^      - |\z)")
             .Select(match => match.Value)
-            .Where(step => step.Contains("uses: actions/upload-artifact@v4\n", StringComparison.Ordinal))
+            .Where(step => step.Contains("uses: actions/upload-artifact@", StringComparison.Ordinal))
             .ToArray();
         uploads.Should().ContainSingle("each test job must preserve its host's logs when a test crashes (#1309)");
         var upload = uploads[0];

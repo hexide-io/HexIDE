@@ -16,6 +16,7 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly ConcurrentDictionary<string, JsonElement> _progressTokens = new();
     private readonly SemaphoreSlim _changeGate = new(1, 1);
     // What each source currently says about each document. This connection's server is one source; an
     // external compiler injecting through this client is another, and neither may erase the other.
@@ -66,6 +67,7 @@ public sealed class VBLspClient : ILspClient
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
+    public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
     public event EventHandler<LogTraceParams>? TraceReceived;
     public event EventHandler? StateChanged;
@@ -435,6 +437,7 @@ public sealed class VBLspClient : ILspClient
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
     {
         _initializeAnswered = false;
+        ClearProgress();
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
@@ -559,7 +562,9 @@ public sealed class VBLspClient : ILspClient
                     FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true)),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
-                    WorkspaceFolders: true)));
+                    WorkspaceFolders: true),
+                // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
+                Window: new WindowClientCapabilities()));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -1380,7 +1385,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        RequestCompletionAsync(uri, position, cancellationToken, static () => { });
+
+    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
+        CancellationToken cancellationToken, Action onAnswer)
     {
         if (_rpc is null || !_initialized || !CanServe("completionProvider")) return [];
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
@@ -1388,6 +1397,7 @@ public sealed class VBLspClient : ILspClient
         {
             var result = await InvokeRequestAsync<CompletionList?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            onAnswer();
             return result?.Items ?? [];
         }
         catch (Exception ex)
@@ -1724,8 +1734,12 @@ public sealed class VBLspClient : ILspClient
         return [.. symbols];
     }
 
+    /// <summary>How long stopping waits on a server, once for the answer to <c>shutdown</c> and once for <c>exit</c> to go out.</summary>
+    internal static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
+
     public async Task StopAsync()
     {
+        ClearProgress();
         _stopping = true;
         // Safe even if the reconnect loop already disposed the CTS in its finally.
         try { _reconnectCts?.Cancel(); } catch (ObjectDisposedException) { }
@@ -1755,10 +1769,13 @@ public sealed class VBLspClient : ILspClient
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
             {
-                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: TimeSpan.FromSeconds(2));
+                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: ShutdownTimeout);
             }
             catch { }
-            try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
+            // Bounded too (#1221). A server that has stopped reading fills the pipe, so the write ahead of this one
+            // never finishes and exit queues behind it for good. The shutdown deadline above does not cover that: it
+            // ends the wait for an answer, not the send. Disposing the connection below ends the stuck writes.
+            try { await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout); } catch { }
         }
         DisposeRpc();
 
@@ -1821,6 +1838,13 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     internal void RaisePublishDiagnostics(string owner, PublishDiagnosticsParams p) =>
         DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, owner, p.Diagnostics));
+
+    private void ClearProgress()
+    {
+        foreach (var key in _progressTokens.Keys)
+            if (_progressTokens.TryRemove(key, out var token))
+                ProgressReceived?.Invoke(this, new ProgressParams(token, new WorkDoneProgressValue("end")));
+    }
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
     internal void RaiseMessageLogged(LogMessageParams p) => MessageLogged?.Invoke(this, p);
@@ -1938,6 +1962,38 @@ public sealed class VBLspClient : ILspClient
         {
             _client._logger.LogDebug("[{Language} server trace] {Message}", _client._languageId, p.Message);
             _client.RaiseTraceReceived(p);
+        }
+
+        [JsonRpcMethod("window/workDoneProgress/create", UseSingleObjectParameterDeserialization = true)]
+        public void OnWorkDoneProgressCreate(WorkDoneProgressCreateParams p)
+        {
+            if (p.Token.ValueKind is JsonValueKind.String or JsonValueKind.Number)
+                _client._progressTokens.TryAdd(p.Token.ValueKind + ":" + p.Token.ToString(), p.Token);
+        }
+
+        // Measured with StreamJsonRpc 2.24.92: its reserved IProgress marshalling falls back to
+        // this target for both string and integer tokens. No custom formatter is needed (#360).
+        [JsonRpcMethod("$/progress", UseSingleObjectParameterDeserialization = true)]
+        public void OnProgress(ProgressParams p)
+        {
+            if (p.Token.ValueKind is not (JsonValueKind.String or JsonValueKind.Number)) return;
+            var key = p.Token.ValueKind + ":" + p.Token.ToString();
+            switch (p.Value.Kind)
+            {
+                case "begin":
+                    // rumdl sends begin without create, even when support was not advertised.
+                    _client._progressTokens[key] = p.Token;
+                    break;
+                case "report":
+                    if (!_client._progressTokens.ContainsKey(key)) return;
+                    break;
+                case "end":
+                    if (!_client._progressTokens.TryRemove(key, out _)) return;
+                    break;
+                default:
+                    return; // Other $/progress payloads (e.g. partial results) are not work-done progress.
+            }
+            _client.ProgressReceived?.Invoke(_client, p);
         }
 
         /// <summary>
@@ -2215,6 +2271,11 @@ public sealed class VBLspClient : ILspClient
         WarnUnavailableOnce("experimental." + capabilityName);
         return false;
     }
+
+    /// <summary>Records an answer discarded by the registry's completion budget.</summary>
+    public void NoteLateCompletion() =>
+        Note(ConversationDirection.Local, ConversationEntryKind.Note, "textDocument/completion",
+            "answered after the popup opened; completion discarded");
 
     /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
     public void NotePrioritySkip(string capabilityName, string winnerId)

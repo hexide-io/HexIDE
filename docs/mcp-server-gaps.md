@@ -432,6 +432,46 @@ that change.
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
 
+
+
+## The code window's gutters are not in the control tree, so a gutter click cannot be driven
+
+**Symptom (2026-10-01, during #273 task 3.12's live check).**
+`dump_visual_tree {"root":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None","interactiveOnly":false,"maxDepth":4}`
+returns the `TextArea` with two children: an empty `ItemsControl` and the hidden `PART_Watermark`. The
+breakpoint gutter, the bookmark gutter and the line-number margin are all absent, because AvaloniaEdit's
+`AbstractMargin` has no automation peer, so `interact` has nothing to click. The task's own named case, a
+click on a folded header, could only be tested headlessly (`MarkGutterOnReadOnlyLineTests`, which raises
+the press on the gutter itself).
+
+**Workaround.** Place the caret with `interact set_property CaretOffset=N` on the code view, then
+`invoke_menu_item Debug/Toggle Breakpoint` or `Edit/Bookmarks/Toggle Bookmark`. That reaches the same
+toggle a gutter click calls, but not the gutter's own mapping from a point to a visual line, which is
+what decides what a click on a folded row marks.
+
+**Suggested fix.** Undecided: a peer on the gutters that `interact` can drive with a line, a `click` action
+on `interact` at a point relative to its target (which would cover other drawn surfaces too), or a
+dedicated tool if the authoring policy justifies one. Filed as
+[#707](https://github.com/hexide-io/HexIDE/issues/707).
+
+**The fold margin is the same (2026-10-02, during #273 task 3.14's live check).**
+`dump_visual_tree {"interactiveOnly":false,"maxDepth":40}` over the whole window has no node whose class is
+`FoldingMargin` or `FoldingMarginMarker`, so a fold cannot be expanded or folded by its marker. The
+`TextEditor` node does report `expandCollapse`, which reads as the answer and is not: `inspect_element` on it
+shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
+`expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
+CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
+folds one again in that build. Since #1014, Edit → Toggle Fold can toggle the innermost section at the caret
+or starting on its row, including a member run beside its procedure fold. This supplies a command workaround;
+it does not address clicking the margin itself. A `click` action on `interact` would cover this margin as well
+as the gutters.
+
+**A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
+the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
+it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
+run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
+run stays folded.
+
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 
 **Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it
@@ -589,19 +629,6 @@ the eventual picker takes it. Prefer the tools that await their save and report 
 pending-answer feedback to document saves. Waiting for dispatcher idle or adding a fixed delay would not establish
 completion. The remaining scope is [#1335](https://github.com/hexide-io/HexIDE/issues/1335).
 
-## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally
-
-**Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
-HTTP endpoint rather than a client's tool call ("a 3840×2054 window came back as a 1568×838 PNG of 75 KB"), and
-says "Not yet run through Claude Code over a tunnel". A raw request shows nothing about what a client does with the
-image block, and a client on another machine receiving the image is what #957 was filed for. Covered headless by
-`InlineSnapshotTests` only.
-
-**Workaround.** Without `inline`, copy the file from the IDE's machine by hand.
-
-**Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
-IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
-
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
 **Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
@@ -625,21 +652,6 @@ reach 5123, and an IDE there serves both, since neither names itself.
 **Suggested fix.** None that needs no setup: telling two unnamed clients apart needs something a client sends
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
-
-## A reply names a waiting dialog only by its title, and two of the IDE's dialogs share one
-
-**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
-dialog appear in a reply's note as `"'HexIDE', a modal dialog over 'Project1 - HexIDE [run]', is open and waits for an
-answer…"`. One holds a `MessageBox` with Yes and No, and the other a `RuntimeErrorView` with Continue, End, Debug and
-Help. Only `dump_visual_tree {"window":"HexIDE","maxDepth":3}` tells them apart, through class names. Separately, the
-only call found that lists the open windows was one naming a window that doesn't exist, `window: "x"`, which is refused
-with the list.
-
-**Workaround.** Dump the dialog before answering it, and read its buttons. Name an unknown window to get the list.
-
-**Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
-windows on request, or say in the `window` description that an unknown name lists them.
-[#1365](https://github.com/hexide-io/HexIDE/issues/1365).
 
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
@@ -754,3 +766,44 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
   `isReadOnly` for the value pattern.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
+
+## `take_snapshot` of a running form leaves out its title bar without saying so
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
+the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
+- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
+- The image is the form's client area, grey and empty, with no title bar.
+- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
+  captured, and took `activeDialog` as the confirmation.
+
+Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
+comes back in a field named `activeDialog`.
+
+**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
+"maxDepth":1}`.
+
+**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
+what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
+
+## The `modalDialog` note lists a dialog's check boxes among its buttons
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** `invoke_menu_item {"path":"Tools/Options"}`
+answered with `"modalDialog":"'Options' (Prompt for project/Reload files changed outside the IDE/Reset All/Restore
+Defaults/OK/Cancel), a modal dialog over 'Project1 - HexIDE [design]', …"`. The first two are check boxes on the page
+showing. They are not answers to the dialog. `OpenDialogs.DescriptionOf` takes every `Button`, and Avalonia's
+`CheckBox` and `RadioButton` derive from it.
+
+**Workaround.** Dump the dialog to see which are buttons.
+
+**Suggested fix.** Leave `ToggleButton`s out of the buttons. [#2079](https://github.com/hexide-io/HexIDE/issues/2079).
+
+## A path not starting with `Window` is refused without saying where paths come from
+
+**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
+snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
+and was refused with `path must start with 'Window' (got 'Editor')`. The refusal is accurate, but it doesn't name
+where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
+
+**Workaround.** `dump_visual_tree` with `match` gives the path.
+
+**Suggested fix.** End every path refusal with that next step. [#2080](https://github.com/hexide-io/HexIDE/issues/2080).

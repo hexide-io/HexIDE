@@ -9,7 +9,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every rule here was measured on vb6.exe under an en-GB locale (<c>docs/vb6-fidelity-oracle.md</c>, "Turning a
+/// Every rule here was measured on vb6.exe under an en-GB locale (<c>docs/vb6-fidelity-oracle/turning-a-number-or-a-date-into-text.md</c>, "Turning a
 /// number or a date into text"). .NET's own <c>ToString()</c> differs in each of them: it writes a Single or Double
 /// in its shortest round-trip form (<c>0.33333334</c>, <c>0.30000000000000004</c>), never switches to E notation
 /// where VB6 does, writes negative zero as <c>-0</c>, keeps a Currency's or Decimal's trailing zeros, and always

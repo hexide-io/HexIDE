@@ -123,6 +123,18 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBPictureBox>();
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
+        // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
+        RegisterTabOrder<VBCommandButton>(tabStop: true);
+        RegisterTabOrder<VBTextBox>(tabStop: true);
+        RegisterTabOrder<VBComboBox>(tabStop: true);
+        RegisterTabOrder<VBListBox>(tabStop: true);
+        RegisterTabOrder<VBCheckBox>(tabStop: true);
+        RegisterTabOrder<VBOptionButton>(tabStop: true);
+        RegisterTabOrder<VBPictureBox>(tabStop: true);
+        RegisterTabOrder<VBScrollBar>(tabStop: true);
+        RegisterTabOrder<VBFrame>(tabStop: false);
+        RegisterTabOrder<VBLabel>(tabStop: false);
+        RegisterTabOrder<VBProgressBar>(tabStop: false);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
         // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
@@ -188,6 +200,13 @@ public static class AvaloniaInteroperability
             return VBColor.Black;
 
         return VBColorAvaloniaExtensions.FromAvaloniaColor(solidColorBrush.Color);
+    }
+
+    private static void RegisterTabOrder<TControl>(bool tabStop) where TControl : Control
+    {
+        Register<TControl, int>(VBProperties.TabIndexProperty, c => TabOrder.Get(c), (c, place) => TabOrder.Set(c, place));
+        if (tabStop)
+            Register<TControl, bool>(VBProperties.TabStopProperty, c => TabOrder.GetTabStop(c), (c, stop) => TabOrder.SetTabStop(c, stop));
     }
 
     private static void RegisterToolTipText<TControl>() where TControl : Control =>
@@ -299,7 +318,7 @@ public static class AvaloniaInteroperability
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Measured on vb6.exe (docs/vb6-fidelity-oracle.md, "Assigning to a control property"). A String property
+    /// Measured on vb6.exe (docs/vb6-fidelity-oracle/assigning-to-a-control-property.md, "Assigning to a control property"). A String property
     /// takes CStr of anything (<c>Label1.Caption = 5</c> is "5", <c>= True</c> is "True", Empty is ""). A numeric
     /// property parses a String and raises 13 when it cannot, and rounds half to even. Null raises 94 everywhere.
     /// Each of these raises before the property changes. That is exactly <see cref="VbNumeric.CoerceOnStore"/>,
@@ -377,10 +396,11 @@ public static class AvaloniaInteroperability
 
         if (type == typeof(int))
         {
-            // ListIndex and a scroll bar's Value are Integers in VB6 (each reads back with TypeName Integer, measured),
-            // so a value past 32767 is Overflow, 6, before any range check: `ListIndex = 40000` is 6, measured. The
-            // rest of the int properties are Longs, `Interval` among them.
-            var integer = ReferenceEquals(property, VBProperties.ListIndexProperty) || ReferenceEquals(property, VBProperties.ValueProperty);
+            // ListIndex, a scroll bar's Value and TabIndex are Integers in VB6 (each reads back with TypeName Integer,
+            // measured), so a value past 32767 is Overflow, 6, before any range check: `ListIndex = 40000` is 6, and so is
+            // `TabIndex = 40000` (#1974). The rest of the int properties are Longs, `Interval` among them.
+            var integer = ReferenceEquals(property, VBProperties.ListIndexProperty) || ReferenceEquals(property, VBProperties.ValueProperty)
+                || ReferenceEquals(property, VBProperties.TabIndexProperty);
             var number = System.Convert.ToInt32(Coerce(value, integer ? Vb6Value.ValueType.Integer : Vb6Value.ValueType.Long));
             if (ReferenceEquals(property, VBProperties.IntervalProperty) && number is < 0 or > 65535)
                 throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);

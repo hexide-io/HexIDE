@@ -72,7 +72,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                + "does not list tool documents (the Object Browser, the connection list, the protocol inspector), "
                + "although they are tabs in the same strip, and 'activeWindow' is null while one of those is in "
                + "front, because no editor is then active. get_document_tabs answers the other question: every tab, "
-               + "with its type and which one is active. The 'note' says which case an empty or null answer is. 'editors' and 'activeEditor' give title, type, project and document; openWindows and activeWindow retain display titles.")]
+               + "with its type and which one is active. The 'note' says which case an empty or null answer is. 'editors' and 'activeEditor' give title, type, project, document and isModified (whether it has unsaved changes); openWindows and activeWindow retain display titles.")]
     public async Task<OpenEditorsResult> GetOpenEditorsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2113,7 +2113,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2138,7 +2138,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset);
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
@@ -2149,7 +2149,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y);
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut));
             if (!inline)
                 return result;
 
@@ -2194,7 +2194,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
+    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, is cut at the most levels down that fit, and the 'note', written first, says where.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -2211,7 +2211,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "false to also see unnamed text and parts, the IDE's and a running form's; on a large form the default "
                      + "keeps nearly everything, so scope it with 'root'. A node cut off by maxDepth is kept, "
                      + "marked \"truncated\", since what lies below it was not looked at; it may turn out to hold "
-                     + "nothing interactive.")]
+                     + "nothing interactive. A node truncated to fit a large tree into the reply, as the 'note' says, "
+                     + "does hold something.")]
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
@@ -2233,7 +2234,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (match is not null && string.IsNullOrWhiteSpace(match))
             return new VisualTreeResult("'match' is empty, which every node would match; omit it for the whole tree.", null, null);
 
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var result = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, label, error) = ResolveActiveWindow(window);
             if (active is null)
@@ -2261,10 +2262,78 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched),
                 focus.FocusedPath, focus.FocusReason);
         });
+        // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
+        if (result is { Root: { } tree, Matches: null })
+        {
+            var (fitted, fitNote) = FitToReply(tree);
+            result = result with { Root = fitted, Note = fitNote };
+        }
+        return result;
     }
 
     // Enough to choose from; past it the caller is told to narrow the text or the root, not handed the whole tree again.
     private const int MatchLimit = 50;
+
+    /// <summary>
+    /// The most characters a dump's tree is given. Claude Code (2.1.310, read from its code) saves an MCP tool's text reply
+    /// over 50,000 characters to a file for the model to read in chunks, counting characters, not tokens. So the first
+    /// call a caller makes, the whole IDE window at 66,000 to 84,000 characters, gave nothing it could read in the reply
+    /// (#1982). This leaves 10,000 for the rest of the reply: the note, focusedPath and any modalDialog.
+    /// </summary>
+    internal const int TreeCharacterBudget = 40_000;
+
+    /// <summary>
+    /// The tree as it is when it fits <see cref="TreeCharacterBudget"/>; otherwise cut at the most levels down that fit, or
+    /// at one, with a note that says how large it was, where it was cut and how to see the rest.
+    /// </summary>
+    internal static (UiNode Tree, string? Note) FitToReply(UiNode tree)
+    {
+        var full = SizeOf(tree);
+        if (full <= TreeCharacterBudget)
+            return (tree, null);
+
+        static string N(int n) => n.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+        var deepest = DepthOf(tree);
+        // Only one level below it, so there is no level to cut: it is its children that are many.
+        if (deepest <= 1)
+            return (tree, $"The tree is about {N(full)} characters, more than some clients take inline in a reply, though it "
+                          + "goes only one level down, since this node has many children: scope it with 'root', or use "
+                          + "'match' to find a control by its name or type.");
+
+        // A tree's size grows with every level kept, so the most levels that fit are found by halving.
+        var (low, high) = (1, deepest - 1);
+        var (cut, size) = (CutAt(tree, 1), 0);
+        size = SizeOf(cut);
+        while (low < high)
+        {
+            var mid = (low + high + 1) / 2;
+            var candidate = CutAt(tree, mid);
+            var candidateSize = SizeOf(candidate);
+            if (candidateSize <= TreeCharacterBudget)
+                (low, cut, size) = (mid, candidate, candidateSize);
+            else
+                high = mid - 1;
+        }
+
+        var note = $"This tree is about {N(full)} characters, more than some clients take inline in a reply, so it was "
+                   + $"cut {low} level{(low == 1 ? "" : "s")} down, about {N(size)} characters. A node marked \"truncated\" "
+                   + "holds more: dump again with its path as 'root' to see below it, or use 'match' to find a control by "
+                   + "its name or type.";
+        if (size > TreeCharacterBudget)
+            note += " It is still over the limit one level down, since this node has many children: scope it with 'root'.";
+        return (cut, note);
+    }
+
+    private static int SizeOf(UiNode tree) => System.Text.Json.JsonSerializer.Serialize(tree, ReplyJson.Options).Length;
+
+    private static int DepthOf(UiNode node) => node.Children.Length == 0 ? 0 : 1 + node.Children.Max(DepthOf);
+
+    // Keeps 'levels' levels below the node, and marks a node whose children are cut away truncated. Not the same as a
+    // dump with that maxDepth under interactiveOnly, which also keeps a node at the cut-off whose children it never
+    // looked at: here they were looked at, so a branch with nothing interactive is already gone (#1982 review).
+    private static UiNode CutAt(UiNode node, int levels) => levels == 0
+        ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
+        : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
 
     private static string MatchNote(string match, int total, int unsearched)
     {
@@ -2604,6 +2673,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         return window.Content?.GetType().Name is { Length: > 0 } content ? content : "Dialog";
     }
 
+    /// <summary>
+    /// What a snapshot left out and why, or null when it drew every open popup: a popup reported on no screen, or so far
+    /// from the window that both would not fit one image, which threw an unhandled "Positive number required" (#1960).
+    /// </summary>
+    internal static string? LeftOutNote(IReadOnlyList<HexIDE.Automation.SnapshotComposer.LeftOutPopup> leftOut) =>
+        leftOut.Count == 0 ? null
+            : $"Left out of this image: {string.Join("; ", leftOut.Select(p =>
+                $"a {p.Kind} popup reported at screen pixels ({p.Rect.X}, {p.Rect.Y}), {p.Rect.Width} × {p.Rect.Height}, {p.Reason}"))}. "
+              + "The window and every other open popup are drawn, and dump_visual_tree still lists a left-out popup's controls.";
+
     /// <summary>A document tab's kind, as get_document_tabs reports it.</summary>
     private static string TabType(object tab) => tab switch
     {
@@ -2614,9 +2693,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     private DocumentTabInfo TabInfo(Dock.Model.Core.IDockable tab)
     {
-        var document = (tab as BaseEditorWindowViewModel)?.OpenDocument;
+        var editor = tab as BaseEditorWindowViewModel;
+        var document = editor?.OpenDocument;
+        // IsModified is what the tab's `*` is drawn from (#1797), and the title leaves the `*` out (#1945). A tool tab
+        // or a read-only view holds nothing to save, so it reports nothing rather than a false that reads as "saved".
         return new DocumentTabInfo(tab.Title ?? "", TabType(tab),
-            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab), document?.Project.Name, document?.Name);
+            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab), document?.Project.Name, document?.Name,
+            editor is { CanHoldUnsavedChanges: true } ? editor.IsModified : null);
     }
 
     /// <summary>
@@ -2635,7 +2718,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab in the document region with its title, type, project, document and whether it is the active one. Project and document name the editor's source; tool tabs have neither. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
+    [Description("Returns EVERY tab in the document region with its title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form or module's source, and only such a tab has them. isModified is absent where nothing can be saved: a tool tab, and the read-only project and archive views. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -3197,7 +3280,7 @@ internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
-    int? WindowOffsetX = null, int? WindowOffsetY = null);
+    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,
@@ -3283,7 +3366,8 @@ internal record ToolWindowsResult(ToolWindowInfo[] Tools);
 
 internal record DocumentTabsResult(DocumentTabInfo[] Tabs);
 
-internal record DocumentTabInfo(string Title, string Type, bool IsActive, string? Project = null, string? Document = null);
+internal record DocumentTabInfo(string Title, string Type, bool IsActive, string? Project = null, string? Document = null,
+    bool? IsModified = null);
 
 internal record UndoStateResult(
     string ActiveEditorKind,
@@ -3354,7 +3438,10 @@ internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int
 /// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>
 internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note);
 
-internal record VisualTreeResult(string? Error, string? Window, UiNode? Root, UiNode[]? Matches = null, string? Note = null,
+// The note is written first: a client that cuts or previews a long reply keeps its start, and the note says how to
+// narrow it (#1982 review).
+internal record VisualTreeResult(string? Error, string? Window, UiNode? Root, UiNode[]? Matches = null,
+    [property: System.Text.Json.Serialization.JsonPropertyOrder(-1)] string? Note = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
     string? FocusedPath = null, string? FocusReason = null);
 

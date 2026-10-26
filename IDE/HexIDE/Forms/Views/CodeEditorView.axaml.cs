@@ -1221,6 +1221,26 @@ public partial class CodeEditorView : UserControl
         _ = ShowHoverAsync(vm, lspPos, _hoverCts.Token);
     }
 
+    public void ToggleFold()
+    {
+        if (_foldingManager is null) return;
+        var caret = TextEditor.TextArea.Caret;
+        var line = TextEditor.Document.GetLineByNumber(caret.Line);
+        FoldingSection? target = null;
+        foreach (var section in _foldingManager.AllFoldings)
+        {
+            if (!(section.StartOffset <= caret.Offset && caret.Offset <= section.EndOffset) &&
+                !(line.Offset <= section.StartOffset && section.StartOffset <= line.EndOffset)) continue;
+            if (target is null || section.StartOffset > target.StartOffset ||
+                (section.StartOffset == target.StartOffset && section.EndOffset < target.EndOffset))
+                target = section;
+        }
+        if (target is null) return;
+        if (!target.IsFolded && target.StartOffset < caret.Offset && caret.Offset < target.EndOffset)
+            caret.Offset = target.StartOffset;
+        target.IsFolded = !target.IsFolded;
+    }
+
     // ── Bookmarks ─────────────────────────────────────────────────────────────
 
     public void ToggleBookmark()
@@ -1528,6 +1548,8 @@ public partial class CodeEditorView : UserControl
         // Trigger completion on any letter (start/continuation of a word)
         if (char.IsLetter(ch))
             TriggerCompletionAsync();
+        else if (DataContext is CodeEditorViewModel vm && vm.CompletionTriggerCharacters.Contains(e.Text))
+            TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
             TriggerSignatureHelpAsync();
@@ -2051,7 +2073,7 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
-    private void TriggerCompletionAsync()
+    private void TriggerCompletionAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
@@ -2063,14 +2085,17 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter);
     }
 
-    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
+        string? triggerCharacter)
     {
         try
         {
-            var items = await vm.RequestCompletionAsync(position, token);
+            var items = triggerCharacter is null
+                ? await vm.RequestCompletionAsync(position, token)
+                : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
             if (token.IsCancellationRequested || items.Length == 0) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

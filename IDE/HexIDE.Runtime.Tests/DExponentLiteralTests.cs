@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// D is an exponent marker in a numeric literal, as E is, in either case (#1611). Measured on vb6.exe, native and p-code
-/// alike, one /make project per literal, with the probe in docs/vb6-fidelity-oracle.md, "A D exponent in a source
+/// alike, one /make project per literal, with the probe in docs/vb6-fidelity-oracle/a-d-exponent-in-a-source-literal.md, "A D exponent in a source
 /// literal". Each expected line is what vb6.exe logged for `L "lit: " & TypeName(lit) & " " & CStr(lit)`. Neither of
 /// HexIDE's grammars lexed a D exponent in a whole number, so `x = 1D3` failed to load.
 /// </summary>

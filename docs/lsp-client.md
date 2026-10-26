@@ -65,7 +65,8 @@ HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport kills any remaining child and waits up to two seconds for termination before
 disposing its process handle.
 
-**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
+**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
+progress below), plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
 Both map Error to Error, Warning to Warning, Info and Log (types 3 and 4) to Information, and
 3.18 Debug (type 5) and unknown values to Trace. Type 4 therefore reaches the default log;
@@ -81,7 +82,8 @@ negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
-`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again. Everything
+`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again — plus
+`window/workDoneProgress/create`, which registers a progress token and succeeds. Everything
 else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
 silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
 taken here. A server awaiting a reply it never gets hangs rather than degrading, which is invisible until
@@ -97,6 +99,22 @@ the client asks again.
 
 ---
 
+### Work-done progress
+
+The client declares `window.workDoneProgress: true`, accepts `window/workDoneProgress/create` with
+string or integer tokens and replies with a null result. `$/progress` begin/report/end updates the
+status bar through `LanguageServerMessageReporter`. Begin without create is accepted (measured with
+rumdl 0.2.64 in #360).
+Report retains omitted title, message and percentage; end clears immediately, or restores another active
+task. Tokens are scoped to each server, and disconnect ends its outstanding tasks. An end does not erase
+a later status message from another IDE operation. Server text uses the reporter's whitespace flattening
+and 200-character cap, with a localized prefix. Cancellation and partial-result progress remain unwired.
+
+StreamJsonRpc 2.24.92 reserves `$/progress` for `IProgress<T>`, but measured dispatch falls back to the
+ordinary target for both string and integer tokens; no custom formatter is needed. The foreign Markdown
+test records inbound method names during a workspace session and checks that progress reaches subscribers
+too (#360). The current rumdl fixture indexes only with a workspace root, so the test supplies one.
+
 ## Request failure logging
 
 A failed request returns an empty or absent result and warns once per method per connection; further
@@ -111,6 +129,16 @@ For language operations, a deadline returns the request's empty or absent result
 an answer. Cancellation sends `$/cancelRequest` best effort; returning never depends on its acknowledgement.
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
+
+Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
+answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
+has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
+it for good. Then the connection is disposed, which ends the stuck writes (#1221).
+
+`FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
+reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
+requests the client does not support. Each scenario asserts what a user would see. It is an in-process
+server over raw frames, so it proves nothing about interoperability: that stays with the foreign servers.
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
@@ -714,6 +742,15 @@ advertises the capability supplies the single answer (registration order breaks 
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
 
+Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
+It returns when all answers arrive or that budget expires, taking only answers received in time. Items
+with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
+order breaking ties; its detail and insertion text stay intact. Advertised trigger characters are unioned
+for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
+route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
+`textDocument/completion` inspector note record that it was answered after the popup opened. The
+underlying request keeps its normal cancellation and 30-second deadline.
+
 Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
 Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
 Use synthetic paths outside a user profile in fixtures. Windows clone roots under `Repos` warn
@@ -807,7 +844,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 29 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 31 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -901,7 +938,7 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 2 of 6
+### `window/*` — 3 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -909,8 +946,8 @@ than inferred.
 | ○ | `window/showDocument` | ← |  |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ○ | `window/showMessageRequest` | ← |  |
-| ○ | `window/workDoneProgress/cancel` | → |  |
-| ○ | `window/workDoneProgress/create` | ← |  |
+| ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
+| ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
 ### `client/*` — 0 of 2
 
@@ -919,13 +956,13 @@ than inferred.
 | ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
 | ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
 
-### `$/*` — 2 of 4
+### `$/*` — 3 of 4
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `$/cancelRequest` | ↔ | Cancelling a token sends `$/cancelRequest` with the original request’s bare numeric or string `id` (#944), so a server can stop abandoned work. **Cancelling does not unblock the client’s await**: it still waits for the server to answer, as measured in [#231](https://github.com/hexide-io/HexIDE/issues/231) / [PR #291](https://github.com/hexide-io/HexIDE/pull/291). |
 | ✅ | `$/logTrace` | ← | Raised as an event and logged. A server's own account of its reasoning, which a wire capture cannot reconstruct |
-| ○ | `$/progress` | ↔ |  |
+| ◐ | `$/progress` | ↔ | Work-done begin/report/end in the status bar; no partial results |
 | ✅ | `$/setTrace` | → | Changes the level on a running server. A notification, so **no server ever confirms it**, and the protocol defines no capability for asking |
 
 ### `notebookDocument/*` — 0 of 4
@@ -1023,7 +1060,7 @@ Three clusters account for nearly all of the gap:
   everything that keeps that model live or reacts to it: file-operation notifications, watched files,
   configuration round-trips, and `didChangeWorkspaceFolders` for a group whose membership changes while a
   server is running ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
-- **Server-to-client courtesy** — `window/*` and `client/*` are 2 of 8 between them. The two that landed
+- **Server-to-client courtesy** — `window/*` and `client/*` are 3 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
@@ -1081,3 +1118,23 @@ all three would be confidently wrong two-thirds of the time.
 ---
 
 *The behaviour contracts live under [`openspec/specs/lsp-client/`](../openspec/specs/lsp-client/spec.md).*
+
+### Workspace artefact generation
+
+Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
+The client prepares it before launching the server, once per workspace project, behind the
+`IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
+per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
+failure note on that server’s connection in the protocol inspector. Notes name only the configured
+workspace-relative artefact path and exception type; absolute targets and exception messages stay in
+the application log so conversation exports do not expose workspace locations. Writes use a temporary file in the
+same directory and atomically replace the owned target, with ownership checked under a lock. Identical
+bytes skip the write, preserving the timestamp and avoiding needless server watcher work. A provider with nothing to
+describe returns null: nothing is prompted or written, and a target HexIDE still owns is deleted under the same
+confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
+content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
+
+This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
+#456; there is no `.rdproj` provider in phase 1, no public add-in contract (#457), no undeclared generation,
+no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).

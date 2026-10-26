@@ -635,6 +635,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
+        BuiltIns.ControlLibraries = info.ControlLibraries ?? [];
         BuiltIns.CommandLine = info.CommandLine;
     }
 
@@ -1518,13 +1519,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             && TryResolveEnum(name, from, out _);
     }
 
-    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer }
+    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer, ControlLibrary, ControlLibraryContainer }
 
     /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
     /// <see cref="QualifierKind.InBoxContainer"/>, the library or enum/module name as VB6 declares it —
     /// these levels SELECT rather than being stepped over, so the name has to survive classification.</param>
+    /// <param name="ControlLibrary">For <see cref="QualifierKind.ControlLibrary"/> and
+    /// <see cref="QualifierKind.ControlLibraryContainer"/>, the referenced control library (#1082).</param>
     public readonly record struct QualifierTarget(QualifierKind Kind, ModuleInfo? Module,
-        Dictionary<string, long>? EnumMembers, string? Name = null);
+        Dictionary<string, long>? EnumMembers, string? Name = null, Components.InBox.ControlLibrary? ControlLibrary = null);
 
     /// <summary>Resolve a leading identifier as a namespace qualifier — a user module, an <c>Enum</c> type, or
     /// the <c>VBA</c>/<c>VB</c> libraries. The caller MUST check for a same-named variable first (it shadows the
@@ -1546,6 +1549,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Measured: the container selects on its own, and `DragConstants.vbYes` is refused.
         if (VB6InBoxLibraries.IsContainer(name))
         { target = new QualifierTarget(QualifierKind.InBoxContainer, null, null, name); return true; }
+        // A control library the project references, and its enums (#1082): `MSComctlLib.ccOrientationVertical` and
+        // `ScrollingConstants.ccScrollingStandard`, measured. After the four in-box libraries, as an Object= reference comes
+        // after them in VB6's order, so an enum both declare, BorderStyleConstants among them, is the in-box library's.
+        if (ControlLibraryQualifier(name) is { } controlLibrary) { target = controlLibrary; return true; }
         // The PROJECT name is an outermost qualifier level — `Project1.Module1.MyEnum.Foo`, and a bare
         // `Project1.Foo`. Measured legal, to four segments. It is checked LAST so a module or enum of the
         // same name still wins, and it resolves to nothing in particular: there is one project in scope,
@@ -1554,6 +1561,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         { target = new QualifierTarget(QualifierKind.Project, null, null); return true; }
         target = default;
         return false;
+    }
+
+    private QualifierTarget? ControlLibraryQualifier(string name)
+    {
+        foreach (var library in BuiltIns.ControlLibraries)
+            if (library.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                return new QualifierTarget(QualifierKind.ControlLibrary, null, null, library.Name, library);
+        foreach (var library in BuiltIns.ControlLibraries)
+            if (library.ContainerName(name) is { } container)
+                return new QualifierTarget(QualifierKind.ControlLibraryContainer, null, null, container, library);
+        return null;
     }
 
     /// <summary>The four libraries a Standard EXE references by default, from the measured inventory.
@@ -1660,7 +1678,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // Optional defaults evaluate in the OWNER module's context (a default may name an owner-module
                 // helper); an empty With scope (a leading `.X` in a default is Error 91).
                 // Three cases, and VB6 distinguishes all three (measured — see the IsMissing section of
-                // docs/vb6-fidelity-oracle.md):
+                // docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md):
                 //   a default    → that value, and IsMissing is False
                 //   a non-Variant declared type → that type's zero, and IsMissing is False
                 //   an untyped or As Variant parameter → Missing (#866, native and in the IDE)

@@ -110,6 +110,23 @@ the procedure list, SHALL still win.
 - **WHEN** the document is formatted, or reloaded after an external change
 - **THEN** the header is still folded afterwards
 
+### Requirement: Toggle Fold acts on the innermost section at the caret
+The code window SHALL offer Toggle Fold on the Edit menu, its context menu and the default Ctrl+M gesture
+on Windows and Linux. Toggle Fold SHALL be unbound on macOS, leaving Cmd+M to the system's Minimize.
+It SHALL toggle the section with the greatest start offset, then the smallest end offset,
+among sections containing the caret or starting on the caret's document row. With no such section it SHALL
+do nothing. Before collapsing a section with the caret strictly inside, it SHALL move the caret to the
+section's start. A member run collapsed this way SHALL remain collapsed across a reload, as with the margin.
+The context-menu command SHALL act at the caret.
+
+#### Scenario: An expanded member run shares its declaration row with a procedure fold
+- **WHEN** Toggle Fold is invoked with the caret on that declaration row
+- **THEN** the run collapses and the procedure's fold state stays unchanged
+
+#### Scenario: The caret is in the procedure body
+- **WHEN** Toggle Fold collapses the procedure containing the caret
+- **THEN** the caret moves to the procedure fold's start before its body is hidden
+
 ### Requirement: An attribute line that describes a member SHALL be read-only and folded into that member's line
 An `Attribute` line describing a procedure, property, or module-level variable or constant SHALL be greyed out,
 read-only, and folded — by default — into the end of the line it describes: the procedure's declaration, or the
@@ -144,6 +161,11 @@ declaration, the existing split at the first line break SHALL apply.
 
 This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
 whole-declaration paste question in the archived #273 design record without changing that historical record.
+
+For a file ending in a folded member attribute run without a final line break, Select All SHALL select the
+whole buffer while leaving the caret at the declaration's end; Shift+Left SHALL then end the selection one
+character before that point. Select-to-document-end from above the run SHALL select only to the declaration's
+end. This edge case is retained by decision #1019; the measured VB6-saved files all have a final line break.
 
 #### Scenario: Pasting a comment before a replacement declaration
 - **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed

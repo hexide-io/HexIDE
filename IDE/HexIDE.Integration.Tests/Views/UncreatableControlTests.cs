@@ -224,6 +224,24 @@ public class UncreatableControlTests
         act.Should().Throw<NotImplementedException>().WithMessage("HexIDE cannot create Data1 (VB.Data).");
     }
 
+    // An in-box control HexIDE doesn't model yet names the issue that will (#1082), under either library's name, and
+    // wherever it is.
+    [AvaloniaFact]
+    public void An_in_box_control_names_the_issue_that_tracks_it()
+    {
+        var listView = Data1.Replace("VB.Data Data1", "MSComctlLib.ListView ListView1").Replace("      Caption         =   \"Data1\"\r\n", "");
+        var treeView = Data1.Replace("VB.Data Data1", "ComctlLib.TreeView TreeView1").Replace("      Caption         =   \"Data1\"\r\n", "");
+        var tab = SSTab1.Replace("VB.TextBox Text2", "MSComctlLib.Slider Slider1");
+
+        Action act = () => _ = VBLoader.RunForm(Project(Form("Form1", listView + treeView + tab)).StartupForm!, CancellationToken.None, out _);
+
+        act.Should().Throw<NotImplementedException>().WithMessage(
+            "HexIDE cannot create ListView1 (MSComctlLib.ListView), which isn't implemented yet (#1085).\n"
+          + "HexIDE cannot create TreeView1 (ComctlLib.TreeView), which isn't implemented yet (#1086).\n"
+          + "HexIDE cannot create SSTab1 (TabDlg.SSTab).\n"
+          + "HexIDE cannot create Slider1, inside SSTab1 (TabDlg.SSTab), which isn't implemented yet (#1091).");
+    }
+
     [AvaloniaFact]
     public void Another_form_holding_one_stops_the_run_when_it_loads_and_On_Error_cannot_trap_it()
     {

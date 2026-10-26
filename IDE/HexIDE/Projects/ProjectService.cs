@@ -1127,50 +1127,21 @@ public class ProjectService : IProjectService
         if (exePath == null)
             throw new OperationCanceledException();
 
-        List<FileInfo[]> requiredNativeFiles;
-
-        if (OperatingSystem.IsWindows())
-        {
-            requiredNativeFiles =
-            [
-                [new FileInfo("standalone/av_libglesv2.dll"), new FileInfo("av_libglesv2.dll")],
-                [new FileInfo("standalone/HexIDE.Standalone.exe")],
-                [new FileInfo("standalone/libHarfBuzzSharp.dll"), new FileInfo("libHarfBuzzSharp.dll")],
-                [new FileInfo("standalone/libSkiaSharp.dll"), new FileInfo("libSkiaSharp.dll")]
-            ];
-        }
-        else if (OperatingSystem.IsMacOS())
-        {
-            requiredNativeFiles =
-            [
-                [new FileInfo("standalone/libAvaloniaNative.dylib"), new FileInfo("libAvaloniaNative.dylib")],
-                [new FileInfo("standalone/HexIDE.Standalone")],
-                [new FileInfo("standalone/libHarfBuzzSharp.dylib"), new FileInfo("libHarfBuzzSharp.dylib")],
-                [new FileInfo("standalone/libSkiaSharp.dylib"), new FileInfo("libSkiaSharp.dylib")]
-            ];
-        }
-        else if (OperatingSystem.IsLinux())
-        {
-            requiredNativeFiles =
-            [
-                [new FileInfo("standalone/HexIDE.Standalone")],
-                [new FileInfo("standalone/libHarfBuzzSharp.so"), new FileInfo("libHarfBuzzSharp.so")],
-                [new FileInfo("standalone/libSkiaSharp.so"), new FileInfo("libSkiaSharp.so")]
-            ];
-        }
-        else
+        if (StandaloneRunnerName() is not { } runnerName)
         {
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
-        if (requiredNativeFiles.Any(files => files.All(f => !f.Exists)))
+        var standaloneFolder = Path.Join(RuntimeDirectory, "standalone");
+        var runner = new FileInfo(Path.Join(standaloneFolder, runnerName));
+        if (!runner.Exists)
         {
-            await windowManager.MessageBox(localization.GetString("Str.MakeProject.MissingRuntime"), icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.RuntimeNotFound"),
+                standaloneFolder, runnerName), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
-        var exeDir = Path.GetDirectoryName(exePath);
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
 
         Directory.CreateDirectory(tempPath);
@@ -1224,7 +1195,8 @@ public class ProjectService : IProjectService
                 throw new OperationCanceledException();
             }
 
-            SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
+            SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")),
+                includeRelatedDocuments: false);
 
             EncodePackageSources(projectDefinition);
 
@@ -1253,16 +1225,24 @@ public class ProjectService : IProjectService
             try { Directory.Delete(tempPath, true); } catch { /* best effort — the temp dir is disposable */ }
         }
 
-        foreach (var standaloneFile in requiredNativeFiles.Select(f => f.FirstOrDefault(x => x.Exists)))
-        {
-            if (standaloneFile == null)
-                throw new Exception($"Required files doesn't exist, even tho it existed few lines above");
-            var fileName = standaloneFile.Name;
-            if (fileName.StartsWith("HexIDE.Standalone"))
-                fileName = Path.GetFileName(exePath);
-            standaloneFile.CopyTo(Path.Join(exeDir, fileName), true);
-        }
+        // The program is the runner, renamed, beside its project archive. The runner is one self-contained file holding .NET,
+        // its own assemblies and the native libraries, so nothing else goes with it (#1971). It used to be the runner's
+        // apphost and three native libraries, which ran only while the runner was compiled AOT; since #30 the apphost has
+        // needed HexIDE.Standalone.dll beside it, and no made program started.
+        runner.CopyTo(exePath, overwrite: true);
     }
+
+    /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
+    internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;
+
+    /// <summary>
+    /// The runner a made program is, in <c>standalone/</c> beside the IDE: one self-contained single-file executable per
+    /// platform (#1971). Null where none is built.
+    /// </summary>
+    internal static string? StandaloneRunnerName() =>
+        OperatingSystem.IsWindows() ? "HexIDE.Standalone.exe"
+        : OperatingSystem.IsMacOS() || OperatingSystem.IsLinux() ? "HexIDE.Standalone"
+        : null;
 
     // Only the disposable copies: a made program must read the same text on any host code page (#731).
     internal static void EncodePackageSources(ProjectDefinition project)
@@ -2051,7 +2031,7 @@ public class ProjectService : IProjectService
                 DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code) : null);
     }
 
-    private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
+    private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath, bool includeRelatedDocuments = true)
     {
         // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
         // anything is written (EnsureEveryMemberListed), and by here every member it wrote has its path. Not in
@@ -2061,7 +2041,7 @@ public class ProjectService : IProjectService
             throw new InvalidOperationException(
                 $"{definition.Name}'s project file would leave out {string.Join(", ", unlisted)}, which "
               + "have no file, so it was not written.");
-        var serialized = new ProjectSerializer().Serialize(definition, projectPath);
+        var serialized = new ProjectSerializer().Serialize(definition, projectPath, includeRelatedDocuments: includeRelatedDocuments);
         AtomicWriteText(projectPath, serialized,
             Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
         // A kept line names its file from the folder it was read in. A project the loader did not read has that folder

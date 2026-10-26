@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HexIDE.Lsp.Messages;
@@ -245,7 +246,8 @@ public record LogTraceParams(
 
 public record ClientCapabilities(
     [property: JsonPropertyName("textDocument")] TextDocumentClientCapabilities? TextDocument = null,
-    [property: JsonPropertyName("workspace")] WorkspaceClientCapabilities? Workspace = null);
+    [property: JsonPropertyName("workspace")] WorkspaceClientCapabilities? Workspace = null,
+    [property: JsonPropertyName("window")] WindowClientCapabilities? Window = null);
 
 public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("publishDiagnostics")] PublishDiagnosticsClientCapabilities? PublishDiagnostics = null,
@@ -980,3 +982,19 @@ public record VbaBuiltinSymbol(
 // Cancellation IDs are a protocol union, represented by two scalar contracts for source generation.
 public sealed record CancelNumericRequestParams([property: JsonPropertyName("id")] long Id);
 public sealed record CancelStringRequestParams([property: JsonPropertyName("id")] string Id);
+
+public record WindowClientCapabilities(
+    [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true);
+
+public record WorkDoneProgressCreateParams(
+    [property: JsonPropertyName("token")] JsonElement Token);
+
+public record ProgressParams(
+    [property: JsonPropertyName("token")] JsonElement Token,
+    [property: JsonPropertyName("value")] WorkDoneProgressValue Value);
+
+public record WorkDoneProgressValue(
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("title")] string? Title = null,
+    [property: JsonPropertyName("message")] string? Message = null,
+    [property: JsonPropertyName("percentage")] uint? Percentage = null);
