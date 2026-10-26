@@ -250,7 +250,7 @@ public class MainViewViewModelTests
         using var requery = new RequeryProbe();
         var changes = 0;
         command.CanExecuteChanged += (_, _) => changes++;
-        _sut.Watches.SelectedRow = _sut.Watches.Rows[0];
+        _sut.Watches.SelectedItem = _sut.Watches.Rows[0];
         command.CanExecute(null).Should().BeTrue();
         changes.Should().BeGreaterThan(0);
         requery.ShouldHaveRefreshed();
