@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using HexIDE.Processes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -26,6 +27,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
     private readonly ILogger<StdioProcessLspTransport> _logger;
     private readonly ILspWorkspace? _workspace;
     private Process? _process;
+    private ChildProcessJob? _job;
 
     /// <param name="serverInfo">
     /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
@@ -174,7 +176,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         try
         {
+            _job = new ChildProcessJob();
             _process.Start();
+            _job.Assign(_process);
             _process.BeginErrorReadLine();
         }
         catch (Exception ex)
@@ -198,6 +202,10 @@ public sealed class StdioProcessLspTransport : ILspTransport
             LastFailure =
                 $"could not start '{fileName}' (cwd: {(string.IsNullOrEmpty(cwd) ? "<inherited>" : cwd)}): {ex.Message}";
             _process.Exited -= OnProcessExited;
+            try { _process.Kill(entireProcessTree: true); } catch { /* not started, or already gone */ }
+            _job?.Dispose();
+            _job = null;
+            try { _process.WaitForExit(2000); } catch { /* not started, or already gone */ }
             _process.Dispose();
             _process = null;
             return Task.FromResult<IJsonRpcMessageHandler?>(null);
@@ -283,6 +291,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
             _process.Dispose();
             _process = null;
         }
+
+        _job?.Dispose();
+        _job = null;
 
         return ValueTask.CompletedTask;
     }

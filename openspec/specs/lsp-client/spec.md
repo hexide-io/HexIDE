@@ -243,9 +243,21 @@ its remaining process tree is killed, including during bring-up. Both messages
 SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
 two seconds for termination before disposing the process handle.
 
+On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
+`ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
+assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
+the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
+assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
+start suspended. Unix crash teardown remains cooperative pending the watchdog part of #406.
+
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
+
+#### Scenario: The Windows IDE is killed without shutdown
+- **GIVEN** a launched stdio or pipe server has been assigned to the job and then spawned a child
+- **WHEN** the IDE process is killed without disposing the transport
+- **THEN** the OS ends both the server and its child by closing the IDE's job handle
 
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
