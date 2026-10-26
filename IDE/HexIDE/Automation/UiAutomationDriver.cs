@@ -3823,22 +3823,28 @@ public static class UiAutomationDriver
     /// Whether <paramref name="target"/> is below <paramref name="ancestor"/> in the control view, which nests an open
     /// popup's content under the control that owns it, as the dump does. On the desktop a flyout's items have a visual
     /// root of their own, so a visual walk from one never reached the window: focus in a text box's Cut/Copy/Paste
-    /// flyout read as no focus in the dialog, and press_key moved it out before pressing (#2030). Where the visual chain
-    /// ends, the walk goes on from the root's logical parent, the popup, and from that to the control that owns it.
+    /// flyout read as no focus in the dialog, and press_key moved it out before pressing (#2030). So the walk goes from a
+    /// popup's content to the control the popup is placed at, as the dump finds that content from the control.
     /// </summary>
+    /// <remarks>
+    /// Not through the popup root's logical parent: on the desktop it leads nowhere (measured live, #2030). The content's
+    /// logical parent is its <see cref="Popup"/>, whose <c>PlacementTarget</c> is the owner for a flyout and a context
+    /// menu alike; a menu-bar dropdown's popup is a visual child of its item, the fallback.
+    /// </remarks>
     internal static bool IsUnderInView(Visual ancestor, Visual target)
     {
         var steps = 0;
-        for (var at = target.GetVisualParent() ?? LogicalOwnerOf(target); at is not null && steps++ < 1000;
-             at = at.GetVisualParent() ?? LogicalOwnerOf(at))
+        for (var at = Up(target); at is not null && steps++ < 1000; at = Up(at))
         {
             if (ReferenceEquals(at, ancestor))
                 return true;
         }
         return false;
 
-        static Visual? LogicalOwnerOf(Visual root) =>
-            root is Avalonia.LogicalTree.ILogical { LogicalParent: Visual owner } ? owner : null;
+        static Visual? Up(Visual v) =>
+            v is Control { Parent: Popup popup } && ReferenceEquals(popup.Child, v)
+                ? popup.PlacementTarget ?? popup.GetVisualParent() ?? popup.Parent as Visual
+                : v.GetVisualParent();
     }
 
     /// <summary>
