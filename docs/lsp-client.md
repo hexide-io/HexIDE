@@ -57,13 +57,20 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
+code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
+content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
+existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
-The stdio transport kills any remaining child and waits up to two seconds for termination before
-disposing its process handle.
+The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
+tree and waits up to two seconds for termination before disposing its process handle (#2023). Its
+exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
+exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
 progress below), plus `window/logMessage` and

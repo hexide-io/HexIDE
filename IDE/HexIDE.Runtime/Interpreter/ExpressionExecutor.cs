@@ -721,8 +721,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // VB6 date literals are culture-independent, US month/day/year — parse invariantly. A time-only literal is
             // that time on the zero date, not today (#771).
             var inner = dateliteral.GetText().Trim('#');
-            return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
-                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault)));
+            return new Vb6Value(VbDate.FromDateTime(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault))));
         }
         if (literal.HEXLITERAL() is { } hexliteral)
             return ClassifyRadixLiteral(hexliteral.GetText(), 16);   // VB6 &H is numeric, not a colour
@@ -1507,6 +1507,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Type != Vb6Value.ValueType.Control ||
             variable.Value is not Control control)
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+        // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
+        VBProps.RefuseIfRemoved(control);
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if (AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out var inBoxValue) is { } inBox)

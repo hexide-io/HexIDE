@@ -183,7 +183,8 @@ public partial class VB6BuiltIns
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));
         d["FileLen"] = (self, a, _) => new Vb6Value((long)self.Files.FileLength(AsStr(a[0])));
-        d["FileDateTime"] = (self, a, _) => new Vb6Value(self.Files.FileDateTime(AsStr(a[0])));
+        // Whole seconds, as Now is (measured, #783), and as the file time showed when a fraction was still cut off.
+        d["FileDateTime"] = (self, a, _) => new Vb6Value(VbDate.FromDateTime(WholeSeconds(self.Files.FileDateTime(AsStr(a[0])))));
         d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
         d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));

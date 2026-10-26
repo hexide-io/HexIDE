@@ -321,6 +321,7 @@ This is a host safety bound, not a claim about VB6's acceptance of long physical
 - **THEN** its constant-expression validation raises error 28 without terminating the host
 - **AND** the IDE-side project runner reports the failure and stops the run
 
+<<<<<<< HEAD
 ### Requirement: Managed referenced libraries
 
 The interpreter SHALL share one library model for controls and managed classes, carrying a GUID, version,
@@ -346,3 +347,18 @@ class factories for separate instances.
 - **WHEN** an explicit managed instance loses its last runtime reference
 - **THEN** its IDisposable host, when supplied, is disposed unless End has ended the run
 - **AND** the implicit instance remains held until Sub Main returns
+=======
+### Requirement: Interpreter parsing uses SLL with an LL fallback
+Module, standalone expression and standalone statement parsing SHALL first try SLL prediction with a
+bailing error strategy, then retry from the beginning with LL on a cancelled parse or an incomplete standalone entry. Each pass SHALL use
+a fresh nesting guard. The LL pass SHALL preserve the entry point's existing error policy: throwing
+syntax errors for modules and expressions, and returning null for unparseable standalone statements.
+
+#### Scenario: Long concatenations take the fast path
+- **WHEN** a module contains repeated long string concatenations that parse successfully under SLL
+- **THEN** the interpreter uses that tree without performing an LL pass
+
+#### Scenario: SLL cannot parse an entry
+- **WHEN** SLL cancels parsing a module or Immediate-window entry
+- **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
+>>>>>>> upstream/main

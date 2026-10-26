@@ -373,10 +373,37 @@ jobs:
         if: matrix.name == 'windows'
         run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
 
+      # The macOS runner was lost four times on 2026-10-26, each time 40 minutes or more into the ViewModel tests, and each
+      # time GitHub kept no log: something starves it before the step's timeout can act (#2128). This watchdog runs for
+      # the rest of the job. Every two minutes it records free memory and the largest processes. Below 8% free it records
+      # them once more and ends the test run, so the runner lives to upload the record and the step's own log. It writes
+      # under TestResults, which the upload step below keeps on a failure.
+      - name: Start a memory watchdog (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p TestResults
+          cat > "$RUNNER_TEMP/memory-watchdog.sh" <<'EOF'
+          log="$1"; i=0
+          while sleep 30; do
+            free=$(memory_pressure -Q | awk '/percentage/ { gsub("%", "", $NF); print $NF }')
+            i=$((i + 1))
+            if [ $((i % 4)) -eq 0 ] || [ "${free:-100}" -lt 8 ]; then
+              { date -u +%H:%M:%S; echo "free memory ${free:-?}%"; ps -A -m -o pid,ppid,rss,%cpu,etime,command | head -12; } >> "$log"
+            fi
+            if [ "${free:-100}" -lt 8 ]; then
+              echo "free memory below 8%: ending the test run so the runner survives" >> "$log"
+              pkill -f 'HexIDE\.(Integration\.)?Tests'
+              exit 0
+            fi
+          done
+          EOF
+          nohup bash "$RUNNER_TEMP/memory-watchdog.sh" "$PWD/TestResults/memory-watchdog.log" > /dev/null 2>&1 &
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
       # build-ide remains the one that blocks on it.
+      # --long-running names any test still running after two minutes, so a hang says which test it is.
       - name: Run ViewModel Tests
         timeout-minutes: 30
         env:
@@ -384,7 +411,7 @@ jobs:
           HEXIDE_REQUIRE_MADE_PROGRAM: ${{ matrix.name == 'windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
-          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
+          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
 
       - name: Run Integration Tests (headless Avalonia UI)
         timeout-minutes: 30

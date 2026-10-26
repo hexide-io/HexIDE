@@ -45,13 +45,16 @@ internal sealed class ConsentStore
         Save();
     }
 
-    public void RecordWorkspace(string serverId, string workspaceRoot, string key)
+    public void RecordWorkspace(string serverId, string workspaceRoot, string key, string? artifactPath = null,
+        string? provider = null)
     {
         _byHash[key] = new AddinConsentRecord
         {
             Id = serverId,
             ManifestHash = key,
             WorkspaceRoot = workspaceRoot,
+            ArtifactPath = artifactPath,
+            Provider = provider,
             Decision = ConsentDecisions.Allow,
             TimestampUtc = DateTime.UtcNow.ToString("o"),
         };
