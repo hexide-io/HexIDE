@@ -19,6 +19,7 @@ using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
@@ -656,7 +657,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
     /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
-    public void SpawnControlCenter(ComponentBaseClass componentClass)
+    public void SpawnControlCenter(ComponentBaseClass componentClass, ControlLibrary? library = null)
     {
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
@@ -666,7 +667,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);
         }
-        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)));
+        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)), library);
 
         static long OnGrid(long twips, int gridPixels)
         {
@@ -685,10 +686,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void SpawnControl(Rect rect)
     {
-        if (ToolsBoxToolViewModel.SelectedComponent?.BaseClass is not { } baseClass)
+        if (ToolsBoxToolViewModel.SelectedComponent is not { BaseClass: { } baseClass } tool)
             return;
 
-        SpawnControlAt(baseClass, rect);
+        SpawnControlAt(baseClass, rect, tool.Library);
     }
 
     /// <summary>
@@ -705,12 +706,19 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);
 
-    public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
+    /// <param name="library">
+    /// For an in-box control, the library it is placed from, when the toolbox offers it from an older library than its
+    /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
+    /// </param>
+    public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect, ControlLibrary? library = null)
     {
         var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var instance = new ComponentInstance(baseClass, newName);
+        if (baseClass is InBoxComponentClass inBox && library is not null && !ReferenceEquals(library, inBox.Library))
+            instance.SetProperty(InBoxComponentClass.LoadedTypeNameProperty, library.TypeName(inBox.ControlClassName));
+        DeclareLibraryOf(instance);
         if (HasTabIndex(baseClass))
             instance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
         // A drawn control starts with its name as its Caption, or as its Text: VB6's designer writes Text = "Text1" for a
@@ -737,6 +745,19 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         ToolsBoxToolViewModel.SelectedComponent = ToolsBoxToolViewModel.Arrow;
         SelectedComponent = newComponent;
+    }
+
+    /// <summary>
+    /// An in-box control's form names its library in its header, as VB6's designer writes it once one is placed (#1103). A
+    /// form holding none of a library's controls has no line for it, though its project references it (measured).
+    /// </summary>
+    private void DeclareLibraryOf(ComponentInstance instance)
+    {
+        if (formDefinition is null || instance.BaseClass is not InBoxComponentClass inBox)
+            return;
+        var library = inBox.LibraryOf(instance);
+        if (!formDefinition.ObjectReferences.Any(library.IsNamedBy))
+            formDefinition.HeaderLines.Add(library.FormLine);
     }
 
     public void BringToFront()
