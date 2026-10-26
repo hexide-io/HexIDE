@@ -34,6 +34,9 @@ public interface ILspTransport : IAsyncDisposable
     /// <summary>True while the underlying channel is connected and usable.</summary>
     bool IsAlive { get; }
 
+    /// <summary>True when teardown owns only the connection, not the server lifetime.</summary>
+    bool LeaveServerRunning => false;
+
     /// <summary>
     /// True if the client should auto-reconnect this transport after an unexpected drop (network
     /// transports such as WebSocket); false for one-shot transports (a spawned subprocess), which

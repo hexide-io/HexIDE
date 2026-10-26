@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A running program formats and reads text in its own locale, the user's regional settings, and not in the
 /// thread's culture, which the IDE pins to the invariant one (#777). Expectations marked measured are vb6.exe output
-/// under en-GB (<c>docs/vb6-fidelity-oracle.md</c>); the comma-decimal ones are the round trip, which is the property
+/// under en-GB (<c>docs/vb6-fidelity-oracle/a-running-programs-locale-is-the-users-regional-settings.md</c>); the comma-decimal ones are the round trip, which is the property
 /// the change exists for, and VB6's own text there is documented rather than measured.
 /// </summary>
 public class VbLocaleTests : BaseVBTestFixture
@@ -83,7 +83,7 @@ public class VbLocaleTests : BaseVBTestFixture
     {
         await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
 
-        AssertDebugLog([new Vb6Value(new DateTime(year, month, day))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(year, month, day)))]);
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public class VbLocaleTests : BaseVBTestFixture
 
         await RunWith(narrow, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
 
-        AssertDebugLog([new Vb6Value(new DateTime(1930, 1, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(1930, 1, 1)))]);
     }
 
     [Theory]
@@ -185,7 +185,7 @@ public class VbLocaleTests : BaseVBTestFixture
         // What CStr writes, and the patterns it writes with, spelled out by code point: the ICU data differs between
         // platforms (macOS's could not read its own ar-SA date back), so a failure on CI must show what was written.
         var program = VbLocale.ForProgram(culture).DateTimeFormat;
-        var written = VbDisplay.ToText(new Vb6Value(new DateTime(2003, 1, 2)), culture);
+        var written = VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(new DateTime(2003, 1, 2))), culture);
         var shown = $"CStr wrote {CodePoints(written)}; short date {CodePoints(program.ShortDatePattern)}, "
                     + $"long time {CodePoints(program.LongTimePattern)}, AM {CodePoints(program.AMDesignator)}, "
                     + $"PM {CodePoints(program.PMDesignator)}, calendar {program.Calendar.GetType().Name}";
@@ -202,8 +202,8 @@ public class VbLocaleTests : BaseVBTestFixture
             "Debug.Print MonthName(1)\n");
 
         debug.Take(8).Should().Equal([
-            new Vb6Value(new DateTime(2003, 1, 2)),
-            new Vb6Value(new DateTime(2030, 1, 1)),
+            new Vb6Value(VbDate.FromDateTime(new DateTime(2003, 1, 2))),
+            new Vb6Value(VbDate.FromDateTime(new DateTime(2030, 1, 1))),
             new Vb6Value(true),
             new Vb6Value("2003"),
             new Vb6Value("2003"),
@@ -232,7 +232,7 @@ public class VbLocaleTests : BaseVBTestFixture
             using var _ = VbLocale.Use(culture);
             foreach (var date in dates)
             {
-                var written = VbDisplay.ToText(new Vb6Value(date));
+                var written = VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(date)));
                 if (!VB6BuiltIns.TryReadDate(written, out var read) || VB6BuiltIns.OnZeroDateIfTimeOnly(read) != date)
                     failures.Add($"{culture.Name}: {date:s} wrote {CodePoints(written)}");
             }
@@ -291,7 +291,7 @@ public class VbLocaleTests : BaseVBTestFixture
         // Measured under en-GB, day first (oracle, "A date the locale's order cannot make").
         await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
 
-        AssertDebugLog([new Vb6Value(new DateTime(year, month, day, hour, hour == 0 ? 0 : 30, 0))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(year, month, day, hour, hour == 0 ? 0 : 30, 0)))]);
     }
 
     [Theory]

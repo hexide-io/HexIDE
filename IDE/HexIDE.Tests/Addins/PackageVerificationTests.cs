@@ -63,6 +63,53 @@ public sealed class PackageVerificationTests : IDisposable
         r.PublisherId.Should().Be("com.hexide.firstparty");
     }
 
+    [Theory]
+    [InlineData(2, null)]
+    [InlineData(1, "999.0")]
+    [InlineData(1, "garbage")]
+    [InlineData(1, "")]
+    public void Incompatible_manifest_is_refused_before_trust(int schema, string? minimum)
+    {
+        ReSignManifest(_pkg, m => m with { Schema = schema, MinHexideVersion = minimum });
+        PackageVerification.Verify(_pkg, _rootPub, _firstPartyPub).Verdict.ToString().Should().Be("Incompatible");
+        File.Delete(Path.Combine(_pkg, "addin.sig"));
+
+        var r = PackageVerification.Verify(_pkg, null);
+
+        r.Verdict.ToString().Should().Be("Incompatible");
+        r.ManifestHash.Should().NotBeNullOrEmpty();
+        r.Error.Should().NotBeNullOrEmpty();
+        r.Chain.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(1, "0.0")]
+    public void Readable_older_manifests_remain_compatible(int schema, string? minimum)
+    {
+        ReSignManifest(_pkg, m => m with { Schema = schema, MinHexideVersion = minimum });
+        PackageVerification.Verify(_pkg, _rootPub).IsVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public void The_running_version_is_an_inclusive_minimum()
+    {
+        ReSignManifest(_pkg, m => m with { MinHexideVersion = typeof(AddinManifest).Assembly.GetName().Version!.ToString(3) });
+        PackageVerification.Verify(_pkg, _rootPub).IsVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Unknown_manifest_members_are_reportable_and_round_trip()
+    {
+        var json = File.ReadAllText(Path.Combine(_pkg, "addin.json"));
+        json = json.Insert(json.LastIndexOf('}'), ",\"futureCapability\":{\"enabled\":true}");
+        var manifest = JsonSerializer.Deserialize(json, AddinJsonContext.Default.AddinManifest)!;
+        var roundTrip = JsonSerializer.Serialize(manifest, AddinJsonContext.Default.AddinManifest);
+        using var doc = JsonDocument.Parse(roundTrip);
+        doc.RootElement.TryGetProperty("futureCapability", out var capability).Should().BeTrue();
+        capability.GetProperty("enabled").GetBoolean().Should().BeTrue();
+    }
+
     // Bug-hunt MED: a locked/unreadable envelope file (e.g. antivirus holding a scan lock on first launch) made
     // File.ReadAllText throw IOException, which unwound through IDE startup instead of yielding a clean verdict.
     [WindowsOnlyFact]

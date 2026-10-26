@@ -98,7 +98,7 @@ public class SerializationRoundTripTests
     // These two asked for the wrong thing until 2026-09-20. They asserted `UserControl=UserControl1;` —
     // the `Name; File` shape the code emitted — and VB6 reads that whole value as a filename, so every
     // project HexIDE saved with a UserControl or a PropertyPage in it was unopenable (hexide-io/HexIDE#483,
-    // measured in docs/vb6-fidelity-oracle.md). The assertion certified the defect for as long as it
+    // measured in docs/vb6-fidelity-oracle/a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which.md). The assertion certified the defect for as long as it
     // existed, which is what an expectation written from the code rather than from the compiler does.
     // ProjectItemLineShapeTests carries the rule for all four keys.
 
@@ -237,6 +237,36 @@ public class SerializationRoundTripTests
         var deserializedLabel = result.Components.FirstOrDefault(c => c.BaseClass is LabelComponentClass);
         deserializedLabel.Should().NotBeNull();
         deserializedLabel!.GetPropertyOrDefault(VBProperties.CaptionProperty).Should().Be("Hello");
+    }
+
+    [Fact]
+    public void A_new_Timer_has_zero_Interval()
+    {
+        var timer = new ComponentInstance(TimerComponentClass.Instance, "Timer1");
+        timer.GetPropertyOrDefault(VBProperties.IntervalProperty).Should().Be(0);
+    }
+
+    [Fact]
+    public void A_Timer_writes_only_a_nonzero_Interval_and_round_trips()
+    {
+        foreach (var interval in new[] { 0, 1000 })
+        {
+            var form = new FormDefinition(MakeProject(), FormComponentClass.Instance, "Form1");
+            var timer = new ComponentInstance(TimerComponentClass.Instance, "Timer1")
+                .SetProperty(VBProperties.IntervalProperty, interval);
+            form.UpdateComponents([form.Components[0], timer]);
+
+            var (written, _) = new FormSerializer().Serialize(form, "Form1.frm");
+            if (interval == 0)
+                written.Should().NotContain("Interval");
+            else
+                written.Should().Contain("Interval        =   1000");
+            var loaded = new FormDeserializer().Deserialize(MakeProject(), written, NullSink.Instance)!;
+            loaded.Components.Single(c => c.BaseClass is TimerComponentClass)
+                .GetPropertyOrDefault(VBProperties.IntervalProperty).Should().Be(interval);
+            var (again, _) = new FormSerializer().Serialize(loaded, "Form1.frm");
+            again.Should().Be(written);
+        }
     }
 
     [Fact]
@@ -905,7 +935,7 @@ public class SerializationRoundTripTests
         // VB98's own Template tree contains not one OptionButton, so the corpus lane cannot reach this and
         // the spelling has to come from elsewhere. It comes from two measured facts rather than a guess:
         // vb6.exe compiles and loads this exact file with Option1.Value reading True (see the #95 probe in
-        // docs/vb6-fidelity-oracle.md), and `-1  'True` is the boolean layout the corpus already pinned
+        // docs/vb6-fidelity-oracle/option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md), and `-1  'True` is the boolean layout the corpus already pinned
         // (VbFrmFormatSerializer.BooleanValueWidth, from EditAtDesignTime).
         //
         // What this catches is the property being modelled as the check box's tri-state, which would write

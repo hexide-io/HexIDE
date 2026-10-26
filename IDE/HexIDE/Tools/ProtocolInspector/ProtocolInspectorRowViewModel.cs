@@ -91,6 +91,7 @@ public sealed class ProtocolInspectorRowViewModel(
         ConversationOutcome.Answered => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Answered"),
         ConversationOutcome.Failed => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Failed"),
         ConversationOutcome.Cancelled => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Cancelled"),
+        ConversationOutcome.TimedOut => localization.GetString("Str.Tool.ProtocolInspector.Outcome.TimedOut"),
         ConversationOutcome.Abandoned => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Abandoned"),
         _ => "",
     };

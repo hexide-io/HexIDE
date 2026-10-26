@@ -26,6 +26,27 @@ behaves consistently instead of having a separate set of rules inside one region
 - **WHEN** several documents are open
 - **THEN** each has its own tab and the developer switches between them by selecting one
 
+### Requirement: Code documents and designers SHALL remain docked
+Code documents and designers SHALL NOT offer Float or Float all in their tab menu. A float attempt through
+another route SHALL leave the document docked and listed among the open document tabs. Tool-window
+floating SHALL remain unchanged.
+
+#### Scenario: Code tab menu
+- **WHEN** the developer opens a code document's or designer's tab menu
+- **THEN** neither Float nor Float all is offered
+
+#### Scenario: Programmatic float
+- **WHEN** automation attempts to float a code document or designer
+- **THEN** the document remains docked and listed among the open document tabs
+
+### Requirement: Docked content SHALL remain fully opaque
+The IDE SHALL disable Dock's content-reveal animation before creating any dock controls, so presenting
+documents and tools again does not leave their contents semi-transparent.
+
+#### Scenario: Consecutive pane switches
+- **WHEN** the developer switches document tabs or tool panes twice consecutively
+- **THEN** every deferred content control and presenter in the active document and tool pane has opacity 1 after each switch
+
 ### Requirement: Opening an already-open document SHALL activate it
 Where a document is already open, opening it again SHALL bring its existing tab to the front rather than
 creating a second one.
@@ -61,3 +82,19 @@ deliberately.
 #### Scenario: Arranging the workspace
 - **WHEN** the developer docks or resizes a tool window
 - **THEN** it behaves as a tool window and does not join the document tabs
+
+### Requirement: Editor tabs indicate unsaved changes
+Designer, code and carried-file editors SHALL forward their existing dirty-state signals to Dock's
+modified marker. Designer checks SHALL include pending component membership and the owning module's
+serialized state for a UserControl or PropertyPage. Code typing SHALL compare only the buffer body with
+the model; the serialized model check SHALL run on flush and matching save events, not per keystroke.
+
+#### Scenario: Editing and saving
+- **WHEN** a developer deletes a control, commits a designer property edit or edits an editor's text
+- **THEN** the affected tab shows the modified marker
+- **WHEN** the document is saved and its dirty-state checks are clear
+- **THEN** its marker clears without clearing another document's marker
+
+#### Scenario: Deleting after pointer selection
+- **WHEN** a developer selects a control by clicking the designer canvas, releases the pointer and presses Delete from a focused child of the designer
+- **THEN** the deletion is committed, can be undone and shows the designer tab's modified marker

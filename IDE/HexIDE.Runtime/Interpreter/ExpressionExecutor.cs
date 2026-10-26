@@ -219,6 +219,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
 
+    public override Task<object?> Visit(IParseTree tree)
+    {
+        // Flat operator chains pass the parser's nesting guard but still recurse through the evaluator.
+        if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            throw new VBRunTimeException(tree as Antlr4.Runtime.ParserRuleContext, VBStandardError.OutOfStackSpace);
+        return base.Visit(tree);
+    }
+
     public override async Task<object?> VisitChildren(IRuleNode node)
     {
       object? result = null;
@@ -392,10 +400,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var result = new VB6BuiltIns.IntrinsicArgumentValues(values.Count);
         for (var i = 0; i < values.Count; i++)
             result.AddArgument(values[i], slots[i] is null);
-        if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values.Count == 1
+        if ((name.Equals("Len", StringComparison.OrdinalIgnoreCase) || name.Equals("LenB", StringComparison.OrdinalIgnoreCase))
+            && values.Count == 1
             && slots[0]?.valueStmt() is { } operand)
         {
-            // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured).
+            // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured). So does LenB, and a number that is
+            // not a variable is the same compile error for it (#1510, measured).
             if (TryGetArgLocation(operand) is { } location)
             {
                 var type = interpreter.ExecutionContext.State.DeclaredTypeOf(location);
@@ -406,7 +416,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     : null;
             }
             else if (operand is not VB6Parser.VsStructContext
-                && Vb6Value.TryNumericToDouble(values[0], out _)
+                && (Vb6Value.TryNumericToDouble(values[0], out _)
+                    || values[0].Value is bool && name.Equals("LenB", StringComparison.OrdinalIgnoreCase))   // LenB(True), measured
                 && (operand is not VB6Parser.VsICSContext ics
                     || ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is { } bare
                         && bare.typeHint() is null))
@@ -706,8 +717,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // VB6 date literals are culture-independent, US month/day/year — parse invariantly. A time-only literal is
             // that time on the zero date, not today (#771).
             var inner = dateliteral.GetText().Trim('#');
-            return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
-                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault)));
+            return new Vb6Value(VbDate.FromDateTime(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault))));
         }
         if (literal.HEXLITERAL() is { } hexliteral)
             return ClassifyRadixLiteral(hexliteral.GetText(), 16);   // VB6 &H is numeric, not a colour
@@ -1208,7 +1219,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // A type-declaration character on the call (#742). `$` is the one a program reaches first, the library's string
         // functions written `Trim$` and `Left$` (#1071). The name is looked up without it by the ordinary search, and the
-        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle.md). The other characters still
+        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The other characters still
         // stop the run.
         var dollar = false;
         if (procOrArrayCall.typeHint() is { } hint)
@@ -1483,6 +1494,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Type != Vb6Value.ValueType.Control ||
             variable.Value is not Control control)
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+        // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
+        VBProps.RefuseIfRemoved(control);
+
+        // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+        if (AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out var inBoxValue) is { } inBox)
+            return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
 
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -1646,6 +1663,34 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // .vbYes` is measured illegal, so a member of another container is refused here.
             if (argsCtx == null
                 && VB6InBoxLibraries.TryInContainer(qualifier.Name!, memberName, out var cv))
+                return await ThenTheRest(cv);
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
+
+        // A referenced control library (#1082): `MSComctlLib.ccOrientationVertical`, and through one of its enums,
+        // `MSComctlLib.ScrollingConstants.ccScrollingSmooth`, which is strict as the in-box libraries' enums are.
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibrary)
+        {
+            var library = qualifier.ControlLibrary!;
+            if (argsCtx == null && library.TryBare(memberName, out var c))
+                return await ThenTheRest(c);
+            if (argsCtx == null && idx + 1 < members.Length && library.ContainerName(memberName) is { } container)
+            {
+                var inner = MemberName(members[idx + 1]);
+                if (MemberArgs(members[idx + 1]) == null && library.TryInContainer(container, inner, out var cv))
+                {
+                    idx++;
+                    return await ThenTheRest(cv);
+                }
+                throw new VBMethodOrDataMemberNotFoundException(inner, Vb6Value.ValueType.EmptyVariant);
+            }
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
+
+        // `ScrollingConstants.ccScrollingStandard`: one of a referenced control library's enums (#1082).
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibraryContainer)
+        {
+            if (argsCtx == null && qualifier.ControlLibrary!.TryInContainer(qualifier.Name!, memberName, out var cv))
                 return await ThenTheRest(cv);
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
@@ -2117,7 +2162,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (operand.Value is Avalonia.Controls.Control control)
         {
             var className = VB6BuiltIns.ControlTypeName(control);
-            var library = control is VBCommonDialog ? "MSComDlg" : "VB";
+            // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
+            var library = control switch
+            {
+                VBCommonDialog => "MSComDlg",
+                VBProgressBar bar => bar.Library.Name,
+                _ => "VB",
+            };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, "Control", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)

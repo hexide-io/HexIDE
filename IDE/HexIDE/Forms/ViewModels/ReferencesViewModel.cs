@@ -16,7 +16,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 {
     /// <summary>
     /// The rows VB6 heads the list with, checked and fixed, which no project lists: its file has no line for them
-    /// (measured, docs/vb6-fidelity-oracle.md "The References dialog's fixed rows").
+    /// (measured, docs/vb6-fidelity-oracle/the-references-dialogs-fixed-rows.md "The References dialog's fixed rows").
     /// </summary>
     /// <remarks>
     /// The first used to carry OLE Automation's GUID, and the project's own OLE Automation reference was left out of

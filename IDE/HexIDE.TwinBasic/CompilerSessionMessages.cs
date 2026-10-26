@@ -18,6 +18,8 @@ public sealed record CompilerLoadProject(string Path) : CompilerProjectRequest;
 public sealed record CompilerProjectsLoaded : CompilerProjectRequest;
 public sealed record CompilerKeepSettings : CompilerProjectRequest;
 public sealed record CompilerProvidePackage(CompilerPackageRequest Package, ReadOnlyMemory<byte> Content) : CompilerProjectRequest;
+/// <summary>Asks the compiler to end. It is not answered: the compiler exits, with code 0 (#1689, BETA 1024).</summary>
+public sealed record CompilerShutdown : CompilerProjectRequest;
 
 /// <summary>Encoding boundary for root initialization, channels and project preparation (#1217).</summary>
 public interface ICompilerSessionCodec

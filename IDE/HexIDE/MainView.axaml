@@ -68,6 +68,10 @@
                               ExecutingCommand="{x:Static vb:ApplicationCommands.DisabledCommand}" />
 
 
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveAsCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormAsCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}"
                               ExecutingCommand="{CompiledBinding SaveProject}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}"
@@ -205,12 +209,13 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}" Header="{DynamicResource Str.Menu.Edit.ParameterInfo}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Parameterinfo}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}" Header="{DynamicResource Str.Menu.Edit.CompleteWord}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Completeword}" />
                             <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Edit.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks}">
-                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Toggle}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Toggle}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                                 <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Next}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
-                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Previous}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Previous}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  />
                                 <Separator />
-                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.ClearAll}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.ClearAll}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" />
                             </MenuItem>
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.View}">
@@ -247,7 +252,7 @@
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Project}">
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}" Command="{CompiledBinding AddFormCommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmodule}" Command="{CompiledBinding AddModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddClassModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" Command="{CompiledBinding AddClassModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddUserControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" Command="{CompiledBinding AddUserControlCommand}" />
@@ -350,7 +355,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ShowNextStatementCommand}" Header="{DynamicResource Str.Menu.Debug.ShowNextStatement}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Run}">
-                            <MenuItem Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
+                            <MenuItem Classes="play" Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartWithFullCompile}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartExternal}" Command="{CompiledBinding StartExternalDebugCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.Break}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pause}" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" />
@@ -374,7 +379,9 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.LanguageServers}" x:Name="LanguageServersMenuItem" Command="{CompiledBinding OpenLanguageServersCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.ProtocolInspector}" x:Name="ProtocolInspectorMenuItem" Command="{CompiledBinding OpenProtocolInspectorCommand}" />
                         </MenuItem>
-                        <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem" />
+                        <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem">
+                            <MenuItem Header="{DynamicResource Str.Menu.AddIns.Manager}" x:Name="AddInManagerMenuItem" Command="{CompiledBinding OpenAddInManager}" />
+                        </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Window}">
                             <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" IsEnabled="False" />
                             <Separator />
@@ -457,7 +464,7 @@
                         </Button>
                         <Separator />
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Standard.Start">
-                            <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
+                            <Path Classes="play" Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Standard.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
@@ -548,7 +555,7 @@
                                         Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Debug.Start">
-                            <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
+                            <Path Classes="play" Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Debug.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
@@ -650,16 +657,22 @@
                 <DockPanel Margin="2,1">
                     <!-- INS/OVR panel (rightmost) -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
-                                            Width="50" Margin="1,0,0,0">
-                        <TextBlock Text="{CompiledBinding StatusBar.InsertMode,
-                                          Converter={x:Static utils:StatusBarConverters.InsertModeConverter}}"
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                            MinWidth="50" Margin="1,0,0,0">
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0"
                                    FontSize="11"
-                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{x:Static utils:StatusBarConverters.InsertModeConverter}">
+                                    <Binding Path="StatusBar.InsertMode" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.Insert" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.Overtype" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
                     </ClassicBorderDecorator>
                     <!-- Ln / Col panel -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
-                                            Width="120" Margin="1,0,0,0">
+                                            MinWidth="120" Margin="1,0,0,0">
                         <TextBlock VerticalAlignment="Center" Margin="4,0"
                                    FontSize="11"
                                    Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
@@ -667,6 +680,7 @@
                                 <MultiBinding Converter="{x:Static utils:StatusBarConverters.LinColConverter}">
                                     <Binding Path="StatusBar.Line" />
                                     <Binding Path="StatusBar.Column" />
+                                    <DynamicResource ResourceKey="Str.StatusBar.LineColumn" />
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>

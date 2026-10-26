@@ -265,8 +265,8 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
     public async Task The_code_a_server_exits_with_while_this_client_stops_it_says_whether_the_stop_failed(int code, bool fault)
     {
         // LSP has a server exit 0 when a shutdown preceded exit and non-zero otherwise, so the code it stops with is
-        // its account of how the stop went. The stop's non-zero exit was excused as a kill's, but every transport
-        // unhooks before it kills, so the excuse hid only the server's own exit (#1314).
+        // its account of how the stop went. The stop's non-zero exit was excused as a kill's, but at the time
+        // every transport unhooked before killing, so the excuse hid the server's own exit (#1314).
         var transport = new NoticingFakeTransport { HoldShutdown = true };
         var connection = await Connected("vb6", transport);
         var stopping = connection.Client.StopAsync();

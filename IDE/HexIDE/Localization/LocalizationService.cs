@@ -19,6 +19,8 @@ namespace HexIDE.Localization;
 /// </summary>
 public sealed class LocalizationService : ILocalizationService
 {
+    private Func<string, Uri> _packUri = id => new Uri($"avares://HexIDE/Localization/Packs/{id}.json");
+
     // Captured by App.Initialize before the invariant pin; never read the pinned thread culture (#799).
     internal static CultureInfo OsUICulture { get; set; } = CultureInfo.CurrentUICulture;
 
@@ -42,6 +44,12 @@ public sealed class LocalizationService : ILocalizationService
     public IReadOnlyList<LanguageInfo> AvailableLanguages { get; }
 
     public FlowDirection FlowDirection { get; private set; } = FlowDirection.LeftToRight;
+
+    /// <summary>
+    /// The application resource holding <see cref="FlowDirection"/>, swapped with the strings. A popup takes its direction
+    /// from the control it opens from, so a menu opened from code, which reads left to right, reads this instead (#1944).
+    /// </summary>
+    public const string FlowDirectionKey = "Ide.FlowDirection";
 
     public event Action? LanguageChanged;
 
@@ -74,6 +82,10 @@ public sealed class LocalizationService : ILocalizationService
         ];
     }
 
+    // Tests can supply fixtures from their own assembly; canonical English still comes from the product.
+    internal static LocalizationService CreateWithPackUris(Func<string, Uri> packUri) =>
+        new() { _packUri = packUri };
+
     public void Apply(string id)
     {
         if (!TryResolveMap(id, out var map, out var direction))
@@ -98,6 +110,7 @@ public sealed class LocalizationService : ILocalizationService
                 app.Resources.MergedDictionaries.Remove(_currentLanguageDict);
 
             _currentLanguageDict = BuildResourceDictionary(map);
+            _currentLanguageDict[FlowDirectionKey] = FlowDirection;
             app.Resources.MergedDictionaries.Add(_currentLanguageDict);
         }
 
@@ -288,7 +301,7 @@ public sealed class LocalizationService : ILocalizationService
 
     /// <summary>Loads pack <paramref name="id"/> and merges its overrides into <paramref name="into"/>;
     /// returns the pack's declared direction (or null). An empty pack is valid — it merges nothing.</summary>
-    private static string? MergePack(string id, Dictionary<string, string> into)
+    private string? MergePack(string id, Dictionary<string, string> into)
     {
         var pack = LoadPack(id);
         if (pack.Strings is not null)
@@ -319,18 +332,18 @@ public sealed class LocalizationService : ILocalizationService
         return dash > 0 ? id[..dash] : id;
     }
 
-    private static bool PackExists(string id) =>
-        AssetLoader.Exists(new Uri($"avares://HexIDE/Localization/Packs/{id}.json"));
+    private bool PackExists(string id) =>
+        AssetLoader.Exists(_packUri(id));
 
-    private static LanguagePackRecord LoadPack(string id)
+    private LanguagePackRecord LoadPack(string id)
     {
-        var uri = new Uri($"avares://HexIDE/Localization/Packs/{id}.json");
+        var uri = _packUri(id);
         using var stream = AssetLoader.Open(uri);
         return JsonSerializer.Deserialize(stream, LocalizationJsonContext.Default.LanguagePackRecord)
                ?? throw new InvalidOperationException($"Language pack '{id}' deserialized to null.");
     }
 
-    private static Dictionary<string, string> LoadEnglish()
+    private Dictionary<string, string> LoadEnglish()
     {
         try
         {
@@ -363,7 +376,7 @@ public sealed class LocalizationService : ILocalizationService
     }
 
     /// <summary>The keys this pack file (id only — not its chain) declares, or empty if it has no file.</summary>
-    private static Dictionary<string, string> LoadPackOwnStrings(string id)
+    private Dictionary<string, string> LoadPackOwnStrings(string id)
     {
         if (!PackExists(id))
             return new Dictionary<string, string>();
