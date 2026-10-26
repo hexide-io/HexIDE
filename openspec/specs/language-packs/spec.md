@@ -163,3 +163,12 @@ was taken.
 #### Scenario: An undeclared full translation
 - **WHEN** a pack file is a full translation and the manifest does not list it
 - **THEN** the build fails, because whether it ships is a decision rather than an accident
+
+### Requirement: Test packs SHALL stay out of the product assembly
+Synthetic localisation fixtures SHALL belong to the test project and SHALL NOT be embedded in the product
+assembly in either Debug or Release builds.
+
+#### Scenario: Building the IDE
+- **WHEN** the IDE is built in Debug or Release
+- **THEN** neither `zz.json` nor `zz-ZZ.json` is present among its localisation assets
+- **AND** the test project can still exercise region-over-neutral-over-canonical inheritance

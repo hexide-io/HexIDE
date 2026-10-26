@@ -2,6 +2,7 @@
   "name": "English (United Kingdom)",
   "direction": "ltr",
   "strings": {
+    "Str.ProjectLoad.Heading": "Couldn't properly deserialise the project:",
     "Str.Toolbar.Customize": "Customise...",
     "Str.Menu.View.ColorPalette": "Colour Pa_lette",
     "Str.Menu.Format.Align.CentersHorizontally": "Centres _Horizontally",
@@ -20,6 +21,10 @@
     "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximise button.",
     "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimise button.",
     "Str.PropCategory.Behavior": "Behaviour",
-    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised."
+    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised.",
+    "Str.Automation.Minimize": "Minimise",
+    "Str.Automation.MaximizeRestore": "Maximise or restore",
+    "Str.Automation.ChooseColor": "Choose colour",
+    "Str.Dock.MaximizeRestore": "Maximise or restore pane"
   }
 }

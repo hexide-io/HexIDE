@@ -9,6 +9,9 @@ See the [localization system](../openspec/specs/localization/spec.md) spec for t
 and the [language packs](../openspec/specs/language-packs/spec.md) spec for the per-language content this
 catalog tracks.
 
+The status bar’s caret position and insert/overtype indicators are translated in every shipped pack
+and refresh when the language changes (#960).
+
 ## How packs and regions work
 
 - **Pack ids are BCP-47** — a neutral language (`en`, `fr`, `zh-Hans`) or `language-REGION` (`en-GB`,
@@ -35,7 +38,8 @@ catalog tracks.
   `Customise`/`Customize`, `Centre`/`Center`) — **not** number, date, or currency formatting. HexIDE keeps
   its invariant-culture lock (for stable VB6 numeric parsing); locale-aware *runtime* formatting is a
   separate, out-of-scope axis.
-- **OS detection (`"system"`):** (1) exact neutral-language match of `CultureInfo.CurrentUICulture.Name`
+- **OS detection (`"system"`):** uses `CultureInfo.CurrentUICulture` captured in `App.Initialize` before
+  the invariant culture pin (#799), never `InstalledUICulture`. (1) Exact neutral-language match of its `Name`
   (e.g. `fr` → `fr`); else (2) an **exact region** match against the regions map (e.g. `en-GB` → `en-GB`,
   so a British machine gets Colour/Customise; `zh-CN` → `zh-CN`); else (3) a **neutral-language** match on
   the two-letter code (e.g. `fr-CD` → `fr`); else (4) canonical `en`.

@@ -51,13 +51,46 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    [AvaloniaFact]
+    public void ModifiedMarker_FollowsCodeEditsAndRevertWithoutRenderingModel()
+    {
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        var original = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        vm.IsModified.Should().BeTrue();
+        _projectService.DidNotReceive().HasUnsavedChanges(form);
+        vm.Document.Text = original;
+        vm.IsModified.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void ModifiedMarker_FollowsFlushAndMatchingSave()
+    {
+        Action<ApplyAllUnsavedChangesEvent> flush = null!;
+        Action<DocumentSavedEvent> saved = null!;
+        _eventBus.Subscribe(Arg.Do<Action<ApplyAllUnsavedChangesEvent>>(x => flush = x));
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(x => saved = x));
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        _projectService.HasUnsavedChanges(form).Returns(true);
+        flush(new ApplyAllUnsavedChangesEvent());
+        vm.IsModified.Should().BeTrue();
+        _projectService.HasUnsavedChanges(form).Returns(false);
+        saved(new DocumentSavedEvent(TestHelpers.CreateForm(name: "Other"), null));
+        vm.IsModified.Should().BeTrue();
+        saved(new DocumentSavedEvent(form, null));
+        vm.IsModified.Should().BeFalse();
+    }
+
     // ── Edit-while-running reset prompt (VB6-faithful E&C affordance) ──
 
     [AvaloniaFact]
-    public async Task ConfirmResetWhileRunningAsync_Yes_RequestsProjectEnd()
+    public async Task ConfirmResetWhileRunningAsync_OK_RequestsProjectEnd()
     {
-        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
-            .Returns(MessageBoxResult.Yes);
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+            .Returns(MessageBoxResult.Ok);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
@@ -66,13 +99,14 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task ConfirmResetWhileRunningAsync_No_KeepsRunning()
+    public async Task ConfirmResetWhileRunningAsync_Cancel_KeepsRunning()
     {
-        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
-            .Returns(MessageBoxResult.No);
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+            .Returns(MessageBoxResult.Cancel);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
+        await _windowManager.Received(1).TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
         reset.Should().BeFalse();
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }
@@ -85,6 +119,53 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     // ── Initialization — Form ────────────────────────────────────────
+
+    [AvaloniaTheory]
+    [InlineData(false, "Form")]
+    [InlineData(true, "UserControl")]
+    public void RootEventEntry_UsesHandlerPrefix(bool userControl, string prefix)
+    {
+        var control = CreateUserControl();
+        control.FormPart!.UpdateRootTypeName("VB.UserControl");
+        var vm = userControl
+            ? CreateSut().Initialize(control)
+            : CreateSut().Initialize(TestHelpers.CreateForm(name: "MainForm"));
+
+        vm.ObjectNames.Should().Equal("(General)", prefix);
+        vm.SelectedObject = prefix;
+        vm.ProcedureNames.Should().Contain("Click");
+        vm.SelectedProcedure = "Click";
+        vm.BufferBody.Should().Contain($"Private Sub {prefix}_Click()");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Load")]
+    [InlineData("Resize")]
+    public void FormLifecycleEntry_WritesHandler(string eventName)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "MainForm"));
+        vm.SelectedObject = "Form";
+
+        vm.ProcedureNames.Should().Contain(eventName);
+        vm.SelectedProcedure = eventName;
+        vm.BufferBody.Should().Contain($"Private Sub Form_{eventName}()");
+    }
+
+    [AvaloniaFact]
+    public void FormLoadEntry_NavigatesToExistingHandler()
+    {
+        var form = TestHelpers.CreateForm(name: "MainForm");
+        form.UpdateCode("Private Sub Form_Load()\r\nEnd Sub\r\n");
+        var vm = CreateSut().Initialize(form);
+        var before = vm.Document.Text;
+        vm.SelectedObject = "Form";
+        vm.SelectedProcedure = "Load";
+
+        vm.Document.Text.Should().Be(before);
+        vm.CaretOffset.Should().Be(vm.Document.GetLineByOffset(
+            before.IndexOf("Private Sub Form_Load()", StringComparison.Ordinal)).EndOffset);
+        vm.ProcedureNames.Should().Contain("Load");
+    }
 
     [AvaloniaFact]
     public void Initialize_Form_SetsFormDefinition()

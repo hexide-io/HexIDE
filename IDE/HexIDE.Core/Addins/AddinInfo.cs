@@ -16,7 +16,10 @@ public record AddinInfo(
     string Id = "",
     string ManifestHash = "",
     string? LogoPath = null,
-    TrustChain? Chain = null);
+    TrustChain? Chain = null)
+{
+    public string? CompatibilityError { get; init; }
+}
 
 public enum AddinStatus
 {
@@ -43,4 +46,7 @@ public enum AddinStatus
 
     /// <summary>Revoked by the HexIDE-root-signed revocation list — not loaded.</summary>
     Revoked,
+
+    /// <summary>Unsupported manifest schema or host version requirement; never loaded.</summary>
+    Incompatible,
 }

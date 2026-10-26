@@ -46,14 +46,11 @@ public static class VbSymbolProvider
         private int _depth;
         private const int MaxDepth = 500;
 
-        // Depth guard (mandated for every ANTLR visitor over this grammar — see CLAUDE.md): a degenerate/deeply
-        // nested parse tree can otherwise recurse until it overflows the C# stack, which is UNCATCHABLE and takes the
-        // whole LSP server process down (killing document-symbols/definition/diagnostics until a restart).
-        public override object? Visit(Antlr4.Runtime.Tree.IParseTree? tree)
+        // Generated visitors descend via VisitChildren, bypassing Visit.
+        public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
         {
-            if (tree is null) return null;
             if (++_depth > MaxDepth) { --_depth; return null; }
-            try   { return base.Visit(tree); }
+            try   { return base.VisitChildren(node); }
             finally { --_depth; }
         }
 

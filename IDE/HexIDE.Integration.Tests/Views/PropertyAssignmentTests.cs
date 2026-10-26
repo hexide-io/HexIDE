@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 ///
 /// <para>
 /// The expectations are <c>vb6.exe</c> output, recorded under <i>Assigning to a control property</i> in
-/// <c>docs/vb6-fidelity-oracle.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
+/// <c>docs/vb6-fidelity-oracle/assigning-to-a-control-property.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
 /// read back and <c>Err.Number</c> logged. Each case resets the property first, so a refused assignment shows as
 /// the reset value unchanged. The oracle machine is en-GB, and every case runs in that locale.
 /// </para>
@@ -351,12 +351,44 @@ public class PropertyAssignmentTests
         value.Should().Be(expected);
     }
 
-    [AvaloniaFact]
-    public async Task A_scroll_bar_whose_Min_exceeds_its_Max_is_refused_rather_than_clamped()
+    [AvaloniaTheory]
+    [InlineData("50", "50", 0)]
+    [InlineData("0", "0", 0)]
+    [InlineData("100", "100", 0)]
+    [InlineData("150", "100", 380)]
+    [InlineData("-1", "100", 380)]
+    [InlineData("\"50\"", "50", 0)]
+    [InlineData("\"abc\"", "100", 13)]
+    [InlineData("Empty", "0", 0)]
+    [InlineData("True", "100", 380)]
+    [InlineData("2.5", "2", 0)]
+    [InlineData("99.5", "100", 0)]
+    public async Task A_reversed_scroll_bar_converts_and_checks_Value(string expression, string expected, int expectedErr)
     {
-        // VB6 accepts 50 here and reads back 50 (measured). Avalonia has collapsed the bar to 100..100, so it would
-        // read back 100.
-        (await Refusal("HScroll2.Value = 50")).Should().Contain("#787");
+        var (value, err) = await Assign("HScroll2.Value = 100", $"HScroll2.Value = {expression}", "HScroll2.Value");
+
+        err.Should().Be(expectedErr);
+        value.Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HScrollBar")]
+    [InlineData("VScrollBar")]
+    public void A_reversed_scroll_bar_loads_and_maps_thumb_positions(string controlType)
+    {
+        var (_, canvas, _, _) = ContainerRuntimeHarness.Spawn(Form.Replace("VB.HScrollBar", "VB." + controlType));
+        var bar = (HexIDE.Runtime.BuiltinControls.VBScrollBar)canvas.Children[0];
+
+        bar.VbMin.Should().Be(100);
+        bar.VbMax.Should().Be(0);
+        bar.Minimum.Should().Be(0);
+        bar.Maximum.Should().Be(100);
+        bar.Value.Should().Be(0);
+        AvaloniaInteroperability.TryGet(bar, VBProperties.ValueProperty, out var loaded).Should().BeTrue();
+        loaded.Value.Should().Be(100);
+        bar.Value = 100;
+        AvaloniaInteroperability.TryGet(bar, VBProperties.ValueProperty, out var moved).Should().BeTrue();
+        moved.Value.Should().Be(0);
     }
 
     private const string ThreeItems = "List1.AddItem \"a\"\r\nList1.AddItem \"b\"\r\nList1.AddItem \"c\"\r\n"
@@ -445,24 +477,47 @@ public class PropertyAssignmentTests
     }
 
     [AvaloniaTheory]
-    [InlineData("\"2\"", 0)]
-    [InlineData("4", 0)]       // valid in VB6, though VBCursorType has no member for it (#120)
-    [InlineData("5", 0)]
-    [InlineData("13", 0)]
-    [InlineData("14", 0)]
-    [InlineData("15", 0)]
-    [InlineData("99", 0)]
-    [InlineData("16", 380)]
-    [InlineData("98", 380)]
-    [InlineData("-1", 380)]
-    [InlineData("True", 380)]
-    [InlineData("40000", 6)]
-    public async Task MousePointer_accepts_0_to_15_and_99(string value, int expectedErr)
+    [InlineData("\"2\"", "2", 0)]
+    [InlineData("1", "1", 0)]
+    [InlineData("2", "2", 0)]
+    [InlineData("3", "3", 0)]
+    [InlineData("4", "4", 0)]
+    [InlineData("5", "5", 0)]
+    [InlineData("6", "6", 0)]
+    [InlineData("7", "7", 0)]
+    [InlineData("8", "8", 0)]
+    [InlineData("9", "9", 0)]
+    [InlineData("10", "10", 0)]
+    [InlineData("11", "11", 0)]
+    [InlineData("12", "12", 0)]
+    [InlineData("13", "13", 0)]
+    [InlineData("14", "14", 0)]
+    [InlineData("15", "15", 0)]
+    [InlineData("99", "99", 0)]
+    [InlineData("16", "2", 380)]
+    [InlineData("17", "2", 380)]
+    [InlineData("98", "2", 380)]
+    [InlineData("-1", "2", 380)]
+    [InlineData("True", "2", 380)]
+    [InlineData("40000", "2", 6)]
+    public async Task MousePointer_reads_back_the_value_set(string value, string expected, int expectedErr)
     {
-        // Only the error is asserted: MousePointer does not read back what was set in HexIDE yet (#769).
-        var (_, err) = await Assign("Label1.MousePointer = 0", $"Label1.MousePointer = {value}", "0");
+        var (actual, err) = await Assign("Label1.MousePointer = 2", $"Label1.MousePointer = {value}", "Label1.MousePointer");
 
         err.Should().Be(expectedErr);
+        actual.Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public async Task MousePointer_keeps_the_loaded_value_and_can_reset_to_Default()
+    {
+        var form = Form.Replace("Begin VB.Label Label1", "Begin VB.Label Label1\r\n      MousePointer = 2");
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form);
+        var debug = await RunInOracleLocale(ctx, env,
+            "Debug.Print Label1.MousePointer\r\nLabel1.MousePointer = 0\r\nDebug.Print Label1.MousePointer\r\n");
+
+        Convert.ToInt32(debug[0].Value).Should().Be(2);
+        Convert.ToInt32(debug[1].Value).Should().Be(0);
     }
 
     // ── a colour converts as a Long, then refuses what is not an OLE colour (380) ─────────────────

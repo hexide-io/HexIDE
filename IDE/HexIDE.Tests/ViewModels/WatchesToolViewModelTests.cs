@@ -87,7 +87,7 @@ public class WatchesToolViewModelTests
     {
         _watchService.Add(new WatchExpression("count", WatchType.Expression, "Module1.Go"));
         var sut = CreateSut();
-        sut.SelectedRow = sut.Rows[0];
+        sut.SelectedItem = sut.Rows[0];
 
         sut.DeleteSelected();
 

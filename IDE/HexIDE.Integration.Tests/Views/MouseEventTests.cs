@@ -503,6 +503,37 @@ public class MouseEventTests
     }
 
     [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Automation_drag_on_a_Label_clicks_only_when_released_over_it(bool over)
+    {
+        // #1373: A_press_on_a_Label... and A_press_on_a_Label_moved_off_it_and_back above.
+        using var run = Start(Form(Twips, Static), Handlers("Label1"));
+        var end = over ? run.At("Label1", 20, 10) : new Point(300, 190);
+        var start = run.At("Label1", 10, 10);
+        var outcome = await AutomationClick(run, System.FormattableString.Invariant($"{start.X},{start.Y} to {end.X},{end.Y}"));
+        outcome.Success.Should().BeTrue(outcome.Error);
+        run.Errors.Should().BeEmpty();
+        Events(run).Should().Equal(over
+            ? new[] { "Label1 MouseDown", "Label1 MouseUp", "Label1 Click" }
+            : new[] { "Label1 MouseDown", "Label1 MouseUp" });
+    }
+
+    [AvaloniaFact]
+    public async Task Automation_drag_selects_the_ListBox_release_row()
+    {
+        // #1374: A_ListBox_s_selection_follows_a_press_moved_across_the_items... below.
+        using var run = Start(Form(Twips, AList), ListHandlers);
+        var start = Item(run, 0);
+        var end = Item(run, 2);
+        var outcome = await AutomationClick(run, System.FormattableString.Invariant($"{start.X},{start.Y} to {end.X},{end.Y}"));
+        outcome.Success.Should().BeTrue(outcome.Error);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 0", "Click 2", "MouseUp 1 2");
+        ((ListBox)run.Named("List1")).SelectedIndex.Should().Be(2);
+    }
+
+    [AvaloniaTheory]
     [InlineData(15L)]
     [InlineData(-1L)]
     public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs)

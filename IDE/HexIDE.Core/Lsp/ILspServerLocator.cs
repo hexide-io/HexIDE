@@ -1,7 +1,8 @@
 namespace HexIDE.Lsp;
 
 /// <summary>Information about where to find and launch the LSP server executable.</summary>
-public record LspServerInfo(string FileName, string Arguments, string WorkingDirectory);
+public record LspServerInfo(string FileName, string Arguments, string WorkingDirectory,
+    string[]? ArgumentList = null, IReadOnlyDictionary<string, string>? Environment = null);
 
 /// <summary>Finds the VB LSP server executable.</summary>
 public interface ILspServerLocator
