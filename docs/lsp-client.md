@@ -673,8 +673,18 @@ that supply no ID use the executable name.
 
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean
-IDE shutdown. This is cooperative: servers that ignore it can still outlive a crash. Clean shutdown
-continues to kill the launched process tree. See [configuration](language-servers.md#placeholders-in-arguments).
+IDE shutdown. On Windows, both stdio and launched pipe servers are assigned to the shared
+`ChildProcessJob` kill-on-close job immediately after launch. The OS ends assigned processes and
+their subsequent descendants even when HexIDE is killed without shutdown or disposal. Assignment
+failure fails the connection and tears down the launched process; externally owned pipe servers
+are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
+are outside this guarantee. On Linux and macOS, `{pid}` remains cooperative: servers that ignore
+it can still outlive a crash. The decided `HexIDE.ProcessWatchdog` follow-up is not implemented yet.
+The lifetime test helper is launched with its own dependencies and runtime configuration;
+its stdio and pipe readiness checks run on Linux too. The assertion that killing its owner
+ends the server and child remains Windows-only.
+Clean shutdown continues to terminate launched servers. See
+[configuration](language-servers.md#placeholders-in-arguments).
 
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
