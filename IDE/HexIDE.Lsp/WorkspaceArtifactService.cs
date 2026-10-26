@@ -243,15 +243,26 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         catch (Exception) { return null; }
     }
 
-    private static string Resolve(string path)
+    /// <summary>
+    /// The path with every link in it resolved, the links inside a link's target included. On Linux and macOS a link's
+    /// final target is the path its last link names, which can itself run through a link: macOS's temporary folder is
+    /// under <c>/var</c>, a link to <c>/private/var</c>. Left there, a root and a path inside it came back resolved to
+    /// different depths, and the containment check refused a file inside the workspace (#1933's macOS run). Windows
+    /// already answers with the canonical path; resolving the target again changes nothing there.
+    /// </summary>
+    internal static string Resolve(string path) => Resolve(path, 0);
+
+    private static string Resolve(string path, int depth)
     {
+        if (depth > 40) throw new IOException("Too many levels of links.");
         var current = Path.GetPathRoot(path)!;
         foreach (var part in path[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
         {
             current = Path.Combine(current, part);
             FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
             if (info.LinkTarget is not null)
-                current = info.ResolveLinkTarget(true)?.FullName ?? throw new IOException("Unresolved link.");
+                current = Resolve(info.ResolveLinkTarget(true)?.FullName ?? throw new IOException("Unresolved link."),
+                    depth + 1);
         }
         return current;
     }

@@ -9,7 +9,7 @@ namespace HexIDE.Tests.LspClient;
 
 public sealed class WorkspaceArtifactGenerationTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "hexide-artifact-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root;
     private readonly Workspace _workspace;
     private readonly IWorkspaceArtifactConsent _consent = Substitute.For<IWorkspaceArtifactConsent>();
     private readonly Provider _provider = new();
@@ -17,7 +17,10 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
 
     public WorkspaceArtifactGenerationTests()
     {
-        Directory.CreateDirectory(_root);
+        // Canonical, as the service resolves it: macOS's temporary folder runs through a link (/var is /private/var), and
+        // the service hands consent and the ownership record the resolved path.
+        _root = WorkspaceArtifactService.Resolve(Directory.CreateDirectory(
+            Path.Combine(Path.GetTempPath(), "hexide-artifact-" + Guid.NewGuid().ToString("N"))).FullName);
         _workspace = new Workspace(_root);
         _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
         _service = new WorkspaceArtifactService(_workspace,
@@ -194,6 +197,25 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         File.ReadAllText(Path.Combine(real, "generated.json")).Should().Be("first");
         await _consent.Received().AllowAsync("probe", "Probe server", real, Path.Combine(real, "generated.json"), Arg.Any<WorkspaceArtifactSpec>());
+    }
+
+    [Fact]
+    public async Task ALinkWhoseTargetRunsThroughAnotherLinkResolvesToTheRealFolder()
+    {
+        // macOS's temporary folder is such a path: /var is a link to /private/var, so a link created there names a
+        // target that runs through it. A root resolved only as far as the last link failed its own containment check.
+        var real = Path.Combine(_root, "real");
+        Directory.CreateDirectory(Path.Combine(real, "inner"));
+        var hop = Path.Combine(_root, "hop");
+        Directory.CreateSymbolicLink(hop, real);
+        var workspace = Path.Combine(_root, "workspace");
+        Directory.CreateSymbolicLink(workspace, Path.Combine(hop, "inner"));
+        _workspace.Projects = [new(workspace, new("project", null, [], []))];
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        var inner = Path.Combine(real, "inner");
+        File.ReadAllText(Path.Combine(inner, "generated.json")).Should().Be("first");
+        await _consent.Received().AllowAsync("probe", "Probe server", inner, Path.Combine(inner, "generated.json"),
+            Arg.Any<WorkspaceArtifactSpec>());
     }
 
     [Fact]
