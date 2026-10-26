@@ -123,6 +123,18 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBPictureBox>();
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
+        // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
+        RegisterTabOrder<VBCommandButton>(tabStop: true);
+        RegisterTabOrder<VBTextBox>(tabStop: true);
+        RegisterTabOrder<VBComboBox>(tabStop: true);
+        RegisterTabOrder<VBListBox>(tabStop: true);
+        RegisterTabOrder<VBCheckBox>(tabStop: true);
+        RegisterTabOrder<VBOptionButton>(tabStop: true);
+        RegisterTabOrder<VBPictureBox>(tabStop: true);
+        RegisterTabOrder<VBScrollBar>(tabStop: true);
+        RegisterTabOrder<VBFrame>(tabStop: false);
+        RegisterTabOrder<VBLabel>(tabStop: false);
+        RegisterTabOrder<VBProgressBar>(tabStop: false);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
         // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
@@ -190,6 +202,13 @@ public static class AvaloniaInteroperability
         return VBColorAvaloniaExtensions.FromAvaloniaColor(solidColorBrush.Color);
     }
 
+    private static void RegisterTabOrder<TControl>(bool tabStop) where TControl : Control
+    {
+        Register<TControl, int>(VBProperties.TabIndexProperty, c => TabOrder.Get(c), (c, place) => TabOrder.Set(c, place));
+        if (tabStop)
+            Register<TControl, bool>(VBProperties.TabStopProperty, c => TabOrder.GetTabStop(c), (c, stop) => TabOrder.SetTabStop(c, stop));
+    }
+
     private static void RegisterToolTipText<TControl>() where TControl : Control =>
         Register<TControl, string?>(VBProperties.ToolTipTextProperty, c => ToolTip.GetTip(c) as string ?? "",
             (c, tip) => ToolTip.SetTip(c, string.IsNullOrEmpty(tip) ? null : tip));
@@ -230,6 +249,7 @@ public static class AvaloniaInteroperability
 
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
+        VBProps.RefuseIfRemoved(control);
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -377,10 +397,11 @@ public static class AvaloniaInteroperability
 
         if (type == typeof(int))
         {
-            // ListIndex and a scroll bar's Value are Integers in VB6 (each reads back with TypeName Integer, measured),
-            // so a value past 32767 is Overflow, 6, before any range check: `ListIndex = 40000` is 6, measured. The
-            // rest of the int properties are Longs, `Interval` among them.
-            var integer = ReferenceEquals(property, VBProperties.ListIndexProperty) || ReferenceEquals(property, VBProperties.ValueProperty);
+            // ListIndex, a scroll bar's Value and TabIndex are Integers in VB6 (each reads back with TypeName Integer,
+            // measured), so a value past 32767 is Overflow, 6, before any range check: `ListIndex = 40000` is 6, and so is
+            // `TabIndex = 40000` (#1974). The rest of the int properties are Longs, `Interval` among them.
+            var integer = ReferenceEquals(property, VBProperties.ListIndexProperty) || ReferenceEquals(property, VBProperties.ValueProperty)
+                || ReferenceEquals(property, VBProperties.TabIndexProperty);
             var number = System.Convert.ToInt32(Coerce(value, integer ? Vb6Value.ValueType.Integer : Vb6Value.ValueType.Long));
             if (ReferenceEquals(property, VBProperties.IntervalProperty) && number is < 0 or > 65535)
                 throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
@@ -450,10 +471,23 @@ public static class AvaloniaInteroperability
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
+        VBProps.RefuseIfRemoved(c);
+        // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
+        if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
+        {
+            value = new Vb6Value((long)shape.BackColor.ToOle());
+            return true;
+        }
         if (c is VBLine line && LineMembers.TryGet(line, property, out value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(c) && MenuMembers.TryGet(c, property, out value) is { } menuMember)
             return menuMember;
+        // A Frame keeps its caption in Header; only the read is measured (#2063).
+        if (c is VBFrame frame && ReferenceEquals(property, VBProperties.CaptionProperty))
+        {
+            value = new Vb6Value(frame.Header as string ?? "");
+            return true;
+        }
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
         if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
@@ -532,7 +566,7 @@ public static class AvaloniaInteroperability
         if (untyped is bool b)
             return new Vb6Value(b);
         if (untyped is DateTime dt)
-            return new Vb6Value(dt);
+            return new Vb6Value(VbDate.FromDateTime(dt));
         if (untyped is VBColor col)
             return new Vb6Value(col);
         if (untyped.GetType().IsEnum)

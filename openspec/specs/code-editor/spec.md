@@ -162,6 +162,11 @@ declaration, the existing split at the first line break SHALL apply.
 This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
 whole-declaration paste question in the archived #273 design record without changing that historical record.
 
+For a file ending in a folded member attribute run without a final line break, Select All SHALL select the
+whole buffer while leaving the caret at the declaration's end; Shift+Left SHALL then end the selection one
+character before that point. Select-to-document-end from above the run SHALL select only to the declaration's
+end. This edge case is retained by decision #1019; the measured VB6-saved files all have a final line break.
+
 #### Scenario: Pasting a comment before a replacement declaration
 - **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed
   by a compatible declaration
@@ -416,3 +421,29 @@ its entries; removing its document from the project or unloading the project SHA
 - **WHEN** lines are inserted above a recorded location and its code tab is closed and reopened
 - **THEN** the row retains the moved line number and preview
 - **AND** selecting it opens that document at the moved line without adding an entry
+
+### Requirement: Inactive conditional branches SHALL be greyed for the selected view target
+The code window SHALL grey only the interpreter preprocessor's determined inactive lines in the theme's
+`InactiveCodeTextBrush`. It SHALL recompute after text edits with a debounce, and SHALL grey nothing when
+conditional compilation fails. Undetermined lines SHALL remain ungreyed. An edit that leaves every line where it
+was SHALL keep the greying until the next evaluation, and an edit that adds or removes lines SHALL clear it.
+
+#### Scenario: Editing an incomplete directive
+- **WHEN** an edit leaves an unterminated `#If` block
+- **THEN** the code window removes its inactive greying until preprocessing succeeds again
+
+#### Scenario: Typing on a line
+- **WHEN** the developer types within a line of a module whose inactive branches are greyed
+- **THEN** the greying stays as it is until the next evaluation, rather than flashing off with each keystroke
+
+### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
+A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
+VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+VBA's constants are not measured, since there is no VBA oracle.
+
+#### Scenario: Previewing a VBA branch
+- **WHEN** a module contains `#If VBA7 Then` with an `#Else` branch
+- **THEN** the default VB6 view greys the VBA7 branch
+- **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
+- **THEN** the view greys the Else branch instead, without changing what F5 runs

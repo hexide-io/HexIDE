@@ -22,12 +22,12 @@ public class VbLocaleDefaultTests
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             VbLocale.Default = CultureInfo.GetCultureInfo("en-GB");
 
-            VbDisplay.ToText(new Vb6Value(JanuaryTheSecond)).Should().Be("02/01/2003");
+            VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(JanuaryTheSecond))).Should().Be("02/01/2003");
 
             using (VbLocale.Use(CultureInfo.GetCultureInfo("en-US")))
-                VbDisplay.ToText(new Vb6Value(JanuaryTheSecond)).Should().Be("1/2/2003");
+                VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(JanuaryTheSecond))).Should().Be("1/2/2003");
 
-            VbDisplay.ToText(new Vb6Value(JanuaryTheSecond)).Should().Be("02/01/2003", "the scope has closed");
+            VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(JanuaryTheSecond))).Should().Be("02/01/2003", "the scope has closed");
         }
         finally
         {
