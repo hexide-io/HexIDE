@@ -258,6 +258,11 @@ public sealed class VBLspClient : ILspClient
                 TaskScheduler.Default);
             throw;
         }
+        catch (Exception ex)
+        {
+            scope.DropAnswer(ex);
+            throw;
+        }
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)

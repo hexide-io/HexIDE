@@ -94,7 +94,7 @@ public enum ConversationOutcome
     /// <summary>Answered successfully.</summary>
     Answered,
 
-    /// <summary>Answered with an error object.</summary>
+    /// <summary>Answered with an error object, or the received result could not be read.</summary>
     Failed,
 
     /// <summary>Cancelled by this client before an answer arrived.</summary>
