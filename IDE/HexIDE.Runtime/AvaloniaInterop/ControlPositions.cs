@@ -44,6 +44,10 @@ internal static class ControlPositions
     /// <summary>The value a program reads, from the control's position in pixels.</summary>
     public static Vb6Value Read(Control control, PropertyClass property, double pixels)
     {
+        // A Timer's Left and Top belong only to its designer icon (measured, #2069).
+        if (control is VBTimer && (ReferenceEquals(property, VBProperties.LeftProperty)
+                                  || ReferenceEquals(property, VBProperties.TopProperty)))
+            throw new VBRunTimeException(VBStandardError.PropertyGetCantBeExecutedAtRunTime);
         // A form's own Width and Height are its outer size, its frame included (#1072).
         if (control is Window form && IsSize(property))
             return new Vb6Value((float)FormFrame.Read(form, IsVertical(property)));
