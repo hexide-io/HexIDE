@@ -472,6 +472,12 @@ public static class AvaloniaInteroperability
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
         VBProps.RefuseIfRemoved(c);
+        // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
+        if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
+        {
+            value = new Vb6Value((long)shape.BackColor.ToOle());
+            return true;
+        }
         if (c is VBLine line && LineMembers.TryGet(line, property, out value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(c) && MenuMembers.TryGet(c, property, out value) is { } menuMember)
