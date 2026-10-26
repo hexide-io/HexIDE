@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "プロトコル インスペクター...",
     "Str.Menu.AddIns": "アドイン",
     "Str.Menu.Window": "ウィンドウ",
+    "Str.Menu.Window.ReopenClosed": "閉じたウィンドウを再度開く",
+    "Str.Menu.Window.RecentlyClosed": "最近閉じたウィンドウ",
     "Str.Menu.Window.Split": "分割",
     "Str.Menu.Window.ResetLayout": "ウィンドウレイアウトをリセット",
     "Str.Menu.Help": "ヘルプ",

@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Ispettore protocollo...",
     "Str.Menu.AddIns": "_Componenti aggiuntivi",
     "Str.Menu.Window": "_Finestra",
+    "Str.Menu.Window.ReopenClosed": "Riapri finestra chiusa",
+    "Str.Menu.Window.RecentlyClosed": "Finestre chiuse di recente",
     "Str.Menu.Window.Split": "_Dividi",
     "Str.Menu.Window.ResetLayout": "_Reimposta layout finestre",
     "Str.Menu.Help": "_Guida",

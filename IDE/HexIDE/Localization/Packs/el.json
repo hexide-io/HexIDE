@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Επιθεωρητής πρωτοκόλλου...",
     "Str.Menu.AddIns": "Πρόσθετα",
     "Str.Menu.Window": "Παράθυρο",
+    "Str.Menu.Window.ReopenClosed": "Επαναφορά κλεισμένου παραθύρου",
+    "Str.Menu.Window.RecentlyClosed": "Πρόσφατα κλεισμένα παράθυρα",
     "Str.Menu.Window.Split": "Διαίρεση",
     "Str.Menu.Window.ResetLayout": "Επαναφορά διάταξης παραθύρων",
     "Str.Menu.Help": "Βοήθεια",

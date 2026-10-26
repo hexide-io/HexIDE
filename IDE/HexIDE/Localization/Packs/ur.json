@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "پروٹوکول انسپکٹر...",
     "Str.Menu.AddIns": "ایڈ-انز",
     "Str.Menu.Window": "ونڈو",
+    "Str.Menu.Window.ReopenClosed": "بند ونڈو دوبارہ کھولیں",
+    "Str.Menu.Window.RecentlyClosed": "حال ہی میں بند کی گئی ونڈوز",
     "Str.Menu.Window.Split": "تقسیم کریں",
     "Str.Menu.Window.ResetLayout": "ونڈو ترتیب دوبارہ مرتب کریں",
     "Str.Menu.Help": "مدد",

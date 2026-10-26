@@ -52,6 +52,8 @@ public partial class MainViewViewModel : ObservableObject
     private readonly IWindowManager windowManager;
     private readonly IProjectService projectService;
     private readonly IDocumentDockService documentDockService;
+    public DelegateCommand ReopenClosedDocumentCommand { get; }
+    public ObservableCollection<RecentProjectItemViewModel> ClosedDocumentMenuItems { get; } = new();
     private readonly DockFactory dockFactory;
     private readonly IProjectRunnerService projectRunnerService;
     private readonly IEventBus eventBus;
@@ -818,6 +820,19 @@ public partial class MainViewViewModel : ObservableObject
 
         Layout = dockFactory.CreateLayout();
         dockFactory.InitLayout(Layout);
+        documentDockService.TrackTabs();
+        ReopenClosedDocumentCommand = new DelegateCommand(
+            () => documentDockService.ReopenClosedDocument(editorService),
+            () => documentDockService.RecentlyClosed?.Entries.Count > 0);
+        if (documentDockService.RecentlyClosed is { } history)
+            ((System.Collections.Specialized.INotifyCollectionChanged)history.Entries).CollectionChanged += (_, _) =>
+            {
+                ReopenClosedDocumentCommand.RaiseCanExecutedChanged();
+                ClosedDocumentMenuItems.Clear();
+                foreach (var entry in history.Entries)
+                    ClosedDocumentMenuItems.Add(new RecentProjectItemViewModel(entry.Title,
+                        new DelegateCommand(() => documentDockService.ReopenClosedDocument(editorService, entry))));
+            };
 
         // Eager-save wiring: baseline the just-restored layout (so a no-op gesture won't rewrite it),
         // debounce changes ~400ms, and listen for programmatic open/close. Mouse-driven changes

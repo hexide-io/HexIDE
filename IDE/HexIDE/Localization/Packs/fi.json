@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokolla_tarkastelija...",
     "Str.Menu.AddIns": "_Apuohjelmat",
     "Str.Menu.Window": "_Ikkuna",
+    "Str.Menu.Window.ReopenClosed": "Avaa suljettu ikkuna uudelleen",
+    "Str.Menu.Window.RecentlyClosed": "Äskettäin suljetut ikkunat",
     "Str.Menu.Window.Split": "_Jaa",
     "Str.Menu.Window.ResetLayout": "_Palauta ikkuna-asettelu",
     "Str.Menu.Help": "_Ohje",

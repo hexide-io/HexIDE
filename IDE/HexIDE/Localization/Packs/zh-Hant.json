@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "通訊協定檢查器...",
     "Str.Menu.AddIns": "增益集",
     "Str.Menu.Window": "視窗",
+    "Str.Menu.Window.ReopenClosed": "重新開啟已關閉的視窗",
+    "Str.Menu.Window.RecentlyClosed": "最近關閉的視窗",
     "Str.Menu.Window.Split": "分割",
     "Str.Menu.Window.ResetLayout": "重設視窗版面配置",
     "Str.Menu.Help": "說明",

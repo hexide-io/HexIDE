@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protocol_inspector...",
     "Str.Menu.AddIns": "_Invoegtoepassingen",
     "Str.Menu.Window": "_Venster",
+    "Str.Menu.Window.ReopenClosed": "Gesloten venster opnieuw openen",
+    "Str.Menu.Window.RecentlyClosed": "Onlangs gesloten vensters",
     "Str.Menu.Window.Split": "S_plitsen",
     "Str.Menu.Window.ResetLayout": "Vensterindeling _herstellen",
     "Str.Menu.Help": "_Help",

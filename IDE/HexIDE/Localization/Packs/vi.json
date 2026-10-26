@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Trình kiểm tra _giao thức...",
     "Str.Menu.AddIns": "_Phần bổ trợ",
     "Str.Menu.Window": "_Cửa sổ",
+    "Str.Menu.Window.ReopenClosed": "Mở lại cửa sổ đã đóng",
+    "Str.Menu.Window.RecentlyClosed": "Cửa sổ đã đóng gần đây",
     "Str.Menu.Window.Split": "_Chia tách",
     "Str.Menu.Window.ResetLayout": "Đặt _lại bố cục cửa sổ",
     "Str.Menu.Help": "Trợ _giúp",
