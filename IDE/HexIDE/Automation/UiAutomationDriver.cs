@@ -1736,6 +1736,8 @@ public static class UiAutomationDriver
                         Stop = watch.Paused(),
                         Dialog = dialog,
                         Title = dialog?.Title,
+                        // What it is, as the note says it: the title alone is 'HexIDE' for two of the IDE's dialogs (#1975).
+                        Description = dialog is null || string.IsNullOrEmpty(dialog.Title) ? null : OpenDialogs.DescriptionOf(dialog),
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
                         Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
                         Opened = OpenedForms(watch),
@@ -1775,7 +1777,7 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
-                             + "its form, " + (string.IsNullOrEmpty(state.Title) ? "with no title" : $"'{state.Title}'")
+                             + "its form, " + (state.Description ?? "with no title")
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
                              + $"{opened})",
@@ -2761,7 +2763,7 @@ public static class UiAutomationDriver
                         : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
                         $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"'{TitleOf(dialog)}' opened {where}, and a person's next key would go to it. Answer it, then "
+                        + $"{OpenDialogs.DescriptionOf(dialog, TitleOf(dialog))} opened {where}, and a person's next key would go to it. Answer it, then "
                         + "send the rest");
                 }
             }
@@ -2973,7 +2975,7 @@ public static class UiAutomationDriver
             return null;
         foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
             OpenDialogs.NamedInReply(dialog);
-        return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
+        return $"{OpenDialogs.DescriptionOf(holding, TitleOf(holding))}, a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
             + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
             + "'window' set to its title shows it, and interact answers it";
     }

@@ -68,8 +68,10 @@ public static class OpenDialogs
         return string.Join("; ", parts) + "; dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
     }
 
-    // Read the same live controls and automation names a tree dump exposes, including disabled choices.
-    private static string DescriptionOf(Window dialog)
+    // Read the same live controls and automation names a tree dump exposes, including disabled choices. Every text that
+    // names a waiting dialog goes through this, since its title alone does not tell the reset prompt from the run-time
+    // error dialog: both are 'HexIDE' (#1365, #1975).
+    internal static string DescriptionOf(Window dialog, string? title = null)
     {
         var controls = dialog.GetVisualDescendants().OfType<Control>().ToList();
         var content = dialog.Content;
@@ -97,7 +99,7 @@ public static class OpenDialogs
         }
         if (buttons.Length > 0)
             details.Add(buttons);
-        return $"'{dialog.Title}'" + (details.Count == 0 ? "" : $" ({string.Join(", ", details)})");
+        return $"'{title ?? dialog.Title}'" + (details.Count == 0 ? "" : $" ({string.Join(", ", details)})");
     }
 
     private static string FirstLine(string text)
