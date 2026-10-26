@@ -114,6 +114,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public IBookmarkService BookmarkService => bookmarkService;
     public HexIDE.Debugging.IBreakpointService BreakpointService => breakpointService;
     public HexIDE.Runtime.Debugging.IDebugController DebugController => debugController;
+    public HexIDE.Tools.CallStackToolViewModel? CallStack { get; }
 
     /// <summary>True while the project is running OR paused in the debugger — the window in which a code edit
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
@@ -217,6 +218,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null)
     {
         this.recentEditHistory = recentEditHistory;
@@ -231,6 +233,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.breakpointService = breakpointService;
         this.debugController = debugController;
         ExternalDebugger = externalDebugger;
+        CallStack = callStack;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
@@ -1122,6 +1125,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Task FlushDocumentAsync(CancellationToken ct = default)
         => session?.FlushAsync(ct) ?? Task.CompletedTask;
 
+    public async Task<DocumentSymbol[]> RequestSearchSymbolsAsync()
+    {
+        await FlushDocumentAsync();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestDocumentSymbolsAsync(uri) : [];
+    }
+
     private async Task RefreshSymbolsAsync()
     {
         if (!lspClient.IsRunning) return;
@@ -1265,7 +1274,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// whole attribute block and sixteen lines below it. Since task 3.10 the bundled server sends one edit per
     /// run of changed lines and leaves protected lines out, but another server need not. So the answer is
     /// applied to a copy, reduced to the lines it actually changes, and anything touching the header or a
-    /// member's attribute run is dropped.
+    /// member's attribute run is dropped. A kept whole-line deletion of a complete logical declaration then
+    /// takes its run with it (#1890).
     /// </para>
     /// <para>
     /// Lines are compared without their terminators, so a server answering in <c>\n</c> for a
@@ -1277,7 +1287,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Reduction ApplyFormatting(IReadOnlyList<TextEdit> edits)
     {
         var before = Document.Text;
-        var reduction = LineEdits.Reduce(before, Rewrite(before, edits), ReadOnlyRegions.Of(before, bufferPrefix.Length));
+        var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
+            ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
 
         if (reduction.Changes.Count > 0)
         {
@@ -1873,6 +1884,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestHoverAsync(uri, position, ct) : Task.FromResult<HoverResult?>(null);
 
+    public Task<SemanticTokenResult?> RequestSemanticTokensAsync(CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestSemanticTokensAsync(uri, ct) : Task.FromResult<SemanticTokenResult?>(null);
+
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
 
@@ -1888,8 +1902,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 
-    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct) : Task.FromResult<SignatureHelp?>(null);
+    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
+        => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
@@ -1900,8 +1914,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 
-    public Task<WorkspaceEdit?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+    public Task<RenameResult?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
     public Task<string?> ShowRenameInputBoxAsync(string defaultText)
         => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),

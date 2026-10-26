@@ -96,7 +96,7 @@ public partial class ToolBoxToolViewModel : Tool
         if (project is null)
             return;
 
-        var libraries = project.ObjectReferences.Select(ControlLibraries.For).OfType<ControlLibrary>().Distinct();
+        var libraries = project.ObjectReferences.Select(ControlLibraries.For).OfType<RuntimeLibrary>().Distinct();
         foreach (var library in libraries)
         foreach (var inBox in InBoxComponentClass.Implemented.Where(c => library.Controls.ContainsKey(c.ControlClassName)))
             inBoxTools.Add(new ComponentToolViewModel(this, inBox, IconFactory.Themed("Geo.Object")) { Library = library });

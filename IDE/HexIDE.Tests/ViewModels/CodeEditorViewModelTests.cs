@@ -770,12 +770,28 @@ public class CodeEditorViewModelTests : IDisposable
         var vm = CreateSut().Initialize(form);
         var pos = new Position(0, 12);
         _lspClient.RequestRenameAsync("untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>())
-            .Returns((WorkspaceEdit?)null);
+            .Returns((RenameResult?)null);
 
         var result = await vm.RequestRenameAsync(pos, "newName");
 
         await _lspClient.Received(1).RequestRenameAsync(
             "untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task RenameShowsTheServersRefusal()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _windowManager.InputBox("New name:", "Rename", "Long").Returns("Foo");
+        _lspClient.RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), "Foo", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(null, "Long is a keyword"));
+        var view = new HexIDE.Forms.Views.CodeEditorView();
+
+        await view.RenameSymbolAsync(vm, new Position(0, 0), "Long");
+
+        await _windowManager.Received(1).MessageBox("Long is a keyword", icon: MessageBoxIcon.Information);
     }
 
     [AvaloniaFact]

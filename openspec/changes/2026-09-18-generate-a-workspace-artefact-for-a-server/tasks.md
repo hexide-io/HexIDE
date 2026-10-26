@@ -56,6 +56,19 @@
 - [ ] 4.1 Depends on hexide-io/HexIDE#456 — regenerate on a material project change and notify.
   Debounced regeneration is implemented; the watched-file notification remains with #456.
 
+## 6. The RDCore provider (#455, phase 2)
+
+- [x] 6.1 `WorkspaceProjectSnapshot` carries the project's Conditional Compilation Arguments, empty for a line
+  vb6.exe refuses, read with the parser the interpreter uses.
+- [x] 6.2 The `rdcore` provider: every form, module, class and user control as a module, by its host path relative
+  to the root; the references; the arguments as precompiler constants; PascalCase keys; `Version` 0.1.0 unless
+  settings give one; no `OtherFiles`, which RDCore parses as code; nothing for a project with no code files.
+- [x] 6.3 Measured against RDCore `653244e2` over the wire, with the provider's own output: every listed module gets
+  RDCore's semantic diagnostics, in a subfolder or beside the project folder, the constants are honoured, and VBA
+  resolves with no reference. RDCore reads the file only when it starts.
+- [x] 6.4 The spring-tide demo generates its `.rdproj` instead of committing one.
+- [ ] 6.5 Live check in the IDE: the consent prompt names `.rdproj`, and RDCore's diagnostics arrive for the demo.
+
 ## 5. Documentation
 
 - [x] 5.1 `docs/language-servers.md`: the new field, what a provider is, and that writing is consented.

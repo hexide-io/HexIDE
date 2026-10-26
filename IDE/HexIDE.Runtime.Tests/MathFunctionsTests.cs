@@ -59,10 +59,57 @@ public class MathFunctionsTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task Randomize_ReseedsDeterministically()
+    public async Task Randomize_FoldsIntoCurrentState()
     {
-        await Run("Randomize 42\nDebug.Print Rnd()\nRandomize 42\nDebug.Print Rnd()\n");
-        debug.Should().HaveCount(2);
-        debug[0].Should().Be(debug[1]);   // same seed -> same next value
+        await Run("Randomize 42\nDebug.Print Rnd()\nRandomize 42\nDebug.Print Rnd()\n" +
+            "x = Rnd(-1)\nRandomize 42\nDebug.Print Rnd()\nx = Rnd(-1)\nRandomize 42\nDebug.Print Rnd()\n");
+        AssertExactRandomLog([new Vb6Value(5689283 / 16777216f), new Vb6Value(4299130 / 16777216f),
+            new Vb6Value(15230513 / 16777216f), new Vb6Value(15230513 / 16777216f)]);
     }
+
+    [Theory]
+    [InlineData("42", 15230513, 10252336, 2821683)]
+    [InlineData("7", 319793, 15925040, 2318643)]
+    [InlineData("1000", 5212209, 7277104, 10174515)]
+    public async Task Randomize_AfterNegativeRnd_MatchesVb6Sequence(string seed, int first, int second, int third)
+    {
+        await Run($"x = Rnd(-1)\nRandomize {seed}\nDebug.Print Rnd()\nDebug.Print Rnd()\nDebug.Print Rnd()\n");
+        AssertExactRandomLog([new Vb6Value(first / 16777216f), new Vb6Value(second / 16777216f),
+            new Vb6Value(third / 16777216f)]);
+    }
+
+    [Theory]
+    [InlineData("0.1", 14865713)]
+    [InlineData("123456789.123", 11352625)]
+    [InlineData("123456789", 11352625)]
+    public async Task Randomize_FoldsHighDoubleBits(string seed, int expected)
+    {
+        await Run($"x = Rnd(-1)\nRandomize {seed}\nDebug.Print Rnd()\n");
+        AssertExactRandomLog([new Vb6Value(expected / 16777216f)]);
+    }
+
+    [Fact]
+    public async Task Randomize_WithoutDrawBetween_IsIdempotent()
+    {
+        await Run("x = Rnd(-1)\nRandomize 42\nRandomize 42\nDebug.Print Rnd()\n");
+        AssertExactRandomLog([new Vb6Value(15230513 / 16777216f)]);
+    }
+
+    [Theory]
+    [InlineData("-1", 3758214)]
+    [InlineData("-2", 11967619)]
+    [InlineData("-0.5", 12146822)]
+    public async Task Rnd_NegativeArgument_FoldsSingleBits(string argument, int expected)
+    {
+        await Run($"Debug.Print Rnd({argument})\n");
+        AssertExactRandomLog([new Vb6Value(expected / 16777216f)]);
+    }
+
+    // Compare the Single payload exactly; the shared helper allows a numeric tolerance.
+    private void AssertExactRandomLog(List<Vb6Value> expected)
+    {
+        debug.Should().Equal(expected, (actual, value) =>
+            actual.Type == value.Type && Equals(actual.Value, value.Value));
+    }
+
 }

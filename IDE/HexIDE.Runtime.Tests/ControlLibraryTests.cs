@@ -102,7 +102,7 @@ public class ControlLibraryTests
     public void A_type_names_library_is_its_prefix(string typeName, string? library) =>
         (ControlLibraries.ForTypeName(typeName)?.Name).Should().Be(library);
 
-    private static async Task<List<Vb6Value>> Run(string code, params ControlLibrary[] referenced)
+    private static async Task<List<Vb6Value>> Run(string code, params RuntimeLibrary[] referenced)
     {
         var log = new List<Vb6Value>();
         var vb = new BasicInterpreter(new CapturingLib(log), new ModuleExecutionContext(), new ExecutionEnvironment(), code);

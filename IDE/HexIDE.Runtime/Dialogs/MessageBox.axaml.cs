@@ -12,6 +12,8 @@ namespace HexIDE.Runtime.Dialogs;
 
 public partial class MessageBox : UserControl
 {
+    public bool IsProgramDialog { get; init; }
+
     public string Text { get; set; } = "";
     public MessageBoxButtons Buttons { get; set; } = MessageBoxButtons.Ok;
     public MessageBoxIcon Icon { get; set; } = MessageBoxIcon.None;

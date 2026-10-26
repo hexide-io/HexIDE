@@ -27,10 +27,11 @@ namespace HexIDE.Runtime.Interpreter;
 /// </list>
 /// </para>
 /// <para>
-/// A program sees the culture through <see cref="ForProgram"/>: the user's separators, patterns and names, but two
+/// A program sees the culture through <see cref="ForProgram"/>: the user's separators, patterns and names, but some
 /// things are VB6's own rather than the culture's. A date is always in the Gregorian calendar, and a sign is always an
 /// ASCII <c>-</c> or <c>+</c>. Both were decided for writing, in <see cref="VbDisplay"/> (#779), and reading has to
-/// agree with writing, or <c>CDate(CStr(d))</c> is a different date.
+/// agree with writing, or <c>CDate(CStr(d))</c> is a different date. Nonbreaking spaces in date/time
+/// patterns and AM/PM designators become ordinary spaces, matching Windows locale data (#2102).
 /// </para>
 /// <para>
 /// What it governs: the text a value becomes (<c>CStr</c>, <c>&amp;</c>, <c>Format</c>), and text a program reads
@@ -53,7 +54,7 @@ public static class VbLocale
 
     /// <summary>
     /// <paramref name="culture"/> as a VB6 program reads and writes it: the same culture, but with the Gregorian
-    /// calendar and ASCII signs.
+    /// calendar, ASCII signs and ordinary spaces in date/time patterns and AM/PM designators.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -76,6 +77,7 @@ public static class VbLocale
     public static CultureInfo ForProgram(CultureInfo culture) =>
         culture.DateTimeFormat.Calendar is GregorianCalendar
         && culture.NumberFormat.NegativeSign == "-" && culture.NumberFormat.PositiveSign == "+"
+        && !HasNonbreakingSpaces(culture.DateTimeFormat)
             ? culture
             : Adapted.GetValue(culture, Adapt);
 
@@ -98,10 +100,32 @@ public static class VbLocale
                 format.YearMonthPattern = WithoutEra(format.YearMonthPattern);
             }
         }
+        var dates = adapted.DateTimeFormat;
+        var fullDateTimePattern = dates.FullDateTimePattern;
+        dates.ShortDatePattern = OrdinarySpaces(dates.ShortDatePattern);
+        dates.LongDatePattern = OrdinarySpaces(dates.LongDatePattern);
+        dates.ShortTimePattern = OrdinarySpaces(dates.ShortTimePattern);
+        dates.LongTimePattern = OrdinarySpaces(dates.LongTimePattern);
+        dates.FullDateTimePattern = OrdinarySpaces(fullDateTimePattern);
+        dates.MonthDayPattern = OrdinarySpaces(dates.MonthDayPattern);
+        dates.YearMonthPattern = OrdinarySpaces(dates.YearMonthPattern);
+        dates.AMDesignator = OrdinarySpaces(dates.AMDesignator);
+        dates.PMDesignator = OrdinarySpaces(dates.PMDesignator);
         adapted.NumberFormat.NegativeSign = "-";
         adapted.NumberFormat.PositiveSign = "+";
         return CultureInfo.ReadOnly(adapted);
     }
+
+    private static bool HasNonbreakingSpaces(DateTimeFormatInfo format) =>
+        HasNonbreakingSpaces(format.ShortDatePattern) || HasNonbreakingSpaces(format.LongDatePattern)
+        || HasNonbreakingSpaces(format.ShortTimePattern) || HasNonbreakingSpaces(format.LongTimePattern)
+        || HasNonbreakingSpaces(format.FullDateTimePattern) || HasNonbreakingSpaces(format.MonthDayPattern)
+        || HasNonbreakingSpaces(format.YearMonthPattern) || HasNonbreakingSpaces(format.AMDesignator)
+        || HasNonbreakingSpaces(format.PMDesignator);
+
+    private static bool HasNonbreakingSpaces(string text) => text.IndexOfAny(['\u202f', '\u00a0']) >= 0;
+
+    private static string OrdinarySpaces(string text) => text.Replace('\u202f', ' ').Replace('\u00a0', ' ');
 
     /// <summary><paramref name="pattern"/> without its era (<c>g</c> or <c>gg</c>), or the space that set it apart.</summary>
     private static string WithoutEra(string pattern)
