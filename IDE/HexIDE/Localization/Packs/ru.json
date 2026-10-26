@@ -129,6 +129,7 @@
     "Str.Menu.View.Definition": "Определение",
     "Str.Menu.View.Declaration": "Объявление",
     "Str.Menu.View.LastPosition": "Последняя позиция",
+    "Str.Tool.RecentEdits.Title": "Последние изменения",
     "Str.Menu.View.ObjectBrowser": "Обозреватель объектов",
     "Str.Menu.View.ImmediateWindow": "Окно отладки",
     "Str.Menu.View.LocalsWindow": "Окно локальных переменных",

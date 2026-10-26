@@ -129,6 +129,7 @@
     "Str.Menu.View.Definition": "定义",
     "Str.Menu.View.Declaration": "声明",
     "Str.Menu.View.LastPosition": "上一位置",
+    "Str.Tool.RecentEdits.Title": "最近编辑",
     "Str.Menu.View.ObjectBrowser": "对象浏览器",
     "Str.Menu.View.ImmediateWindow": "立即窗口",
     "Str.Menu.View.LocalsWindow": "本地窗口",

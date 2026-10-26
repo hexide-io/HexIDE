@@ -68,6 +68,8 @@ public partial class DISetup
                 return new WatchesToolViewModel(localization, watches, debugger, windows, external);
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
+            .Bind().As(Singleton).To<RecentEditHistory>()
+            .Bind().As(Singleton).To<RecentEditsToolViewModel>()
             .Bind<CodeEditorViewModel>().To(ctx =>
             {
                 // Keep optional debugger dependencies explicit, as for the Watches pane above.
@@ -85,8 +87,9 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
                 ctx.Inject<CallStackToolViewModel>(out var stack);
+                ctx.Inject<RecentEditHistory>(out var recentEdits);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, external, stack);
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -281,7 +284,16 @@ public partial class DISetup
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
-            .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To<AddinRegistry>()
+            .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
+            {
+                // Use the production constructor rather than searching the test-only path overloads.
+                ctx.Inject<IPackageVerifier>(out var verifier);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IDeveloperModeService>(out var developerMode);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new AddinRegistry(verifier, settings, developerMode, windows, localization);
+            })
             .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")

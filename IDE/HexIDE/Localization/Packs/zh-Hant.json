@@ -129,6 +129,7 @@
     "Str.Menu.View.Definition": "定義",
     "Str.Menu.View.Declaration": "宣告",
     "Str.Menu.View.LastPosition": "上一個位置",
+    "Str.Tool.RecentEdits.Title": "最近編輯",
     "Str.Menu.View.ObjectBrowser": "物件瀏覽器",
     "Str.Menu.View.ImmediateWindow": "即時運算視窗",
     "Str.Menu.View.LocalsWindow": "區域變數視窗",
