@@ -39,7 +39,7 @@ internal readonly record struct ConsoleTarget(bool Colour, int Width);
 /// uses plain text and an unlimited width; only terminal output needs console capabilities.
 /// </para>
 /// </remarks>
-internal static class ConsoleOutput
+internal static partial class ConsoleOutput
 {
     private const int AttachParentProcess = -1;
     private const int StdOutputHandle = -11;
@@ -187,8 +187,8 @@ internal static class ConsoleOutput
         return new FileStream(new SafeFileHandle(handle, ownsHandle: false), FileAccess.Write);
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern uint GetFileType(IntPtr hFile);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    private static partial uint GetFileType(IntPtr hFile);
 
     private static int WindowWidth()
     {
@@ -204,18 +204,18 @@ internal static class ConsoleOutput
         }
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool AttachConsole(int dwProcessId);
+    private static partial bool AttachConsole(int dwProcessId);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr GetStdHandle(int nStdHandle);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    private static partial IntPtr GetStdHandle(int nStdHandle);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+    private static partial bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+    private static partial bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
 }
