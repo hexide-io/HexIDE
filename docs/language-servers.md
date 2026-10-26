@@ -342,12 +342,13 @@ content is not rewritten; changed content replaces the owned file atomically. Wh
 provider nothing to describe, such as clangd with no C or C++ files, HexIDE neither asks nor writes,
 and removes a file it wrote that nobody has changed since. A directory, an empty file or anything
 larger than 8 MB at the artefact's path is never treated as HexIDE's, and is left alone unread.
+Refused paths, provider failures, failed writes and files left alone are also explained on the
+connection in the inspector.
 
 **Known limit:** HexIDE checks the path again after you answer the prompt, then writes. A process
 writing into the workspace at that same moment could swap a parent folder for a link between the
 check and the write, and the write would follow it. Nothing in .NET closes that gap; it needs
-something already able to change the project's files. Refused paths, provider
-failures, failed writes and files left alone are also explained on the connection in the inspector.
+something already able to change the project's files.
 
 Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
 no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
