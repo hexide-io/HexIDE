@@ -653,30 +653,6 @@ reach 5123, and an IDE there serves both, since neither names itself.
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
 
-## Three texts still name a waiting dialog only by its title, which two of the IDE's dialogs share (narrowed 2026-10-25)
-
-**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
-dialog are titled `'HexIDE'`. One held a `MessageBox` with Yes and No (OK and Cancel since #1360, measured 2026-10-25),
-the other a `RuntimeErrorView` with Continue, End, Debug and Help. The other half of #1365, that only a call naming a
-window that doesn't exist lists the open ones, is done: #1624 says so in the `window` description.
-
-**Narrowed (#1624, measured under #1330 on 2026-10-25).** The `modalDialog` note now says what the dialog is:
-`'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help)`, or
-`'HexIDE' (a message box: "This action will reset your project, proceed anyway?", OK/Cancel)`.
-
-Three texts still give the title alone:
-
-- the program wait's "has a window open over its form, 'HexIDE'";
-- keyboard `type_text`'s stop when a dialog opens part way;
-- the refusal from `type_text` and `press_key` while a modal dialog is open.
-
-The calls are in [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
-
-**Workaround.** Read the `modalDialog` note of the next reply that has one, or dump the dialog before answering it.
-
-**Suggested fix.** Use the note's description in the three texts.
-[#1975](https://github.com/hexide-io/HexIDE/issues/1975).
-
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
 **Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
