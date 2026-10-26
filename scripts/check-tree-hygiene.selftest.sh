@@ -71,8 +71,8 @@ checks=0
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
 EXPECTED_CHECKS=141
-FAILURES_UNTRACKED=23
-FAILURES_STAGED=25
+FAILURES_UNTRACKED=21   # 23 until #2071 let twinBASIC and RDCore be named anywhere
+FAILURES_STAGED=23
 
 # Built rather than written, so the comparison is against the same bytes the guard emits and this file
 # needs no particular encoding to survive.
@@ -194,7 +194,7 @@ harness_self_check() {
 # Every probe the C and D runs need. Called twice; the D run stages some of them afterwards.
 plant() {
   mkdir -p "$PROBE"
-  printf 'A note about %s.\n' "$NEIGHBOUR_B" > "$DOC_PROBE"
+  printf 'A note about %s.\n' "$NEIGHBOUR_C" > "$DOC_PROBE"
   printf '# see %s\n' "$MACHINE_PATH" > "$SCRIPT_PROBE"
   printf '# planted\n\nSee [nothing](./no-such-file.md).\n' > "$ROOT_PROBE"
   printf 'not a real key\n'                                 > "$PROBE/planted.pem"   # 1a committable
@@ -255,9 +255,9 @@ assert_every_scan_reported() {
   absent "3b. ...and so does the same write in prose"        "$PROBE/advice.md"
   seen "4.  an armed identity scan FAILS, any case"  "$FAILMARK personal-identity reference: $PROBE/identity.md:1:"
   seen "5.  a dangling link in Markdown FAILS"       "$FAILMARK dangling relative link: $PROBE/planted.md->./no-such-file.md"
-  seen "6.  an unagreed third-party name FAILS"      "$FAILMARK third-party project named outside the agreed places: $PROBE/neighbour1.md"
-  seen "6.  ...for every name in the list"           "$FAILMARK third-party project named outside the agreed places: $PROBE/neighbour2.md"
-  seen "6.  ...including the third"                  "$FAILMARK third-party project named outside the agreed places: $PROBE/neighbour3.md"
+  absent "6.  twinBASIC may be named anywhere"       "third-party project named outside the agreed places: $PROBE/neighbour1.md"
+  absent "6.  ...and so may RDCore (#2071)"          "third-party project named outside the agreed places: $PROBE/neighbour2.md"
+  seen "6.  any other project still FAILS"           "$FAILMARK third-party project named outside the agreed places: $PROBE/neighbour3.md"
   seen "8.  an opening conflict marker FAILS"        "$FAILMARK unresolved merge-conflict marker: $PROBE/conflict.md:1:"
   seen "8.  ...and so does the closing one"          "$FAILMARK unresolved merge-conflict marker: $PROBE/conflict.md:5:"
   seen "1a. ...and sees an accented filename"        "$FAILMARK private key file: $PROBE/$ACCENTED.pem"
