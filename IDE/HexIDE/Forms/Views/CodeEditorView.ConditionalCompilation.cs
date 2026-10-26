@@ -20,6 +20,7 @@ public partial class CodeEditorView
     private InactiveCodeColorizer? _inactiveColorizer;
     private IDisposable? _inactiveBrushSubscription;
     private IReadOnlyList<LineRange> _inactiveLines = [];
+    private int _evaluatedLineCount;
 
     private void InstallConditionalCompilation()
     {
@@ -33,16 +34,29 @@ public partial class CodeEditorView
                 TextEditor.TextArea.TextView.Redraw();
             }));
         _conditionalTimer.Tick += OnConditionalTick;
-        TextEditor.TextChanged += ScheduleConditionalCompilation;
+        TextEditor.TextChanged += OnTextChangedForConditionalCompilation;
         ConditionalTargetCombo.SelectionChanged += ScheduleConditionalCompilation;
         RefreshConditionalCompilation();
     }
 
+    // Most keystrokes leave every line where it was, so the greying stays until the next evaluation rather than flashing
+    // off and on with each one. An edit that adds or removes lines clears it: the old line numbers would grey the wrong
+    // text while the evaluation waits.
+    private void OnTextChangedForConditionalCompilation(object? sender, EventArgs e)
+    {
+        if (TextEditor.Document.LineCount == _evaluatedLineCount) Reschedule();
+        else ScheduleConditionalCompilation(sender, e);
+    }
+
     private void ScheduleConditionalCompilation(object? sender, EventArgs e)
     {
-        // Old line numbers must not grey unrelated text while the next evaluation waits.
         _inactiveLines = [];
         TextEditor.TextArea.TextView.Redraw();
+        Reschedule();
+    }
+
+    private void Reschedule()
+    {
         _conditionalTimer.Stop();
         _conditionalTimer.Start();
     }
@@ -57,6 +71,7 @@ public partial class CodeEditorView
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         var source = vm.Document.Text;
+        _evaluatedLineCount = vm.Document.LineCount;
         ConditionalTargetCombo.IsVisible = Regex.IsMatch(source, @"^\s*#If\b", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
         var builtIns = vm.ConditionalTargetIndex switch
         {
@@ -83,7 +98,7 @@ public partial class CodeEditorView
     {
         _conditionalTimer.Stop();
         _conditionalTimer.Tick -= OnConditionalTick;
-        TextEditor.TextChanged -= ScheduleConditionalCompilation;
+        TextEditor.TextChanged -= OnTextChangedForConditionalCompilation;
         ConditionalTargetCombo.SelectionChanged -= ScheduleConditionalCompilation;
         _inactiveBrushSubscription?.Dispose();
         _inactiveBrushSubscription = null;

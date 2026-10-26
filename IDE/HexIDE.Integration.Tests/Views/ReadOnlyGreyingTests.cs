@@ -315,6 +315,34 @@ public class ReadOnlyGreyingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TypingWithinALineKeepsTheGreyingUntilTheNextEvaluation()
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+
+        // A keystroke that keeps every line where it was must not flash the greying off while the next evaluation waits.
+        var active = editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print 6"));
+        editor.Document.Insert(active.EndOffset, "0");
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+
+        // One that moves lines does clear it, since the old line numbers would grey the wrong text: here the #If line,
+        // which now sits where the inactive branch was.
+        editor.Document.Insert(0, "\n");
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "#If VBA7 Then")).Should().Contain(c => c != grey);
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+    }
+
+    [AvaloniaFact]
     public async Task ConditionalSelectorFollowsTypingAndMalformedBlocksClearGreying()
     {
         var vm = OpenModule(ModuleKind.StandardModule, "Targets", "Debug.Print 6\n");
