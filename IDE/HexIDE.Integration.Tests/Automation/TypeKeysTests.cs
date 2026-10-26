@@ -258,6 +258,27 @@ public class TypeKeysTests : IDisposable
         await lsp.Received().RequestCompletionAsync(Arg.Any<string>(), new Position(4, 6), Arg.Any<CancellationToken>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(".")]
+    [InlineData("!")]
+    public async Task Advertised_punctuation_asks_for_completion(string trigger)
+    {
+        lsp.CompletionTriggerCharacters(Arg.Any<string>()).Returns(new[] { ".", "!" });
+        lsp.RequestCompletionForTriggerAsync(Arg.Any<string>(), Arg.Any<Position>(), trigger,
+            Arg.Any<CancellationToken>()).Returns(Array.Empty<CompletionItem>());
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, trigger);
+        Dispatcher.UIThread.RunJobs();
+
+        typed.Success.Should().BeTrue(typed.Error);
+        await lsp.Received(1).RequestCompletionForTriggerAsync(Arg.Any<string>(), new Position(4, 5),
+            trigger, Arg.Any<CancellationToken>());
+        await lsp.DidNotReceive().RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(),
+            Arg.Any<CancellationToken>());
+    }
+
     [AvaloniaFact]
     public void The_document_mode_asks_for_nothing_which_is_why_the_keyboard_mode_exists()
     {
