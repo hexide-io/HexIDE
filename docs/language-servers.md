@@ -362,7 +362,7 @@ The `rdcore` provider writes the `.rdproj` that RDCore's language server reads f
 without which it analyses nothing:
 
 ```json
-"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }
+"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore", "restartOnChange": true }
 ```
 
 It lists every form, module, class and user control the project carries by its path relative to the
@@ -370,8 +370,17 @@ workspace root, including one in a subfolder or beside the project's folder, and
 references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
 anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
 server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
-is left alone. RDCore reads the file only when it starts, so a module added while it runs is analysed
-from its next start.
+is left alone. RDCore reads the file only when it starts, so the entry should also set
+`"restartOnChange": true`: then a module added while it runs is analysed after a restart, rather than from its
+next start.
+
+`restartOnChange` restarts the server when a regeneration changes the file's bytes, for a server that reads its
+artefact only when it starts (#2072). It is off unless set, and a server that watches its own artefact, as clangd
+does its compilation database, should leave it off. The write before the first launch, an identical regeneration,
+and a refused or denied write don't count; taking the file back when there is nothing to describe does. The
+debounce that batches regeneration batches restarts too, so several quick project changes give one restart. Only
+that server is restarted, its open documents are opened on it again, and the restart is recorded on its
+connection in **Tools → Protocol Inspector**. It is a stopgap until such a server re-reads the file itself.
 
 Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
 server in that workspace for this session; **Allow Always** remembers that server/workspace pair.

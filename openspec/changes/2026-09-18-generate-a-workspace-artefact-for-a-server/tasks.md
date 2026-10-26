@@ -69,6 +69,16 @@
 - [x] 6.4 The spring-tide demo generates its `.rdproj` instead of committing one.
 - [ ] 6.5 Live check in the IDE: the consent prompt names `.rdproj`, and RDCore's diagnostics arrive for the demo.
 
+## 7. Restart on change (#2072)
+
+- [x] 7.1 `restartOnChange` on `workspaceArtifact`, off unless set: a regeneration that changes the file's bytes,
+  or takes it back, asks the registry to restart that server. Not the write before a launch, an identical
+  regeneration, or a refused or denied write. The debounce batches restarts with regeneration.
+- [x] 7.2 The registry restarts only that server, through the workspace-move path's stop, and opens its documents on
+  it again; the other servers keep theirs. A server not running is left alone, and a failed one stays failed.
+- [x] 7.3 The spring-tide profile and the RDCore entry in `docs/language-servers.md` set it. A stopgap until RDCore
+  re-reads its `.rdproj`.
+
 ## 5. Documentation
 
 - [x] 5.1 `docs/language-servers.md`: the new field, what a provider is, and that writing is consented.

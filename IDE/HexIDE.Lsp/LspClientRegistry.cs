@@ -89,6 +89,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         _logger = logger;
         _workspace = workspace;
         _artifacts = artifacts;
+        if (artifacts is not null) artifacts.RestartRequested += OnArtifactRestartRequested;
         ConfigurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
@@ -615,6 +616,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async ValueTask DisposeAsync()
     {
+        if (_artifacts is not null) _artifacts.RestartRequested -= OnArtifactRestartRequested;
         if (_artifacts is IDisposable disposable) disposable.Dispose();
         await StopAsync();
         foreach (var e in _entries) e.Gate.Dispose();
@@ -766,24 +768,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
         foreach (var e in _entries)
         {
-            if (e.Client is not { } client) continue;
+            if (e.Client is null) continue;
 
             // A failed entry keeps its client and its state. It is not restarted, so it must not be reset to
             // NotStarted — that would make it eligible to start again, which is the retry this is avoiding.
             if (e.State == LanguageConnectionState.Failed) continue;
 
-            client.DiagnosticsPublished -= OnInnerDiagnostics;
-            client.MessageShown -= OnInnerMessage;
-            client.MessageLogged -= OnInnerLogMessage;
-            client.TraceReceived -= OnInnerTrace;
-            client.StateChanged -= OnInnerStateChanged;
-            try { await client.StopAsync(); }
-            catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
-            client.ProgressReceived -= OnInnerProgress;
-            e.Client = null;
-            // NotStarted rather than Stopped: this one is eligible to run again, at the new root.
-            e.State = LanguageConnectionState.NotStarted;
-            e.StateSince = DateTimeOffset.UtcNow;
+            await StopForRestartAsync(e);
         }
 
         _rootedAt = current;
@@ -800,6 +791,57 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     /// <summary>
+    /// Stops a connection so that it can run again: NotStarted rather than Stopped, so the next document it claims, or
+    /// the re-open that follows, starts it afresh.
+    /// </summary>
+    private async Task StopForRestartAsync(Entry e)
+    {
+        if (e.Client is not { } client) return;
+        client.DiagnosticsPublished -= OnInnerDiagnostics;
+        client.MessageShown -= OnInnerMessage;
+        client.MessageLogged -= OnInnerLogMessage;
+        client.TraceReceived -= OnInnerTrace;
+        client.StateChanged -= OnInnerStateChanged;
+        try { await client.StopAsync(); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+        client.ProgressReceived -= OnInnerProgress;
+        e.Client = null;
+        e.State = LanguageConnectionState.NotStarted;
+        e.StateSince = DateTimeOffset.UtcNow;
+    }
+
+    private void OnArtifactRestartRequested(string serverId) => _ = RestartForArtifactAsync(serverId);
+
+    /// <summary>
+    /// Restarts the one server whose workspace artefact a regeneration changed, for a server that reads it only when it
+    /// starts and asked for this (#2072), then re-opens the documents it held.
+    /// </summary>
+    /// <remarks>
+    /// Only that server: the others neither read its file nor should lose their state. One that isn't running is left
+    /// alone, since it reads the new file when it next starts, and a failed one stays failed. Serialised with a workspace
+    /// move, which restarts everything.
+    /// </remarks>
+    private async Task RestartForArtifactAsync(string serverId)
+    {
+        try
+        {
+            await _restartGate.WaitAsync();
+            try
+            {
+                if (_entries.FirstOrDefault(x => x.Registration.Id == serverId) is not
+                    { Client: not null, State: LanguageConnectionState.Running } e) return;
+                _logger.LogInformation("Restarting {Server}: its workspace artefact changed.", serverId);
+                await StopForRestartAsync(e);
+                await ReopenKnownDocumentsAsync(null, CancellationToken.None, only: e);
+                ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+            }
+            finally { _restartGate.Release(); }
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { _logger.LogWarning(ex, "Restarting {Server} for its workspace artefact failed.", serverId); }
+    }
+
+    /// <summary>
     /// Opens every document the registry knows to be open on the connections that now claim it.
     /// </summary>
     /// <remarks>
@@ -809,8 +851,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// <paramref name="triggeringUri"/> is skipped because its caller opens it immediately afterwards. It is
     /// already in the record, which its caller writes first, so without the skip it would be sent twice.
     /// </para>
+    /// <para>
+    /// <paramref name="only"/> limits it to one connection, restarted alone: the others still hold their documents, and a
+    /// second didOpen for a URI is not something a server has to tolerate.
+    /// </para>
     /// </remarks>
-    private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken)
+    private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken,
+        Entry? only = null)
     {
         foreach (var (uri, known) in _open)
         {
@@ -819,6 +866,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
             foreach (var e in ClaimantsFor(uri, known.IsProjectMember))
             {
+                if (only is not null && e != only) continue;
                 // A failed entry is not revived by a document arriving, which is the rule EnsureStartedAsync
                 // already applies; the null check is what keeps that true here rather than restating it.
                 await EnsureStartedAsync(e, cancellationToken);
