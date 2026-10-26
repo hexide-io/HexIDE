@@ -68,6 +68,22 @@ public class FormDeserializer
                 componentsByTypeNames[library.TypeName(inBox.ControlClassName)] = inBox;
     }
 
+    /// <summary>
+    /// The class a ProgID names, in any case, as <c>Controls.Add</c> takes one: <c>"vb.commandbutton"</c> is a CommandButton
+    /// (measured, #1556).
+    /// </summary>
+    internal static bool TryGetComponentClass(string progId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ComponentBaseClass? componentClass)
+    {
+        foreach (var (typeName, component) in componentsByTypeNames)
+            if (string.Equals(typeName, progId, StringComparison.OrdinalIgnoreCase))
+            {
+                componentClass = component;
+                return true;
+            }
+        componentClass = null;
+        return false;
+    }
+
     /// <summary>The in-box ActiveX controls HexIDE implements (#1082).</summary>
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [

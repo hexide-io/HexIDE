@@ -86,7 +86,7 @@ digit, so it never hides a control.
 
 **`Controls.Add` and `Remove`.** `Set c = Controls.Add("VB.CommandButton", "cmdNew")` gives a CommandButton, enumerated
 last, and `Controls.Remove "cmdNew"` takes it out. `Controls.Remove "Command1"`, placed at design time, raises 729.
-HexIDE refuses both, naming #1556.
+#1556 measured both in full and HexIDE runs them: "Controls.Add and Controls.Remove".
 
 ### In HexIDE (#1060)
 

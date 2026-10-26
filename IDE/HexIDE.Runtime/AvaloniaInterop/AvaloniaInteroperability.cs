@@ -249,6 +249,7 @@ public static class AvaloniaInteroperability
 
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
+        VBProps.RefuseIfRemoved(control);
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -470,6 +471,7 @@ public static class AvaloniaInteroperability
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
+        VBProps.RefuseIfRemoved(c);
         if (c is VBLine line && LineMembers.TryGet(line, property, out value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(c) && MenuMembers.TryGet(c, property, out value) is { } menuMember)
