@@ -15,19 +15,19 @@ Requirements: .NET 10 SDK. No Java needed — `Antlr4BuildTasks` bundles the ANT
 cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj
 cd IDE && dotnet run --project HexIDE.Desktop/
 
-# Tests
-cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1900 VB6 interpreter tests
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~300 LSP server tests
-cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
-cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests
+# Tests — xunit v3 on MTP v2; select a project with --project (see the runner notes below).
+cd IDE && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj # VB6 interpreter tests
+cd LspServer && dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj # LSP server tests
+cd IDE && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
+cd IDE && dotnet test --project HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj          # Headless Avalonia UI tests
 
 # Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
-cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
+cd IDE && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
 
 # One class, or an arbitrary slice
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
+cd IDE && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-class "*CodeEditorViewModelTests"
+cd IDE && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-query "/*/*/CodeEditorViewModelTests/*"
+cd LspServer && dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj -- --filter-class "*WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
 cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
@@ -204,7 +204,7 @@ podman run --rm \
   -v hexide-nuget:/root/.nuget \
   -w /repo/IDE \
   mcr.microsoft.com/dotnet/sdk:10.0-noble \
-  dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
+  dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj --artifacts-path /repo/artifacts/container
 ```
 
 - **Run it from PowerShell.** In Git Bash the same command fails with `workdir "C:/Program Files/Git/repo/IDE"
@@ -226,41 +226,19 @@ guarantee. #1045 later exposed an ar-SA calendar assumption that fails on ICU 78
 the platform's data. Reach for the container when a CI failure will not reproduce under
 WSL; that is the case it was set up for.
 
-**The 282-failure run is a thread-affinity race in the test harness, not a build problem.** Every so often
-`HexIDE.Tests` reports a large batch of failures — **282**, the same number every time, because it is
-exactly the set of tests that touch Avalonia — and passes on the very next attempt.
+**The former 282-failure cascade was a thread-affinity race, fixed by `[AvaloniaFact]` (#286, #292).**
+Avalonia used to bind its dispatcher to whichever test first called `SetupWithoutStarting`; an async
+continuation could bind it on a thread later tests did not own. Serial execution alone never prevented
+that drift. Avalonia-dependent tests now use the assembly's headless session and its UI thread;
+`TestParallelization.cs` still disables concurrency because those tests share process-global state.
+`AvaloniaThreadAffinityTests` and `AvaloniaThreadAffinityAcrossClassesTests` check dispatcher access,
+thread identity across classes, and continuation affinity after an await. Run both when changing the runner:
 
-Each of those failures carries a real message, and it is always this one:
-
+```sh
+cd IDE && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj -- --filter-class "*AvaloniaThreadAffinity*"
 ```
-System.InvalidOperationException : The calling thread cannot access this object because a different
-thread owns it.
-   at Avalonia.Threading.Dispatcher.VerifyAccess()
-```
 
-**The mechanism.** `AvaloniaTestSetup.EnsureInitialized` binds Avalonia's dispatcher to whichever thread
-calls it first, and every later access must come from that same thread.
-`TestParallelization.cs` disables parallelisation to protect this, which prevents *concurrency* but does
-**not** guarantee *the same thread*: an async continuation may resume on a different pool thread, and when
-that happens around the first initialisation, every Avalonia-dependent test afterwards is on the wrong
-side of `VerifyAccess`. The suite has async-heavy tests (real stream I/O, JSON-RPC, timers) that make the
-drift more likely, though the fault is the harness's, not theirs.
-
-The `Setup was already called on one of AppBuilder instances` failures are the **same fragility wearing a
-different face** — what you get when the first initialisation throws and the latch, which is set *after*
-the call it guards, never latches. Both are tracked in
-[#286](https://github.com/hexide-io/HexIDE/issues/286).
-
-**What to do: re-run it, then believe the second answer.** A genuine failure reproduces and names
-different tests; this one is always the same 282 with the same message.
-
-**What this note used to say, and why it is worth recording that it was wrong.** It attributed the run to
-MSBuild's up-to-date check loading a mismatched assembly set, told the reader to expect *no error message
-against any of the failures*, and offered run duration as the tell. All three were wrong, and the middle
-one is why it went unexamined for so long — a reader who has been told there is no error does not go
-looking for one. The duration correlation was real but incidental: a run that fails 282 tests in their
-constructors finishes sooner because it does less work. Diagnosed properly on 2026-09-06 by reading a CI
-log instead of the note.
+A repeat of the old `VerifyAccess` cascade is a regression to investigate, not a reason to trust a rerun.
 
 ## MCP Dev Loop
 
@@ -534,7 +512,8 @@ one reads fresh only in a session that has not loaded it yet. See the restart no
 
 ### Key IDE projects (`IDE/`)
 
-Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock, .NET TFMs, Serilog).
+Package versions are centralized in `Directory.Packages.props`; `IDE/Directory.Build.props` defines
+the .NET TFMs and shared build properties.
 
 | Project | Role |
 |---------|------|
@@ -909,31 +888,31 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **MVVM**: use `[Notify]` (PropertyChanged.SourceGenerator) for `INotifyPropertyChanged` properties.
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
-- **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
-  All five test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
+- **Test framework migration is complete** (#297, #2008).
+  All five test projects use **xunit v3 3.2.2** with **Microsoft.Testing.Platform v2**, selected by
+  `xunit.v3.mtp-v2`; the framework ceiling below still applies. The VSTest/MTP split is closed.
   `Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio` and `coverlet.collector` are gone from all of
-  them; a v3 project under MTP needs `<OutputType>Exe</OutputType>` and
-  `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` and nothing else. (While
-  `Microsoft.NET.Test.Sdk` was still present it supplied the executable output itself, so the explicit
-  `OutputType` only became necessary when that package was removed.)
+  them; a v3 project under MTP needs `<OutputType>Exe</OutputType>`.
+  `global.json` selects `Microsoft.Testing.Platform` for the .NET 10 SDK's native runner, required by
+  MTP v2 on .NET 10. Use `dotnet test --project path/to/Tests.csproj`; positional project paths are no
+  longer accepted. The legacy `TestingPlatformDotnetTestSupport` and `TestingPlatformShowTestsFailure`
+  properties are removed; the native runner prints failures itself.
 - **A custom `FactAttribute` must never throw from its constructor.** xunit v2 reported that as a test
   failure; **v3 discards the test at discovery**, so a guard written that way fails *open*. This bit
   `HEXIDE_REQUIRE_FOREIGN_LSP`, whose entire purpose is to stop the foreign-server proof disappearing:
   with servers absent the suite went green at 978 instead of red, fourteen tests simply not there.
   Enforcement now lives in `RequiredServersTests` as ordinary `[Fact]`s, which are discovered whatever
-  the environment. Put availability checks in a test, not in an attribute. A v3 project needs no
-  `OutputType` change — `xunit.v3.core` makes it an executable itself.
-- **`xunit.v3` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
+  the environment. Put availability checks in a test, not in an attribute.
+- **`xunit.v3.mtp-v2` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
   package version and the framework generation are decoupled) breaks `Avalonia.Headless.XUnit` with a
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` is ignored with warning MTP0001. All five projects are on MTP.** Passing VSTest's
-  `--filter "FullyQualifiedName~Foo"` warns that VSTestTestCaseFilter is ignored and runs **every** test
-  in the project, so a run you believe was scoped to one class was actually the whole suite. Measured:
-  153 tests instead of 27.
+- **Use xunit filters. All five projects are on native MTP v2.** VSTest's
+  `--filter "FullyQualifiedName~Foo"` is not supported. The former forwarding mode ignored it with
+  MTP0001 and ran the whole suite (measured: 153 tests instead of 27); the native runner rejects it.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
-  The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
+  The `--` forwards runner arguments explicitly; native MTP also accepts these filters without it.
   — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement
   on VSTest and worth relying on: "0 tests, green" cannot happen by typo.
 

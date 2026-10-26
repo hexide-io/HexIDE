@@ -41,10 +41,10 @@ cd IDE && dotnet run  --project HexIDE.Desktop/               # run it
 Tests:
 
 ```sh
-cd IDE       && dotnet test HexIDE.Runtime.Tests/        # VB6 interpreter
-cd IDE       && dotnet test HexIDE.Tests/                # IDE view-models
-cd IDE       && dotnet test HexIDE.Integration.Tests/    # headless Avalonia UI
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # LSP server
+cd IDE       && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj        # VB6 interpreter
+cd IDE       && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj                # IDE view-models
+cd IDE       && dotnet test --project HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj    # headless Avalonia UI
+cd LspServer && dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj    # LSP server
 ```
 
 > **First-party add-ins:** the Desktop build only signs/bundles the bundled add-ins when a first-party
@@ -242,7 +242,7 @@ larger organisations. Run this from PowerShell; in Git Bash, MSYS rewrites `/rep
 ```powershell
 podman run --rm -v "C:\path\to\HexIDE:/repo" -v hexide-nuget:/root/.nuget -w /repo/IDE `
   mcr.microsoft.com/dotnet/sdk:10.0-noble `
-  dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
+  dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj --artifacts-path /repo/artifacts/container
 ```
 
 The container has no Node, so the three JSON-server tests skip there.

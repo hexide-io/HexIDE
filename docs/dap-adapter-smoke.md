@@ -197,7 +197,7 @@ already built.
    bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, and the error if it raised one.
 
    ```text
-   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test IDE/HexIDE.Runtime.Tests/
+   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test --project IDE/HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
    ```
 
 2. Run it. Set `HEXIDE_PARITY_ADAPTER` to the adapter executable and `RDCORE_PLATFORM_ROOT` as above, then:

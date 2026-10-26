@@ -170,7 +170,7 @@ the only gate that can fail for a reason we did not anticipate.
 Slow (one `vb6.exe` process per corpus form) and Windows-only, so it is opt-in:
 
 ```sh
-HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*HexIDE_output_still_builds_in_vb6"
+HEXIDE_ORACLE=1 dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --filter-method "*HexIDE_output_still_builds_in_vb6"
 ```
 
 The oracle reports a visible skip when `HEXIDE_ORACLE` is not `1`, the VB6 compiler is absent, or no
