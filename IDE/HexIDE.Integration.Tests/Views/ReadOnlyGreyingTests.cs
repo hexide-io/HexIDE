@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -21,11 +22,13 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Language;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
@@ -241,6 +244,128 @@ public class ReadOnlyGreyingTests : IDisposable
         editor.Document.GetLineByOffset(editor.Document.Text.IndexOf(text, StringComparison.Ordinal)).LineNumber;
 
     // ── The deltas' scenarios ───────────────────────────────────────────────────────────────────────────
+
+    [AvaloniaTheory]
+    [InlineData(0, 6)]
+    [InlineData(1, 2)]
+    [InlineData(2, 2)]
+    public async Task ConditionalTargetGreysOnlyInactiveLines(int target, int activeLine)
+    {
+        var themes = new ThemeService();
+        using var themeScope = TheIdesThemes(themes);
+        themes.Apply(target == 1 ? "Dark" : target == 2 ? "Abyss" : "Classic");
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If VBA7 Then\nDebug.Print 7\n#ElseIf Win64 Then\nDebug.Print 64\n#Else\nDebug.Print 6\n#End If\n" +
+            "#If VBA6 And Win32 Then\nDebug.Print 32\n#Else\nDebug.Print 0\n#End If\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo");
+        selector.Should().NotBeNull();
+        selector!.SelectedIndex.Should().Be(0);
+        selector.SelectedIndex = target;
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        grey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
+        foreach (var line in new[] { 2, 4, 6 })
+        {
+            var text = "Debug.Print " + (line == 2 ? "7" : line == 4 ? "64" : "6");
+            var actual = editor.Document.Lines.Single(l => editor.Document.GetText(l) == text).LineNumber;
+            if (line == activeLine) ColoursOn(editor, actual).Should().Contain(c => c != grey);
+            else ColoursOn(editor, actual).Should().OnlyContain(c => c == grey);
+        }
+        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
+            .Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 0" : "Debug.Print 32"))
+            .Should().Contain(c => c != grey);
+        var runtimeConstants = CompilationConstants.ForProject(vm.ModuleDefinition!.Owner);
+        runtimeConstants.BuiltIns.Should().BeSameAs(CompilationConstants.Vb6BuiltIns);
+        ConditionalCompiler.Preprocess(vm.BufferBody, runtimeConstants)
+            .InactiveLines.Should().Equal(new LineRange(2, 2), new LineRange(4, 4), new LineRange(9, 9));
+        var another = OpenModule(ModuleKind.StandardModule, "Another", vm.BufferBody);
+        Show(another);
+        ((CodeEditorView)windows.Last().Content!).FindControl<ComboBox>("ConditionalTargetCombo")!.SelectedIndex.Should().Be(0);
+        selector.SelectedIndex.Should().Be(target, "the view belongs to its own window");
+        themes.Apply(target == 1 ? "Abyss" : "Dark");
+        Dispatcher.UIThread.RunJobs();
+        var switchedGrey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        switchedGrey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
+        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
+            .Should().OnlyContain(c => c == switchedGrey);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1, false)]
+    [InlineData(2, true)]
+    public async Task ConditionalWin64DistinguishesVbaTargets(int target, bool active)
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If Win64 Then\nDebug.Print 64\n#Else\nDebug.Print 32\n#End If\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo");
+        selector.Should().NotBeNull();
+        selector!.SelectedIndex = target;
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, active ? "Debug.Print 32" : "Debug.Print 64"))
+            .Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, active ? "Debug.Print 64" : "Debug.Print 32"))
+            .Should().Contain(c => c != grey);
+    }
+
+    [AvaloniaFact]
+    public async Task TypingWithinALineKeepsTheGreyingUntilTheNextEvaluation()
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+
+        // A keystroke that keeps every line where it was must not flash the greying off while the next evaluation waits.
+        var active = editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print 6"));
+        editor.Document.Insert(active.EndOffset, "0");
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+
+        // One that moves lines does clear it, since the old line numbers would grey the wrong text: here the #If line,
+        // which now sits where the inactive branch was.
+        editor.Document.Insert(0, "\n");
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "#If VBA7 Then")).Should().Contain(c => c != grey);
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+    }
+
+    [AvaloniaFact]
+    public async Task ConditionalSelectorFollowsTypingAndMalformedBlocksClearGreying()
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets", "Debug.Print 6\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo");
+        selector.Should().NotBeNull();
+        selector!.IsVisible.Should().BeFalse();
+        vm.ReplaceBody("#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        selector.IsVisible.Should().BeTrue();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
+        vm.ReplaceBody("#If VBA7 Then\nDebug.Print 7\n");
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
+        vm.ReplaceBody("Debug.Print 6\n");
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        selector.IsVisible.Should().BeFalse();
+    }
 
     [AvaloniaFact]
     public void OpeningAForm()

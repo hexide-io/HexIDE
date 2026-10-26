@@ -67,7 +67,11 @@ public partial class WatchesToolViewModel : Tool
         RebuildRows();
         localization.LanguageChanged += () =>
         {
-            foreach (var row in Rows) row.RefreshContext();
+            foreach (var row in Rows)
+            {
+                row.RefreshContext();
+                row.RefreshLocalization();
+            }
         };
         // The controller raises Stopped/Continued on the interpreter's own (UI-thread) execution, so we are on the UI
         // thread and the walk is frozen — the async watch eval completes synchronously against the paused frame.

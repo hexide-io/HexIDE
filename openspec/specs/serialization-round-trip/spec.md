@@ -653,6 +653,27 @@ being anchored to slots; adding or removing an item may therefore shift them.
 - **WHEN** the project is saved, including to another folder
 - **THEN** the missing form's line remains first and both paths name the same files from the destination
 
+### Requirement: Missing control Font blocks inherit a load-time copy of the form font
+
+When loading a `VB.Form` with a declared Font, the deserializer SHALL give each font-bearing
+control without its own Font block a value copy of that form font, regardless of container depth.
+An explicit control Font block SHALL remain authoritative. Subsequent changes to the form font
+SHALL leave those control copies unchanged (measured for #2062; see
+[the oracle](../../../docs/vb6-fidelity-oracle/form-font-inheritance.md)).
+
+#### Scenario: A nested control omits its Font block
+
+- **GIVEN** a form declaring Arial 12, a PictureBox declaring Courier New 9.75, and a Frame inside it without a Font block
+- **WHEN** the form is loaded
+- **THEN** the Frame and its CommandButton without a Font block have Arial 12
+- **AND** the PictureBox retains Courier New 9.75
+
+#### Scenario: The form font changes after loading
+
+- **GIVEN** Command1 and Command2 inherited Arial from Form1 on load
+- **WHEN** Form1's font name becomes Tahoma
+- **THEN** both controls still read Arial
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.
@@ -699,3 +720,14 @@ requiring a keyboard-focus change. Documents without a focused form SHALL retain
 - **GIVEN** a carried-file editor is active and has keyboard focus
 - **WHEN** the Save keyboard gesture is pressed
 - **THEN** its own save binding handles the key
+
+### Requirement: Made programs SHALL omit carried files
+
+Make SHALL omit carried files and their item lines from the packaged project, including carried files
+reclassified from another item key. The other project lines SHALL retain their relative order. Ordinary
+project saves SHALL continue to include carried files; Make SHALL leave source membership unchanged.
+
+#### Scenario: A project carries private notes
+- **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
+- **THEN** the archive contains neither the carried file nor its project item line
+- **AND** the other project lines retain their relative order and the source project retains the carried file
