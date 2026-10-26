@@ -110,11 +110,12 @@ public sealed class CompilerProcessTests
         var install = Directory.CreateTempSubdirectory("hexide-tb-install-");
         try
         {
-            foreach (var name in new[] { "b", "B", "a" }) Directory.CreateDirectory(Path.Combine(install.FullName, "packages", name));
+            // No two names differ only in case: Windows and macOS's default APFS would make them one folder.
+            // Ordinal order puts the capital first, where a culture-aware sort would not.
+            foreach (var name in new[] { "c", "B", "a" }) Directory.CreateDirectory(Path.Combine(install.FullName, "packages", name));
             File.WriteAllText(Path.Combine(install.FullName, "packages", "not-a-folder"), "");
 
-            CompilerProcess.PackageNamesIn(install.FullName).Should().Equal(
-                OperatingSystem.IsWindows() ? ["a", "b"] : ["B", "a", "b"]);
+            CompilerProcess.PackageNamesIn(install.FullName).Should().Equal("B", "a", "c");
         }
         finally { install.Delete(recursive: true); }
     }
