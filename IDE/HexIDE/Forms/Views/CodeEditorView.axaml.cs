@@ -80,6 +80,8 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private HexIDE.Tools.CallStackToolViewModel? _callStack;
+    private Action? _onFrameShown;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
     private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
     private Action? _onExternalDebugChanged;
@@ -384,6 +386,25 @@ public partial class CodeEditorView : UserControl
             if (_debugController.CurrentStop is { } stop)
                 ShowCurrentStatement(vm, stop.Module, stop.Line);
 
+            _callStack = vm.CallStack;
+            if (_callStack is not null)
+            {
+                _onFrameShown = () =>
+                {
+                    var frame = _callStack.ShownFrame;
+                    var here = frame?.Module is { } module && vm.RunningProject is { } running
+                        && vm.Identity.IsIn(running) && vm.Identity.IsNamed(module);
+                    _breakpointMargin?.SetCallSite(here && frame!.IsCaller ? frame.Line : null);
+                    if (here && frame!.Line > 0 && frame.Line <= TextEditor.Document.LineCount)
+                    {
+                        vm.CaretOffset = TextEditor.Document.GetLineByNumber(frame.Line).Offset;
+                        TextEditor.ScrollToLine(frame.Line);
+                    }
+                };
+                _callStack.FrameShown += _onFrameShown;
+                _onFrameShown();
+            }
+
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
             ToolTip.SetShowDelay(TextEditor, 0);
@@ -575,6 +596,10 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_currentLineRenderer);
             _currentLineRenderer = null;
         }
+
+        if (_callStack is not null && _onFrameShown is not null) _callStack.FrameShown -= _onFrameShown;
+        _callStack = null;
+        _onFrameShown = null;
 
         if (_debugController is not null)
         {
