@@ -441,6 +441,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -559,7 +560,13 @@ public sealed class VBLspClient : ILspClient
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
                     // fold part-way along its closing line, and a fold read by whole lines then hides that line.
-                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true)),
+                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true),
+                    SemanticTokens: new SemanticTokensClientCapabilities(new(),
+                        ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+                         "parameter", "variable", "property", "enumMember", "event", "function", "method",
+                         "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
+                        ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true),
@@ -1369,6 +1376,31 @@ public sealed class VBLspClient : ILspClient
             ? new Position(line.GetInt32(), ch.GetInt32())
             : null;
 
+    public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        try
+        {
+            var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
+                .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
+            var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
+                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken);
+            if (result?.Data is not { Length: > 0 })
+            {
+                if (_semanticWarnings.TryAdd(uri, 0))
+                    _logger.LogDebug("[LSP] No semantic tokens for {Uri}; keeping lexical colours", uri);
+                return null;
+            }
+            return new SemanticTokenResult(result.Data, legend);
+        }
+        catch (Exception ex)
+        {
+            if (!cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
+                _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
+            return null;
+        }
+    }
+
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
@@ -1786,6 +1818,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
@@ -1820,6 +1853,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -2189,6 +2223,7 @@ public sealed class VBLspClient : ILspClient
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "semanticTokensProvider",
         "hoverProvider",
         "renameProvider",
         "signatureHelpProvider",
@@ -2364,6 +2399,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _semanticWarnings = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever

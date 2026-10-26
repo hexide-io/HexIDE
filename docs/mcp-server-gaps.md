@@ -540,6 +540,31 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
+## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
+
+**Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
+2026-10-13):
+
+```
+interact {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/Pane/None[FormContainer]/List[ControlsContainer]/ListItem[Command1]","action":"select"}
+invoke_format_command {"command":"AlignLefts"}
+→ "Nothing changed, and no undo step was added: the selection is Command1. The spacing commands need two or
+   more selected controls, the others at least one, and a selection that already satisfies the command is
+   left as it is."
+```
+
+The spec makes the nine alignment and sizing commands unavailable below two selected controls, and with one they
+can never change anything, so "at least one" sends a caller back with the same single selection. The text is
+hard-coded and the command table has no per-command minimum. Cross-platform by code reading.
+
+**Workaround.** Before any Align* or MakeSame* command, select two or more controls with `interact` `select` and
+then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterHorizontally and CenterVertically.
+
+**Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
+names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
+cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
+
+
 ## The code window's completion description: desktop snapshot composition still needs a live check
 
 **Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
@@ -724,24 +749,6 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
   `isReadOnly` for the value pattern.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
-
-## `take_snapshot` of a running form leaves out its title bar without saying so
-
-**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
-the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
-- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
-- The image is the form's client area, grey and empty, with no title bar.
-- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
-  captured, and took `activeDialog` as the confirmation.
-
-Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
-comes back in a field named `activeDialog`.
-
-**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
-"maxDepth":1}`.
-
-**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
-what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
 
 ## The `modalDialog` note lists a dialog's check boxes among its buttons
 
