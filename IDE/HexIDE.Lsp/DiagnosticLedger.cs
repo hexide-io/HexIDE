@@ -34,6 +34,12 @@ internal sealed class DiagnosticLedger
     // LspDocumentUri.
     private readonly Dictionary<string, Document> _documents = new(LspDocumentUri.Comparer);
 
+    public IReadOnlyList<OwnedDiagnostic> Snapshot()
+    {
+        lock (_gate)
+            return _documents.Values.SelectMany(d => d.Snapshot()).ToArray();
+    }
+
     /// <summary>
     /// Records what one source now says about one document, and returns the document's whole set —
     /// everything every source currently claims about it, ready to raise.
@@ -167,6 +173,9 @@ internal sealed class DiagnosticLedger
             _rows.RemoveAt(at);
             return true;
         }
+
+        public IEnumerable<OwnedDiagnostic> Snapshot() =>
+            _rows.SelectMany(r => r.Diagnostics.Select(d => new OwnedDiagnostic(_uri, r.Owner, d)));
 
         public PublishDiagnosticsParams Publish() =>
             new(_uri, _rows.SelectMany(r => r.Diagnostics).ToArray());

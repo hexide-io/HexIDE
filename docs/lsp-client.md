@@ -457,6 +457,16 @@ server is expected to keep off them — the bundled one does, by the rule in
 
 ---
 
+## Diagnostics panel
+
+Tools → Diagnostics shows the registry's current diagnostic store, including reports for unopened
+workspace documents. Each row names its publishing server (the configured display name), document URI,
+severity, line and message. Severity switches and a current-document filter narrow the list; the latter
+retains the last editor while the panel has focus. Reports replace their publisher's previous rows and
+withdrawals clear them without reopening the panel. Double-click a row to open the project document at
+its reported position, including carried files. Navigation uses the existing project resolver: a URI
+outside loaded projects cannot be opened by this panel. No additional diagnostic requests are issued.
+
 ## Diagnostics have an owner
 
 More than one source publishes onto the one diagnostics channel: each attached server, and the real VB6

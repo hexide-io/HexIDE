@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Tools.Diagnostics"
+             x:Class="HexIDE.Tools.Diagnostics.DiagnosticsToolView"
+             x:DataType="vm:DiagnosticsToolViewModel">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Orientation="Horizontal" Spacing="12" Margin="8">
+            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Errors}" IsChecked="{CompiledBinding Errors}" />
+            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Warnings}" IsChecked="{CompiledBinding Warnings}" />
+            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Information}" IsChecked="{CompiledBinding Information}" />
+            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Hints}" IsChecked="{CompiledBinding Hints}" />
+            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.CurrentDocument}" IsChecked="{CompiledBinding CurrentDocumentOnly}" />
+        </StackPanel>
+        <DataGrid Grid.Row="1" ItemsSource="{CompiledBinding Rows}" SelectedItem="{CompiledBinding SelectedRow, Mode=TwoWay}"
+                  IsReadOnly="True" AutoGenerateColumns="False" DoubleTapped="OnDoubleTapped" KeyDown="OnKeyDown">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Title}" Binding="{CompiledBinding SeverityText, x:DataType=vm:DiagnosticRow}" Width="Auto" />
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Server}" Binding="{CompiledBinding Server, x:DataType=vm:DiagnosticRow}" Width="Auto" />
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Document}" Binding="{CompiledBinding Document, x:DataType=vm:DiagnosticRow}" Width="2*" />
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Line}" Binding="{CompiledBinding Line, x:DataType=vm:DiagnosticRow}" Width="Auto" />
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Message}" Binding="{CompiledBinding Message, x:DataType=vm:DiagnosticRow}" Width="3*" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

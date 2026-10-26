@@ -1198,6 +1198,7 @@ public class FindReplaceViewModelTests
         var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
+        lsRegistry.Diagnostics.Returns([]);
         var languageServers = new LanguageServersToolViewModel(
             lsRegistry, loc, new ConversationLog(), Substitute.For<IEventBus>(),
             new HexIDE.Redaction.Pseudonymiser());
@@ -1226,6 +1227,8 @@ public class FindReplaceViewModelTests
             translationEditor,
             languageServers,
             protocolInspector,
+            new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
+                mockDocDock, editorService, loc),
             projectManager,
             Substitute.For<IFocusedProjectUtil>(),
             projectService,

@@ -53,6 +53,29 @@ public class EditorServiceNavigationTests
         return project;
     }
 
+    [AvaloniaFact]
+    public void ACarriedDiagnosticOpensItsFileAndPlacesTheCaret()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-1991-" + Guid.NewGuid() + ".md");
+        File.WriteAllText(path, "first\nsecond line\n");
+        try
+        {
+            var project = ProjectWith();
+            var carried = new RelatedDocumentDefinition(project, "notes.md", path);
+            project.AddRelatedDocument(carried);
+            using var editor = new RelatedDocumentEditorViewModel(Substitute.For<HexIDE.Lsp.ILspClient>(),
+                Substitute.For<IWindowManager>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
+            editor.Initialize(carried);
+            _dock.TryActivate(Arg.Any<Func<RelatedDocumentEditorViewModel, bool>>()).Returns(true);
+            _dock.OpenDocuments.Returns([editor]);
+
+            Sut().NavigateTo(new Uri(path).AbsoluteUri, 2, 4).Should().BeTrue();
+
+            editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(2).Offset + 3);
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void TheUntitledUriTheIdeMintsResolvesToItsModule()
     {
