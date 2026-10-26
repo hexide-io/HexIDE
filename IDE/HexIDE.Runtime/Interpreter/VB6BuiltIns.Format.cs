@@ -103,7 +103,7 @@ public partial class VB6BuiltIns
     // ---- date/time ----
 
     // Custom date mask. Tokens (case-insensitive): d/dd/ddd/dddd, m/mm/mmm/mmmm, y/yy/yyyy, h/hh, n/nn, s/ss,
-    // w/ww, q, c, ttttt, plus AM/PM · am/pm · A/P · a/p. Pinned against vb6.exe: 'h' is 24-hour unless an AM/PM
+    // w/ww, q, c, ttttt, plus AMPM · AM/PM · am/pm · A/P · a/p. Pinned against vb6.exe: 'h' is 24-hour unless an AM/PM
     // token is present; 'm'/'mm' right after an 'h'/'hh' token means MINUTE (else month); 'n' is always minute;
     // 'w' uses the vbSunday base; 'y' alone is the day of the year.
     private static string FormatDate(DateTime dt, string mask)
@@ -118,6 +118,7 @@ public partial class VB6BuiltIns
             char c = mask[i];
             if (c == '"') { i++; while (i < mask.Length && mask[i] != '"') { sb.Append(mask[i]); i++; } i++; continue; }
             if (c == '\\') { i++; if (i < mask.Length) { sb.Append(mask[i]); i++; } continue; }
+            if (MatchAmPm(mask, i)) { sb.Append(dt.Hour < 12 ? dfi.AMDesignator : dfi.PMDesignator); i += 4; afterHour = false; continue; }
             if (Match(mask, i, "AM/PM")) { sb.Append(dt.Hour < 12 ? "AM" : "PM"); i += 5; afterHour = false; continue; }
             if (Match(mask, i, "am/pm")) { sb.Append(dt.Hour < 12 ? "am" : "pm"); i += 5; afterHour = false; continue; }
             if (Match(mask, i, "A/P")) { sb.Append(dt.Hour < 12 ? "A" : "P"); i += 3; afterHour = false; continue; }
@@ -190,10 +191,13 @@ public partial class VB6BuiltIns
             char c = mask[i];
             if (c == '"') { i++; while (i < mask.Length && mask[i] != '"') i++; continue; }
             if (c == '\\') { i++; continue; }
-            if (Match(mask, i, "AM/PM") || Match(mask, i, "am/pm") || Match(mask, i, "A/P") || Match(mask, i, "a/p")) return true;
+            if (MatchAmPm(mask, i) || Match(mask, i, "AM/PM") || Match(mask, i, "am/pm") || Match(mask, i, "A/P") || Match(mask, i, "a/p")) return true;
         }
         return false;
     }
+
+    private static bool MatchAmPm(string s, int i) =>
+        s.AsSpan(i).StartsWith("AMPM", StringComparison.OrdinalIgnoreCase);
 
     private static bool Match(string s, int i, string tok) =>
         i + tok.Length <= s.Length && s.Substring(i, tok.Length) == tok;
