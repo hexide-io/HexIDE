@@ -214,7 +214,7 @@ runner.
 If Make still says the runtime is missing, its message names the folder it looked in and the file it didn't find.
 
 Programs made with v0.2.0 don't start, because that release's runner wasn't a single file
-([#1971](https://github.com/hexide-io/HexIDE/issues/1971)). Make them again with a later release.
+([#1971](https://github.com/hexide-io/HexIDE/issues/1971)). Make them again with v0.3.0 or later.
 
 ### Open in Visual Studio
 
