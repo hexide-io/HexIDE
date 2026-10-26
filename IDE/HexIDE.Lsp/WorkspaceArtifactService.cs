@@ -131,7 +131,11 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                 WriteContent(stream, bytes);
                 stream.Flush(true);
             }
-            File.Move(temporary, target, overwrite: owned is not null);
+            // Windows refuses to rename over a file that still has an open handle, even one that shares delete, so
+            // the ownership lock is let go only now: the race left is the replace call itself.
+            var replacing = owned is not null;
+            owned?.Dispose();
+            File.Move(temporary, target, overwrite: replacing);
         }
         finally { File.Delete(temporary); }
         _hashes[target] = Convert.ToHexString(SHA256.HashData(bytes));
