@@ -4206,8 +4206,10 @@ The reply said the opposite of what happened and asked for a bug report, for eve
 >    System.Int32. Path: $ | LineNumber: 0 | BytePositionInLine: 10. …
 > ```
 >
-> - **The third falls short of the fix above.** It names the argument but not that it is out of range, and the
->   serializer's raw message is still there: [#1965](https://github.com/hexide-io/HexIDE/issues/1965).
+> - **The third fell short of the fix above (#1965), now corrected.** Integral overflow names the value,
+>   whether it is too large or too small, and the whole-number range; parameter guidance adds the tool
+>   limit where declared (hover: 0 to 10000 ms). Linux SDK-client tests cover int, long and array items;
+>   a direct binding test checks hover guidance. A live repeat of the call above remains to be checked.
 > - **`take_snapshot {"inline":"true"}` never reached the server as a string.** Claude Code converted it to the
 >   boolean the schema asks for, and the call succeeded. That refusal is checked only by the SDK-client tests in
 >   `McpRestartTests`.

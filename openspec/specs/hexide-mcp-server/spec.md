@@ -461,3 +461,18 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Integral argument overflow explains the accepted range
+The server SHALL refuse an integral argument outside its parameter's storage range with the argument
+name, supplied value, whether it is too large or too small, and the accepted whole-number range.
+It SHALL include the parameter's declared guidance where available, and SHALL NOT expose serializer
+locations or .NET type names for that overflow. Nothing in the tool SHALL run for the refused call.
+
+#### Scenario: Hover dwell exceeds the integer range
+- **WHEN** hover receives dwellMs 3000000000
+- **THEN** the refusal names dwellMs and the whole-number range -2147483648 to 2147483647
+- **AND** includes the declared 0 to 10000 ms dwell guidance
+
+#### Scenario: A long integer is below its minimum
+- **WHEN** an argument for a long integer parameter is -9223372036854775809
+- **THEN** the refusal says it is too small and gives -9223372036854775808 to 9223372036854775807
