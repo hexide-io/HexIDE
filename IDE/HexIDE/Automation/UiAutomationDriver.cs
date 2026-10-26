@@ -1799,19 +1799,17 @@ public static class UiAutomationDriver
         }
     }
 
-    /// <summary>
-    /// The event queue of the program behind <paramref name="window"/>, with the form that leads to it: a running form,
-    /// a window it owns, or a program's MsgBox or InputBox. The box can be owned by the IDE, which shows a Sub Main
-    /// program's box over the active window, so a box is matched to the run by what it is, and its form is the run's
-    /// first open one. Null for any other window.
-    /// </summary>
+    /// <summary>The program behind a running form or a box raised by its MsgBox or InputBox call.</summary>
     internal static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
     {
-        for (var at = window; at is not null; at = at.Owner as Window)
-            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
-                return (events, at);
-        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox))
+        if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
+            return (events, window);
+        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog: true }
+            or HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog: true }))
             return null;
+        for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
+            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
+                return (ownerEvents, at);
         return OpenWindows().FirstOrDefault(w => w is HexIDE.Runtime.IModuleExecutionRoot { Events: not null }) is { } form
             ? (((HexIDE.Runtime.IModuleExecutionRoot)form).Events!, form)
             : null;
