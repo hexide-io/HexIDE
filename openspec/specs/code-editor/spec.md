@@ -407,6 +407,50 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Find scopes SHALL include project members and live buffers
+Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
+All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.
+Current Project SHALL target the active document's owning project (code, designer or carried file),
+then the Project Explorer selection, then the startup project, and SHALL display that project's name.
+Project scopes SHALL prefer open editors' live buffers over stored code, without flushing editors.
+Closed members SHALL be searched without opening non-matching files; selecting a hit SHALL open its
+editor and select the matching text. Forms, modules and carried files SHALL participate.
+
+#### Scenario: Unsaved edits are searchable
+- **WHEN** a term is added to or removed from an open module without saving
+- **AND** Find searches that project
+- **THEN** the results reflect the live buffer, and the module's stored code is unchanged
+
+#### Scenario: A group contains several projects
+- **WHEN** a code window or designer in a non-startup project is active
+- **THEN** Current Project names and searches that document's project
+- **AND** All Projects searches every loaded project
+
+### Requirement: Structural and selection scopes SHALL restrict every search and replacement
+Current Procedure and Current Module SHALL use containing procedure or module ranges reported by the
+active document's language server, including nested symbols, and SHALL fall back to Current Document
+when no containing range is reported. Selected Text SHALL preserve the original selected span across
+Find selections and track edits to its boundaries. These limits SHALL apply to Find, Replace and
+Replace All, including plain text, patterns, either direction and wrapping.
+
+#### Scenario: A foreign language server reports a procedure
+- **WHEN** the active carried file's server reports a procedure containing the caret
+- **AND** Current Procedure is selected
+- **THEN** Find and replacement are confined to that procedure
+
+#### Scenario: Find selects a match inside Selected Text
+- **WHEN** Find selects one match inside the original selected text
+- **THEN** the next search still covers the original span rather than only that match
+
+### Requirement: Replace All SHALL confirm changes across files
+Before Replace All changes matches in more than one document, it SHALL ask for confirmation.
+Refusal SHALL leave every buffer unchanged and SHALL NOT open closed editors for replacement.
+Accepted replacement SHALL edit live editor buffers, leaving saving to the developer.
+
+#### Scenario: Cross-file replacement is cancelled
+- **WHEN** matches exist in multiple files and the developer refuses confirmation
+- **THEN** no file is opened or changed by replacement
+
 ### Requirement: Inactive conditional branches SHALL be greyed for the selected view target
 The code window SHALL grey only the interpreter preprocessor's determined inactive lines in the theme's
 `InactiveCodeTextBrush`. It SHALL recompute after text edits with a debounce, and SHALL grey nothing when
