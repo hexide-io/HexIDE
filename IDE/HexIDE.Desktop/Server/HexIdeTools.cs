@@ -2113,7 +2113,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2138,7 +2138,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset);
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
@@ -2149,7 +2149,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y);
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut));
             if (!inline)
                 return result;
 
@@ -2603,6 +2603,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return window.Title;
         return window.Content?.GetType().Name is { Length: > 0 } content ? content : "Dialog";
     }
+
+    /// <summary>
+    /// What a snapshot left out and why, or null when it drew every open popup: a popup reported on no screen, or so far
+    /// from the window that both would not fit one image, which threw an unhandled "Positive number required" (#1960).
+    /// </summary>
+    internal static string? LeftOutNote(IReadOnlyList<HexIDE.Automation.SnapshotComposer.LeftOutPopup> leftOut) =>
+        leftOut.Count == 0 ? null
+            : $"Left out of this image: {string.Join("; ", leftOut.Select(p =>
+                $"a {p.Kind} popup reported at screen pixels ({p.Rect.X}, {p.Rect.Y}), {p.Rect.Width} × {p.Rect.Height}, {p.Reason}"))}. "
+              + "The window and every other open popup are drawn, and dump_visual_tree still lists a left-out popup's controls.";
 
     /// <summary>A document tab's kind, as get_document_tabs reports it.</summary>
     private static string TabType(object tab) => tab switch
@@ -3201,7 +3211,7 @@ internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
-    int? WindowOffsetX = null, int? WindowOffsetY = null);
+    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,
