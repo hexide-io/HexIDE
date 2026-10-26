@@ -47,7 +47,6 @@ Written clean-room for #715 from VisualBasic6Lexer.g4.
       <Word>Attribute</Word>
       <Word>Begin</Word>
       <Word>Beginproperty</Word>
-      <Word>End</Word>
       <Word>Endproperty</Word>
       <Word>Version</Word>
     </Keywords>
@@ -156,6 +155,7 @@ Written clean-room for #715 from VisualBasic6Lexer.g4.
       <Word>Each</Word>
       <Word>Else</Word>
       <Word>Elseif</Word>
+      <Word>End</Word>
       <Word>Enum</Word>
       <Word>Eqv</Word>
       <Word>Erase</Word>

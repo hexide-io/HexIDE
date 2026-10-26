@@ -22,11 +22,15 @@ that the developer could not see them was a limitation of its code window, and t
 ## Requirements
 
 ### Requirement: Syntax keywords match regardless of case
-The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing. Standalone `End` and every `END_*` block terminator from the MIT lexer SHALL receive the `Keyword` colour in every theme.
 
 #### Scenario: Keywords differ from the definition's casing
 - **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
 - **THEN** each word receives its named keyword colour from the syntax definition
+
+#### Scenario: Block terminators use keyword blue
+- **WHEN** the editor highlights `End Sub`, `End If`, `End Function`, `End With` or `End Select` in any theme
+- **THEN** both words receive the theme's `Keyword` colour
 
 ### Requirement: Syntax definition provenance and palette
 The VB6 syntax definition SHALL be authored under MIT from HexIDE's MIT lexer grammar, and SHALL use the named colours managed by `SyntaxHighlightingTheme`. Comments, strings, numbers, date literals, type suffixes and line continuations SHALL receive syntax colours.

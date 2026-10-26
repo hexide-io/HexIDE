@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Headless.XUnit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Highlighting;
@@ -50,11 +51,43 @@ public class Vb6HighlightingTests
         sections.Sum(s => s.Length).Should().Be(colouredLength == 0 ? text.TrimStart().Length : colouredLength);
     }
 
+    public static IEnumerable<object[]> EndKeywords =>
+        from theme in new[] { "Classic", "Dark", "Abyss" }
+        from keyword in new[] { "End", "End Enum", "End Function", "End If", "End Property", "End Select", "End Sub", "End Type", "End With" }
+        select new object[] { theme, keyword };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(EndKeywords))]
+    public void EndKeywordsReceiveKeywordColourInEveryTheme(string theme, string keyword)
+    {
+        var app = Application.Current!;
+        var original = app.RequestedThemeVariant;
+        var themes = new ThemeService();
+        try
+        {
+            themes.Apply(theme);
+            var definition = SyntaxHighlightingTheme.Definition;
+            foreach (var text in new[] { keyword, keyword.ToLowerInvariant(), keyword.ToUpperInvariant() })
+            {
+                using var highlighter = new DocumentHighlighter(new TextDocument(text), definition);
+                var sections = highlighter.HighlightLine(1).Sections;
+                sections.Should().NotBeEmpty();
+                sections.Should().OnlyContain(s => s.Color == definition.GetNamedColor("Keyword"));
+                sections.Sum(s => s.Length).Should().Be(text.Count(c => c != ' '));
+            }
+        }
+        finally
+        {
+            themes.Apply("Classic");
+            app.RequestedThemeVariant = original;
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("Begin", "MetadataKeyword")]
     [InlineData("begin", "MetadataKeyword")]
-    [InlineData("End", "MetadataKeyword")]
-    [InlineData("end", "MetadataKeyword")]
+    [InlineData("End", "Keyword")]
+    [InlineData("end", "Keyword")]
     [InlineData("private", "StorageModifier")]
     [InlineData("SUB", "Keyword")]
     public void KeywordsIgnoreCase(string text, string colour)
