@@ -102,6 +102,9 @@ public class VBOptionButton : RadioButton
                 option.Value = isChecked;
             if (isChecked && e.OldValue as bool? != true && !option.clickAfterFocus)
                 option.ExecuteSub(ComponentBaseClass.ClickEvent);
+            // Selecting it makes it its group's stop again, whatever TabStop it was given before (measured, #1974).
+            if (isChecked)
+                option.tabStop = true;
             option.UpdateGroupTabStops();
         });
 
@@ -115,8 +118,21 @@ public class VBOptionButton : RadioButton
     // TabStop besides.
     private bool tabStop = true;
 
-    /// <summary>The TabStop the form or code gave it, which a program reads back, whatever stop its group allows it.</summary>
-    internal bool ProgramTabStop => tabStop;
+    /// <summary>
+    /// The TabStop a program reads: its own, where its group allows it a stop, worked out now rather than read from the
+    /// stops last applied, which a form loaded but not yet shown hasn't had (measured, #1974).
+    /// </summary>
+    internal bool GroupTabStop => tabStop && (IsChecked == true || !Group.Any(o => o.IsChecked == true));
+
+    /// <summary>
+    /// A program's TabStop write. Not through IsTabStop: where its group has already made it no stop, setting that to False
+    /// changes nothing, raises no change, and the write would be lost.
+    /// </summary>
+    internal void SetTabStopFromCode(bool value)
+    {
+        tabStop = value;
+        UpdateGroupTabStops();
+    }
     private bool settingTabStop;
 
     // Set while the focus selects it, until its GotFocus has been raised.

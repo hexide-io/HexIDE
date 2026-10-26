@@ -48,13 +48,29 @@ Integer, and is converted as one before anything moves. A Timer's is 438, late-b
 | `Null` | `True Boolean 94`: unchanged |
 
 - **`Text1.TabStop = False` leaves the order as it was.**
-- **Option1 and Check1 read True,** and Option1 reads False after `Option1.TabStop = False`.
+- **Option1 and Check1 read True,** and Option1 reads False after `Option1.TabStop = False`. Option1 was alone in its
+  Frame, with nothing selected.
 - **A Label or a Frame has no TabStop:** reading or setting one is 438, late-bound.
+
+**An option button in a group reads the group's stop.** A second probe put Option1 and Option2 in Frame1, with Option2
+selected in the form. Each row is Option1's TabStop, then Option2's:
+
+| Step | Option1, Option2 |
+|---|---|
+| loaded, Option2 selected | `False True` |
+| `Option1.Value = True` | `True False` |
+| `Option2.TabStop = False` | `True False` |
+| `Option2.Value = True` | `False True` |
+
+**What this overturned.** The obvious guess was that an option button reads back the TabStop it was given, with the
+group only deciding where Tab stops. It isn't: it reads False beside a selected option, and selecting it makes it
+True again, whatever it was set to before. Every row was read with the form loaded and not yet shown.
 
 **In HexIDE (#1974):**
 - **Reading and setting work** on every control VB6 gives a TabIndex, for every row above.
 - **A set renumbers the whole form,** whose order is the order the running form tabs in.
-- **An option button reads the TabStop it was given,** not the stop its group allows it at that moment.
+- **An option button reads the stop its group allows it,** worked out when it is read, so a form loaded and not yet
+  shown reads as VB6's does. Selecting one makes it its group's stop again.
 - **Not measured:**
   - the TabIndex a control array element loaded at run time takes;
   - a UserControl's TabIndex, which HexIDE doesn't bind yet.

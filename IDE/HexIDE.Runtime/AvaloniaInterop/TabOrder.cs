@@ -15,7 +15,9 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// new one move up or down by one. A place past the last is the last.</item>
 /// <item>It is converted as an Integer, so 1.5 and 2.5 are both 2 and 40000 is Overflow (6). Below 0 is 380, True
 /// included, Null is 94, "abc" is 13, and Empty is 0. Nothing moves when it raises.</item>
-/// <item>TabStop is a Boolean, converted as CBool converts it: "abc" is 13 and Null is 94. It leaves the order alone.</item>
+/// <item>TabStop is a Boolean, converted as CBool converts it: "abc" is 13 and Null is 94. It leaves the order alone. An
+/// option button's reads the stop its group allows it: False for an option beside a selected one, and True once it is
+/// selected, whatever it was set to before.</item>
 /// <item>A Timer has no TabIndex, and a Label or a Frame no TabStop: 438 late-bound.</item>
 /// </list>
 /// </summary>
@@ -49,9 +51,14 @@ internal static class TabOrder
             KeyboardNavigation.SetTabIndex(order[i], i);
     }
 
-    /// <summary>The TabStop a program reads: an option button's own, not the stop its group allows it.</summary>
-    public static bool GetTabStop(Control c) =>
-        c is VBOptionButton option ? option.ProgramTabStop : KeyboardNavigation.GetIsTabStop(c);
+    /// <summary>The TabStop a program reads, which is the control's stop: for an option button, the one its group allows.</summary>
+    public static bool GetTabStop(Control c) => c is VBOptionButton option ? option.GroupTabStop : KeyboardNavigation.GetIsTabStop(c);
 
-    public static void SetTabStop(Control c, bool tabStop) => KeyboardNavigation.SetIsTabStop(c, tabStop);
+    public static void SetTabStop(Control c, bool tabStop)
+    {
+        if (c is VBOptionButton option)
+            option.SetTabStopFromCode(tabStop);
+        else
+            KeyboardNavigation.SetIsTabStop(c, tabStop);
+    }
 }

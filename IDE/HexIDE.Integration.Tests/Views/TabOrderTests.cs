@@ -180,14 +180,64 @@ public class TabOrderTests
         printed.Should().Equal("0 1 2 3 4 5 6 7");
     }
 
-    // An option button reads the TabStop it was given, not the stop its group allows it.
+    // An option button on its own reads what it is given: Option1 and Check1 read True, and Option1 False once set so.
     [AvaloniaFact]
-    public async Task An_option_button_reads_its_own_TabStop()
+    public async Task An_option_button_alone_reads_its_TabStop()
     {
         var printed = await Run("Debug.Print Option1.TabStop\r\nOption1.TabStop = False\r\nDebug.Print Option1.TabStop, Check1.TabStop");
 
         printed.Should().Equal("True", "False", "True");
     }
+
+    // In a group, an option button reads the stop the group allows it, and selecting it makes it the stop again, whatever
+    // it was set to (measured: Option1 and Option2 in Frame1, Option2 selected in the form).
+    [AvaloniaFact]
+    public async Task An_option_button_in_a_group_reads_the_stop_the_group_allows_it()
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(OptionGroupForm);
+        var printed = await ContainerRuntimeHarness.Run(ctx, env,
+            "Debug.Print Option1.TabStop, Option2.TabStop\r\n"
+            + "Option1.Value = True\r\nDebug.Print Option1.TabStop, Option2.TabStop\r\n"
+            + "Option2.TabStop = False\r\nDebug.Print Option1.TabStop, Option2.TabStop\r\n"
+            + "Option2.Value = True\r\nDebug.Print Option1.TabStop, Option2.TabStop\r\n");
+
+        printed.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture)).Should()
+            .Equal("False", "True", "True", "False", "True", "False", "False", "True");
+    }
+
+    private const string OptionGroupForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           ClientHeight    =   3000
+           ClientWidth     =   4000
+           Begin VB.Frame Frame1
+              Caption         =   "Frame1"
+              Height          =   1455
+              Left            =   120
+              TabIndex        =   0
+              Top             =   120
+              Width           =   2055
+              Begin VB.OptionButton Option1
+                 Caption         =   "Option1"
+                 Height          =   375
+                 Left            =   120
+                 TabIndex        =   1
+                 Top             =   360
+                 Width           =   1215
+              End
+              Begin VB.OptionButton Option2
+                 Caption         =   "Option2"
+                 Height          =   375
+                 Left            =   120
+                 TabIndex        =   2
+                 Top             =   840
+                 Value           =   -1  'True
+                 Width           =   1215
+              End
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
 
     // 438 late-bound in VB6 (measured); refused as any member a control lacks is.
     [AvaloniaTheory]
