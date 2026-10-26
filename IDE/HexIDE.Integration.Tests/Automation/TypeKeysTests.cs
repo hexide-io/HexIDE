@@ -457,7 +457,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             typed.Success.Should().BeFalse();
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over the window");
+            typed.Error.Should().Be("key 1 of 3 was sent to TextBox and raised 'Reset?' over the window; "
+                                   + "that key may not have landed. Nothing after it was sent. "
+                                   + "Answer the dialog, then check the text before deciding what to send next");
             box.Text.Should().Be("a", "the rest would have gone to the dialog");
         }
         finally { prompt?.Close(); }
@@ -485,8 +487,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             typed.Success.Should().BeFalse();
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over 'Form1', "
-                                           + "and a person's next key would go to it");
+            typed.Error.Should().Be("key 1 of 3 was sent to TextBox and raised 'Reset?' over 'Form1'; "
+                                   + "that key may not have landed. Nothing after it was sent. "
+                                   + "Answer the dialog, then check the text before deciding what to send next");
             box.Text.Should().Be("a", "the rest would have gone to the dialog");
         }
         finally
@@ -711,7 +714,7 @@ public class TypeKeysTests : IDisposable
 
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
-            typed.Error.Should().Contain("'Reset?' opened over 'Form1'");
+            typed.Error.Should().Contain("'Reset?'").And.Contain("over 'Form1'");
             OpenDialogs.Note(watch, [window, form, prompt!]).Should().BeNull();
         }
         finally
@@ -739,8 +742,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             // Said what it is, not only its title, which a program's box shares with its project (#1975).
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Project1' (a message box")
-                .And.Contain(") opened in a window of its own, and a person's next key would go to it");
+            typed.Error.Should().StartWith("key 1 of 3 was sent to TextBox and raised 'Project1' (a message box")
+                .And.EndWith(") in a window of its own; that key may not have landed. Nothing after it was sent. "
+                             + "Answer the dialog, then check the text before deciding what to send next");
         }
         finally { shown?.Close(); }
     }

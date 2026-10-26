@@ -2783,9 +2783,9 @@ public static class UiAutomationDriver
                     var where = dialog.Owner is null ? "in a window of its own"
                         : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
-                        $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"{OpenDialogs.DescriptionOf(dialog)} opened {where}, and a person's next key would go to it. Answer it, then "
-                        + "send the rest");
+                        $"key {i + 1} of {keys.Count} was sent to {surface.GetType().Name}{address} and raised "
+                        + $"{OpenDialogs.DescriptionOf(dialog)} {where}; that key may not have landed. Nothing after it was sent. "
+                        + "Answer the dialog, then check the text before deciding what to send next");
                 }
             }
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
