@@ -58,6 +58,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public TextDocument Document => document;
 
+    // Per code window, deliberately absent from project and settings serialization (#1113).
+    [Notify] private int conditionalTargetIndex;
+
     [Notify] private int caretOffset;
     [Notify] private int selectionStart;
     [Notify] private int selectionLength;

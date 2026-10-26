@@ -111,10 +111,8 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         RootNodes.Add(editor);
         RootNodes.Add(designer);
 
-        var artifacts = new OptionsNodeViewModel(_localization.GetString("Str.LspArtifact.Title"),
-            new WorkspaceArtifactPageViewModel(), "Str.LspArtifact.Title");
-        _keyedNodes.Add(artifacts);
-        RootNodes.Add(artifacts);
+        // A leaf like any other page, so a reset there is committed on OK and forgotten on Cancel (#2073).
+        RootNodes.Add(Leaf(new WorkspaceArtifactPageViewModel(_localization), "Str.LspArtifact.Title"));
         BuildAddinsGroup();
 
         // Developer node — last in the tree, and only when the session is in developer mode.

@@ -44,6 +44,10 @@ product's own templates — the two numbers are unrelated, and no layer may hold
 - **THEN** its contents are not drawn on the form, at the offset they would have had against the form's own
   origin or anywhere else
 
+#### Scenario: A Timer's designer position is read by a running program
+- **WHEN** a running program reads a Timer's Left or Top through an Object reference
+- **THEN** it raises run-time error 393 rather than returning the designer position (#2069)
+
 ### Requirement: A container SHALL carry what it holds
 Every operation that acts on a container SHALL act on its contents with it — moving, hiding, disabling,
 deleting, copying and saving alike — as one thing rather than as a container and a set of unrelated
