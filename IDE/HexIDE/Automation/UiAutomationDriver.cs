@@ -2331,16 +2331,19 @@ public static class UiAutomationDriver
         && owner.IndexFromContainer(c) < 0;
 
     // A row a virtualizing list keeps though it is scrolled out of view: the list's tab-once row, the one a Tab into the list
-    // lands on, which selecting a row makes it. The panel keeps it realized for that Tab, arranged where it would be,
-    // outside the view, so no person sees it, and it is left out as rows out of view are. Its index is real, so Released
-    // keeps it. Kept while focus is in it: a person's keys go there, and the dump's focusedPath names it (#1981).
+    // lands on, which selecting a row makes it. The panel keeps it for that Tab, apart from the rows it has realized for
+    // the view, and arranges it where it would be, outside the view, so no person sees it: it is left out as rows out of
+    // view are. Its index is real, so Released keeps it. Told by membership, not geometry: a hidden row's bounds are stale,
+    // and the held row's place is an estimate (#1981 review). Kept while focus is in it, a person's keys going there, or
+    // while a dropdown it holds is open, which is on screen (#1981).
     private static bool HeldOutOfView(Control c) =>
         c is ListBoxItem or TreeViewItem or TabItem
-        && c.GetVisualParent() is VirtualizingPanel { IsItemsHost: true } panel
+        && c.GetVisualParent() is VirtualizingPanel { IsItemsHost: true }
         && !c.IsKeyboardFocusWithin
-        && panel.FindAncestorOfType<ScrollViewer>() is { } viewer
-        && c.TranslatePoint(default, viewer) is { } at
-        && !new Rect(at, c.Bounds.Size).Intersects(new Rect(viewer.Viewport));
+        && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
+        && owner.IndexFromContainer(c) >= 0
+        && !owner.GetRealizedContainers().Contains(c)
+        && !c.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen);
 
     private static bool InReleasedRow(Control c) =>
         c.GetSelfAndVisualAncestors().OfType<Control>().Any(r => Released(r) || HeldOutOfView(r));

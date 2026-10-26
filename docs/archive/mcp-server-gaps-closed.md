@@ -19,11 +19,14 @@ scrolled the list to that row, `scroll` `home` and a collapse of Appearance, the
 list can land on it, and selecting a row makes it that row (Avalonia 12.0.4's `VirtualizingStackPanel`, decompiled). It
 is arranged where it would be, outside the view, and its index is real, so #1292's test for a released row kept it.
 
-**Fixed (#1981).** A virtualizing panel's row that lies wholly outside its scroll viewer's view is left out of the
-dump, of path addressing and of `select`'s candidates, as rows out of view are. `select` with its value now scrolls to
-it and says so, as for any row out of view. A row with keyboard focus in it is still listed, since a person's keys go
-there. A non-virtualizing list's rows out of view are listed as before. `dump_visual_tree`'s description now says a
-long list lists its rows in view. Guarded by `HeldRowTests`.
+**Fixed (#1981).** A row a virtualizing panel holds apart from the rows it has realized for the view, one its list
+still indexes but no longer counts as realized, is left out of the dump, of path addressing and of `select`'s
+candidates, as rows out of view are. It is told by membership, not position: a hidden row's bounds are stale, and the
+held row's place is an estimate. `select` with its value now scrolls to it and says so, as for any row out of view.
+`press_key`, `type_text` and hover no longer reach an editor in it. A row with keyboard focus in it, or with a dropdown
+of its own open, is still listed. A hidden row in view is listed with `isHidden: true` as before, and a
+non-virtualizing list's rows out of view are listed as before. `dump_visual_tree`'s description now says a long ListBox
+lists its rows in view. Guarded by `HeldRowTests`.
 
 ## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally — **CLOSED** (#1330, 2026-10-25)
 

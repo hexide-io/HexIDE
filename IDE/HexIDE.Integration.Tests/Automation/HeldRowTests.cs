@@ -79,6 +79,67 @@ public class HeldRowTests
         finally { window.Close(); }
     }
 
+    // A row hidden in the rows the list has realized has stale bounds, so a test by position left it out of the dump and
+    // out of select's rows that do not show; told by membership, it is listed as hidden and refused as not showing, as
+    // before (#1981 review).
+    [AvaloniaFact]
+    public void A_hidden_row_in_view_is_still_listed_as_hidden_and_refused_as_not_showing()
+    {
+        var items = new ObservableCollection<string>(Enumerable.Range(0, 30).Select(i => $"Row{i}"));
+        var list = new ListBox
+        {
+            Height = 40,
+            ItemsSource = items,
+            ItemTemplate = new FuncDataTemplate<string>((s, _) => new Border { Height = 16, Child = new TextBlock { Text = s } }),
+        };
+        list.ContainerPrepared += (_, e) => e.Container.IsVisible = e.Index != 14;
+        var window = new Window { Content = list, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            list.ScrollIntoView(15);
+            list.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            list.ContainerFromIndex(14).Should().NotBeNull("the hidden row must be realized for this to test anything");
+
+            static IEnumerable<UiNode> Flat(UiNode n) => new[] { n }.Concat(n.Children.SelectMany(Flat));
+            Flat(UiAutomationDriver.Dump(list, "List", 8, interactiveOnly: false))
+                .Should().Contain(n => n.Name == "Row14" && n.IsHidden == true);
+            var outcome = UiAutomationDriver.Interact(list, "select", "Row14");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("'Row14'").And.Contain("not showing");
+        }
+        finally { window.Close(); }
+    }
+
+    // A list that does not virtualize makes every row, and lists those out of view with isOffscreen: no row is held.
+    [AvaloniaFact]
+    public void A_list_that_does_not_virtualize_still_lists_its_rows_out_of_view()
+    {
+        var items = new ObservableCollection<string>(Enumerable.Range(0, 30).Select(i => $"Row{i}"));
+        var list = new ListBox
+        {
+            Height = 40,
+            ItemsSource = items,
+            ItemsPanel = new FuncTemplate<Panel?>(() => new StackPanel()),
+            ItemTemplate = new FuncDataTemplate<string>((s, _) => new Border { Height = 16, Child = new TextBlock { Text = s } }),
+        };
+        var window = new Window { Content = list, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            list.SelectedIndex = 0;
+            list.ScrollIntoView(15);
+            list.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Rows(list).Should().Contain("Row0").And.Contain("Row29");
+        }
+        finally { window.Close(); }
+    }
+
     // Selecting it by value scrolls to it and says so, as for any row out of view, rather than selecting it unseen.
     [AvaloniaFact]
     public void Selecting_the_held_row_by_value_scrolls_to_it_first()
