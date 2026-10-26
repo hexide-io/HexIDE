@@ -378,7 +378,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             decimal m => m.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            DateTime dt => dt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            VbDate dt => dt.Serial.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             _ => null,
         };
         return full is null ? null : v.Type + ":" + full;
