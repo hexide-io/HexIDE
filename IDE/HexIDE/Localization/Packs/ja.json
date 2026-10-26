@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
+    "Str.LspArtifact.Title": "ワークスペースのファイル",
+    "Str.LspArtifact.Prompt": "サーバー {0} がローカルファイル {1} への書き込みを要求しています。",
+    "Str.LspArtifact.Allow": "許可",
+    "Str.LspArtifact.Deny": "拒否",
+    "Str.LspArtifact.Always": "常に許可",
+    "Str.LspArtifact.Grants": "ワークスペースのファイルを生成できるサーバーの一覧です。権限をリセットすると次のセッションで再度確認します。",
+    "Str.LspArtifact.Reset": "リセット",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",
     "Str.Archive.ReadOnly": "読み取り専用のアーカイブプレビューです。編集、ビルド、実行は利用できません。",

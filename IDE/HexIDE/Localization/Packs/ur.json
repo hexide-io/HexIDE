@@ -3,6 +3,13 @@
   "direction": "rtl",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
+    "Str.LspArtifact.Title": "کام کی جگہ کی فائلیں",
+    "Str.LspArtifact.Prompt": "سرور {0} نے مقامی فائل {1} لکھنے کی درخواست کی ہے۔",
+    "Str.LspArtifact.Allow": "اجازت دیں",
+    "Str.LspArtifact.Deny": "انکار کریں",
+    "Str.LspArtifact.Always": "ہمیشہ اجازت دیں",
+    "Str.LspArtifact.Grants": "کام کی جگہ کی فائلیں بنانے کی اجازت والے سرور نیچے درج ہیں۔ اگلے سیشن میں دوبارہ پوچھنے کے لیے اجازت ری سیٹ کریں۔",
+    "Str.LspArtifact.Reset": "ری سیٹ کریں",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",
     "Str.Archive.ReadOnly": "آرکائیو کا صرف پڑھنے کے لیے پیش منظر۔ ترمیم، بلڈ اور چلانے کی سہولت دستیاب نہیں ہے۔",

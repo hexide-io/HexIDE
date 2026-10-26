@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Eksportér billede...",
+    "Str.LspArtifact.Title": "Arbejdsområdefiler",
+    "Str.LspArtifact.Prompt": "Server {0} har anmodet om at skrive den lokale fil {1}.",
+    "Str.LspArtifact.Allow": "Tillad",
+    "Str.LspArtifact.Deny": "Afvis",
+    "Str.LspArtifact.Always": "Tillad altid",
+    "Str.LspArtifact.Grants": "Nedenfor vises servere, der må oprette arbejdsområdefiler. Nulstil en tilladelse for at blive spurgt igen næste session.",
+    "Str.LspArtifact.Reset": "Nulstil",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning af arkivet. Redigering, bygning og kørsel er ikke tilgængelige.",

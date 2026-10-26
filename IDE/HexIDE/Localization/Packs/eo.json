@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
+    "Str.LspArtifact.Title": "Laborspacaj dosieroj",
+    "Str.LspArtifact.Prompt": "Servilo {0} petis skribi lokan dosieron {1}.",
+    "Str.LspArtifact.Allow": "Permesi",
+    "Str.LspArtifact.Deny": "Rifuzi",
+    "Str.LspArtifact.Always": "Ĉiam permesi",
+    "Str.LspArtifact.Grants": "Sube estas serviloj rajtigitaj krei laborspacajn dosierojn. Restarigu permeson por esti demandita denove en la sekva seanco.",
+    "Str.LspArtifact.Reset": "Restarigi",
     "Str.Archive.ProjectFormat": "{0} (nurlega arkivo)",
     "Str.Archive.Hidden": "Montri kaŝitajn arkivajn erojn",
     "Str.Archive.ReadOnly": "Nurlega antaŭvido de arkivo. Redaktado, konstruado kaj rulado ne disponeblas.",

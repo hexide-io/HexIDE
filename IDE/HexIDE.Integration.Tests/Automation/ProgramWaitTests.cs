@@ -246,7 +246,7 @@ public class ProgramWaitTests
 
         started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
         outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
-                                   + "window open over its form, 'Question'; a MsgBox holds its handler until it is "
+                                   + "window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler until it is "
                                    + "answered, so the form may change after that)");
 
         Pump();
@@ -721,7 +721,7 @@ public class ProgramWaitTests
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
             Pump();
 
-            outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
+            outcome.Detail.Should().Contain("has a window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler");
             var note = OpenDialogs.Note(dialogs, OpenWindows());
             note.Should().Contain($"'HexIDE', a modal dialog over the running form '{Caption}', is still open");
             note.Should().NotContain("'Question'");
@@ -734,7 +734,7 @@ public class ProgramWaitTests
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
             Pump();
 
-            outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
+            outcome.Detail.Should().Contain("has a window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler");
             OpenDialogs.Note(dialogs, OpenWindows()).Should()
                 .Contain($"'HexIDE', a modal dialog over the running form '{Caption}', is still open").And.NotContain("'Question'");
         }

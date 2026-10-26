@@ -653,30 +653,6 @@ reach 5123, and an IDE there serves both, since neither names itself.
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
 
-## Three texts still name a waiting dialog only by its title, which two of the IDE's dialogs share (narrowed 2026-10-25)
-
-**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
-dialog are titled `'HexIDE'`. One held a `MessageBox` with Yes and No (OK and Cancel since #1360, measured 2026-10-25),
-the other a `RuntimeErrorView` with Continue, End, Debug and Help. The other half of #1365, that only a call naming a
-window that doesn't exist lists the open ones, is done: #1624 says so in the `window` description.
-
-**Narrowed (#1624, measured under #1330 on 2026-10-25).** The `modalDialog` note now says what the dialog is:
-`'HexIDE' (the run-time error dialog: "Compile error:…", Continue/End/Debug/Help)`, or
-`'HexIDE' (a message box: "This action will reset your project, proceed anyway?", OK/Cancel)`.
-
-Three texts still give the title alone:
-
-- the program wait's "has a window open over its form, 'HexIDE'";
-- keyboard `type_text`'s stop when a dialog opens part way;
-- the refusal from `type_text` and `press_key` while a modal dialog is open.
-
-The calls are in [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
-
-**Workaround.** Read the `modalDialog` note of the next reply that has one, or dump the dialog before answering it.
-
-**Suggested fix.** Use the note's description in the three texts.
-[#1975](https://github.com/hexide-io/HexIDE/issues/1975).
-
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
 **Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
@@ -791,6 +767,46 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
 
+## `take_snapshot` of a running form leaves out its title bar without saying so
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
+the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
+- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
+- The image is the form's client area, grey and empty, with no title bar.
+- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
+  captured, and took `activeDialog` as the confirmation.
+
+Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
+comes back in a field named `activeDialog`.
+
+**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
+"maxDepth":1}`.
+
+**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
+what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
+
+## The `modalDialog` note lists a dialog's check boxes among its buttons
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** `invoke_menu_item {"path":"Tools/Options"}`
+answered with `"modalDialog":"'Options' (Prompt for project/Reload files changed outside the IDE/Reset All/Restore
+Defaults/OK/Cancel), a modal dialog over 'Project1 - HexIDE [design]', …"`. The first two are check boxes on the page
+showing. They are not answers to the dialog. `OpenDialogs.DescriptionOf` takes every `Button`, and Avalonia's
+`CheckBox` and `RadioButton` derive from it.
+
+**Workaround.** Dump the dialog to see which are buttons.
+
+**Suggested fix.** Leave `ToggleButton`s out of the buttons. [#2079](https://github.com/hexide-io/HexIDE/issues/2079).
+
+## A path not starting with `Window` is refused without saying where paths come from
+
+**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
+snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
+and was refused with `path must start with 'Window' (got 'Editor')`. The refusal is accurate, but it doesn't name
+where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
+
+**Workaround.** `dump_visual_tree` with `match` gives the path.
+
+**Suggested fix.** End every path refusal with that next step. [#2080](https://github.com/hexide-io/HexIDE/issues/2080).
 ## `toggle` reads the state back before work it set off has run
 
 **Symptom (2026-10-26, #1103, Windows).** The Components dialog refuses an uncheck of a library a form uses, and puts the

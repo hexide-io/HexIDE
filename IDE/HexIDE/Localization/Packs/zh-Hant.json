@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "匯出圖片...",
+    "Str.LspArtifact.Title": "工作區檔案",
+    "Str.LspArtifact.Prompt": "伺服器 {0} 要求寫入本機檔案 {1}。",
+    "Str.LspArtifact.Allow": "允許",
+    "Str.LspArtifact.Deny": "拒絕",
+    "Str.LspArtifact.Always": "一律允許",
+    "Str.LspArtifact.Grants": "以下列出了獲准產生工作區檔案的伺服器。重設授權後，將在下次工作階段再次詢問。",
+    "Str.LspArtifact.Reset": "重設",
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",
     "Str.Archive.ReadOnly": "唯讀封存預覽。無法編輯、建置或執行。",

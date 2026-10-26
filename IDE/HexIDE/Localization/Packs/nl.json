@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
+    "Str.LspArtifact.Title": "Werkruimtebestanden",
+    "Str.LspArtifact.Prompt": "Server {0} heeft gevraagd om het lokale bestand {1} te schrijven.",
+    "Str.LspArtifact.Allow": "Toestaan",
+    "Str.LspArtifact.Deny": "Weigeren",
+    "Str.LspArtifact.Always": "Altijd toestaan",
+    "Str.LspArtifact.Grants": "Hieronder staan servers die werkruimtebestanden mogen genereren. Stel een toestemming opnieuw in om het bij de volgende sessie opnieuw te vragen.",
+    "Str.LspArtifact.Reset": "Opnieuw instellen",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",
     "Str.Archive.ReadOnly": "Alleen-lezenvoorbeeld van het archief. Bewerken, bouwen en uitvoeren zijn niet beschikbaar.",

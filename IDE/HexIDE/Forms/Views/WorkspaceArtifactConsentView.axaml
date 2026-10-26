@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             x:DataType="vm:WorkspaceArtifactConsentViewModel"
+             x:Class="HexIDE.Forms.Views.WorkspaceArtifactConsentView">
+    <StackPanel Margin="16" Spacing="12" MaxWidth="520">
+        <TextBlock Text="{CompiledBinding Message}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="{DynamicResource Str.LspArtifact.Deny}" Command="{CompiledBinding DenyCommand}" />
+            <Button Content="{DynamicResource Str.LspArtifact.Allow}" Command="{CompiledBinding AllowCommand}" />
+            <Button Content="{DynamicResource Str.LspArtifact.Always}" Command="{CompiledBinding AlwaysCommand}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

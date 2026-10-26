@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Exportar imagen...",
+    "Str.LspArtifact.Title": "Archivos del espacio de trabajo",
+    "Str.LspArtifact.Prompt": "El servidor {0} ha solicitado escribir el archivo local {1}.",
+    "Str.LspArtifact.Allow": "Permitir",
+    "Str.LspArtifact.Deny": "Denegar",
+    "Str.LspArtifact.Always": "Permitir siempre",
+    "Str.LspArtifact.Grants": "Estos servidores pueden generar archivos del espacio de trabajo. Restablece un permiso para volver a preguntar en la próxima sesión.",
+    "Str.LspArtifact.Reset": "Restablecer",
     "Str.Archive.ProjectFormat": "{0} (archivo de solo lectura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas del archivo",
     "Str.Archive.ReadOnly": "Vista previa del archivo de solo lectura. La edición, la compilación y la ejecución no están disponibles.",

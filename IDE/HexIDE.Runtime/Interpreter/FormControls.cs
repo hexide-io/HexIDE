@@ -32,15 +32,35 @@ public sealed class FormControls : ICSharpAsyncProxy
     {
         controls.AddRange(inFileOrder);
         this.arrays = arrays;
+        foreach (var control in controls)
+            Owners.AddOrUpdate(control, this);
     }
+
+    // The form each control is on, which a TabIndex set renumbers (#1974).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, FormControls> Owners = new();
+
+    /// <summary>The Controls of the form <paramref name="control"/> is on.</summary>
+    internal static bool TryOf(Control control, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FormControls? form) =>
+        Owners.TryGetValue(control, out form);
 
     public int Count => controls.Count;
 
+    /// <summary>The form's controls, in the order <c>Controls</c> holds them.</summary>
+    internal IReadOnlyList<Control> All => controls;
+
     /// <summary>An element loaded at run time, which goes at the end (measured, menus' and controls' alike).</summary>
-    internal void Loaded(Control control) => controls.Add(control);
+    internal void Loaded(Control control)
+    {
+        controls.Add(control);
+        Owners.AddOrUpdate(control, this);
+    }
 
     /// <summary>An element unloaded at run time, which goes out.</summary>
-    internal void Unloaded(Control control) => controls.Remove(control);
+    internal void Unloaded(Control control)
+    {
+        controls.Remove(control);
+        Owners.Remove(control);
+    }
 
     /// <summary>The default member, <c>Controls(i)</c>, <c>Controls("Name")</c> and <c>Controls!Name</c>: Item.</summary>
     internal Vb6Value Item(IReadOnlyList<Vb6Value> args)

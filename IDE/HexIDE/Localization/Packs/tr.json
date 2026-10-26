@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Resmi dışa aktar...",
+    "Str.LspArtifact.Title": "Çalışma alanı dosyaları",
+    "Str.LspArtifact.Prompt": "{0} sunucusu {1} yerel dosyasına yazmak istedi.",
+    "Str.LspArtifact.Allow": "İzin ver",
+    "Str.LspArtifact.Deny": "Reddet",
+    "Str.LspArtifact.Always": "Her zaman izin ver",
+    "Str.LspArtifact.Grants": "Çalışma alanı dosyaları oluşturmasına izin verilen sunucular aşağıdadır. Sonraki oturumda yeniden sorulması için izni sıfırlayın.",
+    "Str.LspArtifact.Reset": "Sıfırla",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",
     "Str.Archive.ReadOnly": "Salt okunur arşiv önizlemesi. Düzenleme, derleme ve çalıştırma kullanılamaz.",

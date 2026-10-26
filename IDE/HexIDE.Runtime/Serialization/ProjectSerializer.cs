@@ -30,7 +30,8 @@ public class ProjectSerializer
     /// Where a form or module will be when this text is written, for a caller checking a save before it moves
     /// anything; null for a member staying where it is. Without it, each member is named where it is now.
     /// </param>
-    public string Serialize(ProjectDefinition project, string projectPath, Func<object, string?>? pathOf = null)
+    public string Serialize(ProjectDefinition project, string projectPath, Func<object, string?>? pathOf = null,
+        bool includeRelatedDocuments = true)
     {
         var writer = new StringWriter { NewLine = "\r\n" };
         // Sort by PositionHint so interleaving is correct even if unknowns were appended out of order
@@ -49,19 +50,20 @@ public class ProjectSerializer
         var writtenIn = Path.GetDirectoryName(projectPath) ?? "";
         string Kept(string line) => keptFrom is null ? line : SerializedProject.RebaseItemLine(line, keptFrom, writtenIn);
 
-        void WriteKnownLine(string line)
+        void WriteKnownLine(string line, bool omit = false)
         {
             // Interleave unknown lines whose position hint falls at or before this known key
             while (unknownIdx < unknowns.Count && unknowns[unknownIdx].PositionHint <= knownKeyCount)
                 writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
-            writer.WriteLine(line);
+            if (!omit)
+                writer.WriteLine(line);
             knownKeyCount++;
         }
 
         // The template order is the default for new lines and projects with no read slots. Existing lines
         // return to their read slots: VB6 also writes Form before Reference (measured, #855).
-        var lines = new List<(string Text, int? Slot)>();
-        void AddKnownLine(string line, int? slot = null) => lines.Add((line, slot));
+        var lines = new List<(string Text, int? Slot, bool Omit)>();
+        void AddKnownLine(string line, int? slot = null, bool omit = false) => lines.Add((line, slot, omit));
 
         AddKnownLine($"{SerializedProject.TypeKey}={ProjectTypeToString(project.ProjectType)}");
 
@@ -127,14 +129,14 @@ public class ProjectSerializer
         {
             if (document.OriginalItemLine is { } original)
             {
-                AddKnownLine(Kept(original), document.OriginalItemSlot);
+                AddKnownLine(Kept(original), document.OriginalItemSlot, omit: !includeRelatedDocuments);
                 continue;
             }
             if (document.AbsolutePath == null)
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, document.AbsolutePath));
-            AddKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}");
+            AddKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}", omit: !includeRelatedDocuments);
         }
 
         // Preserved item lines (unsupported UserDocuments, missing-file forms): emit verbatim so the
@@ -210,8 +212,9 @@ public class ProjectSerializer
         if (unknowns.Any(u => u.PositionHint == ProjectDefinition.AfterFormsHint))
             unknowns = unknowns.Select(u => u.PositionHint == ProjectDefinition.AfterFormsHint ? (PositionHint: Math.Max(afterForms, 1), u.RawLine) : u)
                 .OrderBy(u => u.PositionHint).ToList();
+        // Omitted package entries still count their slots, so unknown lines keep their neighbours (#750).
         foreach (var i in order)
-            WriteKnownLine(lines[i].Text);
+            WriteKnownLine(lines[i].Text, lines[i].Omit);
 
         // Emit any remaining unknown lines that appeared after all known keys
         while (unknownIdx < unknowns.Count)

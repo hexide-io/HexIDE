@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
+    "Str.LspArtifact.Title": "Työtilan tiedostot",
+    "Str.LspArtifact.Prompt": "Palvelin {0} on pyytänyt lupaa kirjoittaa paikallisen tiedoston {1}.",
+    "Str.LspArtifact.Allow": "Salli",
+    "Str.LspArtifact.Deny": "Estä",
+    "Str.LspArtifact.Always": "Salli aina",
+    "Str.LspArtifact.Grants": "Alla ovat palvelimet, jotka saavat luoda työtilan tiedostoja. Nollaa lupa, jotta sitä kysytään uudelleen seuraavassa istunnossa.",
+    "Str.LspArtifact.Reset": "Nollaa",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
     "Str.Archive.ReadOnly": "Arkiston esikatselu on vain luku -tilassa. Muokkaus, kääntäminen ja suoritus eivät ole käytettävissä.",
