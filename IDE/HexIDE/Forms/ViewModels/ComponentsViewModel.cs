@@ -7,6 +7,7 @@ using HexIDE.Localization;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PropertyChanged.SourceGenerator;
 
@@ -94,17 +95,30 @@ public partial class ComponentsViewModel : ObservableObject, IDialog
     public bool IsInUse(ControlLibrary library) =>
         project.Forms.Any(f => f.ObjectReferences.Any(library.IsNamedBy));
 
-    // Unchecking a library a form uses is refused at once, as VB6 refuses it, and the box goes back.
+    private bool restoring;
+
+    // Unchecking a library a form uses is refused at once, as VB6 refuses it, and the box goes back. The check box's binding
+    // ignores a change raised while it is itself writing the value, and then takes the same value again as no change, so
+    // once the write is over the row passes through false back to true. Otherwise the box stays clear while OK keeps the
+    // reference (found by the live check).
     private void OnRowChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ComponentsComponentViewModel.IsSelected)
+        if (restoring
+            || e.PropertyName != nameof(ComponentsComponentViewModel.IsSelected)
             || sender is not ComponentsComponentViewModel { IsSelected: false, Library: { } library } row
             || !IsInUse(library))
             return;
         row.IsSelected = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            restoring = true;
+            row.IsSelected = false;
+            row.IsSelected = true;
+            restoring = false;
+        });
         Refused?.Invoke(library);
         _ = windowManager?.MessageBox(localization?.GetString("Str.Dialog.Components.InUse") ?? "Can't remove control or reference; in use",
-            "Microsoft Visual Basic", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
     /// <summary>Raised when unchecking a library is refused because a form uses it.</summary>

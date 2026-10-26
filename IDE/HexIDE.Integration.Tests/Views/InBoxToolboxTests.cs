@@ -63,6 +63,8 @@ public class InBoxToolboxTests
         var shape = toolbox.Components.ToList().FindIndex(c => c.BaseClass is ShapeComponentClass);
         toolbox.Components[shape + 1].BaseClass.Should().BeSameAs(ProgressBarComponentClass.Instance);
         toolbox.Components[shape + 1].Name.Should().Be("ProgressBar");
+        toolbox.Components.Where(c => c.Library is not null).Select(c => c.VBTypeName)
+            .Should().Equal("MSComctlLib.ProgressBar", "ComctlLib.ProgressBar");
     }
 
     // The Components dialog is how a project comes to reference a library, and the toolbox follows it both ways.
