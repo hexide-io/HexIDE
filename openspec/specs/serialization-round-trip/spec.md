@@ -699,3 +699,14 @@ requiring a keyboard-focus change. Documents without a focused form SHALL retain
 - **GIVEN** a carried-file editor is active and has keyboard focus
 - **WHEN** the Save keyboard gesture is pressed
 - **THEN** its own save binding handles the key
+
+### Requirement: Made programs SHALL omit carried files
+
+Make SHALL omit carried files and their item lines from the packaged project, including carried files
+reclassified from another item key. The other project lines SHALL retain their relative order. Ordinary
+project saves SHALL continue to include carried files; Make SHALL leave source membership unchanged.
+
+#### Scenario: A project carries private notes
+- **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
+- **THEN** the archive contains neither the carried file nor its project item line
+- **AND** the other project lines retain their relative order and the source project retains the carried file
