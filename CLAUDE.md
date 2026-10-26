@@ -46,6 +46,14 @@ Failed test jobs upload their `TestResults` directories as `test-results-<job>-<
 seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
 `dotnet test` prints only a log path, download that job's artifact to read the reason.
 
+CI and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
+`.github/workflows/build.yml` (#883). A short run must fail so its logs are kept by #1309.
+The four main-suite floors are about 95% of the measured totals recorded beside them; raise them
+when the suites grow. The WSL runner uses a floor of one for a filtered run, or accepts an explicit
+`--minimum-expected-tests` for a known slice. Its argument checks run with
+`bash scripts/test-linux.selftest.sh`. The async test-context lifetime fix is tracked separately in
+[#2194](https://github.com/hexide-io/HexIDE/issues/2194).
+
 **Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
 seconds locally and a full CI cycle otherwise, and it fails on things that look entirely innocuous while
 you are writing them: an illustrative Windows user path in a troubleshooting example is, to a scanner,
