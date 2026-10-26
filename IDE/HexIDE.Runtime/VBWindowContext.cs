@@ -495,6 +495,8 @@ public class VBWindowContext : IModuleExecutionRoot
         if (interpreter is null)
             return;
         var form = EnsureInstance();
+        if (!form.ClassDef.PrePass.Procedures.ContainsKey(name))
+            return;
         // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
         // started, as a test's is, runs the declarations first; a started one ran them in StartAsync. The arguments are
         // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).

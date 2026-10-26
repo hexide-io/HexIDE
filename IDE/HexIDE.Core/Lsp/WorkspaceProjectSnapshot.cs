@@ -17,11 +17,17 @@ namespace HexIDE.Lsp;
 /// </param>
 /// <param name="Files">Every file the project holds, in the order the project lists them.</param>
 /// <param name="References">The project's references, in declaration order, which is significant.</param>
+/// <param name="CompilationArguments">
+/// The project's Conditional Compilation Arguments, its <c>.vbp</c>'s <c>CondComp</c>, by name in any case. Null or empty
+/// when it has none, and empty too when vb6.exe would refuse the line, which leaves a backend analysing as though none
+/// were given.
+/// </param>
 public sealed record WorkspaceProjectSnapshot(
     string Name,
     string? DefinitionPath,
     IReadOnlyList<WorkspaceProjectFile> Files,
-    IReadOnlyList<WorkspaceProjectReference> References);
+    IReadOnlyList<WorkspaceProjectReference> References,
+    IReadOnlyDictionary<string, short>? CompilationArguments = null);
 
 /// <summary>
 /// One file in a project, carrying both spellings of where it is.
@@ -94,7 +100,10 @@ public enum WorkspaceProjectFileKind
 /// decided by their order, so re-sorting this list would change what a program means.
 /// </para>
 /// </remarks>
-/// <param name="Name">The identifier source code uses to qualify this reference's members.</param>
+/// <param name="Name">
+/// The name the project file records. For a type library that is its description, which isn't always the identifier
+/// code qualifies its members with; <see cref="IWorkspaceLibraryNames"/> reads that, once there is consent.
+/// </param>
 /// <param name="Guid">The registry identifier, where the reference was recorded with one.</param>
 /// <param name="Major">The major version, where one was recorded.</param>
 /// <param name="Minor">The minor version, where one was recorded.</param>

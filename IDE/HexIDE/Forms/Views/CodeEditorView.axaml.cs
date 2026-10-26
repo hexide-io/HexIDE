@@ -80,6 +80,8 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private HexIDE.Tools.CallStackToolViewModel? _callStack;
+    private Action? _onFrameShown;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
     private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
     private Action? _onExternalDebugChanged;
@@ -310,6 +312,8 @@ public partial class CodeEditorView : UserControl
             // while a member's run turns into an orphan or out of one by an edit to the line above it (task 4.1).
             _readOnlyRedraw = new ReadOnlyRegionRedraw(vm.Document, TextEditor.TextArea.TextView, () => vm.ReadOnlyRegionsNow);
 
+            InstallConditionalCompilation();
+
             _colorizer = new LspDiagnosticsColorizer(TextEditor.TextArea.TextView);
             TextEditor.TextArea.TextView.LineTransformers.Add(_colorizer);
             vm.MarkersChanged += OnMarkersChanged;
@@ -381,6 +385,25 @@ public partial class CodeEditorView : UserControl
             // show the current statement immediately rather than waiting for the next event.
             if (_debugController.CurrentStop is { } stop)
                 ShowCurrentStatement(vm, stop.Module, stop.Line);
+
+            _callStack = vm.CallStack;
+            if (_callStack is not null)
+            {
+                _onFrameShown = () =>
+                {
+                    var frame = _callStack.ShownFrame;
+                    var here = frame?.Module is { } module && vm.RunningProject is { } running
+                        && vm.Identity.IsIn(running) && vm.Identity.IsNamed(module);
+                    _breakpointMargin?.SetCallSite(here && frame!.IsCaller ? frame.Line : null);
+                    if (here && frame!.Line > 0 && frame.Line <= TextEditor.Document.LineCount)
+                    {
+                        vm.CaretOffset = TextEditor.Document.GetLineByNumber(frame.Line).Offset;
+                        TextEditor.ScrollToLine(frame.Line);
+                    }
+                };
+                _callStack.FrameShown += _onFrameShown;
+                _onFrameShown();
+            }
 
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
@@ -528,6 +551,8 @@ public partial class CodeEditorView : UserControl
             _colorizer = null;
         }
 
+        RemoveConditionalCompilation();
+
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;
         if (_readOnlyColorizer is not null)
@@ -571,6 +596,10 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_currentLineRenderer);
             _currentLineRenderer = null;
         }
+
+        if (_callStack is not null && _onFrameShown is not null) _callStack.FrameShown -= _onFrameShown;
+        _callStack = null;
+        _onFrameShown = null;
 
         if (_debugController is not null)
         {
@@ -1548,6 +1577,8 @@ public partial class CodeEditorView : UserControl
         // Trigger completion on any letter (start/continuation of a word)
         if (char.IsLetter(ch))
             TriggerCompletionAsync();
+        else if (DataContext is CodeEditorViewModel vm && vm.CompletionTriggerCharacters.Contains(e.Text))
+            TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
             TriggerSignatureHelpAsync();
@@ -2071,7 +2102,7 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
-    private void TriggerCompletionAsync()
+    private void TriggerCompletionAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
@@ -2083,14 +2114,17 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter);
     }
 
-    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
+        string? triggerCharacter)
     {
         try
         {
-            var items = await vm.RequestCompletionAsync(position, token);
+            var items = triggerCharacter is null
+                ? await vm.RequestCompletionAsync(position, token)
+                : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
             if (token.IsCancellationRequested || items.Length == 0) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

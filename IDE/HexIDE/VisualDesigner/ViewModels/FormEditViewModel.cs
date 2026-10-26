@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -21,6 +22,7 @@ using HexIDE.Projects;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
@@ -74,8 +76,24 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public IReadOnlyList<ComponentInstanceViewModel> SelectedComponents { get; private set; } = [];
 
-    public void SetSelectedComponents(IEnumerable<ComponentInstanceViewModel> components) =>
+    public void SetSelectedComponents(IEnumerable<ComponentInstanceViewModel> components)
+    {
         SelectedComponents = [.. components];
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(SelectedComponents)));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private bool HasMultipleSelectedControls => SelectedComponents.Count >= 2;
+
+    public bool CanAlignLefts(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignRights(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignTops(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignBottoms(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignCentersH(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignCentersV(object? parameter) => HasMultipleSelectedControls;
+    public bool CanMakeSameWidth(object? parameter) => HasMultipleSelectedControls;
+    public bool CanMakeSameHeight(object? parameter) => HasMultipleSelectedControls;
+    public bool CanMakeSameSize(object? parameter) => HasMultipleSelectedControls;
 
     public ObservableCollection<ComponentInstanceViewModel> AllComponents { get; } = new();
 
@@ -658,7 +676,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
     /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
-    public void SpawnControlCenter(ComponentBaseClass componentClass)
+    public void SpawnControlCenter(ComponentBaseClass componentClass, ControlLibrary? library = null)
     {
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
@@ -668,7 +686,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);
         }
-        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)));
+        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)), library: library);
 
         static long OnGrid(long twips, int gridPixels)
         {
@@ -685,12 +703,52 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
 
-    public void SpawnControl(Rect rect)
+    /// <summary>
+    /// A control drawn with the selected tool by a drag from <paramref name="pressedAt"/> to <paramref name="releasedAt"/>,
+    /// both in canvas space and not yet snapped. VB6's designer puts it in the innermost container under the press, snaps
+    /// its corners on that container's own grid, measured from its client origin, and holds the drag to it on every side
+    /// (measured, #2039).
+    /// </summary>
+    /// <remarks>
+    /// Each corner goes to the nearest grid line, and the control ends one pixel past its far corner, grid or no grid
+    /// (measured, #2058): a drag from 5, 14 to 50, 30 with the 120-twip grid is Left 120, Top 240, 615 × 255, and the same
+    /// drag with the grid off is Left 75, Top 210, 690 × 270. A corner exactly half way goes up, as a control placed by a
+    /// double-click does (#1473); that case is unmeasured for a drag.
+    /// </remarks>
+    public void SpawnControlDrawn(Point pressedAt, Point releasedAt)
     {
-        if (ToolsBoxToolViewModel.SelectedComponent?.BaseClass is not { } baseClass)
+        if (ToolsBoxToolViewModel.SelectedComponent is not { BaseClass: { } baseClass } tool)
             return;
 
-        SpawnControlAt(baseClass, rect);
+        var origin = ContainerAt(pressedAt)?.ClientOrigin ?? default;
+        var (x1, x2) = (Snapped(pressedAt.X - origin.X, settingsService.GridWidth), Snapped(releasedAt.X - origin.X, settingsService.GridWidth));
+        var (y1, y2) = (Snapped(pressedAt.Y - origin.Y, settingsService.GridHeight), Snapped(releasedAt.Y - origin.Y, settingsService.GridHeight));
+        var rect = new Rect(origin.X + Math.Min(x1, x2), origin.Y + Math.Min(y1, y2),
+            Math.Max(1, Math.Abs(x2 - x1)), Math.Max(1, Math.Abs(y2 - y1)));
+        SpawnControlAt(baseClass, rect, pressedAt, tool.Library, drawn: true);
+
+        double Snapped(double pixels, int grid) =>
+            settingsService.AlignToGrid && grid > 0 ? Math.Round(pixels / grid, MidpointRounding.AwayFromZero) * grid : pixels;
+    }
+
+    /// <summary>
+    /// The container a control drawn from <paramref name="pressedAt"/> goes into: the innermost Frame or PictureBox under
+    /// the point, or null for the form. VB6's designer decides by where the drag began, not where it ended (measured, #2039).
+    /// </summary>
+    /// <remarks>
+    /// A container's contents follow it in <see cref="Components"/>, which is the canvas's drawing order, so the last
+    /// container under the point is the innermost, and of two overlapping ones the one on top.
+    /// </remarks>
+    internal ComponentInstanceViewModel? ContainerAt(Point pressedAt)
+    {
+        for (var i = Components.Count - 1; i >= 0; i--)
+        {
+            var candidate = Components[i];
+            if (candidate != Form && ContainerClasses.IsContainer(candidate.Instance.BaseClass)
+                && new Rect(candidate.Left, candidate.Top, candidate.Width, candidate.Height).Contains(pressedAt))
+                return candidate;
+        }
+        return null;
     }
 
     /// <summary>
@@ -707,12 +765,37 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);
 
-    public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
+    /// <param name="pressedAt">
+    /// Where a drawn control's drag began, in canvas space. It goes into the innermost container under that point, and its
+    /// rectangle is held to that container, as VB6's designer holds the drag to it (measured, #2039). Null places it on
+    /// the form, as a double-click on the toolbox does whatever is selected (measured).
+    /// </param>
+    /// <param name="library">
+    /// For an in-box control, the library it is placed from, when the toolbox offers it from an older library than its
+    /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
+    /// </param>
+    /// <param name="drawn">
+    /// A drag drew it: it ends one pixel past <paramref name="rect"/>, as every control VB6's designer draws does (measured,
+    /// #2058). <c>add_control</c> keeps the size it is given.
+    /// </param>
+    public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect, Point? pressedAt = null,
+        ControlLibrary? library = null, bool drawn = false)
     {
         var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var instance = new ComponentInstance(baseClass, newName);
+        var container = pressedAt is { } press ? ContainerAt(press) : null;
+        if (container is not null)
+        {
+            instance.SetContainer(container.Instance);
+            rect = HeldTo(rect, container);
+        }
+        if (drawn)
+            rect = new Rect(rect.X, rect.Y, rect.Width + 1, rect.Height + 1);
+        if (baseClass is InBoxComponentClass inBox && library is not null && !ReferenceEquals(library, inBox.Library))
+            instance.SetProperty(InBoxComponentClass.LoadedTypeNameProperty, library.TypeName(inBox.ControlClassName));
+        DeclareLibraryOf(instance);
         if (HasTabIndex(baseClass))
             instance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
         // A drawn control starts with its name as its Caption, or as its Text: VB6's designer writes Text = "Text1" for a
@@ -728,10 +811,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             Left = rect.Left,
             Top = rect.Top
         };
-        // On top of its plane, so VB6 finds it first among the form's windowed blocks, or first among its windowless ones
-        // after them (measured, #1481), carried ones included (measured, #1498).
-        Components.Insert(TopOfPlane(Components, Form.Instance, IsWindowless(baseClass)), newComponent);
-        newComponent.CarriedBelow = CarriedBelowInPlane(Form.Instance, IsWindowless(baseClass), top: true, except: null);
+        // On top of its plane, so VB6 finds it first among its container's windowed blocks, or first among its windowless
+        // ones after them (measured, #1481), carried ones included (measured, #1498).
+        var plane = container?.Instance ?? Form.Instance;
+        Components.Insert(TopOfPlane(Components, plane, IsWindowless(baseClass)), newComponent);
+        newComponent.CarriedBelow = CarriedBelowInPlane(plane, IsWindowless(baseClass), top: true, except: null);
         AllComponents.Add(newComponent);
         UndoStack.Push(new AddControlsCommand(
             [(newComponent, Components.IndexOf(newComponent), AllComponents.IndexOf(newComponent))],
@@ -739,6 +823,38 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         ToolsBoxToolViewModel.SelectedComponent = ToolsBoxToolViewModel.Arrow;
         SelectedComponent = newComponent;
+    }
+
+    /// <summary>
+    /// An in-box control's form names its library in its header, as VB6's designer writes it once one is placed (#1103). A
+    /// form holding none of a library's controls has no line for it, though its project references it (measured).
+    /// </summary>
+    private void DeclareLibraryOf(ComponentInstance instance)
+    {
+        if (formDefinition is null || instance.BaseClass is not InBoxComponentClass inBox)
+            return;
+        var library = inBox.LibraryOf(instance);
+        if (!formDefinition.ObjectReferences.Any(library.IsNamedBy))
+            formDefinition.HeaderLines.Add(library.FormLine);
+    }
+
+    /// <summary>
+    /// A drawn rectangle held to the container it was begun in, as VB6's designer holds the drag (measured, #2039). Measured
+    /// from the container's client origin, it starts no further up or left than that origin, and stops at the container's
+    /// outer Width and Height, snapped down to the grid: for a bordered PictureBox a little past its client area, which is
+    /// drawn clipped.
+    /// </summary>
+    private Rect HeldTo(Rect rect, ComponentInstanceViewModel container)
+    {
+        var origin = container.ClientOrigin;
+        var right = origin.X + SnappedDown(container.Width, settingsService.GridWidth);
+        var bottom = origin.Y + SnappedDown(container.Height, settingsService.GridHeight);
+        var left = Math.Min(Math.Max(rect.Left, origin.X), right - 1);
+        var top = Math.Min(Math.Max(rect.Top, origin.Y), bottom - 1);
+        return new Rect(left, top, Math.Max(1, Math.Min(rect.Right, right) - left), Math.Max(1, Math.Min(rect.Bottom, bottom) - top));
+
+        double SnappedDown(double pixels, int grid) =>
+            settingsService.AlignToGrid && grid > 0 ? Math.Floor(pixels / grid) * grid : pixels;
     }
 
     public void BringToFront()
@@ -847,7 +963,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignLefts()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Lefts: {targets.Count} controls", targets, [VBProperties.LeftProperty],
@@ -856,7 +972,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignRights()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Rights: {targets.Count} controls", targets, [VBProperties.LeftProperty],
@@ -865,7 +981,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignTops()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Tops: {targets.Count} controls", targets, [VBProperties.TopProperty],
@@ -874,7 +990,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignBottoms()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Bottoms: {targets.Count} controls", targets, [VBProperties.TopProperty],
@@ -883,7 +999,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignCentersH()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers H: {targets.Count} controls", targets, [VBProperties.LeftProperty],
@@ -892,7 +1008,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignCentersV()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers V: {targets.Count} controls", targets, [VBProperties.TopProperty],
@@ -901,7 +1017,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void MakeSameWidth()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Same Width: {targets.Count} controls", targets, [VBProperties.WidthProperty],
@@ -910,7 +1026,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void MakeSameHeight()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Same Height: {targets.Count} controls", targets, [VBProperties.HeightProperty],
@@ -919,7 +1035,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void MakeSameSize()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Same Size: {targets.Count} controls", targets,

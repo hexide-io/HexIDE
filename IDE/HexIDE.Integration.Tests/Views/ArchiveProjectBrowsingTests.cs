@@ -121,6 +121,51 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_twin_entry_greys_its_inactive_branches_as_twinBASIC_compiles_them()
+    {
+        // At 32-bit, as #1691 measured beta 1024: Win64 is 0, and a call reads 0, so CBool(Win32) does not hold. The
+        // container records neither the beta nor, with no Settings, the build type, so those branches are left alone.
+        const string source = "Module Main\r\n#If Win64 Then\r\nA64\r\n#Else\r\nA32\r\n#End If\r\n" +
+                              "#If CBool(Win32) Then\r\nCalled\r\n#Else\r\nReadAsZero\r\n#End If\r\n" +
+                              "#If TWINBASIC_BUILD > 1000 Then\r\nBuildNew\r\n#Else\r\nBuildOld\r\n#End If\r\n" +
+                              "#If TWINBASIC_BUILD_TYPE = \"standard exe\" Then\r\nStandardExe\r\n#Else\r\nOtherType\r\n#End If\r\n" +
+                              "End Module\r\n";
+        await archives.Open(Write("one.twinproj", source));
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
+        var view = new ArchiveDocumentView { DataContext = tab };
+        var window = new Window { Content = view, Width = 600, Height = 600 };
+        window.Show();
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var editor = view.FindControl<TextEditor>("Editor")!;
+            int LineOf(string text) => editor.Document.GetLineByOffset(editor.Document.Text.IndexOf(text, StringComparison.Ordinal)).LineNumber;
+            tab.InactiveLines.Should().Equal(new HexIDE.Language.LineRange(LineOf("A64"), LineOf("A64")),
+                new HexIDE.Language.LineRange(LineOf("Called"), LineOf("Called")));
+
+            var grey = ((Avalonia.Media.ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+            List<Avalonia.Media.Color?> ColoursOn(string text) => editor.TextArea.TextView
+                .GetOrConstructVisualLine(editor.Document.GetLineByNumber(LineOf(text))).Elements
+                .Where(e => e.DocumentLength > 0).Select(e => (e.TextRunProperties.ForegroundBrush as Avalonia.Media.ISolidColorBrush)?.Color)
+                .ToList();
+            ColoursOn("A64").Should().OnlyContain(c => c == grey);
+            ColoursOn("Called").Should().OnlyContain(c => c == grey);
+            foreach (var live in new[] { "A32", "ReadAsZero", "BuildNew", "BuildOld", "StandardExe", "OtherType" })
+                ColoursOn(live).Should().Contain(c => c != grey, $"{live} is active or undetermined");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Only_twin_entries_are_read_for_conditional_compilation()
+    {
+        await archives.Open(Write("one.twinproj", "#If Win64 Then\r\nA64\r\n#End If\r\n", name: "notes.txt"));
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which.InactiveLines.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
     public async Task Opaque_and_hidden_entries_are_inspectable_without_text_guessing()
     {
         await archives.Open(Write("one.twinproj", "not a text preview", name: "form.tbform", flags: 1));

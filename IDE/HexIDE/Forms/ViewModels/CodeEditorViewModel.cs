@@ -58,6 +58,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public TextDocument Document => document;
 
+    // Per code window, deliberately absent from project and settings serialization (#1113).
+    [Notify] private int conditionalTargetIndex;
+
     [Notify] private int caretOffset;
     [Notify] private int selectionStart;
     [Notify] private int selectionLength;
@@ -111,6 +114,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public IBookmarkService BookmarkService => bookmarkService;
     public HexIDE.Debugging.IBreakpointService BreakpointService => breakpointService;
     public HexIDE.Runtime.Debugging.IDebugController DebugController => debugController;
+    public HexIDE.Tools.CallStackToolViewModel? CallStack { get; }
 
     /// <summary>True while the project is running OR paused in the debugger — the window in which a code edit
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
@@ -212,7 +216,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Tools.CallStackToolViewModel? callStack = null)
     {
         CanFloat = false;
         this.windowManager = windowManager;
@@ -225,6 +230,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.breakpointService = breakpointService;
         this.debugController = debugController;
         ExternalDebugger = externalDebugger;
+        CallStack = callStack;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
@@ -1867,6 +1873,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
+
+    public IReadOnlyList<string> CompletionTriggerCharacters => LiveDocumentUri is { } uri
+        ? lspClient.CompletionTriggerCharacters(uri) : [];
+
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(
+        Position position, string triggerCharacter, CancellationToken ct = default) =>
+        LiveDocumentUri is { } uri
+            ? lspClient.RequestCompletionForTriggerAsync(uri, position, triggerCharacter, ct)
+            : Task.FromResult<CompletionItem[]>([]);
 
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);

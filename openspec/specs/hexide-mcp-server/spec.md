@@ -461,3 +461,62 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Integral argument overflow explains the accepted range
+The server SHALL refuse an integral argument outside its parameter's storage range with the argument
+name, supplied value, whether it is too large or too small, and the accepted whole-number range.
+It SHALL include the parameter's declared guidance where available, and SHALL NOT expose serializer
+locations or .NET type names for that overflow. Nothing in the tool SHALL run for the refused call.
+
+#### Scenario: Hover dwell exceeds the integer range
+- **WHEN** hover receives dwellMs 3000000000
+- **THEN** the refusal names dwellMs and the whole-number range -2147483648 to 2147483647
+- **AND** includes the declared 0 to 10000 ms dwell guidance
+
+#### Scenario: A long integer is below its minimum
+- **WHEN** an argument for a long integer parameter is -9223372036854775809
+- **THEN** the refusal says it is too small and gives -9223372036854775808 to 9223372036854775807
+
+### Requirement: Visual-tree match replies SHALL explain unselected contents
+A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,
+and unselected Options pages when searching the Options dialog, and explain how to select them.
+This note SHALL accompany both empty and nonempty matches, alongside any depth-limit warning.
+
+#### Scenario: An editor is behind a designer
+- **WHEN** a match search runs with a code tab open but unselected
+- **THEN** the note names that tab, says its contents are not in the tree, and directs the caller to `activate_document_tab`
+
+#### Scenario: A setting is on another Options page
+- **WHEN** a match search runs in Options with other pages unselected
+- **THEN** the note names their category and page and directs the caller to expand the category and select the page with `interact`
+
+### Requirement: Program wait replies distinguish running and queued handlers
+
+Program wait replies SHALL name only events with handlers in the program and SHALL describe queued handlers
+as waiting to run separately from handlers already started.
+
+#### Scenario: Events arrive while a MsgBox holds a handler
+
+- **WHEN** a handler is suspended at a MsgBox and other control events arrive
+- **THEN** the reply names the suspended handler as still running
+- **AND** events with handlers queued behind it are named as waiting to run
+- **AND** events without handlers are omitted
+
+### Requirement: Pointer drags through interact
+
+`interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and
+modifier keys. Release coordinates SHALL be relative to the target, or to the control at the pasted
+`dump_visual_tree` path. The press SHALL establish implicit capture, allow press work to run, then send
+several moves with the button held before releasing to the pointer capturer or the hit-tested control.
+The reply SHALL name the press landing, release point and recipient, and whether capture routed the release.
+Combining `double` with `to` SHALL be refused before pressing.
+
+#### Scenario: Draw a toolbox control
+
+- **WHEN** a toolbox control is selected and `interact` clicks the designer canvas with `20,20 to 100,60`
+- **THEN** held moves show the drawing phantom and release places the control using the drawn rectangle
+
+#### Scenario: Release over a different control
+
+- **WHEN** a drag names another control's path as its release destination
+- **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture

@@ -62,6 +62,25 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Measured compile refusals SHALL stop execution
+The interpreter SHALL raise its compile-error exception when execution reaches `Continue Do` or `With Debug`,
+with "Syntax error". A scalar assignment through explicit `Me.` to an explicitly Private class field SHALL
+raise "Method or data member not found". These refusals are measured on vb6.exe SP6, native and p-code (#2121);
+the walk does not check paths it never executes.
+
+#### Scenario: Continue in a post-tested Do loop
+- **WHEN** execution reaches `Continue Do` inside `Do ... Loop Until`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Debug used as a With target
+- **WHEN** execution reaches `With Debug`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Private field assigned through Me
+- **WHEN** a class declares `Private mN As Integer` and its method executes `Me.mN = 5`
+- **THEN** execution stops with the compile error "Method or data member not found"
+- **AND** `On Error Resume Next` cannot trap that compile error
+
 ### Requirement: Cross-module constants SHALL initialise their module on demand
 A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
 declarations first, once, regardless of project list order or startup entry point. Re-entering a module still
@@ -320,3 +339,17 @@ This is a host safety bound, not a claim about VB6's acceptance of long physical
 - **WHEN** a module-level `Const` holds a 10,000-term addition chain on a 1 MiB thread stack
 - **THEN** its constant-expression validation raises error 28 without terminating the host
 - **AND** the IDE-side project runner reports the failure and stops the run
+
+### Requirement: Interpreter parsing uses SLL with an LL fallback
+Module, standalone expression and standalone statement parsing SHALL first try SLL prediction with a
+bailing error strategy, then retry from the beginning with LL on a cancelled parse or an incomplete standalone entry. Each pass SHALL use
+a fresh nesting guard. The LL pass SHALL preserve the entry point's existing error policy: throwing
+syntax errors for modules and expressions, and returning null for unparseable standalone statements.
+
+#### Scenario: Long concatenations take the fast path
+- **WHEN** a module contains repeated long string concatenations that parse successfully under SLL
+- **THEN** the interpreter uses that tree without performing an LL pass
+
+#### Scenario: SLL cannot parse an entry
+- **WHEN** SLL cancels parsing a module or Immediate-window entry
+- **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy

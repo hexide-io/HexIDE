@@ -9,15 +9,14 @@ LSP-backed editor — IntelliSense, diagnostics, code folding, rename, and forma
 form designer and project manager. It runs on Windows, macOS, and Linux. No COM, no registry,
 no Visual Studio required.
 
-> **Status: Pre-alpha — early developer preview.** HexIDE is a working cross-platform VB6
+> **Status: Alpha — early developer preview.** HexIDE is a working cross-platform VB6
 > *editor and form designer*. It is **not a compiler** — the built-in interpreter runs only a
 > subset of VB6, and producing a real `.exe` currently shells out to an installed copy of the
 > original VB6 (Windows only). Treat it as an early preview, not a finished product.
 > Contributions and feedback are very welcome.
 >
-> **Work on a copy.** The file-format work has come a long way — 21 of VB6's own 22 template forms now
-> survive a save byte-for-byte, and the one that does not is refused rather than damaged — but that
-> corpus is Microsoft's templates, not your project. Anything hosting a third-party OCX is the known
+> **Work on a copy.** The file-format work has come a long way — all 22 of VB6's own template forms now
+> survive a save byte-for-byte — but that corpus is Microsoft's templates, not your project. Anything hosting a third-party OCX is the known
 > weak edge. See [Opening real VB6 projects](#real-projects) for exactly what it does and does not
 > preserve.
 
@@ -36,17 +35,17 @@ itself. If HexIDE cannot re-emit those unchanged, it cannot re-emit yours.
 | Against VB6's own 22 template forms | Today |
 |---|---|
 | Open, edit code, and run | **all 22** |
-| Survive open-then-save **byte-for-byte** | **21** |
-| Open **read-only** — HexIDE refuses to save rather than damage them | **1** |
+| Survive open-then-save **byte-for-byte** | **all 22** |
+| Open **read-only** — HexIDE refuses to save rather than damage them | **0** |
 | Will save, but will not reproduce the original file | **0** |
 
 The last three rows are two views of one thing, and that is the point: **every VB6-authored form HexIDE is
-willing to save round-trips byte-for-byte, and the one it cannot reproduce it refuses outright.** There is
-no longer a middle category — nothing saves lossily.
+willing to save round-trips byte-for-byte, and a form it could not reproduce it would refuse outright.**
+There is no longer a middle category — nothing saves lossily.
 
-The holdout is `Web Browser.frm`, and it is the floor rather than a waypoint. Its six pictures sit on an
-`MSComctlLib.ImageList` — an OCX, and hosting third-party controls is the project's largest declared gap.
-It *should* stay refused until that lands, which makes 21 of 22 the ceiling for this corpus.
+The last holdout was `Web Browser.frm`, whose six pictures sit on an `MSComctlLib.ImageList`, an OCX. Since
+[#60](https://github.com/hexide-io/HexIDE/issues/60) those pictures are carried through a save with the block
+that cites them, and the form round-trips byte-for-byte, its companion file included.
 
 VB6's own project files (`.vbp`) round-trip byte-for-byte as well. So do standard and class modules
 (`.bas`, `.cls`) — all three are covered by regression gates that fail the build if that stops being true.
@@ -134,7 +133,7 @@ never at the cost of familiarity. See **[PHILOSOPHY.md](PHILOSOPHY.md)** for the
 ### Download and run
 
 Download from [Releases](https://github.com/hexide-io/HexIDE/releases). On **Windows x64**, start with
-`HexIDE-Setup-<version>.exe`: it includes .NET, installs for all users into Program Files
+`hexide-windows-amd64-setup.exe`: it includes .NET, installs for all users into Program Files
 (requires administrator approval), and adds a Start-menu shortcut and an uninstaller.
 
 Portable archives remain available for every platform and processor.
@@ -215,7 +214,7 @@ runner.
 If Make still says the runtime is missing, its message names the folder it looked in and the file it didn't find.
 
 Programs made with v0.2.0 don't start, because that release's runner wasn't a single file
-([#1971](https://github.com/hexide-io/HexIDE/issues/1971)). Make them again with a later release.
+([#1971](https://github.com/hexide-io/HexIDE/issues/1971)). Make them again with v0.3.0 or later.
 
 ### Open in Visual Studio
 
@@ -297,6 +296,9 @@ independent, community-built project — **not affiliated with, endorsed by, or 
 Microsoft** — and uses these names only descriptively to indicate VB6 file-format and workflow
 compatibility. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for bundled-component
 attributions.
+
+twinBASIC and RDCore are independent projects, each belonging to its own authors. HexIDE names them
+only to describe how it works with them, and is **not affiliated with, endorsed by, or sponsored by** either.
 
 ---
 

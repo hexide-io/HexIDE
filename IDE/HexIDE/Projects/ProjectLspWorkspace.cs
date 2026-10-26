@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.ComponentModel;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
 using HexIDE.Lsp;
 
@@ -64,8 +69,109 @@ namespace HexIDE.Projects;
 /// costs every language feature in the IDE.
 /// </para>
 /// </summary>
-public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : ILspWorkspace
+public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : IWorkspaceArtifactWorkspace
 {
+
+    private readonly List<Action> _unsubscribe = [];
+    private IProjectManager? _observed;
+    private IReadOnlyList<WorkspaceArtifactContext>? _projects;
+    public event Action? ProjectChanged;
+
+    public IReadOnlyList<WorkspaceArtifactContext> Projects
+    {
+        get
+        {
+            if (_observed is null && projectManager() is { } manager)
+            {
+                _observed = manager;
+                manager.ProjectLoaded += MembershipChanged;
+                manager.ProjectUnloaded += MembershipChanged;
+                Refresh();
+            }
+            return _projects ?? [];
+        }
+    }
+
+    private void MembershipChanged(ProjectDefinition _) => Refresh();
+    private void MaterialChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is "Name" or "AbsolutePath" or "References") Refresh();
+    }
+
+    private void Refresh()
+    {
+        foreach (var unsubscribe in _unsubscribe) unsubscribe();
+        _unsubscribe.Clear();
+        var contexts = new List<WorkspaceArtifactContext>();
+        foreach (var project in _observed!.LoadedProjects)
+        {
+            Observe(project);
+            project.FormAdded += FormChanged;
+            project.FormDeleted += FormChanged;
+            project.ModuleAdded += ModuleChanged;
+            project.ModuleDeleted += ModuleChanged;
+            project.RelatedDocumentAdded += CarriedChanged;
+            project.RelatedDocumentDeleted += CarriedChanged;
+            _unsubscribe.Add(() =>
+            {
+                project.FormAdded -= FormChanged;
+                project.FormDeleted -= FormChanged;
+                project.ModuleAdded -= ModuleChanged;
+                project.ModuleDeleted -= ModuleChanged;
+                project.RelatedDocumentAdded -= CarriedChanged;
+                project.RelatedDocumentDeleted -= CarriedChanged;
+            });
+            var root = ProjectService.ProjectFilesDirectory(project);
+            var files = new List<WorkspaceProjectFile>();
+            void Add(INotifyPropertyChanged item, string? path, WorkspaceProjectFileKind kind)
+            {
+                Observe(item);
+                if (path is not null)
+                    files.Add(new WorkspaceProjectFile(
+                        Path.GetRelativePath(root, path).Replace('/', '\\'), path, kind));
+            }
+            foreach (var f in project.Forms) Add(f, f.AbsolutePath, WorkspaceProjectFileKind.Form);
+            foreach (var m in project.Modules) Add(m, m.AbsolutePath,
+                m.Kind switch
+                {
+                    ModuleKind.ClassModule => WorkspaceProjectFileKind.Class,
+                    ModuleKind.UserControl => WorkspaceProjectFileKind.UserControl,
+                    ModuleKind.StandardModule => WorkspaceProjectFileKind.Module,
+                    _ => WorkspaceProjectFileKind.Unknown
+                });
+            foreach (var f in project.RelatedDocuments) Add(f, f.AbsolutePath, WorkspaceProjectFileKind.Carried);
+            var references = project.References.Select(r => new WorkspaceProjectReference(r.Name ?? "",
+                Guid.TryParse(r.Guid, out var guid) ? guid : null,
+                Version.TryParse(r.Version, out var version) ? version.Major : null,
+                Version.TryParse(r.Version, out version) ? version.Minor : null,
+                r.Lcid, r.LibPath is null ? null : SerializedProject.ToHostPath(r.LibPath))).ToArray();
+            var arguments = CompilationArguments.TryForProject(project, out var parsed) ? parsed : CompilationArguments.None;
+            contexts.Add(new WorkspaceArtifactContext(root,
+                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments.Values)));
+        }
+        _projects = contexts;
+        ProjectChanged?.Invoke();
+    }
+
+    private void Observe(INotifyPropertyChanged item)
+    {
+        item.PropertyChanged += MaterialChanged;
+        _unsubscribe.Add(() => item.PropertyChanged -= MaterialChanged);
+    }
+    private void FormChanged(ProjectDefinition _, FormDefinition __) => Refresh();
+    private void ModuleChanged(ProjectDefinition _, ModuleDefinition __) => Refresh();
+    private void CarriedChanged(ProjectDefinition _, RelatedDocumentDefinition __) => Refresh();
+
+    public void Dispose()
+    {
+        foreach (var unsubscribe in _unsubscribe) unsubscribe();
+        if (_observed is not null)
+        {
+            _observed.ProjectLoaded -= MembershipChanged;
+            _observed.ProjectUnloaded -= MembershipChanged;
+        }
+    }
+
     public string? Directory =>
         projectManager() is { StartupProject: { } project }
             ? ProjectService.ProjectFilesDirectory(project)

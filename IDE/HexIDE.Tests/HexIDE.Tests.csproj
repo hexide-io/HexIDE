@@ -35,11 +35,13 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../HexIDE.Lsp.TestHost/HexIDE.Lsp.TestHost.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
+        <ProjectReference Include="..\HexIDE.Lsp.TestServer\HexIDE.Lsp.TestServer.csproj" />
         <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
         <!-- Build-check the opt-in real adapter tools on CI without executing or bundling an external backend. -->
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
         <ProjectReference Include="..\HexIDE.Standalone\HexIDE.Standalone.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
@@ -64,5 +66,22 @@
     <ItemGroup>
         <Compile Include="..\HexIDE.Runtime.Tests\Vb6Template.cs" Link="Infrastructure\Vb6Template.cs" />
     </ItemGroup>
+
+    <!-- Keep the executable helper's dependency manifest and dependencies together, rather than
+         resolving it against the test runner's dependencies. GetTargetPath also honours artifacts paths. -->
+    <Target Name="CopyLspTestHost" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+        <MSBuild Projects="../HexIDE.Lsp.TestHost/HexIDE.Lsp.TestHost.csproj" Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)">
+            <Output TaskParameter="TargetOutputs" ItemName="_LspTestHostTarget" />
+        </MSBuild>
+        <PropertyGroup>
+            <_LspTestHostDirectory>@(_LspTestHostTarget->'%(RootDir)%(Directory)')</_LspTestHostDirectory>
+        </PropertyGroup>
+        <ItemGroup>
+            <_LspTestHostFiles Include="$(_LspTestHostDirectory)**/*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(_LspTestHostFiles)"
+              DestinationFolder="$(OutDir)LspTestHost/%(_LspTestHostFiles.RecursiveDir)" SkipUnchangedFiles="true" />
+    </Target>
 
 </Project>

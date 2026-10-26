@@ -194,7 +194,8 @@ already built.
 
 1. Write the corpus. With `HEXIDE_DUMP_PROGRAMS` naming it, `HexIDE.Runtime.Tests` appends one JSON line per program
    to `artifacts/program-dump/<name>.jsonl`. Each holds the program's modules, the startup module rewritten with its
-   bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, and the error if it raised one.
+   bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, the Immediate output lines,
+   `VbLocale.Current.Name`, and the error if it raised one. Even a startup module with no bare statements gains an empty `HexDumpMain`.
 
    ```text
    HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test IDE/HexIDE.Runtime.Tests/
@@ -207,12 +208,13 @@ already built.
    ```
 
    Each program gets a workspace of its own under `artifacts/dap-parity/<run>/cases/`, holding its modules and a
-   `.rdproj` with no references (`--project-template` supplies another). The tool writes `results.jsonl` one line
-   per program as each finishes, and the counts to `summary.json`. `--timeout` bounds each program (60 s by
+   `.rdproj` with a unique case name and no references (`--project-template` supplies another). The tool writes
+   `results.jsonl` one line per program as each finishes, and the counts to `summary.json`. `--timeout` bounds each program (60 s by
    default), `--parallel` sets how many adapters run at once, and `--dry-run` writes the workspaces and starts nothing.
 
-Outcomes compare HexIDE's printed values with RDCore's `stdout` lines, trimmed, since HexIDE's `Debug.Print` doesn't
-pad a number for its sign (#1380):
+Outcomes compare HexIDE's Immediate output lines with RDCore's `stdout` lines, trimmed. Individual printed items
+retain their types and use the same formatter as `Debug.Print`, including Null and numeric spacing (#2119).
+Older dumps without lines fall back to individual items; regenerate them for statement-level comparisons.
 
 | Outcome | HexIDE | RDCore |
 |---|---|---|
@@ -223,7 +225,7 @@ pad a number for its sign (#1380):
 | `hexide-run-time-error-engine-refused` | a run-time error | an error with no number, a compile error |
 | `both-refused` / `hexide-refused-engine-runs` | a compile error, or a run-time error VB6 gives at compile time | an error, or ran |
 | `hexide-unimplemented-engine-runs` / `-engine-error` | `NotImplementedException` | ran, or an error |
-| `no-entry` | ran declarations alone, so there is nothing to call | not started |
+| `locale-differs` | recorded locale differs from en-US | runs under en-US; not compared |
 | `timeout` / `launch-failed` | | ran past `--timeout`, or the session failed |
 | `excluded` | not compared | not started: the program would act outside its own process |
 
@@ -237,11 +239,14 @@ by token, skipping strings, comments and members such as `x.Name`, and erring to
 
 A path built at run time can't be checked before the run, so file statements are left out whatever their paths say.
 The adapter also starts in the program's own workspace, so a relative path the engine resolves lands there.
+After a parallel pass, a case reporting `HexDumpMain' is not a procedure of the module` is retried alone before
+counting it. Its first engine result is retained as `parallelAttempt`; only the retry contributes to the outcome counts.
 
 What the adapter does that the tool relies on, measured against the revision in the next paragraph:
 - A class module needs its `VERSION 1.0 CLASS` header, or it is read as a standard module. The tool adds it.
 - An unhandled run-time error stops under the adapter's default `unhandled` filter. Continuing prints
   `Run-time error 'N': description` on `stderr` and exits 1, which is where the number is read.
+  The runner also recognises `Application error 'N': ...` (measured at 653244e, #2119).
 - A compile error is printed on `stderr`, with an exit code of 1.
 
 Measured on Windows, 2026-10-22, against RDCore `f3acd864` with a local, unreviewed transport fix (`6bb9b426`),
