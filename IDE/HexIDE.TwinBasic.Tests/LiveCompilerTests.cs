@@ -76,6 +76,11 @@ public sealed class LiveCompilerTests(ITestOutputHelper output)
     /// language pack, which is <c>{language}</c> in the recording for the same reason. A one-entry object in its place
     /// never completes initialization, as an empty one does not (#1200): measured, BETA 1024. The process id, the five
     /// ports and the instance identity are placeholders too. Set <c>HEXIDE_TWINBASIC_RECORDING_DIR</c> to keep the file.
+    /// <para>
+    /// The recording is then compared with the newest one committed for this beta or an earlier one, which is how a new
+    /// beta's protocol change surfaces (#1219). A difference fails the test, naming each frame that differs. If the
+    /// change is expected, keep the new recording as <c>Recordings/beta-N</c>, and it becomes the one compared with.
+    /// </para>
     /// </summary>
     [LiveCompilerFact]
     public async Task Root_initialization_and_shutdown_are_recorded()
@@ -121,6 +126,34 @@ public sealed class LiveCompilerTests(ITestOutputHelper output)
 
         if (Environment.GetEnvironmentVariable("HEXIDE_TWINBASIC_RECORDING_DIR") is { Length: > 0 } keep)
             await File.WriteAllTextAsync(Path.Combine(keep, "root-initialization.jsonl"), redacted, Token);
+
+        if (LastCommittedRecording(beta, "root-initialization") is not { } committed)
+        {
+            output.WriteLine($"No recording is committed for beta {beta} or an earlier one, so there is nothing to compare with.");
+            return;
+        }
+        output.WriteLine($"Compared with the recording committed for beta {committed.Beta}.");
+        CompilerRecordingComparison.Differences(new StringReader(await File.ReadAllTextAsync(committed.Path, Token)), new StringReader(redacted))
+            .Should().BeEmpty($"beta {beta} should exchange what beta {committed.Beta} did; if the change is expected, keep this run's "
+                              + $"recording as Recordings/beta-{beta}");
+    }
+
+    /// <summary>
+    /// The newest committed recording of a scenario for the given beta or an earlier one, or for any beta when the
+    /// install's name gives none.
+    /// </summary>
+    private static (int Beta, string Path)? LastCommittedRecording(string beta, string scenario)
+    {
+        var limit = int.TryParse(beta, out var number) ? number : int.MaxValue;
+        (int Beta, string Path)? newest = null;
+        foreach (var folder in Directory.EnumerateDirectories(Path.Combine(AppContext.BaseDirectory, "Recordings"), "beta-*"))
+        {
+            var path = Path.Combine(folder, scenario + ".jsonl");
+            if (int.TryParse(Path.GetFileName(folder)["beta-".Length..], out var b) && b <= limit && b > (newest?.Beta ?? -1)
+                && File.Exists(path))
+                newest = (b, path);
+        }
+        return newest;
     }
 
     /// <summary>Answers with a package's file when the identifier names one under the install's packages folder.</summary>
@@ -144,11 +177,28 @@ public sealed class LiveCompilerFactAttribute : FactAttribute
 {
     public static string? Install { get; } = Environment.GetEnvironmentVariable("HEXIDE_TWINBASIC_IDE");
 
+    /// <summary>Why the live tests skip on this machine, or null when they run.</summary>
+    public static string? SkipReason { get; } =
+        !OperatingSystem.IsWindows() ? "The twinBASIC compiler runs on Windows only."
+        : string.IsNullOrEmpty(Install) ? "Set HEXIDE_TWINBASIC_IDE to a twinBASIC install folder to run this against a real compiler."
+        : !File.Exists(CompilerProcess.ExecutableIn(Install)) ? "HEXIDE_TWINBASIC_IDE names a folder with no bin\\twinBASIC_win32.exe in it."
+        : null;
+
     public LiveCompilerFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
-        : base(sourceFilePath, sourceLineNumber)
+        : base(sourceFilePath, sourceLineNumber) => Skip = SkipReason;
+}
+
+/// <summary>
+/// Makes <c>HEXIDE_REQUIRE_TWINBASIC</c> turn a skipped live run into a failure, as <c>RequiredServersTests</c> does for
+/// the foreign language servers. An ordinary fact, since xunit v3 drops a test whose attribute throws rather than failing
+/// it. The beta check (#1219) sets the variable, so a download that went wrong cannot pass as a run that skipped.
+/// </summary>
+public sealed class RequiredCompilerTests
+{
+    [Fact]
+    public void The_live_compiler_tests_run_when_a_compiler_is_required()
     {
-        if (!OperatingSystem.IsWindows()) Skip = "The twinBASIC compiler runs on Windows only.";
-        else if (string.IsNullOrEmpty(Install)) Skip = "Set HEXIDE_TWINBASIC_IDE to a twinBASIC install folder to run this against a real compiler.";
-        else if (!File.Exists(CompilerProcess.ExecutableIn(Install))) Skip = "HEXIDE_TWINBASIC_IDE names a folder with no bin\\twinBASIC_win32.exe in it.";
+        if (Environment.GetEnvironmentVariable("HEXIDE_REQUIRE_TWINBASIC") != "1") return;
+        LiveCompilerFactAttribute.SkipReason.Should().BeNull("HEXIDE_REQUIRE_TWINBASIC is set, so the live compiler tests must run");
     }
 }
