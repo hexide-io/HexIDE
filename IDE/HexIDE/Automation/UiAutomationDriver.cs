@@ -3853,9 +3853,9 @@ public static class UiAutomationDriver
         // Neither is a path at all, so each says where paths come from: a caller who guessed one from a snapshot, as
         // "Editor/General" from the Options dialog's tree, was told only what was wrong with it (#2080).
         if (segs.Length == 0)
-            return (null, EmptyPath + "; " + WherePathsComeFrom(null));
+            return (null, EmptyPath + "; " + WherePathsComeFrom(root, null));
         if (!string.Equals(StripUnderscore(segs[0]), "Window", StringComparison.OrdinalIgnoreCase))
-            return (null, $"{NotFromWindow} (got '{segs[0]}'); {WherePathsComeFrom(segs[^1])}");
+            return (null, $"{NotFromWindow} (got '{segs[0]}'); {WherePathsComeFrom(root, segs[^1])}");
 
         Control current = root;
         var traversed = "Window";
@@ -3900,9 +3900,20 @@ public static class UiAutomationDriver
     /// <summary>The start of the refusal for a target whose first segment is not <c>Window</c>.</summary>
     public const string NotFromWindow = "path must start with 'Window'";
 
-    private static string WherePathsComeFrom(string? guess) =>
-        "a path comes from dump_visual_tree, whose every node carries its 'path', and its 'match' finds a control by "
-        + "name" + (string.IsNullOrWhiteSpace(guess) ? "" : $", as dump_visual_tree {{\"match\":\"{SearchTextOf(guess)}\"}}");
+    // The example names the window the path was looked for in, so it can be sent as it stands: "ide" for the IDE's own,
+    // else the window's title, which 'window' takes too.
+    private static string WherePathsComeFrom(Control root, string? guess)
+    {
+        var window = root is not Window w ? null
+            : Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
+              { MainWindow: { } main } && ReferenceEquals(w, main) ? "ide"
+            : string.IsNullOrWhiteSpace(w.Title) ? null : w.Title;
+        static string Json(string text) => text.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        return "a path comes from dump_visual_tree, whose every node carries its 'path', and its 'match' finds a control by "
+               + "name" + (string.IsNullOrWhiteSpace(guess) ? ""
+                   : ", as dump_visual_tree {" + (window is null ? "" : $"\"window\":\"{Json(window)}\",")
+                     + $"\"match\":\"{Json(SearchTextOf(guess))}\"}}");
+    }
 
     // What a guessed segment names: the text in its brackets, an id, or the segment itself.
     private static string SearchTextOf(string segment)

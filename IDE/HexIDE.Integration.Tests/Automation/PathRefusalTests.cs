@@ -10,25 +10,26 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </summary>
 public class PathRefusalTests
 {
+    // The suggested call names the window the path was looked for in, so it can be sent as it stands.
     [AvaloniaFact]
     public void A_path_not_starting_with_Window_names_dump_visual_tree_and_a_match_for_its_last_segment()
     {
-        var window = new Window();
+        var window = new Window { Title = "Options" };
 
         var (control, error) = UiAutomationDriver.Resolve(window, "Editor/General");
 
         control.Should().BeNull();
         error.Should().Be("path must start with 'Window' (got 'Editor'); a path comes from dump_visual_tree, whose every node "
                           + "carries its 'path', and its 'match' finds a control by name, as dump_visual_tree "
-                          + "{\"match\":\"General\"}");
+                          + "{\"window\":\"Options\",\"match\":\"General\"}");
     }
 
     [AvaloniaFact]
     public void A_bracketed_segment_is_matched_by_the_text_in_its_brackets()
     {
-        var (_, error) = UiAutomationDriver.Resolve(new Window(), "Tree/TreeItem[Editor]/TreeItem[General]");
+        var (_, error) = UiAutomationDriver.Resolve(new Window { Title = "Options" }, "Tree/TreeItem[Editor]/TreeItem[General]");
 
-        error.Should().EndWith("as dump_visual_tree {\"match\":\"General\"}");
+        error.Should().EndWith("as dump_visual_tree {\"window\":\"Options\",\"match\":\"General\"}");
     }
 
     [AvaloniaFact]
