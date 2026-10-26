@@ -158,8 +158,8 @@ visitor, not changing how the language is understood.
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 17% of VB6's statements (18
-of 107, two of them the `Function` rows, which fail only when a type character is used) and 68% of the
-in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 84 of 123) are unavailable. Both
+of 107, two of them the `Function` rows, which fail only when a type character is used) and 67% of the
+in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 82 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
