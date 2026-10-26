@@ -489,6 +489,54 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        # gitleaks v8.30.1 is MIT (upstream LICENSE at this tag).
+        # Digest provenance: publisher's gitleaks_8.30.1_checksums.txt at v8.30.1,
+        # read 2026-10-26; publisher-attested, not computed locally.
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          release="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          cd "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location "$release/$archive" -o "$archive"
+          echo "$GITLEAKS_SHA256  $archive" | sha256sum --check --strict -
+          tar -xzf "$archive" gitleaks
+          echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
+
+      - name: Self-test token scanning
+        run: bash scripts/check-secrets.selftest.sh
+
+      - name: Guard tokens in commits
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+        run: |
+          if [ -n "$PR_BASE" ]; then
+            bash scripts/check-secrets.sh "$PR_BASE" "$PR_HEAD"
+          elif [ -n "$PUSH_BASE" ] && [ "$PUSH_BASE" != '0000000000000000000000000000000000000000' ]; then
+            bash scripts/check-secrets.sh "$PUSH_BASE" "$PUSH_HEAD"
+          else
+            # A new branch has no before SHA: scan only commits since main diverged.
+            if ! git rev-parse --verify --quiet 'origin/main^{commit}' >/dev/null; then
+              if ! git fetch origin main:refs/remotes/origin/main; then
+                echo 'Secrets NOT scanned: origin/main is unavailable.' >&2
+                exit 1
+              fi
+            fi
+            if ! base=$(git merge-base origin/main "$PUSH_HEAD"); then
+              echo 'Secrets NOT scanned: merge base with origin/main is unavailable.' >&2
+              exit 1
+            fi
+            bash scripts/check-secrets.sh "$base" "$PUSH_HEAD"
+          fi
 
       # Before the guard, not after: this asks whether the guard can still SEE an untracked
       # file. Three of its scans could not, while its header said they could (#437), and CI
