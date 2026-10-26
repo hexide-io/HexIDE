@@ -461,3 +461,19 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Large discovery trees prioritize showing controls
+
+A `dump_visual_tree` tree exceeding the 40,000-character tree budget SHALL first omit children below
+hidden nodes, retaining the hidden nodes and marking omitted children with `truncated`. The requested
+root SHALL retain its immediate children so a caller can retrieve more by rooting a subsequent dump at
+an omitted branch. If necessary, the server SHALL then cut the deepest levels to the greatest depth
+that fits, retaining at least one level. The reply note SHALL explain each kind of omission and how to
+retrieve the rest. A tree that fits SHALL remain unchanged; `match` searches SHALL search the unpruned
+tree to the requested depth.
+
+#### Scenario: Hidden toolbars compete with an open document
+- **WHEN** a dump exceeds the budget and omitting hidden toolbar children brings it within budget
+- **THEN** the visible document retains its full requested depth
+- **AND** hidden toolbars retain addressable paths and `truncated` markers
+- **AND** the note explains that hidden children were omitted and can be retrieved using `root`

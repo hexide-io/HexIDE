@@ -104,6 +104,40 @@ public class DumpFitsReplyTests
         note.Should().Contain("goes only one level down").And.NotContain("cut ");
     }
 
+    [Fact]
+    public void Hidden_children_are_cut_before_visible_depth()
+    {
+        var visible = Deep("Window/Document", 3);
+        var hidden = Wide() with { Path = "Window/Hidden", IsHidden = true };
+        var tree = Node("Window", Node("Window/Wrapper", hidden), visible);
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree);
+
+        fitted.Children[1].Should().BeEquivalentTo(visible);
+        var keptHidden = fitted.Children[0].Children.Single();
+        keptHidden.Path.Should().Be(hidden.Path);
+        keptHidden.IsHidden.Should().BeTrue();
+        keptHidden.Children.Should().BeEmpty();
+        keptHidden.Truncated.Should().BeTrue();
+        Size(fitted).Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
+        note.Should().Contain("children below hidden nodes were omitted").And.Contain("its path as 'root'");
+        hidden.Children.Should().NotBeEmpty("fitting must not mutate the original dump");
+    }
+
+    [Fact]
+    public void Depth_is_cut_after_hidden_children_when_the_visible_tree_is_still_large()
+    {
+        var tree = Node("Window", Wide() with { Path = "Window/Hidden", IsHidden = true }, Deep("Window/Document"));
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree);
+
+        fitted.Children[0].Children.Should().BeEmpty();
+        fitted.Children[0].Truncated.Should().BeTrue();
+        Size(fitted).Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
+        Flat(fitted.Children[1]).Should().Contain(n => n.Node.Truncated == true);
+        note.Should().Contain("children below hidden nodes were omitted").And.Contain("levels down");
+    }
+
     // The note comes before the tree, so a client that keeps only the start of a long reply still has it.
     [Fact]
     public void The_note_is_written_before_the_tree()
