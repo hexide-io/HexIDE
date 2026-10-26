@@ -69,4 +69,63 @@ public class DesignerVisibilityTests
         }
         finally { window.Close(); }
     }
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_button_inside_a_hidden_frame_dims_and_remains_editable(bool initiallyVisible)
+    {
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), """
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin VB.Frame Frame1
+                  Width = 3000
+                  Height = 2000
+                  Begin VB.CommandButton Command1
+                     Width = 1200
+                     Height = 450
+                  End
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """, new NullSink())!;
+        var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+        var frame = vm.AllComponents.Single(c => c.Name == "Frame1");
+        var button = vm.AllComponents.Single(c => c.Name == "Command1");
+        frame.Instance.SetProperty(VBProperties.VisibleProperty, initiallyVisible);
+        var view = new FormEditView { DataContext = vm };
+        var dimming = new SolidColorBrush(Color.FromArgb(90, 255, 255, 255));
+        view.Resources["DesignerHiddenControlMaskBrush"] = dimming;
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var renderer = view.GetVisualDescendants().OfType<ControlRenderer>().Single(r => r.Component == button);
+            var item = renderer.FindAncestorOfType<ControlItem>()!;
+            renderer.OpacityMask.Should().BeSameAs(initiallyVisible ? null : dimming);
+            frame.Instance.SetProperty(VBProperties.VisibleProperty, false);
+            Dispatcher.UIThread.RunJobs();
+            renderer.OpacityMask.Should().BeSameAs(dimming);
+            item.IsVisible.Should().BeTrue();
+            item.IsEnabled.Should().BeTrue();
+            item.IsHitTestVisible.Should().BeTrue();
+            vm.SelectedComponent = button;
+            button.Left += 10;
+            button.Width = 100;
+            vm.SelectedComponent.Should().BeSameAs(button);
+            button.Instance.GetPropertyOrDefault(VBProperties.LeftProperty).Should().Be(10);
+            button.Instance.GetPropertyOrDefault(VBProperties.WidthProperty).Should().Be(100);
+            frame.Instance.SetProperty(VBProperties.VisibleProperty, true);
+            Dispatcher.UIThread.RunJobs();
+            renderer.OpacityMask.Should().BeNull();
+            button.Instance.SetProperty(VBProperties.VisibleProperty, false);
+            frame.Instance.SetProperty(VBProperties.VisibleProperty, false);
+            frame.Instance.SetProperty(VBProperties.VisibleProperty, true);
+            Dispatcher.UIThread.RunJobs();
+            renderer.OpacityMask.Should().BeSameAs(dimming);
+        }
+        finally { window.Close(); }
+    }
+
 }
