@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定標題的最大數量",
     "Str.Tool.Properties.ExportPicture": "匯出圖片...",
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",

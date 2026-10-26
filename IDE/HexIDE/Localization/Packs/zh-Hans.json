@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量",
     "Str.Tool.Properties.ExportPicture": "导出图片...",
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",

@@ -2,6 +2,8 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков",
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",

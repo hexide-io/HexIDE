@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",
     "Str.Tool.Properties.ExportPicture": "Eksportér billede...",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",

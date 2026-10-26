@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",

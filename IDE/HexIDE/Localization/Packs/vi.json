@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Ghim tiêu đề khi cuộn",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Số tiêu đề được ghim tối đa",
     "Str.Tool.Properties.ExportPicture": "Xuất hình ảnh...",
     "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",

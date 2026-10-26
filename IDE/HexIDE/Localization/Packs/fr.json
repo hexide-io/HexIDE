@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés",
     "Str.Tool.Properties.ExportPicture": "Exporter l’image...",
     "Str.Archive.ProjectFormat": "{0} (archive en lecture seule)",
     "Str.Archive.Hidden": "Afficher les entrées masquées de l’archive",

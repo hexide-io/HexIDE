@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Kaydırırken başlıkları sabitle",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "En fazla sabitlenen başlık sayısı",
     "Str.Tool.Properties.ExportPicture": "Resmi dışa aktar...",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",

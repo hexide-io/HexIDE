@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados",
     "Str.Tool.Properties.ExportPicture": "Exportar imagem...",
     "Str.Archive.ProjectFormat": "{0} (arquivo só de leitura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas do arquivo",

@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antall festede overskrifter",
     "Str.Tool.Properties.ExportPicture": "Eksporter bilde...",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivoppføringer",

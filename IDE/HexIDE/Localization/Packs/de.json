@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.Archive.ProjectFormat": "{0} (schreibgeschütztes Archiv)",
     "Str.Archive.Hidden": "Ausgeblendete Archiveinträge anzeigen",

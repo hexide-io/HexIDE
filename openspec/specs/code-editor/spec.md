@@ -395,3 +395,31 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **THEN** overtype mode is enabled and the status bar displays the localized overtype label
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Sticky scroll shows enclosing block headers
+The code window SHALL pin the headers of language-server folding ranges enclosing its top visible code
+line, when their header lines have scrolled out of view. It SHALL list distinct headers from outermost
+inward, up to the configured depth. The editor's serialized header and member-attribute folds SHALL NOT
+supply sticky headers. Without server ranges there SHALL be no pinned headers.
+
+#### Scenario: Scrolling inside nested blocks
+- **WHEN** the top visible code line is inside nested server folding ranges whose headers are above it
+- **THEN** their source header lines appear above the code, in nesting order
+- **AND** scrolling out of a range removes its header
+- **AND** a replacement folding response updates the pinned headers
+
+#### Scenario: Navigating from a pinned header
+- **WHEN** the developer clicks a pinned header
+- **THEN** the editor places the caret at column one of that header's line and scrolls to it
+- **AND** keyboard focus returns to the code
+
+### Requirement: Sticky scroll is configurable
+Editor → General SHALL offer a sticky-scroll switch and a maximum header depth of one through ten.
+Sticky scroll SHALL default to enabled with a depth of three. Applying either option SHALL update open
+code windows, and both settings SHALL persist between sessions and participate in Restore Defaults.
+
+#### Scenario: Limiting or disabling pinned headers
+- **WHEN** the developer applies a depth of one
+- **THEN** only the outermost enclosing header is pinned
+- **WHEN** the developer disables sticky scroll
+- **THEN** open code windows show no pinned headers

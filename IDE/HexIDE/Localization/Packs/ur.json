@@ -2,6 +2,8 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",

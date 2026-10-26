@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות",
     "Str.Tool.Properties.ExportPicture": "ייצוא תמונה...",
     "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",

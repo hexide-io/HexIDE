@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków",
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
     "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",

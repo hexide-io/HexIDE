@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate",
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
     "Str.Archive.ProjectFormat": "{0} (archivio di sola lettura)",
     "Str.Archive.Hidden": "Mostra le voci nascoste dell’archivio",

@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",

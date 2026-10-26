@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων",
     "Str.Tool.Properties.ExportPicture": "Εξαγωγή εικόνας...",
     "Str.Archive.ProjectFormat": "{0} (αρχειοθήκη μόνο για ανάγνωση)",
     "Str.Archive.Hidden": "Εμφάνιση κρυφών καταχωρίσεων αρχειοθήκης",

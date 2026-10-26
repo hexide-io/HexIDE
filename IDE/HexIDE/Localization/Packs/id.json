@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",

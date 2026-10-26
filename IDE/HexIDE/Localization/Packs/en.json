@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Sticky scroll",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximum pinned headers",
     "Str.Tool.Properties.ExportPicture": "Export picture...",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",

@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",

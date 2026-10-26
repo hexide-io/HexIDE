@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",

@@ -2,6 +2,8 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.Archive.ProjectFormat": "{0} (केवल-पठन संग्रह)",
     "Str.Archive.Hidden": "संग्रह की छिपी प्रविष्टियाँ दिखाएँ",

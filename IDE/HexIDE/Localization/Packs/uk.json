@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",

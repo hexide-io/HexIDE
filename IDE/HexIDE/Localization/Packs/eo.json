@@ -2,6 +2,8 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj",
     "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
     "Str.Archive.ProjectFormat": "{0} (nurlega arkivo)",
     "Str.Archive.Hidden": "Montri kaŝitajn arkivajn erojn",

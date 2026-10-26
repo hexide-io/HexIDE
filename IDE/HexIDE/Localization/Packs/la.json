@@ -2,6 +2,8 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Tituli fixi inter volvendum",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Numerus maximus titulorum fixorum",
     "Str.Tool.Properties.ExportPicture": "Imaginem exportare...",
     "Str.Archive.ProjectFormat": "{0} (archivum solum legendum)",
     "Str.Archive.Hidden": "Elementa archivi occulta ostendere",

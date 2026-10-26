@@ -2,6 +2,8 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده",
     "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",
