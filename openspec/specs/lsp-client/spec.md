@@ -1196,6 +1196,24 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+
+### Requirement: Signature parameter label unions
+
+The client SHALL accept signature-help parameter labels as strings or UTF-16 offset pairs into the
+signature label. The popup SHALL use the exact offset range for highlighting and parameter text.
+String labels SHALL retain first-match highlighting; an out-of-bounds offset SHALL produce no highlight.
+A reply that fails deferred result deserialization SHALL be recorded as Failed with an answer-dropped
+explanation, retaining any captured reply body.
+
+#### Scenario: Offset parameter label
+- **WHEN** a server answers signature help with a parameter label `[start, end]`
+- **THEN** the popup highlights that range of the signature and displays its text with the parameter documentation
+
+#### Scenario: Unreadable result
+- **WHEN** a received reply fails deferred result deserialization
+- **THEN** the connection record marks the exchange Failed with an answer-dropped explanation
+- **AND** any captured reply body remains available
+
 ### Requirement: Semantic tokens SHALL overlay lexical colours
 The client SHALL declare relative, full semantic token requests with the standard token types and modifiers,
 and without overlapping or multiline tokens. It SHALL ask only the highest-priority document claimant that
