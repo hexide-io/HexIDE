@@ -26,7 +26,7 @@ public class InBoxMemberTableTests
 
     public static TheoryData<string, string> Libraries => new() { { "MSCOMCTL", "MSComctlLib" }, { "COMCTL32", "ComctlLib" } };
 
-    private static ControlLibrary Library(string name) => ControlLibraries.All.Single(l => l.Name == name);
+    private static RuntimeLibrary Library(string name) => ControlLibraries.All.Single(l => l.Name == name);
 
     [Theory]
     [MemberData(nameof(Libraries))]

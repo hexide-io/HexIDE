@@ -502,6 +502,7 @@ added afterwards.
 - [When a document gets a file, and what a dangling `Startup=` does (2026-09-20, #489)](when-a-document-gets-a-file-and-what-a-dangling-startup-does.md#when-a-document-gets-a-file-and-what-a-dangling-startup-does-2026-09-20-489)
 - [A type character on a name the program also declares: `Left$` beside a user `Left` (2026-10-11)](a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md#a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left-2026-10-11)
 - [A running program's locale is the user's regional settings (2026-10-12, #777)](a-running-programs-locale-is-the-users-regional-settings.md#a-running-programs-locale-is-the-users-regional-settings-2026-10-12-777)
+- [Fixed number masks beyond Decimal range (#2118)](format-of-a-number-beyond-decimals-range.md)
 - [Turning a number or a date into text (2026-10-12, #772, #771)](turning-a-number-or-a-date-into-text.md#turning-a-number-or-a-date-into-text-2026-10-12-772-771)
 - [A control where a value is wanted is its default member (2026-10-12, #790)](a-control-where-a-value-is-wanted-is-its-default-member.md#a-control-where-a-value-is-wanted-is-its-default-member-2026-10-12-790)
 - [A Label's colours, read back and painted (2026-10-12, #795)](a-labels-colours-read-back-and-painted.md#a-labels-colours-read-back-and-painted-2026-10-12-795)
@@ -647,3 +648,4 @@ added afterwards.
 - [A GlobalMultiUse class in a referenced library (2026-10-26, #1107)](a-globalmultiuse-class-in-a-referenced-library.md#a-globalmultiuse-class-in-a-referenced-library-2026-10-26-1107)
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
+- [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.

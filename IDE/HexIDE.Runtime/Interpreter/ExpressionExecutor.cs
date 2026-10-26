@@ -47,7 +47,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async Task<Vb6Value?> EvaluateFunction(string name, List<Vb6Value> args)
     {
-        return await interpreter.CallBuiltIn(name, args, currentModule.PrePass.OptionCompareText) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
+        if (await interpreter.CallBuiltIn(name, args, currentModule.PrePass.OptionCompareText) is not { } result)
+            return null;
+        if (result.Value is BasicInterpreter.LibraryObject)
+            return interpreter.AdoptNewTemp(result, stmtFrames);
+        return IntrinsicAsRead(name, args, result);
     }
 
     // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
@@ -925,6 +929,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var proc) && proc.IsFunction
                     && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } fnResult)
                     return fnResult;
+                if (interpreter.GlobalMember(identifier) is { } global)
+                    return await interpreter.CallLibraryMember(global, identifier, [])
+                        ?? throw new VBSubOrFunctionNotDefinedException(identifier);
                 // ...or a zero-argument intrinsic (Now, Date, Time, Timer, Rnd, ...). Consulted last, so a
                 // variable/constant/user Function of the same name still wins above.
                 if (await EvaluateFunction(identifier, []) is { } builtInFn)
@@ -1336,6 +1343,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return fnResult;
             throw new VBSubOrFunctionNotDefinedException(name); // a Sub used where a value is required
         }
+        if (!dollar && interpreter.GlobalMember(name) is { } global)
+            return await interpreter.CallLibraryMember(global, name, await EvaluateCallArgs(argsCtx))
+                ?? throw new VBSubOrFunctionNotDefinedException(name);
         if (dollar && DollarRefused.Contains(name))
             throw new VBCompileErrorException(TypeCharacterMismatch);
         if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
@@ -1408,6 +1418,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
+            && managed.TryGetProperty(MemberName(member), out var property))
+            return property;
         if (variable.Value is ICSharpAsyncProxy proxy)
             return await AsBound(variable, MemberName(member), async () =>
                 await interpreter.CallProxy(proxy, MemberName(member), await EvaluateMemberArgs(proxy, MemberName(member), MemberArgs(member)))
@@ -1672,9 +1685,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // A referenced control library (#1082): `MSComctlLib.ccOrientationVertical`, and through one of its enums,
         // `MSComctlLib.ScrollingConstants.ccScrollingSmooth`, which is strict as the in-box libraries' enums are.
-        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibrary)
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.RuntimeLibrary)
         {
-            var library = qualifier.ControlLibrary!;
+            var library = qualifier.RuntimeLibrary!;
+            if (interpreter.GlobalMember(memberName, library) is { } global)
+                return await ThenTheRest(await interpreter.CallLibraryMember(global, memberName, await EvaluateCallArgs(argsCtx))
+                    ?? throw new VBSubOrFunctionNotDefinedException(memberName));
             if (argsCtx == null && library.TryBare(memberName, out var c))
                 return await ThenTheRest(c);
             if (argsCtx == null && idx + 1 < members.Length && library.ContainerName(memberName) is { } container)
@@ -1693,7 +1709,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // `ScrollingConstants.ccScrollingStandard`: one of a referenced control library's enums (#1082).
         if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibraryContainer)
         {
-            if (argsCtx == null && qualifier.ControlLibrary!.TryInContainer(qualifier.Name!, memberName, out var cv))
+            if (argsCtx == null && qualifier.RuntimeLibrary!.TryInContainer(qualifier.Name!, memberName, out var cv))
                 return await ThenTheRest(cv);
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
@@ -2115,6 +2131,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // `New ClassName` — the class name is a nested bare identifier; extract it SYNTACTICALLY (evaluating it
         // would try to resolve a variable and throw). `Dim o As New C1` makes its object where it is read (#435).
         var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
+        if (call is not null && interpreter.LibraryClassFor(call.GetText()) is { } libraryClass)
+            return interpreter.AdoptNewTemp(interpreter.NewLibraryObject(libraryClass), stmtFrames);
         // `New Collection`, and `New VBA.Collection`, the library's own (#1471).
         if (call?.iCS_S_MembersCall() is { } qualified && IsCollectionType(qualified.GetText()))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);

@@ -505,7 +505,8 @@ public class McpRestartTests
     {
         var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = new[] { 3_000_000_000L } });
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain("'lines'").And.Contain("Path: $[0]");
+        TextOf(result).Should().Contain("'lines'").And.Contain("item 0: 3000000000 is too large; "
+            + "it takes a whole number from -2147483648 to 2147483647");
     }
 
     [Fact]
@@ -514,7 +515,31 @@ public class McpRestartTests
         var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 3_000_000_000L });
 
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain("'count'").And.Contain("System.Int32");
+        TextOf(result).Should().Contain("'count'").And.Contain("3000000000 is too large; "
+            + "it takes a whole number from -2147483648 to 2147483647");
+    }
+
+    [Theory]
+    [InlineData("9223372036854775808", "too large")]
+    [InlineData("-9223372036854775809", "too small")]
+    public async Task Long_overflow_explains_the_whole_number_range(string value, string direction)
+    {
+        var result = await CallWithAsync("seq", new() { ["after"] = value, ["limit"] = 1 });
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Contain($"'after': {value} is {direction}; it takes a whole number from "
+            + "-9223372036854775808 to 9223372036854775807").And.NotContain("System.Int").And.NotContain("Path:");
+    }
+
+    [Fact]
+    public void Hover_overflow_includes_its_declared_dwell_range()
+    {
+        var arguments = new Dictionary<string, System.Text.Json.JsonElement>
+        {
+            ["dwellMs"] = System.Text.Json.JsonSerializer.SerializeToElement(3_000_000_000L),
+        };
+        ToolFailures.BindingProblems(new System.Text.Json.JsonException(), arguments, "hover")
+            .Should().ContainSingle().Which.Should().Contain("from -2147483648 to 2147483647")
+            .And.Contain("from 0 to 10000").And.NotContain("System.Int").And.NotContain("Path:");
     }
 
     [Fact]

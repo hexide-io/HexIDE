@@ -41,7 +41,7 @@
         <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
         <!-- Build-check the opt-in real adapter tools on CI without executing or bundling an external backend. -->
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
         <ProjectReference Include="..\HexIDE.Standalone\HexIDE.Standalone.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />

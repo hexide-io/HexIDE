@@ -37,3 +37,30 @@ Selecting an archive entry or activating an archive tab MUST NOT implicitly targ
 #### Scenario: Archive selected in a mixed workspace
 - **WHEN** an archive is selected while a VB6 startup project is loaded
 - **THEN** implicit startup build, run and add-item commands are unavailable
+
+### Requirement: Grey a source entry's inactive conditional branches as the archive's compiler compiles them
+A `.twin` entry's preview MUST grey the lines its `#If` directives leave out under the archive compiler's measured
+built-ins at 32-bit (#1691), in the theme's `InactiveCodeTextBrush`. Under that compiler a call to one of VB's
+functions in a directive MUST read 0. Other entries MUST NOT be greyed.
+
+#### Scenario: A branch the compiler's 32-bit build leaves out
+- **WHEN** the user opens a `.twin` entry whose `#If Win64 Then` branch has an `#Else`
+- **THEN** the `Win64` branch is grey and the `#Else` branch is drawn as code
+
+### Requirement: Leave branches ungreyed that the archive cannot decide
+A built-in the archive does not record MUST leave the branches it decides ungreyed: the compiler's build number
+always, and its build type when the project's settings name none. A directive that cannot be evaluated MUST leave
+the whole entry ungreyed.
+
+#### Scenario: A condition on the build number
+- **WHEN** a `.twin` entry tests the compiler's build number, which the archive does not record
+- **THEN** neither branch of that test is grey
+
+### Requirement: Report refused archive opens without unloading projects
+The IDE MUST report a refused archive open with the selected file name and the reader's reason. Opening an archive from the project picker MUST preserve already open projects and their documents on failure.
+
+#### Scenario: The reader refuses the selected archive
+- **WHEN** the user selects a malformed archive in Open Project
+- **THEN** an error message names the file and includes the reader's reason
+- **AND** the existing projects and documents remain open
+- **AND** the refused archive is not added to recent projects
