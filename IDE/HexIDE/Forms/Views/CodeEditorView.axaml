@@ -124,6 +124,7 @@
                                  Margin="2,0,0,0"
                                  IsVisible="{CompiledBinding Settings.IsMinimapVisible}" />
         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
+            <Grid ClipToBounds="True">
             <avaloniaEdit:TextEditor Name="TextEditor"
                                      FontFamily="Courier New,Monospace"
                                      FontSize="13"
@@ -167,6 +168,8 @@
                     </MenuFlyout>
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>
+            <StackPanel x:Name="StickyHeaders" VerticalAlignment="Top" ClipToBounds="True" />
+            </Grid>
         </ClassicBorderDecorator>
         </DockPanel>
     </DockPanel>

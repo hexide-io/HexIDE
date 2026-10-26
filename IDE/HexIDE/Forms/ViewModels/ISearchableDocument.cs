@@ -22,6 +22,10 @@ namespace HexIDE.Forms.ViewModels;
 /// </remarks>
 public interface ISearchableDocument
 {
+    /// <summary>Structural scopes come from the document's language server, or fall back to the document.</summary>
+    System.Threading.Tasks.Task<HexIDE.Lsp.Messages.DocumentSymbol[]> RequestSearchSymbolsAsync() =>
+        System.Threading.Tasks.Task.FromResult<HexIDE.Lsp.Messages.DocumentSymbol[]>([]);
+
     /// <summary>The live buffer. Live, not a snapshot: a search must see unsaved edits.</summary>
     TextDocument Document { get; }
 

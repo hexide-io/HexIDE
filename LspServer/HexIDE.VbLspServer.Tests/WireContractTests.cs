@@ -438,18 +438,41 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task Rename_of_a_reserved_keyword_returns_null()
+    public async Task Rename_of_a_reserved_keyword_returns_RequestFailed()
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, "Sub T()\n    Dim x\nEnd Sub\n");
 
-        var rename = await RequestAsync(h, "textDocument/rename", new
+        var rename = await RefusedRenameAsync(h, new
         {
             textDocument = new { uri = Uri },
             position = new { line = 1, character = 4 }, // the "Dim" keyword
             newName = "MyVar"
         });
-        rename.ValueKind.Should().Be(JsonValueKind.Null);
+        rename.ErrorCode.Should().Be(-32803);
+        rename.Message.Should().Contain("keyword");
+    }
+
+    [Fact]
+    public async Task Rename_refusal_reads_the_preceding_document_change()
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, "Dim Value As Long\n");
+        await h.NextDiagnosticsAsync();
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+        {
+            textDocument = new { uri = Uri, version = 2 },
+            contentChanges = new[] { new { text = "Dim Long As Long\n" } },
+        });
+
+        var refusal = await RefusedRenameAsync(h, new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 0, character = 5 },
+            newName = "Renamed",
+        });
+        refusal.ErrorCode.Should().Be(-32803);
+        refusal.Message.Should().Contain("Long").And.Contain("keyword");
     }
 
     [Fact]
@@ -550,7 +573,7 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task Renaming_a_local_named_like_a_control_has_no_answer()
+    public async Task Renaming_a_local_named_like_a_control_is_refused()
     {
         // The delta's "Renaming an identifier that also appears in the layout", literally: the local has the
         // control's own name, which the designer block declares on its Begin line. Lexically that local is
@@ -566,30 +589,32 @@ public class WireContractTests
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, form);
 
-        var edit = await RequestAsync(h, "textDocument/rename", new
+        var edit = await RefusedRenameAsync(h, new
         {
             textDocument = new { uri = Uri },
             position = new { line = 18, character = 9 },
             newName = "okText",
         });
 
-        edit.ValueKind.Should().Be(JsonValueKind.Null);
+        edit.ErrorCode.Should().Be(-32803);
+        edit.Message.Should().Contain("Properties window");
     }
 
     [Fact]
-    public async Task Renaming_a_control_from_its_code_has_no_answer()
+    public async Task Renaming_a_control_from_its_code_is_refused()
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, WholeFileFixtures.Form);
 
-        var edit = await RequestAsync(h, "textDocument/rename", new
+        var edit = await RefusedRenameAsync(h, new
         {
             textDocument = new { uri = Uri },
             position = new { line = 21, character = 12 }, // "Caption = cmdOK.Caption"
             newName = "cmdAccept",
         });
 
-        edit.ValueKind.Should().Be(JsonValueKind.Null);
+        edit.ErrorCode.Should().Be(-32803);
+        edit.Message.Should().Contain("Properties window");
     }
 
     [Fact]
@@ -672,9 +697,9 @@ public class WireContractTests
     [InlineData("Nothing")]
     [InlineData("Me")]
     [InlineData("attribute")]
-    public async Task Renaming_to_a_name_VB6_does_not_accept_has_no_answer(string newName)
+    public async Task Renaming_to_a_name_VB6_does_not_accept_is_refused(string newName)
     {
-        // The IDE refuses these before it asks (#273 task 4.4); a client that does not is answered with nothing,
+        // The IDE refuses these before it asks (#273 task 4.4); other clients receive a refusal,
         // rather than with edits writing a name that would not compile. A leading or lone underscore and a
         // bracketed name were measured illegal against vb6.exe, and so were the six reserved words, each with a
         // name's shape: Rem wherever it was tried, Empty as a variable, New and Nothing as a Sub, Me as an array,
@@ -682,14 +707,15 @@ public class WireContractTests
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
 
-        var rename = await RequestAsync(h, "textDocument/rename", new
+        var rename = await RefusedRenameAsync(h, new
         {
             textDocument = new { uri = Uri },
             position = new { line = 1, character = 6 },
             newName,
         });
 
-        rename.ValueKind.Should().Be(JsonValueKind.Null);
+        rename.ErrorCode.Should().Be(-32803);
+        rename.Message.Should().Contain("not a VB6 name");
     }
 
     [Theory]
@@ -721,14 +747,14 @@ public class WireContractTests
     [InlineData("form", 6, 8)]   // "      Caption         =   \"OK\"" in the designer block
     [InlineData("form", 12, 12)] // "Attribute VB_Name = \"frmOrders\"" -- the attribute's own name
     [InlineData("class", 16, 12)] // "Attribute Total.VB_Description" -- the qualifier itself
-    public async Task Rename_and_highlight_with_the_caret_in_a_protected_line_answer_null(string file, int line, int character)
+    public async Task Rename_in_a_protected_line_is_refused_but_highlight_answers_null(string file, int line, int character)
     {
         // Nothing there is the developer's to rename, including a member's name in its own attribute line:
         // the rename starts from the member, and the qualifier follows it.
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, file == "form" ? WholeFileFixtures.Form : WholeFileFixtures.Class);
 
-        var rename = await RequestAsync(h, "textDocument/rename", new
+        var rename = await RefusedRenameAsync(h, new
         {
             textDocument = new { uri = Uri },
             position = new { line, character },
@@ -736,7 +762,8 @@ public class WireContractTests
         });
         var highlight = await RequestAsync(h, "textDocument/documentHighlight", Pos(Uri, line, character));
 
-        rename.ValueKind.Should().Be(JsonValueKind.Null);
+        rename.ErrorCode.Should().Be(-32803);
+        rename.Message.Should().Contain("header");
         highlight.ValueKind.Should().Be(JsonValueKind.Null);
     }
 
@@ -859,6 +886,12 @@ public class WireContractTests
     private static Task OpenAsync(Harness h, string uri, string text) =>
         h.Rpc.NotifyWithParameterObjectAsync("textDocument/didOpen",
             new { textDocument = new { uri, languageId = "vb6", version = 1, text } });
+
+    private static async Task<RemoteInvocationException> RefusedRenameAsync(Harness h, object parameters)
+    {
+        var call = () => RequestAsync(h, "textDocument/rename", parameters);
+        return (await call.Should().ThrowAsync<RemoteInvocationException>()).Which;
+    }
 
     private static Task<JsonElement> RequestAsync(Harness h, string method, object @params) =>
         h.Rpc.InvokeWithParameterObjectAsync<JsonElement>(method, @params).WaitAsync(Timeout);

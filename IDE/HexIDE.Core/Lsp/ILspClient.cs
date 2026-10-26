@@ -242,8 +242,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Records a completion answer discarded after the popup's result was returned.</summary>
     void NoteLateCompletion() { }
 
-    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.</summary>
-    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default);
+    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.
+    /// A typed trigger selects advertising servers in the registry; null means explicit invocation.</summary>
+    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null);
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -259,8 +260,8 @@ public interface ILspClient : IAsyncDisposable
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends textDocument/rename and returns the workspace edits, or null.</summary>
-    Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
+    /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
+    Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);

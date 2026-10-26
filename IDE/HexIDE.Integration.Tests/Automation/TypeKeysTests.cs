@@ -369,13 +369,13 @@ public class TypeKeysTests : IDisposable
         var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
 
         typed.Success.Should().BeTrue(typed.Error);
-        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>());
+        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>(), "(");
     }
 
     [AvaloniaFact]
     public async Task The_parameter_info_a_parenthesis_asks_for_is_open_before_the_reply()
     {
-        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<string?>()).Returns(async _ =>
         {
             await Task.Delay(150);
             return (SignatureHelp?)new SignatureHelp([new SignatureInformation("MsgBox(Prompt)", null,
