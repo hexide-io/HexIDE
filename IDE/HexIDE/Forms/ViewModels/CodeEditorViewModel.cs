@@ -1257,7 +1257,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// whole attribute block and sixteen lines below it. Since task 3.10 the bundled server sends one edit per
     /// run of changed lines and leaves protected lines out, but another server need not. So the answer is
     /// applied to a copy, reduced to the lines it actually changes, and anything touching the header or a
-    /// member's attribute run is dropped.
+    /// member's attribute run is dropped. A kept whole-line deletion of a complete logical declaration then
+    /// takes its run with it (#1890).
     /// </para>
     /// <para>
     /// Lines are compared without their terminators, so a server answering in <c>\n</c> for a
@@ -1269,7 +1270,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Reduction ApplyFormatting(IReadOnlyList<TextEdit> edits)
     {
         var before = Document.Text;
-        var reduction = LineEdits.Reduce(before, Rewrite(before, edits), ReadOnlyRegions.Of(before, bufferPrefix.Length));
+        var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
+            ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
 
         if (reduction.Changes.Count > 0)
         {
