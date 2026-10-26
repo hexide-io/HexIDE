@@ -711,6 +711,25 @@ Confirm caption, border and buttons, client-origin coordinate mapping, an overla
 refusal for a minimized or partly off-screen window. Keep this entry open until those checks pass.
 [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
 
+**Measured (2026-10-26, Windows 11 at 150%, a Debug build of this branch merged with main at c208b2d7, headless
+`claude -p` through the hexide tools).** A running form with BorderStyle 3 (Fixed Dialog) and the caption "Fixed":
+
+- `inspect_element {"target":"Window","window":"Fixed"}` gave `"frame":{"canResize":false,"windowDecorations":"Full",
+  "canMinimize":false,"canMaximize":false,"showInTaskbar":true,"windowState":"Normal","nativeStyle":382206080,
+  "nativeExStyle":2359553}`. Both masks equal `GetWindowLongPtr`'s `GWL_STYLE` and `GWL_EXSTYLE`, read on the same
+  window: caption, system menu, no sizing frame and no minimize or maximize box, with a modal dialog frame.
+- `take_snapshot {"window":"Fixed","includeFrame":true}` gave `"width":454,"height":347,"scale":1.5,"windowOffsetX":2,
+  "windowOffsetY":45` and the note. With the form in front, the image is the form: a caption bar reading "Fixed",
+  the border, a close button only, and the client area at (2, 45), so `boundingRect` [0,0,300,200] maps to
+  (2, 45)-(452, 345) as the description says. With `"inline":true`, the inline copy is the same, at 454×347 and
+  `inlineScale` 1.5. Without `includeFrame` the image is the 450×300 client area, with offsets 0.
+- **With another window over the form, the image is that window.** The IDE was started in the background, so the
+  running form opened behind another application's window, and the same call returned that window's pixels. The reply
+  was identical to the unobscured one, note included, so nothing in it says the capture missed. No tool brings a
+  running form to the front, so the note's advice can't be followed through the tools. Filed as #2182.
+- **Not checked:** a tool window, and the refusal for a minimized or partly off-screen window. `set_window_state`
+  acts on the IDE's main window only, and nothing else minimizes or moves a running form.
+
 ## No tool says which control has the focus, and `press_key` moves it there
 
 **Symptom (2026-10-23, #1583, Windows).** On a running form with Text1 focused, whose program logs every GotFocus,
