@@ -35,7 +35,7 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
 
 #### Scenario: Project-load diagnostics cross the runtime boundary
-- **WHEN** the runtime deserializer reports a form-load warning to the IDE
+- **WHEN** the runtime deserializer or project loader reports a form- or module-load warning to the IDE
 - **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language
 - **AND** the project-load heading, remaining-warning count and skipped ActiveX Document notice use localization keys
 - **AND** a runtime host without localization retains an English diagnostic
