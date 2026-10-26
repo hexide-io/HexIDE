@@ -8,6 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -412,11 +413,14 @@ public class ControlsAddTests
             "  after Visible = True Visible=True");
     }
 
-    // FontName and FontSize, which are the Font's Name and Size, as the probe read them. Its row for Command1, which kept the form's Arial 12, is left out: a design-time control without a font of its own reads MS Sans Serif here (#2062).
+    // FontName and FontSize, which are the Font's Name and Size, as the probe read them. Its row for Command1, which kept the
+    // form's Arial 12, is left out: a design-time control without a font of its own reads MS Sans Serif here (#2062). A host
+    // without Times New Roman gives vb6.exe's answer for a font it hasn't got, 380, and the ListBox test below shows the
+    // same rule through the fonts every host can set.
     [AvaloniaFact]
     public void An_added_control_takes_the_forms_font_as_it_stands_when_it_is_added()
     {
-        Printed("""
+        var (printed, errors) = Run("""
             Dim c As Object
             Me.FontName = "Times New Roman"
             Me.FontSize = 14
@@ -492,19 +496,46 @@ public class ControlsAddTests
                 Debug.Print label & " -> " & E()
             End Sub
 
-            """).Should().Equal(
-            "added s2 after the form's font changed -> CommandButton font=Times New Roman/14.25");
+            """);
+        if (VBFontExtensions.IsNameable("Times New Roman"))
+        {
+            errors.Should().BeEmpty();
+            printed.Should().Equal("added s2 after the form's font changed -> CommandButton font=Times New Roman/14.25");
+        }
+        else
+            errors.Should().ContainSingle().Which.Should().BeOfType<VBRunTimeException>().Which.Error.ErrNo.Should().Be(380);
     }
 
-    // The fourteen fonts measured, read through FontName and FontSize.
+    // The fourteen fonts measured, read through FontName and FontSize. A font the host can't set is left out, since setting it
+    // is 380 there, as in vb6.exe; MS Sans Serif and Microsoft Sans Serif can be set on any host, so every host runs some.
     [AvaloniaFact]
     public void An_added_ListBox_is_as_many_rows_of_its_font_as_fit_in_480_twips_and_a_ComboBox_is_315()
     {
-        Printed("""
+        (string Font, int Size, string Row)[] measured =
+        [
+            ("MS Sans Serif", 8, "MS Sans Serif 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts MS Sans Serif/8.25, MS Sans Serif/8.25) err 0"),
+            ("MS Sans Serif", 10, "MS Sans Serif 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts MS Sans Serif/9.75, MS Sans Serif/9.75) err 0"),
+            ("MS Sans Serif", 12, "MS Sans Serif 12 -> ListBox 1200x360 ComboBox 1200x315 (fonts MS Sans Serif/12, MS Sans Serif/12) err 0"),
+            ("MS Sans Serif", 14, "MS Sans Serif 13.5 -> ListBox 1200x420 ComboBox 1200x315 (fonts MS Sans Serif/13.5, MS Sans Serif/13.5) err 0"),
+            ("Tahoma", 8, "Tahoma 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts Tahoma/8.25, Tahoma/8.25) err 0"),
+            ("Tahoma", 10, "Tahoma 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts Tahoma/9.75, Tahoma/9.75) err 0"),
+            ("Arial", 8, "Arial 8.25 -> ListBox 1200x480 ComboBox 1200x315 (fonts Arial/8.25, Arial/8.25) err 0"),
+            ("Arial", 10, "Arial 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts Arial/9.75, Arial/9.75) err 0"),
+            ("Arial", 12, "Arial 12 -> ListBox 1200x330 ComboBox 1200x315 (fonts Arial/12, Arial/12) err 0"),
+            ("Times New Roman", 12, "Times New Roman 12 -> ListBox 1200x345 ComboBox 1200x315 (fonts Times New Roman/12, Times New Roman/12) err 0"),
+            ("Courier New", 10, "Courier New 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts Courier New/9.75, Courier New/9.75) err 0"),
+            ("Segoe UI", 9, "Segoe UI 9 -> ListBox 1200x285 ComboBox 1200x315 (fonts Segoe UI/9, Segoe UI/9) err 0"),
+            ("Verdana", 8, "Verdana 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts Verdana/8.25, Verdana/8.25) err 0"),
+            ("Microsoft Sans Serif", 8, "Microsoft Sans Serif 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts Microsoft Sans Serif/8.25, Microsoft Sans Serif/8.25) err 0"),
+        ];
+        var run = measured.Where(m => VBFontExtensions.IsNameable(m.Font)).ToList();
+        run.Should().Contain(m => m.Font == "MS Sans Serif");
+        var fonts = string.Join(", ", run.Select(m => $"\"{m.Font}\""));
+        var sizes = string.Join(", ", run.Select(m => m.Size));
+        Printed($"""
             Dim fonts, sizes, i As Integer, lb As Object, cb As Object, n As Integer
-            fonts = Array("MS Sans Serif", "MS Sans Serif", "MS Sans Serif", "MS Sans Serif", "Tahoma", "Tahoma", "Arial", "Arial", "Arial", _
-                "Times New Roman", "Courier New", "Segoe UI", "Verdana", "Microsoft Sans Serif")
-            sizes = Array(8, 10, 12, 14, 8, 10, 8, 10, 12, 12, 10, 9, 8, 8)
+            fonts = Array({fonts})
+            sizes = Array({sizes})
             For i = 0 To UBound(fonts)
                 Me.FontName = fonts(i)
                 Me.FontSize = sizes(i)
@@ -515,21 +546,7 @@ public class ControlsAddTests
                     & " (fonts " & lb.FontName & "/" & lb.FontSize & ", " & cb.FontName & "/" & cb.FontSize & ") err " & Err.Number
             Next
             """,
-            "").Should().Equal(
-            "MS Sans Serif 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts MS Sans Serif/8.25, MS Sans Serif/8.25) err 0",
-            "MS Sans Serif 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts MS Sans Serif/9.75, MS Sans Serif/9.75) err 0",
-            "MS Sans Serif 12 -> ListBox 1200x360 ComboBox 1200x315 (fonts MS Sans Serif/12, MS Sans Serif/12) err 0",
-            "MS Sans Serif 13.5 -> ListBox 1200x420 ComboBox 1200x315 (fonts MS Sans Serif/13.5, MS Sans Serif/13.5) err 0",
-            "Tahoma 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts Tahoma/8.25, Tahoma/8.25) err 0",
-            "Tahoma 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts Tahoma/9.75, Tahoma/9.75) err 0",
-            "Arial 8.25 -> ListBox 1200x480 ComboBox 1200x315 (fonts Arial/8.25, Arial/8.25) err 0",
-            "Arial 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts Arial/9.75, Arial/9.75) err 0",
-            "Arial 12 -> ListBox 1200x330 ComboBox 1200x315 (fonts Arial/12, Arial/12) err 0",
-            "Times New Roman 12 -> ListBox 1200x345 ComboBox 1200x315 (fonts Times New Roman/12, Times New Roman/12) err 0",
-            "Courier New 9.75 -> ListBox 1200x300 ComboBox 1200x315 (fonts Courier New/9.75, Courier New/9.75) err 0",
-            "Segoe UI 9 -> ListBox 1200x285 ComboBox 1200x315 (fonts Segoe UI/9, Segoe UI/9) err 0",
-            "Verdana 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts Verdana/8.25, Verdana/8.25) err 0",
-            "Microsoft Sans Serif 8.25 -> ListBox 1200x450 ComboBox 1200x315 (fonts Microsoft Sans Serif/8.25, Microsoft Sans Serif/8.25) err 0");
+            "").Should().Equal(run.Select(m => m.Row));
     }
 
     // A control added at 0, 0 in its container. Where each landed is read from the form's tree: a control's Container isn't
