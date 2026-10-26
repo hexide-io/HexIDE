@@ -121,9 +121,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 3 | 22 | 1 | 25 | 51 |
 | Literals, types and suffixes | 6 | 0 | 3 | 14 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
-| In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
+| In-box objects | 0 | 0 | 82 | 15 | 0 | 26 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **7** | **2** | **143** | **435** | **20** | **577** | **1184** |
+| **Total** | **7** | **2** | **141** | **436** | **20** | **578** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -316,7 +316,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 
-## Dies mid-run — 143 names
+## Dies mid-run — 141 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -361,8 +361,6 @@ most of the in-box object model.
 | `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Collection._NewEnum` | **Dies** | For Each over a Collection works ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)), but the hidden member itself is not: a program that calls `c.[_NewEnum]` does not get an enumerator. | VbCollection.cs |
 | `ContainedControls` | **Dies** | Measured for `Dim c As ContainedControls`: VBCompileErrorException: "User-defined type not defined: ContainedControls" (StatementExecutor.cs). | StatementExecutor.cs |
-| `Controls.Add` | **Dies** | Refused as not implemented, naming [#1556](https://github.com/hexide-io/HexIDE/issues/1556): a control made at run time from its class name. The rest of Controls runs ({I}). | FormControls.cs |
-| `Controls.Remove` | **Dies** | Refused as not implemented, naming [#1556](https://github.com/hexide-io/HexIDE/issues/1556), as `Controls.Add` is. | FormControls.cs |
 | `CreateObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set o = CreateObject("Excel.Application")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `CVErr` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial, so name resolution falls through local arrays and user procedures to the intrinsic registry, gets null back, and… | VB6BuiltIns.cs |
 | `DataBinding` | **Dies** | Measured for `Dim d As DataBinding`: VBCompileErrorException: "User-defined type not defined: DataBinding" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
@@ -876,7 +874,7 @@ missing.
 | `To (range)` | Supported | Three sites, all working. Array bounds: `ExtractDimensions` reads a two-`valueStmt` subscript as (lower, upper) and a one-`valueStmt` subscript as (`currentModule.PrePass.ArrayBase`, upper)… | StatementExecutor.cs |
 | `Until` | Supported | Detected as `context.UNTIL() != null` in both pre-tested and post-tested Do visitors, inverting the loop test (StatementExecutor.cs). Measured: `Do / n = n + 1 / Loop Until n = 3` ->… | StatementExecutor.cs |
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
-| `WithEvents` | Supported | **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). **#1021:** WithEvents belongs to each declarator of a comma list; only marked names become sinks (measured R1–R5). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
+| `WithEvents` | Supported | **[#1556](https://github.com/hexide-io/HexIDE/issues/1556):** a control held in a form's WithEvents variable raises the variable's handlers after its own, the one set last first, and a control array element is 459 (measured). **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). **#1021:** WithEvents belongs to each declarator of a comma list; only marked names become sinks (measured R1–R5). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
 ### Literals, types and suffixes — 50 names (6 silently wrong, 3 absent, 14 partial, 27 supported)
 
@@ -985,7 +983,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (84 absent, 14 partial, 25 supported)
+### In-box objects — 123 names (82 absent, 15 partial, 26 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1032,10 +1030,10 @@ missing.
 | `Collection.Remove` | Supported | By position or key, also as `Index:=` ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)). An object item is released when its last reference goes, and a For Each on the Collection goes on to the item after. | VbCollection.cs |
 | `ContainedControls` | **Dies** | Measured for `Dim c As ContainedControls`: VBCompileErrorException: "User-defined type not defined: ContainedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `Controls` | Supported | **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a form's Controls, bare, through `Me` or through the form's name: every control in the order its file holds them, menus and each control-array element included, with an element loaded at run time at the end. For Each walks it; `TypeName` is Object. Measured on vb6.exe, native and p-code. | FormControls.cs |
-| `Controls.Add` | **Dies** | Refused as not implemented, naming [#1556](https://github.com/hexide-io/HexIDE/issues/1556): a control made at run time from its class name. The rest of Controls runs ({I}). | FormControls.cs |
+| `Controls.Add` | Partial | **[#1556](https://github.com/hexide-io/HexIDE/issues/1556):** makes a control of any intrinsic class HexIDE has, by its ProgID in any case, as vb6.exe makes one: at 0, 0 in the form or a Frame or PictureBox, its class's size, hidden, empty, in the form's font as it stands, last in Controls and in the tab order, and under the controls already there; only a WithEvents variable hears it. Every refusal is vb6.exe's: 727, 728, 711, 720, 721 and the late-bound raw HRESULTs (measured). **Refused as not implemented:** an ActiveX ProgID, which vb6.exe answers from the registry; the VB library's DriveListBox, DirListBox, FileListBox, Data and OLE, which HexIDE has not got; and a ListBox in a font whose row height was not measured. | FormControls.cs, VBLoader.cs |
 | `Controls.Count` | Supported | **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** how many controls the form holds, menus and each array element included. | FormControls.cs |
 | `Controls.Item` | Supported | **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** the default member, `Controls(i)`, `Controls("Name")` and `Controls!Name`. A number is a position from 0 converted as CInt converts it; a String is a position only when it starts with a digit, and otherwise a name in any case, a control array's giving the array. 9, 730, 728 and 13 as vb6.exe raises them. | FormControls.cs |
-| `Controls.Remove` | **Dies** | Refused as not implemented, naming [#1556](https://github.com/hexide-io/HexIDE/issues/1556), as `Controls.Add` is. | FormControls.cs |
+| `Controls.Remove` | Supported | **[#1556](https://github.com/hexide-io/HexIDE/issues/1556):** takes a control Add made, by its name, itself or its position, with everything it holds, and closes its gap in the tab order; a design-time control is 729, a name not there 730 (measured). A variable still holding one can use nothing of it (735), and a For Each still reaches it. | FormControls.cs |
 | `DataBinding` | **Dies** | Measured for `Dim d As DataBinding`: VBCompileErrorException: "User-defined type not defined: DataBinding" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `DataBindings` | **Dies** | Measured for `Dim d As DataBindings`: VBCompileErrorException: "User-defined type not defined: DataBindings" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `DataMembers` | **Dies** | Measured for `Dim d As DataMembers`: VBCompileErrorException: "User-defined type not defined: DataMembers" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |

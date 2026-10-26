@@ -164,6 +164,31 @@ raises `b_Click`. A TextBox added the same way raises `tb_Change` on `tb.Text = 
 the control is added all the same: the count goes up and `Controls("cmdX")` finds it. The extender is for an ActiveX
 control, and an intrinsic one is not.
 
+### Found along the way
+
+Two facts about design-time controls, each measured on its own, native and p-code agreeing, because the tests above
+ran into them.
+
+**A control with no Font block of its own has the form's font, wherever it sits (#2062).** Form1 is Arial 12, Picture1
+Courier New 9.75, and Frame1 Times New Roman 9.75 bold. None of the controls below has a Font block:
+
+| Control | Where | `Font.Name`, `Font.Size`, `Font.Bold` |
+|---|---|---|
+| `Command1`, `Label1` | on the form | Arial, 12, False |
+| `Command2` | in Picture1 | Arial, 12, False |
+| `Frame2`, and `Command4` in it | in Picture1 | Arial, 12, False |
+| `Command3` | in Frame1 | Arial, 12, False |
+| `Picture1`, `Frame1` themselves | their own blocks | Courier New 9.75; Times New Roman 9.75, bold |
+
+`FontName` and `FontSize` read the same. Each control's Font is an object of its own: `Command1.Font Is Label1.Font`
+and `Command1.Font Is Form1.Font` are both False, and setting `Form1.Font.Name = "Tahoma"` afterwards leaves Command1
+and Command2 in Arial.
+
+**A Timer saved with no Interval line is at 0, and never fires (#2068).** `Timer1`, with no `Interval` line, reads
+`Interval` 0 and `Enabled` True, and raised no Timer event in 1.5 seconds of `DoEvents`, while `Timer2` at 100 raised more
+than 5. Its `Left` and `Top` are run-time error 393, "'Left' property cannot be read at run time", read through an
+`Object` variable (#2069). Read early-bound, `Form1.Timer1.Left` is the compile error "Method or data member not found".
+
 ### Not measured
 
 - Whether a new control is shown on a form that is shown. Its own `WS_VISIBLE` bit says not; the screen was not looked
@@ -173,3 +198,29 @@ control, and an intrinsic one is not.
 - The ListBox's height under a font not in the table.
 - `Add` of an ActiveX control the project does reference, and a licensed one: the probe project had no `Object=`.
 - A `Data` control's `Container`, which was an error for the one added and is unexplained.
+
+### In HexIDE (#1556)
+
+- **`FormControls.Add` and `Remove`** check their arguments in vb6.exe's order and refuse with its numbers and words,
+  the raw HRESULTs included. The loader's `MakeAtRunTime` makes the control: a fresh instance of its class, with the
+  measured size, an empty Caption and Text, hidden, at 0, 0, in the form's font as it stands, placed under the
+  controls already there as a loaded element is. The ListBox's height comes from the table above, and a font not in
+  it is refused as not implemented rather than guessed. A Timer's Interval is set to 0, which the class's own
+  default isn't yet (#2068).
+- **A control holds its own `WithEvents` sinks** (`ControlEvents`): `Set` adds the variable, newest first, and takes it
+  off again, and every place a control raises an event, its own handler first and then each sink, asks it. A control
+  added at run time has no handler of its own. A class module's `WithEvents` variable holding a control is refused as
+  not implemented.
+- **A removed control** is marked, and every member of it is 735, its Name included. For Each hands it out, and
+  passes over an unloaded element as before.
+- **`TypeName` of a scroll bar** was `ScrollBar` for both, so `TypeOf c Is HScrollBar` was False. It is now
+  `HScrollBar` or `VScrollBar`, as the table above shows.
+- **Refused as not implemented:** an ActiveX ProgID, which vb6.exe answers from the registry (711 for one not
+  registered, 720 for `Scripting.Dictionary`); the VB library's DriveListBox, DirListBox, FileListBox, Data and OLE, and
+  its classes not measured; a container on another form; a third argument that is neither an object nor a String; and
+  `Remove` of a control from another form.
+- **`ControlsAddTests`** is generated from the p-code logs. It leaves out the rows that read a CommandButton's `Value`
+  (#2065), a Frame's Caption (#2063), a control's `Container` (#2064), `Me!a2` (#2066), a Timer's Left and Top (#2069), a
+  Shape's BackColor (#2070) or a design-time control's font (#2062), which are separate gaps, and those that need a
+  run-time ScaleMode (#990). It reads fonts through `FontName` and `FontSize`, because the Font object is #934. Its
+  events are batch 8's, through a TextBox's `Change`, since a CommandButton can't be clicked from code yet.
