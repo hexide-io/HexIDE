@@ -9,6 +9,7 @@ using HexIDE.Conversations;
 using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
@@ -1448,7 +1449,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "Commands: AlignLefts, AlignRights, AlignTops, AlignBottoms, AlignCentersH, AlignCentersV, " +
         "MakeSameWidth, MakeSameHeight, MakeSameSize, MakeHorizontalSpacingEqual, IncreaseHorizontalSpacing, " +
         "DecreaseHorizontalSpacing, RemoveHorizontalSpacing, MakeVerticalSpacingEqual, IncreaseVerticalSpacing, " +
-        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
+        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. Align*, MakeSame* and spacing commands require 2 selected controls; SizeToGrid and Center* require 1. Below the minimum the reply refuses the command and explains how to select more with interact. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
     public async Task<MutateResult> InvokeFormatCommandAsync(string command, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1469,6 +1470,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}."), designer.OpenDocument);
             }
 
+            var selected = designer.SelectedComponents.Count > 0
+                ? designer.SelectedComponents.Select(c => c.Name).ToList()
+                : designer.SelectedComponent is { } one ? [one.Name] : [];
+            var selection = selected.Count == 0
+                ? "no control is selected"
+                : $"the selection is {string.Join(", ", selected)}"
+                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
+            var rule = $"'{entry.Name}' requires at least {entry.MinimumSelection} selected control"
+                + (entry.MinimumSelection == 1 ? "" : "s");
+            if (selected.Count < entry.MinimumSelection)
+                return Naming(new MutateResult(false, $"{rule}; {selection}. Use interact with action 'select' on a control, "
+                    + "then 'add_to_selection' on each additional control."), designer.OpenDocument);
+
             // A command with nothing to act on returns without a word, and so does one whose controls already
             // satisfy it, so whether a step landed is the only reliable sign that anything moved. (#655)
             var landed = false;
@@ -1477,18 +1491,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             try { entry.Of(designer)(); }
             finally { designer.UndoStack.Changed -= OnChanged; }
 
-            var selected = designer.SelectedComponents.Count > 0
-                ? designer.SelectedComponents.Select(c => c.Name).ToList()
-                : designer.SelectedComponent is { } one ? [one.Name] : [];
-            var selection = selected.Count == 0
-                ? "no control is selected"
-                : $"the selection is {string.Join(", ", selected)}"
-                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
             return Naming(new MutateResult(true, null, landed
                 ? $"Applied '{designer.UndoStack.UndoDescription}' as one undo step; {selection}."
-                : $"Nothing changed, and no undo step was added: {selection}. The spacing commands need two or more "
-                  + "selected controls, the others at least one, and a selection that already satisfies the command "
-                  + "is left as it is."), designer.OpenDocument);
+                : $"Nothing changed, and no undo step was added: {selection}. {rule}; "
+                  + "a selection that already satisfies the command is left as it is."), designer.OpenDocument);
         });
     }
 
@@ -2054,28 +2060,28 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
     }
 
-    private static readonly (string Name, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
+    private static readonly (string Name, int MinimumSelection, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
     [
-        ("AlignLefts", d => d.AlignLefts),
-        ("AlignRights", d => d.AlignRights),
-        ("AlignTops", d => d.AlignTops),
-        ("AlignBottoms", d => d.AlignBottoms),
-        ("AlignCentersH", d => d.AlignCentersH),
-        ("AlignCentersV", d => d.AlignCentersV),
-        ("MakeSameWidth", d => d.MakeSameWidth),
-        ("MakeSameHeight", d => d.MakeSameHeight),
-        ("MakeSameSize", d => d.MakeSameSize),
-        ("MakeHorizontalSpacingEqual", d => d.MakeHorizontalSpacingEqual),
-        ("IncreaseHorizontalSpacing", d => d.IncreaseHorizontalSpacing),
-        ("DecreaseHorizontalSpacing", d => d.DecreaseHorizontalSpacing),
-        ("RemoveHorizontalSpacing", d => d.RemoveHorizontalSpacing),
-        ("MakeVerticalSpacingEqual", d => d.MakeVerticalSpacingEqual),
-        ("IncreaseVerticalSpacing", d => d.IncreaseVerticalSpacing),
-        ("DecreaseVerticalSpacing", d => d.DecreaseVerticalSpacing),
-        ("RemoveVerticalSpacing", d => d.RemoveVerticalSpacing),
-        ("SizeToGrid", d => d.SizeToGrid),
-        ("CenterHorizontally", d => d.CenterHorizontally),
-        ("CenterVertically", d => d.CenterVertically),
+        ("AlignLefts", 2, d => d.AlignLefts),
+        ("AlignRights", 2, d => d.AlignRights),
+        ("AlignTops", 2, d => d.AlignTops),
+        ("AlignBottoms", 2, d => d.AlignBottoms),
+        ("AlignCentersH", 2, d => d.AlignCentersH),
+        ("AlignCentersV", 2, d => d.AlignCentersV),
+        ("MakeSameWidth", 2, d => d.MakeSameWidth),
+        ("MakeSameHeight", 2, d => d.MakeSameHeight),
+        ("MakeSameSize", 2, d => d.MakeSameSize),
+        ("MakeHorizontalSpacingEqual", 2, d => d.MakeHorizontalSpacingEqual),
+        ("IncreaseHorizontalSpacing", 2, d => d.IncreaseHorizontalSpacing),
+        ("DecreaseHorizontalSpacing", 2, d => d.DecreaseHorizontalSpacing),
+        ("RemoveHorizontalSpacing", 2, d => d.RemoveHorizontalSpacing),
+        ("MakeVerticalSpacingEqual", 2, d => d.MakeVerticalSpacingEqual),
+        ("IncreaseVerticalSpacing", 2, d => d.IncreaseVerticalSpacing),
+        ("DecreaseVerticalSpacing", 2, d => d.DecreaseVerticalSpacing),
+        ("RemoveVerticalSpacing", 2, d => d.RemoveVerticalSpacing),
+        ("SizeToGrid", 1, d => d.SizeToGrid),
+        ("CenterHorizontally", 1, d => d.CenterHorizontally),
+        ("CenterVertically", 1, d => d.CenterVertically),
     ];
 
     // Named as LocalizationService names them when developer mode lists them.
@@ -2241,7 +2247,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
                      + "on screen, the selected code tab's and the Immediate window's among them, and 'PropertiesTool' "
                      + "the Properties window. Only what is in the tree is found, so not a document in a tab that is not "
-                     + "selected. Every node is searched, interactive or not, to 'maxDepth' below 'root'; the reply's "
+                     + "selected, or a dialog page that is not selected. Every node is searched, interactive or not, to "
+                     + "'maxDepth' below 'root'; the reply's "
                      + "'note' says how many matched and what was not searched.")]
         string? match = null,
         CancellationToken ct = default)
@@ -2278,7 +2285,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
                 UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly: false), match, MatchLimit);
-            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched),
+            var options = active.GetVisualDescendants().OfType<Control>().Prepend(active)
+                .Select(c => c.DataContext).OfType<OptionsViewModel>().FirstOrDefault();
+            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched,
+                    label == "MainWindow" ? ctx.DocumentDockService : null, options?.RootNodes, options?.SelectedNode),
                 focus.FocusedPath, focus.FocusReason);
         });
         // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
@@ -2354,7 +2364,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
         : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
 
-    private static string MatchNote(string match, int total, int unsearched)
+    internal static string MatchNote(string match, int total, int unsearched,
+        IDocumentDockService? dock = null,
+        IEnumerable<OptionsNodeViewModel>? pages = null,
+        OptionsNodeViewModel? selectedPage = null)
     {
         var note = total switch
         {
@@ -2365,9 +2378,33 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                                          + "Narrow 'match', or scope with 'root'.",
             _ => $"{total} nodes match '{match}'.",
         };
-        return unsearched == 0 ? note
-            : note + $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
+        if (unsearched > 0)
+            note += $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
               + "not searched: raise maxDepth, or search again from a truncated node's path as 'root'.";
+        var tabs = dock?.AllTabs.Where(t => !ReferenceEquals(t, dock.ActiveTab)).Select(t => t.Title ?? "").ToArray() ?? [];
+        if (tabs.Length > 0)
+            note += $" {tabs.Length} open tab(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", tabs.Select(t => $"'{t}'")) + ". activate_document_tab brings one to the front.";
+
+        IEnumerable<string> UnselectedPages(IEnumerable<OptionsNodeViewModel> nodes,
+            string prefix = "")
+        {
+            foreach (var node in nodes)
+            {
+                var title = prefix + node.Title;
+                if (node.Page is not null && !ReferenceEquals(node, selectedPage))
+                    yield return title;
+                foreach (var child in UnselectedPages(node.Children, title + " > "))
+                    yield return child;
+            }
+        }
+        var omittedPages = UnselectedPages(pages ?? []).ToArray();
+        if (omittedPages.Length > 0)
+            note += $" {omittedPages.Length} page(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", omittedPages.Select(p => $"'{p}'"))
+                    + ". Use dump_visual_tree to find the category tree, then interact 'expand' on its category "
+                    + "and 'select' on a page to search its contents.";
+        return note;
     }
 
     [McpServerTool(Name = "inspect_element")]

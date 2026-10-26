@@ -17,7 +17,7 @@
         </DockPanel>
 
         <ListBox Grid.Row="1" ItemsSource="{CompiledBinding Frames}" SelectedItem="{CompiledBinding SelectedFrame, Mode=TwoWay}"
-                 SelectionChanged="OnSelectionChanged">
+                 SelectionChanged="OnSelectionChanged" DoubleTapped="OnDoubleTapped">
             <ListBox.Styles>
                 <Style Selector="ListBoxItem">
                     <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AccessibleName}" x:DataType="callstack:CallStackRow" />

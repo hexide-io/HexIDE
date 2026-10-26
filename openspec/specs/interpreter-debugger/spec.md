@@ -261,6 +261,12 @@ The call stack answers "how did execution get here", which Locals alone cannot.
 - **WHEN** the developer presses Ctrl+L while paused
 - **THEN** the Call Stack window lists the active procedure activations, deepest first, each with its name and current line
 
+#### Scenario: Showing a caller
+- **WHEN** the developer selects or double-clicks a caller in the built-in Call Stack window
+- **THEN** the code window opens that module at the calling statement with a green call-site triangle
+- **AND** the current execution statement stays unchanged
+- **AND** the call-site marker clears on continuing or the next break
+
 #### Scenario: A concurrent event frozen above the paused frame
 - **WHEN** an event handler was frozen by break mode after the paused frame began
 - **THEN** it is excluded from the call stack, which is anchored at the paused frame
