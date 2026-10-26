@@ -2265,6 +2265,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (variable.Type != Vb6Value.ValueType.Control ||
                 variable.Value is not Control control)
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
+            // Every member of a control Controls.Remove took out is 735 (measured, #1556).
+            VBProps.RefuseIfRemoved(control);
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
             if (ProgressBarMembers.TrySet(control, memberIdentifier, value) is { } inBox)
@@ -3148,6 +3150,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && lst.InstanceEnv.TryGetVariableLocation(id, out var fieldLoc)
                 && curLoc == fieldLoc)
                 evtListener = lst;
+            // A control held in a form's WithEvents variable hears its events too (#1556), but a control array element can't
+            // be held (459, measured), and a class module's variable holding one is not implemented.
+            IModuleExecutionRoot? evtRoot = null;
+            if (evtListener != null && value.Value is Control heldControl)
+            {
+                if (VBProps.GetIndex(heldControl) is not null)
+                    throw new VBRunTimeException(context, VBStandardError.ThisComponentDoesntSupportTheSetOfEvents);
+                evtRoot = evtListener.FormWindow as IModuleExecutionRoot
+                    ?? throw new NotImplementedException($"A class's WithEvents {id} holding a control is not implemented (#1556)");
+            }
 
             // Refcount (Phase 4.2): AddRef the new referent BEFORE releasing the slot's old one — this ordering
             // protects `Set x = x` / aliased assignment, and (since a `New` RHS already ran its Initialize during
@@ -3158,6 +3170,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // RaiseEvent during the old source's teardown would reach the just-detached listener).
             if (evtListener != null && oldVal.Value is VbObject oldSrc)
                 oldSrc.RemoveSink(evtListener, id);
+            if (evtListener != null && oldVal.Value is Control oldControl)
+                ControlEvents.Unadvise(oldControl, evtListener, id);
             // Assign the new reference to the slot BEFORE releasing the old one (oracle-verified): a Class_Terminate
             // fired by the release observes the NEW value — `g` points to the new object, not the dying old one — and
             // a reassignment of the slot inside that Terminate is not clobbered by a late slot-write.
@@ -3175,6 +3189,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Advise the new source (RaiseEvent on it now reaches this listener).
             if (evtListener != null && value.Value is VbObject newSrc)
                 newSrc.AddSink(new EventSink(evtMe, id));
+            if (evtListener != null && evtRoot != null && value.Value is Control newControl)
+                ControlEvents.Advise(newControl, evtListener, evtRoot, id);
             await interpreter.ReleaseRef(oldVal);
             return ControlFlow.Nothing;
         }

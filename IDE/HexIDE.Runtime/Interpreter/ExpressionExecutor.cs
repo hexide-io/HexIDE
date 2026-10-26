@@ -1494,6 +1494,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Type != Vb6Value.ValueType.Control ||
             variable.Value is not Control control)
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+        // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
+        VBProps.RefuseIfRemoved(control);
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if (AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out var inBoxValue) is { } inBox)
