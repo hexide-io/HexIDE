@@ -79,7 +79,7 @@ against all of batch 1 and rejected:
 | `TimeValue`, `DateValue` | the rounded instant, then its part | `TimeValue(12:00:00.6)` is exactly 12:00:01; `DateValue` of 1999-12-31 23:59:59.6 is 2000-01-01 |
 | `DateAdd` with `yyyy`, `q`, `m` | the rounded instant | each lands on a whole second: 1999-12-31 23:59:59.6 plus a month is exactly 2000-02-01, and 12:00:00.6 on 30/12/1899 plus a month is exactly 30/01/1900 12:00:01 |
 | `DateAdd` with `y`, `d`, `w`, `ww`, `h`, `n`, `s` | the serial | serial + n days, hours, minutes or seconds, bit for bit, the fraction kept |
-| `=`, `<` and the rest; `+`, `-`; `CDbl`, `CLng`, `Int`, `Fix` | the serial | 12:00:00.4 = 12:00:00 is False, and > is True; `Int` and `Fix` of 1999-12-31 23:59:59.6 are 31/12/1999, beside `DateValue`'s 01/01/2000; `CLng` is 36526 |
+| `=`, `<` and the rest; `Select Case`; `+`, `-`; `CDbl`, `CLng`, `Int`, `Fix` | the serial | 12:00:00.4 = 12:00:00 is False, and > is True; as a `Select Case` on a Date or a Variant, 12:00:00.4 is not `Case` 12:00:00, nor `Case h To h`, nor `Case #12:00:00 PM#`, and is `Case Is > h`; `Int` and `Fix` of 1999-12-31 23:59:59.6 are 31/12/1999, beside `DateValue`'s 01/01/2000; `CLng` is 36526 |
 | storing a Double, `CDate` of one, `CVar` | the serial | kept exactly, all 418 |
 | `Put #` and `Get #` | the serial | bit for bit |
 

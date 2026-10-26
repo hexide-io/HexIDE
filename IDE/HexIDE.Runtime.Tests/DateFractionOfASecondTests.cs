@@ -999,6 +999,54 @@ public class DateFractionOfASecondTests : BaseVBTestFixture
         Printed().Should().Equal(new[] { expected }, "vb6.exe printed that for {0}", measured);
     }
 
+    [Fact]
+    public async Task Select_Case_compares_the_serials()
+    {
+        // A Date-typed selector reaches VbDate's own comparison, where = and < reach VbNumeric's: 12:00:00.4 is not Case
+        // 12:00:00 and is Case Is > it, as a Date and as a Variant.
+        await RunInEnGb("""
+            On Error Resume Next
+            Dim z As Date, h As Date, v As Variant, w As Variant
+            z = 0.5 + 0.4 / 86400
+            h = 0.5
+            v = z: w = h
+            Select Case z
+                Case h: Debug.Print "date: Case h"
+                Case Else: Debug.Print "date: Case Else"
+            End Select
+            Select Case z
+                Case Is > h: Debug.Print "date: Is > h"
+                Case Else: Debug.Print "date: not Is > h"
+            End Select
+            Select Case z
+                Case h To h: Debug.Print "date: h To h"
+                Case Else: Debug.Print "date: not h To h"
+            End Select
+            Select Case v
+                Case w: Debug.Print "variant: Case w"
+                Case Else: Debug.Print "variant: Case Else"
+            End Select
+            Select Case v
+                Case Is > w: Debug.Print "variant: Is > w"
+                Case Else: Debug.Print "variant: not Is > w"
+            End Select
+            Select Case z
+                Case #12:00:00 PM#: Debug.Print "date: Case #12:00:00 PM#"
+                Case Else: Debug.Print "date: not Case #12:00:00 PM#"
+            End Select
+            Debug.Print "err " & Err.Number
+            """);
+
+        Printed().Should().Equal(
+            "date: Case Else",
+            "date: Is > h",
+            "date: not h To h",
+            "variant: Case Else",
+            "variant: Is > w",
+            "date: not Case #12:00:00 PM#",
+            "err 0");
+    }
+
     [Theory]
     [InlineData("2958466.0#")]   // 2958466 + 0s
     [InlineData("-657435.0#")]   // -657435 + 0s
