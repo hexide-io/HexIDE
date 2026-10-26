@@ -126,10 +126,10 @@ public class LspClientRegistryTests
     public async Task ProgressRetainsItsServerIdentityAndStopForwardsItsEnd()
     {
         var server = FakeServer();
-        await using var sut = Registry(Registration("vb6", server));
+        await using var sut = Registry(Registration("vb6", server) with { DisplayName = "VB tools" });
         await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
-        var received = new List<(object? Sender, string Kind)>();
-        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind));
+        var received = new List<(object? Sender, string Kind, string? Name)>();
+        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind, p.ServerDisplayName));
         var token = JsonSerializer.SerializeToElement("index");
         server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
             new ProgressParams(token, new WorkDoneProgressValue("begin", "indexing")));
@@ -141,6 +141,7 @@ public class LspClientRegistryTests
         });
         await sut.StopAsync();
         received.Select(p => p.Kind).Should().Equal("begin", "end");
+        received.Should().OnlyContain(p => p.Name == "VB tools");
         received.Should().OnlyContain(p => ReferenceEquals(p.Sender, server));
     }
 

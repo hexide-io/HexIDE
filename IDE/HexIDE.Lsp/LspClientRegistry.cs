@@ -919,7 +919,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(this, e);
     private void OnInnerTrace(object? sender, LogTraceParams e) => TraceReceived?.Invoke(this, e);
 
-    private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender, p);
+    private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender,
+        p with { ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName });
 
     private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 

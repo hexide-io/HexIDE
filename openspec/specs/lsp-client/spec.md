@@ -982,13 +982,14 @@ that line (hexide-io/HexIDE#1363).
 ### Requirement: Server work-done progress
 The client SHALL advertise `window.workDoneProgress`, accept string and integer tokens through
 `window/workDoneProgress/create` with a null result, and surface `$/progress` work-done begin/report/end
-in the status bar. Server titles and messages SHALL be flattened and capped at 200 characters together.
+in the status bar. Progress SHALL name the originating registration’s display name and separate title
+and message with a colon, omitting absent parts. Server titles and messages SHALL be flattened and capped at 200 characters together.
 Tokens SHALL be scoped to their connection. End and disconnect SHALL finish progress immediately without
 erasing a later status message from another operation. Cancellation and partial-result progress are not supported.
 
 #### Scenario: An attached server indexes a workspace
 - **WHEN** a server creates a token and sends begin followed by report
-- **THEN** the status bar shows its title, latest message and optional percentage with a localized prefix
+- **THEN** the status bar shows its title, latest message and optional percentage with its registration’s display name in a localized format
 - **AND** omitted report fields retain their prior values
 - **WHEN** the server sends end or disconnects
 - **THEN** its progress is removed immediately and any remaining task can be shown
