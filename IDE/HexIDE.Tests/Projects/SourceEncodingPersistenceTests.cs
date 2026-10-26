@@ -112,6 +112,45 @@ public class SourceEncodingPersistenceTests : IDisposable
         Directory.GetFiles(dir, "*.tmp").Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("RelatedDoc=Notes.md")]
+    [InlineData("Module=Notes; Notes.md")]
+    [InlineData("Class=Notes; Notes.md")]
+    public async Task Make_omits_carried_files_and_keeps_the_other_lines_in_order(string itemLine)
+    {
+        var svc = MakeService();
+        var vbp = WriteProject();
+        File.WriteAllText(Path.Join(dir, "Notes.md"), "private notes");
+        File.WriteAllText(vbp, "Type=Exe\r\nBefore=one\r\n" + itemLine
+            + "\r\nBetween=two\r\nModule=Module1; Module1.bas\r\nAfter=three\r\nName=\"Test\"\r\n");
+        await svc.OpenProject(vbp);
+        var project = loaded.Single();
+        var carried = project.RelatedDocuments.Single();
+        var original = File.ReadAllBytes(vbp);
+        var exePath = Path.Join(dir, "Program.exe");
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
+        var standalone = Path.Join(dir, "standalone");
+        Directory.CreateDirectory(standalone);
+        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
+        svc.RuntimeDirectory = dir;
+
+        await svc.MakeProject(project);
+
+        using var archive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll"));
+        archive.Entries.Select(e => e.FullName).Should().BeEquivalentTo("Program.vbp", "Module1.bas");
+        using var reader = new StreamReader(archive.GetEntry("Program.vbp")!.Open());
+        var text = reader.ReadToEnd().ReplaceLineEndings("\n");
+        text.Should().NotContain("Notes").And.NotContain("RelatedDoc=").And.NotContain("..");
+        text.Split('\n').Where(line => line.StartsWith("Before=") || line.StartsWith("Between=")
+            || line.StartsWith("Module=") || line.StartsWith("After=") || line.StartsWith("Name="))
+            .Should().Equal("Before=one", "Between=two", "Module=Module1; Module1.bas", "After=three", "Name=\"Test\"");
+        project.RelatedDocuments.Should().ContainSingle().Which.Should().BeSameAs(carried);
+        carried.AbsolutePath.Should().Be(Path.Join(dir, "Notes.md"));
+        File.ReadAllBytes(vbp).Should().Equal(original);
+        await svc.SaveProject(project, false);
+        File.ReadAllText(vbp).Should().Contain(itemLine);
+    }
+
     [Fact]
     public async Task Characters_supported_by_the_ANSI_code_page_save_as_ANSI()
     {
