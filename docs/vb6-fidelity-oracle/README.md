@@ -574,6 +574,7 @@ added afterwards.
 - [The References dialog's fixed rows (2026-10-22, #1026, design-time)](the-references-dialogs-fixed-rows.md#the-references-dialogs-fixed-rows-2026-10-22-1026-design-time)
 - [A form's StartUpPosition when its file has no line (2026-10-13, #932)](a-forms-startupposition-when-its-file-has-no-line.md#a-forms-startupposition-when-its-file-has-no-line-2026-10-13-932)
 - [A form's Attribute block, and a form without one (2026-10-22, #516, #931)](a-forms-attribute-block-and-a-form-without-one.md#a-forms-attribute-block-and-a-form-without-one-2026-10-22-516-931)
+- [VB_Ext_KEY on a form survives VB6's save (2026-10-26, #1117, design-time)](vb-ext-key-on-a-form-survives-vb6s-save.md#vb_ext_key-on-a-form-survives-vb6s-save-2026-10-26-1117-design-time)
 - [ReDim Preserve (2026-10-22, #1459)](redim-preserve.md#redim-preserve-2026-10-22-1459)
 - [IIf and Choose (2026-10-22, #1461, #1464)](iif-and-choose.md#iif-and-choose-2026-10-22-1461-1464)
 - [Where the Format commands put a control (2026-10-22, #929, design-time)](where-the-format-commands-put-a-control.md#where-the-format-commands-put-a-control-2026-10-22-929-design-time)
