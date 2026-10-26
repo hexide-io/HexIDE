@@ -8,6 +8,7 @@ using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Tests;
 
+// VB6 lifetime and precedence: docs/vb6-fidelity-oracle/a-globalmultiuse-class-in-a-referenced-library.md
 public class LibraryReferenceTests
 {
     private static RuntimeLibrary Library(string name, List<string> events) => new(name,

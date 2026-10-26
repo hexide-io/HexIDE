@@ -16,11 +16,7 @@ public sealed class RuntimeLibrary
     private readonly string? constantsResource;
     private readonly Lazy<Constants> constants;
 
-<<<<<<< HEAD:IDE/HexIDE.Runtime/Components/InBox/RuntimeLibrary.cs
-    internal RuntimeLibrary(string name, string guid, string version, string file, int persistedVersion,
-=======
-    internal ControlLibrary(string name, string description, string guid, string version, string file, int persistedVersion,
->>>>>>> upstream/main:IDE/HexIDE.Runtime/Components/InBox/ControlLibrary.cs
+    internal RuntimeLibrary(string name, string description, string guid, string version, string file, int persistedVersion,
         IReadOnlyDictionary<string, int> controls, string constantsResource)
     {
         Name = name;
@@ -34,11 +30,11 @@ public sealed class RuntimeLibrary
         constants = new Lazy<Constants>(Load, isThreadSafe: true);
     }
 
-<<<<<<< HEAD:IDE/HexIDE.Runtime/Components/InBox/RuntimeLibrary.cs
     public RuntimeLibrary(string name, string guid, string version,
         IReadOnlyList<LibraryClass> classes, IReadOnlyDictionary<string, IReadOnlyDictionary<string, long>> enums)
     {
         Name = name;
+        Description = name;
         Guid = guid;
         Version = version;
         File = "";
@@ -65,7 +61,7 @@ public sealed class RuntimeLibrary
 
     public bool IsNamedBy(VbReference reference) =>
         Guid.Equals(reference.Guid, StringComparison.OrdinalIgnoreCase) && Version == reference.Version;
-=======
+
     /// <summary>
     /// What VB6's Components dialog lists the library as: its type library's registry description, which the dialog shows
     /// as it is (measured, #1103). The service pack is part of it: "Microsoft Windows Common Controls 6.0 (SP6)".
@@ -77,7 +73,6 @@ public sealed class RuntimeLibrary
 
     /// <summary>The form header line that declares the library, as VB6's designer writes it when one is placed (#1082).</summary>
     public string FormLine => $"Object = \"{Guid}#{Version}#0\"; \"{File}\"";
->>>>>>> upstream/main:IDE/HexIDE.Runtime/Components/InBox/ControlLibrary.cs
 
     /// <summary>The library's name, which qualifies its controls' type names and its constants: <c>MSComctlLib</c>.</summary>
     public string Name { get; }
@@ -158,12 +153,8 @@ public sealed class RuntimeLibrary
 public static class ControlLibraries
 {
     /// <summary>MSCOMCTL.OCX, Microsoft Windows Common Controls 6.0.</summary>
-<<<<<<< HEAD:IDE/HexIDE.Runtime/Components/InBox/RuntimeLibrary.cs
-    public static readonly RuntimeLibrary MSComctlLib = new("MSComctlLib", "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0",
-=======
-    public static readonly ControlLibrary MSComctlLib = new("MSComctlLib", "Microsoft Windows Common Controls 6.0 (SP6)",
+    public static readonly RuntimeLibrary MSComctlLib = new("MSComctlLib", "Microsoft Windows Common Controls 6.0 (SP6)",
         "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0",
->>>>>>> upstream/main:IDE/HexIDE.Runtime/Components/InBox/ControlLibrary.cs
         "MSCOMCTL.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -173,12 +164,8 @@ public static class ControlLibraries
         "mscomctl-constants.json");
 
     /// <summary>COMCTL32.OCX, Microsoft Windows Common Controls 5.0: the same controls but ImageCombo, which 6.0 added.</summary>
-<<<<<<< HEAD:IDE/HexIDE.Runtime/Components/InBox/RuntimeLibrary.cs
-    public static readonly RuntimeLibrary ComctlLib = new("ComctlLib", "{6B7E6392-850A-101B-AFC0-4210102A8DA7}", "1.3",
-=======
-    public static readonly ControlLibrary ComctlLib = new("ComctlLib", "Microsoft Windows Common Controls 5.0 (SP2)",
+    public static readonly RuntimeLibrary ComctlLib = new("ComctlLib", "Microsoft Windows Common Controls 5.0 (SP2)",
         "{6B7E6392-850A-101B-AFC0-4210102A8DA7}", "1.3",
->>>>>>> upstream/main:IDE/HexIDE.Runtime/Components/InBox/ControlLibrary.cs
         "COMCTL32.OCX", 327682,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
