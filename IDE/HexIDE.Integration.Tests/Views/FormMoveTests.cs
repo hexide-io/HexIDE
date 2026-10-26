@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
+using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Integration.Tests.Views;
@@ -128,7 +129,8 @@ public sealed class FormMoveTests : IDisposable
         End Sub
         """";
 
-    private async Task<(List<string> Printed, List<Exception> Errors)> RunAsync(string module, CancellationToken token)
+    // The run's fault, if it had one, is the third: a compile error VB6 gives before running ends the run here as it is met.
+    private async Task<(List<string> Printed, List<Exception> Errors, Exception? Fault)> RunAsync(string module, CancellationToken token)
     {
         File.WriteAllText(Path.Combine(dir, "Form1.frm"), Form1.ReplaceLineEndings("\r\n"), Encoding.ASCII);
         File.WriteAllText(Path.Combine(dir, "Module1.bas"), module.ReplaceLineEndings("\r\n"), Encoding.ASCII);
@@ -151,8 +153,7 @@ public sealed class FormMoveTests : IDisposable
                 Thread.Sleep(5);
             }
             run.IsCompleted.Should().BeTrue();
-            run.IsFaulted.Should().BeFalse(run.Exception?.ToString());
-            return (printed, errors);
+            return (printed, errors, run.Exception?.InnerException);
         }
         finally
         {
@@ -165,9 +166,10 @@ public sealed class FormMoveTests : IDisposable
     public async Task A_forms_Move_answers_as_vb6_exe_did()
     {
         using var cancel = new CancellationTokenSource();
-        var (printed, errors) = await RunAsync(Module1, cancel.Token);
+        var (printed, errors, fault) = await RunAsync(Module1, cancel.Token);
         cancel.Cancel();
 
+        fault.Should().BeNull();
         errors.Should().BeEmpty();
         printed.Should().Equal(
             "Form1.Move 600 -> 600,1200 6000x4500 resizes 0 err 0",
@@ -196,5 +198,39 @@ public sealed class FormMoveTests : IDisposable
             "  resize 4800x4500 ws0",
             "  resize 4800x3600 ws0",
             "Form1.Width = 4800: Form1.Height = 3600 -> 1200,1200 4800x3600 resizes 2 err 0");
+    }
+
+    // Each shape built alone, as vb6.exe compiled it (or refused to): one project each in the probe.
+    private static string OneStatement(string statement) =>
+        "Attribute VB_Name = \"Module1\"\nSub Main()\n    On Error Resume Next\n    Load Form1\n    Form1.Quiet = True\n    Form1.Move 1200, 1200, 6000, 4500\n"
+        + "    Err.Clear\n    " + statement + "\n"
+        + "    Debug.Print Form1.Left & \",\" & Form1.Top & \" \" & Form1.Width & \"x\" & Form1.Height & \" err \" & Err.Number\n"
+        + "    Unload Form1\nEnd Sub\n";
+
+    [AvaloniaTheory]
+    [InlineData("Form1.Move 600, , 4800", "1200,1200 6000x4500 err 448")]   // compiles, and moves nothing
+    public async Task A_forms_Move_with_a_gap_compiles_and_raises_448(string statement, string expected)
+    {
+        using var cancel = new CancellationTokenSource();
+        var (printed, errors, fault) = await RunAsync(OneStatement(statement), cancel.Token);
+        cancel.Cancel();
+
+        fault.Should().BeNull();
+        errors.Should().BeEmpty();
+        printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Form1.Move", "Argument not optional")]
+    [InlineData("Form1.Move , 900", "Argument not optional")]
+    [InlineData("Form1.Move 1, 2, 3, 4, 5", "Wrong number of arguments or invalid property assignment")]
+    public async Task A_forms_Move_without_Left_or_with_five_arguments_is_vb6_exes_compile_error(string statement, string message)
+    {
+        using var cancel = new CancellationTokenSource();
+        var (printed, _, fault) = await RunAsync(OneStatement(statement), cancel.Token);
+        cancel.Cancel();
+
+        fault.Should().BeOfType<VBCompileErrorException>().Which.Message.Should().Contain(message);
+        printed.Should().BeEmpty();
     }
 }
