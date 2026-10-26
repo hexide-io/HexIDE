@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A name declared twice: at module level "Ambiguous name detected", naming the second declaration (#1622), and in one
 /// procedure "Duplicate declaration in current scope" (#1499). Measured on vb6.exe, native and p-code alike, one /make
-/// project per case, with the probes in docs/vb6-fidelity-oracle.md, "A name declared twice". Each program here is one
+/// project per case, with the probes in docs/vb6-fidelity-oracle/a-name-declared-twice.md, "A name declared twice". Each program here is one
 /// of them, and each expected line is what vb6.exe logged or the compile error it gave. HexIDE ran each refused one,
 /// keeping the first declaration.
 /// </summary>

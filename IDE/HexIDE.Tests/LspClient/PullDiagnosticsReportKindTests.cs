@@ -464,6 +464,10 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
                     await ResultAsync(late, ReportSaying("from before the file was closed"), cancellationToken);
                     return true;
 
+                case "textDocument/diagnostic" when TimesAsked == 1:
+                    await ResultAsync(id, ReportSaying("from the initial open"), cancellationToken);
+                    return true;
+
                 case "textDocument/diagnostic" when TimesAsked == 2:
                     _withheld = id;
                     return true;
@@ -666,6 +670,24 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task TheInitialAnswerIsDistinguishableFromTheReopenAnswer()
+    {
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new StaleAcrossReopenServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) => { lock (published) published.Add(p); };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+        await Until(() => { lock (published) return published.Count > 0; },
+            "the initial answer should have been published");
+
+        server().TimesAsked.Should().Be(1);
+        lock (published)
+            published.Single().Diagnostics.Should().ContainSingle()
+                .Which.Message.Should().Be("from the initial open");
+    }
+
+    [Fact]
     public async Task AStaleAnswerThatIsSlowToPublishDoesNotEndOnScreen()
     {
         // The race behind #503: the fresh answer must arrive while the stale one is mid-publication.
@@ -693,7 +715,8 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
 
         await Until(() => server().TimesAsked >= 3, "the client should have asked on the reopen");
 
-        // The fresh answer is released only after the stale publication has started.
+        // The initial answer has a different label: seeing it before the close does not mean the
+        // reopen's answer has arrived (#963). That answer waits until the stale publication starts.
         await Until(
             () =>
             {
@@ -708,7 +731,9 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
         lock (published)
             published[^1].Diagnostics.Should().Contain(d => d.Message.Contains("after it was opened again"),
                 "the fresh answer was the newer one, so it is what must be left on screen; the publications were: "
-              + string.Join(" | ", published.Select(p => string.Join("; ", p.Diagnostics.Select(d => d.Message)))));
+              + string.Join(" | ", published.Select(p => p.Diagnostics.Length == 0
+                    ? "[empty: clear-on-close; this script never answers with an empty report]"
+                    : string.Join("; ", p.Diagnostics.Select(d => d.Message)))));
     }
 
     [Fact]

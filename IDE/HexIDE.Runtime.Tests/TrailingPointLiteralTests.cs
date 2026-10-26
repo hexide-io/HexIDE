@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// A numeric literal may end in its point, <c>5.</c> or <c>5.E1</c>, and is then the literal it would be with a digit
 /// after the point (#1615). A literal with a point takes no Integer or Long suffix: <c>2.5%</c> and <c>5.&amp;</c> are
 /// "Syntax error". Measured on vb6.exe, native and p-code alike, one /make project per form, with the probes in
-/// docs/vb6-fidelity-oracle.md, "A numeric literal ending in its point". Each program here is one of them, and each
+/// docs/vb6-fidelity-oracle/a-numeric-literal-ending-in-its-point.md, "A numeric literal ending in its point". Each program here is one of them, and each
 /// expected line is what vb6.exe logged. Neither grammar read such a literal, so the module failed to load, and a
 /// point literal with % or &amp; was rounded to an Integer or a Long.
 /// </summary>

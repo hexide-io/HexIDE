@@ -24,7 +24,7 @@ namespace HexIDE.Runtime.Tests;
 /// <b>Where the expectations come from.</b> Not from us. <c>scripts/vb6-legality.ps1 -CaptureOutput</c>
 /// rewrites each case's <c>Debug.Print</c> to a helper that appends to a file, compiles it with the real
 /// vb6.exe, RUNS it, and records what the file received. So a row here is an observation of the actual
-/// compiler, in the same class of evidence as <c>docs/vb6-fidelity-oracle.md</c> — and unlike a hand-written
+/// compiler, in the same class of evidence as <c>docs/vb6-fidelity-oracle/README.md</c> — and unlike a hand-written
 /// unit test it cannot be satisfied by asserting whatever the interpreter happens to do. That distinction
 /// is not hypothetical: <c>ModuleScopeTests</c> pins a UDT field declared <c>As Long</c> as coming back
 /// <b>Integer</b>, green, with a comment noting it is wrong. Only an oracle-backed expectation catches that.
@@ -84,7 +84,6 @@ public class CorpusBehaviourTests
         ["qualifier-depth/value-position-project-member"] = "PROJECT-QUALIFIER: VBVariableNotDefinedException",
 
         // Two singletons, each its own cause.
-        ["rem-forms/then-colon-with-the-body-on-the-next-line"] = "THEN-COLON-BODY-NEXT-LINE: VBCompileErrorException",
         ["aggregate-visibility/two-private-enums-same-name"] = "PRIVATE-ENUM-AGGREGATION: member not found",
         ["continuation-basics/cont-declare-header-wrapped"] = "DECLARE-NOT-CALLABLE: header wrapped, Sub not defined",
 
@@ -99,12 +98,6 @@ public class CorpusBehaviourTests
         ["select-case-matching/equality-operator-string-numerically-equal-textually-different"] =
             "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
 
-        // SPLIT-IDENTIFIER-IS-TWO-NAMES. VB6 does not join an identifier across a line continuation — the
-        // halves are separate names, so the read is of an undeclared Variant and yields 0. HexIDE joins
-        // them and reads the real variable, answering 5. Accepting more than VB6 would be tolerable; this
-        // returns a DIFFERENT NUMBER, which is not.
-        ["continuation-illegal/split-identifier"] = "SPLIT-IDENTIFIER: prints Long 5, VB6 prints Long 0",
-
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
 
@@ -112,16 +105,8 @@ public class CorpusBehaviourTests
         // with three `Left$(` and `Mid$(` calls the `$` fix closed (#1071): the continuation was never the cause.
         ["continuation-vs-identifier/trailing-underscore-then-type-hint"] = "EXPR-CONTINUATION: NotImplementedException",
 
-        // LEADING-COLON. A statement separator opening a line, or standing alone between statements.
-        ["separator-basics/sep-leading-colon-start-of-line"] = "LEADING-COLON: VBCompileErrorException",
-        ["separator-basics/sep-spaced-empty-statements"] = "LEADING-COLON: VBCompileErrorException",
-        ["separator-vs-label/leading-colon-on-line"] = "LEADING-COLON: VBCompileErrorException",
-
-        // LABEL-BEFORE-A-BLOCK-TERMINATOR. A label immediately preceding End If / a loop terminator. Note
-        // these print the FIRST value correctly and then die, which is why the recorded prefix matters.
+        // A jump to a label sharing Next's line remains deferred by the tree-walking limit (#223).
         ["line-labels/label-immediately-before-a-loop-terminator"] = "LABEL-BEFORE-TERMINATOR: dies after the first print",
-        ["separator-in-control-flow/label-before-endif"] = "LABEL-BEFORE-TERMINATOR: dies after the first print",
-        ["separator-vs-label/label-before-end-if"] = "LABEL-BEFORE-TERMINATOR: dies after the first print",
 
         // GOSUB. Not a defect but the tree-walking limit CLAUDE.md names explicitly: a visitor-frame stack
         // has no position to return to. Listed so the count is honest, not because it is fixable here.

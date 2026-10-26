@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace HexIDE.Lsp;
 
 /// <summary>
@@ -37,7 +39,7 @@ public interface IWorkspaceArtifactProvider
 /// provider emitting paths generally wants them relative to it.
 /// </param>
 /// <param name="Project">The project being described.</param>
-public sealed record WorkspaceArtifactContext(string WorkspaceRoot, WorkspaceProjectSnapshot Project);
+public sealed record WorkspaceArtifactContext(string WorkspaceRoot, WorkspaceProjectSnapshot Project, JsonElement? Settings = null);
 
 /// <summary>
 /// The providers this session knows, looked up by the name configuration uses.
@@ -101,4 +103,4 @@ public sealed class WorkspaceArtifactProviderRegistry : IWorkspaceArtifactProvid
 /// </remarks>
 /// <param name="RelativePath">Where the file goes, relative to the workspace root.</param>
 /// <param name="ProviderName">The provider that produces it.</param>
-public sealed record WorkspaceArtifactSpec(string RelativePath, string ProviderName);
+public sealed record WorkspaceArtifactSpec(string RelativePath, string ProviderName, JsonElement? Settings = null);

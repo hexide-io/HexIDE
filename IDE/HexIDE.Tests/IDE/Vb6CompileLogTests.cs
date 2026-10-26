@@ -12,7 +12,7 @@ namespace HexIDE.Tests.IDE;
 ///
 /// <para>
 /// The format and the line semantics are both MEASURED, not assumed -- nine probes against real
-/// <c>vb6.exe</c> 6.00.8176 (the original release), recorded in <c>docs/vb6-fidelity-oracle.md</c> under *What <c>/make</c>
+/// <c>vb6.exe</c> 6.00.8176 (the original release), recorded in <c>docs/vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md</c> under *What <c>/make</c>
 /// writes to <c>/out</c>, and what "Line N" counts*. Both were guessed in the code before that, and both
 /// guesses were wrong: the regex matched a C compiler's format, and the line was read as a 1-based file
 /// line when it is a 0-based index into the code view.

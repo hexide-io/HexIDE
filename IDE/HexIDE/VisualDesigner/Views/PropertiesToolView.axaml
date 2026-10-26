@@ -32,6 +32,13 @@
                 Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
                 BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
                 BorderThickness="0,0,0,1">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{DynamicResource Str.Tool.Properties.ExportPicture}"
+                                  IsVisible="{CompiledBinding CanExportPicture}"
+                                  Command="{CompiledBinding ExportPictureCommand}" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="80" SharedSizeGroup="Key" />

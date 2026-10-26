@@ -1,4 +1,6 @@
 using System.Text.Json;
+using HexIDE.Conversations;
+using HexIDE.Redaction;
 using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Projects;
@@ -135,7 +137,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         public void Initialized(JsonElement _) { }
     }
 
-    private VBLspClient ClientRootedAt(ILspWorkspace? workspace, RootRecordingServer server)
+    private VBLspClient ClientRootedAt(ILspWorkspace? workspace, RootRecordingServer server,
+        ConversationRedactor? workspaceNames = null, ConversationLog? capture = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var serverRpc = new JsonRpc(
@@ -149,7 +152,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var client = new VBLspClient(
-            transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6, workspace);
+            transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6, workspace,
+            capture: capture, connectionId: "workspace", workspaceNames: workspaceNames);
         _disposables.Add(client);
         return client;
     }
@@ -294,6 +298,40 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         foreach (var folder in folders.EnumerateArray())
             folder.GetProperty("uri").GetString().Should().StartWith("file:///",
                 "a folder is addressed by URI, not by path");
+    }
+
+    [Theory]
+    [InlineData("AcmePayrollMigration", false)]
+    [InlineData("Acme Payroll", false)]
+    [InlineData("Acme.Payroll", false)]
+    [InlineData("Acme.Payroll", true)]
+    public async Task WorkspaceNamesAlreadyMatchTheirExportedUriPseudonym(string folderName, bool trailingSlash)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), folderName);
+        if (trailingSlash) directory += Path.DirectorySeparatorChar;
+        var uri = new Uri(directory).AbsoluteUri;
+        var names = new Pseudonymiser();
+        var redactor = new ConversationRedactor(names);
+        await using var capture = new ConversationLog();
+        var server = new RootRecordingServer();
+        var sut = ClientRootedAt(
+            new FixedWorkspace(directory, new LspWorkspaceFolder("PrivateProjectName", directory)),
+            server, redactor, capture);
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        var frame = await server.Frame.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        var folder = frame.GetProperty("workspaceFolders")[0];
+        var expected = redactor.Uri(uri).TrimEnd('/').Split('/')[^1];
+        folder.GetProperty("name").GetString().Should().Be(expected);
+        folder.GetProperty("uri").GetString().Should().Be(uri, "the server still needs the real folder URI");
+
+        var exported = await ConversationExporter.ExportAsync(capture, new ConversationRedactor(names));
+        exported.Messages.Should().NotContain("PrivateProjectName").And.NotContain(folderName).And.NotContain(uri);
+        using var initialize = JsonDocument.Parse(exported.Messages.ReplaceLineEndings("\n").Split('\n')
+            .Single(line => line.Contains("\"method\":\"initialize\"", StringComparison.Ordinal)));
+        var exportedFolder = initialize.RootElement.GetProperty("params").GetProperty("workspaceFolders")[0];
+        exportedFolder.GetProperty("name").GetString().Should().Be(expected);
+        exportedFolder.GetProperty("uri").GetString().Should().Be(redactor.Uri(uri));
     }
 
     [Fact]

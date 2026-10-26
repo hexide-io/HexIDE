@@ -236,7 +236,7 @@ public class ConversationExportTests : IAsyncDisposable
     {
         _log.Arm("vb6", true);
         Note("vb6", "didOpen",
-            """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///C:/Users/quintana/Ledger/Form1.frm"}}}""");
+            """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///C:/Fixtures/quintana/Ledger/Form1.frm"}}}""");
 
         var export = await ConversationExporter.ExportAsync(_log, Redactor(), clock: FixedClock);
 
@@ -357,7 +357,7 @@ public class ConversationExportTests : IAsyncDisposable
         // what somebody exports twice for — is impossible.
         _log.Arm("vb6", true);
         Note("vb6", "didOpen",
-            """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"uri":"file:///C:/Users/quintana/Ledger/Form1.frm"}}""");
+            """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"uri":"file:///C:/Fixtures/quintana/Ledger/Form1.frm"}}""");
 
         var shared = new Pseudonymiser();
 

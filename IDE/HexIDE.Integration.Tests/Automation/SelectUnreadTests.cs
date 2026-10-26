@@ -10,7 +10,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// select's read-back of a provider that throws (#1259). It fell back to selected, so a throwing peer was replied to
 /// as chosen though nothing had been read, which undid what reading it back was for (#1182).
 /// </summary>
-public class SelectUnreadTests
+public class SelectUnreadTests : WindowTestFixture
 {
     private static (ListBox List, Control Row) Shown(params string[] items)
     {

@@ -76,6 +76,14 @@ public class SerializationCorpusTests
                      .Order(StringComparer.Ordinal))
             yield return saved;
 
+        // Always as well: the only files anywhere holding an in-box ActiveX control HexIDE models, each one VB6's IDE saved
+        // (#1082). Their inputs, hand-written, are not VB6's bytes and are not walked.
+        var inBox = findRoot(Path.Join("corpus", "inbox-controls"));
+        inBox.Should().NotBeNull("corpus/inbox-controls ships with the repository");
+        var inBoxSaved = Path.Join(inBox!, "saved");
+        Directory.Exists(inBoxSaved).Should().BeTrue("its saved half is this lane's proof for the in-box controls");
+        yield return inBoxSaved;
+
         // The repository's own demo/ is checked whatever else is configured: HEXIDE_ROUNDTRIP_CORPUS adds a corpus,
         // it does not replace the repository's files (#1016).
         var repoDemo = findRoot("demo");
@@ -99,6 +107,7 @@ public class SerializationCorpusTests
     [Theory]
     [InlineData("demo")]
     [InlineData("corpus/designer")]
+    [InlineData("corpus/inbox-controls")]
     public void MissingRepositoryRootFailsTheLane(string missing)
     {
         string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
@@ -807,6 +816,16 @@ public class SerializationCorpusTests
                 AbsolutePath = Path.GetFullPath(Path.Join(dir, relative.Replace('\\', Path.DirectorySeparatorChar)))
             });
 
+        for (var i = 0; i < serialized.RelativeRelatedDocPaths.Count; i++)
+        {
+            var (name, relative, line) = serialized.RelativeRelatedDocPaths[i];
+            project.AddRelatedDocument(new RelatedDocumentDefinition(project, name,
+                Path.GetFullPath(Path.Join(dir, SerializedProject.ToHostPath(relative))), line)
+            {
+                OriginalItemSlot = line is null ? null : serialized.RelatedDocumentLineSlots[i],
+            });
+        }
+
         // Mirror ProjectService: AddForm sets `StartupForm ??= form`, so the FIRST form added silently
         // becomes the startup form, and the loader then corrects it by matching the recorded name. Without
         // this the harness reports a defect the product does not have — Data Project.vbp came back with
@@ -814,7 +833,9 @@ public class SerializationCorpusTests
         project.StartupForm = project.Forms.FirstOrDefault(f => f.Name == serialized.StartupFormName);
 
         project.SetReferences(serialized.References);
-        project.PreservedItemLines.AddRange(serialized.PreservedItemLines);
+        project.KnownLineKeys.AddRange(serialized.KnownLineKeys);
+        for (var i = 0; i < serialized.PreservedItemLines.Count; i++)
+            project.PreserveItemLine(serialized.PreservedItemLines[i], serialized.PreservedItemLineSlots[i]);
         project.UnknownPreSectionLines.AddRange(serialized.UnknownPreSectionLines);
         project.ExtensionTail = serialized.ExtensionTail;
 

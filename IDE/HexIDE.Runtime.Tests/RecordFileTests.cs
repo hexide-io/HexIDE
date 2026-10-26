@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Random and Binary files, Get, Put and Len = (#1646). Each test runs one of the programs vb6.exe ran with /make, native
-/// and p-code agreeing on every line, and must print what it logged: docs/vb6-fidelity-oracle.md, "Random and Binary
+/// and p-code agreeing on every line, and must print what it logged: docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md, "Random and Binary
 /// files". A program's L prints, and its P names the test's folder. A step HexIDE refuses on purpose is cut out, with
 /// what it logged, and tested as a refusal below. The en-GB guest's code page was 1252.
 /// </summary>
@@ -2384,7 +2384,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
             "done");
     }
 
-    // packed Types, nested Types, Variant fields, arrays of Types, and Random lengths.
+    // packed Types, nested Types, Variant fields, and Random lengths.
     [Fact]
     public async Task Types_packed_and_nested_as_vb6_exe_did()
     {
@@ -2393,7 +2393,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
             Sub Main()
                 Dim t As String
                 On Error Resume Next
-                Dim m As TMix, o As TOuter, vs As TVarS, al As TAll, ar(1) As TRec, o2 As TOuter, vs2 As TVarS, al2 As TAll
+                Dim m As TMix, o As TOuter, vs As TVarS, al As TAll, o2 As TOuter, vs2 As TVarS, al2 As TAll
                 m.b = 1: m.l = 2
                 Fresh "u.bin"
                 Open P("u.bin") For Binary As #1

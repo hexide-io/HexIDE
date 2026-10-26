@@ -62,7 +62,7 @@ public class DockFactoryTests
         var factory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
-            languageServers, protocolInspector, wss);
+            languageServers, protocolInspector, wss, new DockFactoryReference());
         return (factory, immediate);
     }
 

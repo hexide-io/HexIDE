@@ -16,7 +16,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// are the oracle's probe for "A member indexed through its object", printing where the probe wrote to a file, and every
 /// line expected is the one vb6.exe logged, native and p-code agreeing.
 /// </summary>
-public class FormQualifiedMemberTests
+public class FormQualifiedMemberTests : WindowTestFixture
 {
     private sealed class NullSink : IDeserializeErrorSink
     {

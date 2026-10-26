@@ -67,7 +67,8 @@ that every adapter evaluates expressions without side effects.
 While stopped, dwell over an identifier in the code editor to see its value in the selected Call Stack
 frame. This requires the adapter's hover-evaluation capability. Unresolved names show no value tip;
 frame changes, Immediate evaluation, stepping and End clear the tip. Tips inspect individual identifiers,
-not selected expressions or member chains.
+not selected expressions or member chains. While the external program runs, hovering retains language-server
+quick info.
 
 This integration inspects one stopped program thread. It does not implement thread selection,
 restart, Run To Cursor or Set Next Statement.

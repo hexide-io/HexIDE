@@ -632,6 +632,48 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **WHEN** an automation caller sets its content to text containing `→` and saves
 - **THEN** the reply says the save was refused, naming the module, code page 1252 and `→`, and no dialog is shown
 
+### Requirement: Recognised project lines SHALL retain their read order
+
+The writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
+retain its source slot even when its path is rebased. Other lines SHALL take the next unclaimed slot of
+their key, so a renamed form stays in its slot. A line with no remaining slot SHALL follow its predecessor
+in the default writer sequence; unused slots SHALL be omitted. A project with no recorded slots SHALL use
+the default writer sequence. Unknown lines SHALL retain their recognised-line count hints, rather than
+being anchored to slots; adding or removing an item may therefore shift them.
+
+#### Scenario: A form before a reference is renamed
+
+- **GIVEN** a project whose `Form=` line precedes `Reference=`, with an unknown line between them
+- **WHEN** the form is renamed and the project is saved
+- **THEN** the renamed `Form=` line retains its slot before the unknown line and the reference
+
+#### Scenario: A missing form precedes a loaded form
+
+- **GIVEN** two `Form=` lines, the first naming a missing file and the second a loaded form
+- **WHEN** the project is saved, including to another folder
+- **THEN** the missing form's line remains first and both paths name the same files from the destination
+
+### Requirement: Missing control Font blocks inherit a load-time copy of the form font
+
+When loading a `VB.Form` with a declared Font, the deserializer SHALL give each font-bearing
+control without its own Font block a value copy of that form font, regardless of container depth.
+An explicit control Font block SHALL remain authoritative. Subsequent changes to the form font
+SHALL leave those control copies unchanged (measured for #2062; see
+[the oracle](../../../docs/vb6-fidelity-oracle/form-font-inheritance.md)).
+
+#### Scenario: A nested control omits its Font block
+
+- **GIVEN** a form declaring Arial 12, a PictureBox declaring Courier New 9.75, and a Frame inside it without a Font block
+- **WHEN** the form is loaded
+- **THEN** the Frame and its CommandButton without a Font block have Arial 12
+- **AND** the PictureBox retains Courier New 9.75
+
+#### Scenario: The form font changes after loading
+
+- **GIVEN** Command1 and Command2 inherited Arial from Form1 on load
+- **WHEN** Form1's font name becomes Tahoma
+- **THEN** both controls still read Arial
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.
@@ -640,9 +682,8 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
   the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
   reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
   original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
-  IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
-  and giving up the model that makes the IDE an editor rather than a text editor.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
 
 ### Requirement: Made programs SHALL carry source text independently of the host code page
 
@@ -658,3 +699,35 @@ Standalone `--check` SHALL read project and form files with the IDE's source dec
 #### Scenario: Check reads an ANSI project from disk
 - **WHEN** Standalone checks a project whose project or form files contain ANSI text
 - **THEN** it decodes those files as the IDE does, including UTF-8 BOM declarations
+
+### Requirement: Form save commands follow the active document
+The shell SHALL enable Save Form and Save Form As when the active document supplies a focused form,
+independent of keyboard focus. It SHALL delegate to that active designer's or form code editor's own save
+method, including format-on-save for code. A focused-form change SHALL requery the routed commands without
+requiring a keyboard-focus change. Documents without a focused form SHALL retain their own command routing.
+
+#### Scenario: Saving while a tool window has focus
+- **GIVEN** a form designer is the active document and a tool window has keyboard focus
+- **WHEN** Save Form or Save Form As is invoked
+- **THEN** the active designer saves through its own save method
+
+#### Scenario: Saving from form code
+- **GIVEN** a form code editor is active and format-on-save is enabled
+- **WHEN** the Save keyboard gesture is pressed in the editor
+- **THEN** the editor's formatting path runs before saving the form
+
+#### Scenario: Saving a carried file
+- **GIVEN** a carried-file editor is active and has keyboard focus
+- **WHEN** the Save keyboard gesture is pressed
+- **THEN** its own save binding handles the key
+
+### Requirement: Made programs SHALL omit carried files
+
+Make SHALL omit carried files and their item lines from the packaged project, including carried files
+reclassified from another item key. The other project lines SHALL retain their relative order. Ordinary
+project saves SHALL continue to include carried files; Make SHALL leave source membership unchanged.
+
+#### Scenario: A project carries private notes
+- **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
+- **THEN** the archive contains neither the carried file nor its project item line
+- **AND** the other project lines retain their relative order and the source project retains the carried file
