@@ -743,7 +743,7 @@ public class CodeEditorViewModelTests : IDisposable
         var vm = CreateSut().Initialize(form);
         var pos = new Position(0, 12);
         _lspClient.RequestRenameAsync("untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>())
-            .Returns((WorkspaceEdit?)null);
+            .Returns((RenameResult?)null);
 
         var result = await vm.RequestRenameAsync(pos, "newName");
 
@@ -769,10 +769,10 @@ public class CodeEditorViewModelTests : IDisposable
             changes[vm.GetDocumentUriPublic()] = [new(new(new(0, 0), new(0, 0)), "NewName")];
         _localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments").Returns("Rename refused: {0}");
         _lspClient.RequestRenameAsync(vm.GetDocumentUriPublic(), Arg.Any<Position>(), "NewName", Arg.Any<CancellationToken>())
-            .Returns(new WorkspaceEdit(changes));
+            .Returns(new RenameResult(new WorkspaceEdit(changes), null));
 
         var answer = await vm.RequestRenameAsync(new(0, 0), "NewName");
-        var refusal = vm.ApplyRename(answer!, "OldName");
+        var refusal = vm.ApplyRename(answer!.Edit!, "OldName");
 
         refusal.Should().Be("Rename refused: " + (loaded ? "Module1" : other));
         vm.Document.Text.Should().Be(before);
@@ -794,6 +794,22 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Document.Text.Should().Contain("Renamed");
         vm.Document.UndoStack.Undo();
         vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task RenameShowsTheServersRefusal()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _windowManager.InputBox("New name:", "Rename", "Long").Returns("Foo");
+        _lspClient.RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), "Foo", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(null, "Long is a keyword"));
+        var view = new HexIDE.Forms.Views.CodeEditorView();
+
+        await view.RenameSymbolAsync(vm, new Position(0, 0), "Long");
+
+        await _windowManager.Received(1).MessageBox("Long is a keyword", icon: MessageBoxIcon.Information);
     }
 
     [AvaloniaFact]

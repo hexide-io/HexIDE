@@ -15,8 +15,8 @@ namespace HexIDE.Desktop.Server;
 /// <para>
 /// It is no stricter than the binding. A number may come as a string, as the SDK's serializer reads one, and an argument
 /// the tool does not take is ignored by the SDK, and is named in the reply so a misspelling cannot silently select a default.
-/// What the schema cannot see, such as an integer too big for its parameter, still fails in the binding, and
-/// <see cref="ToolFailures"/> reports that as a refusal too.
+/// Integral storage bounds come from the actual parameter type; the schema calls both int and long "integer".
+/// Other binding failures remain refusals through <see cref="ToolFailures"/>.
 /// </para>
 /// </remarks>
 internal static class ArgumentCheck
@@ -49,6 +49,10 @@ internal static class ArgumentCheck
                 var hint = matches.Length == 1 ? $" (did you mean '{matches[0]}'?)" : "";
                 ignored.Add($"ignored '{name}': {tool} takes no such parameter{hint}");
             }
+            else if (ToolFailures.ParameterTypes.TryGetValue(tool, out var parameters)
+                     && parameters.TryGetValue(name, out var parameterType)
+                     && ToolFailures.IntegralProblem(value, parameterType) is { } overflow)
+                problems.Add($"'{name}': {overflow}{ToolFailures.ParameterGuidance(tool, name)}");
             else if (Mismatch(value, declared) is { } why)
                 problems.Add($"'{name}' {why}");
         }

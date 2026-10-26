@@ -239,6 +239,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** the developer chooses Debug ▸ Add Watch, or presses Shift+F9 with the caret on an identifier
 - **THEN** the Add Watch dialog opens, pre-filled with that identifier where one was under the caret
 
+#### Scenario: Localizing a watch context
+- **WHEN** the IDE language changes
+- **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog
+- **AND** named module/procedure contexts SHALL remain unchanged
+
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
@@ -260,6 +265,12 @@ The call stack answers "how did execution get here", which Locals alone cannot.
 #### Scenario: Viewing the call stack while paused
 - **WHEN** the developer presses Ctrl+L while paused
 - **THEN** the Call Stack window lists the active procedure activations, deepest first, each with its name and current line
+
+#### Scenario: Showing a caller
+- **WHEN** the developer selects or double-clicks a caller in the built-in Call Stack window
+- **THEN** the code window opens that module at the calling statement with a green call-site triangle
+- **AND** the current execution statement stays unchanged
+- **AND** the call-site marker clears on continuing or the next break
 
 #### Scenario: A concurrent event frozen above the paused frame
 - **WHEN** an event handler was frozen by break mode after the paused frame began

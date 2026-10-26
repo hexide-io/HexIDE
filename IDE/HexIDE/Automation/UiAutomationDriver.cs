@@ -15,6 +15,7 @@ using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
 using HexIDE.Utils;
+using HexIDE.VisualDesigner;
 
 namespace HexIDE.Automation;
 
@@ -1126,7 +1127,9 @@ public static class UiAutomationDriver
                                ? $" Make it show first, as a person would: 'expand' "
                                  + string.Join(", then ", holders.Select(h => $"'{LabelOf(h)}'"))
                                  + (holders.Count == 1 ? ", which holds it" : ", which hold it")
-                               : " Make it show first, as a person would, for instance by expanding what holds it"));
+                               : CollapsedPropertyCategoryHolding(onlyHidden) is { } category
+                                   ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                                   : " Make it show first, as a person would, for instance by expanding what holds it"));
         }
         if (candidates.Count == 0)
             return Err(control switch
@@ -1846,6 +1849,7 @@ public static class UiAutomationDriver
                         Idle = watch.Pump.IsIdle && watch.Pump.AtDoEvents.All(watch.LoopsBefore.Contains),
                         Started = string.Join(", ", watch.Pump.BusySince(watch.LiveBefore).Distinct()),
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
+                        Waiting = string.Join(", ", watch.Pump.WaitingHandlers.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,
                         // What it is, as the note says it: the title alone is 'HexIDE' for two of the IDE's dialogs (#1975).
@@ -1862,6 +1866,7 @@ public static class UiAutomationDriver
             var opened = state.Opened.Count == 0
                 ? ""
                 : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
+            var waiting = state.Waiting.Length == 0 ? "" : $", with {state.Waiting} waiting to run";
             if (state.Idle)
             {
                 // What the action left on the form, read only now that the program has run what it set off (#1280).
@@ -1880,7 +1885,7 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is paused at {stop.Module} line {stop.Line} ({stop.Reason}), "
-                             + $"with {state.Busy} not finished; it runs on, and the form may change, once the program "
+                             + $"with {state.Busy} not finished{waiting}; it runs on, and the form may change, once the program "
                              + $"continues{opened})",
                 };
             // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
@@ -1891,7 +1896,7 @@ public static class UiAutomationDriver
                 OpenDialogs.NamedInReply(dialog);
                 return outcome with
                 {
-                    Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
+                    Detail = outcome.Detail + $" (the program is still running {state.Busy}{waiting}, and has a window open over "
                              + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
@@ -1902,25 +1907,23 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)}s "
-                             + $"later, so the form may still change{opened})",
+                             + $"later{waiting}, so the form may still change{opened})",
                 };
             await Task.Delay(20, ct).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// The event queue of the program behind <paramref name="window"/>, with the form that leads to it: a running form,
-    /// a window it owns, or a program's MsgBox or InputBox. The box can be owned by the IDE, which shows a Sub Main
-    /// program's box over the active window, so a box is matched to the run by what it is, and its form is the run's
-    /// first open one. Null for any other window.
-    /// </summary>
+    /// <summary>The program behind a running form or a box raised by its MsgBox or InputBox call.</summary>
     internal static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
     {
-        for (var at = window; at is not null; at = at.Owner as Window)
-            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
-                return (events, at);
-        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox))
+        if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
+            return (events, window);
+        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog: true }
+            or HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog: true }))
             return null;
+        for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
+            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
+                return (ownerEvents, at);
         return OpenWindows().FirstOrDefault(w => w is HexIDE.Runtime.IModuleExecutionRoot { Events: not null }) is { } form
             ? (((HexIDE.Runtime.IModuleExecutionRoot)form).Events!, form)
             : null;
@@ -2380,6 +2383,21 @@ public static class UiAutomationDriver
     private static List<TreeViewItem> CollapsedNodesHolding(Control control) =>
         [.. control.GetVisualAncestors().OfType<TreeViewItem>().Where(n => !n.IsExpanded).Reverse()];
 
+    private static string? CollapsedPropertyCategoryHolding(Control control)
+    {
+        if (control.DataContext is not PropertyViewModel property
+            || ItemsControl.ItemsControlFromItemContainer(control) is not ListBox list)
+            return null;
+
+        for (var i = 0; i < list.ItemCount; i++)
+            if (list.Items[i] is PropertyCategoryViewModel { IsExpanded: false } category
+                && category.Category == property.PropertyClass.Category
+                && list.ContainerFromIndex(i) is { } row && Shows(row) is true
+                && row.GetVisualDescendants().OfType<ToggleButton>().Any(t => Shows(t) is true))
+                return category.Header;
+        return null;
+    }
+
     /// <summary>
     /// The open dropdown <paramref name="item"/> is in, or null. Found before the item is selected: a selection
     /// handler that replaces the list recycles the item's container and clears its parent, and the dropdown would then
@@ -2459,8 +2477,14 @@ public static class UiAutomationDriver
     // with no owner and no index, and a visibility bound to that item, as the Properties window's rows are, keeps it
     // showing. Only containers: a control inside a row has no index of its own either. Only an items panel's own children:
     // a container written into a template, or set as content, is no list's row and no list released it (#1292 review).
+    // DataGrid keeps recycled rows in its presenter with their old Index and DataContext. Slot is the
+    // membership marker (-1 after detach); it is internal, so read it without treating every hidden row as released.
+    private static readonly PropertyInfo? GridRowSlot = typeof(DataGridRow).GetProperty("Slot", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private static bool Released(Control c) =>
-        c is ListBoxItem or TreeViewItem or TabItem
+        c is DataGridRow && c.GetVisualParent() is DataGridRowsPresenter
+        ? Safe(() => GridRowSlot?.GetValue(c) is int slot && slot < 0, false)
+        : c is ListBoxItem or TreeViewItem or TabItem
         && c.GetVisualParent() is Panel { IsItemsHost: true }
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
@@ -2914,9 +2938,9 @@ public static class UiAutomationDriver
                     var where = dialog.Owner is null ? "in a window of its own"
                         : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
-                        $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"{OpenDialogs.DescriptionOf(dialog)} opened {where}, and a person's next key would go to it. Answer it, then "
-                        + "send the rest");
+                        $"key {i + 1} of {keys.Count} was sent to {surface.GetType().Name}{address} and raised "
+                        + $"{OpenDialogs.DescriptionOf(dialog)} {where}; that key may not have landed. Nothing after it was sent. "
+                        + "Answer the dialog, then check the text before deciding what to send next");
                 }
             }
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
@@ -4096,7 +4120,13 @@ public static class UiAutomationDriver
             foreach (var attached in AttachedPopupsOf(owner))
                 CollectPopupChildren(attached, acc, firstOnly);
 
-        foreach (var v in parent.GetVisualChildren())
+        // Virtualizing panels keep containers in creation order, which changes after scrolling (#1966).
+        var children = parent.GetVisualChildren();
+        if (parent is Panel { IsItemsHost: true } panel && panel.FindAncestorOfType<ItemsControl>() is { } items)
+            children = children.OrderBy(v => v is Control c && items.IndexFromContainer(c) is >= 0 and var index
+                ? index : int.MaxValue);
+
+        foreach (var v in children)
         {
             if (firstOnly && acc.Count > 0) return;
             if (v is Popup popup)

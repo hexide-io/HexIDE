@@ -294,6 +294,23 @@ public class FormControlsTests
             "Label1 Command1 True");
     }
 
+    [AvaloniaFact]
+    public void Bang_on_Me_reads_a_controls_name()
+    {
+        Printed("Debug.Print Me!Command1.Name").Should().Equal("Command1");
+    }
+
+    [AvaloniaFact]
+    public void Bang_on_Me_returns_the_same_control_as_Controls()
+    {
+        Printed("""
+            Dim c As Object
+            Set c = Me!Command1
+            Debug.Print c Is Controls!Command1
+            Debug.Print c Is Controls("Command1")
+            """).Should().Equal("True", "True");
+    }
+
     // A number is an index as CInt makes one, so 2.5 is 2. A String is an index only when it starts with a digit: VB6 reads
     // "1e0" as 1 and "-1" as the name of a control.
     [AvaloniaTheory]

@@ -21,8 +21,8 @@ public interface IWindowManager
     /// Show a message box and wait for its answer: over <paramref name="owner"/> when given, else over the active window. A
     /// box that asks about one window's content is shown over that window, which it then holds, as a person sees it there.
     /// </summary>
-    Task<MessageBoxResult> MessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null);
-    Task<string?> InputBox(string prompt, string? caption, string defaultText);
+    Task<MessageBoxResult> MessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null, bool isProgramDialog = false);
+    Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false);
     Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options);
     Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options);
     Task ShowAbout(AboutDialogOptions options);

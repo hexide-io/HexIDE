@@ -441,6 +441,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -559,7 +560,13 @@ public sealed class VBLspClient : ILspClient
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
                     // fold part-way along its closing line, and a fold read by whole lines then hides that line.
-                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true)),
+                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true),
+                    SemanticTokens: new SemanticTokensClientCapabilities(new(),
+                        ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+                         "parameter", "variable", "property", "enumMember", "event", "function", "method",
+                         "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
+                        ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true),
@@ -1369,6 +1376,31 @@ public sealed class VBLspClient : ILspClient
             ? new Position(line.GetInt32(), ch.GetInt32())
             : null;
 
+    public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        try
+        {
+            var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
+                .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
+            var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
+                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken);
+            if (result?.Data is not { Length: > 0 })
+            {
+                if (_semanticWarnings.TryAdd(uri, 0))
+                    _logger.LogDebug("[LSP] No semantic tokens for {Uri}; keeping lexical colours", uri);
+                return null;
+            }
+            return new SemanticTokenResult(result.Data, legend);
+        }
+        catch (Exception ex)
+        {
+            if (!cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
+                _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
+            return null;
+        }
+    }
+
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
@@ -1407,7 +1439,7 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null)
     {
         if (_rpc is null || !_initialized || !CanServe("signatureHelpProvider")) return null;
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
@@ -1532,14 +1564,29 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
+    public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("renameProvider")) return null;
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
-            return await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
+            var edit = await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
                 "textDocument/rename", p, cancellationToken);
+            return edit is null ? null : new RenameResult(edit, null);
+        }
+        catch (RemoteInvocationException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (ex.ErrorCode is -32800 or -32801)
+            {
+                _logger.LogDebug(ex, "textDocument/rename was cancelled by the server");
+                return null;
+            }
+
+            if (ex.ErrorCode == -32803)
+                _logger.LogDebug(ex, "textDocument/rename refused: {Reason}", ex.Message);
+            else
+                WarnRequestFailedOnce("textDocument/rename", ex, cancellationToken);
+            return new RenameResult(null, ex.Message);
         }
         catch (Exception ex)
         {
@@ -1786,6 +1833,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
@@ -1805,9 +1853,12 @@ public sealed class VBLspClient : ILspClient
         // The two directions are not interchangeable and ConversationDirection already says which is
         // which: Received is "a reply, a notification, a line of standard error", Local is "a process
         // starting". A stderr line arrived from the server; an exit code is something observed about it.
-        var (direction, kind) = notice.Kind == TransportNoticeKind.StandardError
-            ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
-            : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
+        var (direction, kind) = notice.Kind switch
+        {
+            TransportNoticeKind.StandardError => (ConversationDirection.Received, ConversationEntryKind.StandardError),
+            TransportNoticeKind.StandardOutput => (ConversationDirection.Received, ConversationEntryKind.StandardOutput),
+            _ => (ConversationDirection.Local, ConversationEntryKind.Lifecycle),
+        };
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
@@ -1820,6 +1871,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -2189,6 +2241,7 @@ public sealed class VBLspClient : ILspClient
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "semanticTokensProvider",
         "hoverProvider",
         "renameProvider",
         "signatureHelpProvider",
@@ -2364,6 +2417,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _semanticWarnings = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever

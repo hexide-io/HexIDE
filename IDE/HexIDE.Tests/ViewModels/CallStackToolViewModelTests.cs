@@ -32,6 +32,28 @@ public class CallStackToolViewModelTests
     }
 
     [AvaloniaFact]
+    public void SelectingBuiltInCallerShowsItsModuleAndLineWithoutChangingExecution()
+    {
+        _debugController.GetCallStack().Returns(new[]
+        {
+            new CallStackFrame("C", "Worker", 12),
+            new CallStackFrame("B", "Module1", 7)
+        });
+        var sut = CreateSut();
+        _debugController.Stopped += Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.StopStatement, "Worker", 12));
+        sut.SelectedFrame = sut.Frames[1];
+        sut.ShownFrame.Should().BeSameAs(sut.Frames[1]);
+        sut.ShownFrame!.Module.Should().Be("Module1");
+        sut.ShownFrame.Line.Should().Be(7);
+        sut.ShownFrame.IsCaller.Should().BeTrue();
+        _debugController.DidNotReceive().SetNextStatement(Arg.Any<string>(), Arg.Any<int>());
+        _debugController.Continued += Raise.Event<Action>();
+        sut.ShownFrame.Should().BeNull();
+        sut.ShowSelectedFrame();
+        sut.ShownFrame.Should().BeNull("a row from the previous break is stale");
+    }
+
+    [AvaloniaFact]
     public void Stopped_PopulatesFramesFromGetCallStack_CurrentFirstWithArrow()
     {
         _debugController.GetCallStack().Returns(new[]
