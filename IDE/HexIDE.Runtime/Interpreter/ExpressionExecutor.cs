@@ -1495,6 +1495,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             variable.Value is not Control control)
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
 
+        // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+        if (AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out var inBoxValue) is { } inBox)
+            return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
         foreach (var prop in props)
@@ -1657,6 +1661,34 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // .vbYes` is measured illegal, so a member of another container is refused here.
             if (argsCtx == null
                 && VB6InBoxLibraries.TryInContainer(qualifier.Name!, memberName, out var cv))
+                return await ThenTheRest(cv);
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
+
+        // A referenced control library (#1082): `MSComctlLib.ccOrientationVertical`, and through one of its enums,
+        // `MSComctlLib.ScrollingConstants.ccScrollingSmooth`, which is strict as the in-box libraries' enums are.
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibrary)
+        {
+            var library = qualifier.ControlLibrary!;
+            if (argsCtx == null && library.TryBare(memberName, out var c))
+                return await ThenTheRest(c);
+            if (argsCtx == null && idx + 1 < members.Length && library.ContainerName(memberName) is { } container)
+            {
+                var inner = MemberName(members[idx + 1]);
+                if (MemberArgs(members[idx + 1]) == null && library.TryInContainer(container, inner, out var cv))
+                {
+                    idx++;
+                    return await ThenTheRest(cv);
+                }
+                throw new VBMethodOrDataMemberNotFoundException(inner, Vb6Value.ValueType.EmptyVariant);
+            }
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
+
+        // `ScrollingConstants.ccScrollingStandard`: one of a referenced control library's enums (#1082).
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.ControlLibraryContainer)
+        {
+            if (argsCtx == null && qualifier.ControlLibrary!.TryInContainer(qualifier.Name!, memberName, out var cv))
                 return await ThenTheRest(cv);
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
@@ -2128,7 +2160,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (operand.Value is Avalonia.Controls.Control control)
         {
             var className = VB6BuiltIns.ControlTypeName(control);
-            var library = control is VBCommonDialog ? "MSComDlg" : "VB";
+            // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
+            var library = control switch
+            {
+                VBCommonDialog => "MSComDlg",
+                VBProgressBar bar => bar.Library.Name,
+                _ => "VB",
+            };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, "Control", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)

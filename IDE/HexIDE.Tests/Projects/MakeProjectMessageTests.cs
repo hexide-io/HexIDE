@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -40,12 +41,35 @@ public class MakeProjectMessageTests
         await windows.Received().MessageBox("localized not made: failure detail", icon: MessageBoxIcon.Error);
     }
 
+    [Fact]
+    public async Task A_missing_runtime_names_the_folder_looked_in_and_the_runner_not_found()
+    {
+        // #1947: "see the README" pointed at nothing, and gave no way to tell a runtime not built from one built elsewhere.
+        var ide = Directory.CreateTempSubdirectory("hexide-make-").FullName;
+        try
+        {
+            localization.GetString("Str.MakeProject.RuntimeNotFound").Returns("{0} | {1}");
+            windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(Path.Join(ide, "Made.exe"));
+            var service = Service();
+            service.RuntimeDirectory = ide;
+            // The runner beside the IDE is not the runtime: only standalone/ holds that.
+            File.WriteAllText(Path.Join(ide, ProjectService.StandaloneRunnerName()!), "not the runtime");
+
+            Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
+
+            await make.Should().ThrowAsync<OperationCanceledException>();
+            await windows.Received().MessageBox($"{Path.Join(ide, "standalone")} | {ProjectService.StandaloneRunnerName()}",
+                icon: MessageBoxIcon.Information);
+        }
+        finally { Directory.Delete(ide, true); }
+    }
+
     // Browser and unsupported-host branches cannot be reached on this test host. Guard all five call sites too.
     [Theory]
     [InlineData("NoStartup")]
     [InlineData("Browser")]
     [InlineData("UnsupportedPlatform")]
-    [InlineData("MissingRuntime")]
+    [InlineData("RuntimeNotFound")]
     [InlineData("Failed")]
     public void Every_make_message_reads_its_localization_key(string name)
     {

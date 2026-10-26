@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -54,6 +55,16 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 public class McpRestartTests
 {
+    static McpRestartTests()
+    {
+        // ToolFailures now lives in the Desktop assembly. Supply this fixture's tool signatures
+        // alongside the production signatures so binding failures still name the synthetic parameters.
+        foreach (var method in typeof(Tools).GetMethods())
+            if (method.GetCustomAttribute<McpServerToolAttribute>()?.Name is { } name)
+                ToolFailures.ParameterTypes[name] = method.GetParameters()
+                    .ToDictionary(parameter => parameter.Name!, parameter => parameter.ParameterType);
+    }
+
     public sealed record Described(string Detail);
 
     [McpServerToolType]
