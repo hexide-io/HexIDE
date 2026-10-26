@@ -536,17 +536,44 @@ public class TypeKeysTests : IDisposable
         var box = new TextBox { Width = 200 };
         var window = ShowBoxes(box);
         window.Title = "Project1 - HexIDE";
-        var open = new Window { Title = "HexIDE", Content = new HexIDE.Runtime.Dialogs.MessageBox() };
+        var open = new Window
+        {
+            Title = "HexIDE",
+            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+        };
         _ = open.ShowDialog(window);
         Dispatcher.UIThread.RunJobs();
         try
         {
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
-            typed.Error.Should().StartWith("'HexIDE' (a message box").And.Contain(", a modal dialog over 'Project1 - HexIDE'");
+            typed.Error.Should().StartWith("'HexIDE' (a message box: \"Reset?\", OK/Cancel), a modal dialog over 'Project1 - HexIDE'");
 
             var pressed = UiAutomationDriver.PressKey(box, "A", null);
-            pressed.Error.Should().StartWith("'HexIDE' (a message box").And.Contain(", a modal dialog over 'Project1 - HexIDE'");
+            pressed.Error.Should().StartWith("'HexIDE' (a message box: \"Reset?\", OK/Cancel), a modal dialog over 'Project1 - HexIDE'");
             box.Text.Should().BeNullOrEmpty();
+        }
+        finally { open.Close(); }
+    }
+
+    // A program's MsgBox given an empty title has none, and that is when what it is matters most: it is described all
+    // the same, and said to have no title, as every text that names a dialog says it (#1975 review).
+    [AvaloniaFact]
+    public async Task A_dialog_with_no_title_is_described_and_said_to_have_none()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        window.Title = "Project1 - HexIDE";
+        var open = new Window
+        {
+            Title = "",
+            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+        };
+        _ = open.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+            typed.Error.Should().StartWith("one with no title (a message box: \"Reset?\", OK/Cancel), a modal dialog over");
         }
         finally { open.Close(); }
     }
