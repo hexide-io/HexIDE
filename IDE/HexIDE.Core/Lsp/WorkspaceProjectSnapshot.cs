@@ -100,7 +100,10 @@ public enum WorkspaceProjectFileKind
 /// decided by their order, so re-sorting this list would change what a program means.
 /// </para>
 /// </remarks>
-/// <param name="Name">The identifier source code uses to qualify this reference's members.</param>
+/// <param name="Name">
+/// The name the project file records. For a type library that is its description, which isn't always the identifier
+/// code qualifies its members with; <see cref="IWorkspaceLibraryNames"/> reads that, once there is consent.
+/// </param>
 /// <param name="Guid">The registry identifier, where the reference was recorded with one.</param>
 /// <param name="Major">The major version, where one was recorded.</param>
 /// <param name="Minor">The minor version, where one was recorded.</param>

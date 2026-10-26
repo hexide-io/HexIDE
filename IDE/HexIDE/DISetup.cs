@@ -36,7 +36,8 @@ public partial class DISetup
         ILocalizationService localization, ILoggerFactory loggerFactory, ConversationLog capture) =>
         new((IWorkspaceArtifactWorkspace)workspace, providers, new WorkspaceArtifactConsent(windows, localization),
             loggerFactory.CreateLogger<WorkspaceArtifactService>(),
-            System.IO.Path.Combine(UserDataPath.Directory, "lsp-artifact-ownership.json"), capture);
+            System.IO.Path.Combine(UserDataPath.Directory, "lsp-artifact-ownership.json"), capture,
+            new HexIDE.IDE.TypeLibraryNames());
 
     [Conditional("DI")]
     static void Setup() =>

@@ -41,8 +41,12 @@ public sealed class RdcoreProjectProvider : IWorkspaceArtifactProvider
         var version = context.Settings is { ValueKind: JsonValueKind.Object } settings
             && settings.TryGetProperty("version", out var configured) && configured.ValueKind == JsonValueKind.String
             ? configured.GetString()! : DefaultVersion;
-        var references = context.Project.References.Where(r => r.Name.Length > 0)
-            .Select(r => new RdcoreReference(r.Name, r.HostPath, r.Guid, r.Major, r.Minor)).ToArray();
+        // RDCore resolves a reference by the library's own name. The service passes a reader only once there is consent.
+        var references = context.Project.References
+            .Select(r => (Name: context.LibraryNames?.NameOf(r) is { Length: > 0 } read ? read : r.Name, Reference: r))
+            .Where(n => n.Name.Length > 0)
+            .Select(n => new RdcoreReference(n.Name, n.Reference.HostPath, n.Reference.Guid, n.Reference.Major,
+                n.Reference.Minor)).ToArray();
         var constants = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, value) in (context.Project.CompilationArguments ?? new Dictionary<string, short>())
             .OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase))

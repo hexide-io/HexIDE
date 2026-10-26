@@ -15,6 +15,12 @@ public static partial class TypeLibReader
     [LibraryImport("oleaut32.dll", EntryPoint = "LoadTypeLib", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int LoadTypeLib(string szFile, out IntPtr ppTLib);
 
+    [LibraryImport("oleaut32.dll", EntryPoint = "LoadTypeLibEx", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int LoadTypeLibEx(string szFile, int regkind, out IntPtr ppTLib);
+
+    /// <summary><c>REGKIND_NONE</c>: load without registering, which <c>LoadTypeLib</c>'s default can do.</summary>
+    private const int RegKindNone = 2;
+
     [LibraryImport("oleaut32.dll", EntryPoint = "LoadRegTypeLib")]
     private static partial int LoadRegTypeLib(ref Guid rguid, ushort wVerMajor, ushort wVerMinor,
         int lcid, out IntPtr ppTLib);
@@ -60,9 +66,46 @@ public static partial class TypeLibReader
     }
 
     /// <summary>
+    /// Whether a library can be loaded from this path without reaching another machine: fully qualified on a drive, so not a
+    /// UNC path (<c>\\host\share</c> or <c>//host/share</c>), which contacts that host as it loads and hands it the user's
+    /// credentials, nor a device path (<c>\\?\</c>, <c>\\.\</c>), which can name one. A link on the way is followed only
+    /// as text, never opened, and must lead somewhere local too. Asked before anything touches the path, since even
+    /// checking that a UNC path exists contacts its host.
+    /// </summary>
+    public static bool IsLocalPath(string? path) => IsLocalPath(path, 0);
+
+    private static bool IsLocalPath(string? path, int depth)
+    {
+        if (string.IsNullOrEmpty(path) || depth > 40 || !Path.IsPathFullyQualified(path)
+            || path.Length >= 2 && path[0] is '\\' or '/' && path[1] is '\\' or '/') return false;
+        try
+        {
+            var current = Path.GetPathRoot(path)!;
+            foreach (var part in path[current.Length..].Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, part);
+                // A component's own attributes, which don't follow a link, and nor does reading its target: nothing past
+                // a link is touched until its target is known to be local. Exists would follow it.
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(current); }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { return true; }
+                if ((attributes & FileAttributes.ReparsePoint) == 0) continue;
+                FileSystemInfo link = (attributes & FileAttributes.Directory) != 0
+                    ? new DirectoryInfo(current) : new FileInfo(current);
+                if (link.LinkTarget is not { } target) continue;
+                var full = Path.GetFullPath(target, Path.GetDirectoryName(current)!);
+                if (!IsLocalPath(full, depth + 1)) return false;
+                current = full;
+            }
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
     /// Only the library's own name, the identifier code qualifies its members with (<c>stdole</c> for the library a project
-    /// file describes as "OLE Automation"), without walking its types: by registry GUID and version, else from the file.
-    /// Null off Windows, or when neither loads.
+    /// file describes as "OLE Automation"), without walking its types: by registry GUID and version, else from the file
+    /// when <see cref="IsLocalPath"/> allows it. Reading never registers anything. Null off Windows, or when neither loads.
     /// </summary>
     public static string? ReadName(string guidString, string version, string? path)
     {
@@ -87,9 +130,9 @@ public static partial class TypeLibReader
             int hr = LoadRegTypeLib(ref guid, major, minor, 0, out IntPtr pointer);
             typeLib = TakeTypeLib(hr, pointer);
         }
-        if (typeLib == null && !string.IsNullOrEmpty(path) && File.Exists(path))
+        if (typeLib == null && IsLocalPath(path) && File.Exists(path))
         {
-            int hr = LoadTypeLib(path, out IntPtr pointer);
+            int hr = LoadTypeLibEx(path!, RegKindNone, out IntPtr pointer);
             typeLib = TakeTypeLib(hr, pointer);
         }
         if (typeLib == null) return null;

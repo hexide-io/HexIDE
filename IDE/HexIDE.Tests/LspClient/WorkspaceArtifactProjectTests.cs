@@ -81,30 +81,21 @@ public sealed class WorkspaceArtifactProjectTests
     }
 
     [Fact]
-    public void AReferenceIsNamedAsCodeNamesItsLibraryReadOnceASession()
+    public void TheProjectionLoadsNoLibraryAndKeepsTheNameTheProjectRecords()
     {
+        // Opening a project mustn't load what it references: a reference names a path, and a path on another machine is
+        // contacted as it loads, which hands that machine the user's credentials. On Windows, a projection that read the
+        // registered OLE Automation library would name it stdole here (#2071's security review).
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1")
         {
             AbsolutePath = Path.Combine(Path.GetTempPath(), "artifact-library", "Project1.vbp")
         };
         project.AddReference(new VbReference("{00020430-0000-0000-C000-000000000046}", "2.0", 0, null, "OLE Automation"));
+        project.AddReference(new VbReference(Guid.NewGuid().ToString(), "1.0", 0, @"\\host.invalid\share\remote.tlb", "Remote"));
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(new[] { project });
         var sut = new ProjectLspWorkspace(() => manager);
-        var reads = 0;
-        sut.ReadLibraryName = (guid, version, _) =>
-        {
-            reads++;
-            return guid.Contains("00020430") && version == "2.0" ? "stdole" : null;
-        };
-        project.AddReference(new VbReference(Guid.NewGuid().ToString(), "1.0", 0, null, "Unregistered Library"));
-        sut.Projects[0].Project.References.Select(r => r.Name).Should().Equal("stdole", "Unregistered Library");
-        project.AddModule(new ModuleDefinition(project, "Module1", ModuleKind.StandardModule)
-        {
-            AbsolutePath = Path.Combine(Path.GetTempPath(), "artifact-library", "Module1.bas")
-        });
-        sut.Projects[0].Project.References[0].Name.Should().Be("stdole");
-        reads.Should().Be(2, "each library is read once a session, however often the projection refreshes");
+        sut.Projects[0].Project.References.Select(r => r.Name).Should().Equal("OLE Automation", "Remote");
         sut.Dispose();
     }
 
@@ -114,6 +105,13 @@ public sealed class WorkspaceArtifactProjectTests
     public void TheTypeLibraryNamesOleAutomationStdole()
     {
         HexIDE.Runtime.TypeLibrary.TypeLibReader.ReadName("{00020430-0000-0000-C000-000000000046}", "2.0", null)
+            .Should().Be("stdole");
+    }
+
+    [Fact(Skip = "Type libraries are read only on Windows.", SkipUnless = nameof(OnWindows))]
+    public void ALocalTypeLibraryIsNamedFromItsFile()
+    {
+        HexIDE.Runtime.TypeLibrary.TypeLibReader.ReadName("", "0.0", Path.Combine(Environment.SystemDirectory, "stdole2.tlb"))
             .Should().Be("stdole");
     }
 

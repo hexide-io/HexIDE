@@ -21,6 +21,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private bool _disposed;
     private readonly string? _stateFile;
     private readonly ConversationLog? _capture;
+    private readonly IWorkspaceLibraryNames? _libraryNames;
     internal Action<Stream, byte[]> WriteContent { get; set; } = (stream, bytes) => stream.Write(bytes);
 
     /// <summary>Larger than any artefact a provider has reason to write, so a file over it is never HexIDE's.</summary>
@@ -28,7 +29,8 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     public WorkspaceArtifactService(IWorkspaceArtifactWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWorkspaceArtifactConsent consent,
-        ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null)
+        ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null,
+        IWorkspaceLibraryNames? libraryNames = null)
     {
         _workspace = workspace;
         _providers = providers;
@@ -36,6 +38,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         _log = log;
         _stateFile = stateFile;
         _capture = capture;
+        _libraryNames = libraryNames;
         try
         {
             if (stateFile is not null && File.Exists(stateFile))
@@ -99,6 +102,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             _log.LogInformation("Workspace artefact {Path} denied for {Server}; launching without it.", target, server.Id);
             Note(server, $"Workspace artefact {spec.RelativePath} denied; launching without it.");
             return;
+        }
+        // Only now may the provider read past the snapshot. A library's name is read by loading the library, from a path
+        // the project file names, so a project nobody has allowed an artefact for must never get that far. The content
+        // above, made without it, only decided whether there is anything to describe.
+        if (_libraryNames is not null)
+        {
+            content = provider.Produce(project with { Settings = spec.Settings, LibraryNames = _libraryNames });
+            if (string.IsNullOrEmpty(content)) return;
         }
         // Consent may have held a modal open: recheck both the links and the content before writing.
         if (SafePath(project.WorkspaceRoot, spec.RelativePath) != target)

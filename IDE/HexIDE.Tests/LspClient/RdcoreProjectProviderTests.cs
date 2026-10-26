@@ -88,6 +88,26 @@ public sealed class RdcoreProjectProviderTests
     }
 
     [Fact]
+    public void AReferenceIsNamedByTheReaderWhenThereIsOneElseAsTheProjectRecordedIt()
+    {
+        var guid = Guid.Parse("00020430-0000-0000-C000-000000000046");
+        var project = new WorkspaceProjectSnapshot("Probe", null, [File("Main.bas", WorkspaceProjectFileKind.Module)], [
+            new("OLE Automation", guid, 2, 0),
+            new("Unregistered", Guid.NewGuid(), 1, 0)]);
+        var names = Substitute.For<IWorkspaceLibraryNames>();
+        names.NameOf(Arg.Is<WorkspaceProjectReference>(r => r.Guid == guid)).Returns("stdole");
+        string?[] Names(IWorkspaceLibraryNames? reader)
+        {
+            using var json = JsonDocument.Parse(new RdcoreProjectProvider().Produce(
+                new WorkspaceArtifactContext(Root, project, LibraryNames: reader))!);
+            return json.RootElement.GetProperty("ProjectInfo").GetProperty("References").EnumerateArray()
+                .Select(r => r.GetProperty("Name").GetString()).ToArray();
+        }
+        Names(names).Should().Equal("stdole", "Unregistered");
+        Names(null).Should().Equal("OLE Automation", "Unregistered");
+    }
+
+    [Fact]
     public void CompilationArgumentsBecomePrecompilerConstants()
     {
         var arguments = new Dictionary<string, short>(StringComparer.OrdinalIgnoreCase) { ["Trace"] = -2, ["DEBUG"] = 1 };
