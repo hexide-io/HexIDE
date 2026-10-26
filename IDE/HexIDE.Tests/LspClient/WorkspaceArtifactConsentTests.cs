@@ -149,7 +149,7 @@ public sealed class WorkspaceArtifactConsentTests : IDisposable
     }
 
     [Fact]
-    public void RestoringDefaultsPreviewsNoGrantsAndCommitsOnOk()
+    public void RestoringDefaultsLeavesTheGrants()
     {
         var file = Path.Combine(_dir, "consent.json");
         var store = new ConsentStore(file);
@@ -157,10 +157,9 @@ public sealed class WorkspaceArtifactConsentTests : IDisposable
         store.RecordWorkspace("y", _dir, "two", "b.json", "probe");
         var sut = new WorkspaceArtifactPageViewModel(store);
         sut.RestoreDefaults();
-        sut.Grants.Should().BeEmpty();
-        new ConsentStore(file).Records.Should().HaveCount(2);
         sut.SaveToSettings();
-        new ConsentStore(file).Records.Should().BeEmpty();
+        sut.Grants.Should().HaveCount(2, "a grant is consent, not a setting with a factory value");
+        new ConsentStore(file).Records.Should().HaveCount(2);
     }
 
     [Fact]

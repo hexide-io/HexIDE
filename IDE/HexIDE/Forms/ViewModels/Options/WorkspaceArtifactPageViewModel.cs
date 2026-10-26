@@ -11,7 +11,7 @@ namespace HexIDE.Forms.ViewModels.Options;
 
 /// <summary>
 /// Tools → Options → Workspace files: the persistent grants, each resettable. Like every other page's edit, a reset is
-/// committed on OK and forgotten on Cancel (#2073).
+/// committed on OK and forgotten on Cancel (#2073); unlike a setting, a grant has no default to restore.
 /// </summary>
 public partial class WorkspaceArtifactPageViewModel : ObservableObject, IOptionsPage
 {
@@ -49,12 +49,11 @@ public partial class WorkspaceArtifactPageViewModel : ObservableObject, IOptions
         _reset.Clear();
     }
 
-    /// <summary>The factory state is no persistent grant at all; previewed, and committed on OK like a reset.</summary>
-    public void RestoreDefaults()
-    {
-        foreach (var grant in Grants) _reset.Add(grant.Key);
-        Grants.Clear();
-    }
+    /// <summary>
+    /// Nothing: a grant is consent the user gave, not a setting with a factory value, so neither Restore Defaults nor the
+    /// dialog's Reset All revokes one. Each grant's own Reset does.
+    /// </summary>
+    public void RestoreDefaults() { }
 
     [RelayCommand]
     private void Reset(WorkspaceArtifactGrant grant)
