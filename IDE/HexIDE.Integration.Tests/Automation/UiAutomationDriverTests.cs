@@ -362,6 +362,48 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("Appearance")]
+    [InlineData("Apparence")]
+    public void Select_hidden_property_names_the_category_and_a_toggle_that_opens_it(string header)
+    {
+        var loc = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        loc.GetString("Str.PropCategory.Appearance").Returns(header);
+        var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
+            Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
+        var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
+        var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
+        vm.Properties.Add(property);
+        vm.CategorizedProperties.Add(category);
+        vm.CategorizedProperties.Add(property);
+        var view = new HexIDE.VisualDesigner.Views.PropertiesToolView { DataContext = vm };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+        window.Show();
+        view.FindControl<TabItem>("CategorizedPropertiesTab")!.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var list = view.FindControl<ListBox>("CategorizedProperties")!;
+            category.IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+            var refused = UiAutomationDriver.Interact(list, "select", "BackColor");
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it");
+            list.SelectedItem.Should().BeNull();
+            category.IsExpanded.Should().BeFalse();
+
+            var row = list.ContainerFromIndex(0)!;
+            var toggle = row.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Single();
+            UiAutomationDriver.Interact(toggle, "toggle", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            category.IsExpanded.Should().BeTrue();
+            UiAutomationDriver.Interact(list, "select", "BackColor").Success.Should().BeTrue();
+            list.SelectedItem.Should().BeSameAs(property);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Interact_OnTheShowingCopy_StillActs()
     {

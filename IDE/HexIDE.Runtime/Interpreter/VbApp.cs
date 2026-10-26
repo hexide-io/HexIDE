@@ -26,7 +26,7 @@ public record AppInfo(
     string LegalTrademarks = "",
     string Comments = "",
     bool CommonDialogReferenced = false,
-    IReadOnlyList<Components.InBox.ControlLibrary>? ControlLibraries = null,
+    IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
     string CommandLine = "")
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
@@ -63,7 +63,7 @@ public record AppInfo(
             CommonDialogReferenced: project.UnknownPreSectionLines.Any(l => CommonDialogConstants.IsReference(l.RawLine))
                 || project.Forms.Any(f => f.HeaderLines.Any(CommonDialogConstants.IsReference)),
             // The in-box control libraries the project references, whose constants then resolve (#1082).
-            ControlLibraries: Components.InBox.ControlLibraries.ReferencedBy(project),
+            ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
             CommandLine: PreSectionValue(project, "Command32") ?? "");
     }

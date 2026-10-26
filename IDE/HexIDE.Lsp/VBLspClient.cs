@@ -441,6 +441,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -556,7 +557,13 @@ public sealed class VBLspClient : ILspClient
                     // Not a gate like the three above: the reader below already takes both answers, so
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
-                    DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true)),
+                    DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    SemanticTokens: new SemanticTokensClientCapabilities(new(),
+                        ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+                         "parameter", "variable", "property", "enumMember", "event", "function", "method",
+                         "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
+                        ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true),
@@ -1366,6 +1373,31 @@ public sealed class VBLspClient : ILspClient
             ? new Position(line.GetInt32(), ch.GetInt32())
             : null;
 
+    public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        try
+        {
+            var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
+                .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
+            var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
+                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken);
+            if (result?.Data is not { Length: > 0 })
+            {
+                if (_semanticWarnings.TryAdd(uri, 0))
+                    _logger.LogDebug("[LSP] No semantic tokens for {Uri}; keeping lexical colours", uri);
+                return null;
+            }
+            return new SemanticTokenResult(result.Data, legend);
+        }
+        catch (Exception ex)
+        {
+            if (!cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
+                _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
+            return null;
+        }
+    }
+
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
@@ -1382,7 +1414,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        RequestCompletionAsync(uri, position, cancellationToken, static () => { });
+
+    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
+        CancellationToken cancellationToken, Action onAnswer)
     {
         if (_rpc is null || !_initialized || !CanServe("completionProvider")) return [];
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
@@ -1390,6 +1426,7 @@ public sealed class VBLspClient : ILspClient
         {
             var result = await InvokeRequestAsync<CompletionList?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            onAnswer();
             return result?.Items ?? [];
         }
         catch (Exception ex)
@@ -1726,6 +1763,9 @@ public sealed class VBLspClient : ILspClient
         return [.. symbols];
     }
 
+    /// <summary>How long stopping waits on a server, once for the answer to <c>shutdown</c> and once for <c>exit</c> to go out.</summary>
+    internal static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
+
     public async Task StopAsync()
     {
         ClearProgress();
@@ -1758,20 +1798,24 @@ public sealed class VBLspClient : ILspClient
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
             {
-                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: TimeSpan.FromSeconds(2));
+                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: ShutdownTimeout);
             }
             catch { }
-            try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
+            // Bounded too (#1221). A server that has stopped reading fills the pipe, so the write ahead of this one
+            // never finishes and exit queues behind it for good. The shutdown deadline above does not cover that: it
+            // ends the wait for an answer, not the send. Disposing the connection below ends the stuck writes.
+            try { await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout); } catch { }
         }
         DisposeRpc();
 
         _transport.Closed -= OnTransportClosed;
-        _transport.Notice -= OnTransportNotice;
         await _transport.DisposeAsync();
+        _transport.Notice -= OnTransportNotice;
         _initialized = false;
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
@@ -1797,8 +1841,7 @@ public sealed class VBLspClient : ILspClient
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
-        // went. A kill cannot arrive here: StopAsync unhooks this before it disposes the transport, and each
-        // transport unhooks its own exit handler before it kills.
+        // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
@@ -1807,6 +1850,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -2176,6 +2220,7 @@ public sealed class VBLspClient : ILspClient
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "semanticTokensProvider",
         "hoverProvider",
         "renameProvider",
         "signatureHelpProvider",
@@ -2257,6 +2302,11 @@ public sealed class VBLspClient : ILspClient
         WarnUnavailableOnce("experimental." + capabilityName);
         return false;
     }
+
+    /// <summary>Records an answer discarded by the registry's completion budget.</summary>
+    public void NoteLateCompletion() =>
+        Note(ConversationDirection.Local, ConversationEntryKind.Note, "textDocument/completion",
+            "answered after the popup opened; completion discarded");
 
     /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
     public void NotePrioritySkip(string capabilityName, string winnerId)
@@ -2346,6 +2396,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _semanticWarnings = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever

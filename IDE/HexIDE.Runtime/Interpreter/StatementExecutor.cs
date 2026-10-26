@@ -378,7 +378,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             decimal m => m.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            DateTime dt => dt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            VbDate dt => dt.Serial.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             _ => null,
         };
         return full is null ? null : v.Type + ":" + full;
@@ -807,12 +807,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;   // unreachable — Raise throws
     }
 
-    public override async Task<ControlFlow> VisitContinueStmt(VB6Parser.ContinueStmtContext context)
-    {
-        if (context.CONTINUE_DO() != null)
-            return ControlFlow.ContinueDo;
-        throw new NotImplementedException("Unexpected " + context);
-    }
+    public override Task<ControlFlow> VisitContinueStmt(VB6Parser.ContinueStmtContext context)
+        => throw new VBCompileErrorException("Syntax error");
 
     public override async Task<ControlFlow> VisitExitStmt(VB6Parser.ExitStmtContext context)
     {
@@ -2149,6 +2145,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // expression reads it, which loads Form2 as a read of its control does, and the last is the one assigned
             // (#822). Where the read ends at a UDT the write would land in a copy and be lost, so that is refused.
             var members = membersCall.iCS_S_MemberCall();
+            // Me.mN = value cannot reach a Private class field (vb6.exe SP6, #2121).
+            if (members.Length == 1 && !MemberHasArgs(members[0])
+                && identifier.Equals("Me", StringComparison.OrdinalIgnoreCase)
+                && variable.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Class } me
+                && me.ClassDef.PrePass.PrivateVariables.Contains(UdtFieldName(members[0])))
+                throw new VBCompileErrorException("Method or data member not found");
             if (members.Length > 1)
             {
                 variable = await expressionExecutor.ResolveMemberChain(variable, members[..^1], 0, context);
@@ -2265,6 +2267,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (variable.Type != Vb6Value.ValueType.Control ||
                 variable.Value is not Control control)
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
+            // Every member of a control Controls.Remove took out is 735 (measured, #1556).
+            VBProps.RefuseIfRemoved(control);
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
             if (ProgressBarMembers.TrySet(control, memberIdentifier, value) is { } inBox)
@@ -3148,6 +3152,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && lst.InstanceEnv.TryGetVariableLocation(id, out var fieldLoc)
                 && curLoc == fieldLoc)
                 evtListener = lst;
+            // A control held in a form's WithEvents variable hears its events too (#1556), but a control array element can't
+            // be held (459, measured), and a class module's variable holding one is not implemented.
+            IModuleExecutionRoot? evtRoot = null;
+            if (evtListener != null && value.Value is Control heldControl)
+            {
+                if (VBProps.GetIndex(heldControl) is not null)
+                    throw new VBRunTimeException(context, VBStandardError.ThisComponentDoesntSupportTheSetOfEvents);
+                evtRoot = evtListener.FormWindow as IModuleExecutionRoot
+                    ?? throw new NotImplementedException($"A class's WithEvents {id} holding a control is not implemented (#1556)");
+            }
 
             // Refcount (Phase 4.2): AddRef the new referent BEFORE releasing the slot's old one — this ordering
             // protects `Set x = x` / aliased assignment, and (since a `New` RHS already ran its Initialize during
@@ -3158,6 +3172,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // RaiseEvent during the old source's teardown would reach the just-detached listener).
             if (evtListener != null && oldVal.Value is VbObject oldSrc)
                 oldSrc.RemoveSink(evtListener, id);
+            if (evtListener != null && oldVal.Value is Control oldControl)
+                ControlEvents.Unadvise(oldControl, evtListener, id);
             // Assign the new reference to the slot BEFORE releasing the old one (oracle-verified): a Class_Terminate
             // fired by the release observes the NEW value — `g` points to the new object, not the dying old one — and
             // a reassignment of the slot inside that Terminate is not clobbered by a late slot-write.
@@ -3175,6 +3191,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Advise the new source (RaiseEvent on it now reaches this listener).
             if (evtListener != null && value.Value is VbObject newSrc)
                 newSrc.AddSink(new EventSink(evtMe, id));
+            if (evtListener != null && evtRoot != null && value.Value is Control newControl)
+                ControlEvents.Advise(newControl, evtListener, evtRoot, id);
             await interpreter.ReleaseRef(oldVal);
             return ControlFlow.Nothing;
         }
@@ -3904,8 +3922,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitWithStmt(VB6Parser.WithStmtContext context)
     {
-        // `With New …` and `With <userObject>` need the object model — deferred. A `With` over a Control or
-        // CSharpProxy target works now: push it so leading-dot members inside resolve against it, pop in finally.
+        // Push the target so leading-dot members resolve against it, pop in finally.
         if (context.NEW() != null)
             throw new NotImplementedException("With New is not supported yet (needs the object model)");
 
@@ -3913,6 +3930,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         try
         {
             target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
+            if (target.Value is DebugProxy)
+                throw new VBCompileErrorException("Syntax error");
         }
         catch (VBRunTimeException ex) when (ResumesNext)
         {
@@ -4131,6 +4150,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return true;
         }
 
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.RuntimeLibrary
+            && interpreter.GlobalMember(memberName, qualifier.RuntimeLibrary) is { } global)
+        {
+            await interpreter.CallLibraryMember(global, memberName, await expressionExecutor.EvaluateCallArgs(argsCall));
+            return true;
+        }
+
         // An enum member (`MyEnum.Member`) is a value, not a callable statement — not handled here.
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Enum)
             return false;
@@ -4168,6 +4194,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var callArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
             await interpreter.CallProcedure(subName, callArgs, currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
         }
+        else if (interpreter.GlobalMember(subName) is { } global)
+            await interpreter.CallLibraryMember(global, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
         else
         {
             List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateIntrinsicArgs(subName, context.argsCall());
@@ -4257,6 +4285,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
     {
         aliasScalar = null;
+        if (interpreter.LibraryClassFor(qualifier is null ? typeName : qualifier + "." + typeName) is not null)
+            return true;
         if (VB6InBoxTypes.TryResolve(qualifier, typeName, out var inbox))
         {
             aliasScalar = inbox.Scalar;

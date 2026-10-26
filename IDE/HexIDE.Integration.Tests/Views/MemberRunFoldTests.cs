@@ -1065,6 +1065,53 @@ public class MemberRunFoldTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void SelectAllInAFileThatARunEndsSelectsTheRunButLeavesTheCaretAtTheDeclaration()
+    {
+        // #1019: retain this edge case; the measured VB6-saved corpus has final line breaks.
+        var vm = Open("Option Explicit\r\n\r\nPublic Total As Long\r\nAttribute Total.VB_VarDescription = \"The total\"");
+        var (_, editor) = Show(vm);
+        var fold = RunFold(editor, "Public Total As Long")!;
+        fold.IsFolded.Should().BeTrue();
+        fold.EndOffset.Should().Be(vm.Document.TextLength, "the premise: the run ends the file");
+        PutCaret(editor, LineWith(editor, "Option Explicit").Offset);
+
+        editor.FindAncestorOfType<CodeEditorView>()!.SelectAll.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        editor.SelectionStart.Should().Be(0);
+        editor.SelectionLength.Should().Be(vm.Document.TextLength);
+        Caret(editor).Should().Be(fold.StartOffset);
+        fold.IsFolded.Should().BeTrue();
+
+        Press(editor, Key.Left, KeyModifiers.Shift);
+
+        editor.SelectionStart.Should().Be(0);
+        editor.SelectionLength.Should().Be(fold.StartOffset - 1);
+        Caret(editor).Should().Be(fold.StartOffset - 1);
+        fold.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void SelectToDocumentEndInAFileThatARunEndsSelectsOnlyToTheDeclaration()
+    {
+        var vm = Open("Option Explicit\r\n\r\nPublic Total As Long\r\nAttribute Total.VB_VarDescription = \"The total\"");
+        var (_, editor) = Show(vm);
+        var fold = RunFold(editor, "Public Total As Long")!;
+        fold.IsFolded.Should().BeTrue();
+        fold.EndOffset.Should().Be(vm.Document.TextLength, "the premise: the run ends the file");
+        var start = LineWith(editor, "Option Explicit").EndOffset;
+        PutCaret(editor, start);
+
+        EditingCommands.SelectToDocumentEnd.Execute(null, editor.TextArea);
+        Dispatcher.UIThread.RunJobs();
+
+        editor.SelectionStart.Should().Be(start);
+        editor.SelectionLength.Should().Be(fold.StartOffset - start);
+        Caret(editor).Should().Be(fold.StartOffset);
+        fold.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public async Task AServersFoldOfTheAttributeLinesThemselvesNestsInsideTheRunsFoldAndTheCaretRuleStillHolds()
     {
         // A server that folds the run's own lines, from the first's start to the last's end: inside the run's fold, so

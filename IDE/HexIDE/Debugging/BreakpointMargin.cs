@@ -31,6 +31,13 @@ public sealed class BreakpointMargin : AbstractMargin
     private readonly Func<IReadOnlyList<ExternalBreakpoint>>? _externalRows;
     private readonly Func<int, string?>? _describe;
     private int? hoverLine;
+    internal int? CallSiteLine { get; private set; }
+
+    public void SetCallSite(int? line)
+    {
+        CallSiteLine = line;
+        InvalidateVisual();
+    }
 
     /// <param name="document">
     /// The document this gutter is drawn for. An identity rather than a name: a gutter is built when its view
@@ -115,6 +122,20 @@ public sealed class BreakpointMargin : AbstractMargin
         foreach (var line in textView.VisualLines)
         {
             int lineNumber = line.FirstDocumentLine.LineNumber; // 1-based, matches the store
+            if (CallSiteLine == lineNumber)
+            {
+                double top = line.GetTextLineVisualYPosition(line.TextLines[0], VisualYPosition.LineTop) - textView.VerticalOffset;
+                double middle = top + line.Height / 2;
+                var triangle = new StreamGeometry();
+                using (var path = triangle.Open())
+                {
+                    path.BeginFigure(new Point(2, middle - 5), true);
+                    path.LineTo(new Point(12, middle));
+                    path.LineTo(new Point(2, middle + 5));
+                    path.EndFigure(true);
+                }
+                context.DrawGeometry(Brushes.Green, null, triangle);
+            }
             var row = rows.FirstOrDefault(item => item.RequestedLine == lineNumber);
             if (external ? row is null : !_breakpoints.IsBreakpoint(_document, lineNumber)) continue;
 

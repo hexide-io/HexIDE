@@ -257,7 +257,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("diagnostic")] DiagnosticClientCapabilities? Diagnostic = null,
     // Appended, never inserted, for the reason on InitializeParams.Trace.
     [property: JsonPropertyName("documentSymbol")] DocumentSymbolClientCapabilities? DocumentSymbol = null,
-    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null);
+    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null,
+    [property: JsonPropertyName("semanticTokens")] SemanticTokensClientCapabilities? SemanticTokens = null);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -484,6 +485,16 @@ public record ServerCapabilities(
     /// <summary>
     /// True when the server advertised support for a named capability, in either legal shape.
     /// </summary>
+    public static bool SupportsSemanticTokensFull(System.Text.Json.JsonElement? capabilities) =>
+        capabilities is { ValueKind: System.Text.Json.JsonValueKind.Object } caps
+        && caps.TryGetProperty("semanticTokensProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && provider.TryGetProperty("full", out var full) && IsEnabled(full)
+        && provider.TryGetProperty("legend", out var legend)
+        && legend.ValueKind == System.Text.Json.JsonValueKind.Object
+        && legend.TryGetProperty("tokenTypes", out var types)
+        && types.ValueKind == System.Text.Json.JsonValueKind.Array;
+
     public static bool Supports(System.Text.Json.JsonElement? capabilities, string capabilityName) =>
         capabilities is { } caps
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
@@ -843,8 +854,43 @@ public record MarkupContent(
 
 /// <summary>Hover response — null when there is nothing to show.</summary>
 public record HoverResult(
-    [property: JsonPropertyName("contents")] MarkupContent Contents,
+    [property: JsonPropertyName("contents"), JsonConverter(typeof(HoverContentsConverter))] MarkupContent Contents,
     [property: JsonPropertyName("range")]    Range? Range = null);
+
+/// <summary>Normalizes the three legal hover content shapes to the markup model used by the editor.</summary>
+public sealed class HoverContentsConverter : JsonConverter<MarkupContent>
+{
+    public override MarkupContent Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var contents = document.RootElement;
+        if (contents.ValueKind == JsonValueKind.Object && contents.TryGetProperty("kind", out var kind))
+            return new(kind.GetString()!, contents.GetProperty("value").GetString()!);
+
+        if (contents.ValueKind != JsonValueKind.Array)
+            return new("markdown", ReadMarkedString(contents));
+
+        var parts = new List<string>();
+        foreach (var part in contents.EnumerateArray())
+            parts.Add(ReadMarkedString(part));
+        return new("markdown", string.Join("\n\n", parts));
+    }
+
+    private static string ReadMarkedString(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString()!,
+        JsonValueKind.Object => $"```{value.GetProperty("language").GetString()}\n{value.GetProperty("value").GetString()}\n```",
+        _ => throw new JsonException("Expected a marked string.")
+    };
+
+    public override void Write(Utf8JsonWriter writer, MarkupContent value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("kind", value.Kind);
+        writer.WriteString("value", value.Value);
+        writer.WriteEndObject();
+    }
+}
 
 /// <summary>A location inside a resource, such as a line inside a text file.</summary>
 public record Location(
@@ -993,3 +1039,16 @@ public record WorkDoneProgressValue(
     [property: JsonPropertyName("title")] string? Title = null,
     [property: JsonPropertyName("message")] string? Message = null,
     [property: JsonPropertyName("percentage")] uint? Percentage = null);
+
+public record SemanticTokensClientCapabilities(
+    [property: JsonPropertyName("requests")] SemanticTokensRequests Requests,
+    [property: JsonPropertyName("tokenTypes")] string[] TokenTypes,
+    [property: JsonPropertyName("tokenModifiers")] string[] TokenModifiers,
+    [property: JsonPropertyName("formats")] string[] Formats,
+    [property: JsonPropertyName("overlappingTokenSupport")] bool OverlappingTokenSupport = false,
+    [property: JsonPropertyName("multilineTokenSupport")] bool MultilineTokenSupport = false);
+
+public record SemanticTokensRequests([property: JsonPropertyName("full")] bool Full = true);
+public record SemanticTokensParams([property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
+public record SemanticTokens([property: JsonPropertyName("data")] int[] Data);
+public record SemanticTokenResult(int[] Data, string[] TokenTypes);
