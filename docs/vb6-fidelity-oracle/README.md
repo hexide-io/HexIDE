@@ -658,3 +658,4 @@ added afterwards.
 - [In-box controls: the StatusBar (2026-10-26, #1087)](in-box-controls-the-statusbar.md#in-box-controls-the-statusbar-2026-10-26-1087)
 - [In-box controls: the Toolbar (2026-10-26, #1088)](in-box-controls-the-toolbar.md#in-box-controls-the-toolbar-2026-10-26-1088)
 - [In-box controls: the ListView (2026-10-26, #1085)](in-box-controls-the-listview.md#in-box-controls-the-listview-2026-10-26-1085)
+- [In-box controls: the TreeView (2026-10-27, #1086)](in-box-controls-the-treeview.md#in-box-controls-the-treeview-2026-10-27-1086)
