@@ -407,7 +407,7 @@ public static class VbNumeric
         return Vb6Value.NewCurrency((decimal)units / 10000m);
     }
 
-    private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);
+    private static double SerialOf(Vb6Value v) => v.Value is VbDate dt ? dt.Serial : ToDouble(v);
 
     /// <summary>
     /// The order of two numbers, a Date by its serial: exactly where neither is a Single or a Double, and as Doubles otherwise.
@@ -425,9 +425,9 @@ public static class VbNumeric
 
     private static bool TryToSerial(Vb6Value v, out double serial)
     {
-        if (v.Value is DateTime dt)
+        if (v.Value is VbDate dt)
         {
-            serial = dt.ToOADate();
+            serial = dt.Serial;
             return true;
         }
         return TryToDouble(v, out serial);
@@ -435,8 +435,9 @@ public static class VbNumeric
 
     private static Vb6Value FromSerial(double serial, ParserRuleContext? ctx)
     {
-        try { return new Vb6Value(DateTime.FromOADate(serial)); }
-        catch (ArgumentException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
+        return VbDate.InRange(serial)
+            ? new Vb6Value(new VbDate(serial))
+            : throw new VBRunTimeException(ctx, VBStandardError.Overflow);
     }
 
     private static decimal ToDecimal(Vb6Value v) => v.Value switch
