@@ -633,3 +633,4 @@ added afterwards.
 - [In-box controls: the ProgressBar (2026-10-25, #1082)](in-box-controls-the-progressbar.md#in-box-controls-the-progressbar-2026-10-25-1082)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
 - [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
+- [A date's fraction of a second (2026-10-26, #783)](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783)
