@@ -31,9 +31,10 @@ public static class ConditionalCompiler
         public VB6Parser.ValueStmtContext? Parse(string text) => ConstantExpression.TryParse(text);
 
         public Vb6Value Evaluate(VB6Parser.ValueStmtContext expression, Func<string, Vb6Value> lookup) =>
-            Reported(() => ConstantExpression.Evaluate(expression, lookup));
+            Reported(() => ConstantExpression.Evaluate(expression, lookup, constants.CallsReadZero));
 
-        public bool? Holds(Vb6Value condition) => Reported(() => ConstantExpression.Holds(condition));
+        public bool? Holds(Vb6Value condition) =>
+            condition.IsNull && constants.NullIsUndetermined ? null : Reported(() => ConstantExpression.Holds(condition));
 
         public Vb6Value Constant(Vb6Value value) => value.AsVariant();
 
