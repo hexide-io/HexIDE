@@ -89,6 +89,9 @@ against all of batch 1 and rejected:
 - `DateAdd`'s count is truncated, not rounded: `DateAdd("s", 0.6, d)` and `DateAdd("d", 0.5, d)` both return d, bit for bit.
 - `TimeSerial(12, 0, 0.6)` is exactly 12:00:01, `TimeSerial(12, 0, 1.5)` 12:00:02, and `DateSerial(2000, 1, 1.5)` 2000-01-02.
   The arguments are rounded. A tie that would tell half up from half to even was not measured.
+- `Int` and `Fix` of a Date return a Date: `CStr(Int(e))` prints `31/12/1999`, where a Double would print 36525. Only a
+  date after the epoch was measured. For one before it, neither the type nor which day `Int` lands on was probed. HexIDE
+  floors the serial there and keeps the Date type, as it does after the epoch.
 - `Now` and `Time` are whole seconds; `Timer` is not.
 - `CDate("12:00:00.6")` is Err 13, and `IsDate` of it, with a point or a comma, is False. Text never carries a fraction of a
   second.
@@ -100,3 +103,22 @@ Five of the 322 serials in batch 1, every one with k = 86399.6, differ in their 
 `b + k / 86400`. All 322 match if the quotient is held at the x87's 64-bit precision and only the sum is rounded to a
 double. That is #1214's question, and the rows are recorded there. It is no part of the rounding: the rule above was
 fitted to the serials vb6.exe actually made.
+
+### In HexIDE (#783)
+
+- **A Date carries its serial.** `VbDate` holds the Double the program made, and the Date payload is that, not a .NET
+  `DateTime`, which keeps milliseconds and could not hold the tie direction the rows above turn on.
+- **`VbDate.Instant` is the rule above**, and everything in the table that reads the rounded instant reads it: `VbDisplay`
+  (so `CStr`, `Print #`, `Format$` with no mask and the debugger), the date functions through `AsDate`, `Write #`,
+  `DateValue`, `TimeValue`, and `DateAdd`'s calendar intervals. Arithmetic, comparison, `CDbl`, `Put #`/`Get #`, `CDate`
+  of a number and `DateAdd`'s other intervals use the serial, the last along `VbDate.Continuous`, the line a date before
+  the epoch is counted on.
+- **Also fixed:** `DateAdd`'s count is cut toward zero, where it was rounded to even, and a count past a Long is
+  Overflow. `Int` and `Fix` of a Date return a Date, where they returned a Double: the `CStr(Int(e))` row prints
+  31/12/1999, not 36525. `Now` and `Time` are whole seconds, and so is `FileDateTime`, which was not measured and keeps the
+  second it showed while a fraction was cut off.
+- **`DateFractionOfASecondTests`** builds every serial as the exact Double vb6.exe made, from its logged bits, and must show
+  and read it as vb6.exe did, line for line, as must every function case that does not read the clock.
+- **Two rows are left out**, though each is right to the second: `Format$(d, "hh:nn:ss AMPM")`, where HexIDE does not
+  know the `AMPM` token (#2040), and `Format$(e, "Long Date")`, where .NET's ICU pattern for en-GB adds the weekday
+  Windows leaves out (#2041).
