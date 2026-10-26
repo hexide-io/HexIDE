@@ -259,9 +259,21 @@ SHALL omit the `params` member. The stdio transport SHALL allow two seconds for 
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
 handle. The process exit code SHALL remain observable in the conversation during client stop.
 
+On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
+`ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
+assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
+the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
+assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
+start suspended. Unix crash teardown remains cooperative pending the watchdog part of #406.
+
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
+
+#### Scenario: The Windows IDE is killed without shutdown
+- **GIVEN** a launched stdio or pipe server has been assigned to the job and then spawned a child
+- **WHEN** the IDE process is killed without disposing the transport
+- **THEN** the OS ends both the server and its child by closing the IDE's job handle
 
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
@@ -1114,11 +1126,18 @@ anyway, so it is recorded rather than defended.
 - **AND** it emits nothing for a project carrying no C/C++ files
 - **AND** a real clangd test observes diagnostics changing when the generated arguments define HEXIDE_PROBE
 
+#### Scenario: RDCore project descriptor
+- **WHEN** the rdcore provider is configured
+- **THEN** it emits a `.rdproj` with PascalCase keys, listing every form, module, class and user control as a module by its host path relative to the workspace root
+- **AND** it carries the project's references, and its Conditional Compilation Arguments as precompiler constants, none for a line vb6.exe refuses
+- **AND** it lists no other files, since RDCore parses every listed file as code
+- **AND** it emits nothing for a project with no code files
+
 #### Scenario: Capability boundaries
 - **WHEN** a server declares no artefact
 - **THEN** no artefact is generated for it
 - **AND** the capability grants neither writes outside the workspace nor writes without consent
-- **AND** the public add-in provider contract and `.rdproj` provider remain outside phase 1
+- **AND** the public add-in provider contract remains outside this change
 
 ### Requirement: Completion SHALL merge within a bounded popup budget
 The registry SHALL ask every document claimant concurrently and return when all answer or one

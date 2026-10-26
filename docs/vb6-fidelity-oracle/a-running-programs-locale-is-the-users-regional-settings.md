@@ -69,6 +69,19 @@ agree with writing. `VbLocale.ForProgram` gives the program the user's culture w
 `Format`'s `>` and `<` case with invariant rules, as `UCase` and `LCase` do. Whether VB6 cases by the locale under
 tr-TR is unmeasured for all four (#797).
 
+### Spaces before AM and PM (2026-10-26, #2102)
+
+Issue [#2102](https://github.com/hexide-io/HexIDE/issues/2102), from #1368's corpus dump, records
+`Debug.Print` of a Date with a time as `10/26/2026 6:55:15\u202FAM` under WSL Ubuntu 26.04,
+ICU 78, with `LANG=en_US.UTF-8`. Its en-US long-time pattern was `h:mm:ss\u202Ftt`;
+Windows .NET 10's was `h:mm:ss tt`, with U+0020. The issue records vb6.exe using the ordinary
+space from Windows' locale data. This is the issue's evidence, not a new VB6 probe in this change.
+
+As requested there, `VbLocale.ForProgram` replaces U+202F and U+00A0 in date/time patterns and
+AM/PM designators with U+0020. Tests inject those characters rather than depending on the host's
+ICU version. Other cultures' Windows/VB6 patterns, and an actual ICU pattern containing U+00A0,
+were not measured by the issue; no other pattern differences are corrected here.
+
 ### A date the locale's order cannot make (2026-10-12, #793)
 
 `scripts/vb6-oracle.ps1`, two batches, guest locale **en-GB** (day first). Every Date shown is how vb6.exe printed

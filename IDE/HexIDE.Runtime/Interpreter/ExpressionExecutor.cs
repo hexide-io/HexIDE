@@ -837,7 +837,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 (bangFound, bangTarget) = (true, bangMember);
             if (!bangFound)
                 throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection and a form's Controls");
-            return Bang(bangTarget, bang);
+            return await Bang(bangTarget, bang);
         }
         var identifier = await ExtractIdentifier(context);
         RefuseAmbiguousEnumMember(identifier);
@@ -974,7 +974,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (membersCall.dictionaryCallStmt() is { } trailingBang)
             {
                 var head = await ResolveImplicitCallWithoutBang(ctx, membersCall);
-                return Bang(head, trailingBang);
+                return await Bang(head, trailingBang);
             }
 
             // A namespace qualifier (`Module1.Foo`, `VBA.Abs`, `VBA.Math.Abs`) — resolved before treating the
@@ -1013,7 +1013,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // `!key` alone, inside `With c` (measured, #1471).
         else if (ctx.iCS_S_DictionaryCall() is { } withBang)
         {
-            return Bang(withTargets.Count > 0
+            return await Bang(withTargets.Count > 0
                 ? withTargets.Peek()
                 : throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet), withBang.dictionaryCallStmt());
         }
@@ -1045,16 +1045,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     /// <summary>
     /// <c>x!name</c>: the default member of <c>x</c>, given the name as a String, which on a Collection is its item by key,
-    /// <c>c!key</c> as <c>c("key")</c> and <c>c![key]</c> the same (measured, #1471). No other object's default member
-    /// takes it yet, so anything else is refused.
+    /// <c>c!key</c> as <c>c("key")</c> and <c>c![key]</c> the same (measured, #1471). On a form it is Controls' Item
+    /// (measured, #2066). Other objects are refused.
     /// </summary>
-    private static Vb6Value Bang(Vb6Value target, VB6Parser.DictionaryCallStmtContext bang)
+    private async Task<Vb6Value> Bang(Vb6Value target, VB6Parser.DictionaryCallStmtContext bang)
     {
         var key = BangKey(bang);
         return target.Value switch
         {
             VbCollection items => items.Default([new Vb6Value(key)]),
             FormControls controls => controls.Item([new Vb6Value(key)]),
+            VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form =>
+                await interpreter.Loading((Form: form, Key: key),
+                    static s => FormMembers.ControlsItem(s.Form, [new Vb6Value(s.Key)])),
             null when target.Type == Vb6Value.ValueType.Object
                 => throw new VBRunTimeException(bang, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
             _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection and a form's Controls"),
