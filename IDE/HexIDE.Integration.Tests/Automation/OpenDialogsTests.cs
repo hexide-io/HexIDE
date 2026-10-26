@@ -42,13 +42,20 @@ public class OpenDialogsTests
     // that context on the thread. The headless session gives a test no context of its own either. So a job posted before
     // this test's OpenDialogs.During, and run here, put back the watch of whatever posted it, and the test's NamedInReply
     // went to that watch instead: a flake that needed the job to still be queued, so it showed under load (#2029). The
-    // tools are not exposed to this, since nothing outside the tests runs jobs inline.
+    // tools are not exposed to this: HexIDE's own code never pumps the dispatcher inline, and the tool's flow reaches
+    // NamedInReply through jobs it posted or awaits it took. OpenDialogNoteTests keeps the same helper for HexIDE.Tests.
     private static void RunJobsKeepingContext()
     {
         var context = ExecutionContext.Capture();
-        Dispatcher.UIThread.RunJobs();
-        if (context is not null)
-            ExecutionContext.Restore(context);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
     }
 
     [AvaloniaFact]
@@ -219,15 +226,20 @@ public class OpenDialogsTests
     public void A_job_posted_under_another_watch_does_not_take_this_one_away()
     {
         var form = Shown(new FormWindow(), "Ask");
+        RunJobsKeepingContext();
         try
         {
+            // Posted under another watch, and at the lowest priority a pump runs, so it runs last and its context is the one
+            // left on the thread.
+            var ran = false;
             OpenDialogs.During(OpenDialogs.Watch([form], form));
-            Dispatcher.UIThread.Post(() => { }, DispatcherPriority.Normal);
+            Dispatcher.UIThread.Post(() => ran = true, DispatcherPriority.SystemIdle);
             var waited = OpenDialogs.Watch([form], form);
             OpenDialogs.During(waited);
             var box = Dialog("Question", form);
             try
             {
+                ran.Should().BeTrue("the job posted under the other watch must have run for this to test anything");
                 OpenDialogs.NamedInReply(box);
 
                 OpenDialogs.Note(waited, [form, box]).Should().BeNull("the box was named in the reply, so the note leaves it out");
