@@ -19,6 +19,7 @@ namespace HexIDE.Tools;
 public partial class WatchRowViewModel
 {
     private readonly ILocalizationService _localization;
+    private bool showingOutOfContext = true;
 
     public WatchRowViewModel(WatchExpression watch, ILocalizationService localization)
     {
@@ -54,6 +55,7 @@ public partial class WatchRowViewModel
     public void UpdateExternal(ExternalVariable variable, DapStop stop, ExternalDebugService debugger)
     {
         Update(null);
+        showingOutOfContext = false;
         Value = variable.Value;
         TypeName = variable.Type;
         remoteRoot = new(variable, stop, debugger, _localization);
@@ -62,7 +64,12 @@ public partial class WatchRowViewModel
         OnIsExpandedChanged();
     }
 
-    public void UpdateError(string message) { Update(null); Value = message; }
+    public void UpdateError(string message) { Update(null); showingOutOfContext = false; Value = message; }
+
+    internal void RefreshLocalization()
+    {
+        if (showingOutOfContext) Value = OutOfContext;
+    }
 
     private string OutOfContext => _localization.GetString("Str.Tool.Watches.OutOfContext");
 
@@ -70,6 +77,7 @@ public partial class WatchRowViewModel
     /// the value columns (resumed / not in Break mode).</summary>
     public void Update(DebugEvalResult? result)
     {
+        showingOutOfContext = result is null;
         if (remoteRoot is not null) remoteRoot.PropertyChanged -= RemoteChanged;
         remoteRoot = null;
         if (result is null)

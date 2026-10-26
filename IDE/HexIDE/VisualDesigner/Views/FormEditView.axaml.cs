@@ -61,9 +61,8 @@ public partial class FormEditView : UserControl
                 Log.Debug("FormEditView: Spawning control at ({Left},{Top} {Width}x{Height})",
                     Canvas.GetLeft(NewControlSpawnerPhantom), Canvas.GetTop(NewControlSpawnerPhantom),
                     NewControlSpawnerPhantom.Width, NewControlSpawnerPhantom.Height);
-                vm.SpawnControl(new Rect(Canvas.GetLeft(NewControlSpawnerPhantom),
-                    Canvas.GetTop(NewControlSpawnerPhantom), NewControlSpawnerPhantom.Width,
-                    NewControlSpawnerPhantom.Height));
+                // The phantom is a preview on the form's grid; where the drag began and ended decide the control (#2039).
+                vm.SpawnControlDrawn(newControlInitialPress, e.GetPosition(NewControlSpawner));
                 if (ControlsContainer.ContainerFromIndex(ControlsContainer.SelectedIndex) is { } control)
                 {
                     control.Focus();

@@ -1,0 +1,62 @@
+name: Mirror VB6 behaviour oracle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/vb6-fidelity-oracle/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-oracle
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout HexIDE
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Mirror the oracle
+        env:
+          VB6_BEHAVIOUR_DEPLOY_KEY: ${{ secrets.VB6_BEHAVIOUR_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VB6_BEHAVIOUR_DEPLOY_KEY" ]; then
+            echo "::error::VB6_BEHAVIOUR_DEPLOY_KEY is required to mirror the oracle"
+            exit 1
+          fi
+
+          key="$RUNNER_TEMP/oracle-mirror-key"
+          known_hosts="$RUNNER_TEMP/oracle-mirror-known-hosts"
+          trap 'rm -f "$key" "$known_hosts"' EXIT
+          umask 077
+          printf '%s\n' "$VB6_BEHAVIOUR_DEPLOY_KEY" > "$key"
+          curl --fail --silent --show-error https://api.github.com/meta |
+            python3 -c 'import json, sys; print("\n".join("github.com " + key for key in json.load(sys.stdin)["ssh_keys"]))' > "$known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts"
+
+          mirror="$RUNNER_TEMP/vb6-behaviour"
+          git clone git@github.com:hexide-io/vb6-behaviour.git "$mirror"
+          rsync -a --delete --exclude=.git/ docs/vb6-fidelity-oracle/ "$mirror/"
+          cp ".github/oracle-mirror/LICENSE" "$mirror/LICENSE"
+          cp ".github/oracle-mirror/LICENSE-CODE" "$mirror/LICENSE-CODE"
+          cp ".github/oracle-mirror/README.md" "$mirror/README.md"
+          cat docs/vb6-fidelity-oracle/README.md >> "$mirror/README.md"
+
+          cd "$mirror"
+          git config user.name hexide-oracle-mirror
+          git config user.email hexide-oracle-mirror@users.noreply.github.com
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Oracle mirror is already up to date"
+          else
+            git commit -m "Mirror docs/vb6-fidelity-oracle at hexide-io/HexIDE@$GITHUB_SHA"
+            git push origin HEAD
+          fi

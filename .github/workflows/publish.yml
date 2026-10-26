@@ -338,7 +338,7 @@ jobs:
         if: matrix.rid == 'win-x64'
         with:
           name: hexide-windows-installer
-          path: ./IDE/bin/HexIDE-Setup-*.exe
+          path: ./IDE/bin/hexide-windows-amd64-setup.exe
           if-no-files-found: error
 
       - name: Archive (Windows)
@@ -403,15 +403,15 @@ jobs:
             An open, cross-platform recreation of the Visual Basic 6 IDE. **Alpha.**
 
             > ⚠️ HexIDE opens and runs real VB6 projects, and a save now gives back the file it read:
-            > **21 of the 22 designer files VB6 itself ships survive a save byte for byte**, and the one it
-            > cannot — an ActiveX form — opens read-only rather than being quietly rewritten. Keep a backup
-            > anyway: that measure is Microsoft's own templates, not your project.
+            > **all 22 designer files VB6 itself ships survive a save byte for byte**, and a form HexIDE
+            > cannot give back opens read-only rather than being quietly rewritten. Keep a backup anyway:
+            > that measure is Microsoft's own templates, not your project.
             > [What a save changes](https://hexide.io/scope.html#saving)
 
             **What's new:** [CHANGELOG.md](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/CHANGELOG.md)
 
             **Which download?**
-            - **Windows x64:** `HexIDE-Setup-<version>.exe` — installs for all users; includes .NET.
+            - **Windows x64:** `hexide-windows-amd64-setup.exe` — installs for all users; includes .NET.
             - `hexide-<platform>-selfcontained.*` — portable archive; includes .NET.
             - `hexide-<platform>.*` — smaller, but needs the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
 

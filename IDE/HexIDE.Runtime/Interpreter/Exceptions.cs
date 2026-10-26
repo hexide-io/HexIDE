@@ -210,6 +210,22 @@ public struct VBStandardError
     /// <summary>A form's <c>Controls("Name")</c> where it has no control of that name, the name as it was given (measured, #1060).</summary>
     public static VBStandardError ControlNotFound(string name) => new(730, $"Control '{name}' not found");
     public static readonly VBStandardError CantSaveFileToTEMPDirectory = new(735, "Can't save file to TEMP");
+    /// <summary>A ProgID <c>Controls.Add</c> finds nothing registered for; the description's break is a line feed alone (measured, #1556).</summary>
+    public static VBStandardError InvalidClassString(string progId) => new(711, $"Invalid class string.\nLooking for object with ProgID: {progId}");
+    /// <summary><c>Controls.Add</c> of a class that is no control: <c>'Form'</c> for the VB library's own, the whole ProgID otherwise (measured, #1556).</summary>
+    public static VBStandardError NotAValidControlType(string name) => new(720, $"'{name}' is not a valid control type");
+    /// <summary><c>Controls.Add</c> into a container that can't hold controls, by its class or <c>&lt;Nothing&gt;</c> (measured, #1556).</summary>
+    public static VBStandardError NotAValidControlContainer(string name) => new(721, $"'{name}' is not a valid control container");
+    /// <summary><c>Controls.Add</c> of a name a control on the form already has, in any case, the name as it was given (measured, #1556).</summary>
+    public static VBStandardError ControlNameTaken(string name) => new(727, $"There is already a control with the name '{name}'");
+    public static readonly VBStandardError OnlyAddedControlsCanBeRemoved = new(729, "Controls.Remove can only remove controls added with Controls.Add");
+    /// <summary>Any use of a control Controls.Remove has taken out (measured, #1556): 735 has this second meaning there.</summary>
+    public static readonly VBStandardError ControlRemoved = new(735, "The control is no longer usable because it has been removed from the controls collection");
+    // What a late-bound call answers as the raw HRESULT rather than as VB6's own number: Controls.Add and Remove with too few
+    // or too many arguments, Null or a String where an object is wanted, and Remove of a control array's name (measured, #1556).
+    public static readonly VBStandardError DispatchWrongNumberOfArguments = new(-2147352562, "Wrong number of arguments or invalid property assignment");
+    public static readonly VBStandardError DispatchTypeMismatch = new(-2147352571, "Type mismatch");
+    public static readonly VBStandardError NoSuchInterfaceSupported = new(-2147467262, "System Error &H80004002 (-2147467262).   No such interface supported ");
     public static readonly VBStandardError SearchTextNotFound = new(744, "Search text not found");
     public static readonly VBStandardError ReplacementsTooLong = new(746, "Replacements too long");
     public static readonly VBStandardError OutOfMemory2 = new(31001, "Out of memory");

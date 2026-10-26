@@ -1,0 +1,200 @@
+name: Compiler beta check
+
+# Checks each new twinBASIC beta against HexIDE's compiler adapter (#1219), so a protocol change shows up the day the
+# beta ships rather than when someone uses the adapter. The job:
+#   * downloads the newest beta's release zip, and verifies it against the digest GitHub reports for that asset. GitHub
+#     computes that digest when the asset is uploaded, so it proves the download is the file that was published, not
+#     who built it;
+#   * runs the twinBASIC test project with HEXIDE_TWINBASIC_IDE pointing at it. The live tests load a fixture project
+#     with every channel attached, and record the root initialization and compare it with the newest recording
+#     committed for this beta or an earlier one. A difference fails the run and names each frame that differs.
+#     HEXIDE_REQUIRE_TWINBASIC makes a skipped live test a failure, so a download that went wrong cannot pass;
+#   * uploads the recording and the test log, and reports the result in issues: a compatibility record, whose body is a
+#     table of every beta checked and its last result, and one issue per break, opened only when none is already open.
+#
+# The compiler is launch-and-watch only: started without the IDE, exchanged messages with, and stopped. Nothing reads or
+# alters its files. No licence key is read or sent, since the Community Edition is enough.
+#
+# Nothing is committed from here. When a beta's change is expected, a person downloads its recording from the run,
+# reads it, and keeps it as IDE/HexIDE.TwinBasic.Tests/Recordings/beta-N. Later runs then compare with that one.
+#
+# A pull request that changes this file runs the check without reporting, as the only way to try it before it merges.
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+    inputs:
+      beta:
+        description: A beta number to check instead of the newest, such as 1024
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/compiler-beta-check.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiler-beta-check-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASES: twinbasic/twinbasic
+  RECORD_TITLE: twinBASIC beta compatibility record
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # Tags are beta-x-N. The newest is the highest N rather than the latest date, so a re-published old beta cannot
+      # take its place.
+      - name: Download and verify the beta
+        id: beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.beta }}
+        run: |
+          if ($env:REQUESTED) {
+            if ($env:REQUESTED -notmatch '^\d+$') { throw "A beta is a number, such as 1024, not '$env:REQUESTED'." }
+            $beta = [int]$env:REQUESTED
+          } else {
+            $tags = gh release list --repo $env:RELEASES --limit 50 --json tagName | ConvertFrom-Json
+            $beta = ($tags.tagName | Where-Object { $_ -match '^beta-x-\d+$' } |
+                     ForEach-Object { [int]($_ -replace '^beta-x-', '') } | Measure-Object -Maximum).Maximum
+            if (-not $beta) { throw "None of the newest 50 releases of $env:RELEASES is tagged beta-x-N." }
+          }
+          "beta=$beta" >> $env:GITHUB_OUTPUT
+
+          $asset = "twinBASIC_IDE_BETA_$beta.zip"
+          $release = gh release view "beta-x-$beta" --repo $env:RELEASES --json assets | ConvertFrom-Json
+          $digest = ($release.assets | Where-Object name -eq $asset).digest
+          if ($digest -notmatch '^sha256:[0-9a-f]{64}$') { throw "Release beta-x-$beta has no $asset with a SHA-256 digest." }
+          $dir = Join-Path $env:RUNNER_TEMP compiler
+          gh release download "beta-x-$beta" --repo $env:RELEASES --pattern $asset --dir $dir
+          $actual = 'sha256:' + (Get-FileHash (Join-Path $dir $asset) -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $digest) { throw "$asset is $actual, but its release says $digest." }
+
+          # The live tests read the beta from the folder's name, so it must end in the number.
+          $install = Join-Path $dir "beta-$beta"
+          Expand-Archive (Join-Path $dir $asset) -DestinationPath $install
+          "install=$install" >> $env:GITHUB_OUTPUT
+
+      - name: Run the twinBASIC tests against it
+        id: test
+        working-directory: IDE
+        env:
+          HEXIDE_TWINBASIC_IDE: ${{ steps.beta.outputs.install }}
+          HEXIDE_TWINBASIC_RECORDING_DIR: ${{ runner.temp }}\recording
+          HEXIDE_REQUIRE_TWINBASIC: '1'
+        run: |
+          New-Item -ItemType Directory -Force $env:HEXIDE_TWINBASIC_RECORDING_DIR | Out-Null
+          dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj | Tee-Object (Join-Path $env:RUNNER_TEMP test.log)
+
+      - name: Upload the recording and the test log
+        if: always() && steps.beta.outputs.beta != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: compiler-beta-${{ steps.beta.outputs.beta }}
+          path: |
+            ${{ runner.temp }}/recording/
+            ${{ runner.temp }}/test.log
+          if-no-files-found: ignore
+          retention-days: 30
+
+      # One row per beta in the record, rewritten by each run. A failure opens an issue only when none of its kind is
+      # open, so a daily run cannot report the same break every day.
+      - name: Report the result
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BETA: ${{ steps.beta.outputs.beta }}
+          DOWNLOAD: ${{ steps.beta.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          $result = if ($env:DOWNLOAD -eq 'failure') { 'not checked: the download failed' }
+                    elseif ($env:DOWNLOAD -ne 'success') { $null }
+                    elseif ($env:TEST -eq 'success') { 'passed' }
+                    elseif ($env:TEST -eq 'failure') { 'failed' }
+                    else { $null }
+          if (-not $result) { "The run stopped before checking a beta, so there is nothing to report."; exit 0 }
+          $beta = if ($env:BETA) { $env:BETA } else { '?' }
+          $today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+
+          # Every open issue with the label, matched by title here rather than through GitHub's search, whose tokenising
+          # and indexing lag can miss one, and a miss opens a duplicate. A PowerShell array literal reaches a native
+          # command as separate arguments, so each comma list given to gh is quoted. ConvertFrom-Json emits a JSON array as
+          # one object, so wrapping it in @() would nest it; piping $open enumerates it.
+          $open = gh issue list --repo $env:GITHUB_REPOSITORY --state open --label twinbasic --limit 200 --json 'number,title' |
+                  ConvertFrom-Json
+          $record = ($open | Where-Object title -eq $env:RECORD_TITLE | Select-Object -First 1).number
+          $rows = @{}
+          if ($record) {
+            $old = (gh issue view $record --repo $env:GITHUB_REPOSITORY --json body | ConvertFrom-Json).body
+            foreach ($line in $old -split "`r?`n") { if ($line -match '^\| (\d+) \|') { $rows[[int]$Matches[1]] = $line } }
+          }
+          if ($beta -ne '?') { $rows[[int]$beta] = "| $beta | $result | $today | [run]($env:RUN) |" }
+          $table = ($rows.Keys | Sort-Object -Descending | Select-Object -First 60 | ForEach-Object { $rows[$_] }) -join "`n"
+          $body = "The compiler beta check (``.github/workflows/compiler-beta-check.yml``, #1219) keeps this table. Each row " +
+                  "is the last run for that beta, and the next run rewrites the table, so don't edit it by hand.`n`n" +
+                  "| Beta | Result | Checked | Run |`n|---|---|---|---|`n$table`n"
+          $file = Join-Path $env:RUNNER_TEMP record.md
+          Set-Content -Path $file -Value $body -NoNewline
+          if ($record) {
+            gh issue edit $record --repo $env:GITHUB_REPOSITORY --body-file $file | Out-Null
+            $recordUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/issues/$record"
+          } else {
+            $recordUrl = gh issue create --repo $env:GITHUB_REPOSITORY --title $env:RECORD_TITLE --body-file $file --label 'chore,trivial,ci,twinbasic'
+          }
+
+          if ($result -eq 'passed') { exit 0 }
+          # One open issue per kind of failure, whichever beta it names. Betas ship most days, so a per-beta issue would
+          # open a new one every day until someone acted, and the record already carries each beta's result.
+          $kind = if ($env:DOWNLOAD -eq 'failure') { '^The twinBASIC beta check could not ' } else { '^twinBASIC beta \d+ fails the compiler adapter''s tests$' }
+          $already = $open | Where-Object { $_.title -match $kind } | Select-Object -First 1
+          if ($already) { "Issue #$($already.number), '$($already.title)', is already open for this kind of failure."; exit 0 }
+
+          if ($env:DOWNLOAD -eq 'failure') {
+            $title = if ($beta -ne '?') { "The twinBASIC beta check could not download beta $beta" }
+                     else { "The twinBASIC beta check could not find a beta" }
+            $what = if ($beta -ne '?') { "download and verify beta $beta" } else { 'find a beta to check' }
+            $body = "The [compiler beta check]($env:RUN) could not $what. Its log says why: no beta-x-N release, " +
+                    "no zip on the release, or a zip that does not match its digest.`n`n" +
+                    "Opened by the compiler beta check (#1219)."
+          } else {
+            $title = "twinBASIC beta $beta fails the compiler adapter's tests"
+            $log = Join-Path $env:RUNNER_TEMP test.log
+            $excerpt = if (Test-Path $log) {
+              (Select-String -Path $log -Pattern 'error test failed|differs at offset|is only in beta|before \(beta|now \(beta|Failed!' |
+               Select-Object -First 40 | ForEach-Object { $_.Line.Trim() }) -join "`n"
+            }
+            $body = "The [compiler beta check]($env:RUN) failed on beta $beta.`n`n" +
+                    $(if ($excerpt) { "``````text`n$excerpt`n```````n`n" } else { "" }) +
+                    "The run's artifacts hold this beta's recording and the full test log.`n`n" +
+                    "- **A protocol change that HexIDE should follow:** fix the adapter, then keep the new recording.`n" +
+                    "- **An expected change:** read the recording, and keep it as ``IDE/HexIDE.TwinBasic.Tests/Recordings/beta-$beta``, " +
+                    "with a README as ``beta-1024`` has. Later runs then compare with it.`n`n" +
+                    "Opened by the compiler beta check (#1219). While this is open, later failing runs, on this beta or a newer " +
+                    "one, update the [compatibility record]($recordUrl) instead of opening another issue."
+          }
+          Set-Content -Path $file -Value $body -NoNewline
+          gh issue create --repo $env:GITHUB_REPOSITORY --title $title --body-file $file --label 'bug,small,twinbasic'
+
