@@ -7,6 +7,7 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
@@ -20,6 +21,7 @@ using HexIDE.Localization;
 using HexIDE.Themes;
 using HexIDE.Projects;
 using HexIDE.Runtime;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -102,6 +104,9 @@ public partial class MainViewViewModel : ObservableObject
         private set => SetProperty(ref _layout, value);
     }
 
+    public DelegateCommand SaveFormCommand { get; }
+    public DelegateCommand SaveFormAsCommand { get; }
+
     public DelegateCommand StartDefaultProjectCommand { get; }
     public DelegateCommand StartExternalDebugCommand { get; }
     public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
@@ -135,6 +140,16 @@ public partial class MainViewViewModel : ObservableObject
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
 
+    private void UpdateRunState()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(WindowTitle));
+        if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
+            StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
+        else
+            StatusBar.ClearMessage();
+    }
+
     public string Title
     {
         get
@@ -142,8 +157,10 @@ public partial class MainViewViewModel : ObservableObject
             var prefix = projectManager.CurrentGroup?.Name
                       ?? FocusedProjectUtil.FocusedOrStartupProject?.Name;
             return prefix == null
-                ? "HexIDE [design]"
-                : $"{prefix} - HexIDE " + (projectRunnerService.IsRunning ? "[run]" : "[design]");
+                ? localization.GetString("Str.MainWindow.NoProjectTitle")
+                : $"{prefix} - HexIDE " + localization.GetString(debugController.State == DebugState.Paused
+                    ? "Str.MainWindow.BreakTag"
+                    : projectRunnerService.IsRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
         }
     }
 
@@ -224,8 +241,25 @@ public partial class MainViewViewModel : ObservableObject
             TranslationEditorViewModel translationEditor,
             LanguageServersToolViewModel languageServers,
             HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
-            IWindowStateService windowStateService)
+            IWindowStateService windowStateService,
+            DockFactoryReference documentDockFactory)
         {
+            ArgumentNullException.ThrowIfNull(toolBox);
+            ArgumentNullException.ThrowIfNull(project);
+            ArgumentNullException.ThrowIfNull(properties);
+            ArgumentNullException.ThrowIfNull(formLayout);
+            ArgumentNullException.ThrowIfNull(immediate);
+            ArgumentNullException.ThrowIfNull(locals);
+            ArgumentNullException.ThrowIfNull(watches);
+            ArgumentNullException.ThrowIfNull(callStack);
+            ArgumentNullException.ThrowIfNull(colorPalette);
+            ArgumentNullException.ThrowIfNull(objectBrowser);
+            ArgumentNullException.ThrowIfNull(translationEditor);
+            ArgumentNullException.ThrowIfNull(languageServers);
+            ArgumentNullException.ThrowIfNull(protocolInspector);
+            ArgumentNullException.ThrowIfNull(windowStateService);
+            ArgumentNullException.ThrowIfNull(documentDockFactory);
+
             this.windowStateService = windowStateService;
             toolsByKey = new Dictionary<string, IDockable>
             {
@@ -242,6 +276,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["translationEditor"] = translationEditor,
                 ["languageServers"]   = languageServers,
             };
+            documentDockFactory.Value = this;
         }
 
         public override IToolDock CreateToolDock()
@@ -743,6 +778,8 @@ public partial class MainViewViewModel : ObservableObject
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info => RevealBreak(info.Module);
         StatusBar = statusBarService;
+        debugController.Stopped += _ => Dispatcher.UIThread.Post(UpdateRunState);
+        debugController.Continued += () => Dispatcher.UIThread.Post(UpdateRunState);
         ToolBox = toolBox;
         Properties = properties;
         Immediate = immediate;
@@ -873,6 +910,11 @@ public partial class MainViewViewModel : ObservableObject
             };
         }
 
+        SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
+            () => FocusedProjectUtil.FocusedForm != null);
+        SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
+            () => FocusedProjectUtil.FocusedForm != null);
+
         // F5 doubles as Continue in break mode (VB6 semantics): resume if paused, otherwise start.
         StartDefaultProjectCommand = new DelegateCommand(
             () =>
@@ -974,12 +1016,7 @@ public partial class MainViewViewModel : ObservableObject
             .Subscribe(_ =>
             {
                 StartExternalDebugCommand.RaiseCanExecutedChanged();
-                OnPropertyChanged(nameof(Title));
-                OnPropertyChanged(nameof(WindowTitle));
-                if (projectRunnerService.IsRunning)
-                    StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
-                else
-                    StatusBar.ClearMessage();
+                UpdateRunState();
             });
 
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
@@ -1014,13 +1051,20 @@ public partial class MainViewViewModel : ObservableObject
 
         // The Save/Remove "<form>" headers depend on the focused form, not just the project.
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedForm)
-            .Subscribe(_ => RaiseDynamicMenuHeaders());
+            .Subscribe(_ =>
+            {
+                RaiseDynamicMenuHeaders();
+                SaveFormCommand.RaiseCanExecutedChanged();
+                SaveFormAsCommand.RaiseCanExecutedChanged();
+                CommandManager.InvalidateRequerySuggested();
+            });
 
         // Re-localize every code-built header live when the language changes.
         localization.LanguageChanged += () =>
         {
             RaiseDynamicMenuHeaders();
             UpdateUndoHeaders();
+            UpdateRunState();
         };
 
         // Options → Language → Customize commits-and-closes the modal dialog, then publishes this event so
@@ -1075,6 +1119,21 @@ public partial class MainViewViewModel : ObservableObject
     {
         Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
         NYI();
+    }
+
+    private void SaveActiveForm(bool saveAs)
+    {
+        // Use the document's save path so form code keeps format-on-save.
+        if (documentDockService.ActiveDocument is FormEditViewModel designer)
+        {
+            if (saveAs) designer.SaveFormAs();
+            else designer.SaveForm();
+        }
+        else if (documentDockService.ActiveDocument is CodeEditorViewModel code)
+        {
+            if (saveAs) code.SaveFormAs();
+            else code.SaveForm();
+        }
     }
 
     public void SaveProject() => projectService.SaveAllProjects(false).ListenErrors();
@@ -1143,7 +1202,11 @@ public partial class MainViewViewModel : ObservableObject
 
     public void MakeProject() => projectService.MakeProject().ListenErrors();
 
-    public void OpenOptions() => windowManager.ShowDialog(new OptionsViewModel(settingsService, themeService, keymapService, languageSwitch, addinRegistry, addinOptionsService, developerModeService, localization, eventBus));
+    public void OpenOptions() => OpenOptionsAt(null);
+
+    public void OpenAddInManager() => OpenOptionsAt("Str.Options.Node.AddIns");
+
+    private void OpenOptionsAt(string? initialNodeKey) => windowManager.ShowDialog(new OptionsViewModel(settingsService, themeService, keymapService, languageSwitch, addinRegistry, addinOptionsService, developerModeService, localization, eventBus, initialNodeKey));
 
     public void About()
     {

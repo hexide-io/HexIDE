@@ -4,6 +4,8 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
+using Antlr4.Runtime.Misc;
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
@@ -635,6 +637,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
+        BuiltIns.ControlLibraries = info.ControlLibraries ?? [];
         BuiltIns.CommandLine = info.CommandLine;
     }
 
@@ -666,16 +669,43 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
-        // Reject pathological nesting as a compile error, not a crash, naming the module as a syntax error does.
-        parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
         parsingModule = moduleName;
         try
         {
-            return parser.startRule();
+            return ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
         }
         finally
         {
             parsingModule = null;
+        }
+    }
+
+    private T ParseWithFallback<T>(VB6Parser parser, Func<VB6Parser, T> parse,
+        bool bailOnError = false, bool requireEnd = false, string? moduleName = null)
+    {
+        parser.RemoveErrorListeners();
+        parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
+        parser.Interpreter.PredictionMode = PredictionMode.SLL;
+        parser.ErrorHandler = new BailErrorStrategy();
+        try
+        {
+            var tree = parse(parser);
+            // Standalone rules can accept a prefix under SLL; let LL decide the whole entry.
+            if (requireEnd && parser.CurrentToken.Type != TokenConstants.EOF)
+                throw new ParseCanceledException();
+            return tree;
+        }
+        catch (ParseCanceledException)
+        {
+            // SLL can mispredict call-versus-array syntax. Retry with LL and the original error policy.
+            parser.Reset();
+            parser.RemoveParseListeners();
+            parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
+            parser.Interpreter.PredictionMode = PredictionMode.LL;
+            parser.ErrorHandler = bailOnError ? new BailErrorStrategy() : new DefaultErrorStrategy();
+            if (!bailOnError)
+                parser.AddErrorListener(this);
+            return parse(parser);
         }
     }
 
@@ -693,8 +723,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
-        parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
-        var tree = parser.valueStmt();
+        var tree = ParseWithFallback(parser, p => p.valueStmt(), requireEnd: true);
         if (parser.CurrentToken.Type != Antlr4.Runtime.TokenConstants.EOF)
             throw new VBCompileErrorException($"Unexpected token '{parser.CurrentToken.Text}'");
         return tree;
@@ -712,11 +741,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
         parser.RemoveErrorListeners();
-        parser.AddParseListener(new ParseDepthGuard());
         parser.ErrorHandler = new Antlr4.Runtime.BailErrorStrategy();   // any syntax error → bail; we return null
         try
         {
-            var stmt = parser.blockStmt();
+            var stmt = ParseWithFallback(parser, p => p.blockStmt(), bailOnError: true, requireEnd: true);
             // Require the WHOLE line to be one statement — trailing tokens (`count + `) mean it isn't a clean one.
             return parser.CurrentToken.Type == Antlr4.Runtime.TokenConstants.EOF ? stmt : null;
         }
@@ -1518,13 +1546,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             && TryResolveEnum(name, from, out _);
     }
 
-    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer }
+    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer, ControlLibrary, ControlLibraryContainer }
 
     /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
     /// <see cref="QualifierKind.InBoxContainer"/>, the library or enum/module name as VB6 declares it —
     /// these levels SELECT rather than being stepped over, so the name has to survive classification.</param>
+    /// <param name="ControlLibrary">For <see cref="QualifierKind.ControlLibrary"/> and
+    /// <see cref="QualifierKind.ControlLibraryContainer"/>, the referenced control library (#1082).</param>
     public readonly record struct QualifierTarget(QualifierKind Kind, ModuleInfo? Module,
-        Dictionary<string, long>? EnumMembers, string? Name = null);
+        Dictionary<string, long>? EnumMembers, string? Name = null, Components.InBox.ControlLibrary? ControlLibrary = null);
 
     /// <summary>Resolve a leading identifier as a namespace qualifier — a user module, an <c>Enum</c> type, or
     /// the <c>VBA</c>/<c>VB</c> libraries. The caller MUST check for a same-named variable first (it shadows the
@@ -1546,6 +1576,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Measured: the container selects on its own, and `DragConstants.vbYes` is refused.
         if (VB6InBoxLibraries.IsContainer(name))
         { target = new QualifierTarget(QualifierKind.InBoxContainer, null, null, name); return true; }
+        // A control library the project references, and its enums (#1082): `MSComctlLib.ccOrientationVertical` and
+        // `ScrollingConstants.ccScrollingStandard`, measured. After the four in-box libraries, as an Object= reference comes
+        // after them in VB6's order, so an enum both declare, BorderStyleConstants among them, is the in-box library's.
+        if (ControlLibraryQualifier(name) is { } controlLibrary) { target = controlLibrary; return true; }
         // The PROJECT name is an outermost qualifier level — `Project1.Module1.MyEnum.Foo`, and a bare
         // `Project1.Foo`. Measured legal, to four segments. It is checked LAST so a module or enum of the
         // same name still wins, and it resolves to nothing in particular: there is one project in scope,
@@ -1554,6 +1588,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         { target = new QualifierTarget(QualifierKind.Project, null, null); return true; }
         target = default;
         return false;
+    }
+
+    private QualifierTarget? ControlLibraryQualifier(string name)
+    {
+        foreach (var library in BuiltIns.ControlLibraries)
+            if (library.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                return new QualifierTarget(QualifierKind.ControlLibrary, null, null, library.Name, library);
+        foreach (var library in BuiltIns.ControlLibraries)
+            if (library.ContainerName(name) is { } container)
+                return new QualifierTarget(QualifierKind.ControlLibraryContainer, null, null, container, library);
+        return null;
     }
 
     /// <summary>The four libraries a Standard EXE references by default, from the measured inventory.
@@ -1660,7 +1705,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // Optional defaults evaluate in the OWNER module's context (a default may name an owner-module
                 // helper); an empty With scope (a leading `.X` in a default is Error 91).
                 // Three cases, and VB6 distinguishes all three (measured — see the IsMissing section of
-                // docs/vb6-fidelity-oracle.md):
+                // docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md):
                 //   a default    → that value, and IsMissing is False
                 //   a non-Variant declared type → that type's zero, and IsMissing is False
                 //   an untyped or As Variant parameter → Missing (#866, native and in the IDE)

@@ -137,6 +137,36 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     // PositionHint = count of recognised keys seen before each unknown line.
     public List<(int PositionHint, string RawLine)> UnknownPreSectionLines { get; } = new();
 
+    /// <summary>
+    /// The position hint of an <c>Object=</c> line the Components dialog added, which the writer resolves to just after the
+    /// last <c>Form=</c> line: where VB6's Save Project put one (measured, #1103).
+    /// </summary>
+    public const int AfterFormsHint = -1;
+
+    /// <summary>Reference a control library by its <c>.vbp</c> line, as the Components dialog does (#1103).</summary>
+    public void AddObjectLine(string line)
+    {
+        UnknownPreSectionLines.Add((AfterFormsHint, line));
+        ObjectReferencesChanged?.Invoke(this);
+    }
+
+    /// <summary>Drop every <c>Object=</c> line naming <paramref name="guid"/>. True where there was one.</summary>
+    public bool RemoveObjectReference(string guid)
+    {
+        if (UnknownPreSectionLines.RemoveAll(l => ObjectReference.TryParse(l.RawLine, out var r) && r.Names(guid)) == 0)
+            return false;
+        ObjectReferencesChanged?.Invoke(this);
+        return true;
+    }
+
+    /// <summary>Raised when the Components dialog adds or drops an <c>Object=</c> line, which the toolbox follows (#1103).</summary>
+    public event Action<ProjectDefinition>? ObjectReferencesChanged;
+
+    /// <summary>The control libraries the project's <c>Object=</c> lines name, in the order it lists them (#1082).</summary>
+    public IEnumerable<ObjectReference> ObjectReferences =>
+        UnknownPreSectionLines.Select(l => ObjectReference.TryParse(l.RawLine, out var r) ? r : (ObjectReference?)null)
+            .Where(r => r is not null).Select(r => r!.Value);
+
     // Verbatim .vbp item lines (Form=/UserDocument=/...) for project items that were parsed but not
     // loaded into the live model — e.g. a UserDocument (.dob, unsupported) or a Form whose .frm file is
     // missing on disk. Carried so an open->save round-trip never drops the node, even on a host that
@@ -169,15 +199,22 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public void AddReference(VbReference r)
     {
         if (!references.Contains(r))
+            {
             references.Add(r);
+            OnPropertyChanged(nameof(References));
+        }
     }
 
-    public void RemoveReference(VbReference r) => references.Remove(r);
+    public void RemoveReference(VbReference r)
+    {
+        if (references.Remove(r)) OnPropertyChanged(nameof(References));
+    }
 
     public void SetReferences(IEnumerable<VbReference> newReferences)
     {
         references.Clear();
         references.AddRange(newReferences);
+        OnPropertyChanged(nameof(References));
     }
 
     public event Action<ProjectDefinition, FormDefinition>? FormAdded;

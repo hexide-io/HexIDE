@@ -178,7 +178,8 @@ header included, and every position it reads or writes SHALL be counted from the
 document's content SHALL accept either the whole file with its header unchanged or the code alone, keeping the
 header, and SHALL be refused if it would change the header, or a member's attribute lines other than by moving or
 renaming them with that member or deleting them with its declaration. An edit to a range of a document SHALL be
-refused if it would change the header or any other read-only region. Either refusal SHALL tell the add-in why, and
+refused if its requested span would change the header or any other read-only region. An empty range edit
+removing a declaration's whole text SHALL also remove its Attribute run, as a key deletion does. Either refusal SHALL tell the add-in why, and
 a refusal for a member's attribute lines SHALL name the member.
 
 An add-in SHALL be able to name a document by its project as well as its name, and SHALL be able to reach a

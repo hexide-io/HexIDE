@@ -17,6 +17,20 @@ public class CallStackToolViewModelTests
 
     private CallStackToolViewModel CreateSut() => new(_localization, _debugController);
 
+    [AvaloniaTheory]
+    [InlineData("{0}, Zeile {1}", "Module1.A, Zeile 3")]
+    [InlineData("第{1}行、{0}", "第3行、Module1.A")]
+    public void Stopped_UsesLocalizedRowNameIncludingPlaceholderOrder(string format, string expected)
+    {
+        _localization.GetString("Str.Tool.CallStack.RowName").Returns(format);
+        _debugController.GetCallStack().Returns(new[] { new CallStackFrame("A", "Module1", 3) });
+        var sut = CreateSut();
+
+        _debugController.Stopped += Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.Breakpoint, "Module1", 3));
+
+        sut.Frames.Single().ToString().Should().Be(expected);
+    }
+
     [AvaloniaFact]
     public void SelectingBuiltInCallerShowsItsModuleAndLineWithoutChangingExecution()
     {

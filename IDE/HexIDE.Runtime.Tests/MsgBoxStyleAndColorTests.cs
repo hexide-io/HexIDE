@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// MsgBox's style read as the Long it is, and RGB and QBColor. Every expectation was measured on vb6.exe; the probe
-/// and its output are in docs/vb6-fidelity-oracle.md, "RGB, QBColor and MsgBox's style".
+/// and its output are in docs/vb6-fidelity-oracle/rgb-qbcolor-and-msgboxs-style.md, "RGB, QBColor and MsgBox's style".
 /// </summary>
 public class MsgBoxStyleAndColorTests : BaseVBTestFixture
 {

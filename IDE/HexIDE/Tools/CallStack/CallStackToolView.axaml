@@ -20,6 +20,7 @@
                  SelectionChanged="OnSelectionChanged" DoubleTapped="OnDoubleTapped">
             <ListBox.Styles>
                 <Style Selector="ListBoxItem">
+                    <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AccessibleName}" x:DataType="callstack:CallStackRow" />
                     <Setter Property="Padding" Value="0" />
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 </Style>

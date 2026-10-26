@@ -12,6 +12,11 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
+**Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
+`VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
+[probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;
+expression interiors beyond the bound are skipped. The interpreter's expression-walk overflow remains.
+
 ---
 
 ## Two limits, and only one of them is a backlog
@@ -155,6 +160,9 @@ their conversion functions remain follow-up work; this adds no external API exec
 An empty `If True Then:` line is accepted without requiring `End If` (#223); the following line is
 an independent statement. Both grammars also accept leading empty colon statements and labels before
 `End If`, using the measured label-name list.
+
+Whitespace-only offending tokens are named `end of line` in unexpected-input and syntax-error-near
+messages, rather than shown as empty quotes (#665). Null, empty and EOF tokens still read `end of file`.
 
 ### Conditional compilation
 
@@ -398,7 +406,7 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
 - ◐ Only those six words are refused as a new name, and any other keyword is let through. VB6 refuses
   more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
-  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle.md`](./vb6-fidelity-oracle.md),
+  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle/enums.md`](./vb6-fidelity-oracle/enums.md),
   *Which keywords may name a label*). Whether it refuses each of them as a variable or procedure name has not
   been measured, and the IDE and this server refuse only the words measured in one of those positions.
 

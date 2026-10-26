@@ -26,7 +26,7 @@ public class ConversationRedactorTests
         // the field this test happened to think of.
         const string Body = """
             {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":
-            {"uri":"file:///C:/Users/quintana/Projects/InvoiceLedger/Form1.frm","languageId":"vb6",
+            {"uri":"file:///C:/Fixtures/quintana/Projects/InvoiceLedger/Form1.frm","languageId":"vb6",
             "version":1,"text":"Option Explicit"}}}
             """;
 
@@ -35,7 +35,7 @@ public class ConversationRedactorTests
         redacted.Should().NotContain("quintana");
         redacted.Should().NotContain("Projects");
         redacted.Should().NotContain("InvoiceLedger");
-        redacted.Should().NotContain("Users");
+        redacted.Should().NotContain("Fixtures");
     }
 
     [Fact]
@@ -46,8 +46,8 @@ public class ConversationRedactorTests
         // which is the failure mode that gets a redactor switched off.
         var redactor = Redactor();
 
-        var root = redactor.Uri("file:///C:/Users/quintana/Projects/InvoiceLedger");
-        var document = redactor.Uri("file:///C:/Users/quintana/Projects/InvoiceLedger/Form1.frm");
+        var root = redactor.Uri("file:///C:/Fixtures/quintana/Projects/InvoiceLedger");
+        var document = redactor.Uri("file:///C:/Fixtures/quintana/Projects/InvoiceLedger/Form1.frm");
 
         document.Should().StartWith(root + "/");
     }
@@ -88,8 +88,8 @@ public class ConversationRedactorTests
         // still differ, and differ in the same place they differed before.
         var redactor = Redactor();
 
-        var sent = redactor.Uri("file:///C:/Users/quintana/Form1.frm");
-        var echoed = redactor.Uri("file:///c:/Users/quintana/Form1.frm");
+        var sent = redactor.Uri("file:///C:/Fixtures/quintana/Form1.frm");
+        var echoed = redactor.Uri("file:///c:/Fixtures/quintana/Form1.frm");
 
         sent.Should().NotBe(echoed, "folding these together is what made the original bug invisible");
         sent.Should().Contain("/C:/");
@@ -390,7 +390,7 @@ public class ConversationRedactorTests
         // half-redacted export is the one nobody can reason about.
         var redactor = Redactor(pseudonymise: false);
 
-        const string Uri = "file:///C:/Users/quintana/Form1.frm";
+        const string Uri = "file:///C:/Fixtures/quintana/Form1.frm";
         redactor.Uri(Uri).Should().Be(Uri);
         redactor.Body($"{{\"uri\":\"{Uri}\"}}").Should().Be($"{{\"uri\":\"{Uri}\"}}");
         redactor.LocalPath(@"D:\work\quintana").Should().Be(@"D:\work\quintana");

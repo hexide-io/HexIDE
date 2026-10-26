@@ -94,6 +94,8 @@ public sealed class LanguageServerConfigLoader
             byId[id] = entry;
         }
 
+        // Before the announcement, because added arguments change what runs.
+        ApplyArgumentOverrides(byId, file?.Arguments, problems);
         var entries = order.Select(id => byId[id]).ToList();
         AnnounceUnseenCommands(entries, seen, problems);   // instance: it logs
 
@@ -123,6 +125,71 @@ public sealed class LanguageServerConfigLoader
         }
 
         return new LanguageServerConfigResult(entries, problems, limits, perServer);
+    }
+
+    /// <summary>
+    /// Adds the file's top-level <c>arguments</c> to the entries they name (#262), after the user's entries have been
+    /// layered over the defaults, so an override follows the id whichever entry holds it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Added, never replacing.</b> The point is the entries whose command a user cannot write, and replacing their
+    /// arguments would drop whatever the found command was given.
+    /// </para>
+    /// <para>
+    /// <b>In the entry's own form, or not at all.</b> Two lists join, and two command lines join with a space. A list
+    /// added to a command line, or the reverse, is reported and left out. Joining them would mean quoting the list or
+    /// splitting the line, and the server would then receive HexIDE's guess at its arguments. An entry with no
+    /// arguments takes the override as written, which is the bundled server's case.
+    /// </para>
+    /// <para>
+    /// The entry is copied before it changes, since a default is an instance the caller still holds.
+    /// </para>
+    /// </remarks>
+    private static void ApplyArgumentOverrides(Dictionary<string, LanguageServerEntry> byId,
+        Dictionary<string, ServerArguments>? overrides, List<LanguageServerConfigProblem> problems)
+    {
+        if (overrides is not { Count: > 0 }) return;
+
+        foreach (var (id, added) in overrides.OrderBy(o => o.Key, StringComparer.Ordinal))
+        {
+            if (!byId.TryGetValue(id, out var entry))
+            {
+                problems.Add(new LanguageServerConfigProblem(id,
+                    $"\"arguments\" names '{id}', but no server has that id. They have been ignored.", false));
+                continue;
+            }
+            if (entry.Enabled == false) continue; // already reported as switched off, and nothing will run
+            if (LaunchedCommandOf(entry) is null)
+            {
+                problems.Add(new LanguageServerConfigProblem(id,
+                    $"\"arguments\" names '{id}', which HexIDE connects to but starts no process for. They have been ignored.",
+                    false, LanguageServerConfigProblemKind.IgnoredField));
+                continue;
+            }
+            if (added is null || added.ToString().Length == 0) continue;
+
+            var own = entry.Arguments;
+            ServerArguments? combined =
+                own is null || (own.List is null && string.IsNullOrWhiteSpace(own.Text)) || own.List is { Length: 0 } ? added
+                : own.List is { } ownList && added.List is { } addedList ? new ServerArguments(null, [.. ownList, .. addedList])
+                : own.List is null && added.List is null ? new ServerArguments($"{own.Text!.Trim()} {added.Text!.Trim()}", null)
+                : null;
+            if (combined is null)
+            {
+                problems.Add(new LanguageServerConfigProblem(id,
+                    $"\"arguments\" for '{id}' must be written in the same form as the entry's own: "
+                  + $"{(own!.List is null ? "a command-line string" : "an array of strings")}. They have been ignored.",
+                    false));
+                continue;
+            }
+
+            var copy = JsonSerializer.Deserialize(
+                JsonSerializer.Serialize(entry, LanguageServerConfigJsonContext.Default.LanguageServerEntry),
+                LanguageServerConfigJsonContext.Default.LanguageServerEntry)!;
+            copy.Arguments = combined;
+            byId[id] = copy;
+        }
     }
 
     /// <summary>
@@ -246,9 +313,16 @@ public sealed class LanguageServerConfigLoader
         // there is nothing to announce.
         if (string.IsNullOrWhiteSpace(entry.Command)) return null;
 
-        return string.IsNullOrWhiteSpace(entry.Arguments)
+        var command = string.IsNullOrWhiteSpace(entry.Arguments?.ToString())
             ? entry.Command.Trim()
-            : $"{entry.Command.Trim()} {entry.Arguments.Trim()}";
+            : $"{entry.Command.Trim()} {entry.Arguments!.ToString()}";
+
+        // So is the environment: NODE_OPTIONS, LD_PRELOAD or PATH change what the same command line runs. Sorted,
+        // so reordering the map is not a new command; absent or empty, so an entry with none keeps the identity it
+        // had before environments existed.
+        if (entry.Environment is not { Count: > 0 } environment) return command;
+        var variables = environment.OrderBy(v => v.Key, StringComparer.Ordinal).Select(v => $"{v.Key}={v.Value}");
+        return $"{command} [environment: {string.Join("; ", variables)}]";
     }
 
     /// <summary>
@@ -344,8 +418,9 @@ public sealed class LanguageServerConfigLoader
         if (transport is "websocket")
         {
             Note("command", entry.Command);
-            Note("arguments", entry.Arguments);
+            Note("arguments", entry.Arguments?.ToString());
             Note("workingDirectory", entry.WorkingDirectory);
+            Note("environment", entry.Environment);
         }
 
         if (transport is "stdio" or "websocket")
@@ -355,7 +430,10 @@ public sealed class LanguageServerConfigLoader
         }
 
         if (transport is "stdio" or "pipe")
+        {
             Note("endpoint", entry.Endpoint);
+            Note("websocketRole", entry.WebSocketRole);
+        }
 
         if (ignored.Count == 0) return;
 

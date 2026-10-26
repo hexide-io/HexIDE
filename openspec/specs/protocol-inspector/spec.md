@@ -110,6 +110,10 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 - **WHEN** a request was not sent because the server advertised no such capability
 - **THEN** the record says so and names the capability, marked as never sent
 
+#### Scenario: Another server has priority
+- **WHEN** a server advertises a one-answer capability but another claimant wins selection
+- **THEN** its record SHALL explain which claimant has priority for that capability, marked as never sent, once per capability per connection
+
 #### Scenario: A request that failed inside this client
 - **WHEN** a message cannot be serialized and so never reaches the transport
 - **THEN** the record says so, naming the method, marked as never sent
@@ -178,6 +182,14 @@ weigh, because a message count tells them nothing about how much of their source
 #### Scenario: A normalisation defect surviving redaction
 - **WHEN** a client and a server referred to one document by two spellings
 - **THEN** the two spellings remain distinguishable in the exported capture
+
+#### Scenario: A client-supplied workspace folder name
+- **WHEN** HexIDE initializes a language server with pseudonymisation enabled
+- **THEN** it SHALL send each workspace folder's name as the same session pseudonym used for that folder's URI segment in an export
+- **AND** the URI sent to the server SHALL remain the real workspace URI
+- **AND** body redaction SHALL remain textual, without a structural pass or a project-name sweep
+
+A name a server echoes back in its own fields is outside this guarantee and may survive export.
 
 #### Scenario: Reading your own conversation
 - **WHEN** a developer views a captured message in the IDE

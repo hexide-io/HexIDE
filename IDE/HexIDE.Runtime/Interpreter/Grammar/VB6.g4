@@ -2382,6 +2382,14 @@ IDENTIFIER
 
 // whitespace, line breaks, comments, ...
 
+// A continuation between word fragments must separate names rather than concatenate them (#224).
+// Other continuations retain their existing handling, including KWSEP inside multi-word keywords.
+IDENTIFIER_CONTINUATION
+   : {char.IsLetterOrDigit((char)InputStream.LA(-1)) || InputStream.LA(-1) == '_'}?
+     [ \t]+ '_' [ \t]* ('\r'? '\n' | '\r') [ \t]*
+     {char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
+   ;
+
 // A whitespace RUN before the underscore, and any whitespace after it. This used to demand exactly one
 // space and nothing trailing, which rejected shapes that are everywhere in real VB6 — a tab before the
 // underscore, and the multi-space alignment people use to line their continuations up. A rejected

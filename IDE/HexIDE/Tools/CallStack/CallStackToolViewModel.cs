@@ -15,6 +15,7 @@ namespace HexIDE.Tools;
 /// </summary>
 public partial class CallStackToolViewModel : Tool
 {
+    private readonly ILocalizationService localization;
     private readonly Debugging.ExternalDebugService? externalDebugger;
     private bool synchronizingSelection;
     // Navigation is separate from the paused activation: inspecting a caller never changes execution or Locals.
@@ -34,6 +35,7 @@ public partial class CallStackToolViewModel : Tool
 
     public CallStackToolViewModel(ILocalizationService localization, IDebugController debugController, Debugging.ExternalDebugService? externalDebugger = null)
     {
+        this.localization = localization;
         this.externalDebugger = externalDebugger;
         localization.BindTitle(this, "Str.Tool.CallStack.Title");
         CanPin = false;
@@ -59,7 +61,7 @@ public partial class CallStackToolViewModel : Tool
                     if (externalDebugger.Frames.Count == 0 || !ReferenceEquals(displayedFrames, externalDebugger.Frames))
                     {
                         displayedFrames = externalDebugger.Frames;
-                        Frames = displayedFrames.Select((frame, index) => new CallStackRow(
+                        Frames = displayedFrames.Select((frame, index) => CreateRow(
                             (index == 0 ? "→ " : "   ") + frame.GetProperty("name").GetString(), frame.GetProperty("line").GetInt32(),
                             externalDebugger.Stop, frame.GetProperty("id").GetInt32())).ToArray();
                     }
@@ -92,23 +94,35 @@ public partial class CallStackToolViewModel : Tool
         finally { synchronizingSelection = false; }
     }
 
+    private CallStackRow CreateRow(string frame, int line, HexIDE.Dap.DapStop? stop = null, int? frameId = null) =>
+        new(frame, line, string.Format(localization.GetString("Str.Tool.CallStack.RowName"),
+            frame.TrimStart('→', ' '), line), stop, frameId);
+
     private void Refresh(IDebugController debugController)
     {
         ShownFrame = null;
         FrameShown?.Invoke();
         var stack = debugController.GetCallStack();
         Frames = stack
+<<<<<<< HEAD
             .Select((f, i) => new CallStackRow((i == 0 ? "→ " : "   ") + $"{f.Module}.{f.ProcName}", f.Line, Module: f.Module, IsCaller: i > 0))
+=======
+            .Select((f, i) => CreateRow((i == 0 ? "→ " : "   ") + $"{f.Module}.{f.ProcName}", f.Line))
+>>>>>>> upstream/main
             .ToList();
     }
 }
 
 /// <summary>One Call Stack row: the frame ("Module.Procedure", current marked) and its 1-based line.</summary>
+<<<<<<< HEAD
 public sealed record CallStackRow(string Frame, int Line, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null, string? Module = null, bool IsCaller = false)
+=======
+public sealed record CallStackRow(string Frame, int Line, string AccessibleName, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null)
+>>>>>>> upstream/main
 {
     // The name a row is shown and addressed by in dump_visual_tree: "Main, line 6". The record's own text carried the
     // debug session's id and stop generation, so a row's path went stale at every stop (#1182).
-    public override string ToString() => $"{Frame.TrimStart('→', ' ')}, line {Line}";
+    public override string ToString() => AccessibleName;
 
     // Each row is its own frame: a recursive call shows the same procedure and line twice, and a list told the two were
     // equal selected the first for the second (#1182 review).

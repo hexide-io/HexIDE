@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HexIDE.Lsp.Messages;
@@ -245,7 +246,8 @@ public record LogTraceParams(
 
 public record ClientCapabilities(
     [property: JsonPropertyName("textDocument")] TextDocumentClientCapabilities? TextDocument = null,
-    [property: JsonPropertyName("workspace")] WorkspaceClientCapabilities? Workspace = null);
+    [property: JsonPropertyName("workspace")] WorkspaceClientCapabilities? Workspace = null,
+    [property: JsonPropertyName("window")] WindowClientCapabilities? Window = null);
 
 public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("publishDiagnostics")] PublishDiagnosticsClientCapabilities? PublishDiagnostics = null,
@@ -846,8 +848,43 @@ public record MarkupContent(
 
 /// <summary>Hover response — null when there is nothing to show.</summary>
 public record HoverResult(
-    [property: JsonPropertyName("contents")] MarkupContent Contents,
+    [property: JsonPropertyName("contents"), JsonConverter(typeof(HoverContentsConverter))] MarkupContent Contents,
     [property: JsonPropertyName("range")]    Range? Range = null);
+
+/// <summary>Normalizes the three legal hover content shapes to the markup model used by the editor.</summary>
+public sealed class HoverContentsConverter : JsonConverter<MarkupContent>
+{
+    public override MarkupContent Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var contents = document.RootElement;
+        if (contents.ValueKind == JsonValueKind.Object && contents.TryGetProperty("kind", out var kind))
+            return new(kind.GetString()!, contents.GetProperty("value").GetString()!);
+
+        if (contents.ValueKind != JsonValueKind.Array)
+            return new("markdown", ReadMarkedString(contents));
+
+        var parts = new List<string>();
+        foreach (var part in contents.EnumerateArray())
+            parts.Add(ReadMarkedString(part));
+        return new("markdown", string.Join("\n\n", parts));
+    }
+
+    private static string ReadMarkedString(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString()!,
+        JsonValueKind.Object => $"```{value.GetProperty("language").GetString()}\n{value.GetProperty("value").GetString()}\n```",
+        _ => throw new JsonException("Expected a marked string.")
+    };
+
+    public override void Write(Utf8JsonWriter writer, MarkupContent value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("kind", value.Kind);
+        writer.WriteString("value", value.Value);
+        writer.WriteEndObject();
+    }
+}
 
 /// <summary>A location inside a resource, such as a line inside a text file.</summary>
 public record Location(
@@ -980,3 +1017,19 @@ public record VbaBuiltinSymbol(
 // Cancellation IDs are a protocol union, represented by two scalar contracts for source generation.
 public sealed record CancelNumericRequestParams([property: JsonPropertyName("id")] long Id);
 public sealed record CancelStringRequestParams([property: JsonPropertyName("id")] string Id);
+
+public record WindowClientCapabilities(
+    [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true);
+
+public record WorkDoneProgressCreateParams(
+    [property: JsonPropertyName("token")] JsonElement Token);
+
+public record ProgressParams(
+    [property: JsonPropertyName("token")] JsonElement Token,
+    [property: JsonPropertyName("value")] WorkDoneProgressValue Value);
+
+public record WorkDoneProgressValue(
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("title")] string? Title = null,
+    [property: JsonPropertyName("message")] string? Message = null,
+    [property: JsonPropertyName("percentage")] uint? Percentage = null);

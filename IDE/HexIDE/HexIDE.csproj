@@ -2,6 +2,8 @@
     <PropertyGroup>
         <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
         <Nullable>enable</Nullable>
+        <!-- LibraryImport-generated marshalling only; NativeInteropTests guards handwritten code. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>latest</LangVersion>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <TrimMode>full</TrimMode>
@@ -54,6 +56,7 @@
         <AvaloniaResource Include="Keymaps\Packs\*.json" />
         <None Remove="Localization\Packs\*.json" />
         <AvaloniaResource Include="Localization\Packs\*.json" />
+        <AvaloniaResource Remove="Localization\Packs\zz.json;Localization\Packs\zz-ZZ.json" />
     </ItemGroup>
 
     <ItemGroup>

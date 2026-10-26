@@ -73,7 +73,7 @@ internal static class VbInput
                 throw new NotImplementedException($"Input # of {field.Text}, too large for a Double, into a {target} is not implemented (#1521)");
             var value = ToVariant(field);
             if (value.Type == VT.String || value.Type == VT.EmptyVariant)
-                return target == VT.Boolean ? new Vb6Value(false) : new Vb6Value(ZeroDate);
+                return target == VT.Boolean ? new Vb6Value(false) : new Vb6Value(new VbDate(0));
             if (value.Type == target)
                 return value;
             if (IsOneOf(value.Type, VT.Boolean, VT.Date, VT.Null))
@@ -82,8 +82,6 @@ internal static class VbInput
         }
         throw new NotImplementedException($"Input # into a {target} is not implemented (#1521)");
     }
-
-    private static readonly DateTime ZeroDate = new(1899, 12, 30);
 
     private static Vb6Value HashForm(string text)
     {
@@ -104,7 +102,7 @@ internal static class VbInput
             || inner.ToUpperInvariant() is "TRUE" or "FALSE" or "NULL")
             throw new NotImplementedException($"Input # of {text} into a Variant is not implemented (#1521)");
         if (DateTime.TryParseExact(inner, MeasuredDateShapes, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var date))
-            return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(date));
+            return new Vb6Value(VbDate.FromDateTime(VB6BuiltIns.OnZeroDateIfTimeOnly(date)));
         // Only the shapes above were measured, and `#abc#` reads as written. .NET would take `#1/2#` as this year's 2 January,
         // and `#5 PM#` and `#Jan 5#` too, which nothing measured says VB6 does.
         if (DateTime.TryParse(inner, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _))

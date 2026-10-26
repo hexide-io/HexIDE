@@ -190,7 +190,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body)
     {
-        if (body is null || DeclaresDefaultMember)
+        if (body is null || body is VB6Parser.ValueStmtContext || DeclaresDefaultMember)
             return;
         if (body is VB6Parser.AttributeStmtContext attribute
             && attribute.implicitCallStmt_InStmt().GetText() is var name
@@ -209,6 +209,12 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         this.rootEnv = rootEnv;
         this.state = state;
+    }
+
+    public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
+    {
+        // Expressions contain no declarations, and a flat operator chain can be arbitrarily deep.
+        return node is VB6Parser.ValueStmtContext ? null : base.VisitChildren(node);
     }
 
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)

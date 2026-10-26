@@ -66,6 +66,17 @@ public static class VbScopeAnalyzer
 
     private sealed class DeclarationCollectorVisitor : VisualBasic6ParserBaseVisitor<object?>
     {
+        private int _depth;
+        private const int MaxDepth = 500;
+
+        // Generated visitors descend via VisitChildren, bypassing Visit.
+        public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
+        {
+            if (++_depth > MaxDepth) { --_depth; return null; }
+            try   { return base.VisitChildren(node); }
+            finally { --_depth; }
+        }
+
         public bool HasOptionExplicit { get; private set; }
 
         /// <summary>Declared names → type annotation and declaration kind.</summary>
@@ -190,11 +201,10 @@ public static class VbScopeAnalyzer
         public List<LspDiagnostic> Diagnostics { get; } = [];
 
         // Depth guard: degenerate inputs can produce deep trees; bail out before overflowing the stack.
-        public override object? Visit(Antlr4.Runtime.Tree.IParseTree? tree)
+        public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
         {
-            if (tree is null) return null;
             if (++_depth > MaxDepth) { --_depth; return null; }
-            try   { return base.Visit(tree); }
+            try   { return base.VisitChildren(node); }
             finally { --_depth; }
         }
 

@@ -89,6 +89,26 @@ public static class TlbMemberDump
         return name;
     }
 
+    // A type as the library declares it: a VARTYPE's name without its VT_ prefix (R4, I2, BSTR, BOOL, VARIANT), a
+    // user-defined type's own name (OrientationConstants, IPictureDisp), "()" after an array's element. A pointer is
+    // followed to what it points at, which is how a ByRef parameter and a retval slot are typed.
+    private static string TypeOf(ComTypes.ITypeInfo ti, ComTypes.TYPEDESC td)
+    {
+        var vt = (VarEnum)td.vt;
+        if (vt == VarEnum.VT_PTR)
+            return TypeOf(ti, (ComTypes.TYPEDESC)Marshal.PtrToStructure(td.lpValue, typeof(ComTypes.TYPEDESC)));
+        if (vt == VarEnum.VT_SAFEARRAY)
+            return TypeOf(ti, (ComTypes.TYPEDESC)Marshal.PtrToStructure(td.lpValue, typeof(ComTypes.TYPEDESC))) + "()";
+        if (vt == VarEnum.VT_USERDEFINED)
+        {
+            ComTypes.ITypeInfo r;
+            ti.GetRefTypeInfo(td.lpValue.ToInt32(), out r);
+            return NameOf(r, MEMBERID_NIL);
+        }
+        var s = vt.ToString();
+        return s.StartsWith("VT_") ? s.Substring(3) : s;
+    }
+
     private static ComTypes.TYPEATTR AttrOf(ComTypes.ITypeInfo ti)
     {
         IntPtr p;
@@ -181,13 +201,19 @@ public static class TlbMemberDump
                 int size = Marshal.SizeOf(typeof(ComTypes.ELEMDESC));
                 bool put = invoke == "let" || invoke == "set";
                 int listed = 0;
+                // The member's type: what a get or a method returns, through its retval slot or its own return, and what a
+                // let or set assigns. HRESULT and VOID, a method returning nothing, are left empty.
+                string type = TypeOf(ti, fd.elemdescFunc.tdesc);
                 for (int k = 0; k < fd.cParams; k++)
                 {
                     var ed = (ComTypes.ELEMDESC)Marshal.PtrToStructure(
                         new IntPtr(fd.lprgelemdescParam.ToInt64() + (long)k * size), typeof(ComTypes.ELEMDESC));
                     short pflags = (short)ed.desc.paramdesc.wParamFlags;
                     if ((pflags & PARAMFLAG_FRETVAL) != 0 || (put && k == fd.cParams - 1))
+                    {
+                        type = TypeOf(ti, ed.tdesc);
                         continue;
+                    }
                     bool optional = (pflags & PARAMFLAG_FOPT) != 0 || k >= fd.cParams - fd.cParamsOpt;
                     string pname = k + 1 < got && names[k + 1] != null ? names[k + 1] : "arg" + k;
                     if (listed++ > 0) ps.Append(',');
@@ -196,6 +222,7 @@ public static class TlbMemberDump
                 ps.Append(']');
                 rows.Add("{\"kind\":" + Json(memberKind) + ",\"class\":" + Json(className) + ",\"interface\":" + Json(iname)
                        + ",\"name\":" + Json(names[0]) + ",\"invoke\":" + Json(invoke) + ",\"params\":" + ps
+                       + ",\"type\":" + Json(type == "HRESULT" || type == "VOID" ? "" : type)
                        + ",\"hidden\":" + (((int)fd.wFuncFlags & FUNCFLAG_FHIDDEN) != 0 ? "true" : "false")
                        + ",\"restricted\":" + (((int)fd.wFuncFlags & FUNCFLAG_FRESTRICTED) != 0 ? "true" : "false") + "}");
             }
@@ -250,6 +277,8 @@ foreach ($line in $rows) {
     $c = $classes[$r.class]
     # The row's own JSON with its kind, class and interface taken off, which the grouping now says.
     $body = $line -replace '^\{"kind":"[A-Z]+","class":"[^"]*","interface":"[^"]*",', '{'
+    # The type is in the JSONL rows only, so vb6-form-members.json regenerates as it was committed.
+    $body = $body -replace ',"type":"[^"]*"', ''
     switch ($r.kind) {
         'CLASS' { $c.interfaces.Add('{"name":"' + $r.interface + '","role":"' + $r.role + '"}') }
         'EVENT' { $c.events.Add($body) }

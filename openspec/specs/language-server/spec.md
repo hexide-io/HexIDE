@@ -48,6 +48,14 @@ intention.
 - **WHEN** a different language backend is placed behind the seam
 - **THEN** it serves the IDE without any change to the IDE, provided it honours the contract below
 
+### Requirement: Syntax diagnostics SHALL name whitespace-only offending tokens
+The server SHALL describe a whitespace-only offending token as `end of line` in mismatched-input,
+extraneous-input and no-viable-alternative diagnostics.
+
+#### Scenario: An expression is unfinished at the end of a line
+- **WHEN** a newline is the offending token in an unfinished expression
+- **THEN** the diagnostic names `end of line` rather than displaying empty quotes
+
 ### Requirement: The server SHALL publish an empty diagnostic set when a document closes
 On being notified that a document closed, the server SHALL publish diagnostics for that document with an
 empty set, rather than publishing nothing.
@@ -364,3 +372,13 @@ variables and parameters as Variable.
 #### Scenario: Completing Date without a declaration
 - **WHEN** completion is requested for a document without a Date declaration
 - **THEN** Date appears once, with completion kind Function (3)
+
+### Requirement: Symbol and scope visitors SHALL bound parse-tree recursion
+The symbol, declaration and Option Explicit visitors SHALL stop descending at 500 active
+`VisitChildren` calls, so a left-associated expression cannot overflow their call stacks.
+Traversal SHALL continue with subsequent statements after a bounded subtree is skipped.
+
+#### Scenario: A long addition chain below the source-size gate
+- **WHEN** a parsed module contains 100,000 additions followed by declarations and another procedure
+- **THEN** symbol and declaration collection completes and retains the later declarations and procedure
+- **AND** Option Explicit checking can still report an undeclared reference in a later statement
