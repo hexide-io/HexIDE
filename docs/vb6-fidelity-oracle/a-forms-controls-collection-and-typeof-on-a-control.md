@@ -109,3 +109,14 @@ to.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
 
+
+### Bang access on the form (#2066)
+
+Issue #2066 records the #1556 measurement, with native and p-code agreeing: `Me!a2`
+returns the control named a2, just as `Controls!a2` and `Controls("a2")` do. Reading
+`Me!a2.Name` therefore reaches that control's Name. The form's default member is
+Controls. The measurement includes a control created with `Controls.Add`; HexIDE
+still refuses Add under #1556, but form bang reads now use the existing Controls lookup.
+
+Provenance: [#2066](https://github.com/hexide-io/HexIDE/issues/2066), reporting the
+native and p-code probes made for #1556. No new compiler run was made for this fix.
