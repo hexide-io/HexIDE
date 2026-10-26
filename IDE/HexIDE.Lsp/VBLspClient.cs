@@ -1385,7 +1385,11 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        RequestCompletionAsync(uri, position, cancellationToken, static () => { });
+
+    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
+        CancellationToken cancellationToken, Action onAnswer)
     {
         if (_rpc is null || !_initialized || !CanServe("completionProvider")) return [];
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
@@ -1393,6 +1397,7 @@ public sealed class VBLspClient : ILspClient
         {
             var result = await InvokeRequestAsync<CompletionList?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            onAnswer();
             return result?.Items ?? [];
         }
         catch (Exception ex)
@@ -1729,6 +1734,9 @@ public sealed class VBLspClient : ILspClient
         return [.. symbols];
     }
 
+    /// <summary>How long stopping waits on a server, once for the answer to <c>shutdown</c> and once for <c>exit</c> to go out.</summary>
+    internal static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
+
     public async Task StopAsync()
     {
         ClearProgress();
@@ -1761,16 +1769,19 @@ public sealed class VBLspClient : ILspClient
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
             {
-                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: TimeSpan.FromSeconds(2));
+                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: ShutdownTimeout);
             }
             catch { }
-            try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
+            // Bounded too (#1221). A server that has stopped reading fills the pipe, so the write ahead of this one
+            // never finishes and exit queues behind it for good. The shutdown deadline above does not cover that: it
+            // ends the wait for an answer, not the send. Disposing the connection below ends the stuck writes.
+            try { await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout); } catch { }
         }
         DisposeRpc();
 
         _transport.Closed -= OnTransportClosed;
-        _transport.Notice -= OnTransportNotice;
         await _transport.DisposeAsync();
+        _transport.Notice -= OnTransportNotice;
         _initialized = false;
         _capabilities = null;
         _identity = null;
@@ -1800,8 +1811,7 @@ public sealed class VBLspClient : ILspClient
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
-        // went. A kill cannot arrive here: StopAsync unhooks this before it disposes the transport, and each
-        // transport unhooks its own exit handler before it kills.
+        // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
@@ -2260,6 +2270,11 @@ public sealed class VBLspClient : ILspClient
         WarnUnavailableOnce("experimental." + capabilityName);
         return false;
     }
+
+    /// <summary>Records an answer discarded by the registry's completion budget.</summary>
+    public void NoteLateCompletion() =>
+        Note(ConversationDirection.Local, ConversationEntryKind.Note, "textDocument/completion",
+            "answered after the popup opened; completion discarded");
 
     /// <summary>Explains a routing decision once per capability per connection, on the skipped connection.</summary>
     public void NotePrioritySkip(string capabilityName, string winnerId)

@@ -85,6 +85,6 @@ time of measuring, for comparison: the reads were that compile error, which `On 
 - **An early-bound assignment is the 382 too, when the statement runs.** HexIDE doesn't tell early binding from late, so
   it gives every assignment what VB6 gives the only kind it compiles. That's the translation `interpreter-core` prescribes
   for a compile-time refusal, and #1340's for a TextBox's MultiLine.
-- **Not measured:** a UserControl's Name, which VB6 is recalled to give through its Extender; and the Name of a control
-  added at run time with `Controls.Add`.
+- **Not measured:** a UserControl's Name, which VB6 is recalled to give through its Extender. A control added at run time
+  with `Controls.Add` reads the name Add gave it, and has no Index (343): "Controls.Add and Controls.Remove" (#1556).
 

@@ -68,8 +68,12 @@ public static class OpenDialogs
         return string.Join("; ", parts) + "; dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
     }
 
-    // Read the same live controls and automation names a tree dump exposes, including disabled choices.
-    private static string DescriptionOf(Window dialog)
+    // Read the same live controls and automation names a tree dump exposes, including disabled choices. The note, the
+    // program wait, keyboard typing's stop, the key refusal and close's refusal name a waiting dialog through this, since
+    // its title alone does not tell the reset prompt from the run-time error dialog: both are 'HexIDE' (#1365, #1975).
+    // The buttons listed are the ways to answer it, so a toggle is not one: a check box and a radio button are buttons to
+    // Avalonia, and Options listed "Prompt for project" beside OK and Cancel (#2079).
+    internal static string DescriptionOf(Window dialog)
     {
         var controls = dialog.GetVisualDescendants().OfType<Control>().ToList();
         var content = dialog.Content;
@@ -82,7 +86,7 @@ public static class OpenDialogs
             _ => null,
         };
         var buttons = string.Join("/", controls.OfType<Button>()
-            .Where(b => b.IsEffectivelyVisible)
+            .Where(b => b is not Avalonia.Controls.Primitives.ToggleButton && b.IsEffectivelyVisible)
             .Select(b => ControlAutomationPeer.CreatePeerForElement(b)?.GetName()?.Replace("_", ""))
             .Where(name => !string.IsNullOrWhiteSpace(name)));
         var details = new List<string>();
@@ -97,7 +101,8 @@ public static class OpenDialogs
         }
         if (buttons.Length > 0)
             details.Add(buttons);
-        return $"'{dialog.Title}'" + (details.Count == 0 ? "" : $" ({string.Join(", ", details)})");
+        var named = string.IsNullOrEmpty(dialog.Title) ? "one with no title" : $"'{dialog.Title}'";
+        return named + (details.Count == 0 ? "" : $" ({string.Join(", ", details)})");
     }
 
     private static string FirstLine(string text)

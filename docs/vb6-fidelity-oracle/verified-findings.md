@@ -173,7 +173,9 @@ bit-exact). `Rnd(0)` returns the last value **without advancing**; `Rnd(<0)` res
 `Randomize [n]` only varies the starting seed — our reseed fold is deterministic-but-not-bit-identical to VB6's
 (documented divergence; the fixed-seed sequence itself *is* bit-exact). **Later measurement, 2026-10-12:**
 `Randomize n` does not *restart* the sequence either. The same `n` twice gives two different draws in VB6, and
-only `Rnd(-1)` beforehand makes it repeat; see "A form-based game's runtime surface".
+only `Rnd(-1)` beforehand makes it repeat; see "A form-based game's runtime surface". **Both rules measured,
+2026-10-26:** what `Rnd(<0)` and `Randomize n` do to the state, bit for bit, is in
+[Rnd and Randomize](rnd-and-randomize.md).
 
 ### Inspection intrinsics (interpreter-core Phase 3.4)
 
@@ -324,7 +326,8 @@ Advanced numeric (3.7.2):
 > beyond decimal range. HexIDE renders **every** numeric format of such a value in scientific notation (`G15`) —
 > matching VB6 for General/Scientific, but **approximating** a fixed mask (`0.00`) as scientific rather than VB6's
 > full expansion. The point of the fix (bug-hunt HIGH) was to stop `(decimal)d` throwing an **uncatchable**
-> `OverflowException`; the fixed-mask expansion is a parked refinement.
+> `OverflowException`; the fixed-mask expansion is a parked refinement. **2026-10-26:** what the expansion keeps,
+> 15 significant digits and then zeros, is in [Format of a number beyond Decimal's range](format-of-a-number-beyond-decimals-range.md) (#2118).
 
 Date/time (3.7.3), anchor `#3/5/2020 2:07:09 PM#` (a Thursday):
 
@@ -336,6 +339,7 @@ Date/time (3.7.3), anchor `#3/5/2020 2:07:09 PM#` (a Thursday):
 | `h`/`hh` | `14` / `14` | **24-hour** — no AM/PM token present |
 | `h AM/PM` | `2 PM` | an AM/PM token switches `h` to **12-hour** |
 | `AM/PM`·`am/pm`·`A/P`·`a/p` | `PM`·`pm`·`P`·`p` | |
+| `AMPM`, any case | `PM` | the user's own designator, and 12-hour; see [Format's AMPM token](formats-ampm-token.md) (#2040) |
 | `hh:mm` / `hh:mm:ss` | `14:07` / `14:07:09` | **`m`/`mm` right after `h`/`hh` = MINUTE**; a separator between them doesn't reset it |
 | `mm` standalone / `m/d/yy` | `03` / `3/5/20` | month when not after an hour token |
 | `n`/`nn` | `7` / `07` | `n` is **always** minute |
