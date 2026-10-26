@@ -111,7 +111,7 @@ public class InBoxToolboxTests
         var comctl = toolbox.Components.Single(c => c.Library == ControlLibraries.ComctlLib);
 
         toolbox.SelectedComponent = comctl;
-        vm.SpawnControl(new Avalonia.Rect(8, 8, 120, 20));
+        vm.SpawnControlDrawn(new Avalonia.Point(8, 8), new Avalonia.Point(128, 28));
 
         form.HeaderLines.Should().Equal(Comctl32Form);
         vm.CommitLayout();

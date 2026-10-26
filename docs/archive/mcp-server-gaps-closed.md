@@ -5363,6 +5363,11 @@ and `MouseUp`.
 held, release at the second point to whatever holds the pointer.
 [#1402](https://github.com/hexide-io/HexIDE/issues/1402).
 
+**The designer has the same gap (2026-10-26, #2039).** Drawing a control with a tool is a drag too, and which container
+it goes into depends on where the drag began. `add_control` places as a drag begun at its top-left would, so the rule was
+checked live through it. A drag up and to the left, where the two differ, was driven only headlessly, by
+`DrawIntoContainerTests`, through the view's own pointer handlers.
+
 
 **Fixed (#1402).** `click` accepts `10,5 to 200,30` or `10,5 to <path>:300,190`, with a full
 `dump_visual_tree` path (spaces included). Release coordinates are relative to that control, or the target
