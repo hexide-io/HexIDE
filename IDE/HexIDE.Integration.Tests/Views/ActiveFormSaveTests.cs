@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -45,7 +47,7 @@ public class ActiveFormSaveTests
             CommandManager.SetCommandBindings(Window, CommandManager.GetCommandBindings(Main));
             Window.Show();
             Dispatcher.UIThread.RunJobs();
-            Tool.Focus().Should().BeTrue();
+            Tool.Focus();
         }
 
         public void Dispose()
@@ -58,9 +60,10 @@ public class ActiveFormSaveTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Tool_focus_saves_the_active_designer(bool saveAs)
+    public async Task Tool_focus_saves_the_active_designer(bool saveAs)
     {
         using var shell = new Shell();
+        await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var projects = Substitute.For<IProjectService>();
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
         var designer = new FormEditViewModel(null!, Substitute.For<IEventBus>(), projects,
@@ -69,39 +72,43 @@ public class ActiveFormSaveTests
         shell.Composition.DocumentDockService.OpenDocument(designer);
         Dispatcher.UIThread.RunJobs();
         shell.Tool.Focus();
+        await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var command = saveAs ? ApplicationCommands.SaveAsCommand : ApplicationCommands.SaveCommand;
 
-        command.CanExecute(null, shell.Main).Should().BeTrue();
+        await WaitFor(() => command.CanExecute(null, shell.Main), value => value, "Save command enabled");
         command.Execute(null, shell.Main);
 
-        projects.Received(1).SaveForm(form, saveAs);
+        await WaitFor(() => projects.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IProjectService.SaveForm)),
+            value => value == 1, "SaveForm call count");
+        await projects.Received(1).SaveForm(form, saveAs);
         shell.Composition.DocumentDockService.CloseDocument(designer);
-        command.CanExecute(null, shell.Main).Should().BeFalse();
+        await WaitFor(() => command.CanExecute(null, shell.Main), value => !value, "Save command disabled");
     }
 
     [AvaloniaFact]
-    public void Switching_active_form_requeries_commands_without_moving_keyboard_focus()
+    public async Task Switching_active_form_requeries_commands_without_moving_keyboard_focus()
     {
         using var shell = new Shell();
+        await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         Dispatcher.UIThread.RunJobs();
         var queries = 0;
         EventHandler handler = (_, _) => queries++;
-        CommandManager.RequerySuggested += handler;
+        // Observe through the command, which retains its weak-event subscriber.
+        var command = (ICommand)ApplicationCommands.SaveCommand;
+        command.CanExecuteChanged += handler;
         try
         {
             // Change only the model: no document view is focused or attached.
             var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
             var focus = (FocusedProjectUtil)shell.Composition.Root.FocusedProjectUtil;
             focus.FocusedForm = form;
-            Dispatcher.UIThread.RunJobs();
-            queries.Should().BeGreaterThan(0);
-            shell.Tool.IsFocused.Should().BeTrue();
+            await WaitFor(() => queries, value => value > 0, "command requery count");
+            await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
             queries = 0;
             focus.FocusedForm = null;
-            Dispatcher.UIThread.RunJobs();
-            queries.Should().BeGreaterThan(0);
+            await WaitFor(() => queries, value => value > 0, "command requery count");
         }
-        finally { CommandManager.RequerySuggested -= handler; }
+        finally { command.CanExecuteChanged -= handler; }
     }
 
     [AvaloniaTheory]
@@ -110,6 +117,7 @@ public class ActiveFormSaveTests
     public async Task Form_code_save_waits_for_formatting_before_saving(bool saveAs)
     {
         using var shell = new Shell();
+        await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var projects = Substitute.For<IProjectService>();
         var lsp = Substitute.For<ILspClient>();
         lsp.IsRunning.Returns(true);
@@ -129,35 +137,40 @@ public class ActiveFormSaveTests
         shell.Content.Children.Add(view);
         Dispatcher.UIThread.RunJobs();
         var editor = view.FindControl<TextEditor>("TextEditor")!;
-        editor.TextArea.Focus().Should().BeTrue();
+        editor.TextArea.Focus();
+        await WaitFor(() => editor.TextArea.IsFocused, value => value, "editor focus");
         var command = saveAs ? ApplicationCommands.SaveAsCommand : ApplicationCommands.SaveCommand;
-        command.CanExecute(null, shell.Main).Should().BeTrue();
+        await WaitFor(() => command.CanExecute(null, shell.Main), value => value, "Save command enabled");
 
         if (saveAs)
         {
             shell.Tool.Focus();
+            await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
             command.Execute(null, shell.Main);
         }
         else
             PressSave(editor.TextArea);
 
-        lsp.ReceivedCalls().Should().Contain(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestFormattingAsync));
+        await WaitFor(() => lsp.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestFormattingAsync)),
+            value => value > 0, "formatting request count");
         await projects.DidNotReceiveWithAnyArgs().SaveForm(default!, default);
         formatting.SetResult([]);
-        for (var i = 0; i < 10 && !projects.ReceivedCalls().Any(); i++)
-            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+        await WaitFor(() => projects.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IProjectService.SaveForm)),
+            value => value == 1, "SaveForm call count");
         await projects.Received(1).SaveForm(form, saveAs);
     }
 
     [AvaloniaFact]
-    public void Save_key_in_a_carried_file_reaches_its_own_binding()
+    public async Task Save_key_in_a_carried_file_reaches_its_own_binding()
     {
         using var shell = new Shell();
+        await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
         try
         {
             File.WriteAllText(path, "before");
-            var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>()).Initialize(
+            var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(),
+                Substitute.For<ILocalizationService>()).Initialize(
                 new RelatedDocumentDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "notes.txt", path));
             shell.Composition.DocumentDockService.OpenDocument(vm);
             var view = new RelatedDocumentEditorView { DataContext = vm };
@@ -165,14 +178,37 @@ public class ActiveFormSaveTests
             Dispatcher.UIThread.RunJobs();
             var editor = view.FindControl<TextEditor>("TextEditor")!;
             vm.Document.Text = "after";
-            editor.TextArea.Focus().Should().BeTrue();
-            ApplicationCommands.SaveCommand.CanExecute(null, shell.Main).Should().BeFalse();
+            editor.TextArea.Focus();
+            await WaitFor(() => editor.TextArea.IsFocused, value => value, "editor focus");
+            await WaitFor(() => ApplicationCommands.SaveCommand.CanExecute(null, shell.Main),
+                value => !value, "shell Save command disabled");
 
             PressSave(editor.TextArea);
 
-            File.ReadAllText(path).Should().Be("after");
+            await WaitFor(() => ReadSavedText(path), value => value == "after", "saved file content");
         }
         finally { File.Delete(path); }
+    }
+
+    private static async Task WaitFor<T>(Func<T> read, Func<T, bool> completed, string description)
+    {
+        var timeout = Stopwatch.StartNew();
+        T last;
+        do
+        {
+            Dispatcher.UIThread.RunJobs();
+            last = read();
+            if (completed(last)) return;
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        } while (timeout.Elapsed < TimeSpan.FromSeconds(5));
+
+        completed(last).Should().BeTrue("{0} should settle within five seconds; last observed: {1}", description, last);
+    }
+
+    private static string ReadSavedText(string path)
+    {
+        try { return File.ReadAllText(path); }
+        catch (IOException ex) { return ex.Message; }
     }
 
     private static void PressSave(InputElement target)
@@ -182,6 +218,5 @@ public class ActiveFormSaveTests
         {
             RoutedEvent = InputElement.KeyDownEvent, Key = gesture.Key, KeyModifiers = gesture.KeyModifiers
         });
-        Dispatcher.UIThread.RunJobs();
     }
 }

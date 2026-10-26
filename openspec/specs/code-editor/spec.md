@@ -110,6 +110,23 @@ the procedure list, SHALL still win.
 - **WHEN** the document is formatted, or reloaded after an external change
 - **THEN** the header is still folded afterwards
 
+### Requirement: Toggle Fold acts on the innermost section at the caret
+The code window SHALL offer Toggle Fold on the Edit menu, its context menu and the default Ctrl+M gesture
+on Windows and Linux. Toggle Fold SHALL be unbound on macOS, leaving Cmd+M to the system's Minimize.
+It SHALL toggle the section with the greatest start offset, then the smallest end offset,
+among sections containing the caret or starting on the caret's document row. With no such section it SHALL
+do nothing. Before collapsing a section with the caret strictly inside, it SHALL move the caret to the
+section's start. A member run collapsed this way SHALL remain collapsed across a reload, as with the margin.
+The context-menu command SHALL act at the caret.
+
+#### Scenario: An expanded member run shares its declaration row with a procedure fold
+- **WHEN** Toggle Fold is invoked with the caret on that declaration row
+- **THEN** the run collapses and the procedure's fold state stays unchanged
+
+#### Scenario: The caret is in the procedure body
+- **WHEN** Toggle Fold collapses the procedure containing the caret
+- **THEN** the caret moves to the procedure fold's start before its body is hidden
+
 ### Requirement: An attribute line that describes a member SHALL be read-only and folded into that member's line
 An `Attribute` line describing a procedure, property, or module-level variable or constant SHALL be greyed out,
 read-only, and folded — by default — into the end of the line it describes: the procedure's declaration, or the
@@ -144,6 +161,11 @@ declaration, the existing split at the first line break SHALL apply.
 
 This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
 whole-declaration paste question in the archived #273 design record without changing that historical record.
+
+For a file ending in a folded member attribute run without a final line break, Select All SHALL select the
+whole buffer while leaving the caret at the declaration's end; Shift+Left SHALL then end the selection one
+character before that point. Select-to-document-end from above the run SHALL select only to the declaration's
+end. This edge case is retained by decision #1019; the measured VB6-saved files all have a final line break.
 
 #### Scenario: Pasting a comment before a replacement declaration
 - **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed
@@ -195,7 +217,11 @@ An add-in's range edits SHALL also be compared as a complete resulting document 
 that result changes, adds or loses a described member run under the same comparison as a whole replacement.
 The refusal SHALL name the members. This includes promoting an orphan, extending a run at its end, mixing a
 run into an orphan and inserting a whole new described member. The existing region check SHALL run first;
-a range edit deleting a run with its declaration remains refused. Developer input and formatting are unchanged.
+an edit explicitly reaching into a run remains refused. An empty range edit deleting a declaration's whole
+text SHALL widen over its run, as a key deletion does. A set whose widened spans overlap another edit
+SHALL be refused without changing the document. Find's Replace and Replace All SHALL likewise widen
+empty replacements over the runs of declarations they empty; non-empty replacements SHALL keep those runs.
+Formatting is unchanged.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
@@ -288,6 +314,9 @@ nowhere else.
 
 ### Requirement: Find SHALL NOT match inside a read-only region
 Find, Find Next and Replace SHALL search only text outside read-only regions.
+If matches exist only in those regions within the selected scope, Find SHALL explain that the text is in the
+header or a procedure's Attribute lines, which only the IDE changes. Replace All SHALL report the number of
+matches skipped in those regions beside the number of replacements made, including when none were made.
 
 VB6's Find never searched the header, because the header was not in its code window. A search that now stopped
 inside a folded designer block would land the developer on text they cannot change, in a region they cannot
@@ -296,6 +325,14 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+#### Scenario: Search text exists only in protected regions
+- **WHEN** Find Next finds no searchable match but the selected scope contains a match in a read-only region
+- **THEN** the message explains why Find skips the header and procedure Attribute lines instead of saying not found
+
+#### Scenario: Replace All leaves protected matches alone
+- **WHEN** Replace All encounters matches in the header or procedure Attribute lines within the selected scope
+- **THEN** its message reports both the replacements made and the matches skipped, using the selected search options
 
 ### Requirement: Event-handler searches SHALL start after the header
 Both designer double-click navigation and the Object/Procedure boxes SHALL search for an event handler starting
@@ -306,6 +343,14 @@ handler from being generated.
 - **GIVEN** a control whose caption contains `Sub Command1_Click`
 - **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
 - **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent
+
+### Requirement: New event handlers SHALL keep the caret in their body
+Selecting an event without a handler in the Procedure box SHALL generate its stub and place the caret on the
+blank line inside it. A diagnostics or document-symbol refresh SHALL NOT navigate the caret out of that body.
+
+#### Scenario: Typing after a new handler's diagnostics arrive
+- **WHEN** the developer selects an event with no handler and the language server publishes diagnostics
+- **THEN** typing lands on the blank body line between the declaration and `End Sub`
 
 ### Requirement: Delete SHALL work without a selection
 The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
@@ -345,3 +390,39 @@ existing line endings merely because the file is saved (#530).
 #### Scenario: No line ending exists yet
 - **WHEN** a writer introduces line breaks into an empty or single-line buffer
 - **THEN** it writes CRLF on every host
+
+### Requirement: Insert toggles overtype with immediate status feedback
+The code window SHALL toggle between insert and overtype mode when Insert is pressed.
+The status bar SHALL reflect the new mode immediately, without requiring the caret to move.
+
+#### Scenario: Toggle overtype and return to insert
+- **WHEN** the developer presses Insert in a focused code window
+- **THEN** overtype mode is enabled and the status bar displays the localized overtype label
+- **WHEN** the developer presses Insert again
+- **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Inactive conditional branches SHALL be greyed for the selected view target
+The code window SHALL grey only the interpreter preprocessor's determined inactive lines in the theme's
+`InactiveCodeTextBrush`. It SHALL recompute after text edits with a debounce, and SHALL grey nothing when
+conditional compilation fails. Undetermined lines SHALL remain ungreyed. An edit that leaves every line where it
+was SHALL keep the greying until the next evaluation, and an edit that adds or removes lines SHALL clear it.
+
+#### Scenario: Editing an incomplete directive
+- **WHEN** an edit leaves an unterminated `#If` block
+- **THEN** the code window removes its inactive greying until preprocessing succeeds again
+
+#### Scenario: Typing on a line
+- **WHEN** the developer types within a line of a module whose inactive branches are greyed
+- **THEN** the greying stays as it is until the next evaluation, rather than flashing off with each keystroke
+
+### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
+A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
+VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+VBA's constants are not measured, since there is no VBA oracle.
+
+#### Scenario: Previewing a VBA branch
+- **WHEN** a module contains `#If VBA7 Then` with an `#Else` branch
+- **THEN** the default VB6 view greys the VBA7 branch
+- **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
+- **THEN** the view greys the Else branch instead, without changing what F5 runs

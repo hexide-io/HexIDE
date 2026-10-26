@@ -10,8 +10,10 @@ navigation to fall back on. A shape-level view of the document is a cheap way to
 module navigable.
 
 ## Requirements
-### Requirement: The minimap SHALL represent the whole document, whatever its length
-The minimap SHALL depict the entire document within its available height, condensing the representation for
+### Requirement: The minimap SHALL represent the whole document as the editor presents it, whatever its length
+The minimap SHALL depict the entire document as the editor presents it, with folded regions collapsed to their
+fold line and hidden lines taking no space. Folding or unfolding SHALL redraw the minimap. It SHALL fit within
+its available height, condensing the representation for
 documents too long to show line-for-line rather than showing only part of the file.
 
 A minimap that shows the first screenful and stops is worse than none: it looks like a map of the document
@@ -25,6 +27,11 @@ per-line detail, which is an acceptable trade — the minimap is read as shape, 
 #### Scenario: A short document
 - **WHEN** a document is short enough to show line-for-line
 - **THEN** each line is represented individually
+
+#### Scenario: A folded region
+- **WHEN** a region is folded or unfolded
+- **THEN** the minimap redraws with only the fold line occupying a row while folded
+- **AND** clicking any row targets a visible document line
 
 ### Requirement: The minimap SHALL be syntax-coloured and follow the active theme
 The minimap SHALL colour its content using the same syntax highlighting as the editor, and its colours SHALL
@@ -57,6 +64,10 @@ disagree and the indicator drifts further from the truth the longer the file, wh
 #### Scenario: A condensed document
 - **WHEN** the document is condensed to fit
 - **THEN** the marker still aligns with the region actually shown
+
+#### Scenario: A fold within the viewport
+- **WHEN** the editor shows a folded region and the lines after it
+- **THEN** the marker spans the visible minimap rows without counting hidden lines
 
 ### Requirement: The minimap SHALL scroll the editor when clicked or dragged
 Clicking the minimap SHALL move the editor to the corresponding part of the document, and dragging SHALL

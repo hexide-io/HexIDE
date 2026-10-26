@@ -39,8 +39,18 @@ public class MainViewViewModelTests
     {
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
+        _settingsService.ActiveLanguage.Returns("en");
 
         _sut = Build(_runnerService);
+    }
+
+    [AvaloniaFact]
+    public void OpenAddInManager_OpensOptionsAtAddIns()
+    {
+        _sut.OpenAddInManager();
+
+        _windowManager.Received(1).ShowDialog(Arg.Is<HexIDE.Forms.ViewModels.OptionsViewModel>(
+            vm => vm.SelectedNode != null && vm.SelectedNode.Key == "Str.Options.Node.AddIns"));
     }
 
     /// <summary>
@@ -93,7 +103,12 @@ public class MainViewViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService);
+            windowStateService, new DockFactoryReference());
+
+        var languageSwitch = Substitute.For<ILanguageSwitchService>();
+        languageSwitch.ActiveLanguage.Returns("en");
+        languageSwitch.AvailableLanguages.Returns([new LanguageInfo("en", "English", "ltr")]);
+        languageSwitch.RegionsFor(Arg.Any<string>()).Returns([]);
 
         return new MainViewViewModel(
             _windowManager,
@@ -124,7 +139,7 @@ public class MainViewViewModelTests
             _settingsService,
             Substitute.For<IThemeService>(),
             Substitute.For<IKeymapService>(),
-            Substitute.For<ILanguageSwitchService>(),
+            languageSwitch,
             loc,
             Substitute.For<IAddinRegistry>(),
             new AddinOptionsService(),
@@ -728,6 +743,32 @@ public class MainViewViewModelTests
         recorded!.Value.Message.Should().StartWith("Not implemented yet: ").And.Contain("GoSub");
         _windowManager.Received(1).ShowDialog(
             Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == recorded.Value.Message));
+        runner.IsRunning.Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("#If {0} Then\n#End If\n")]
+    [InlineData("Const X = {0}\n")]
+    public void F5_on_a_long_chain_reports_failure_and_survives(string declaration)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode(string.Format(declaration, string.Join(" + ", System.Linq.Enumerable.Repeat("1", 10000)))
+            + "Sub Main()\nEnd Sub\n");
+        project.AddModule(module);
+        project.StartsAtSubMain = true;
+        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+            Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
+            new HexIDE.Debugging.RunScope());
+        var failures = new List<string>();
+        runner.StartFailed += failures.Add;
+        runner.RunFailed += failures.Add;
+
+        runner.RunProject(project);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        failures.Should().ContainSingle();
         runner.IsRunning.Should().BeFalse();
     }
 

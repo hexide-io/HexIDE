@@ -48,6 +48,7 @@ A form's run loads its code and the project's standard (`.bas`) and class (`.cls
 #### Scenario: A breakpoint in a standard or class module
 - **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
 - **THEN** execution breaks at that line under the module's name
+- **AND** the stop reason is `Breakpoint`, with the line counted from the top of the module's file
 
 #### Scenario: A breakpoint in a UserControl or PropertyPage module
 - **WHEN** the developer sets a breakpoint in a `.ctl` or `.pag` module and runs the startup form
@@ -184,8 +185,8 @@ The interpreter cannot hot-patch a running program: the execution position is a 
 
 #### Scenario: Editing while the project is running or paused
 - **WHEN** the developer edits code while the project is running or in break mode
-- **THEN** a prompt asks whether to reset the project
-- **AND** choosing yes ends the run and keeps the edit, while choosing no reverts the edit and lets the program continue
+- **THEN** a localized prompt asks "This action will reset your project, proceed anyway?" with OK and Cancel
+- **AND** choosing OK ends the run and keeps the edit, while choosing Cancel reverts the edit and lets the program continue
 
 #### Scenario: The window the reset prompt is shown over
 - **WHEN** the reset prompt is asked while the code window's own window is visible and not minimized
@@ -241,6 +242,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
+
+#### Scenario: Selecting an expanded watch child
+- **WHEN** the developer selects a child of an expanded watch after selecting another watch
+- **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key
+- **AND** rebuilding the watch rows SHALL clear selection
 
 #### Scenario: Breaking when a watch condition is met
 - **WHEN** a watch is configured to break when its expression becomes true, or when its value changes
@@ -300,7 +306,7 @@ default Error Trapping setting.
 
 VB6's IDE halts this way, and leaving the procedure abandoned while the program carried on let timers and clicks run
 on whatever state it had left half-updated. Measured on vb6.exe: the dialog, what runs behind it, the break's location,
-the retry, and the event boundary (`docs/vb6-fidelity-oracle.md`, "An unhandled run-time error"). The exception for a
+the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error"). The exception for a
 class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 
 #### Scenario: An event procedure divides by zero

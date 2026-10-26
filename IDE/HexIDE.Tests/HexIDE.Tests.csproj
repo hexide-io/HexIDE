@@ -35,7 +35,9 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../HexIDE.Lsp.TestHost/HexIDE.Lsp.TestHost.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
+        <ProjectReference Include="..\HexIDE.Lsp.TestServer\HexIDE.Lsp.TestServer.csproj" />
         <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
         <!-- Build-check the opt-in real adapter tools on CI without executing or bundling an external backend. -->
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
@@ -48,30 +50,15 @@
         <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj" />
     </ItemGroup>
 
-    <!-- The automation server's tools and transport: direct tool calls (FormControlsSummaryTests)
-         and a real server restarted under the SDK's own client (McpRestartTests). No test project
-         references HexIDE.Desktop, so these production files are compiled in here as well; the server
-         and the test cannot then disagree about them. -->
+    <!-- Exercise the actual Debug automation server, including its generated native stubs.
+         Keep unsafe compilation confined to the three production interop projects. -->
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
-        <Compile Include="..\HexIDE.Desktop\ServerOptions.cs" Link="Infrastructure\ServerOptions.cs" />
-        <Compile Include="..\HexIDE.Desktop\ConsoleOutput.cs" Link="Infrastructure\ConsoleOutput.cs" />
-        <Compile Include="..\HexIDE.Desktop\HelpMark.cs" Link="Infrastructure\HelpMark.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\HexIdeTools.cs" Link="Infrastructure\HexIdeTools.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\IdeContext.cs" Link="Infrastructure\IdeContext.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\DiagnosticsCache.cs" Link="Infrastructure\DiagnosticsCache.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\DescribesEnumAttribute.cs" Link="Infrastructure\DescribesEnumAttribute.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\LoopbackMiddleware.cs" Link="Infrastructure\LoopbackMiddleware.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\SessionGuard.cs" Link="Infrastructure\SessionGuard.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\ToolFilters.cs" Link="Infrastructure\ToolFilters.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\ArgumentCheck.cs" Link="Infrastructure\ArgumentCheck.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\OpenDialogNote.cs" Link="Infrastructure\OpenDialogNote.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\ReplyJson.cs" Link="Infrastructure\ReplyJson.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\InlineSnapshot.cs" Link="Infrastructure\InlineSnapshot.cs" />
-        <Compile Include="..\HexIDE.Desktop\Server\MenuCommandRefusal.cs" Link="Infrastructure\MenuCommandRefusal.cs" />
+        <ProjectReference Include="../HexIDE.Desktop/HexIDE.Desktop.csproj" SetConfiguration="Configuration=Debug" />
+        <!-- The SDK compiler parses the unsafe-code guard; no extra package is needed. -->
+        <Reference Include="Microsoft.CodeAnalysis" HintPath="$(MSBuildToolsPath)/Roslyn/bincore/Microsoft.CodeAnalysis.dll" />
+        <Reference Include="Microsoft.CodeAnalysis.CSharp" HintPath="$(MSBuildToolsPath)/Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll" />
     </ItemGroup>
 
     <!-- VB6's Template tree is found one way in both test projects: the folder or the one above it, a set variable
@@ -79,5 +66,22 @@
     <ItemGroup>
         <Compile Include="..\HexIDE.Runtime.Tests\Vb6Template.cs" Link="Infrastructure\Vb6Template.cs" />
     </ItemGroup>
+
+    <!-- Keep the executable helper's dependency manifest and dependencies together, rather than
+         resolving it against the test runner's dependencies. GetTargetPath also honours artifacts paths. -->
+    <Target Name="CopyLspTestHost" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+        <MSBuild Projects="../HexIDE.Lsp.TestHost/HexIDE.Lsp.TestHost.csproj" Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)">
+            <Output TaskParameter="TargetOutputs" ItemName="_LspTestHostTarget" />
+        </MSBuild>
+        <PropertyGroup>
+            <_LspTestHostDirectory>@(_LspTestHostTarget->'%(RootDir)%(Directory)')</_LspTestHostDirectory>
+        </PropertyGroup>
+        <ItemGroup>
+            <_LspTestHostFiles Include="$(_LspTestHostDirectory)**/*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(_LspTestHostFiles)"
+              DestinationFolder="$(OutDir)LspTestHost/%(_LspTestHostFiles.RecursiveDir)" SkipUnchangedFiles="true" />
+    </Target>
 
 </Project>

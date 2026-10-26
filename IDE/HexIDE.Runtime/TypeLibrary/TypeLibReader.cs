@@ -10,14 +10,24 @@ namespace HexIDE.Runtime.TypeLibrary;
 
 // Reads a COM type library (.tlb / .olb / .dll / .ocx) and returns a TypeLibInfo record.
 // All COM work is Windows-only and guarded by OperatingSystem.IsWindows().
-public static class TypeLibReader
+public static partial class TypeLibReader
 {
-    [DllImport("oleaut32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, PreserveSig = true)]
-    private static extern int LoadTypeLib(string szFile, out ITypeLib? ppTLib);
+    [LibraryImport("oleaut32.dll", EntryPoint = "LoadTypeLib", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int LoadTypeLib(string szFile, out IntPtr ppTLib);
 
-    [DllImport("oleaut32.dll", ExactSpelling = true, PreserveSig = true)]
-    private static extern int LoadRegTypeLib(ref Guid rguid, ushort wVerMajor, ushort wVerMinor,
-        int lcid, out ITypeLib? ppTLib);
+    [LibraryImport("oleaut32.dll", EntryPoint = "LoadRegTypeLib")]
+    private static partial int LoadRegTypeLib(ref Guid rguid, ushort wVerMajor, ushort wVerMinor,
+        int lcid, out IntPtr ppTLib);
+
+    // The generator cannot marshal the built-in COM ITypeLib interface. Transfer the native
+    // reference to an RCW explicitly, balancing the reference returned by oleaut32 even on failure.
+    [SupportedOSPlatform("windows")]
+    private static ITypeLib? TakeTypeLib(int hr, IntPtr pointer)
+    {
+        if (pointer == IntPtr.Zero) return null;
+        try { return hr == 0 ? (ITypeLib)Marshal.GetObjectForIUnknown(pointer) : null; }
+        finally { Marshal.Release(pointer); }
+    }
 
     private const short FuncFlagRestricted = 0x01;
     private const short FuncFlagHidden     = 0x40;
@@ -58,7 +68,8 @@ public static class TypeLibReader
         ushort major = parts.Length > 0 && ushort.TryParse(parts[0], out var maj) ? maj : (ushort)0;
         ushort minor = parts.Length > 1 && ushort.TryParse(parts[1], out var min) ? min : (ushort)0;
 
-        int hr = LoadRegTypeLib(ref guid, major, minor, 0, out ITypeLib? typeLib);
+        int hr = LoadRegTypeLib(ref guid, major, minor, 0, out IntPtr pointer);
+        var typeLib = TakeTypeLib(hr, pointer);
         if (hr != 0 || typeLib == null) return null;
         try { return WalkTypeLib(typeLib, guidString); }
         finally { Marshal.ReleaseComObject(typeLib); }
@@ -67,7 +78,8 @@ public static class TypeLibReader
     [SupportedOSPlatform("windows")]
     private static TypeLibInfo? ReadCore(string path)
     {
-        int hr = LoadTypeLib(path, out ITypeLib? typeLib);
+        int hr = LoadTypeLib(path, out IntPtr pointer);
+        var typeLib = TakeTypeLib(hr, pointer);
         if (hr != 0 || typeLib == null) return null;
         try { return WalkTypeLib(typeLib, Path.GetFileNameWithoutExtension(path)); }
         finally { Marshal.ReleaseComObject(typeLib); }

@@ -12,10 +12,10 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
-**Known robustness gap (#1223):** the parse-depth guard does not bound left-associated operator trees.
-The isolated [depth probes](parse-depth-probes.md) find stack overflows in symbol/type/scope visitors
-and the real `didOpen` path at the 100,000-addition sample, while direct diagnostics still parse it.
-This is outstanding hardening work, not a language-analysis boundary.
+**Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
+`VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
+[probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;
+expression interiors beyond the bound are skipped. The interpreter's expression-walk overflow remains.
 
 ---
 
@@ -406,7 +406,7 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
 - ◐ Only those six words are refused as a new name, and any other keyword is let through. VB6 refuses
   more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
-  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle.md`](./vb6-fidelity-oracle.md),
+  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle/enums.md`](./vb6-fidelity-oracle/enums.md),
   *Which keywords may name a label*). Whether it refuses each of them as a variable or procedure name has not
   been measured, and the IDE and this server refuse only the words measured in one of those positions.
 

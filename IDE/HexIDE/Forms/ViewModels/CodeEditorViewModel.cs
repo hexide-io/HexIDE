@@ -58,6 +58,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public TextDocument Document => document;
 
+    // Per code window, deliberately absent from project and settings serialization (#1113).
+    [Notify] private int conditionalTargetIndex;
+
     [Notify] private int caretOffset;
     [Notify] private int selectionStart;
     [Notify] private int selectionLength;
@@ -119,8 +122,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public bool IsProjectRunning => debugController.IsSessionActive || ExternalDebugger?.IsActive == true;
 
     /// <summary>VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program
-    /// live, so editing while running/paused pops VB6's own reset prompt. Yes → request a project reset (the edit
-    /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
+    /// live, so editing while running/paused pops VB6's own reset prompt. OK → request a project reset (the edit
+    /// then stands); Cancel → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
     /// <param name="over">The window of the editor that asks, which the prompt holds. Shown over the active window, often the
@@ -131,8 +134,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var result = await windowManager.MessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
-            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning, owner: over);
-        if (result != MessageBoxResult.Yes)
+            buttons: MessageBoxButtons.OkCancel, icon: MessageBoxIcon.Warning, owner: over);
+        if (result != MessageBoxResult.Ok)
             return false;
         eventBus.Publish(new EndProjectRequestedEvent());
         return true;
@@ -214,6 +217,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         ILocalizationService localization,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
+        CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
         this.projectService = projectService;
@@ -227,6 +231,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.TextChanged += (_, _) => RefreshBufferModified();
 
         // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
         // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
@@ -288,6 +293,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 formDefinition?.UpdateCode(body);
                 if (moduleDefinition is not null)
                     moduleDefinition.UpdateCode(body);
+                RefreshModelModified();
             }
         }));
         AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
@@ -303,6 +309,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
             var mine = (e.Module is not null && ReferenceEquals(e.Module, moduleDefinition))
                     || (e.Form is not null && ReferenceEquals(e.Form, formDefinition));
+
+            if (mine) RefreshModelModified();
 
             // A save is also the commonest way a document's NAME changes: a first save gives it a file,
             // and saving a project into another directory repoints every one of them. So reconcile the
@@ -327,6 +335,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             session?.Dispose();
         }));
+    }
+
+    private bool modelIsModified;
+
+    private void RefreshBufferModified() => IsModified = modelIsModified ||
+        !string.Equals(BufferBody, moduleDefinition?.Code ?? formDefinition?.Code ?? "", StringComparison.Ordinal);
+
+    private void RefreshModelModified()
+    {
+        modelIsModified = moduleDefinition is { } module ? projectService.HasUnsavedChanges(module)
+            : formDefinition is { } form && projectService.HasUnsavedChanges(form);
+        RefreshBufferModified();
     }
 
     /// <summary>
@@ -519,7 +539,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Puts the code back to <paramref name="body"/>, under whatever header the buffer carries now: what
-    /// answering No to Edit-and-Continue's reset prompt does (hexide-io/HexIDE#273 task 3.13).
+    /// answering Cancel to Edit-and-Continue's reset prompt does (hexide-io/HexIDE#273 task 3.13).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1059,7 +1079,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (formDefinition is null) return;
         foreach (var component in formDefinition.Components)
         {
-            var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+            var name = ReferenceEquals(component, formDefinition.Components[0]) && RootEventPrefix is { } prefix
+                ? prefix
+                : component.GetPropertyOrDefault(VBProperties.NameProperty);
             if (name is { Length: > 0 })
                 ObjectNames.Add(name);
         }
@@ -1101,7 +1123,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (LiveDocumentUri is not { } uri) return;
         var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
         _symbols = symbols;
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshProcedureNames());
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Event names come from the component, not symbols. Rebuilding that bound list reselects the
+            // handler and moves a new stub's caret from its body to its declaration (#1865).
+            if (SelectedObject == GeneralObject || SelectedObject is null)
+                RefreshProcedureNames();
+        });
     }
 
     private void RefreshProcedureNames()
@@ -1128,9 +1156,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         SelectedProcedure = (current is not null && ProcedureNames.IndexOf(current) >= 0) ? current : null;
     }
 
+    private string? RootEventPrefix => formDefinition?.RootVBTypeName switch
+    {
+        "VB.Form" => "Form",
+        "VB.UserControl" => "UserControl",
+        _ => null,
+    };
+
     private ComponentInstance? FindComponent(string name)
     {
         if (formDefinition is null) return null;
+        if (name == RootEventPrefix)
+            return formDefinition.Components[0];
         foreach (var c in formDefinition.Components)
             if (c.GetPropertyOrDefault(VBProperties.NameProperty) == name)
                 return c;
@@ -1404,6 +1441,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     public bool RefusesTyping(int offset, int length) =>
         IsReadOnly || IsReadOnlyRegion(offset, length);
+
+    /// <inheritdoc/>
+    public (int Offset, int Length) WidenDeletion(int offset, int length) =>
+        ReadOnlySections.WidenDeletion(offset, length);
 
     /// <inheritdoc/>
     public Func<int, int, bool> SnapshotReadOnlyRegions()
@@ -1763,8 +1804,24 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             }
         }
 
-        var lastFirst = new List<TextChange>(edits);
+        var lastFirst = new List<TextChange>();
+        foreach (var edit in edits)
+        {
+            var span = edit.Text.Length == 0 ? WidenDeletion(edit.Offset, edit.Length) : (edit.Offset, edit.Length);
+            lastFirst.Add(new TextChange(span.Item1, span.Item2, edit.Text));
+        }
         lastFirst.Sort((a, b) => b.Offset.CompareTo(a.Offset));
+        for (var i = 1; i < lastFirst.Count; i++)
+        {
+            var edit = lastFirst[i];
+            if (edit.Offset + edit.Length > lastFirst[i - 1].Offset
+                && ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"The edit at line {at.Line}, column {at.Column} would change "
+                       + WhatAnEditChanges(regions, edit) + ", which only the IDE changes. Nothing was changed.";
+            }
+        }
         var after = Document.Text;
         foreach (var edit in lastFirst)
             after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
@@ -1813,6 +1870,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
+
+    public IReadOnlyList<string> CompletionTriggerCharacters => LiveDocumentUri is { } uri
+        ? lspClient.CompletionTriggerCharacters(uri) : [];
+
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(
+        Position position, string triggerCharacter, CancellationToken ct = default) =>
+        LiveDocumentUri is { } uri
+            ? lspClient.RequestCompletionForTriggerAsync(uri, position, triggerCharacter, ct)
+            : Task.FromResult<CompletionItem[]>([]);
 
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);

@@ -7,6 +7,19 @@ behaviour changed. The issue's later comment narrows the original probe request:
 parentheses and nested blocks already have measured parser guards; this pass probes
 operator chains, continuations and other walks.
 
+**Runtime follow-up (#1893):** the table below records the original failures. Expression execution now
+checks available host stack space and raises trappable Error 28; pre-pass walks skip expression subtrees.
+`ExpressionDepthGuardTests` covers plain and continued 10,000-term chains and resumption afterwards.
+The module-level Const regression also runs on an explicit 1 MiB worker stack: before the second rework,
+it terminated the host with `Stack overflow.` in `ModuleLevelBounds.Walk` (WSL, 2026-10-25); setting
+`DOTNET_DefaultStackSize=100000` alone did not reproduce that failure in this test host. The validation
+walk now probes available stack space before recursing and raises Error 28. All nine
+`ExpressionDepthGuardTests` cases pass with `DOTNET_DefaultStackSize=100000`; the IDE-side
+`MainViewViewModelTests` F5 cases cover both a directive and a module-level Const. The explicit-worker
+Const regression is the one demonstrated to terminate the pre-fix host in this rework.
+The original LSP observations are separate from this runtime fix. VB6 acceptance of these sources remains
+unmeasured.
+
 ## Reproduce
 
 Build and run [ParseDepthProbe](../tools/ParseDepthProbe/README.md). Each case has its
@@ -99,3 +112,10 @@ other operator families, other recursive walks and CRLF variants remain unmeasur
 The external parser named in the issue is not present in this repository and was not probed. Parenthesis/block guard
 coverage remains with `ParserDepthGuardTests` and `ParseHardeningTests`, as the issue's
 comment directs.
+
+## LSP visitor hardening (#1894)
+
+The symbol, declaration collector and Option Explicit visitors now bound `VisitChildren`
+recursion at 500 levels. Regression tests cover 100,000 additions, declarations and symbols
+following the chain, and an undeclared reference in a later statement. The original measurements
+above describe the pre-fix build; the interpreter execution overflow remains outstanding.

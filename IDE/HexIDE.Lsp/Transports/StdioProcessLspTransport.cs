@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using HexIDE.Processes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -26,6 +27,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
     private readonly ILogger<StdioProcessLspTransport> _logger;
     private readonly ILspWorkspace? _workspace;
     private Process? _process;
+    private ChildProcessJob? _job;
+    private readonly Lock _exitGate = new();
+    private bool _exitReported;
 
     /// <param name="serverInfo">
     /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
@@ -77,6 +81,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // inside this client and reads strictly more of it — see docs/lsp-client.md.
         string fileName = serverInfo.FileName;
         string arguments = serverInfo.Arguments;
+        var argumentList = serverInfo.ArgumentList?.ToList();
 
         if (!OperatingSystem.IsWindows())
         {
@@ -112,6 +117,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
                 if (File.Exists(dll))
                 {
                     arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
+                    if (argumentList is not null) argumentList.Insert(0, dll);
                     fileName = "dotnet";
                 }
                 else
@@ -126,7 +132,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             StartInfo = new ProcessStartInfo
             {
                 FileName = fileName,
-                Arguments = arguments,
+                Arguments = argumentList is null ? arguments : "",
                 WorkingDirectory = WorkingDirectory(),
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -136,6 +142,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
             },
             EnableRaisingEvents = true
         };
+
+        if (argumentList is not null)
+            foreach (var argument in argumentList) _process.StartInfo.ArgumentList.Add(argument);
+        if (serverInfo.Environment is not null)
+            foreach (var (key, value) in serverInfo.Environment) _process.StartInfo.Environment[key] = value;
 
         _process.ErrorDataReceived += (_, e) =>
         {
@@ -167,7 +178,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         try
         {
+            _job = new ChildProcessJob();
             _process.Start();
+            _job.Assign(_process);
             _process.BeginErrorReadLine();
         }
         catch (Exception ex)
@@ -191,6 +204,10 @@ public sealed class StdioProcessLspTransport : ILspTransport
             LastFailure =
                 $"could not start '{fileName}' (cwd: {(string.IsNullOrEmpty(cwd) ? "<inherited>" : cwd)}): {ex.Message}";
             _process.Exited -= OnProcessExited;
+            try { _process.Kill(entireProcessTree: true); } catch { /* not started, or already gone */ }
+            _job?.Dispose();
+            _job = null;
+            try { _process.WaitForExit(2000); } catch { /* not started, or already gone */ }
             _process.Dispose();
             _process = null;
             return Task.FromResult<IJsonRpcMessageHandler?>(null);
@@ -232,6 +249,14 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
+        lock (_exitGate) ReportExit();
+        Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ReportExit()
+    {
+        if (_exitReported) return;
+        _exitReported = true;
         // Read before anything else touches the process: Kill() and Dispose() are both moments after this,
         // and ExitCode throws once the handle is gone.
         var code = ExitCode();
@@ -244,8 +269,6 @@ public sealed class StdioProcessLspTransport : ILspTransport
             TransportNoticeKind.Lifecycle,
             code is null ? "process exited" : $"process exited with code {code}",
             Fault: code is not (null or 0)));
-
-        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -265,18 +288,30 @@ public sealed class StdioProcessLspTransport : ILspTransport
         catch (Exception) { return null; }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (_process is not null)
+        var process = _process;
+        if (process is null) return;
+
+        process.Exited -= OnProcessExited;
+        // Give a server that received exit time to finish before terminating a wedged wrapper and its children.
+        try
         {
-            _process.Exited -= OnProcessExited;
-            try { _process.Kill(); } catch { /* already gone */ }
-            // Kill requests termination; wait for it before releasing the process handle (#392).
-            try { _process.WaitForExit(2000); } catch { /* already gone */ }
-            _process.Dispose();
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch (TimeoutException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { /* already gone */ }
+            try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)); } catch { /* best effort */ }
+        }
+        lock (_exitGate)
+        {
+            if (process.HasExited) ReportExit();
+            process.Dispose();
             _process = null;
         }
 
-        return ValueTask.CompletedTask;
+        _job?.Dispose();
+        _job = null;
     }
 }

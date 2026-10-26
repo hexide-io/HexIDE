@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using HexIDE.Runtime;
@@ -56,5 +57,40 @@ public class HexColorInteropTests
         // ...and the label paints it: VBLabel draws its own BackColor, which the assignment now writes (#795).
         var color = ((HexIDE.Runtime.BuiltinControls.VBLabel)label).BackColor;
         (color.R, color.G, color.B).Should().Be(((byte)255, (byte)0, (byte)0));   // &HFF -> red
+    }
+
+    [AvaloniaFact]
+    public void Shape_BackColor_CanBeReadAtRuntime()
+    {
+        // #2070 records this value for Controls.Add, not a design-time default. Seed the stored colour
+        // explicitly: this checks the runtime bridge without guessing an unmeasured default.
+        var shape = new HexIDE.Runtime.BuiltinControls.VBShape
+        {
+            BackColor = VBColor.FromOle(0x80000005)
+        };
+
+        AvaloniaInteroperability.TryGet(shape, VBProperties.BackColorProperty, out var readBack)
+            .Should().BeTrue();
+        readBack.Value.Should().Be(-2147483643L);
+    }
+
+    [AvaloniaFact]
+    public async Task Shape_BackColor_ReadThroughObject_DoesNotRaiseMemberNotFound()
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn("""
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin VB.Shape Shape1
+                  BackColor = &H80000005&
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """);
+        var log = await ContainerRuntimeHarness.Run(ctx, env, """
+            Dim c As Object
+            Set c = Shape1
+            Debug.Print c.BackColor
+            """);
+        log.Should().ContainSingle().Which.Value.Should().Be(-2147483643L);
     }
 }

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Headless.XUnit;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.Folding;
 using HexIDE.Controls;
 
 namespace HexIDE.Integration.Tests.Controls;
@@ -88,4 +89,78 @@ public class MinimapControlTests
         var act = () => mm.ScrollEditorToMinimapY(height * 0.9);
         act.Should().NotThrow();
     }
+    private static FoldingSection Fold(TextEditor editor, FoldingManager manager, int first, int last)
+    {
+        var end = editor.Document.GetLineByNumber(last);
+        var fold = manager.CreateFolding(editor.Document.GetLineByNumber(first).Offset, end.EndOffset);
+        fold.IsFolded = true;
+        editor.TextArea.TextView.EnsureVisualLines();
+        return fold;
+    }
+
+    [AvaloniaFact]
+    public void FoldedHeader_UsesOneRow_AndClicksSkipHiddenLines()
+    {
+        var (editor, mm) = Build(120, 400, 800);
+        var manager = FoldingManager.Install(editor.TextArea);
+        Fold(editor, manager, 1, 100);
+
+        mm.MinimapRowCount.Should().Be(21);
+        mm.MinimapYForLine(101).Should().Be(6);
+        mm.MinimapLineForY(6).Should().Be(101);
+        mm.MinimapYForLine(100).Should().Be(0);
+        mm.Detach();
+        FoldingManager.Uninstall(manager);
+    }
+
+    [AvaloniaFact]
+    public void FoldedViewport_MarkerCountsOnlyVisibleRows()
+    {
+        var (editor, mm) = Build(120, 400, 800);
+        var manager = FoldingManager.Install(editor.TextArea);
+        Fold(editor, manager, 1, 100);
+
+        mm.ViewportRect(1, 110).Height.Should().Be(66);
+        mm.ViewportRect(1, 100).Height.Should().Be(6);
+        Fold(editor, manager, 111, 120);
+        mm.ViewportRect(111, 120).Height.Should().Be(6);
+        mm.MinimapYForLine(120).Should().Be(mm.MinimapYForLine(111));
+        mm.Detach();
+        FoldingManager.Uninstall(manager);
+    }
+
+    [AvaloniaFact]
+    public void NestedFolds_UnfoldingRestoresOnlyVisibleRows()
+    {
+        var (editor, mm) = Build(80, 400, 800);
+        var manager = FoldingManager.Install(editor.TextArea);
+        var outer = Fold(editor, manager, 10, 50);
+        var inner = Fold(editor, manager, 20, 30);
+
+        mm.MinimapRowCount.Should().Be(40);
+        outer.IsFolded = false;
+        editor.TextArea.TextView.EnsureVisualLines();
+        mm.MinimapRowCount.Should().Be(70);
+        mm.MinimapLineForY(mm.MinimapYForLine(31)).Should().Be(31);
+        inner.IsFolded = false;
+        editor.TextArea.TextView.EnsureVisualLines();
+        mm.MinimapRowCount.Should().Be(80);
+        mm.Detach();
+        FoldingManager.Uninstall(manager);
+    }
+
+    [AvaloniaFact]
+    public void SampledFoldedDocument_ClicksAlwaysTargetVisibleLines()
+    {
+        var (editor, mm) = Build(5000, 300, 300);
+        var manager = FoldingManager.Install(editor.TextArea);
+        Fold(editor, manager, 1, 1000);
+
+        mm.MinimapRowCount.Should().Be(191);
+        for (var y = 0.0; y <= 300; y += 1.5)
+            mm.MinimapLineForY(y).Should().Match(line => line == 1 || line > 1000);
+        mm.Detach();
+        FoldingManager.Uninstall(manager);
+    }
+
 }

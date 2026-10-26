@@ -115,6 +115,10 @@ internal sealed class ModuleLevelBounds
     // `position` is where the expression sits: a name it reads must be declared before it.
     private async Task Walk(IParseTree node, bool inConst, int position)
     {
+        // This validation precedes ExpressionExecutor, so its recursive walk needs its own stack probe.
+        if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            throw new VBRunTimeException(node as Antlr4.Runtime.ParserRuleContext, VBStandardError.OutOfStackSpace);
+
         switch (node)
         {
             case VB6Parser.ICS_S_MembersCallContext members:
@@ -261,6 +265,17 @@ internal sealed class ModuleLevelBounds
                     // `KeyCodeConstants.vbKeyA`; a member of another container is refused (measured:
                     // `KeyCodeConstants.vbCancel` is "Method or data member not found").
                     return VB6InBoxLibraries.TryInContainer(qualifier.Name!, parts[1], out value)
+                        ? value
+                        : throw new VBCompileErrorException("Method or data member not found");
+                case BasicInterpreter.QualifierKind.ControlLibrary when parts.Length == 2
+                        && qualifier.ControlLibrary!.TryBare(parts[1], out value):
+                    return value;   // `MSComctlLib.ccScrollingSmooth` (#1082)
+                case BasicInterpreter.QualifierKind.ControlLibrary when parts.Length == 3
+                        && qualifier.ControlLibrary!.ContainerName(parts[1]) is { } container
+                        && qualifier.ControlLibrary.TryInContainer(container, parts[2], out value):
+                    return value;   // `MSComctlLib.ScrollingConstants.ccScrollingSmooth`
+                case BasicInterpreter.QualifierKind.ControlLibraryContainer when parts.Length == 2:
+                    return qualifier.ControlLibrary!.TryInContainer(qualifier.Name!, parts[1], out value)
                         ? value
                         : throw new VBCompileErrorException("Method or data member not found");
             }

@@ -37,6 +37,9 @@ public interface ILspClient : IAsyncDisposable
     /// </summary>
     event EventHandler<ShowMessageParams>? MessageShown;
 
+    /// <summary>Work-done progress; sender identifies the originating server through a registry.</summary>
+    event EventHandler<ProgressParams>? ProgressReceived;
+
     /// <summary>
     /// The server's running commentary about itself — <c>window/logMessage</c>.
     /// </summary>
@@ -216,6 +219,26 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>
     Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default);
+
+    /// <summary>Calls onAnswer only when completion was answered, including a valid empty answer.</summary>
+    async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
+        CancellationToken cancellationToken, Action onAnswer)
+    {
+        var items = await RequestCompletionAsync(uri, position, cancellationToken);
+        onAnswer();
+        return items;
+    }
+
+    /// <summary>The completion triggers advertised for this document.</summary>
+    IReadOnlyList<string> CompletionTriggerCharacters(string uri) => [];
+
+    /// <summary>Requests completion only from claimants advertising this trigger.</summary>
+    Task<CompletionItem[]> RequestCompletionForTriggerAsync(string uri, Position position,
+        string triggerCharacter, CancellationToken cancellationToken = default) =>
+        RequestCompletionAsync(uri, position, cancellationToken);
+
+    /// <summary>Records a completion answer discarded after the popup's result was returned.</summary>
+    void NoteLateCompletion() { }
 
     /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.</summary>
     Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default);

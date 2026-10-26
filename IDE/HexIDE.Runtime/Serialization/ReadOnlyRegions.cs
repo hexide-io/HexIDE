@@ -690,7 +690,7 @@ public static class ReadOnlyRegions
     /// </summary>
     /// <remarks>
     /// The rule VB6 holds to, whitespace then an underscore, with no exemption at the start of a line: a line of
-    /// nothing but an underscore continues only when it is indented (docs/vb6-fidelity-oracle.md). And
+    /// nothing but an underscore continues only when it is indented (docs/vb6-fidelity-oracle/line-continuations-and-statement-separators.md). And
     /// deliberately not <c>VbAutoCloseProvider.IsContinuationLine</c>'s looser one, which also takes an identifier
     /// that ends in <c>_</c> for a continuation.
     /// </remarks>

@@ -21,7 +21,7 @@ namespace HexIDE.Runtime.Tests;
 ///
 /// <para>
 /// Every expectation is vb6.exe output — see <i>Declared type, Variant subtype, and overflow promotion</i>
-/// and <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle.md.
+/// and <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle/declared-type-variant-subtype-and-overflow-promotion.md.
 /// </para>
 /// </summary>
 public class DeclaredTypeTests : BaseVBTestFixture

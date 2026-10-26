@@ -261,7 +261,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         if (result is null)
         {
             _windowManager.MessageBox(
-                string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText),
+                string.Format(_localization.GetString(ProtectedMatchesInScope(editor) > 0
+                    ? "Str.FindReplace.Msg.ProtectedOnly" : "Str.FindReplace.Msg.NotFound"), SearchText),
                 _localization.GetString("Str.FindReplace.Msg.TitleFind"),
                 MessageBoxButtons.Ok,
                 MessageBoxIcon.Information);
@@ -288,7 +289,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             // header, because it was not in the code window, and a match there is text only the IDE changes.
             if (!editor.IsReadOnlyDocument && IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
             {
-                editor.Document.Replace(editor.SelectionStart, editor.SelectionLength, ReplaceText);
+                var span = ReplaceText.Length == 0
+                    ? editor.WidenDeletion(editor.SelectionStart, editor.SelectionLength)
+                    : (editor.SelectionStart, editor.SelectionLength);
+                editor.Document.Replace(span.Item1, span.Item2, ReplaceText);
                 editor.CaretOffset = editor.SelectionStart + ReplaceText.Length;
                 editor.SelectionLength = 0;
             }
@@ -310,17 +314,46 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         // Scope means the same thing to Replace All as it does to Find. Honouring it in one and not the
         // other would leave the combo telling the truth in Find mode and lying in Replace mode, which is
         // the defect this change exists to end rather than to halve.
+        var skipped = ProtectedMatchesInScope(editor);
         var count = ReplaceAllIn(editor);
         foreach (var other in OtherDocumentsInScope(editor))
             count += ReplaceAllIn(other);
 
         _windowManager.MessageBox(
-            count > 0
+            skipped > 0
+                ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped"), count, skipped)
+                : count > 0
                 ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsMade"), count)
                 : string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText),
             _localization.GetString("Str.FindReplace.Msg.TitleReplace"),
             MessageBoxButtons.Ok,
             MessageBoxIcon.Information);
+    }
+
+    private int ProtectedMatchesInScope(ISearchableDocument active)
+    {
+        var count = ProtectedMatchesIn(active);
+        foreach (var other in OtherDocumentsInScope(active))
+            count += ProtectedMatchesIn(other);
+        return count;
+    }
+
+    private int ProtectedMatchesIn(ISearchableDocument target)
+    {
+        // Count before any replacement can move the regions or introduce new matches.
+        Func<int, int, bool> isReadOnly = target.IsReadOnlyDocument
+            ? target.IsReadOnlyRegion
+            : target.SnapshotReadOnlyRegions();
+        var count = 0;
+        var pos = target.Document.TextLength;
+        while (pos > 0)
+        {
+            var match = FindPrevious(target.Document, pos, (offset, length) => !isReadOnly(offset, length));
+            if (match is null) break;
+            count++;
+            pos = match.Value.offset;
+        }
+        return count;
     }
 
     private int ReplaceAllIn(ISearchableDocument target)
@@ -344,7 +377,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
                 if (result is null) break;
 
                 pos = result.Value.offset;
-                doc.Replace(result.Value.offset, result.Value.length, ReplaceText);
+                var span = ReplaceText.Length == 0
+                    ? target.WidenDeletion(result.Value.offset, result.Value.length)
+                    : (result.Value.offset, result.Value.length);
+                doc.Replace(span.Item1, span.Item2, ReplaceText);
                 count++;
             }
         }

@@ -9,6 +9,10 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
+> **Known divergence.** If the browser was opened before a language server started, the VBA library fills
+> in only when VBA or All Libraries is selected again; it does not refresh on its own when the server starts
+> ([#1957](https://github.com/hexide-io/HexIDE/issues/1957)).
+
 ## Requirements
 
 ### Requirement: The browser SHALL show everything visible to the project
@@ -35,6 +39,11 @@ rather than its default instance-name prefix, for listing, search, member headin
 #### Scenario: Narrowing to one library
 - **WHEN** the developer selects a single library
 - **THEN** only that library's types are listed
+
+#### Scenario: Project membership or names change
+- **WHEN** a form or module is added, removed or renamed, or its project is renamed
+- **THEN** the browser SHALL update the project library and its sorted class list, respecting the current filter
+- **AND** removed classes SHALL no longer be reachable through navigation history
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,

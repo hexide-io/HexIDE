@@ -92,7 +92,7 @@ public static class VBProperties
     public static readonly PropertyClass<byte[]?> ItemDataProperty = new PropertyClass<byte[]?>("ItemData",
         "Per-item numeric values stored alongside a list control's items.", PropertyCategory.Misc);
 
-    public static PropertyClass<int> IntervalProperty = new PropertyClass<int>("Interval", "The delay, in milliseconds, between a Timer control's events.", PropertyCategory.Misc, defaultValue: 1000);
+    public static PropertyClass<int> IntervalProperty = new PropertyClass<int>("Interval", "The delay, in milliseconds, between a Timer control's events.", PropertyCategory.Misc, defaultValue: 0);
 
     public static readonly PropertyClass<string> TextProperty = new PropertyClass<string>("Text", "The text held by the control.", PropertyCategory.Misc, "");
 
@@ -153,6 +153,20 @@ public static class VBProperties
     public static PropertyClass<int> MaxProperty = new PropertyClass<int>("Max", "The highest value the scroll bar can represent.", PropertyCategory.Behavior, 32767);
 
     public static PropertyClass<int> ValueProperty = new PropertyClass<int>("Value", "The current value of the object.", 0);
+
+    /// <summary>
+    /// A ProgressBar's range, which MSComctlLib declares as Single (#1082). Apart from the scroll bars' Integer Min and Max: the
+    /// same names, another type, another default.
+    /// </summary>
+    public static PropertyClass<float> SingleMinProperty = new PropertyClass<float>("Min", "The lowest value the control can represent.", PropertyCategory.Behavior, 0);
+
+    public static PropertyClass<float> SingleMaxProperty = new PropertyClass<float>("Max", "The highest value the control can represent.", PropertyCategory.Behavior, 100);
+
+    public static PropertyClass<VBOrientation> OrientationProperty = new PropertyClass<VBOrientation>("Orientation", "Whether the bar runs across the control or up it.", PropertyCategory.Appearance, VBOrientation.Horizontal);
+
+    public static PropertyClass<VBScrolling> ScrollingProperty = new PropertyClass<VBScrolling>("Scrolling", "Whether the bar fills in separate blocks or as one continuous bar.", PropertyCategory.Appearance, VBScrolling.Standard);
+
+    public static PropertyClass<VBOLEDropMode> OLEDropModeProperty = new PropertyClass<VBOLEDropMode>("OLEDropMode", "Whether the control accepts an OLE drag-and-drop.", PropertyCategory.Behavior, VBOLEDropMode.None);
 
     public static PropertyClass<bool> CheckedProperty = new PropertyClass<bool>("Checked", "Whether a check mark appears beside the menu item.", PropertyCategory.Appearance);
 

@@ -102,6 +102,9 @@ public enum ConversationOutcome
 
     /// <summary>The connection went away with the request outstanding.</summary>
     Abandoned,
+
+    /// <summary>The local request deadline expired before an answer arrived.</summary>
+    TimedOut,
 }
 
 /// <summary>
@@ -210,5 +213,6 @@ public static class ConversationFailures
         || envelope.Fault
         || envelope.Outcome is ConversationOutcome.Failed
                             or ConversationOutcome.Cancelled
-                            or ConversationOutcome.Abandoned;
+                            or ConversationOutcome.Abandoned
+                            or ConversationOutcome.TimedOut;
 }

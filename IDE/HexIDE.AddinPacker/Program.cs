@@ -2,7 +2,7 @@ using HexIDE.AddinPacker;
 
 // Tiny CLI: `genkeys <outDir>` | `pack --src <dir> --out <dir> --id <id> --title <t> --version <v>
 //           --entry <file.dll> --trust <trustDir> [--author <a>] [--desc <d>] [--include <file> ...]
-//           [--logo <file.png>]`
+//           [--logo <file.png>] [--min-hexide-version <version>]`
 if (args.Length == 0)
 {
     Console.Error.WriteLine("usage: genkeys <outDir> | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
@@ -37,6 +37,7 @@ try
                 Entry = Required(o, "entry"),
                 TrustDir = Required(o, "trust"),
                 Include = o.GetValueOrDefault("include", []),
+                MinHexideVersion = o.TryGetValue("min-hexide-version", out var minimum) && minimum.Count > 0 ? minimum[0] : null,
                 Logo = o.TryGetValue("logo", out var logo) && logo.Count > 0 ? logo[0] : null,
             });
             return 0;

@@ -89,7 +89,7 @@ Module=TideTable; TideTable.bas
 `Module=` requires `Name; File` and a bare path is rejected — `Module=TideTable.bas` makes `vb6.exe` report
 that *the project file is corrupt*, naming no line. That is measured, along with the other four item keys,
 which do **not** all agree: see *A `.vbp` item line has two shapes* in
-[`docs/vb6-fidelity-oracle.md`](../../docs/vb6-fidelity-oracle.md). Keep `TideTable.bas` listed in `.rdproj`
+[`docs/vb6-fidelity-oracle/README.md`](../../docs/vb6-fidelity-oracle/README.md). Keep `TideTable.bas` listed in `.rdproj`
 too: a file opened but not listed still gets folds and syntax errors, but not RDCore's semantic checks.
 
 **It used to be `RelatedDoc=`, as a workaround, and that is worth recording because it was the demo's own

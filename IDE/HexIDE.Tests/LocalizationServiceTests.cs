@@ -33,6 +33,16 @@ public class LocalizationServiceTests
     }
 
     [AvaloniaFact]
+    public void ResetPrompt_UsesMeasuredVB6Wording()
+    {
+        var sut = CreateSut();
+        sut.Apply("en");
+
+        sut.GetString("Str.ProjectRunner.EditWhileRunningConfirm").Should()
+            .Be("This action will reset your project, proceed anyway?");
+    }
+
+    [AvaloniaFact]
     public void GetString_UnknownKey_ReturnsKeyItself()
     {
         var sut = CreateSut();
@@ -208,6 +218,8 @@ public class LocalizationServiceTests
 
         sut.ActiveLanguage.Should().Be("ar");
         sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);   // neutral ar declares direction:"rtl"
+        Application.Current!.Resources.TryGetResource(LocalizationService.FlowDirectionKey, null, out var direction).Should().BeTrue();
+        direction.Should().Be(FlowDirection.RightToLeft, "a menu opened from code reads the language's direction from here (#1944)");
         var file = sut.GetString("Str.Menu.File");
         file.Should().NotBe("_File");        // actually translated to Arabic
         file.Should().NotContain("_");       // mnemonics omitted for Arabic

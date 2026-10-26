@@ -87,7 +87,7 @@ public partial class CodeEditorView : UserControl
     private Action? _onDebugContinued;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
     private bool _resetPromptOpen;
-    private string? _preEditBody;       // the code as it stood before the first edit while running (for No→revert)
+    private string? _preEditBody;       // the code as it stood before the first edit while running (for Cancel→revert)
     private bool _resetPromptArmed;     // developer input is being handled; the next change it makes asks to reset
     private TextDocument? _watchedDocument;
     private int _preEditCaret;
@@ -310,6 +310,8 @@ public partial class CodeEditorView : UserControl
             // while a member's run turns into an orphan or out of one by an edit to the line above it (task 4.1).
             _readOnlyRedraw = new ReadOnlyRegionRedraw(vm.Document, TextEditor.TextArea.TextView, () => vm.ReadOnlyRegionsNow);
 
+            InstallConditionalCompilation();
+
             _colorizer = new LspDiagnosticsColorizer(TextEditor.TextArea.TextView);
             TextEditor.TextArea.TextView.LineTransformers.Add(_colorizer);
             vm.MarkersChanged += OnMarkersChanged;
@@ -415,6 +417,7 @@ public partial class CodeEditorView : UserControl
             // Apply tab width from settings
             TextEditor.Options.IndentationSize = vm.Settings.TabWidth;
             TextEditor.Options.ConvertTabsToSpaces = true;
+            TextEditor.Options.AllowToggleOverstrikeMode = true;
 
             // Push initial cursor position to status bar
             var caret = TextEditor.TextArea.Caret;
@@ -526,6 +529,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.LineTransformers.Remove(_colorizer);
             _colorizer = null;
         }
+
+        RemoveConditionalCompilation();
 
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;
@@ -1103,7 +1108,7 @@ public partial class CodeEditorView : UserControl
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
         if (tvPos is null) return;
 
-        if (_externalDebugger?.IsActive == true)
+        if (_externalDebugger is { Stop: not null, SelectedFrame: not null })
         {
             if (_externalDebugger.CanEvaluateHover)
             {
@@ -1124,7 +1129,6 @@ public partial class CodeEditorView : UserControl
 
         var lspPos = new Position(tvPos.Value.Line - 1, tvPos.Value.Column - 1);
         if (DataContext is not CodeEditorViewModel vm) return;
-        if (!vm.Settings.AutoQuickInfo) return;
 
         _ = HoverAfterDelayAsync(vm, lspPos, token);
     }
@@ -1221,6 +1225,26 @@ public partial class CodeEditorView : UserControl
         _ = ShowHoverAsync(vm, lspPos, _hoverCts.Token);
     }
 
+    public void ToggleFold()
+    {
+        if (_foldingManager is null) return;
+        var caret = TextEditor.TextArea.Caret;
+        var line = TextEditor.Document.GetLineByNumber(caret.Line);
+        FoldingSection? target = null;
+        foreach (var section in _foldingManager.AllFoldings)
+        {
+            if (!(section.StartOffset <= caret.Offset && caret.Offset <= section.EndOffset) &&
+                !(line.Offset <= section.StartOffset && section.StartOffset <= line.EndOffset)) continue;
+            if (target is null || section.StartOffset > target.StartOffset ||
+                (section.StartOffset == target.StartOffset && section.EndOffset < target.EndOffset))
+                target = section;
+        }
+        if (target is null) return;
+        if (!target.IsFolded && target.StartOffset < caret.Offset && caret.Offset < target.EndOffset)
+            caret.Offset = target.StartOffset;
+        target.IsFolded = !target.IsFolded;
+    }
+
     // ── Bookmarks ─────────────────────────────────────────────────────────────
 
     public void ToggleBookmark()
@@ -1268,28 +1292,22 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(400, token);
-            await ShowHoverAsync(vm, pos, token);
+            await ShowHoverAsync(vm, pos, token, vm.Settings.AutoQuickInfo);
         }
         catch (OperationCanceledException) { }
     }
 
-    private async Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token)
+    private async Task ShowHoverAsync(CodeEditorViewModel vm, Position pos, CancellationToken token, bool requestQuickInfo = true)
     {
         try
         {
-            var result = await vm.RequestHoverAsync(pos, token);
+            ShowDiagnosticTip(pos, null);
+            var result = requestQuickInfo
+                ? await vm.RequestHoverAsync(pos, token) : null;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested) return;
-                if (result is { Contents.Value.Length: > 0 })
-                {
-                    ToolTip.SetTip(TextEditor, result.Contents.Value);
-                    ToolTip.SetIsOpen(TextEditor, true);
-                }
-                else
-                {
-                    CloseTip();
-                }
+                ShowDiagnosticTip(pos, result?.Contents.Value);
             });
         }
         catch (OperationCanceledException) { }
@@ -1297,6 +1315,25 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[hover] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private void ShowDiagnosticTip(Position pos, string? quickInfo)
+    {
+        var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
+        var parts = new List<string>();
+        if (_markerService is { } service)
+        {
+            foreach (var marker in service.Markers)
+            {
+                if (offset >= marker.StartOffset && offset < marker.EndOffset)
+                    parts.Add(string.IsNullOrEmpty(marker.Source)
+                        ? marker.Message : $"{marker.Source}: {marker.Message}");
+            }
+        }
+        if (!string.IsNullOrEmpty(quickInfo)) parts.Add(quickInfo);
+        if (parts.Count == 0) { CloseTip(); return; }
+        ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
+        ToolTip.SetIsOpen(TextEditor, true);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -1312,7 +1349,7 @@ public partial class CodeEditorView : UserControl
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
         // Editing while the project is running/paused can't be hot-patched. Let the edit land (VB6 shows it), and
-        // pop VB6's reset prompt — Yes keeps the edit + resets the project, No reverts it (see ShowResetPromptAsync).
+        // pop VB6's reset prompt — OK keeps the edit + resets the project, Cancel reverts it (see ShowResetPromptAsync).
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
         if (e.Text is { Length: > 0 })
             ArmResetPrompt();
@@ -1372,7 +1409,7 @@ public partial class CodeEditorView : UserControl
 
     // VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program, so a code
     // edit while running/paused pops VB6's "This action will reset your project" prompt. The edit is NOT cancelled
-    // (VB6 lets it appear), and a "No" answer reverts every edit made while the prompt was open.
+    // (VB6 lets it appear), and a "Cancel" answer reverts every edit made while the prompt was open.
     //
     // Two steps, because the input handlers run BEFORE anything decides whether the key writes (#273 task 3.13).
     // The read-only section provider refuses typing in the header after TextEntering, and the Enter handler refuses
@@ -1454,7 +1491,7 @@ public partial class CodeEditorView : UserControl
             // Over a minimized window, an owned window does not show, and the prompt could not be answered.
             var reset = await vm.ConfirmResetWhileRunningAsync(
                 TopLevel.GetTopLevel(this) is Window { IsVisible: true, WindowState: not WindowState.Minimized } window ? window : null);
-            // No → undo every edit made since the prompt opened, back to the pre-edit code. Yes → keep the edit
+            // Cancel → undo every edit made since the prompt opened, back to the pre-edit code. OK → keep the edit
             // (the run reset was already requested), matching VB6. The code alone goes back, never the whole
             // buffer: the header may have been rewritten while the prompt was open (see RevertBodyTo).
             if (!reset && _preEditBody is { } body)
@@ -1515,6 +1552,8 @@ public partial class CodeEditorView : UserControl
         // Trigger completion on any letter (start/continuation of a word)
         if (char.IsLetter(ch))
             TriggerCompletionAsync();
+        else if (DataContext is CodeEditorViewModel vm && vm.CompletionTriggerCharacters.Contains(e.Text))
+            TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
             TriggerSignatureHelpAsync();
@@ -1534,7 +1573,7 @@ public partial class CodeEditorView : UserControl
         // Editing while the project is running/paused → VB6 reset prompt (see ArmResetPrompt). Covers the
         // library editing keys that reach the text area; printable chars go via
         // OnTextEntering, and Delete, Paste and Cut via the commands their keys are bound to.
-        // The edit is allowed to proceed (VB6 lets it land); No reverts it, Yes keeps it + resets the project.
+        // The edit is allowed to proceed (VB6 lets it land); Cancel reverts it, OK keeps it + resets the project.
         // The keymap's Paste and Cut keys normally never get here, because the code window's command bindings take
         // them; this is for a key the keymap leaves on AvaloniaEdit's own Paste or Cut, wherever the platform puts it.
         if (ClipboardEditOf(e) is { } paste)
@@ -1630,7 +1669,12 @@ public partial class CodeEditorView : UserControl
     /// Ends the step <see cref="OnEditorKeyDown"/> noted, once the key has been handled, whoever handled it (#273 task
     /// 4.3 review).
     /// </summary>
-    private void OnEditorKeyHandled(object? sender, KeyEventArgs e) => _stepRightFrom = -1;
+    private void OnEditorKeyHandled(object? sender, KeyEventArgs e)
+    {
+        _stepRightFrom = -1;
+        if (e.Key == Key.Insert && DataContext is CodeEditorViewModel vm)
+            vm.StatusBar.InsertMode = !TextEditor.TextArea.OverstrikeMode;
+    }
 
     /// <summary>
     /// Handles Enter key press: if the current logical line is a VB6 block opener,
@@ -2033,7 +2077,7 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
-    private void TriggerCompletionAsync()
+    private void TriggerCompletionAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
@@ -2045,14 +2089,17 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter);
     }
 
-    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
+        string? triggerCharacter)
     {
         try
         {
-            var items = await vm.RequestCompletionAsync(position, token);
+            var items = triggerCharacter is null
+                ? await vm.RequestCompletionAsync(position, token)
+                : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
             if (token.IsCancellationRequested || items.Length == 0) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

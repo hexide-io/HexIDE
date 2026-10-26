@@ -113,11 +113,17 @@ day it lands, with nothing to add.
 The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
 accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
-dropdown toggles and property color/font picker buttons SHALL likewise have localized names describing their actions.
+dropdown toggles, property color/font picker buttons and all eight scroll bar line/page buttons SHALL likewise
+have localized names describing their actions.
 
 #### Scenario: Discovering an icon-only dock button
 - **WHEN** a caller discovers a dock pane's close button
 - **THEN** its name describes closing the pane in the active language, rather than naming the glyph's .NET type
+
+#### Scenario: Discovering scroll bar buttons after a language change
+- **WHEN** a caller inspects a vertical or horizontal scroll bar after changing the IDE language
+- **THEN** its line and page buttons expose action names in the active language, including on existing controls
+- **AND** path matching accepts those names
 
 ### Requirement: A purpose-built tool SHALL be justified against the generic mechanism
 A new dedicated tool SHALL be added only where the generic mechanism genuinely cannot reach the surface, and
@@ -477,3 +483,22 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Pointer drags through interact
+
+`interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and
+modifier keys. Release coordinates SHALL be relative to the target, or to the control at the pasted
+`dump_visual_tree` path. The press SHALL establish implicit capture, allow press work to run, then send
+several moves with the button held before releasing to the pointer capturer or the hit-tested control.
+The reply SHALL name the press landing, release point and recipient, and whether capture routed the release.
+Combining `double` with `to` SHALL be refused before pressing.
+
+#### Scenario: Draw a toolbox control
+
+- **WHEN** a toolbox control is selected and `interact` clicks the designer canvas with `20,20 to 100,60`
+- **THEN** held moves show the drawing phantom and release places the control using the drawn rectangle
+
+#### Scenario: Release over a different control
+
+- **WHEN** a drag names another control's path as its release destination
+- **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture

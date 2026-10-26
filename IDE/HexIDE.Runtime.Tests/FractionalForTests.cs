@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A For loop whose start, limit or step is fractional, for every counter type that keeps a fraction (#983). Each case is a
 /// program that ran on vb6.exe (SP6, en-GB), native and p-code, in four batches. The expected lines are what its p-code
-/// build logged, the build the VB6 IDE runs and HexIDE follows: docs/vb6-fidelity-oracle.md, "A For loop with a fraction".
+/// build logged, the build the VB6 IDE runs and HexIDE follows: docs/vb6-fidelity-oracle/a-for-loop-with-a-fraction.md, "A For loop with a fraction".
 /// </summary>
 public class FractionalForTests : BaseVBTestFixture
 {

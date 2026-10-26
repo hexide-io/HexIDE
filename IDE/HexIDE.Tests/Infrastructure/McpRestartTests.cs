@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -54,6 +55,16 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 public class McpRestartTests
 {
+    static McpRestartTests()
+    {
+        // ToolFailures now lives in the Desktop assembly. Supply this fixture's tool signatures
+        // alongside the production signatures so binding failures still name the synthetic parameters.
+        foreach (var method in typeof(Tools).GetMethods())
+            if (method.GetCustomAttribute<McpServerToolAttribute>()?.Name is { } name)
+                ToolFailures.ParameterTypes[name] = method.GetParameters()
+                    .ToDictionary(parameter => parameter.Name!, parameter => parameter.ParameterType);
+    }
+
     public sealed record Described(string Detail);
 
     [McpServerToolType]
@@ -126,7 +137,8 @@ public class McpRestartTests
         };
         if (maxReconnectionAttempts is { } attempts)
             options.MaxReconnectionAttempts = attempts;
-        return McpClient.CreateAsync(new HttpClientTransport(options),
+        var transport = new HttpClientTransport(options);
+        return McpClient.CreateAsync(transport,
             cancellationToken: TestContext.Current.CancellationToken);
     }
 
@@ -232,16 +244,27 @@ public class McpRestartTests
     [Fact]
     public async Task A_client_attached_before_a_restart_is_answered_after_it()
     {
+        var output = TestContext.Current.TestOutputHelper;
+        var trace = new McpRestartDiagnostics((level, message) => output?.WriteLine($"[{level}] {message}"));
         var port = FreePort();
         var first = await StartAsync(port, McpTransport.Configure);
-        await using var client = await ConnectAsync(port);
+        await using var client = await trace.PhaseAsync("first connect attempt", () => ConnectAsync(port));
         (await EchoAsync(client, "before")).Should().Be("before");
 
-        await StopAsync(first);
-        var second = await StartAsync(port, McpTransport.Configure);
+        await trace.PhaseAsync("stop", () => StopAsync(first));
+        var second = await trace.PhaseAsync("restart", () => StartAsync(port, McpTransport.Configure));
         try
         {
-            (await EchoAsync(client, "after")).Should().Be("after", "the restart must be invisible to the client");
+            string after;
+            try
+            {
+                after = await trace.PhaseAsync("call after", () => EchoAsync(client, "after"));
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(trace.Failure(exception), exception);
+            }
+            after.Should().Be("after", "the restart must be invisible to the client");
             (await EchoAsync(client, "again")).Should().Be("again");
         }
         finally

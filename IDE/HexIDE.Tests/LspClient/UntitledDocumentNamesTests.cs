@@ -108,7 +108,7 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
         await registry.OpenDocumentAsync(uri, text);
 
         PublishDiagnosticsParams? published = null;
-        try { published = await received.Task.WaitAsync(wait); }
+        try { published = await ForeignServerWait.ForDiagnostics(received.Task, _capture, id, wait); }
         catch (TimeoutException) { /* the caller decides whether silence is the finding or the failure */ }
 
         started.Stop();
