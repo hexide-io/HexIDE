@@ -10,6 +10,7 @@
     <UserControl.DataTemplates>
         <DataTemplate x:DataType="viewModels:ComponentsComponentViewModel">
             <CheckBox IsChecked="{CompiledBinding IsSelected}"
+                      IsEnabled="{CompiledBinding CanChange}"
                       Theme="{StaticResource FlatCheckBox}"
                       BorderThickness="1"
                       Content="{CompiledBinding Name}" />
@@ -93,7 +94,7 @@
         </TabControl>
 
         <StackPanel Orientation="Horizontal" Spacing="7" Grid.Row="2" HorizontalAlignment="Right">
-            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.Components.Close}" />
+            <Button Command="{CompiledBinding OkCommand}" IsDefault="True" Content="{DynamicResource Str.Dialog.Components.Ok}" />
             <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.Components.Cancel}" />
             <Button Command="{CompiledBinding ApplyCommand}" Content="{DynamicResource Str.Dialog.Components.Apply}" />
             <StackPanel.Styles>

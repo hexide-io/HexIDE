@@ -24,6 +24,15 @@ public class InteractClickDescriptionTests
     }
 
     [Fact]
+    public void Click_describes_a_drag_and_its_release_coordinates()
+    {
+        Interact.Parameters.Single(p => p.Name == "action").Description.Should().Contain("to drags");
+        Interact.Parameters.Single(p => p.Name == "value").Description.Should()
+            .Contain("to <path>:x,y").And.Contain("dump_visual_tree path, including spaces")
+            .And.Contain("to cannot accompany double");
+    }
+
+    [Fact]
     public void The_hold_the_description_states_is_the_one_click_uses()
     {
         Interact.Description.Should().Contain($"releasing {UiAutomationDriver.ClickHoldMs} ms later");

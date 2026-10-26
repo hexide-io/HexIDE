@@ -31,7 +31,7 @@ internal static class VbPrint
         null => "",
         string s => s,
         bool b => b ? "True" : "False",
-        DateTime => VbDisplay.ToText(value) + " ",
+        VbDate => VbDisplay.ToText(value) + " ",
         byte or short or int or long or float or double or decimal =>
             (Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) < 0 ? "" : " ")
             + VbDisplay.ToText(value) + " ",

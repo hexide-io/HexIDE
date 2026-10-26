@@ -8,6 +8,13 @@ on:
     branches:
       - '**'
 
+# One run per pull request at a time: a newer push supersedes the run before it. Superseded runs used to keep going and
+# hold the few macOS runners the whole queue shares; on 2026-10-26 a merge batch waited 65 minutes behind superseded
+# runs of PRs that had since been rebased. Pushes to a branch are never cancelled, so every commit on main is built.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # The fewest tests each suite may run and still pass (#1448). One run of the Integration suite went green after 978 of its
 # 1682 tests and said nothing about it: no warning, no skip, exit code 0. That is the fail-open shape the foreign-server
 # fixture exists to prevent, one level up. Microsoft.Testing.Platform's --minimum-expected-tests turns a short run into a
@@ -154,9 +161,11 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
 
       - name: Run Runtime Tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # The IDE half and the server half are separate builds, and nothing in this job produced the server
@@ -185,6 +194,7 @@ jobs:
       # Only the key-completeness test is excluded. Its two neighbours check that the manifest and the
       # files on disk agree, which no contributor change has a reason to break.
       - name: Run ViewModel Tests
+        timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           CONTRIBUTOR_PR: ${{ github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
@@ -209,6 +219,7 @@ jobs:
         run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
       - name: Run Integration Tests (headless Avalonia UI)
+        timeout-minutes: 30
         run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
 
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
@@ -341,9 +352,11 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
 
       - name: Run Runtime Tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # One test speaks to HexIDE's own server over a real process, and nothing in this job has produced
@@ -360,19 +373,48 @@ jobs:
         if: matrix.name == 'windows'
         run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
 
+      # The macOS runner was lost four times on 2026-10-26, each time 40 minutes or more into the ViewModel tests, and each
+      # time GitHub kept no log: something starves it before the step's timeout can act (#2128). This watchdog runs for
+      # the rest of the job. Every two minutes it records free memory and the largest processes. Below 8% free it records
+      # them once more and ends the test run, so the runner lives to upload the record and the step's own log. It writes
+      # under TestResults, which the upload step below keeps on a failure.
+      - name: Start a memory watchdog (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p TestResults
+          cat > "$RUNNER_TEMP/memory-watchdog.sh" <<'EOF'
+          log="$1"; i=0
+          while sleep 30; do
+            free=$(memory_pressure -Q | awk '/percentage/ { gsub("%", "", $NF); print $NF }')
+            i=$((i + 1))
+            if [ $((i % 4)) -eq 0 ] || [ "${free:-100}" -lt 8 ]; then
+              { date -u +%H:%M:%S; echo "free memory ${free:-?}%"; ps -A -m -o pid,ppid,rss,%cpu,etime,command | head -12; } >> "$log"
+            fi
+            if [ "${free:-100}" -lt 8 ]; then
+              echo "free memory below 8%: ending the test run so the runner survives" >> "$log"
+              pkill -f 'HexIDE\.(Integration\.)?Tests'
+              exit 0
+            fi
+          done
+          EOF
+          nohup bash "$RUNNER_TEMP/memory-watchdog.sh" "$PWD/TestResults/memory-watchdog.log" > /dev/null 2>&1 &
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
       # build-ide remains the one that blocks on it.
+      # --long-running names any test still running after two minutes, so a hang says which test it is.
       - name: Run ViewModel Tests
+        timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           HEXIDE_REQUIRE_MADE_PROGRAM: ${{ matrix.name == 'windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
-          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
+          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
 
       - name: Run Integration Tests (headless Avalonia UI)
+        timeout-minutes: 30
         run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
 
       - name: Upload test results on failure
@@ -404,6 +446,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Run VB LSP Server Tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_LSP_SERVER }}
 
       - name: Build VB LSP Server

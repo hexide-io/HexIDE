@@ -1270,8 +1270,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [McpServerTool(Name = "add_control")]
     [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
     public async Task<AddControlResult> AddControlAsync(
-        string formName, string type,
-        double x, double y, double width, double height,
+        string formName,
+        [Description("A class as get_toolbox_items lists it, such as CommandButton or VB.CommandButton. An in-box control is offered only while the project references its library, which Project > Components sets, and once for each such library: its type name picks the library, as ComctlLib.ProgressBar does, and a bare ProgressBar takes the first.")] string type,
+        [Description("Pixels from the form's left. Where x and y fall inside a Frame or PictureBox, the control goes into the innermost one, as one drawn from that point does, and is held within it; x and y are still measured from the form, and the reply gives its place inside the container.")] double x,
+        double y, double width, double height,
         string? project = null,
         CancellationToken ct = default)
     {
@@ -1289,21 +1291,30 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     $"{document.Display} is not open in the visual designer — call view_designer first",
                     Project: document.Project.Name, Document: document.Name);
 
-            var componentClass = designer.ToolsBoxToolViewModel.Components
-                .Where(c => c.BaseClass is not null)
-                .FirstOrDefault(c =>
-                    string.Equals(c.BaseClass!.VBTypeName, type, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals("VB." + type, c.BaseClass!.VBTypeName, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(c.BaseClass!.Name, type, StringComparison.OrdinalIgnoreCase))
-                ?.BaseClass;
+            // A type name picks its button first, so ComctlLib.ProgressBar reaches COMCTL32.OCX's where both libraries are
+            // referenced; a bare class name takes the first button of that class (#1103).
+            var tools = designer.ToolsBoxToolViewModel.Components.Where(c => c.BaseClass is not null).ToList();
+            var tool = tools.FirstOrDefault(c =>
+                           string.Equals(c.VBTypeName, type, StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals("VB." + type, c.VBTypeName, StringComparison.OrdinalIgnoreCase))
+                       ?? tools.FirstOrDefault(c => string.Equals(c.BaseClass!.Name, type, StringComparison.OrdinalIgnoreCase));
+            var componentClass = tool?.BaseClass;
 
             if (componentClass is null)
             {
-                var known = string.Join(", ", designer.ToolsBoxToolViewModel.Components
-                    .Where(c => c.BaseClass is not null)
-                    .Select(c => c.BaseClass!.VBTypeName.Replace("VB.", "")));
+                var known = string.Join(", ", tools.Select(c => c.VBTypeName!.Replace("VB.", "")));
+                // An in-box control is in the toolbox only while the project references its library, as in VB6.
+                var inBox = HexIDE.Runtime.Components.InBox.InBoxComponentClass.Implemented.FirstOrDefault(c =>
+                    string.Equals(c.ControlClassName, type, StringComparison.OrdinalIgnoreCase)
+                    || c.Libraries.Any(l => string.Equals(l.TypeName(c.ControlClassName), type, StringComparison.OrdinalIgnoreCase)));
+                var files = inBox?.Libraries.Select(l => l.File).ToList() ?? [];
+                var why = inBox is null
+                    ? ""
+                    : $" {inBox.ControlClassName} comes from {string.Join(" or ", files)}, and {document.Project.Name} "
+                      + (files.Count == 1 ? "doesn't reference it" : files.Count == 2 ? "references neither" : "references none of them")
+                      + ": check one in Project > Components first, as in VB6.";
                 return new AddControlResult(false, null,
-                    $"Unknown control type '{type}'. Known types: {known}",
+                    $"Unknown control type '{type}'. Known types: {known}.{why}",
                     Project: document.Project.Name, Document: document.Name);
             }
 
@@ -1321,14 +1332,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}",
                     Project: document.Project.Name, Document: document.Name);
 
-            designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
+            // As a drag begun at its top-left: inside a Frame or PictureBox, it goes into the innermost one there (#2039).
+            designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height), new Avalonia.Point(x, y), tool!.Library);
             // Where it landed, and whether that is on the form at all: twips passed as pixels put a control
             // fifteen times too far out, and the reply used to be plain success. (#675)
             var placed = designer.SelectedComponent;
             var note = placed is null
                 ? null
                 : $"{placed.Name} is at Left {PropertyText.Display(placed.RelativeLeft)}, Top {PropertyText.Display(placed.RelativeTop)}, "
-                  + $"Width {PropertyText.Display(placed.Width)}, Height {PropertyText.Display(placed.Height)}, in pixels."
+                  + $"Width {PropertyText.Display(placed.Width)}, Height {PropertyText.Display(placed.Height)}, in pixels"
+                  + (placed.Instance.Container is null or { BaseClass: FormComponentClass }
+                      ? "."
+                      : $". It is inside {placed.ContainerName}, as a control drawn there is, so Left and Top are measured from {placed.ContainerName}.")
                   + OutsideContainerNote(placed);
             return new AddControlResult(true, placed?.Name, null, form, note, document.Project.Name, document.Name);
         });
@@ -1402,10 +1417,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         if (control.LiesWithinContainer) return "";
         var bounds = control.ContainerBounds;
+        // Twips passed as pixels start a control far off its container. One that starts inside and only runs past an
+        // edge is what VB6's own designer draws at a container's edge (#2039), so the twips hint would mislead there.
+        var startsOutside = control.Left >= bounds.Right || control.Top >= bounds.Bottom
+                            || control.Left + control.Width <= bounds.Left || control.Top + control.Height <= bounds.Top;
         return $" It lies at least partly outside {control.ContainerName}, whose client area is "
                + $"{PropertyText.Display(bounds.Width)} × {PropertyText.Display(bounds.Height)} pixels, so part or all "
-               + "of it will not be seen at run time. If these numbers came from a .frm or from VB6, they are twips: "
-               + "divide by 15.";
+               + "of it will not be seen at run time."
+               + (startsOutside ? " If these numbers came from a .frm or from VB6, they are twips: divide by 15." : "");
     }
 
     /// <summary>
@@ -1936,13 +1955,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_toolbox_items")]
-    [Description("Returns the names of all controls currently in the Toolbox, in order. Includes both built-in controls and any add-in registered controls.")]
+    [Description("Returns the names of all controls currently in the Toolbox, in order, each with the type name a control placed from it takes. Includes both built-in controls and any add-in registered controls. An in-box control, such as the ProgressBar, is there once for each of its libraries the project references, which Project > Components sets: MSComctlLib.ProgressBar from MSCOMCTL.OCX, ComctlLib.ProgressBar from COMCTL32.OCX.")]
     public async Task<ToolboxItemsResult> GetToolboxItemsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var items = ctx.ToolBoxViewModel.Components
-                .Select(c => new ToolboxItem(c.Name, c.BaseClass?.VBTypeName))
+                .Select(c => new ToolboxItem(c.Name, c.VBTypeName))
                 .ToArray();
             return new ToolboxItemsResult(items);
         });
@@ -2405,13 +2424,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. The primary is the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. The primary is the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags; any control, a Label or a form's area included); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
         string action,
-        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'.")]
+        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double.")]
         string? value = null,
         [Description(WindowParameter)]
         string? window = null,
