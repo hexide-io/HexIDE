@@ -14,7 +14,7 @@ namespace HexIDE.Tests.Projects;
 /// A new form or module gets its file when the project is saved, not when it is added, as VB6 does it.
 ///
 /// <para>
-/// Measured against the VB6 IDE (#489, <c>docs/vb6-fidelity-oracle.md</c>): no gesture that creates a document
+/// Measured against the VB6 IDE (#489, <c>docs/vb6-fidelity-oracle/when-a-document-gets-a-file-and-what-a-dangling-startup-does.md</c>): no gesture that creates a document
 /// writes a file, in an unsaved project or a saved one, and discarding an unsaved document leaves nothing behind.
 /// HexIDE wrote each one at once, into the project's folder or, for a project never saved, a scratch folder under
 /// <c>%TEMP%</c>. Its first Save Project then wrote the <c>.vbp</c> where the developer chose and left those members
@@ -113,6 +113,39 @@ public class WriteAtSaveTests : IDisposable
 
         added.AbsolutePath.Should().BeNull();
         Directory.GetFiles(dir).Should().BeEmpty("VB6 writes neither the new file nor the project file until it is saved");
+    }
+
+    [Theory]
+    [InlineData("Form", false)]
+    [InlineData("Module", false)]
+    [InlineData("Class", false)]
+    [InlineData("UserControl", false)]
+    [InlineData("PropertyPage", false)]
+    [InlineData("Form", true)]
+    [InlineData("Module", true)]
+    [InlineData("Class", true)]
+    [InlineData("UserControl", true)]
+    [InlineData("PropertyPage", true)]
+    public async Task A_new_member_has_unsaved_changes_until_its_first_save(string kind, bool savedProject)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        if (savedProject)
+            await svc.SaveProject(project, saveAs: false);
+
+        var added = await AddNew(svc, project, kind, kind + "1");
+
+        added.AbsolutePath.Should().BeNull();
+        bool HasUnsavedChanges() => added.Form is { } form
+            ? svc.HasUnsavedChanges(form)
+            : svc.HasUnsavedChanges(added.Module!);
+        HasUnsavedChanges().Should().BeTrue("a new document has no file yet (#597)");
+
+        await svc.SaveProject(project, saveAs: false);
+
+        added.AbsolutePath.Should().NotBeNull();
+        File.Exists(added.AbsolutePath).Should().BeTrue();
+        HasUnsavedChanges().Should().BeFalse();
     }
 
     [Theory]

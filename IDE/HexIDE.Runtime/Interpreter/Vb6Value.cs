@@ -30,7 +30,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
             if (Type == ValueType.Currency || Type == ValueType.Decimal)
                 return ((decimal)Value!).CompareTo((decimal)other.Value!);
             if (Type == ValueType.Date)
-                return ((DateTime)Value!).CompareTo((DateTime)other.Value!);
+                return ((VbDate)Value!).CompareTo((VbDate)other.Value!);
             if (Type == ValueType.String)
                 return text
                     ? VbTextCompare.Compare((string)Value!, (string)other.Value!)
@@ -51,7 +51,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     }
 
     /// <summary>True and the numeric value as a double if <paramref name="v"/> is any VB6 numeric subtype
-    /// (Byte/Integer/Long/Single/Double/Currency/Decimal, or a Date via its OLE serial). The single place
+    /// (Byte/Integer/Long/Single/Double/Currency/Decimal, or a Date via its serial, exactly as it is held). The single place
     /// that widens the value model's numeric subtypes to double for the operator/comparison cascades.</summary>
     public static bool TryNumericToDouble(Vb6Value v, out double d)
     {
@@ -63,7 +63,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
             case float f: d = f; return true;
             case double db: d = db; return true;
             case decimal m: d = (double)m; return true;
-            case DateTime dt: d = dt.ToOADate(); return true;
+            case VbDate dt: d = dt.Serial; return true;
         }
         d = 0;
         return false;
@@ -174,7 +174,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     }
     public Vb6Value(long value) : this(ValueType.Long, value) {}
     public Vb6Value(byte value) : this(ValueType.Byte, value) {}
-    public Vb6Value(DateTime value) : this(ValueType.Date, value) {}
+    public Vb6Value(VbDate value) : this(ValueType.Date, value) {}
 
     // Currency and Decimal both box a C# decimal, so a single Vb6Value(decimal) ctor would be ambiguous;
     // these factories pick the intended VB6 subtype (distinguished at runtime by Type).
@@ -228,7 +228,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
             prim => prim switch
             {
                 ValueTypePrimitive.Color => VBColor.FromColor(0, 0, 0),
-                ValueTypePrimitive.Date => DateTime.FromOADate(0.0),   // VB6 serial 0 = 1899-12-30 00:00
+                ValueTypePrimitive.Date => new VbDate(0.0),   // VB6 serial 0 = 1899-12-30 00:00
                 ValueTypePrimitive.Double => 0.0,
                 ValueTypePrimitive.Single => 0.0f,
                 ValueTypePrimitive.File => throw new NotImplementedException(),
@@ -324,9 +324,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
 
         public override string ToString()
         {
-            if (array)
-                return type + "()";
-            return type.ToString();
+            var name = type.Match(inner => inner.ToString(), primitive => primitive.ToString());
+            return array ? name + "()" : name;
         }
     }
 

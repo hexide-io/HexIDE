@@ -34,6 +34,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly List<Entry> _entries;
     private readonly ILogger<LspClientRegistry> _logger;
     private readonly ILspWorkspace? _workspace;
+    private readonly IWorkspaceArtifactService? _artifacts;
 
     // Each connection is a source of its own, and so is anything injecting through this router. Without
     // this, two servers claiming one document overwrote each other and a build erased both (#358).
@@ -64,7 +65,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// no client is up is still what the re-open sends. Routed-path-only bookkeeping would re-open the
     /// document with the text from before that change and silently undo it.
     /// </param>
-    private sealed record OpenDocument(bool IsProjectMember, string Text);
+    /// <param name="HasVb6ClassHeader">The content claim at open, retained through edits.</param>
+    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader);
 
     /// <summary>
     /// Serialises workspace-move handling. Without it two opens can both pass the
@@ -81,10 +83,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public LspClientRegistry(
         IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger,
         ILspWorkspace? workspace = null,
-        IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null)
+        IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null,
+        IWorkspaceArtifactService? artifacts = null)
     {
         _logger = logger;
         _workspace = workspace;
+        _artifacts = artifacts;
         ConfigurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
@@ -96,6 +100,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
+    public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
     public event EventHandler<LogTraceParams>? TraceReceived;
     public event EventHandler? ConnectionsChanged;
@@ -211,6 +216,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             client.TraceReceived -= OnInnerTrace;
             client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+            client.ProgressReceived -= OnInnerProgress;
             e.Client = null;
             e.State = LanguageConnectionState.Stopped;
             e.StateSince = DateTimeOffset.UtcNow;
@@ -233,7 +239,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // And recorded before the restart below, not after it, so that a change made while the restart stops
         // the old servers has a record to land in. No connection can hold it then, and the open at the end
         // sends what this records (#719).
-        _open[uri] = new OpenDocument(isProjectMember, text);
+        _open[uri] = new OpenDocument(isProjectMember, text,
+            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text));
 
         // Before anything starts or is used: a server told about one project must not go on serving
         // another. This document is named so the replay inside can skip it — it is opened below either
@@ -323,7 +330,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Asking only the top-priority claimant is what makes a second server attached to `.bas` an addition
     // rather than a corruption of what was already working.
     public Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "documentSymbolProvider") is { } c
+        TopClaimantAdvertising(uri, "documentSymbolProvider") is { } c
             ? c.RequestDocumentSymbolsAsync(uri, ct)
             : Task.FromResult<DocumentSymbol[]>([]);
 
@@ -332,15 +339,79 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // not merely a duplicate — it can take out folding for the whole document behind the debug-level
     // catch that wraps the update.
     public Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "foldingRangeProvider") is { } c
+        TopClaimantAdvertising(uri, "foldingRangeProvider") is { } c
             ? c.RequestFoldingRangesAsync(uri, ct)
             : Task.FromResult<FoldingRange[]>([]);
 
     // ── Merged features ─────────────────────────────────────────────────────────────────────────────
     // Completions genuinely combine: two servers offer different candidates for one prefix, and dropping
     // either would hide something the user could have typed. This is the case the merge helpers exist for.
+    public IReadOnlyList<string> CompletionTriggerCharacters(string uri) =>
+        StartedClaimantsFor(uri).SelectMany(CompletionTriggers).Distinct(StringComparer.Ordinal).ToArray();
+
+    private static IEnumerable<string> CompletionTriggers(ILspClient client)
+    {
+        if (client.AdvertisedCapabilities is not { } caps
+            || !ServerCapabilities.Supports(caps, "completionProvider")) yield break;
+        var provider = caps.GetProperty("completionProvider");
+        if (provider.ValueKind != JsonValueKind.Object
+            || !provider.TryGetProperty("triggerCharacters", out var triggers)
+            || triggers.ValueKind != JsonValueKind.Array) yield break;
+        foreach (var trigger in triggers.EnumerateArray())
+            if (trigger.ValueKind == JsonValueKind.String && trigger.GetString() is { } value)
+                yield return value;
+    }
+
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(string uri, Position position,
+        string triggerCharacter, CancellationToken ct = default) =>
+        GatherCompletionAsync(uri, position, triggerCharacter, ct);
+
     public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestCompletionAsync(uri, position, ct));
+        GatherCompletionAsync(uri, position, null, ct);
+
+    private async Task<CompletionItem[]> GatherCompletionAsync(
+        string uri, Position position, string? triggerCharacter, CancellationToken ct)
+    {
+        var budget = TimeSpan.FromSeconds(1);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        using var waiting = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var deadline = Task.Delay(budget, waiting.Token);
+        var pending = StartedClaimantsFor(uri)
+            .Where(c => triggerCharacter is null
+                || CompletionTriggers(c).Contains(triggerCharacter, StringComparer.Ordinal))
+            .Select(AskAsync).ToArray();
+        try
+        {
+            await Task.WhenAny(Task.WhenAll(pending), deadline);
+            ct.ThrowIfCancellationRequested();
+            // Registration order is already priority order. Never let response order choose the winner.
+            return pending.Where(t => t.IsCompletedSuccessfully).SelectMany(t => t.Result)
+                .DistinctBy(i => (i.Label, i.Kind)).ToArray();
+        }
+        finally { waiting.Cancel(); }
+
+        async Task<CompletionItem[]> AskAsync(ILspClient client)
+        {
+            try
+            {
+                // Keep the request's own deadline and cancellation; the popup budget only stops waiting.
+                var timely = false;
+                var items = await client.RequestCompletionAsync(uri, position, ct, () =>
+                {
+                    timely = clock.Elapsed <= budget;
+                    if (timely || ct.IsCancellationRequested) return;
+                    _logger.LogDebug("Completion from {Id} answered after the popup opened; discarded.", OwnerOf(client));
+                    client.NoteLateCompletion();
+                });
+                if (timely) return items;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Completion failed for {Id}", OwnerOf(client));
+            }
+            return [];
+        }
+    }
 
     // ── First-answer features ───────────────────────────────────────────────────────────────────────
     // Nothing here can usefully merge two answers into one, but any claimant may legitimately have it, so
@@ -365,10 +436,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
     public Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+        TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
 
     public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.
@@ -544,11 +615,23 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async ValueTask DisposeAsync()
     {
+        if (_artifacts is IDisposable disposable) disposable.Dispose();
         await StopAsync();
         foreach (var e in _entries) e.Gate.Dispose();
     }
 
     // ── Routing ─────────────────────────────────────────────────────────────────────────────────────
+
+    private static bool HasVb6ClassHeader(string text)
+    {
+        using var reader = new StringReader(text);
+        while (reader.ReadLine() is { } line)
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+                return line.Equals("VERSION 1.0 CLASS", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
 
     /// <summary>
     /// Every server that claims this document. Keyed on the EXTENSION, not on a language name, so two
@@ -568,6 +651,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
         return _entries
             .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            // A carried class keeps its opening content claim through edits and server restarts (#279).
+            .Where(e => isProjectMember || extension != ".cls"
+                        || !DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId)
+                        || uri is not null && _open.TryGetValue(uri, out var record) && record.HasVb6ClassHeader)
             .Where(e => !isProjectMember
                         || DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId))
             .ToList();
@@ -590,9 +677,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// server with no formatter would silently block a lower one that has it. That is also how the
     /// established editor ecosystem behaves — its formatter conflict prompt lists only formatters.
     /// </summary>
-    private ILspClient? SoleClaimantFor(string? uri, string capability) =>
-        StartedClaimantsFor(uri)
-            .FirstOrDefault(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability));
+    private ILspClient? TopClaimantAdvertising(string? uri, string capability)
+    {
+        var advertisers = StartedClaimantsFor(uri)
+            .Where(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability)).ToList();
+        if (advertisers.Count == 0) return null;
+
+        var winner = advertisers[0];
+        foreach (var skipped in advertisers.Skip(1))
+            skipped.NotePrioritySkip(capability, OwnerOf(winner));
+        return winner;
+    }
 
     private async Task<T[]> GatherAsync<T>(string uri, Func<ILspClient, Task<T[]>> call)
     {
@@ -626,9 +721,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </para>
     ///
     /// <para>
-    /// Checked when a document opens rather than driven by a project event, because that is the moment the
-    /// answer matters and it keeps this layer free of the project model. A workspace nobody has asked
-    /// anything of costs nothing by being stale.
+    /// Checked on project saves and startup-project changes as well as document opens.
     /// </para>
     ///
     /// <para>
@@ -637,6 +730,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// cost paid repeatedly.
     /// </para>
     /// </summary>
+    public Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) =>
+        RestartIfWorkspaceMovedAsync(null, cancellationToken);
+
     private async Task RestartIfWorkspaceMovedAsync(string? triggeringUri, CancellationToken cancellationToken)
     {
         if (_workspace is null) return;
@@ -683,6 +779,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+            client.ProgressReceived -= OnInnerProgress;
             e.Client = null;
             // NotStarted rather than Stopped: this one is eligible to run again, at the new root.
             e.State = LanguageConnectionState.NotStarted;
@@ -760,9 +857,20 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
+            if (_artifacts is not null)
+            {
+                try { await _artifacts.PrepareAsync(e.Registration, cancellationToken); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Workspace artefact for {Server} failed; launching anyway.", e.Registration.Id);
+                }
+            }
+
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
             client.MessageShown += OnInnerMessage;
+            client.ProgressReceived += OnInnerProgress;
             client.MessageLogged += OnInnerLogMessage;
             client.TraceReceived += OnInnerTrace;
             client.StateChanged += OnInnerStateChanged;
@@ -805,6 +913,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(this, e);
     private void OnInnerTrace(object? sender, LogTraceParams e) => TraceReceived?.Invoke(this, e);
+
+    private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender, p);
 
     private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 

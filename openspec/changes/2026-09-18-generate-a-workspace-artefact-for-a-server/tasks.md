@@ -34,28 +34,29 @@
 
 ## 2. Consent and the write
 
-- [ ] 2.1 A per-server consent decision — allow once, allow always, deny — keyed on the server and the
+- [x] 2.1 A per-server consent decision — allow once, allow always, deny — keyed on the server and the
   resolved path, following the existing add-in consent store rather than a second model.
-- [ ] 2.2 Resettable in Options, beside the add-in consents.
-- [ ] 2.3 The write: inside the workspace only, atomic, and skipped when the content is byte-identical so a
+- [x] 2.2 Resettable in Options, beside the add-in consents.
+- [x] 2.3 The write: inside the workspace only, atomic, and skipped when the content is byte-identical so a
   server's own watcher is not woken for nothing.
-- [ ] 2.4 The gate in `EnsureStartedAsync`, before the client is created. A provider that throws, or a write
-  that fails, disables that server rather than the IDE, and records the reason on the connection so the
+- [x] 2.4 The gate in `EnsureStartedAsync`, before the client is created. A provider that throws, or a write
+  that fails, leaves the server launching without the artefact, and records the reason on the connection so the
   protocol inspector shows it.
-- [ ] 2.5 Tests, including denial, a provider that throws, and a write refused for escaping the workspace.
+- [x] 2.5 Tests, including denial, a provider that throws, and a write refused for escaping the workspace.
 
 ## 3. The first provider
 
-- [ ] 3.1 Decide the first real consumer, given the caveat in the proposal.
-- [ ] 3.2 The provider.
-- [ ] 3.3 End to end against a third-party server: the artefact is written before the server starts, and
+- [x] 3.1 The first consumer is clangd for a project carrying C/C++ sources, resolving the proposal’s caveat.
+- [x] 3.2 The provider.
+- [x] 3.3 End to end against a third-party server: the artefact is written before the server starts, and
   the server demonstrably read it.
 
 ## 4. Invalidation
 
 - [ ] 4.1 Depends on hexide-io/HexIDE#456 — regenerate on a material project change and notify.
+  Debounced regeneration is implemented; the watched-file notification remains with #456.
 
 ## 5. Documentation
 
-- [ ] 5.1 `docs/language-servers.md`: the new field, what a provider is, and that writing is consented.
+- [x] 5.1 `docs/language-servers.md`: the new field, what a provider is, and that writing is consented.
 - [ ] 5.2 Validate and archive; rewrite the merged spec's Purpose if the CLI replaces it.

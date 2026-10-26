@@ -10,7 +10,7 @@ namespace HexIDE.Runtime.Tests;
 ///
 /// <para>
 /// Every expectation here was measured on vb6.exe, built both as native code and as p-code; the probes and their output
-/// are in docs/vb6-fidelity-oracle.md, "Resume Next into a block". Where the two builds agree, the test pins VB6. Where
+/// are in docs/vb6-fidelity-oracle/resume-next-into-a-block.md, "Resume Next into a block". Where the two builds agree, the test pins VB6. Where
 /// they differ, which is only a For whose header raised and a Select Case whose selector raised, the test pins the model
 /// HexIDE follows and says so in its name.
 /// </para>
@@ -439,7 +439,7 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     // ---- #971's review: what a raised header does depends on the counter's type, and the bounds convert into it. Measured
-    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle.md, "Resume Next into a block", "Review round one").
+    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle/resume-next-into-a-block.md, "Resume Next into a block", "Review round one").
 
     public static TheoryData<string, string, string[]> CounterTypes => new()
     {
@@ -594,16 +594,20 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_raised_For_Each_collection_named_by_a_variable_that_shadows_a_Function_is_refused()
+    public async Task A_raised_For_Each_collection_named_by_a_variable_that_shadows_a_Function_uses_the_variables_declaration()
     {
         // The local array, not the Function, is what `Items(5)` reached, so the Function's declared type says nothing.
-        var run = () => RunResumingNext("""
+        await RunResumingNext("""
             Go
             Sub Go()
                 On Error Resume Next
-                Dim Items(1)
+                Dim Items(1), x, n, trail
+                x = "pre"
                 For Each x In Items(5)
+                    n = n + 1
+                    trail = trail & " [" & x & "]"
                 Next
+                Debug.Print n & ":" & trail & ":" & x & "|" & Err.Number
             End Sub
             Function Items() As Long()
                 Dim r() As Long
@@ -611,7 +615,7 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
             End Function
             """);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#969*");
+        AssertLog(["1: [pre]:|92"]);
     }
 
     // One For statement run twice in one call: what a raising header's Next uses is what the statement last evaluated
@@ -690,13 +694,56 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(number);
     }
 
-    [Fact]
-    public async Task A_raising_For_Each_collection_whose_declared_type_cannot_be_known_is_refused()
+    [Theory]
+    [InlineData("(BoomV())", "", "")]
+    [InlineData("((BoomArr()))", "", "pre")]
+    [InlineData("Items(5)", "Dim Items(1)", "")]
+    [InlineData("Items(Boom())", "Dim Items(1) As Long", "")]
+    public async Task A_raised_collection_uses_its_declared_type(string expression, string declaration, string after)
     {
-        // VB6 empties the element afterwards unless the collection is declared as an array, which only a direct call of
-        // one of the project's own Functions lets HexIDE see.
-        var run = () => RunResumingNext("For Each x In (BoomV())\nNext\n");
+        await RunResumingNext($"{declaration}\nx = \"pre\"\nFor Each x In {expression}\n" + ForEachTail);
+        AssertLog([$"1: [pre]:{after}|92"]);
+    }
 
+    [Theory]
+    [InlineData("Function", "End Function", "", "o.Items()", "")]
+    [InlineData("Function", "End Function", " As Long()", "o.Items()", "pre")]
+    [InlineData("Property Get", "End Property", "", "o.Items", "")]
+    [InlineData("Property Get", "End Property", " As Long()", "o.Items", "pre")]
+    public async Task A_raised_class_collection_uses_its_members_declaration(
+        string kind, string end, string type, string expression, string after)
+    {
+        await RunClasses("Dim o, x, n, trail\nSet o = New Source\nOn Error Resume Next\nx = \"pre\"\nFor Each x In "
+            + expression + "\n" + ForEachTail,
+            ("Source", $"Public {kind} Items(){type}\nDim d As Double\nd = 1 / 0\n{end}\n"));
+        AssertLog([$"1: [pre]:{after}|92"]);
+    }
+
+    [Theory]
+    [InlineData("Public Items(1)", "o.Items(Boom())", "")]
+    [InlineData("Public Items() As Long", "o.Items(Boom())", "")]
+    public async Task A_raised_field_element_uses_the_arrays_element_declaration(string field, string expression, string after)
+    {
+        await RunClasses("Dim o, x, n, trail\nSet o = New Source\nOn Error Resume Next\nx = \"pre\"\nFor Each x In "
+            + expression + "\n" + ForEachTail + "\nFunction Boom()\nBoom = 1 / 0\nEnd Function\n",
+            ("Source", field + "\n"));
+        AssertLog([$"1: [pre]:{after}|92"]);
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData(" As Long()", "pre")]
+    public async Task A_raised_qualified_collection_uses_its_Function_declaration(string type, string after)
+    {
+        await RunModules("Dim x, n, trail\nOn Error Resume Next\nx = \"pre\"\nFor Each x In Module2.Items()\n" + ForEachTail,
+            ("Module2", $"Public Function Items(){type}\nDim d As Double\nd = 1 / 0\nEnd Function\n"));
+        AssertLog([$"1: [pre]:{after}|92"]);
+    }
+
+    [Fact]
+    public async Task A_raised_collection_without_a_declaration_is_still_refused()
+    {
+        var run = () => RunResumingNext("For Each x In BoomV() + 0\nNext\n");
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#969*");
     }
 

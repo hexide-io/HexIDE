@@ -42,6 +42,9 @@ visually distinguishable from the rest of the selection.
 Every alignment and sizing command answers "align to what?", and the answer has to be visible before the
 command runs — otherwise the developer finds out which control was the reference by looking at the result.
 Making it the same control whose properties are being shown means one visual cue answers both questions.
+This is a HexIDE presentation choice: VB6 uses the last selected control with solid handles as the reference,
+but its toolbar keeps showing the first selected and its Properties caption can change after reselection
+(measured 2026-10-22, #928/#929).
 
 #### Scenario: Selecting a second control
 - **WHEN** the developer adds a second control to the selection
@@ -260,3 +263,21 @@ Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling
 #### Scenario: Pressing on the box
 - **WHEN** the developer presses on the box
 - **THEN** nothing is selected and no region drag begins
+
+
+### Requirement: Export a picture property's payload
+The Properties window SHALL offer Export picture on modeled Picture, Icon, MouseIcon and DragIcon properties
+holding a nonempty, length-consistent VB6-framed StdPicture record. Export SHALL write only the image payload
+chosen by a save picker, without changing the property, designer history, form or companion file. It SHALL NOT
+export opaque OCX property bags, unframed bytes or malformed records. Cancellation SHALL write nothing, and a
+write failure SHALL be reported to the user.
+
+#### Scenario: Export a form's icon
+- **GIVEN** a form's Icon holds a VB6-framed StdPicture record
+- **WHEN** Export picture is chosen from its property row's context menu and a destination is selected
+- **THEN** the destination contains the original image bytes without either framing layer
+- **AND** the property record remains unchanged
+
+#### Scenario: A picture belongs to an OCX property bag
+- **GIVEN** an opaque OCX block contains an image
+- **THEN** the Properties window offers no export for that property bag

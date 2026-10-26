@@ -12,7 +12,7 @@ namespace HexIDE.Tests.IDE;
 ///
 /// <para>
 /// The format and the line semantics are both MEASURED, not assumed -- nine probes against real
-/// <c>vb6.exe</c> 6.00.8176 (the original release), recorded in <c>docs/vb6-fidelity-oracle.md</c> under *What <c>/make</c>
+/// <c>vb6.exe</c> 6.00.8176 (the original release), recorded in <c>docs/vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md</c> under *What <c>/make</c>
 /// writes to <c>/out</c>, and what "Line N" counts*. Both were guessed in the code before that, and both
 /// guesses were wrong: the regex matched a C compiler's format, and the line was read as a 1-based file
 /// line when it is a 0-based index into the code view.
@@ -203,6 +203,33 @@ public class Vb6CompileLogTests
         Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
             .Should().Be(3, "buffer line 3 is `  x = 1`, below the module's Attribute VB_Name and the "
                             + "procedure's attribute, neither of which VB6 counted");
+    }
+
+    // Measured p11a, p11b, p07c and p07 (#968): attributes belong to logical lines.
+    [Theory]
+    [InlineData("Attribute Foo.VB_Description = _\r\n\"p11a\"", 6)]
+    [InlineData("Attribute _\r\nFoo.VB_Description = \"p11b\"", 6)]
+    [InlineData("' a comment _\r\nAttribute Foo.VB_Description = \"p07c\"", 8)]
+    public void ContinuedAttributeShapesMapTheMeasuredError(string shape, int printedLine)
+    {
+        var code = "Option Explicit\r\nPublic Sub Foo()\r\n" + shape
+                 + "\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\nPublic Sub Main()\r\n    zz = 1\r\nEnd Sub\r\n";
+        var (project, module) = AModuleWith(code);
+        var log = $"Compile Error in File '{module.AbsolutePath}', Line {printedLine} : Variable not defined\r\n";
+
+        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+            .Should().Be(9);
+    }
+
+    [Fact]
+    public void AttributeInsideContinuedDeclarationIsCounted()
+    {
+        var (project, module) = AModuleWith("Option Explicit\r\nPublic Sub Foo(ByVal a As Long, _\r\n"
+            + "Attribute Foo.VB_Description = \"p07\"\r\nByVal b As Long)\r\nEnd Sub\r\n");
+        var log = $"Compile Error in File '{module.AbsolutePath}', Line 2 : Expected: identifier\r\n";
+
+        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+            .Should().Be(3);
     }
 
     [Fact]

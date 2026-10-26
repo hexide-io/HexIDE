@@ -98,6 +98,18 @@ public class ArrayFunctionsTests : BaseVBTestFixture
         AssertDebugLog(["[]", new Vb6Value(0L), new Vb6Value(0L), new Vb6Value(8200L), new Vb6Value(9L)]);
     }
 
+    [Theory]
+    [InlineData("Dim d(1) As Long\nd(0) = 1\nd(1) = 12", "Join(d, \"-\")", 5L)]
+    [InlineData("Dim d(1) As Long\nd(0) = 1\nd(1) = 12", "Filter(d, \"1\")", 13L)]
+    [InlineData("Dim d(1, 1) As String", "Join(d, \"-\")", 5L)]
+    [InlineData("Dim d(1, 1) As String", "Filter(d, \"a\")", 13L)]
+    public async Task Join_and_Filter_refuse_allocated_arrays_of_the_wrong_type_or_rank(string declaration, string call, long error)
+    {
+        // Measured, native and in the IDE (#875): Long arrays gave values, and 2-D String arrays raised 9.
+        await Run($"{declaration}\nDim c\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(error)]);
+    }
+
     [Fact]
     public async Task Filter_IncludeExclude_And_NoMatch()
     {

@@ -38,6 +38,51 @@ public class DirtyDetectorTests
             .Should().Be(ReloadDecision.CleanReload);
     }
 
+    [Theory]
+    [InlineData(ModuleKind.StandardModule, 1252, false, "café")]
+    [InlineData(ModuleKind.ClassModule, 1252, false, "café")]
+    [InlineData(ModuleKind.StandardModule, 1252, false, "€")]
+    [InlineData(ModuleKind.ClassModule, 1252, false, "€")]
+    [InlineData(ModuleKind.StandardModule, 65001, true, "café")]
+    [InlineData(ModuleKind.ClassModule, 65001, true, "café")]
+    public void NotOpenModule_EncodedModelMatchesByteBaseline_IsCleanReload(
+        ModuleKind kind, int codePage, bool bom, string comment)
+    {
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "Proj"), "Mod1", kind)
+        {
+            TextEncoding = new Vb6TextEncoding(codePage, bom)
+        };
+        module.UpdateCode($"' {comment}\r\nPublic Sub Foo()\r\nEnd Sub");
+        var path = P("encoded.bas");
+        var baseline = new FileBaselineStore();
+        baseline.Record(path, Vb6TextFile.Encode(
+            ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind), module.TextEncoding));
+
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
+        sut.Classify(new WatchedFileTarget(path, null, module, null, null))
+            .Should().Be(ReloadDecision.CleanReload);
+    }
+
+    [Theory]
+    [InlineData(ModuleKind.UserControl, false)]
+    [InlineData(ModuleKind.PropertyPage, false)]
+    [InlineData(ModuleKind.UserControl, true)]
+    [InlineData(ModuleKind.PropertyPage, true)]
+    public void NotOpenDesignerModule_UsesRenderComparison(ModuleKind kind, bool dirty)
+    {
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "Proj"), "Control1", kind);
+        var path = P("Control1.ctl");
+        var baseline = new FileBaselineStore();
+        // Deliberately disagree with the render verdict: raw bytes cannot answer this question.
+        baseline.Record(path, dirty ? module.Code : "designer block and code");
+        var projectService = Substitute.For<IProjectService>();
+        projectService.HasUnsavedChanges(module).Returns(dirty);
+
+        var sut = new DirtyDetector(baseline, projectService);
+        sut.Classify(new WatchedFileTarget(path, null, module, null, null))
+            .Should().Be(dirty ? ReloadDecision.Conflict : ReloadDecision.CleanReload);
+    }
+
     [Fact]
     public void NotOpenModule_ModelDiffersFromBaseline_IsConflict()
     {

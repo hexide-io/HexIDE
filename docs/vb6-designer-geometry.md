@@ -1,6 +1,6 @@
 # VB6 designer geometry — what the oracle actually says
 
-Companion to [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md), which records **runtime language**
+Companion to [`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md), which records **runtime language**
 semantics — what an expression evaluates to, which error a statement raises. This file records what the
 designer file format and the designer itself do with **geometry and structure**: containers, coordinates,
 units, z-order and tab order. The two are separate documents because they are answered by different
@@ -63,7 +63,7 @@ transform that treats them alike corrupts one of them.
 
 ## Order
 
-**`Begin` order is z-order, and the first block in a container is its top control** (measured, `docs/vb6-fidelity-oracle.md`,
+**`Begin` order is z-order, and the first block in a container is its top control** (measured, `docs/vb6-fidelity-oracle/where-vb6s-designer-puts-a-controls-block.md`,
 "Where VB6's designer puts a control's block"). There is a separate windowless plane: graphical controls (`Label`,
 `Shape`, `Line`, `Image`) are drawn beneath every windowed control in their container, whatever the order, and VB6
 writes each container's windowed blocks first and its windowless ones after them. A control VB6 adds or pastes goes
@@ -73,7 +73,7 @@ and its box is drawn in that place among the others (#1553).
 The designer draws a form VB6 wrote the same way (#1481), and so does the running form
 ([#1497](https://github.com/hexide-io/HexIDE/issues/1497)), where a control-array element loaded at run time goes under
 its plane's controls, as VB6 puts it (measured). For two Lines the direction is measured too: the one
-earlier in the file is drawn over the later one (`docs/vb6-fidelity-oracle.md`, "The Line control"), and HexIDE draws
+earlier in the file is drawn over the later one (`docs/vb6-fidelity-oracle/the-line-control.md`, "The Line control"), and HexIDE draws
 Lines that way.
 
 **`TabIndex` is one flat sequence per form**, not one per container, and VB6 renumbers it to `0..N−1` on
@@ -94,8 +94,9 @@ up first.
 
 Three things that cost time before they were written down:
 
-- **Registering the sample OCXs fails** on a modern machine, which blocks any probe needing `MSComctlLib`,
-  `TabDlg` or `SHDocVwCtl`.
+- **Registering the sample OCXs fails** on a modern machine, which blocks any probe needing `TabDlg` or
+  `SHDocVwCtl`. `MSComctlLib` and `ComctlLib` are not blocked: MSCOMCTL.OCX and COMCTL32.OCX are registered in
+  the oracle guest already, and the #1082 probes built and ran against both.
 - **A `.vbp` must be CRLF.** `vb6.exe` will not read one with LF line endings.
 - **`/make` writes its log per form**, not per project, so a failure is reported in a file named after the
   form rather than in the build output the caller was watching.

@@ -29,7 +29,8 @@
                         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="3"
                                                 Background="{DynamicResource {x:Static commonControls:SystemColors.DesktopBrushKey}}">
                         <Canvas x:Name="ScreenCanvas" ClipToBounds="True">
-                            <Border Canvas.Left="{CompiledBinding ThumbLeft}"
+                            <Border IsVisible="{CompiledBinding HasForm}"
+                                    Canvas.Left="{CompiledBinding ThumbLeft}"
                                     Canvas.Top="{CompiledBinding ThumbTop}"
                                     BorderThickness="1"
                                     BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}"
@@ -43,7 +44,7 @@
                                                 BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}"
                                                 Height="4" />
                                         <Border Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}">
-                                            <TextBlock Text="{DynamicResource Str.Tool.FormLayout.Preview.FormName}"
+                                            <TextBlock Text="{CompiledBinding FormName}"
                                                        Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
                                         </Border>
                                     </DockPanel>

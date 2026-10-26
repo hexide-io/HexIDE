@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Tests;
 /// is 13 for any object. A few rows are inferred rather than measured, and say so. HexIDE does not call a class's
 /// default member yet, so a Widget is refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR
 /// type name, or no match at all. A Plain raises VB6's 438, where several of these raised 13 or gave the type name
-/// (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a value".
+/// (#436). The probe is in docs/vb6-fidelity-oracle/an-object-used-as-a-value.md, "An object used as a value".
 /// </summary>
 public class ObjectAsValueTests : BaseVBTestFixture
 {
@@ -167,7 +167,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(true), new Vb6Value(true)]);
     }
 
-    // ---- From #840's review: the routes that still read an object as a value (docs/vb6-fidelity-oracle.md, "An object
+    // ---- From #840's review: the routes that still read an object as a value (docs/vb6-fidelity-oracle/an-object-used-as-a-value.md, "An object
     // ---- used as a value"). Each was measured on vb6.exe, native and in the IDE, except `c = MsgBox(o)` for a Widget,
     // ---- which would show a box nobody can dismiss and is inferred.
 
@@ -353,6 +353,22 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(error)]);
     }
 
+    [Theory]
+    [InlineData("Left(v, \"x\")", "Plain", 13L)]
+    [InlineData("Left(v, Null)", "Plain", 94L)]
+    [InlineData("Mid(v, \"x\")", "Plain", 13L)]
+    [InlineData("Replace(v, \"a\", \"b\", \"x\")", "Plain", 13L)]
+    [InlineData("Split(v, \",\", \"x\")", "Plain", 13L)]
+    [InlineData("InStr(1, v, \"a\", \"x\")", "Plain", 13L)]
+    [InlineData("Left(v, \"x\")", "Widget", 13L)]
+    public async Task A_typed_value_argument_is_converted_before_an_object_is_read(string call, string cls, long error)
+    {
+        // Measured in #840's p41, native and in the IDE (#959).
+        await RunThroughAVariant(cls, "c = " + call);
+
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
     [Fact]
     public async Task Filter_reads_an_object_switch_before_an_object_match()
     {
@@ -383,5 +399,13 @@ public class ObjectAsValueTests : BaseVBTestFixture
         var run = () => Run("Dim c\nOn Error Resume Next\nc = \"v=\" & Debug\n");
 
         await run.Should().ThrowAsync<VBCompileErrorException>();
+    }
+
+    [Fact]
+    public async Task TypeName_of_Debug_is_a_syntax_error()
+    {
+        var run = () => Run("On Error Resume Next\nDebug.Print TypeName(Debug)\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Syntax error");
     }
 }

@@ -9,6 +9,12 @@
 > The [addendum](#addendum-2026-10-11-what-a-shipped-command-registry-adds) at the end was measured
 > separately, against `f229c8e` on 2026-10-11, and has the same status.
 
+> **Phase 2 update (#504):** the three omitted routed commands identified below are now in
+> `CommandKeyMapping.Table`. `KeymapServiceTests.CommandTableMatchesEveryRoutedCommandByNameAndInstance`
+> guards its exact names and instances against `ApplicationCommands`. The historical counts and
+> unguarded-table observations below describe the survey revision, not today's coverage. ViewModel
+> commands and broader command metadata remain work for the surface split-outs.
+
 ## The question
 
 `--personality <vb6|vbaode|vba>` was an early attempt at "here is a bunch of JSON to customise the IDE —
@@ -40,7 +46,8 @@ specifics, they converge on a small set of ideas, in dependency order:
    times on a surface with independent state, and it is the join that keeps menus pure data instead of
    pure code.
 4. **A placement never authors an accelerator.** The shortcut shown is derived from the live keymap, so a
-   rebind cannot leave a stale label anywhere.
+   rebind cannot leave a stale label anywhere. `MenuUtils` refreshes command-backed menu items after
+   `KeymapService.Apply`, including clearing labels for unbound commands (#732).
 5. **Separate the predicate from the policy.** Declare *where* a command goes; leave *when it is
    available* to a code seam. The surface's owner — not the contributor — decides whether unavailable
    means greyed or hidden, which is why a third party can place a command onto a surface it knows nothing
@@ -117,19 +124,19 @@ Three pack systems — theme, keymap, language — are already JSON, already des
 source-generated context, already warn-and-skip unknown keys, already revert to a built-in default on
 failure. The format a profile wants exists three times over.
 
-What none of them can do is load from a path. Themes and keymaps read `avares://` embedded resources
-against a hard-coded available-set array; a third party cannot ship a theme today. Language packs are the
+Keymaps now discover JSON files in the active user-data directory's `keymaps` folder at startup (#414),
+using filenames as selection names alongside the reserved Default and VB6 choices. Themes still read
+`avares://` embedded resources against a hard-coded available-set array; a third party cannot ship a theme today. Language packs are the
 partial exception and the useful one: `LocalizationService` merges disk-backed per-locale overrides over
 the embedded pack on every apply, with change notification, orphan-key rejection and placeholder
 validation. That is a working embedded-plus-disk-override layer a profile loader could extend rather than
 invent.
 
-The reason for the closure is documented and technical rather than lazy: `avares://` has no trim- or
-AOT-safe directory enumeration, so anything loaded from disk must carry its own manifest — which a bundle
-would carry anyway.
+Embedded discovery is constrained by `avares://`, which has no trim- or AOT-safe directory enumeration.
+Disk keymaps use their filenames for discovery; a profile bundle would carry its own manifest.
 
-**The whole IDE has exactly two disk-scanned extension points**: add-in packages and user translations. A
-profile directory would be the third, and the first that is neither signed code nor a per-user override.
+**The IDE has three disk-scanned extension points**: add-in packages, user translations and keymaps. A
+profile directory would add a fourth.
 
 ### 3. The add-in system is almost the bundle loader, and structurally cannot be it
 
@@ -195,13 +202,13 @@ because several bear directly on a profile design, and because `openspec/config.
 case: write the intended behaviour as the requirement, open an issue, and link it from a note under
 `## Purpose`.
 
-All eleven are filed. The five spec contradictions still want their `## Purpose` notes, which is the
-second half of that rule and is not done by filing alone.
+The findings below are filed; rows marked resolved record fixes since the survey. The remaining spec
+contradictions still want their `## Purpose` notes, the second half of that rule.
 
 | Where | Divergence | Issue |
 |---|---|---|
 | `specs/theme-packs` | Requires a user theme with "no code change and no rebuild". Packs are compiled resources behind a hard-coded array; both are required. | [#413](https://github.com/hexide-io/HexIDE/issues/413) |
-| `specs/keymap-packs` | Asserts adding a pack "SHALL require no code change". The available set is a hard-coded two-element array. | [#414](https://github.com/hexide-io/HexIDE/issues/414) |
+| `specs/keymap-packs` | Resolved: user JSON packs are discovered from disk alongside the two built-in choices. | [#414](https://github.com/hexide-io/HexIDE/issues/414) |
 | `specs/ide-personalities` | States a personality controls toolbar buttons. No toolbar button is gated on personality anywhere. | [#419](https://github.com/hexide-io/HexIDE/issues/419) |
 | `specs/icon-system` | A **Requirement**, not just the Purpose, says icons "SHALL be original vector geometries". They are Fluent UI System Icons — MIT, recorded in `THIRD-PARTY-NOTICES.md`, and the VB6-extracted artwork the clause was written against is gone. The licence position is sound; the word "original" is what is false. | [#420](https://github.com/hexide-io/HexIDE/issues/420) |
 | `specs/addin-system` | Promises menu items at "a named parent location". The code has two fixed anchors and silently redirects anything else. | [#416](https://github.com/hexide-io/HexIDE/issues/416) |

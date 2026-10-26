@@ -12,7 +12,7 @@ namespace HexIDE.Tests.ViewModels;
 /// dropped it, so the next save wrote the project without it.
 /// </summary>
 /// <remarks>
-/// What VB6's dialog shows is measured (docs/vb6-fidelity-oracle.md, "The References dialog's fixed rows"): three rows
+/// What VB6's dialog shows is measured (docs/vb6-fidelity-oracle/the-references-dialogs-fixed-rows.md, "The References dialog's fixed rows"): three rows
 /// no project lists, Visual Basic For Applications, Visual Basic runtime objects and procedures and Visual Basic objects
 /// and procedures, checked and fixed; then the project's own references, OLE Automation among them, in its order, the
 /// first of which can't be moved above them; the selection on the last checked row.
