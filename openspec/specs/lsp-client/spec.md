@@ -1040,6 +1040,12 @@ SHALL remain outside the core artefact service.
 - **THEN** the client writes a temporary file in the same directory and atomically replaces the target, checking ownership under a lock
 - **AND** a failure while writing leaves the previous target intact
 
+#### Scenario: Nothing to describe
+- **WHEN** a provider returns nothing for a project, such as clangd for a project carrying no C/C++ files
+- **THEN** the client neither prompts nor writes
+- **AND** it deletes the target only if the target still holds the client's last recorded write, within the same path confinement and ownership lock as a replace
+- **AND** it leaves a file whose bytes differ alone, recording why on the server's connection
+
 #### Scenario: A failed or refused write remains visible
 - **WHEN** a path is refused, consent denied, a provider throws, a write fails, or an existing foreign file is left alone
 - **THEN** the reason is recorded as a local failure note on the server's connection in the protocol inspector
@@ -1054,6 +1060,7 @@ SHALL remain outside the core artefact service.
 #### Scenario: Clangd compilation database
 - **WHEN** the clangd provider is configured
 - **THEN** it emits one compilation command per carried C/C++ file, using configured compiler arguments followed by that file, with its containing directory as working directory
+- **AND** it emits nothing for a project carrying no C/C++ files
 - **AND** a real clangd test observes diagnostics changing when the generated arguments define HEXIDE_PROBE
 
 #### Scenario: Capability boundaries

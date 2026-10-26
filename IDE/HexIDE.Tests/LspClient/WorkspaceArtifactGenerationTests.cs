@@ -252,11 +252,26 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     }
 
     [Fact]
-    public async Task RemovingLastSourceWritesAnEmptyCompilationDatabase()
+    public async Task ClangdWithNoSourcesPromptsForNothingAndWritesNothing()
     {
         using var service = new WorkspaceArtifactService(_workspace,
             new WorkspaceArtifactProviderRegistry([new ClangdCompilationDatabaseProvider()]), _consent,
             NullLogger<WorkspaceArtifactService>.Instance);
+        var notes = new WorkspaceProjectFile("notes.md", Path.Combine(_root, "notes.md"), WorkspaceProjectFileKind.Carried);
+        _workspace.Projects = [new(_root, new("project", null, [notes], []))];
+        await service.PrepareAsync(Server("compile_commands.json") with { WorkspaceArtifact = new("compile_commands.json", "clangd") },
+            TestContext.Current.CancellationToken);
+        File.Exists(Path.Combine(_root, "compile_commands.json")).Should().BeFalse();
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task RemovingLastSourceDeletesTheOwnedCompilationDatabase()
+    {
+        await using var capture = new ConversationLog();
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([new ClangdCompilationDatabaseProvider()]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
         var source = new WorkspaceProjectFile("probe.c", Path.Combine(_root, "probe.c"), WorkspaceProjectFileKind.Carried);
         _workspace.Projects = [new(_root, new("project", null, [source], []))];
         var server = Server("compile_commands.json") with { WorkspaceArtifact = new("compile_commands.json", "clangd") };
@@ -264,8 +279,61 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         using (var initial = JsonDocument.Parse(File.ReadAllText(Path.Combine(_root, "compile_commands.json"))))
             initial.RootElement.GetArrayLength().Should().Be(1);
         _workspace.Projects = [new(_root, new("project", null, [], []))];
+        _consent.ClearReceivedCalls();
         await service.PrepareAsync(server, TestContext.Current.CancellationToken);
-        File.ReadAllText(Path.Combine(_root, "compile_commands.json")).Should().Be("[]");
+        File.Exists(Path.Combine(_root, "compile_commands.json")).Should().BeFalse();
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await capture.DrainAsync();
+        capture.Snapshot("probe").Should().Contain(e => e.Kind == ConversationEntryKind.Note && !e.Fault
+            && e.Detail!.Contains("Removed workspace artefact compile_commands.json"));
+    }
+
+    [Fact]
+    public async Task NothingToDescribeLeavesAnEditedFileWithItsReason()
+    {
+        await using var capture = new ConversationLog();
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
+        var target = Path.Combine(_root, "generated.json");
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.WriteAllText(target, "user edit");
+        _provider.Content = null;
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.ReadAllText(target).Should().Be("user edit");
+        await capture.DrainAsync();
+        capture.Snapshot("probe").Should().Contain(e => e.Kind == ConversationEntryKind.Note && e.Fault
+            && e.Detail!.Contains("Leaving existing workspace artefact generated.json alone"));
+    }
+
+    [Fact]
+    public async Task NothingToDescribeRefusesALinkLeadingOutsideBeforeDeleting()
+    {
+        var outside = Path.Combine(Path.GetTempPath(), "hexide-outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outside);
+        try
+        {
+            var inside = Path.Combine(_root, "link");
+            Directory.CreateDirectory(inside);
+            await _service.PrepareAsync(Server("link/generated.json"), TestContext.Current.CancellationToken);
+            File.Copy(Path.Combine(inside, "generated.json"), Path.Combine(outside, "generated.json"));
+            Directory.Delete(inside, true);
+            Directory.CreateSymbolicLink(inside, outside);
+            _provider.Content = null;
+            await _service.PrepareAsync(Server("link/generated.json"), TestContext.Current.CancellationToken);
+            File.ReadAllText(Path.Combine(outside, "generated.json")).Should().Be("first");
+        }
+        finally { Directory.Delete(outside, true); }
+    }
+
+    [Fact]
+    public async Task NothingToDescribeWithNoFileDoesNothing()
+    {
+        _provider.Content = null;
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
+        _provider.Calls.Should().Be(1);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
     }
 
     [Fact]
@@ -311,7 +379,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     private sealed class Provider : IWorkspaceArtifactProvider
     {
         public string Name => "probe";
-        public string Content { get; set; } = "first";
+        public string? Content { get; set; } = "first";
         public int Calls { get; private set; }
         public Exception? Failure { get; set; }
         public string? Produce(WorkspaceArtifactContext context) { Calls++; if (Failure is not null) throw Failure; return Content; }

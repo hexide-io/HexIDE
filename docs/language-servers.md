@@ -336,7 +336,9 @@ ask again. Permission for one workspace never permits writes in another.
 Only workspace-relative paths resolving inside the workspace, including through links, are accepted.
 An existing file is left alone without prompting unless its bytes still match HexIDE's last recorded
 write. This protects compilation databases produced by CMake and files edited by hand. Unchanged
-content is not rewritten; changed content replaces the owned file atomically. Refused paths, provider
+content is not rewritten; changed content replaces the owned file atomically. When the project gives a
+provider nothing to describe, such as clangd with no C or C++ files, HexIDE neither asks nor writes,
+and removes a file it wrote that nobody has changed since. Refused paths, provider
 failures, failed writes and files left alone are also explained on the connection in the inspector.
 
 Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends

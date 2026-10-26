@@ -19,7 +19,8 @@ public sealed class ClangdCompilationDatabaseProvider : IWorkspaceArtifactProvid
                     or ".h" or ".hh" or ".hpp" or ".hxx")
             .Select(f => new CompilationCommand(Path.GetDirectoryName(f.HostPath)!, f.HostPath,
                 [.. arguments, f.HostPath])).ToArray();
-        return JsonSerializer.Serialize(entries, CompilationDatabaseJsonContext.Default.CompilationCommandArray);
+        return entries.Length == 0 ? null
+            : JsonSerializer.Serialize(entries, CompilationDatabaseJsonContext.Default.CompilationCommandArray);
     }
 }
 

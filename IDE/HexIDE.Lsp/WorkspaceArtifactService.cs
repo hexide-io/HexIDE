@@ -82,8 +82,13 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: not owned by HexIDE.");
             return;
         }
-        var content = _providers.Find(spec.ProviderName)?.Produce(project with { Settings = spec.Settings });
-        if (content is null) return;
+        if (_providers.Find(spec.ProviderName) is not { } provider) return;
+        var content = provider.Produce(project with { Settings = spec.Settings });
+        if (content is null)
+        {
+            if (File.Exists(target)) Relinquish(server, spec, project, target);
+            return;
+        }
         var consentRoot = Resolve(Path.GetFullPath(project.WorkspaceRoot));
         if (!await _consent.AllowAsync(server.Id, server.DisplayName, consentRoot, target))
         {
@@ -139,23 +144,56 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         }
         finally { File.Delete(temporary); }
         _hashes[target] = Convert.ToHexString(SHA256.HashData(bytes));
-        if (_stateFile is not null)
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(_stateFile)!);
-                File.WriteAllBytes(_stateFile, JsonSerializer.SerializeToUtf8Bytes(_hashes,
-                    ArtifactOwnershipJsonContext.Default.DictionaryStringString));
-            }
-            catch (Exception ex) { _log.LogWarning(ex, "Could not save workspace artefact ownership."); }
-        }
+        SaveOwnership();
         // #456: regeneration deliberately sends no didChangeWatchedFiles in this phase.
     }
 
-    private void Note(LanguageServerRegistration server, string reason)
+    /// <summary>
+    /// A provider with nothing to describe takes back what HexIDE wrote, and only that: no prompt, the same confinement
+    /// and the same ownership check under a lock as a replace, so a delete reaches no further than a write could.
+    /// </summary>
+    private void Relinquish(LanguageServerRegistration server, WorkspaceArtifactSpec spec, WorkspaceArtifactContext project,
+        string target)
+    {
+        // The provider ran since the path was checked, and a provider may read files: recheck the links before deleting.
+        if (SafePath(project.WorkspaceRoot, spec.RelativePath) != target)
+        {
+            Note(server, $"Refused workspace artefact path {spec.RelativePath}.");
+            return;
+        }
+        using (var owned = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Delete))
+        {
+            if (!_hashes.TryGetValue(target, out var previous)
+                || Convert.ToHexString(SHA256.HashData(owned)) != previous)
+            {
+                Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
+                return;
+            }
+            File.Delete(target);
+        }
+        _hashes.Remove(target);
+        SaveOwnership();
+        _log.LogInformation("Removed workspace artefact {Path} for {Server}: its provider has nothing to describe.",
+            target, server.Id);
+        Note(server, $"Removed workspace artefact {spec.RelativePath}: its provider has nothing to describe.", fault: false);
+    }
+
+    private void SaveOwnership()
+    {
+        if (_stateFile is null) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_stateFile)!);
+            File.WriteAllBytes(_stateFile, JsonSerializer.SerializeToUtf8Bytes(_hashes,
+                ArtifactOwnershipJsonContext.Default.DictionaryStringString));
+        }
+        catch (Exception ex) { _log.LogWarning(ex, "Could not save workspace artefact ownership."); }
+    }
+
+    private void Note(LanguageServerRegistration server, string reason, bool fault = true)
     {
         _capture?.Record(server.Id, ConversationDirection.Local, ConversationEntryKind.Note,
-            null, null, 0, detail: reason, fault: true);
+            null, null, 0, detail: reason, fault: fault);
     }
 
     private bool OwnsOrAbsent(string target) => !File.Exists(target)
