@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
+    "Str.LspArtifact.Title": "कार्यस्थान फ़ाइलें",
+    "Str.LspArtifact.Prompt": "सर्वर {0} ने स्थानीय फ़ाइल {1} लिखने का अनुरोध किया है।",
+    "Str.LspArtifact.Allow": "अनुमति दें",
+    "Str.LspArtifact.Deny": "अस्वीकार करें",
+    "Str.LspArtifact.Always": "हमेशा अनुमति दें",
+    "Str.LspArtifact.Grants": "कार्यस्थान फ़ाइलें बनाने की अनुमति वाले सर्वर नीचे हैं। अगले सत्र में फिर पूछने के लिए अनुमति रीसेट करें।",
+    "Str.LspArtifact.Reset": "रीसेट करें",
     "Str.Archive.ProjectFormat": "{0} (केवल-पठन संग्रह)",
     "Str.Archive.Hidden": "संग्रह की छिपी प्रविष्टियाँ दिखाएँ",
     "Str.Archive.ReadOnly": "संग्रह का केवल-पठन पूर्वावलोकन। संपादन, बिल्ड और चलाना उपलब्ध नहीं हैं।",
