@@ -2,6 +2,10 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
+    "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.LspArtifact.Title": "Työtilan tiedostot",
     "Str.LspArtifact.Prompt": "Palvelin {0} on pyytänyt lupaa kirjoittaa paikallisen tiedoston {1}.",

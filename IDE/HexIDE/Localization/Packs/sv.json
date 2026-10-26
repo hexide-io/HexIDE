@@ -2,6 +2,10 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitars",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitars",
+    "Str.CodeEditor.ViewAs.Tooltip": "Visa villkorlig kompilering som",
     "Str.Tool.Properties.ExportPicture": "Exportera bild...",
     "Str.LspArtifact.Title": "Arbetsytefiler",
     "Str.LspArtifact.Prompt": "Server {0} har begärt att skriva den lokala filen {1}.",

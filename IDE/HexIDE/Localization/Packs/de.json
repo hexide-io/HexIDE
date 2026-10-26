@@ -2,6 +2,10 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Bedingte Kompilierung anzeigen als",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.LspArtifact.Title": "Arbeitsbereichsdateien",
     "Str.LspArtifact.Prompt": "Server {0} möchte die lokale Datei {1} schreiben.",

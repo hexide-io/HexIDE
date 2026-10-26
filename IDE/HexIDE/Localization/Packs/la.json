@@ -2,6 +2,10 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Compilationem conditionalem ostende ut",
     "Str.Tool.Properties.ExportPicture": "Imaginem exportare...",
     "Str.LspArtifact.Title": "Fasciculi spatii laboris",
     "Str.LspArtifact.Prompt": "Servitor {0} fasciculum localem {1} scribere rogavit.",

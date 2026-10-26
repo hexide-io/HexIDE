@@ -2,6 +2,10 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
+    "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.LspArtifact.Title": "کام کی جگہ کی فائلیں",
     "Str.LspArtifact.Prompt": "سرور {0} نے مقامی فائل {1} لکھنے کی درخواست کی ہے۔",

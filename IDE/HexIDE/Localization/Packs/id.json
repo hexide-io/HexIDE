@@ -2,6 +2,10 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Lihat kompilasi bersyarat sebagai",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
     "Str.LspArtifact.Title": "Berkas ruang kerja",
     "Str.LspArtifact.Prompt": "Server {0} meminta untuk menulis berkas lokal {1}.",

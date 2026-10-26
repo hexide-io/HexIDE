@@ -2,6 +2,10 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
+    "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako",
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
     "Str.LspArtifact.Title": "Pliki obszaru roboczego",
     "Str.LspArtifact.Prompt": "Serwer {0} poprosił o zapisanie lokalnego pliku {1}.",

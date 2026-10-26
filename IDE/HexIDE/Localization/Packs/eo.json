@@ -2,6 +2,10 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
+    "Str.CodeEditor.ViewAs.Tooltip": "Montri kondiĉan kompiladon kiel",
     "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
     "Str.LspArtifact.Title": "Laborspacaj dosieroj",
     "Str.LspArtifact.Prompt": "Servilo {0} petis skribi lokan dosieron {1}.",

@@ -2,6 +2,10 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
+    "Str.CodeEditor.ViewAs.Tooltip": "सशर्त संकलन इस रूप में देखें",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.LspArtifact.Title": "कार्यस्थान फ़ाइलें",
     "Str.LspArtifact.Prompt": "सर्वर {0} ने स्थानीय फ़ाइल {1} लिखने का अनुरोध किया है।",

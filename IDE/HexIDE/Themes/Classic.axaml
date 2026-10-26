@@ -104,6 +104,7 @@
          background (4.95:1 on #FFFFFF), so it reads as not the developer's to edit without becoming hard to
          read. Every shipped pack carries its own value: this one fails the bar on a dark editor. -->
     <SolidColorBrush x:Key="ReadOnlyTextBrush" Color="#707070" />
+    <SolidColorBrush x:Key="InactiveCodeTextBrush" Color="#707070" />
 
     <!-- Warning triangle icon (amber, with exclamation) for the developer-mode banner -->
     <DrawingImage x:Key="WarningTriangleIcon">

@@ -2,6 +2,10 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Προβολή μεταγλώττισης υπό συνθήκη ως",
     "Str.Tool.Properties.ExportPicture": "Εξαγωγή εικόνας...",
     "Str.LspArtifact.Title": "Αρχεία χώρου εργασίας",
     "Str.LspArtifact.Prompt": "Ο διακομιστής {0} ζήτησε να γράψει το τοπικό αρχείο {1}.",
