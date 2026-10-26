@@ -19,7 +19,7 @@ using HexIDE.Tools.ProtocolInspector;
 
 namespace HexIDE.Tests.ViewModels;
 
-public class FindReplaceViewModelTests
+public partial class FindReplaceViewModelTests
 {
     private readonly IWindowManager _windowManager = Substitute.For<IWindowManager>();
     private readonly IDocumentDockService _documentDockService = Substitute.For<IDocumentDockService>();
@@ -38,6 +38,8 @@ public class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.InvalidRegex").Returns("Invalid regular expression pattern.");
         localization.GetString("Str.FindReplace.Msg.NothingToSearch")
             .Returns("There is nothing here for Find to search.");
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question).Returns(MessageBoxResult.Yes);
         return new(_windowManager, _documentDockService, localization);
     }
 
@@ -852,10 +854,10 @@ public class FindReplaceViewModelTests
     {
         var sut = CreateSut();
 
-        // "Current Project" was removed rather than left decorative — see the note on FindScope.
-        sut.ScopeItems.Should().HaveCount(2);
-        sut.ScopeItems[0].Should().Be("Current Module");
-        sut.ScopeItems[1].Should().Be("All Open Documents");
+        sut.ScopeItems.Should().HaveCount(5);
+        sut.Scope.Should().Be(FindScope.CurrentProject);
+        sut.ScopeItems[1].Should().Be("Current Module");
+        sut.ScopeItems[4].Should().Be("All Open Documents");
     }
 
     [AvaloniaFact]
@@ -863,7 +865,7 @@ public class FindReplaceViewModelTests
     {
         var sut = CreateSut();
 
-        sut.SelectedScopeIndex = 1;
+        sut.SelectedScopeIndex = 4;
 
         sut.Scope.Should().Be(FindScope.AllOpenDocuments);
     }

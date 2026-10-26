@@ -242,36 +242,35 @@ done < "$links"
 # 6. Third-party naming. The rule: this repository never asserts anything about another
 #    project's PLANS — no "X will be the backend", no "X's lane". Describing the
 #    replaceable-backend seam generically is the default, because filling that blank in
-#    is theirs to agree to, not ours to assume. A record MAY name a project where the
-#    decision was genuinely about that project and has already happened. Three classes
-#    are allowed, a file at a time:
+#    is theirs to agree to, not ours to assume. No grep can check that rule; a reviewer does.
+#
+#    twinBASIC and RDCore may be named anywhere, with attribution (Jen, 2026-10-26, #2071).
+#    HexIDE integrates with both, and a per-file list of where each might appear produced a
+#    decision card for every new file that configures or documents an integration. The
+#    attribution is the README's, beside Microsoft's, and this check fails if it goes missing,
+#    since it is the condition the names are allowed on.
+#
+#    Every other project is still named a file at a time, where the decision was genuinely
+#    about that project and has already happened:
 #      * attribution — the Battleship demo derives from an MIT project and credits its
 #        author; the LSP test README records why GPL-derived test inputs were not carried
 #        over. Removing either would be a licence and honesty problem.
 #      * licence provenance — vb6-grammar-fixes records which GPLv3 grammar is quarantined
 #        and why; lsp-parity-matrix is the record of replacing the server built on it.
 #        Naming the grammar is what makes the clean-room claim checkable.
-#      * the routed wall — the interpreter README names twinBASIC to route users *to* it.
-#        That is a deferral, not a comparison, and it needs the name to be actionable.
-#      * an interop fixture — the spring-tide demo attaches RDCore's language server as a foreign
-#        server and says how. It records a connection that has been made and measured, at the
-#        request of that project's maintainer, and cannot be followed without the name. It must
-#        not describe that project's plans; see the rule above.
-#        dap-adapter-smoke records another measured interop fixture, including the tested revision,
-#        workspace format and component setup needed to reproduce the DAP session acceptance.
+#      * interop fixtures — spring-tide and dap-adapter-smoke record connections that have
+#        been made and measured.
 #    Anything else is a mention nobody decided on, so this fails closed and asks for a
 #    decision. Adding a file here is a decision; a new mention inside a listed file still
 #    deserves a read.
 ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
-# The maintainer requested this integration with its author's blessing (#1178). These exact files
-# implement or validate its reader; this exception permits that name only, not other project names.
-TWIN_ALLOWED='^(IDE/HexIDE/HexIDE\.csproj|IDE/HexIDE/(Projects/ArchiveProjectService|Forms/ViewModels/ArchiveDocumentViewModel|Tools/Projects/(ArchiveTreeNode|ProjectToolViewModel))\.cs|IDE/HexIDE\.Integration\.Tests/Views/ArchiveProjectBrowsingTests\.cs|HexIDE\.slnx|\.github/workflows/(build|compiler-beta-check)\.yml|IDE/HexIDE\.TwinBasic/HexIDE\.TwinBasic\.csproj|IDE/HexIDE\.TwinBasic/(CompilerProcess|CompilerLanguagePack|TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace|ArchiveSourceFolder|CompilerWireCodec|CompilerRecording|CompilerWebSocketTransport|CompilerRootSession|CompilerChannelSession|CompilerPackageProvider|CompilerProjectPreparation|CompilerSessionMessages|CompilerWireCodec\.Session)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(CompilerProcessTests\.cs|LiveCompilerTests\.cs|CompilerRecordingTests\.cs|Recordings/synthetic/(preparation\.jsonl|README\.md)|ContainerReaderTests\.cs|ArchiveProjectTests\.cs|ArchiveSourceFolderTests\.cs|CompilerWireCodecTests\.cs|CompilerWebSocketTransportTests\.cs|CompilerRootSessionTests\.cs|CompilerChannelSessionTests\.cs|CompilerProjectPreparationTests\.cs|CompilerWireCodecTests\.(CompilerProjectPreparationTests|CompilerRootSessionTests|SessionMessages)\.cs|InMemoryCompilerSessionCodec\.cs|SocketTrackingTest\.cs|SocketTrackingTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|archive/2026-10-19-model-archive-project-documents|archive/2026-10-19-browse-archive-projects|archive/2026-10-19-synchronize-archive-source-folder|archive/2026-10-19-decode-compiler-wire|archive/2026-10-19-connect-compiler-websocket|archive/2026-10-19-initialize-compiler-root|archive/2026-10-19-own-compiler-channels|prepare-compiler-project)/design\.md)$'
 while IFS= read -r f; do
-  if [[ "$f" =~ $TWIN_ALLOWED ]] && ! git grep --untracked -qiE 'rdcore|rubberduck' -- "$f"; then
-    continue
-  fi
   [ -n "$f" ] && note "third-party project named outside the agreed places: $f"
-done < <(git grep --untracked -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
+done < <(git grep --untracked -lIiE 'rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
+if git grep --untracked -qIiE 'twinbasic|rdcore' -- . "${EXCLUDE[@]}" ':!README.md' \
+   && ! grep -qF 'twinBASIC and RDCore are independent projects' README.md 2>/dev/null; then
+  note "README.md has lost the twinBASIC and RDCore attribution that naming them anywhere depends on"
+fi
 
 # 7. Upstream attribution — expected, never a failure. Flagged only so a stale code
 #    reference cannot hide among the legitimate licence mentions.

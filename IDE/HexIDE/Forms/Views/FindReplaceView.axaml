@@ -21,7 +21,7 @@
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel DockPanel.Dock="Left" Spacing="6" Width="260">
+        <StackPanel DockPanel.Dock="Left" Spacing="6" MinWidth="320" MaxWidth="520">
 
             <!-- Find What. Both boxes hold code, so they read left to right whatever the IDE's language (#1944). -->
             <DockPanel>
@@ -39,7 +39,7 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" Width="75" />
                 <ComboBox ItemsSource="{CompiledBinding ScopeItems}"
-                          SelectedIndex="{CompiledBinding SelectedScopeIndex}"
+                          SelectedIndex="{CompiledBinding SelectedScopeIndex, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
             </DockPanel>
 

@@ -92,7 +92,7 @@ public partial class ComponentsViewModel : ObservableObject, IDialog
     }
 
     /// <summary>Whether a form of the project holds a control of <paramref name="library"/>: its header names the library.</summary>
-    public bool IsInUse(ControlLibrary library) =>
+    public bool IsInUse(RuntimeLibrary library) =>
         project.Forms.Any(f => f.ObjectReferences.Any(library.IsNamedBy));
 
     private bool restoring;
@@ -122,7 +122,7 @@ public partial class ComponentsViewModel : ObservableObject, IDialog
     }
 
     /// <summary>Raised when unchecking a library is refused because a form uses it.</summary>
-    public event Action<ControlLibrary>? Refused;
+    public event Action<RuntimeLibrary>? Refused;
 
     /// <summary>Reference each checked library the project doesn't, and drop each unchecked one it does.</summary>
     public void Apply()
@@ -144,7 +144,7 @@ public partial class ComponentsViewModel : ObservableObject, IDialog
 
 public partial class ComponentsComponentViewModel : ObservableObject
 {
-    public ComponentsComponentViewModel(string name, string location, ControlLibrary? library = null)
+    public ComponentsComponentViewModel(string name, string location, RuntimeLibrary? library = null)
     {
         Name = name;
         Location = location;
@@ -155,7 +155,7 @@ public partial class ComponentsComponentViewModel : ObservableObject
     public string Location { get; }
 
     /// <summary>The in-box library the row is, or null for one HexIDE doesn't implement, which can't be changed here.</summary>
-    public ControlLibrary? Library { get; }
+    public RuntimeLibrary? Library { get; }
 
     public bool CanChange => Library is not null;
     [Notify] private bool isSelected;
