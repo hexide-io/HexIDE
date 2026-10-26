@@ -552,7 +552,7 @@ public static class AvaloniaInteroperability
         if (untyped is bool b)
             return new Vb6Value(b);
         if (untyped is DateTime dt)
-            return new Vb6Value(dt);
+            return new Vb6Value(VbDate.FromDateTime(dt));
         if (untyped is VBColor col)
             return new Vb6Value(col);
         if (untyped.GetType().IsEnum)
