@@ -370,15 +370,10 @@ public record DocumentSymbolClientCapabilities(
     [property: JsonPropertyName("hierarchicalDocumentSymbolSupport")] bool HierarchicalDocumentSymbolSupport = false);
 
 /// <summary>
-/// Declares that the client folds a server's ranges by whole lines.
+/// Declares whether folding is limited to whole lines.
 /// </summary>
 /// <remarks>
-/// <b>True of the reader, not of the editor.</b> <c>Vb6FoldingAdapter.FromServer</c> reads a fold's lines and
-/// ignores its characters, so this says what the client does with a range today. A server that honours it ends a
-/// fold on the line before its closing line. One told nothing may end it part-way along that line instead: clangd
-/// ends each fold just before its closing brace, and read by whole lines the fold then hid the brace
-/// (hexide-io/HexIDE#1363). The editor can fold part-way along a line, so the change that makes the reader honour
-/// a fold's characters removes this declaration with it (hexide-io/HexIDE#1022).
+/// The client no longer advertises this type: it honours a fold's character offsets (hexide-io/HexIDE#1022).
 ///
 /// <para>
 /// <c>rangeLimit</c>, <c>foldingRangeKind</c> and <c>foldingRange.collapsedText</c> are absent: nothing here limits

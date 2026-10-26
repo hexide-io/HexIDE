@@ -696,7 +696,7 @@ public partial class CodeEditorView : UserControl
     /// </para>
     /// <para>
     /// <b>A run's section the manager paired keeps its live state</b>; only one it made new takes the state
-    /// remembered for the run's key. Pairing is by start alone (MidLineFoldBehaviourTests), and a section paired is
+    /// remembered for the run's key. A section still paired with a run is
     /// the very fold the developer is looking at, whose key an edit to the declaration may just have changed. A new
     /// section is also made expanded when the caret is inside it or at its end, as it is when a developer types a
     /// run in under its declaration: folded, the line being typed would vanish under the caret.
@@ -713,24 +713,32 @@ public partial class CodeEditorView : UserControl
         ObserveOwnFolds(vm);
 
         var shown = new List<NewFolding>();
-        var runSections = new HashSet<FoldingSection>();
+        var runSections = new Dictionary<FoldingSection, bool>();
         foreach (var section in manager.AllFoldings)
         {
             if (ReferenceEquals(section.Tag, RunFoldTag))
-                runSections.Add(section);
+                runSections[section] = section.IsFolded;
             else if (server is null && !ReferenceEquals(section.Tag, HeaderFoldTag))
                 shown.Add(new NewFolding(section.StartOffset, section.EndOffset) { Name = section.Title });
         }
 
+        var previousHeader = HeaderSection();
         var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
+        var freshHeader = previousHeader is null || header is null
+                          || previousHeader.StartOffset != header.StartOffset || previousHeader.EndOffset != header.EndOffset;
         var runs = vm.MemberRunsNow;
         var own = Vb6FoldingAdapter.MemberRuns(runs);
         if (header is not null)
             own.Insert(0, header);
-        manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
+        Vb6FoldingAdapter.Update(manager, Vb6FoldingAdapter.Merge(own, server ?? shown));
+        foreach (var section in manager.AllFoldings)
+        {
+            if (ReferenceEquals(section.Tag, RunFoldTag) || ReferenceEquals(section.Tag, HeaderFoldTag))
+                section.Tag = null;
+        }
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
-        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there. A new
+        // top of the file; other folds can share its start, so the end must match too. A new
         // one is left open over a caret inside it, as navigating to a header line in a document not yet open puts it
         // there before the folds exist, which would fold it away under the caret (#700 review).
         var caret = TextEditor.TextArea.Caret.Offset;
@@ -739,17 +747,18 @@ public partial class CodeEditorView : UserControl
             foreach (var section in manager.GetFoldingsAt(header.StartOffset))
             {
                 if (section.EndOffset != header.EndOffset) continue;
-                var fresh = !ReferenceEquals(section.Tag, HeaderFoldTag);
                 section.Tag = HeaderFoldTag;
                 section.IsFolded = !vm.HeaderFoldExpanded
-                                   && !(fresh && section.StartOffset < caret && caret <= section.EndOffset);
+                                   && !(freshHeader && section.StartOffset < caret && caret <= section.EndOffset);
             }
         }
 
         foreach (var run in runs)
         {
             if (run.Key is not { } key || RunSection(run) is not { } section) continue;
-            if (!runSections.Contains(section))
+            if (runSections.TryGetValue(section, out var folded))
+                section.IsFolded = folded;
+            else
             {
                 var caretInside = section.StartOffset < caret && caret <= section.EndOffset;
                 section.IsFolded = !caretInside && !vm.ExpandedMemberRuns.Contains(key);
