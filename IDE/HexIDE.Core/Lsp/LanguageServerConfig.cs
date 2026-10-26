@@ -68,6 +68,10 @@ public sealed class LanguageServerConfigFile
 /// </remarks>
 public sealed class WorkspaceArtifactEntry
 {
+    /// <summary>Provider-owned settings, passed through without interpreting their schema.</summary>
+    [JsonPropertyName("settings")]
+    public JsonElement? Settings { get; set; }
+
     /// <summary>
     /// Where the file goes, relative to the workspace root.
     /// </summary>

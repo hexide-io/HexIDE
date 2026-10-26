@@ -181,7 +181,7 @@ public class VbDisplayTests : BaseVBTestFixture
     [Theory]
     [MemberData(nameof(Dates))]
     public void A_Date_leaves_out_a_midnight_time_and_the_zero_date(DateTime probe, string expected)
-        => Text(new Vb6Value(probe)).Should().Be(expected);
+        => Text(new Vb6Value(VbDate.FromDateTime(probe))).Should().Be(expected);
 
     [Fact]
     public async Task An_omitted_argument_has_no_text_and_an_empty_string_has_empty_text()
@@ -324,7 +324,7 @@ public class VbDisplayTests : BaseVBTestFixture
             await InCulture(() =>
             {
                 VBDebugConsole.Emit(new Vb6Value(1f / 3));
-                VBDebugConsole.Emit(new Vb6Value(new DateTime(2003, 1, 2)));
+                VBDebugConsole.Emit(new Vb6Value(VbDate.FromDateTime(new DateTime(2003, 1, 2))));
                 return Task.CompletedTask;
             });
         }
@@ -356,9 +356,9 @@ public class VbDisplayTests : BaseVBTestFixture
     {
         // Not measured in these locales. VB6's default calendar is Gregorian; these cultures default to Hijri,
         // Persian and Buddhist calendars, and ar-SA and fa-IR used to throw on a date their calendar cannot reach.
-        var text = VbDisplay.ToText(new Vb6Value(new DateTime(2003, 1, 2)), CultureInfo.GetCultureInfo(culture));
+        var text = VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(new DateTime(2003, 1, 2))), CultureInfo.GetCultureInfo(culture));
         text.Should().Contain("2003");
-        VbDisplay.ToText(new Vb6Value(new DateTime(100, 1, 1)), CultureInfo.GetCultureInfo(culture))
+        VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(new DateTime(100, 1, 1))), CultureInfo.GetCultureInfo(culture))
             .Should().Contain("100");
     }
 

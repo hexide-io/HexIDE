@@ -94,10 +94,10 @@ public class EventOrderTests
     }
 
     /// <param name="timeSliceMs">The debugger's time slice: null for none, -1 to yield at every statement.</param>
-    private static Run Start(string code, long? timeSliceMs)
+    private static Run Start(string code, long? timeSliceMs, string? formSource = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, Form, new NullSink())!;
+        var form = new FormDeserializer().Deserialize(project, formSource ?? Form, new NullSink())!;
         form.UpdateCode(code.ReplaceLineEndings("\r\n"));
         project.AddForm(form);
 
@@ -143,6 +143,38 @@ public class EventOrderTests
     {
         for (var i = 0; i < 20; i++)
             Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task A_Timer_without_Interval_stays_quiet_while_a_nonzero_Timer_ticks()
+    {
+        var form = Form.Replace("      Enabled         =   0   'False\r\n", "")
+            .Replace("      Interval        =   1000\r\n", "")
+            .Replace("End\r\nAttribute VB_Name", "   Begin VB.Timer Timer2 \r\n      Interval        =   100\r\n   End\r\nEnd\r\nAttribute VB_Name");
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print Timer1.Interval
+                Debug.Print Timer1.Enabled
+            End Sub
+            Private Sub Timer1_Timer()
+                Debug.Print "unexpected tick"
+            End Sub
+            Private Sub Timer2_Timer()
+                Debug.Print "tick"
+            End Sub
+            """, null, form);
+
+        var wait = System.Diagnostics.Stopwatch.StartNew();
+        while (wait.Elapsed < TimeSpan.FromSeconds(1.5))
+        {
+            await System.Threading.Tasks.Task.Delay(10, TestContext.Current.CancellationToken);
+            Pump();
+        }
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().NotContain("unexpected tick");
+        run.Printed.Should().Contain("tick");
+        run.Printed.Take(2).Select(line => line.Trim()).Should().Equal("0", "True");
     }
 
     [AvaloniaTheory]
