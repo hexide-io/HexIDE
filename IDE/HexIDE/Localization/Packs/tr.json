@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Sil",
     "Str.Designer.Context.BringToFront": "Öne Getir",
     "Str.Designer.Context.SendToBack": "Arkaya Gönder",
+    "Str.Designer.PreviewForm": "Form Önizlemesi",
     "Str.Designer.Context.ViewCode": "Kodu Görüntüle",
     "Str.Designer.Context.AlignToGrid": "Izgaraya Hizala",
     "Str.Designer.Context.Properties": "Özellikler",

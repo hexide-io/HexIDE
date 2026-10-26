@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Slett",
     "Str.Designer.Context.BringToFront": "Flytt forrest",
     "Str.Designer.Context.SendToBack": "Flytt bakerst",
+    "Str.Designer.PreviewForm": "Forhåndsvis skjema",
     "Str.Designer.Context.ViewCode": "Vis kode",
     "Str.Designer.Context.AlignToGrid": "Juster etter rutenett",
     "Str.Designer.Context.Properties": "Egenskaper",

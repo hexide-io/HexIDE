@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Supprimer",
     "Str.Designer.Context.BringToFront": "Mettre au premier plan",
     "Str.Designer.Context.SendToBack": "Mettre à l'arrière-plan",
+    "Str.Designer.PreviewForm": "Aperçu du formulaire",
     "Str.Designer.Context.ViewCode": "Afficher le code",
     "Str.Designer.Context.AlignToGrid": "Aligner sur la grille",
     "Str.Designer.Context.Properties": "Propriétés",

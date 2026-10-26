@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Löschen",
     "Str.Designer.Context.BringToFront": "In den Vordergrund",
     "Str.Designer.Context.SendToBack": "In den Hintergrund",
+    "Str.Designer.PreviewForm": "Formularvorschau",
     "Str.Designer.Context.ViewCode": "Code anzeigen",
     "Str.Designer.Context.AlignToGrid": "Am Raster ausrichten",
     "Str.Designer.Context.Properties": "Eigenschaften",

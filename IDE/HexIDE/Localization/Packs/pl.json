@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Usuń",
     "Str.Designer.Context.BringToFront": "Przenieś na wierzch",
     "Str.Designer.Context.SendToBack": "Przenieś na spód",
+    "Str.Designer.PreviewForm": "Podgląd formularza",
     "Str.Designer.Context.ViewCode": "Pokaż kod",
     "Str.Designer.Context.AlignToGrid": "Wyrównaj do siatki",
     "Str.Designer.Context.Properties": "Właściwości",

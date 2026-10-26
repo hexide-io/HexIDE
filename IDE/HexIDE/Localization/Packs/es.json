@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Eliminar",
     "Str.Designer.Context.BringToFront": "Traer al frente",
     "Str.Designer.Context.SendToBack": "Enviar al fondo",
+    "Str.Designer.PreviewForm": "Vista previa del formulario",
     "Str.Designer.Context.ViewCode": "Ver código",
     "Str.Designer.Context.AlignToGrid": "Alinear a la cuadrícula",
     "Str.Designer.Context.Properties": "Propiedades",

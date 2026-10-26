@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "_Ta bort",
     "Str.Designer.Context.BringToFront": "Flytta längst fram",
     "Str.Designer.Context.SendToBack": "Flytta längst bak",
+    "Str.Designer.PreviewForm": "Förhandsvisa formulär",
     "Str.Designer.Context.ViewCode": "Visa kod",
     "Str.Designer.Context.AlignToGrid": "Justera mot rutnät",
     "Str.Designer.Context.Properties": "Egenskaper",

@@ -340,6 +340,7 @@
     "Str.Designer.Context.Delete": "حذف",
     "Str.Designer.Context.BringToFront": "انتقال به جلو",
     "Str.Designer.Context.SendToBack": "انتقال به عقب",
+    "Str.Designer.PreviewForm": "پیش‌نمایش فرم",
     "Str.Designer.Context.ViewCode": "نمایش کد",
     "Str.Designer.Context.AlignToGrid": "تراز با شبکه",
     "Str.Designer.Context.Properties": "ویژگی‌ها",
