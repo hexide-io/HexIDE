@@ -15,6 +15,7 @@ using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
 using HexIDE.Utils;
+using HexIDE.VisualDesigner;
 
 namespace HexIDE.Automation;
 
@@ -1120,7 +1121,9 @@ public static class UiAutomationDriver
                                ? $" Make it show first, as a person would: 'expand' "
                                  + string.Join(", then ", holders.Select(h => $"'{LabelOf(h)}'"))
                                  + (holders.Count == 1 ? ", which holds it" : ", which hold it")
-                               : " Make it show first, as a person would, for instance by expanding what holds it"));
+                               : CollapsedPropertyCategoryHolding(onlyHidden) is { } category
+                                   ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                                   : " Make it show first, as a person would, for instance by expanding what holds it"));
         }
         if (candidates.Count == 0)
             return Err(control switch
@@ -2248,6 +2251,21 @@ public static class UiAutomationDriver
     // nearest alone was refused as not showing when one above it was collapsed too (#1256).
     private static List<TreeViewItem> CollapsedNodesHolding(Control control) =>
         [.. control.GetVisualAncestors().OfType<TreeViewItem>().Where(n => !n.IsExpanded).Reverse()];
+
+    private static string? CollapsedPropertyCategoryHolding(Control control)
+    {
+        if (control.DataContext is not PropertyViewModel property
+            || ItemsControl.ItemsControlFromItemContainer(control) is not ListBox list)
+            return null;
+
+        for (var i = 0; i < list.ItemCount; i++)
+            if (list.Items[i] is PropertyCategoryViewModel { IsExpanded: false } category
+                && category.Category == property.PropertyClass.Category
+                && list.ContainerFromIndex(i) is { } row && Shows(row) is true
+                && row.GetVisualDescendants().OfType<ToggleButton>().Any(t => Shows(t) is true))
+                return category.Header;
+        return null;
+    }
 
     /// <summary>
     /// The open dropdown <paramref name="item"/> is in, or null. Found before the item is selected: a selection
