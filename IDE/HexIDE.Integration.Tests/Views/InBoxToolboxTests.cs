@@ -26,7 +26,7 @@ public class InBoxToolboxTests
     private const string MsComctlForm = "Object = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"";
 
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
-        params ControlLibrary[] referenced)
+        params RuntimeLibrary[] referenced)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         foreach (var library in referenced)
@@ -42,7 +42,7 @@ public class InBoxToolboxTests
         return (project, toolbox, vm, form);
     }
 
-    private static ControlLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
+    private static RuntimeLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
         toolbox.Components.Where(c => c.BaseClass is InBoxComponentClass).Select(c => c.Library).ToArray();
 
     [AvaloniaFact]

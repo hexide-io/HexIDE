@@ -297,6 +297,9 @@ Microsoft** — and uses these names only descriptively to indicate VB6 file-for
 compatibility. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for bundled-component
 attributions.
 
+twinBASIC and RDCore are independent projects, each belonging to its own authors. HexIDE names them
+only to describe how it works with them, and is **not affiliated with, endorsed by, or sponsored by** either.
+
 ---
 
 ## 📄 Licence

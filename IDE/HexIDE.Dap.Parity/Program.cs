@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using HexIDE.Dap;
+using static Comparison;
 
 // Explicit opt-in tool (#1368). Runs each program of a HexIDE.Runtime.Tests dump (HEXIDE_DUMP_PROGRAMS) under an
 // external VB6 engine's debug adapter, one adapter process per program, and compares what each printed with what
@@ -61,6 +62,7 @@ Write(new JsonObject
 var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
 // A program left out for several reasons counts under each.
 var exclusions = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+var retries = new List<(int Index, JsonObject Record, JsonObject Result)>();
 var done = 0;
 var clock = Stopwatch.StartNew();
 using var slots = new SemaphoreSlim(options.Parallel);
@@ -70,22 +72,39 @@ await Task.WhenAll(cases.Select(async c =>
     try
     {
         var result = await RunCase(c.Index, c.Record);
-        Write(result);
-        lock (gate)
+        if (options.Parallel > 1 && NeedsRetry(result))
         {
-            var outcome = result["outcome"]!.GetValue<string>();
-            counts[outcome] = counts.GetValueOrDefault(outcome) + 1;
-            foreach (var reason in result["excludedFor"]?.AsArray() ?? [])
-                exclusions[reason!.GetValue<string>()] = exclusions.GetValueOrDefault(reason!.GetValue<string>()) + 1;
-            if (++done % 50 == 0 || done == cases.Count)
-                Console.WriteLine($"{done}/{cases.Count} in {clock.Elapsed:hh\\:mm\\:ss}");
+            lock (gate) retries.Add((c.Index, c.Record, result));
+            return;
         }
+        Complete(result);
     }
     finally
     {
         slots.Release();
     }
 }));
+// No adapters from the parallel pass remain when these cases are retried.
+foreach (var retry in retries)
+{
+    var result = await RunCase(retry.Index, retry.Record);
+    result["parallelAttempt"] = retry.Result["engine"]?.DeepClone();
+    Complete(result);
+}
+
+void Complete(JsonObject result)
+{
+    Write(result);
+    lock (gate)
+    {
+        var outcome = result["outcome"]!.GetValue<string>();
+        counts[outcome] = counts.GetValueOrDefault(outcome) + 1;
+        foreach (var reason in result["excludedFor"]?.AsArray() ?? [])
+            exclusions[reason!.GetValue<string>()] = exclusions.GetValueOrDefault(reason!.GetValue<string>()) + 1;
+        if (++done % 50 == 0 || done == cases.Count)
+            Console.WriteLine($"{done}/{cases.Count} in {clock.Elapsed:hh\\:mm\\:ss}");
+    }
+}
 results.Dispose();
 
 var summary = new JsonObject
@@ -114,12 +133,6 @@ async Task<JsonObject> RunCase(int index, JsonObject record)
     };
     var hexide = Hexide.From(record);
     result["hexide"] = hexide.ToJson();
-    if (startup["bare"]?.GetValue<bool>() != true)
-    {
-        // HexIDE runs a module with no bare statements as its declarations alone, so there is nothing to call.
-        result["outcome"] = "no-entry";
-        return result;
-    }
     // The engine runs the program for real, on the machine running this tool. A program that would act outside its own
     // process is counted and left out, whatever its paths say: a path built at run time can't be checked here.
     var effects = Effects.Of(modules.Select(m => m["source"]!.GetValue<string>()));
@@ -145,10 +158,7 @@ async Task<JsonObject> RunCase(int index, JsonObject record)
         File.WriteAllText(Path.Combine(dir, file), ModuleText(name, kind, source), new UTF8Encoding(false));
         files.Add(new JsonObject { ["RelativeUri"] = file });
     }
-    var project = JsonNode.Parse(template)!.AsObject();
-    var info = project["ProjectInfo"]!.AsObject();
-    info["Name"] = "ParityCase";
-    info["Modules"] = files;
+    var project = Comparison.Project(template, index, files);
     File.WriteAllText(Path.Combine(dir, ".rdproj"), project.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     if (options.DryRun)
     {
@@ -249,33 +259,6 @@ async Task<Engine> RunEngine(string workspace, string module)
     }
     engine.ElapsedMs = clock.ElapsedMilliseconds;
     return engine;
-}
-
-static string Outcome(Hexide hexide, Engine engine)
-{
-    if (engine.TimedOut) return "timeout";
-    if (engine.Failure is not null) return "launch-failed";
-    var printedAlike = Lines(engine.Stdout.ToString()).SequenceEqual(hexide.Printed.Select(p => p.Trim()));
-    var engineError = engine.ExitCode is { } code && code != 0 || engine.Stderr.Length > 0;
-    var engineNumber = engine.ErrorNumber;
-    return hexide.ErrorKind switch
-    {
-        null => !engineError ? (printedAlike ? "match" : "mismatch") : "engine-error-only",
-        "VBRunTimeException" => !engineError ? "hexide-error-only"
-            : engineNumber is null ? "hexide-run-time-error-engine-refused"
-            : engineNumber == hexide.ErrorNumber && printedAlike ? "both-error-match" : "both-error-differ",
-        "NotImplementedException" => !engineError ? "hexide-unimplemented-engine-runs" : "hexide-unimplemented-engine-error",
-        // Compile errors, and the run-time translations of VB6's compile errors (Variable not defined and the rest).
-        _ => !engineError ? "hexide-refused-engine-runs" : "both-refused",
-    };
-}
-
-static IEnumerable<string> Lines(string text)
-{
-    var lines = text.Replace("\r\n", "\n").Split('\n').ToList();
-    if (lines.Count > 0 && lines[^1].Length == 0)
-        lines.RemoveAt(lines.Count - 1);
-    return lines.Select(l => l.Trim());
 }
 
 static string ModuleText(string name, string kind, string source)
@@ -443,17 +426,26 @@ static class Effects
 /// <summary>What HexIDE did with the program, from the dump.</summary>
 sealed record Hexide(IReadOnlyList<string> Printed, IReadOnlyList<string> Types, string? ErrorKind, int? ErrorNumber, string? ErrorMessage)
 {
+    public string? Locale { get; init; }
+    public IReadOnlyList<string>? Lines { get; init; }
+
     public static Hexide From(JsonObject record)
     {
         var printed = record["printed"]!.AsArray().Select(p => p!["text"]!.GetValue<string>()).ToList();
         var types = record["printed"]!.AsArray().Select(p => p!["type"]!.GetValue<string>()).ToList();
         var error = record["error"]?.AsObject();
-        return new(printed, types, error?["kind"]?.GetValue<string>(), error?["number"]?.GetValue<int>(), error?["message"]?.GetValue<string>());
+        return new(printed, types, error?["kind"]?.GetValue<string>(), error?["number"]?.GetValue<int>(), error?["message"]?.GetValue<string>())
+        {
+            Locale = record["locale"]?.GetValue<string>(),
+            Lines = record["lines"]?.AsArray().Select(l => l!.GetValue<string>()).ToList(),
+        };
     }
 
     public JsonObject ToJson() => new()
     {
         ["printed"] = new JsonArray(Printed.Select(p => (JsonNode?)p).ToArray()),
+        ["lines"] = Lines is null ? null : new JsonArray(Lines.Select(l => (JsonNode?)l).ToArray()),
+        ["locale"] = Locale,
         ["types"] = new JsonArray(Types.Select(p => (JsonNode?)p).ToArray()),
         ["errorKind"] = ErrorKind,
         ["errorNumber"] = ErrorNumber,
@@ -475,10 +467,10 @@ sealed partial class Engine
     public string? StderrTail { get; set; }
     public long ElapsedMs { get; set; }
 
-    // The engine reports an unhandled error as "Run-time error 'N': description" (measured, #1368).
+    // Both error prefixes are measured in #2119.
     public int? ErrorNumber => RunTimeError().Match(Stderr.ToString()) is { Success: true } m ? int.Parse(m.Groups[1].Value) : null;
 
-    [GeneratedRegex(@"Run-time error '(\d+)'")]
+    [GeneratedRegex(@"(?:Run-time|Application) error '(\d+)'")]
     private static partial Regex RunTimeError();
 
     public JsonObject ToJson() => new()
@@ -494,4 +486,49 @@ sealed partial class Engine
         ["failure"] = Failure,
         ["stderrTail"] = StderrTail,
     };
+}
+
+internal static class Comparison
+{
+    internal static JsonObject Project(string template, int index, JsonArray files)
+    {
+        var project = JsonNode.Parse(template)!.AsObject();
+        var info = project["ProjectInfo"]!.AsObject();
+        info["Name"] = $"ParityCase{index:D5}";
+        info["Modules"] = files;
+        return project;
+    }
+
+    internal static bool NeedsRetry(JsonObject result) =>
+        result["engine"] is JsonObject engine && engine.Any(p =>
+            p.Key is "stderr" or "failure" or "stderrTail" && p.Value is JsonValue value && value.TryGetValue<string>(out var text) &&
+            text.Contains("HexDumpMain' is not a procedure of the module", StringComparison.Ordinal));
+
+    internal static string Outcome(Hexide hexide, Engine engine)
+    {
+        if (engine.TimedOut) return "timeout";
+        if (engine.Failure is not null) return "launch-failed";
+        if (hexide.Locale is { } locale && !locale.Equals("en-US", StringComparison.OrdinalIgnoreCase)) return "locale-differs";
+        var printedAlike = Lines(engine.Stdout.ToString()).SequenceEqual((hexide.Lines ?? hexide.Printed).Select(p => p.Trim()));
+        var engineError = engine.ExitCode is { } code && code != 0 || engine.Stderr.Length > 0;
+        var engineNumber = engine.ErrorNumber;
+        return hexide.ErrorKind switch
+        {
+            null => !engineError ? (printedAlike ? "match" : "mismatch") : "engine-error-only",
+            "VBRunTimeException" => !engineError ? "hexide-error-only"
+                : engineNumber is null ? "hexide-run-time-error-engine-refused"
+                : engineNumber == hexide.ErrorNumber && printedAlike ? "both-error-match" : "both-error-differ",
+            "NotImplementedException" => !engineError ? "hexide-unimplemented-engine-runs" : "hexide-unimplemented-engine-error",
+            // Compile errors, and the run-time translations of VB6's compile errors (Variable not defined and the rest).
+            _ => !engineError ? "hexide-refused-engine-runs" : "both-refused",
+        };
+    }
+
+    internal static IEnumerable<string> Lines(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n').ToList();
+        if (lines.Count > 0 && lines[^1].Length == 0)
+            lines.RemoveAt(lines.Count - 1);
+        return lines.Select(l => l.Trim());
+    }
 }
