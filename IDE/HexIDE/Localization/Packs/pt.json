@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentação Automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao Guardar",
     "Str.Options.EditorGeneral.Display.Header": "Apresentação",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostrar dicas no código",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostrar Minimapa",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentação",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Largura do Tabulador:",

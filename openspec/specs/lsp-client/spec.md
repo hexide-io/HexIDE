@@ -1155,3 +1155,33 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+
+### Requirement: Inlay hints SHALL render without changing caret columns
+
+The client SHALL declare inlay-hint support and request `textDocument/inlayHint` only from matching servers
+advertising `inlayHintProvider`. It SHALL render string or label-part labels after the corresponding line,
+without changing document text or caret columns. An Editor General option SHALL hide hints and suppress
+requests. Edits SHALL clear stale hints and prevent obsolete replies from restoring them.
+
+#### Scenario: An offering server returns a label
+- **WHEN** a server offering inlay hints returns a label for an open document
+- **THEN** the label appears after its line in the read-only text colour
+- **AND** the document, undo history and caret columns are unchanged
+
+#### Scenario: Hints are disabled or unsupported
+- **WHEN** the user disables inlay hints or no matching server offers them
+- **THEN** no hint request is sent and no hints are shown
+
+### Requirement: The bundled server SHALL name closed syntactic blocks
+
+The bundled server SHALL advertise and supply block-end inlay hints from its cached CST for procedures,
+multiline If, Do, For, For Each, While, Select Case and With. It SHALL respect the requested range and SHALL
+NOT offer binding-dependent parameter-name or inferred-type hints.
+
+#### Scenario: Nested blocks close
+- **WHEN** nested blocks close in an open document
+- **THEN** each closing line has a hint naming its own opener
+
+#### Scenario: A single-line If occurs
+- **WHEN** an If has its body on the same line
+- **THEN** it has no block-end hint

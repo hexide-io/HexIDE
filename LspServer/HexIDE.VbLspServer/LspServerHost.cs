@@ -116,6 +116,7 @@ public static class LspServerHost
         });
 
         // ── Request handlers (all 17-method contract; result:null over errors for "nothing found") ─
+        Request(ls, "textDocument/inlayHint",         (s, p) => LspRequestHandlers.InlayHint(s, p));
         Request(ls, "textDocument/hover",             (s, p) => LspRequestHandlers.Hover(s, p));
         Request(ls, "textDocument/documentSymbol",    (s, p) => LspRequestHandlers.DocumentSymbol(s, p));
         Request(ls, "textDocument/foldingRange",      (s, p) => LspRequestHandlers.FoldingRange(s, p));

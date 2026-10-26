@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automaattinen sisennys",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Muotoile tallennettaessa",
     "Str.Options.EditorGeneral.Display.Header": "Näyttö",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Näytä koodivihjeet",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Näytä pienoiskartta",
     "Str.Options.EditorFormatting.Indentation.Header": "Sisennys",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Sarkainleveys:",

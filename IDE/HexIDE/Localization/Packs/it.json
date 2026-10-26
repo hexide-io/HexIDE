@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Rientro automatico",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatta al salvataggio",
     "Str.Options.EditorGeneral.Display.Header": "Visualizzazione",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostra suggerimenti nel codice",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostra minimappa",
     "Str.Options.EditorFormatting.Indentation.Header": "Rientro",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Larghezza tabulazione:",

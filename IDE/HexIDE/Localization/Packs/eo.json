@@ -413,6 +413,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Aŭtomate Enŝovi",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formati je Konservo",
     "Str.Options.EditorGeneral.Display.Header": "Montrado",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Montri enkodajn sugestojn",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Montri Minimapon",
     "Str.Options.EditorFormatting.Indentation.Header": "Enŝovado",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Larĝo de Tabo:",

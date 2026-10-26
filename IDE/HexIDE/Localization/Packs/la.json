@@ -413,6 +413,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatica Indentatio",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Forma cum Servando",
     "Str.Options.EditorGeneral.Display.Header": "Ostensio",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Ostende monita interposita",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Monstra Mappulam",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentatio",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Latitudo Tabulationis:",

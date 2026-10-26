@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -559,7 +559,8 @@ public sealed class VBLspClient : ILspClient
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
                     // fold part-way along its closing line, and a fold read by whole lines then hides that line.
-                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true)),
+                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true),
+                    InlayHint: new InlayHintClientCapabilities()),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true),
@@ -1566,6 +1567,21 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("inlayHintProvider")) return [];
+        try
+        {
+            return await InvokeRequestAsync<InlayHint[]?>(_rpc, "textDocument/inlayHint",
+                new InlayHintParams(new TextDocumentIdentifier(uri), range), cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/inlayHint", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("codeLensProvider")) return [];
@@ -2190,6 +2206,7 @@ public sealed class VBLspClient : ILspClient
         "executeCommandProvider",
         "foldingRangeProvider",
         "hoverProvider",
+        "inlayHintProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

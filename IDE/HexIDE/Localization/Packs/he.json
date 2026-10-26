@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "הזחה אוטומטית",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "עיצוב בעת שמירה",
     "Str.Options.EditorGeneral.Display.Header": "תצוגה",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "הצגת רמזים בתוך הקוד",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "הצג מפה ממוזערת",
     "Str.Options.EditorFormatting.Indentation.Header": "הזחה",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "רוחב טאב:",

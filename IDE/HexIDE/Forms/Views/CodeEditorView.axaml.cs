@@ -85,6 +85,9 @@ public partial class CodeEditorView : UserControl
     private Action? _onExternalDebugChanged;
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
+    private InlayHintRenderer? _inlayHintRenderer;
+    private System.ComponentModel.PropertyChangedEventHandler? _inlaySettingsChanged;
+    private int _inlayRevision;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
     private bool _resetPromptOpen;
     private string? _preEditBody;       // the code as it stood before the first edit while running (for Cancel→revert)
@@ -292,6 +295,14 @@ public partial class CodeEditorView : UserControl
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
 
+            _inlayHintRenderer = new InlayHintRenderer(TextEditor);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
+            _inlaySettingsChanged = (_, e) =>
+            {
+                if (e.PropertyName != nameof(vm.Settings.ShowInlayHints)) return;
+                ScheduleFolding(vm);
+            };
+            vm.Settings.PropertyChanged += _inlaySettingsChanged;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -507,6 +518,9 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            if (_inlaySettingsChanged is not null)
+                vm.Settings.PropertyChanged -= _inlaySettingsChanged;
+            _inlaySettingsChanged = null;
             if (_vmSelectionSync is not null)
             {
                 vm.PropertyChanged -= _vmSelectionSync;
@@ -518,6 +532,12 @@ public partial class CodeEditorView : UserControl
             vm.StatusBar.Column = null;
         }
 
+        ++_inlayRevision;
+        if (_inlayHintRenderer is not null)
+        {
+            TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_inlayHintRenderer);
+            _inlayHintRenderer = null;
+        }
         if (_markerService is not null)
         {
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_markerService);
@@ -659,6 +679,11 @@ public partial class CodeEditorView : UserControl
     {
         if (_readOnlyColorizer is null) return;
         _readOnlyColorizer.Brush = brush;
+        if (_inlayHintRenderer is not null)
+        {
+            _inlayHintRenderer.Brush = brush;
+            TextEditor.TextArea.TextView.InvalidateLayer(_inlayHintRenderer.Layer);
+        }
         TextEditor.TextArea.TextView.Redraw();
     }
 
@@ -1050,6 +1075,8 @@ public partial class CodeEditorView : UserControl
 
     private void ScheduleFolding(CodeEditorViewModel vm)
     {
+        ++_inlayRevision;
+        _inlayHintRenderer?.SetHints([]);
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = new CancellationTokenSource();
@@ -1069,6 +1096,7 @@ public partial class CodeEditorView : UserControl
     private async Task RequestFoldingsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
         if (_foldingManager is null) return;
+        _ = RequestInlayHintsAsync(vm, token);
         try
         {
             var ranges = await vm.RequestFoldingRangesAsync(token);
@@ -1085,6 +1113,22 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[folding] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)
+    {
+        var revision = _inlayRevision;
+        try
+        {
+            var hints = await vm.RequestInlayHintsAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested || revision != _inlayRevision || DataContext != vm) return;
+                _inlayHintRenderer?.SetHints(vm.Settings.ShowInlayHints ? hints : []);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[inlay hints] {ErrorMessage}", ex.Message); }
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)

@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatické odsazení",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formátovat při uložení",
     "Str.Options.EditorGeneral.Display.Header": "Zobrazení",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Zobrazit vložené nápovědy",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Zobrazit minimapu",
     "Str.Options.EditorFormatting.Indentation.Header": "Odsazení",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Šířka tabulátoru:",

@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Автоматичний відступ",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматувати під час збереження",
     "Str.Options.EditorGeneral.Display.Header": "Відображення",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Показувати вбудовані підказки",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Показувати мінікарту",
     "Str.Options.EditorFormatting.Indentation.Header": "Відступи",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Ширина табуляції:",

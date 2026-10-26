@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Inden Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format saat Menyimpan",
     "Str.Options.EditorGeneral.Display.Header": "Tampilan",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Tampilkan petunjuk sebaris",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Tampilkan Minimap",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentasi",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Lebar Tab:",

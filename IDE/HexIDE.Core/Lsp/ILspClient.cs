@@ -263,6 +263,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>Requests display labels in a document range from offering servers.</summary>
+    Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.
     /// </summary>

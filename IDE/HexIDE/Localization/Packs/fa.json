@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "تورفتگی خودکار",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "قالب‌بندی هنگام ذخیره",
     "Str.Options.EditorGeneral.Display.Header": "نمایش",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "نمایش راهنمای درون‌خطی",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "نمایش نقشه کوچک",
     "Str.Options.EditorFormatting.Indentation.Header": "تورفتگی",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "عرض تب:",

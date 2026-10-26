@@ -28,6 +28,24 @@ public class SettingsServiceTests : IDisposable
         return new SettingsService(SettingsPath);
     }
 
+    [Fact]
+    public void InlayHintsToggleIsStagedPersistedAndRestored()
+    {
+        var settings = CreateSut();
+        settings.ShowInlayHints.Should().BeTrue();
+        var page = new HexIDE.Forms.ViewModels.Options.EditorGeneralPageViewModel(settings);
+        page.ShowInlayHints.Should().BeTrue();
+        page.ShowInlayHints = false;
+        settings.ShowInlayHints.Should().BeTrue();
+        page.SaveToSettings();
+        settings.ShowInlayHints.Should().BeFalse();
+        CreateSut().ShowInlayHints.Should().BeFalse();
+        page.RestoreDefaults();
+        page.ShowInlayHints.Should().BeTrue();
+        page.SaveToSettings();
+        CreateSut().ShowInlayHints.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData(nameof(SettingsService.RequireVariableDeclaration), true)]
     [InlineData(nameof(SettingsService.AutoListMembers), false)]

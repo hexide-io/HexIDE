@@ -411,6 +411,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "자동 들여쓰기",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "저장 시 서식 지정",
     "Str.Options.EditorGeneral.Display.Header": "표시",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "인레이 힌트 표시",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "미니맵 표시",
     "Str.Options.EditorFormatting.Indentation.Header": "들여쓰기",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "탭 너비:",

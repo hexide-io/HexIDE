@@ -846,6 +846,21 @@ quietly; it would run something.
 document symbol produce one duplicated dropdown entry; two servers offering a lens on the same line offer
 two genuinely different things, and dropping either would hide something the user could have done.
 
+## Inlay hints
+
+The client declares `textDocument.inlayHint` and requests `textDocument/inlayHint` only from servers
+advertising `inlayHintProvider` (a flag or options object). Matching servers' labels are gathered for the
+whole open document after edits settle and after a connection starts. Edits clear old labels and obsolete
+replies are discarded. String labels and label-part arrays render after their source line in the theme's
+read-only text colour, without inserting text, affecting undo or adding caret columns. An interior hint
+position still places its label after that line; several labels on one line are joined in server order.
+Options → Editor → General → **Show inlay hints** hides them and stops requests; it defaults on.
+
+The bundled server supplies syntactic block-end labels (#1998), an explicit exception to the analysis
+boundary below. Parameter names and inferred types still need binding and remain a backend's job.
+Labels alone are consumed: `inlayHint/resolve`, refresh requests, tooltips, navigation, commands and
+hint text edits are not supported or advertised.
+
 ## Custom methods
 
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
@@ -861,7 +876,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 31 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 32 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -883,7 +898,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 17 of 41
+### `textDocument/*` — 18 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -906,7 +921,7 @@ than inferred.
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |
-| ○ | `textDocument/inlayHint` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
@@ -1067,7 +1082,7 @@ in the first place; the guard will catch it, but the guard is a backstop, not a 
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy
+- **Features needing a bound AST** — references, code actions, semantic tokens, call hierarchy
   and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
@@ -1102,7 +1117,7 @@ Three clusters account for nearly all of the gap:
 
 ## What the client would consume, given a server that offers it
 
-These are ordinary LSP features that HexIDE's **own** server will never implement. They require a bound AST,
+These are ordinary LSP features or analysis depths that HexIDE's **own** server will never implement. They require a bound AST,
 which is outside its hard limit and belongs to a real language engine delivered over this seam. They are
 listed here rather than as a roadmap because the distinction is the point: they are not HexIDE features
 awaiting effort, they are **server** features awaiting a server.
@@ -1112,7 +1127,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Find all references | `textDocument/references` | Not wired |
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
 | Semantic tokens | `textDocument/semanticTokens` | Not wired |
-| Inlay hints | `textDocument/inlayHint` | Not wired |
+| Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
