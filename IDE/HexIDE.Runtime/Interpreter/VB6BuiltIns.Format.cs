@@ -31,9 +31,9 @@ public partial class VB6BuiltIns
 
         var cc = VbLocale.Current;
         string fmtKey = fmt.Trim().ToLowerInvariant();
-        // Out-of-decimal-range / non-finite magnitudes can't feed the decimal engine; render them in scientific
-        // notation for the numeric named formats instead of throwing an uncatchable OverflowException (see
-        // OutOfDecimalRangeNumeric — "fixed"/"standard"/"currency" of such a value is an approximation of VB6).
+        // Standard shares the measured fixed-mask expansion; other named formats keep their existing path.
+        if (fmtKey == "standard" && OutOfDecimalRangeNumeric(v) != null)
+            return new Vb6Value(FormatNumericSections(v, "#,##0.00"));
         if (fmtKey is "general number" or "fixed" or "standard" or "percent" or "scientific" or "currency"
             && OutOfDecimalRangeNumeric(v) is { } sciNamed)
             return new Vb6Value(sciNamed);
@@ -293,7 +293,24 @@ public partial class VB6BuiltIns
     // absolute value; a section with no placeholder is a literal.
     private static string FormatNumericSections(Vb6Value v, string fmt)
     {
-        if (OutOfDecimalRangeNumeric(v) is { } sci) return sci;
+        if (OutOfDecimalRangeNumeric(v) is { } sci)
+        {
+            Vb6Value.TryNumericToDouble(v, out var number);
+            if (!double.IsFinite(number)) return sci;
+            var largeSections = SplitSections(fmt);
+            bool ownSign = number < 0 && largeSections.Count >= 2;
+            string largeSection = largeSections[ownSign ? 1 : 0];
+            // Preserve the scientific path and the unmeasured scaling-mask behaviour.
+            if (IsScientific(largeSection) || IndexOfUnquoted(largeSection, '%') >= 0) return sci;
+            int last = Math.Max(largeSection.LastIndexOf('0'), largeSection.LastIndexOf('#'));
+            if (last >= 0 && last + 1 < largeSection.Length && largeSection[last + 1] == ',') return sci;
+            if (!HasUnquotedPlaceholder(largeSection)) return sci;
+            string digits = Math.Abs(number).ToString("E14", CultureInfo.InvariantCulture);
+            int e = digits.IndexOf('E');
+            int exponent = int.Parse(digits.Substring(e + 1), CultureInfo.InvariantCulture);
+            digits = digits.Substring(0, e).Replace(".", "").PadRight(exponent + 1, '0');
+            return FormatPlainNumeric(number < 0 && !ownSign ? -1m : 1m, largeSection, digits);
+        }
         var sections = SplitSections(fmt);
         decimal val = NumToDecimal(v);
         string section;
@@ -311,7 +328,7 @@ public partial class VB6BuiltIns
         return IsScientific(section) ? FormatScientific(sv, section) : FormatPlainNumeric(sv, section);
     }
 
-    private static string FormatPlainNumeric(decimal value, string fmt)
+    private static string FormatPlainNumeric(decimal value, string fmt, string? expandedDigits = null)
     {
         var nf = VbLocale.Current.NumberFormat;
         if (fmt.IndexOf('%') >= 0) value *= 100m;
@@ -351,7 +368,7 @@ public partial class VB6BuiltIns
         int calcFrac = Math.Min(fracLen, 18);
         abs = Math.Round(abs, calcFrac, MidpointRounding.AwayFromZero);
         decimal truncated = Math.Truncate(abs);
-        string intDigits = (truncated == 0m ? "" : truncated.ToString("F0", CultureInfo.InvariantCulture))
+        string intDigits = (expandedDigits ?? (truncated == 0m ? "" : truncated.ToString("F0", CultureInfo.InvariantCulture)))
             .PadLeft(minInt, '0');
 
         string fracOut = "";
@@ -419,8 +436,7 @@ public partial class VB6BuiltIns
     // non-finite double — `(decimal)d` would throw an UNCATCHABLE OverflowException. VB6 doesn't error there: it
     // renders General Number / no-mask / Scientific in scientific notation (matched here via G15). Returns that
     // string for an out-of-range/non-finite value, or null when the value IS decimal-representable (the precise
-    // engine then handles it unchanged). NB: a *fixed* mask ("0.00") of such a value is fully EXPANDED by VB6 (its
-    // double-precision digit model) — HexIDE approximates that as scientific too (a documented divergence).
+    // engine then handles it unchanged). Fixed masks expand the 15 significant digits in FormatNumericSections.
     private static string? OutOfDecimalRangeNumeric(Vb6Value v)
     {
         if (!Vb6Value.TryNumericToDouble(v, out var d)) return null;
