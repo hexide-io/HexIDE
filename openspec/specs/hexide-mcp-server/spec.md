@@ -461,3 +461,16 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Visual-tree match replies SHALL explain unselected contents
+A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,
+and unselected Options pages when searching the Options dialog, and explain how to select them.
+This note SHALL accompany both empty and nonempty matches, alongside any depth-limit warning.
+
+#### Scenario: An editor is behind a designer
+- **WHEN** a match search runs with a code tab open but unselected
+- **THEN** the note names that tab, says its contents are not in the tree, and directs the caller to `activate_document_tab`
+
+#### Scenario: A setting is on another Options page
+- **WHEN** a match search runs in Options with other pages unselected
+- **THEN** the note names their category and page and directs the caller to expand the category and select the page with `interact`
