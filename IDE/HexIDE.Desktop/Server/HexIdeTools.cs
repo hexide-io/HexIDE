@@ -2138,7 +2138,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset);
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
@@ -2149,7 +2149,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y);
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut));
             if (!inline)
                 return result;
 
@@ -2603,6 +2603,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return window.Title;
         return window.Content?.GetType().Name is { Length: > 0 } content ? content : "Dialog";
     }
+
+    /// <summary>
+    /// What a snapshot left out and why, or null when it drew every open popup: a popup reported on no screen, or so far
+    /// from the window that both would not fit one image, which threw an unhandled "Positive number required" (#1960).
+    /// </summary>
+    internal static string? LeftOutNote(IReadOnlyList<HexIDE.Automation.SnapshotComposer.LeftOutPopup> leftOut) =>
+        leftOut.Count == 0 ? null
+            : $"Left out of this image: {string.Join("; ", leftOut.Select(p =>
+                $"a popup reported at ({p.Rect.X}, {p.Rect.Y}), {p.Rect.Width} × {p.Rect.Height} pixels, as {p.Reason}"))}. "
+              + "The window and every other open popup are drawn.";
 
     /// <summary>A document tab's kind, as get_document_tabs reports it.</summary>
     private static string TabType(object tab) => tab switch
@@ -3201,7 +3211,7 @@ internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
-    int? WindowOffsetX = null, int? WindowOffsetY = null);
+    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,

@@ -184,4 +184,56 @@ public class SnapshotComposerTests : WindowTestFixture
         withPopup!.PixelSize.Should().Be(windowOnly!.PixelSize,
             "an overlay popup is part of the window already, however big it is");
     }
+
+    // Windows parks a window it is not showing at (-32000, -32000). A popup reported there made the canvas the union of
+    // it and the window, 32,000 pixels square, whose bytes overflow an Int32: "Positive number required" (#1960).
+    [AvaloniaFact]
+    public void A_popup_too_far_away_to_compose_is_left_out_and_named()
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            var far = new PixelRect(-32000, -32000, 10, 10);
+            using var bitmap = SnapshotComposer.Compose(window, new PixelRect(100, 100, 100, 100),
+                new() { (popup, far) }, 1.0, screens: null, out var offset, out var leftOut);
+
+            bitmap.PixelSize.Should().Be(new PixelSize(100, 100), "the window is captured on its own");
+            offset.Should().Be(default(PixelPoint));
+            leftOut.Should().ContainSingle().Which.Rect.Should().Be(far);
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_popup_on_no_screen_is_left_out_and_one_on_a_screen_is_drawn()
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            var screens = new[] { new PixelRect(0, 0, 400, 300) };
+            var offScreen = new PixelRect(500, 100, 10, 10);
+            var overhang = new PixelRect(80, 100, 10, 10);
+            using var bitmap = SnapshotComposer.Compose(window, new PixelRect(100, 100, 100, 100),
+                new() { (popup, offScreen), (popup, overhang) }, 1.0, screens, out var offset, out var leftOut);
+
+            leftOut.Should().ContainSingle().Which.Rect.Should().Be(offScreen);
+            bitmap.PixelSize.Should().Be(new PixelSize(120, 100), "the overhanging popup still widens the canvas");
+            offset.Should().Be(new PixelPoint(20, 0));
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
+    }
 }

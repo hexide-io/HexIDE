@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -44,11 +45,17 @@ public static class SnapshotComposer
     /// Renders <paramref name="window"/> with every open popup drawn in its real position.
     /// Returns null when the window has no area to capture.
     /// </summary>
-    public static RenderTargetBitmap? Capture(Window window) => Capture(window, out _);
+    public static RenderTargetBitmap? Capture(Window window) => Capture(window, out _, out _);
 
-    public static RenderTargetBitmap? Capture(Window window, out PixelPoint windowOffset)
+    /// <summary>
+    /// As <see cref="Capture(Window)"/>, with where the window's origin lies in the image and the popups it left out,
+    /// each with why.
+    /// </summary>
+    public static RenderTargetBitmap? Capture(Window window, out PixelPoint windowOffset,
+        out IReadOnlyList<LeftOutPopup> leftOut)
     {
         windowOffset = default;
+        leftOut = [];
         var scaling = window.DesktopScaling;
         var windowRect = ScreenRect(window, window.ClientSize, scaling);
         if (windowRect.Width <= 0 || windowRect.Height <= 0)
@@ -65,16 +72,53 @@ public static class SnapshotComposer
             placements.Add((popup, rect));
         }
 
-        return Compose(window, windowRect, placements, scaling, out windowOffset);
+        // A headless window has no screens, and then none is ruled out.
+        var screens = window.Screens?.All.Select(s => s.Bounds).ToList();
+        return Compose(window, windowRect, placements, scaling, screens is { Count: > 0 } ? screens : null,
+            out windowOffset, out leftOut);
     }
+
+    /// <summary>A popup the snapshot does not show: where it was reported, and why it was left out.</summary>
+    public sealed record LeftOutPopup(PixelRect Rect, string Reason);
+
+    /// <summary>
+    /// The most bytes one render target is given. A canvas is the union of the window and its popups, so one popup
+    /// reported far away, as Windows parks a window it is not showing at (-32000, -32000), made a canvas whose bytes
+    /// overflow an Int32 and threw "Positive number required" (#1960). Sixteen thousand pixels square is past any
+    /// display, and well inside an Int32.
+    /// </summary>
+    private const long MaxCanvasBytes = 16384L * 16384 * 4;
+
+    internal static RenderTargetBitmap Compose(Visual window, PixelRect windowRect,
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, out PixelPoint windowOffset)
+        => Compose(window, windowRect, placements, scaling, null, out windowOffset, out _);
 
     // Explicit screen rectangles let headless tests exercise desktop composition without overlay popups.
     internal static RenderTargetBitmap Compose(Visual window, PixelRect windowRect,
-        List<(Visual Visual, PixelRect Rect)> placements, double scaling, out PixelPoint windowOffset)
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, IReadOnlyList<PixelRect>? screens,
+        out PixelPoint windowOffset, out IReadOnlyList<LeftOutPopup> leftOut)
     {
+        // A popup on no screen is not on screen, so a picture of what is on screen leaves it out. One that would make
+        // the image too big to allocate is left out too, rather than costing the whole snapshot. Either is named.
         var canvas = windowRect;
-        foreach (var (_, rect) in placements)
-            canvas = canvas.Union(rect);
+        var dropped = new List<LeftOutPopup>();
+        placements = placements.Where(p =>
+        {
+            if (screens is not null && !screens.Any(screen => screen.Intersects(p.Rect)))
+            {
+                dropped.Add(new LeftOutPopup(p.Rect, "it lies on no screen"));
+                return false;
+            }
+            var union = canvas.Union(p.Rect);
+            if ((long)union.Width * union.Height * 4 > MaxCanvasBytes)
+            {
+                dropped.Add(new LeftOutPopup(p.Rect, "it lies too far from the window to draw both in one image"));
+                return false;
+            }
+            canvas = union;
+            return true;
+        }).ToList();
+        leftOut = dropped;
         windowOffset = new PixelPoint(windowRect.X - canvas.X, windowRect.Y - canvas.Y);
 
         var bitmap = new RenderTargetBitmap(canvas.Size, new Vector(96 * scaling, 96 * scaling));
