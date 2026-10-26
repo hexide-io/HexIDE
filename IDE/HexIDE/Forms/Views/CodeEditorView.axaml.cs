@@ -1617,7 +1617,7 @@ public partial class CodeEditorView : UserControl
             TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
-            TriggerSignatureHelpAsync();
+            TriggerSignatureHelpAsync(ch.ToString());
         // Close signature help when all parens are closed
         if (ch == ')')
             CloseInsightWindowIfBalanced();
@@ -2188,7 +2188,7 @@ public partial class CodeEditorView : UserControl
 
     // ── Signature help ───────────────────────────────────────────────────────
 
-    private void TriggerSignatureHelpAsync()
+    private void TriggerSignatureHelpAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
 
@@ -2199,7 +2199,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token);
+        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token, triggerCharacter);
     }
 
     private void CloseInsightWindowIfBalanced()
@@ -2219,7 +2219,7 @@ public partial class CodeEditorView : UserControl
             _insightWindow?.Close();
     }
 
-    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token, string? triggerCharacter)
     {
         try
         {
@@ -2228,7 +2228,7 @@ public partial class CodeEditorView : UserControl
             await vm.FlushDocumentAsync(token);
             if (token.IsCancellationRequested) return;
 
-            var help = await vm.RequestSignatureHelpAsync(position, token);
+            var help = await vm.RequestSignatureHelpAsync(position, token, triggerCharacter);
             if (token.IsCancellationRequested) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

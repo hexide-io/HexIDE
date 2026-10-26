@@ -242,8 +242,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Records a completion answer discarded after the popup's result was returned.</summary>
     void NoteLateCompletion() { }
 
-    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.</summary>
-    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default);
+    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.
+    /// A typed trigger selects advertising servers in the registry; null means explicit invocation.</summary>
+    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null);
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>

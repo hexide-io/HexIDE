@@ -1439,7 +1439,7 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null)
     {
         if (_rpc is null || !_initialized || !CanServe("signatureHelpProvider")) return null;
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);

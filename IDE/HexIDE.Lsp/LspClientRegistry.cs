@@ -424,8 +424,39 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestHoverAsync(uri, position, ct));
 
-    public Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken ct = default) =>
-        FirstAnswerAsync(uri, c => c.RequestSignatureHelpAsync(uri, position, ct));
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(
+        string uri, Position position, CancellationToken ct = default, string? triggerCharacter = null)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(1));
+
+        // Start every eligible request before waiting. WhenAll preserves priority order, not reply order.
+        var requests = StartedClaimantsFor(uri)
+            .Where(c => triggerCharacter is null || AdvertisesSignatureTrigger(c, triggerCharacter))
+            .Select(AskAsync).ToArray();
+        var answers = await Task.WhenAll(requests);
+        ct.ThrowIfCancellationRequested();
+        return answers.FirstOrDefault(a => a is { Signatures.Length: > 0 });
+
+        async Task<SignatureHelp?> AskAsync(ILspClient client)
+        {
+            try
+            {
+                // WaitAsync also bounds a client that ignores cancellation.
+                return await client.RequestSignatureHelpAsync(uri, position, budget.Token)
+                    .WaitAsync(budget.Token);
+            }
+            catch (OperationCanceledException) when (budget.IsCancellationRequested) { return null; }
+        }
+    }
+
+    private static bool AdvertisesSignatureTrigger(ILspClient client, string triggerCharacter) =>
+        client.AdvertisedCapabilities is { ValueKind: JsonValueKind.Object } caps &&
+        caps.TryGetProperty("signatureHelpProvider", out var provider) &&
+        provider.ValueKind == JsonValueKind.Object &&
+        provider.TryGetProperty("triggerCharacters", out var triggers) &&
+        triggers.ValueKind == JsonValueKind.Array &&
+        triggers.EnumerateArray().Any(t => t.ValueKind == JsonValueKind.String && t.GetString() == triggerCharacter);
 
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct));
