@@ -43,6 +43,9 @@ public sealed class ControlLibrary
     /// <summary>The <c>.vbp</c> line that references the library, as VB6's Save Project writes it (measured, #1103).</summary>
     public string ProjectLine => $"Object={Guid}#{Version}#0; {File}";
 
+    /// <summary>The form header line that declares the library, as VB6's designer writes it when one is placed (#1082).</summary>
+    public string FormLine => $"Object = \"{Guid}#{Version}#0\"; \"{File}\"";
+
     /// <summary>The library's name, which qualifies its controls' type names and its constants: <c>MSComctlLib</c>.</summary>
     public string Name { get; }
 

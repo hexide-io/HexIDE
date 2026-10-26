@@ -1,5 +1,6 @@
 using Avalonia.Media;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -33,6 +34,9 @@ public partial class ComponentToolViewModel : ObservableObject
     }
 
     public ComponentBaseClass? BaseClass { get; }
+
+    /// <summary>The library an in-box control is placed from, which its type name and its form's header name (#1103).</summary>
+    public ControlLibrary? Library { get; init; }
     public IImage Icon { get; }
     public string Name { get; }
 
