@@ -2,8 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Agrandir ou restaurer le volet",
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
-    "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite"
+    "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés"
   }
 }

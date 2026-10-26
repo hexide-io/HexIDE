@@ -2,8 +2,7 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "फलक बड़ा करें या पुनर्स्थापित करें",
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
-    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें"
+    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या"
   }
 }

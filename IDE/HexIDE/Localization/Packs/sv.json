@@ -2,8 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitars",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitars",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Maximera eller återställ panel",
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
-    "Str.Dock.ScrollRight": "Rulla flikar åt höger"
+    "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker"
   }
 }

@@ -2,8 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Розгорнути або відновити панель",
     "Str.Dock.Close": "Закрити панель",
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
-    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч"
+    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків"
   }
 }

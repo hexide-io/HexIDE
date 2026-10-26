@@ -2,8 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定標題的最大數量",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位元",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位元",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "最大化或還原窗格",
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
-    "Str.Dock.ScrollRight": "向右捲動索引標籤"
+    "Str.Dock.ScrollRight": "向右捲動索引標籤",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定標題的最大數量"
   }
 }

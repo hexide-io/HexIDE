@@ -2,8 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
     "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "بیشینه‌سازی یا بازیابی پنل",
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
-    "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست"
+    "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده"
   }
 }

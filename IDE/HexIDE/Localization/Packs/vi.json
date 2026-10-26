@@ -2,8 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Ghim tiêu đề khi cuộn",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Số tiêu đề được ghim tối đa",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Tô màu dấu ngoặc theo độ sâu lồng nhau",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Phóng to hoặc khôi phục ngăn",
     "Str.Dock.Close": "Đóng ngăn",
     "Str.Dock.ScrollLeft": "Cuộn thẻ sang trái",
-    "Str.Dock.ScrollRight": "Cuộn thẻ sang phải"
+    "Str.Dock.ScrollRight": "Cuộn thẻ sang phải",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Ghim tiêu đề khi cuộn",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Số tiêu đề được ghim tối đa"
   }
 }

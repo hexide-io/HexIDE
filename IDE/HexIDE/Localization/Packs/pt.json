@@ -2,8 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Maximizar ou restaurar painel",
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
-    "Str.Dock.ScrollRight": "Deslocar separadores para a direita"
+    "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados"
   }
 }

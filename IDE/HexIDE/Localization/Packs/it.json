@@ -2,8 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Ingrandisci o ripristina pannello",
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
-    "Str.Dock.ScrollRight": "Scorri schede a destra"
+    "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate"
   }
 }
