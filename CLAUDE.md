@@ -603,6 +603,7 @@ p-code has answered too. The oracle long built native code only (#842), and that
 
 **`docs/vb6-fidelity-oracle/` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
 and a change that measures something new is not finished until the measurement is written down there.
+The folder is mirrored to [vb6-behaviour](https://github.com/hexide-io/vb6-behaviour) on merge and stays the place to write measurements.
 
 VB6 is end-of-life. Its documentation is archived and, on the details that matter here, repeatedly wrong.
 The people who held these rules in their heads have dispersed, and — as this project keeps demonstrating —

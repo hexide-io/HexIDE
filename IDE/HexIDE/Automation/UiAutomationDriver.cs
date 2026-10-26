@@ -1034,7 +1034,7 @@ public static class UiAutomationDriver
         if (window.OwnedWindows.FirstOrDefault(w => w.IsDialog && w.IsVisible) is { } over)
         {
             OpenDialogs.NamedInReply(over);
-            return Err($"'{title}' has a dialog open over it, '{TitleOf(over)}', and takes no close until that is "
+            return Err($"'{title}' has a dialog open over it, {OpenDialogs.DescriptionOf(over)}, and takes no close until that is "
                        + "answered, as a person finds; nothing was done. Answer or close that dialog first");
         }
         if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
@@ -1135,7 +1135,7 @@ public static class UiAutomationDriver
         // Only where a row has no container: the item count holds the hidden rows too, so comparing it with the rows that
         // show sent every miss in a list with a hidden row here, to scroll nothing and say it had (#1256).
         if (matches.Count == 0 && control is ListBox virtualized
-            && Enumerable.Range(0, virtualized.ItemCount).Any(i => virtualized.ContainerFromIndex(i) is null))
+            && Enumerable.Range(0, virtualized.ItemCount).Any(i => OutOfView(virtualized, i)))
         {
             HashSet<int> hidden = [.. hiddenRows.Select(r => virtualized.IndexFromContainer(r.Control)).Where(i => i >= 0)];
             (matches, facet, broughtIntoView, var hiddenRefusal) = MatchAmongUnrealized(virtualized, value, hidden);
@@ -1256,7 +1256,7 @@ public static class UiAutomationDriver
         string? hiddenRefusal = null;
         for (var index = 0; index < list.ItemCount; index++)
         {
-            if (list.ContainerFromIndex(index) is not null) continue;
+            if (!OutOfView(list, index)) continue;
             list.ScrollIntoView(index);
             list.UpdateLayout();
             var rows = SelectableCandidates(list);
@@ -1277,6 +1277,10 @@ public static class UiAutomationDriver
         }
         return ([], "", false, hiddenRefusal);
     }
+
+    // A row with no container, or one held out of view, which the walk leaves out (#1981): either is scrolled to to be seen.
+    private static bool OutOfView(ListBox list, int index) =>
+        list.ContainerFromIndex(index) is not { } row || HeldOutOfView(row);
 
     // What a miss says of the rows left out as not showing.
     private static string HiddenNote(int count) => count switch
@@ -1735,7 +1739,11 @@ public static class UiAutomationDriver
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,
-                        Title = dialog?.Title,
+                        // What it is, as the note says it: the title alone is 'HexIDE' for two of the IDE's dialogs (#1975).
+                        Description = dialog is null ? null : OpenDialogs.DescriptionOf(dialog),
+                        // A MsgBox builds its text and buttons once it has loaded, after it shows, so a poll that sees it
+                        // first waits for the next one rather than describe an empty box (#1975 review).
+                        Built = dialog?.Content is not Control { IsLoaded: false },
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
                         Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
                         Opened = OpenedForms(watch),
@@ -1768,14 +1776,14 @@ public static class UiAutomationDriver
                 };
             // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
             // goes now. Worded to hold for a window that is not modal too, such as a form the handler showed.
-            if (state.Dialog is { } dialog)
+            if (state.Dialog is { } dialog && state.Built)
             {
                 // Named here, so the reply's note of open dialogs leaves it out (#1253).
                 OpenDialogs.NamedInReply(dialog);
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
-                             + "its form, " + (string.IsNullOrEmpty(state.Title) ? "with no title" : $"'{state.Title}'")
+                             + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
                              + $"{opened})",
@@ -2308,7 +2316,7 @@ public static class UiAutomationDriver
                 && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem)
                 // A row a list has let go of, as scrolling leaves a recycled one holding the last item it showed: it
                 // stood in for that item, so a select refused it, or found it twice (#1256 review).
-                && !Released(c))
+                && !Released(c) && !HeldOutOfView(c))
             {
                 result.Add(new MeaningfulChild(c, info));
             }
@@ -2326,8 +2334,23 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
+    // A row a virtualizing list keeps though it is scrolled out of view: the list's tab-once row, the one a Tab into the list
+    // lands on, which selecting a row makes it. The panel keeps it for that Tab, apart from the rows it has realized for
+    // the view, and arranges it where it would be, outside the view, so no person sees it: it is left out as rows out of
+    // view are. Its index is real, so Released keeps it. Told by membership, not geometry: a hidden row's bounds are stale,
+    // and the held row's place is an estimate (#1981 review). Kept while focus is in it, a person's keys going there, or
+    // while a dropdown it holds is open, which is on screen (#1981).
+    private static bool HeldOutOfView(Control c) =>
+        c is ListBoxItem or TreeViewItem or TabItem
+        && c.GetVisualParent() is VirtualizingPanel { IsItemsHost: true }
+        && !c.IsKeyboardFocusWithin
+        && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
+        && owner.IndexFromContainer(c) >= 0
+        && !owner.GetRealizedContainers().Contains(c)
+        && !c.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen);
+
     private static bool InReleasedRow(Control c) =>
-        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(r => Released(r) || HeldOutOfView(r));
 
     private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
 
@@ -2761,7 +2784,7 @@ public static class UiAutomationDriver
                         : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
                         $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"'{TitleOf(dialog)}' opened {where}, and a person's next key would go to it. Answer it, then "
+                        + $"{OpenDialogs.DescriptionOf(dialog)} opened {where}, and a person's next key would go to it. Answer it, then "
                         + "send the rest");
                 }
             }
@@ -2973,7 +2996,7 @@ public static class UiAutomationDriver
             return null;
         foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
             OpenDialogs.NamedInReply(dialog);
-        return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
+        return $"{OpenDialogs.DescriptionOf(holding)}, a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
             + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
             + "'window' set to its title shows it, and interact answers it";
     }
@@ -3951,7 +3974,7 @@ public static class UiAutomationDriver
             }
             // A row its list has let go of is no row of it, though it still shows the item it last held: listed, it was a
             // second copy of an item, or a row for one out of view, and a path to it reached a row no person sees (#1292).
-            else if (v is Control released && Released(released))
+            else if (v is Control released && (Released(released) || HeldOutOfView(released)))
             {
             }
             else if (v is Control c)
@@ -4087,7 +4110,7 @@ public static class UiAutomationDriver
                     foreach (var d in Descendants(content)) yield return d;
             }
             // As the control-view walk leaves it out: a released row reached by its id was the row the dump no longer lists (#1292 review).
-            else if (v is Control released && Released(released))
+            else if (v is Control released && (Released(released) || HeldOutOfView(released)))
             {
             }
             else if (v is Control c)

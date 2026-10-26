@@ -1297,7 +1297,7 @@ worse than one that says where it stops. Known holes, none of which have rows an
 |---|---|
 | **The entire event surface** | Not one VB6 event is listed — no `Form_Load`, `Form_Unload`, `Form_QueryUnload`, `Form_Resize`, `Form_Paint`, no `_Click`, `_Change`, `_KeyPress`, `_MouseDown`. |
 | In-box classes | `Form`, `MDIForm`, `UserControl`, `Menu`, `VBControlExtender`, `StdFont`, `StdPicture` — the classes the enumerated members hang off. |
-| Extender methods | `Move`, `ZOrder`, `SetFocus`, `Refresh`, `Show`, `Hide`, `PopupMenu`, `Arrange`, `ShowWhatsThis`. Not enumerated, though `Move` on a control runs since #1071 (oracle, "Move, ScaleWidth and ScaleHeight"), `SetFocus` since #1061 (oracle, "SetFocus"), and `ZOrder` on a control since #1503 (oracle, "What ZOrder does at run time"). |
+| Extender methods | `Move`, `ZOrder`, `SetFocus`, `Refresh`, `Show`, `Hide`, `PopupMenu`, `Arrange`, `ShowWhatsThis`. Not enumerated, though `Move` on a control runs since #1071 (oracle, "Move, ScaleWidth and ScaleHeight") and on a form since #1569 (oracle, "A form's Move"), `SetFocus` since #1061 (oracle, "SetFocus"), and `ZOrder` on a control since #1503 (oracle, "What ZOrder does at run time"). |
 | Graphics methods | `Point`, `PaintPicture`, `TextWidth`, `TextHeight`, `ScaleX`, `ScaleY` (and `Line` appears only as a statement, not in its graphics form). |
 | Printer methods | Every `Printer` row is a *property*; `Printer.Print`, `.NewPage`, `.EndDoc`, `.KillDoc`, `.Line` are absent. |
 | Drag and drop | `Drag` and `OLEDrag` — the methods the enumerated drag constants are arguments to. |

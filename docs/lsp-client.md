@@ -130,6 +130,16 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
+Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
+answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
+has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
+it for good. Then the connection is disposed, which ends the stuck writes (#1221).
+
+`FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
+reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
+requests the client does not support. Each scenario asserts what a user would see. It is an in-process
+server over raw frames, so it proves nothing about interoperability: that stays with the foreign servers.
+
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
 The isolated 6 ms Windows CI failure in #1937 has not yet been explained; these diagnostics distinguish
