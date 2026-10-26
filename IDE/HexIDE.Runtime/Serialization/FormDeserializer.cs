@@ -535,6 +535,13 @@ public class FormDeserializer
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
 
+            // A missing Font block takes a value copy of the form's font, never the container's (#2062).
+            if (parent is not null && rootComponent.Type == "VB.Form" &&
+                componentClass.Properties.Contains(VBProperties.FontProperty) &&
+                !serializedComponent.Properties.Keys.Any(k => k.Equals("Font", StringComparison.OrdinalIgnoreCase)) &&
+                components[0].TryGetProperty(VBProperties.FontProperty, out var formFont))
+                instance.SetProperty(VBProperties.FontProperty, formFont);
+
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
         }
