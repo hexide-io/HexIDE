@@ -116,6 +116,39 @@ public class WriteAtSaveTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Form", false)]
+    [InlineData("Module", false)]
+    [InlineData("Class", false)]
+    [InlineData("UserControl", false)]
+    [InlineData("PropertyPage", false)]
+    [InlineData("Form", true)]
+    [InlineData("Module", true)]
+    [InlineData("Class", true)]
+    [InlineData("UserControl", true)]
+    [InlineData("PropertyPage", true)]
+    public async Task A_new_member_has_unsaved_changes_until_its_first_save(string kind, bool savedProject)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        if (savedProject)
+            await svc.SaveProject(project, saveAs: false);
+
+        var added = await AddNew(svc, project, kind, kind + "1");
+
+        added.AbsolutePath.Should().BeNull();
+        bool HasUnsavedChanges() => added.Form is { } form
+            ? svc.HasUnsavedChanges(form)
+            : svc.HasUnsavedChanges(added.Module!);
+        HasUnsavedChanges().Should().BeTrue("a new document has no file yet (#597)");
+
+        await svc.SaveProject(project, saveAs: false);
+
+        added.AbsolutePath.Should().NotBeNull();
+        File.Exists(added.AbsolutePath).Should().BeTrue();
+        HasUnsavedChanges().Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData("Form", "VERSION 5.00\r\nBegin VB.Form Form1 ")]
     [InlineData("UserControl", "VERSION 5.00\r\nBegin VB.UserControl UserControl1 ")]
     [InlineData("PropertyPage", "VERSION 5.00\r\nBegin VB.PropertyPage PropertyPage1 ")]

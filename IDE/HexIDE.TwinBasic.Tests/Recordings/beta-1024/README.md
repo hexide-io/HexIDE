@@ -25,3 +25,8 @@ list back from frame 3. A change to how HexIDE encodes any of the three requests
 
 To record again, for another beta: run the live test with the two variables its documentation names, one for an
 install folder and one for a new folder beside this one. Decode the result and read it before keeping it.
+
+The same live test compares each recording it makes with the newest one kept here for that beta or an earlier one,
+and fails on a difference, naming each frame that differs. The daily beta check (`.github/workflows/compiler-beta-check.yml`,
+#1219) runs it against every new beta. A beta that exchanges what an earlier one did needs no folder of its own: keep
+a recording only when it differs, so the folders here are the betas where the exchange changed.
