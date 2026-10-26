@@ -69,8 +69,14 @@ public class EditorService : IEditorService
             {
                 if (!Names(uri, null, carried.AbsolutePath)) continue;
                 EditRelatedDocument(carried);
-                // Carried files open in the plain-text editor, which is a different view model with no
-                // caret to place. Opening it is the whole of what can be honoured here.
+                foreach (var open in documentDockService.OpenDocuments)
+                {
+                    if (open is not RelatedDocumentEditorViewModel editor || editor.RelatedDocument != carried) continue;
+                    if (line < 1 || line > editor.Document.LineCount) break;
+                    var target = editor.Document.GetLineByNumber(line);
+                    editor.CaretOffset = Math.Min(target.Offset + Math.Max(column - 1, 0), target.EndOffset);
+                    break;
+                }
                 return true;
             }
         }

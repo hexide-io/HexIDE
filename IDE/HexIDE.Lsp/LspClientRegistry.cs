@@ -98,6 +98,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             .ToList();
     }
 
+    public IReadOnlyList<OwnedDiagnostic> Diagnostics => _diagnostics.Snapshot();
+
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler<ProgressParams>? ProgressReceived;
@@ -597,7 +599,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics, string owner)
     {
-        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(uri, owner, diagnostics));
+        var published = _diagnostics.Record(uri, owner, diagnostics);
+        DiagnosticsPublished?.Invoke(this, published);
         return Task.CompletedTask;
     }
 
@@ -942,8 +945,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// document's whole set — which is the shape subscribers were already written for.
     /// </para>
     /// </summary>
-    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
-        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics));
+    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p)
+    {
+        var published = _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics);
+        DiagnosticsPublished?.Invoke(this, published);
+    }
 
     /// <summary>
     /// The owner key for a connection: its registration id, which is unique across the registry and is

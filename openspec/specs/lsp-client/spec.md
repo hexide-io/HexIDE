@@ -1155,3 +1155,25 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+### Requirement: Project diagnostics panel
+
+The IDE SHALL provide a Diagnostics panel listing current diagnostics across documents with publisher,
+severity, document, line and message. It SHALL filter by severity and current document, update when
+reports change, and navigate a double-clicked row through the project document resolver.
+
+#### Scenario: Reports precede opening the panel
+- **WHEN** an attached server has reported diagnostics for an unopened workspace document
+- **AND** the user opens Tools → Diagnostics
+- **THEN** its current diagnostics appear with the publishing server's configured display name
+
+#### Scenario: A publisher replaces or clears its report
+- **WHEN** a server replaces or withdraws diagnostics while the panel is open
+- **THEN** its rows update without disturbing other publishers' current reports
+
+#### Scenario: Current document while the panel has focus
+- **WHEN** the user enables the current-document filter and focuses the Diagnostics panel
+- **THEN** the filter retains the last active editor's document
+
+#### Scenario: Navigate to a carried file
+- **WHEN** the user double-clicks a row naming a loaded project's carried file
+- **THEN** that file opens with the caret at the diagnostic's start position

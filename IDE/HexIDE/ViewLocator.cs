@@ -70,6 +70,7 @@ public class ViewLocator : IDataTemplate
         Register<TranslationEditorViewModel, TranslationEditorView>();
         Register<LanguageServersToolViewModel, LanguageServersToolView>();
         Register<ProtocolInspectorToolViewModel, ProtocolInspectorToolView>();
+        Register<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel, HexIDE.Tools.Diagnostics.DiagnosticsToolView>();
         Register<NewProjectViewModel, NewProjectView>();
         Register<FindReplaceViewModel, FindReplaceView>();
         Register<SaveChangesViewModel, SaveChangesView>();
