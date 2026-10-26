@@ -165,7 +165,7 @@ The bridge normalises all of these.
 
 ## Decision 4: where the bridge lives
 
-**Recommended: in this tree, until #1210 ships.**
+**Decided: in this tree, until #1210 ships** (the maintainer, 2026-10-26, recorded on #1690).
 - It is its own executable project beside the archive and compiler libraries. The shell doesn't reference it.
 - It moves out with the compiler library once the package format gives suites somewhere to install from.
 
@@ -176,7 +176,8 @@ The bridge normalises all of these.
 | Installing | Ships beside the IDE, as the bundled server does | Needs the package format (#1210), or a manual install |
 | The boundary | Enforced by a test (Decision 5) | Enforced by the repository boundary itself |
 
-Creating a repository is the maintainer's decision, on the dashboard as `q-1690-home`.
+A repository of its own was considered and not chosen for now: every change to the seam would be two PRs, before
+there is anything to release.
 
 ## Decision 5: what core keeps
 

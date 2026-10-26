@@ -21,8 +21,7 @@ behind in core (#1690). This change records those decisions before any bridge co
   moves into an assembly that only the bridge references.
 - **Where it lives.** The bridge starts in this tree, as its own executable beside the archive and compiler
   libraries, and the shell does not reference it. It moves out with the compiler adapter once the package format
-  (#1210) gives suites somewhere to install from. Whether it gets its own repository sooner is the maintainer's
-  decision.
+  (#1210) gives suites somewhere to install from. The maintainer decided against a repository of its own for now.
 
 - **The first LSP mapping.** The compiler's language channel turns out to be JSON-RPC that is already LSP by most
   names. design.md maps each observed message to LSP 3.17, and lists where the channel departs from JSON-RPC.
