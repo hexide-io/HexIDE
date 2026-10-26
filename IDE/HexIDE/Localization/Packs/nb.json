@@ -129,6 +129,7 @@
     "Str.Menu.View.Definition": "_Definisjon",
     "Str.Menu.View.Declaration": "Dek_larasjon",
     "Str.Menu.View.LastPosition": "Siste posisjo_n",
+    "Str.Tool.RecentEdits.Title": "Nylige redigeringer",
     "Str.Menu.View.ObjectBrowser": "_Objektutforsker",
     "Str.Menu.View.ImmediateWindow": "_Direktevindu",
     "Str.Menu.View.LocalsWindow": "Vindu for lokale _variabler",
