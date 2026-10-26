@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "Удалить",
     "Str.Designer.Context.BringToFront": "На передний план",
     "Str.Designer.Context.SendToBack": "На задний план",
+    "Str.Designer.PreviewForm": "Предпросмотр формы",
     "Str.Designer.Context.ViewCode": "Показать код",
     "Str.Designer.Context.AlignToGrid": "Выровнять по сетке",
     "Str.Designer.Context.Properties": "Свойства",

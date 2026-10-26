@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Elimina",
     "Str.Designer.Context.BringToFront": "Porta in primo piano",
     "Str.Designer.Context.SendToBack": "Porta in secondo piano",
+    "Str.Designer.PreviewForm": "Anteprima modulo",
     "Str.Designer.Context.ViewCode": "Visualizza codice",
     "Str.Designer.Context.AlignToGrid": "Allinea alla griglia",
     "Str.Designer.Context.Properties": "Proprietà",

@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "删除",
     "Str.Designer.Context.BringToFront": "置于顶层",
     "Str.Designer.Context.SendToBack": "置于底层",
+    "Str.Designer.PreviewForm": "预览窗体",
     "Str.Designer.Context.ViewCode": "查看代码",
     "Str.Designer.Context.AlignToGrid": "对齐到网格",
     "Str.Designer.Context.Properties": "属性",

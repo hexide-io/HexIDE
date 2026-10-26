@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Poista",
     "Str.Designer.Context.BringToFront": "Tuo eteen",
     "Str.Designer.Context.SendToBack": "Vie taakse",
+    "Str.Designer.PreviewForm": "Esikatsele lomaketta",
     "Str.Designer.Context.ViewCode": "Näytä koodi",
     "Str.Designer.Context.AlignToGrid": "Kohdista ruudukkoon",
     "Str.Designer.Context.Properties": "Ominaisuudet",

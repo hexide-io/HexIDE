@@ -318,6 +318,7 @@
     "Str.Designer.Context.Delete": "_Delete",
     "Str.Designer.Context.BringToFront": "Bring to Front",
     "Str.Designer.Context.SendToBack": "Send to Back",
+    "Str.Designer.PreviewForm": "Preview Form",
     "Str.Designer.Context.ViewCode": "View Code",
     "Str.Designer.Context.AlignToGrid": "Align to Grid",
     "Str.Designer.Context.Properties": "Properties",

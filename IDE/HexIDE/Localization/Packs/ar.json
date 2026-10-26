@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "حذف",
     "Str.Designer.Context.BringToFront": "إحضار إلى المقدمة",
     "Str.Designer.Context.SendToBack": "إرسال إلى الخلف",
+    "Str.Designer.PreviewForm": "معاينة النموذج",
     "Str.Designer.Context.ViewCode": "عرض التعليمات البرمجية",
     "Str.Designer.Context.AlignToGrid": "محاذاة إلى الشبكة",
     "Str.Designer.Context.Properties": "الخصائص",
