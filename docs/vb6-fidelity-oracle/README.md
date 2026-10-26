@@ -636,3 +636,4 @@ added afterwards.
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
 - [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
 - [A form's Move (2026-10-26, #1569)](a-forms-move.md#a-forms-move-2026-10-26-1569)
+- [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
