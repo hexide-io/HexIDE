@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "סנכרון תיקיית המקור",
     "Str.Archive.FolderReadyFormat": "תיקיית המקור סונכרנה מהארכיון השמור:\n{0}\n\nשינויים בתיקייה עוצרים את הסנכרון; הם אינם מיובאים. יש לטעון מחדש את הפרויקט כדי לרענן את התצוגות המקדימות.",
     "Str.Archive.FolderErrorFormat": "סנכרון תיקיית המקור נעצר:\n{0}\n\nהארכיון לא שונה.",
+    "Str.Archive.OpenErrorFormat": "לא ניתן לפתוח את {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "נקודת עצירה חיצונית: שורה מבוקשת {0}; שורת המתאם {1}; אומתה: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "ממתין לאימות נקודת העצירה.",
     "Str.Tool.Immediate.Expired": "הקשר ההערכה השתנה; התשובה הושמטה.",

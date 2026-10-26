@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Synkroniser kildemappe",
     "Str.Archive.FolderReadyFormat": "Kildemappen er synkronisert fra det lagrede arkivet:\n{0}\n\nEndringer i mappen stopper synkroniseringen; de importeres ikke. Last prosjektet på nytt for å oppdatere forhåndsvisningene.",
     "Str.Archive.FolderErrorFormat": "Synkronisering av kildemappen stoppet:\n{0}\n\nArkivet ble ikke endret.",
+    "Str.Archive.OpenErrorFormat": "Kunne ikke åpne {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Eksternt stoppunkt: forespurt linje {0}; adapterlinje {1}; bekreftet: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Venter på bekreftelse av stoppunkt.",
     "Str.Tool.Immediate.Expired": "Evalueringskonteksten ble endret; svaret ble forkastet.",

@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Sinkronkan folder sumber",
     "Str.Archive.FolderReadyFormat": "Folder sumber disinkronkan dari arsip tersimpan:\n{0}\n\nPerubahan pada folder menghentikan sinkronisasi; perubahan tidak diimpor. Muat ulang proyek untuk memperbarui pratinjau.",
     "Str.Archive.FolderErrorFormat": "Sinkronisasi folder sumber dihentikan:\n{0}\n\nArsip tidak diubah.",
+    "Str.Archive.OpenErrorFormat": "Tidak dapat membuka {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Breakpoint eksternal: baris yang diminta {0}; baris adaptor {1}; terverifikasi: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Menunggu verifikasi breakpoint.",
     "Str.Tool.Immediate.Expired": "Konteks evaluasi berubah; balasannya diabaikan.",

@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "同步源代码文件夹",
     "Str.Archive.FolderReadyFormat": "已从保存的归档同步源代码文件夹：\n{0}\n\n文件夹中的修改会停止同步，且不会被导入。重新加载项目以更新预览。",
     "Str.Archive.FolderErrorFormat": "源代码文件夹同步已停止：\n{0}\n\n归档未被修改。",
+    "Str.Archive.OpenErrorFormat": "无法打开 {0}：\n{1}",
     "Str.Debug.External.Breakpoint": "外部断点：请求行 {0}；适配器行 {1}；已验证：{2}。\n{3}",
     "Str.Debug.External.BreakpointPending": "正在等待断点验证。",
     "Str.Tool.Immediate.Expired": "求值上下文已更改；已丢弃其响应。",

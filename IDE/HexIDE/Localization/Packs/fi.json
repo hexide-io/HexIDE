@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Synkronoi lähdekansio",
     "Str.Archive.FolderReadyFormat": "Lähdekansio synkronoitiin tallennetusta arkistosta:\n{0}\n\nKansion muutokset pysäyttävät synkronoinnin; niitä ei tuoda arkistoon. Päivitä esikatselut lataamalla projekti uudelleen.",
     "Str.Archive.FolderErrorFormat": "Lähdekansion synkronointi pysähtyi:\n{0}\n\nArkistoa ei muutettu.",
+    "Str.Archive.OpenErrorFormat": "Tiedostoa {0} ei voitu avata:\n{1}",
     "Str.Debug.External.Breakpoint": "Ulkoinen keskeytyskohta: pyydetty rivi {0}; sovittimen rivi {1}; vahvistettu: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Odotetaan keskeytyskohdan vahvistusta.",
     "Str.Tool.Immediate.Expired": "Arvioinnin konteksti muuttui; vastaus hylättiin.",

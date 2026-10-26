@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Sincronizza cartella sorgente",
     "Str.Archive.FolderReadyFormat": "Cartella sorgente sincronizzata dall’archivio salvato:\n{0}\n\nLe modifiche nella cartella interrompono la sincronizzazione; non vengono importate. Ricaricare il progetto per aggiornare le anteprime.",
     "Str.Archive.FolderErrorFormat": "Sincronizzazione della cartella sorgente interrotta:\n{0}\n\nL’archivio non è stato modificato.",
+    "Str.Archive.OpenErrorFormat": "Impossibile aprire {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Punto di interruzione esterno: riga richiesta {0}; riga dell’adattatore {1}; verificato: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "In attesa della verifica del punto di interruzione.",
     "Str.Tool.Immediate.Expired": "Il contesto di valutazione è cambiato; la risposta è stata scartata.",

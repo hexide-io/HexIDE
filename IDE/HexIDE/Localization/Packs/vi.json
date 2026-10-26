@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Đồng bộ thư mục mã nguồn",
     "Str.Archive.FolderReadyFormat": "Đã đồng bộ thư mục mã nguồn từ tệp lưu trữ đã lưu:\n{0}\n\nCác chỉnh sửa trong thư mục sẽ dừng đồng bộ; chúng không được nhập lại. Tải lại dự án để cập nhật bản xem trước.",
     "Str.Archive.FolderErrorFormat": "Đã dừng đồng bộ thư mục mã nguồn:\n{0}\n\nTệp lưu trữ không bị sửa đổi.",
+    "Str.Archive.OpenErrorFormat": "Không thể mở {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Điểm dừng bên ngoài: dòng yêu cầu {0}; dòng bộ điều hợp {1}; đã xác minh: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Đang chờ xác minh điểm dừng.",
     "Str.Tool.Immediate.Expired": "Ngữ cảnh đánh giá đã thay đổi; phản hồi đã bị loại bỏ.",

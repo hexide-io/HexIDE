@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Synchroniser le dossier des sources",
     "Str.Archive.FolderReadyFormat": "Dossier des sources synchronisé depuis l’archive enregistrée :\n{0}\n\nLes modifications du dossier arrêtent la synchronisation ; elles ne sont pas importées. Rechargez le projet pour actualiser les aperçus.",
     "Str.Archive.FolderErrorFormat": "Synchronisation du dossier des sources arrêtée :\n{0}\n\nL’archive n’a pas été modifiée.",
+    "Str.Archive.OpenErrorFormat": "Impossible d’ouvrir {0} :\n{1}",
     "Str.Debug.External.Breakpoint": "Point d’arrêt externe : ligne demandée {0} ; ligne de l’adaptateur {1} ; vérifié : {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "En attente de vérification du point d’arrêt.",
     "Str.Tool.Immediate.Expired": "Le contexte d’évaluation a changé ; la réponse a été ignorée.",

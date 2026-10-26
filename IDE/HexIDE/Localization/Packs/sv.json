@@ -30,6 +30,7 @@
     "Str.Archive.SyncFolder": "Synkronisera källmapp",
     "Str.Archive.FolderReadyFormat": "Källmappen har synkroniserats från det sparade arkivet:\n{0}\n\nÄndringar i mappen stoppar synkroniseringen; de importeras inte. Läs in projektet igen för att uppdatera förhandsvisningarna.",
     "Str.Archive.FolderErrorFormat": "Synkroniseringen av källmappen stoppades:\n{0}\n\nArkivet ändrades inte.",
+    "Str.Archive.OpenErrorFormat": "Kunde inte öppna {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Extern brytpunkt: begärd rad {0}; adapterrad {1}; verifierad: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Väntar på verifiering av brytpunkten.",
     "Str.Tool.Immediate.Expired": "Utvärderingskontexten ändrades; svaret ignorerades.",
