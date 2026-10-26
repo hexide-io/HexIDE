@@ -4131,6 +4131,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return true;
         }
 
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.RuntimeLibrary
+            && interpreter.GlobalMember(memberName, qualifier.RuntimeLibrary) is { } global)
+        {
+            await interpreter.CallLibraryMember(global, memberName, await expressionExecutor.EvaluateCallArgs(argsCall));
+            return true;
+        }
+
         // An enum member (`MyEnum.Member`) is a value, not a callable statement — not handled here.
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Enum)
             return false;
@@ -4168,6 +4175,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var callArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
             await interpreter.CallProcedure(subName, callArgs, currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
         }
+        else if (interpreter.GlobalMember(subName) is { } global)
+            await interpreter.CallLibraryMember(global, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
         else
         {
             List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateIntrinsicArgs(subName, context.argsCall());
@@ -4257,6 +4266,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
     {
         aliasScalar = null;
+        if (interpreter.LibraryClassFor(qualifier is null ? typeName : qualifier + "." + typeName) is not null)
+            return true;
         if (VB6InBoxTypes.TryResolve(qualifier, typeName, out var inbox))
         {
             aliasScalar = inbox.Scalar;

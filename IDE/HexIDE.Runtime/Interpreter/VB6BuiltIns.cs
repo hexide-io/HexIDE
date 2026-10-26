@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
@@ -380,7 +380,7 @@ public partial class VB6BuiltIns
     /// <c>ccScrollingSmooth</c> without MSCOMCTL.OCX is an undeclared variable, as in VB6. The 5.0 and 6.0 libraries
     /// declare their 152 shared names with the same values in the same enums (measured), so their order never changes a value.
     /// </summary>
-    internal IReadOnlyList<Components.InBox.ControlLibrary> ControlLibraries { get; set; } = [];
+    internal IReadOnlyList<Components.InBox.RuntimeLibrary> ControlLibraries { get; set; } = [];
 
     private bool TryControlLibraryConstant(string name, out Vb6Value constant)
     {

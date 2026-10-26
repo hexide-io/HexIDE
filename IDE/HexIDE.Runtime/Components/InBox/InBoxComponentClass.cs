@@ -26,12 +26,12 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     public abstract string ControlClassName { get; }
 
     /// <summary>The newest library that declares it, whose type name a new one takes.</summary>
-    public virtual ControlLibrary Library => ControlLibraries.MSComctlLib;
+    public virtual RuntimeLibrary Library => ControlLibraries.MSComctlLib;
 
     public override string VBTypeName => Library.TypeName(ControlClassName);
 
     /// <summary>Every library that declares the control, each under whose type name a form may hold it.</summary>
-    public IEnumerable<ControlLibrary> Libraries =>
+    public IEnumerable<RuntimeLibrary> Libraries =>
         ControlLibraries.All.Where(l => l.Controls.ContainsKey(ControlClassName));
 
     /// <summary>The control's own persisted properties, in the order it writes them.</summary>
@@ -61,7 +61,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
         instance.GetPropertyOrDefault(LoadedTypeNameProperty) ?? VBTypeName;
 
     /// <summary>The library <paramref name="instance"/> is in, by the type name it is written under.</summary>
-    public ControlLibrary LibraryOf(ComponentInstance instance) =>
+    public RuntimeLibrary LibraryOf(ComponentInstance instance) =>
         ControlLibraries.ForTypeName(TypeNameOf(instance)) ?? Library;
 
     /// <summary>The type name the instance was read under, where it was read: <c>ComctlLib.ProgressBar</c>.</summary>

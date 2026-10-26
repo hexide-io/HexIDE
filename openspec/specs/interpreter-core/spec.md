@@ -320,3 +320,29 @@ This is a host safety bound, not a claim about VB6's acceptance of long physical
 - **WHEN** a module-level `Const` holds a 10,000-term addition chain on a 1 MiB thread stack
 - **THEN** its constant-expression validation raises error 28 without terminating the host
 - **AND** the IDE-side project runner reports the failure and stops the run
+
+### Requirement: Managed referenced libraries
+
+The interpreter SHALL share one library model for controls and managed classes, carrying a GUID, version,
+enums and ICSharpProxy factories. Only known project references SHALL activate class libraries, in project
+reference order; unknown libraries SHALL retain existing behaviour. New and CreateObject SHALL call the
+class factories for separate instances.
+
+#### Scenario: Lazy shared GlobalMultiUse instance
+- **GIVEN** a referenced managed library with two GlobalMultiUse classes
+- **WHEN** a member of one class is first called
+- **THEN** only that class's implicit instance is created
+- **AND** subsequent bare and library-qualified calls share its state until Sub Main returns
+- **AND** normal return releases implicit instances in reverse creation order within that library
+- **AND** End suppresses termination
+
+#### Scenario: Bare member precedence
+- **WHEN** a project procedure and referenced GlobalMultiUse classes expose the same bare name
+- **THEN** the project procedure wins without creating an implicit library instance
+- **AND** otherwise the first reference exposing that member wins ahead of VBA
+- **AND** explicit VBA qualification still reaches VBA
+
+#### Scenario: Managed instance lifetime
+- **WHEN** an explicit managed instance loses its last runtime reference
+- **THEN** its IDisposable host, when supplied, is disposed unless End has ended the run
+- **AND** the implicit instance remains held until Sub Main returns
