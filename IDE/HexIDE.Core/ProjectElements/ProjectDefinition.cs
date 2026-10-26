@@ -174,15 +174,22 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public void AddReference(VbReference r)
     {
         if (!references.Contains(r))
+            {
             references.Add(r);
+            OnPropertyChanged(nameof(References));
+        }
     }
 
-    public void RemoveReference(VbReference r) => references.Remove(r);
+    public void RemoveReference(VbReference r)
+    {
+        if (references.Remove(r)) OnPropertyChanged(nameof(References));
+    }
 
     public void SetReferences(IEnumerable<VbReference> newReferences)
     {
         references.Clear();
         references.AddRange(newReferences);
+        OnPropertyChanged(nameof(References));
     }
 
     public event Action<ProjectDefinition, FormDefinition>? FormAdded;
