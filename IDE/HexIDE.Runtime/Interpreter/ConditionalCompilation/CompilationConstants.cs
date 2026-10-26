@@ -17,7 +17,7 @@ public sealed class CompilationConstants
         new Dictionary<string, short>(StringComparer.OrdinalIgnoreCase) { ["Win16"] = 0, ["Win32"] = 1 };
 
     // VBA's constants, not measured here: there is no VBA oracle. Preview only (#1113). Microsoft's page calls them
-    // True, but VB6 (above) and twinBASIC (#1691) both measure 1 where their own documentation says True, so 1 it is.
+    // True, but VB6 (above) measures 1 where its own documentation says True, and so does #1691's, so 1 it is.
     public static readonly IReadOnlyDictionary<string, short> Vba32BuiltIns =
         new Dictionary<string, short>(StringComparer.OrdinalIgnoreCase)
         { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1 };
