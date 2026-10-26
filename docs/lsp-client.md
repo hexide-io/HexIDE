@@ -727,6 +727,11 @@ documents run together are not a third one.
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
 
+The Outline tool window (View → Outline) consumes document symbols for the active code or carried-file
+editor. It preserves hierarchy, accepts flat replies, follows the caret, navigates to selection ranges,
+filters by kind while retaining ancestors, and refreshes after edits independently of diagnostics (#1992).
+It displays the server’s structure; it does not infer missing symbols or regions.
+
 For folding ranges, document symbols, formatting and rename, the highest-priority claimant that
 advertises the capability supplies the single answer (registration order breaks ties). Each other
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,

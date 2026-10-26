@@ -60,6 +60,7 @@ public class ViewLocator : IDataTemplate
         Register<TrustChainViewModel, TrustChainView>();
         Register<RuntimeErrorViewModel, RuntimeErrorView>();
         Register<LocalsToolViewModel, LocalsToolView>();
+        Register<OutlineToolViewModel, OutlineToolView>();
         Register<WatchesToolViewModel, WatchesToolView>();
         Register<CallStackToolViewModel, CallStackToolView>();
         Register<ImmediateToolViewModel, ImmediateToolView>();

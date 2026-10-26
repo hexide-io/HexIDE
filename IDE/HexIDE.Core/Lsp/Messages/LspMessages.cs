@@ -794,8 +794,8 @@ public record DocumentSymbol(
     /// This symbol and every symbol beneath it, depth first.
     /// </summary>
     /// <remarks>
-    /// Offered rather than flattening at the seam, because the two consumers here want a flat list and a
-    /// future outline view wants the tree — and only one of those can be reconstructed from the other.
+    /// Offered rather than flattening at the seam: the procedure list needs a flat list while the outline
+    /// keeps the tree, and only one of those can be reconstructed from the other.
     ///
     /// <para>
     /// The depth cap guards the walk, not the wire. Measured: a reply is bounded first by

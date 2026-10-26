@@ -28,7 +28,7 @@ using Serilog;
 
 namespace HexIDE.Forms.ViewModels;
 
-public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument
+public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument
 {
     private readonly IWindowManager windowManager;
     private readonly HexIDE.Debugging.IRunScope runScope;
@@ -183,6 +183,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private const string DeclarationsProc = "(Declarations)";
 
     private DocumentSymbol[]? _symbols;
+    public IReadOnlyList<DocumentSymbol> OutlineSymbols => _symbols ?? [];
+    private int symbolRefreshVersion;
 
     /// <summary>
     /// This document's conversation with the language layer, shared with the carried-file editor.
@@ -1114,19 +1116,40 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Task FlushDocumentAsync(CancellationToken ct = default)
         => session?.FlushAsync(ct) ?? Task.CompletedTask;
 
-    private async Task RefreshSymbolsAsync()
+    Task IOutlineDocument.RefreshSymbolsAsync() => RefreshSymbolsAsync();
+    void IOutlineDocument.NavigateToSymbol(DocumentSymbol symbol) => NavigateToSymbol(symbol);
+
+    internal async Task RefreshSymbolsAsync()
     {
-        if (!lspClient.IsRunning) return;
-        if (LiveDocumentUri is not { } uri) return;
+        var version = ++symbolRefreshVersion;
+        if (!lspClient.IsRunning || LiveDocumentUri is not { } uri)
+        {
+            _symbols = [];
+            OnPropertyChanged(nameof(OutlineSymbols));
+            return;
+        }
+        var text = Document.Text;
+        await FlushDocumentAsync();
         var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
-        _symbols = symbols;
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            if (version != symbolRefreshVersion || LiveDocumentUri != uri || text != Document.Text) return;
+            _symbols = symbols;
+            OnPropertyChanged(nameof(OutlineSymbols));
             // Event names come from the component, not symbols. Rebuilding that bound list reselects the
             // handler and moves a new stub's caret from its body to its declaration (#1865).
             if (SelectedObject == GeneralObject || SelectedObject is null)
                 RefreshProcedureNames();
         });
+    }
+
+    internal void NavigateToSymbol(DocumentSymbol symbol)
+    {
+        var position = symbol.SelectionRange.Start;
+        if (position.Line < 0 || position.Line >= Document.LineCount) return;
+        var line = Document.GetLineByNumber(position.Line + 1);
+        CaretOffset = Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset);
+        FocusWindowRequest?.Invoke();
     }
 
     private void RefreshProcedureNames()

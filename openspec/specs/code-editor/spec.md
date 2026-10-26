@@ -395,3 +395,31 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **THEN** overtype mode is enabled and the status bar displays the localized overtype label
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Language-server document outline
+
+The IDE SHALL offer a docked Outline window from the View menu for the active code or carried-file
+editor. It SHALL render the document symbols supplied by that document's language server with their
+hierarchy intact, accepting flat replies as top-level nodes. It SHALL request updated symbols after
+edits without requiring a diagnostics notification. It SHALL discard replies superseded by a newer
+request or buffer contents.
+
+#### Scenario: Browse and filter the active document
+
+- **WHEN** the user opens View → Outline
+- **THEN** the active document's symbols appear as a tree
+- **AND** selecting a kind retains matching symbols and the ancestors needed to reach them
+- **AND** selecting All kinds restores the whole tree
+
+#### Scenario: Follow and navigate
+
+- **WHEN** the caret moves inside a symbol's range
+- **THEN** the outline selects the innermost containing symbol without moving the caret
+- **WHEN** the user clicks a node or presses Enter on it
+- **THEN** the editor navigates to the start of that symbol's selection range
+
+#### Scenario: Change the active document
+
+- **WHEN** the active editor changes
+- **THEN** the outline shows the new editor's symbols and stops following the previous editor
+- **AND** a document without outline support clears the tree
