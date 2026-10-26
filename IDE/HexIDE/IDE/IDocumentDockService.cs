@@ -40,4 +40,7 @@ public interface IDocumentDockService : INotifyPropertyChanged
     void OpenDocument(BaseEditorWindowViewModel vm);
     void CloseDocument(BaseEditorWindowViewModel vm);
     void CloseAll();
+    RecentlyClosedDocuments RecentlyClosed { get; }
+    void TrackTabs();
+    void ReopenClosedDocument(IEditorService editors, ClosedDocument? entry = null);
 }

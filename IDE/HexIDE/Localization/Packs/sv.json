@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokoll_inspektör...",
     "Str.Menu.AddIns": "_Tillägg",
     "Str.Menu.Window": "_Fönster",
+    "Str.Menu.Window.ReopenClosed": "Öppna stängt fönster igen",
+    "Str.Menu.Window.RecentlyClosed": "Nyligen stängda fönster",
     "Str.Menu.Window.Split": "_Dela",
     "Str.Menu.Window.ResetLayout": "_Återställ fönsterlayout",
     "Str.Menu.Help": "_Hjälp",

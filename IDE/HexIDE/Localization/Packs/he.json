@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "בוחן פרוטוקול...",
     "Str.Menu.AddIns": "תוספים",
     "Str.Menu.Window": "חלון",
+    "Str.Menu.Window.ReopenClosed": "פתיחה מחדש של חלון שנסגר",
+    "Str.Menu.Window.RecentlyClosed": "חלונות שנסגרו לאחרונה",
     "Str.Menu.Window.Split": "פצל",
     "Str.Menu.Window.ResetLayout": "אפס פריסת חלונות",
     "Str.Menu.Help": "עזרה",

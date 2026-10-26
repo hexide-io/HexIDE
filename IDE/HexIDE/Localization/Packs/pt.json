@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspetor de Protocolo...",
     "Str.Menu.AddIns": "_Suplementos",
     "Str.Menu.Window": "_Janela",
+    "Str.Menu.Window.ReopenClosed": "Reabrir Janela Fechada",
+    "Str.Menu.Window.RecentlyClosed": "Janelas Fechadas Recentemente",
     "Str.Menu.Window.Split": "Di_vidir",
     "Str.Menu.Window.ResetLayout": "_Repor Esquema das Janelas",
     "Str.Menu.Help": "A_juda",

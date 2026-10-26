@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protoko_linspektør...",
     "Str.Menu.AddIns": "_Tilføjelser",
     "Str.Menu.Window": "_Vindue",
+    "Str.Menu.Window.ReopenClosed": "Genåbn lukket vindue",
+    "Str.Menu.Window.RecentlyClosed": "Nyligt lukkede vinduer",
     "Str.Menu.Window.Split": "O_pdel",
     "Str.Menu.Window.ResetLayout": "_Nulstil vindueslayout",
     "Str.Menu.Help": "_Hjælp",

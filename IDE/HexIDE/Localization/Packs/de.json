@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokoll_inspektor...",
     "Str.Menu.AddIns": "_Add-Ins",
     "Str.Menu.Window": "_Fenster",
+    "Str.Menu.Window.ReopenClosed": "Geschlossenes Fenster wieder öffnen",
+    "Str.Menu.Window.RecentlyClosed": "Zuletzt geschlossene Fenster",
     "Str.Menu.Window.Split": "_Teilen",
     "Str.Menu.Window.ResetLayout": "Fensterlayout _zurücksetzen",
     "Str.Menu.Help": "_Hilfe",

@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "协议检查器...",
     "Str.Menu.AddIns": "外接程序",
     "Str.Menu.Window": "窗口",
+    "Str.Menu.Window.ReopenClosed": "重新打开已关闭的窗口",
+    "Str.Menu.Window.RecentlyClosed": "最近关闭的窗口",
     "Str.Menu.Window.Split": "拆分",
     "Str.Menu.Window.ResetLayout": "重置窗口布局",
     "Str.Menu.Help": "帮助",

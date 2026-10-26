@@ -154,6 +154,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspector Protocolli...",
     "Str.Menu.AddIns": "_Additamenta",
     "Str.Menu.Window": "_Fenestra",
+    "Str.Menu.Window.ReopenClosed": "Fenestram clausam iterum aperire",
+    "Str.Menu.Window.RecentlyClosed": "Fenestrae nuper clausae",
     "Str.Menu.Window.Split": "S_cinde",
     "Str.Menu.Window.ResetLayout": "_Restitue Dispositionem Fenestrarum",
     "Str.Menu.Help": "_Auxilium",

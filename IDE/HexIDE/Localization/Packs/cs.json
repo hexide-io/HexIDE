@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektor protokolu...",
     "Str.Menu.AddIns": "_Doplňky",
     "Str.Menu.Window": "_Okno",
+    "Str.Menu.Window.ReopenClosed": "Znovu otevřít zavřené okno",
+    "Str.Menu.Window.RecentlyClosed": "Nedávno zavřená okna",
     "Str.Menu.Window.Split": "_Rozdělit",
     "Str.Menu.Window.ResetLayout": "O_bnovit rozložení oken",
     "Str.Menu.Help": "_Nápověda",

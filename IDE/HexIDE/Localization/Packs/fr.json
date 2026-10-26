@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspecteur de protocole...",
     "Str.Menu.AddIns": "_Modules complémentaires",
     "Str.Menu.Window": "_Fenêtre",
+    "Str.Menu.Window.ReopenClosed": "Rouvrir la fenêtre fermée",
+    "Str.Menu.Window.RecentlyClosed": "Fenêtres récemment fermées",
     "Str.Menu.Window.Split": "_Fractionner",
     "Str.Menu.Window.ResetLayout": "_Réinitialiser la disposition",
     "Str.Menu.Help": "_Aide",

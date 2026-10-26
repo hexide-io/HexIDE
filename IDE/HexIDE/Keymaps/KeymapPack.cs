@@ -25,6 +25,7 @@ internal static class CommandKeyMapping
     internal static readonly IReadOnlyDictionary<string, RoutedCommand> Table =
         new Dictionary<string, RoutedCommand>
         {
+            ["ReopenClosedDocumentCommand"] = ApplicationCommands.ReopenClosedDocumentCommand,
             // ── File ──────────────────────────────────────────────
             ["NewProjectCommand"]                      = ApplicationCommands.NewProjectCommand,
             ["AddProjectCommand"]                      = ApplicationCommands.AddProjectCommand,

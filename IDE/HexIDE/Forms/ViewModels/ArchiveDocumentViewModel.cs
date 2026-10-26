@@ -50,6 +50,13 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         Title = ComputeTitle();
     }
 
+    internal ArchiveDocumentViewModel Reopen()
+    {
+        var reopened = new ArchiveDocumentViewModel(Entry, localization);
+        reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
+        return reopened;
+    }
+
     private static void RejectEdit(object? sender, DocumentChangeEventArgs e) =>
         throw new InvalidOperationException("Archive documents are read-only.");
 }

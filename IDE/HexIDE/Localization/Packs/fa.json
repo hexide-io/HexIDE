@@ -193,6 +193,8 @@
     "Str.Menu.Tools.ProtocolInspector": "بازرس پروتکل...",
     "Str.Menu.AddIns": "افزونه‌ها",
     "Str.Menu.Window": "پنجره",
+    "Str.Menu.Window.ReopenClosed": "باز کردن دوبارهٔ پنجرهٔ بسته‌شده",
+    "Str.Menu.Window.RecentlyClosed": "پنجره‌های اخیراً بسته‌شده",
     "Str.Menu.Window.Split": "تقسیم",
     "Str.Menu.Window.ResetLayout": "بازنشانی چیدمان پنجره‌ها",
     "Str.Menu.Help": "راهنما",
