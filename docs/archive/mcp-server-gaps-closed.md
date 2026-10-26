@@ -9,7 +9,7 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
-## Three texts named a waiting dialog only by its title, which two of the IDE's dialogs share — **CLOSED** (#1975, 2026-10-26)
+## Four texts named a waiting dialog only by its title, which two of the IDE's dialogs share — **CLOSED** (#1975, 2026-10-26)
 
 **Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
 dialog are titled `'HexIDE'`. One held a `MessageBox` with Yes and No (OK and Cancel since #1360, measured 2026-10-25),
@@ -33,10 +33,12 @@ The calls are in [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
 **Suggested fix.** Use the note's description in the three texts.
 [#1975](https://github.com/hexide-io/HexIDE/issues/1975).
 
-**Fixed (#1975).** The program wait, keyboard `type_text`'s stop and the refusal from `type_text` and `press_key` now
-describe the dialog as the `modalDialog` note does, through the same `OpenDialogs.DescriptionOf`: its title, then its kind,
-first line and buttons where it has them. A dialog of a kind the describer doesn't know still gives its title and
-buttons. Guarded by `ProgramWaitTests`, `TypeKeysTests` and `OpenDialogsTests`.
+**Fixed (#1975).** The program wait, keyboard `type_text`'s stop, the refusal from `type_text` and `press_key`, and
+`interact` `close`'s refusal for a window with a dialog over it now describe the dialog as the `modalDialog` note does,
+through the same `OpenDialogs.DescriptionOf`. That is its title, then its kind, first line and buttons where it has them.
+A dialog of a kind the describer doesn't know, an InputBox among them, gives its title and buttons. One with no title is
+"one with no title" in all five texts. The wait describes a MsgBox once it has built its text and buttons, which it does
+after it shows. Guarded by `ProgramWaitTests`, `TypeKeysTests` and `CloseWindowTests`.
 
 **Live (#1975, 2026-10-26).** Windows, a Debug build of the fix, from a Claude Code session's hexide tools, on a form with
 a 40 ms Timer, a button calling an undefined Sub and a button showing `MsgBox "Hello"`:
