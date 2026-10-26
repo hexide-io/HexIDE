@@ -86,7 +86,7 @@ digit, so it never hides a control.
 
 **`Controls.Add` and `Remove`.** `Set c = Controls.Add("VB.CommandButton", "cmdNew")` gives a CommandButton, enumerated
 last, and `Controls.Remove "cmdNew"` takes it out. `Controls.Remove "Command1"`, placed at design time, raises 729.
-HexIDE refuses both, naming #1556.
+#1556 measured both in full and HexIDE runs them: "Controls.Add and Controls.Remove".
 
 ### In HexIDE (#1060)
 
@@ -115,8 +115,15 @@ to.
 Issue #2066 records the #1556 measurement, with native and p-code agreeing: `Me!a2`
 returns the control named a2, just as `Controls!a2` and `Controls("a2")` do. Reading
 `Me!a2.Name` therefore reaches that control's Name. The form's default member is
-Controls. The measurement includes a control created with `Controls.Add`; HexIDE
-still refuses Add under #1556, but form bang reads now use the existing Controls lookup.
+Controls. The measurement includes a control created with `Controls.Add`, which #1556 now
+implements, and form bang reads use the same Controls lookup.
 
 Provenance: [#2066](https://github.com/hexide-io/HexIDE/issues/2066), reporting the
 native and p-code probes made for #1556. No new compiler run was made for this fix.
+
+## Reading a Frame caption (#2063)
+
+Provenance: issue hexide-io/HexIDE#2063, reporting measurements made while testing #1556.
+With `Set c = Controls.Add("VB.Frame", "z")`, reading `c.Caption` returns the empty string
+in both native and p-code VB6 builds. Reading `Frame1.Caption` returns the caption saved
+in the `.frm`. The issue does not record a caption-assignment probe or its result.
