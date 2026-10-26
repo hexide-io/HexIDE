@@ -2,6 +2,10 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
+    "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.LspArtifact.Title": "Soubory pracovního prostoru",
     "Str.LspArtifact.Prompt": "Server {0} požádal o zápis místního souboru {1}.",

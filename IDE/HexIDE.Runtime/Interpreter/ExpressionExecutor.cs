@@ -717,8 +717,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // VB6 date literals are culture-independent, US month/day/year — parse invariantly. A time-only literal is
             // that time on the zero date, not today (#771).
             var inner = dateliteral.GetText().Trim('#');
-            return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
-                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault)));
+            return new Vb6Value(VbDate.FromDateTime(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault))));
         }
         if (literal.HEXLITERAL() is { } hexliteral)
             return ClassifyRadixLiteral(hexliteral.GetText(), 16);   // VB6 &H is numeric, not a colour

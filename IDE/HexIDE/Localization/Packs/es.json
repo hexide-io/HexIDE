@@ -2,6 +2,10 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.Tooltip": "Ver compilación condicional como",
     "Str.Tool.Properties.ExportPicture": "Exportar imagen...",
     "Str.LspArtifact.Title": "Archivos del espacio de trabajo",
     "Str.LspArtifact.Prompt": "El servidor {0} ha solicitado escribir el archivo local {1}.",

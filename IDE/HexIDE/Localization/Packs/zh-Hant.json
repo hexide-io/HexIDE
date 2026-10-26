@@ -2,6 +2,10 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位元",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位元",
+    "Str.CodeEditor.ViewAs.Tooltip": "條件式編譯檢視目標",
     "Str.Tool.Properties.ExportPicture": "匯出圖片...",
     "Str.LspArtifact.Title": "工作區檔案",
     "Str.LspArtifact.Prompt": "伺服器 {0} 要求寫入本機檔案 {1}。",

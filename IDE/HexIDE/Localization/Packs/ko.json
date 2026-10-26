@@ -2,6 +2,10 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
+    "Str.CodeEditor.ViewAs.Tooltip": "조건부 컴파일 표시 대상",
     "Str.Tool.Properties.ExportPicture": "그림 내보내기...",
     "Str.LspArtifact.Title": "작업 영역 파일",
     "Str.LspArtifact.Prompt": "서버 {0}에서 로컬 파일 {1} 쓰기를 요청했습니다.",

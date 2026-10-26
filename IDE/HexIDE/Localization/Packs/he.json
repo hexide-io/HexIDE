@@ -2,6 +2,10 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
+    "Str.CodeEditor.ViewAs.Tooltip": "הצגת הידור מותנה עבור",
     "Str.Tool.Properties.ExportPicture": "ייצוא תמונה...",
     "Str.LspArtifact.Title": "קובצי סביבת העבודה",
     "Str.LspArtifact.Prompt": "השרת {0} ביקש לכתוב את הקובץ המקומי {1}.",

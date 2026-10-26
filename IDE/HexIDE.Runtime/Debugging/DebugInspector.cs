@@ -402,7 +402,7 @@ public static class DebugInspector
             case null: return "Nothing";
             case string s: return "\"" + s + "\"";
             case bool b: return b ? "True" : "False";
-            case DateTime dt: return "#" + dt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "#";
+            case VbDate dt: return "#" + dt.Instant.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "#";
             case Control: return VB6BuiltIns.DebugTypeName(v);
             case ICSharpProxy: return VB6BuiltIns.DebugTypeName(v);
             case IFormattable f: return f.ToString(null, CultureInfo.InvariantCulture);

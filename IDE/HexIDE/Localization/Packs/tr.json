@@ -2,6 +2,10 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Koşullu derlemeyi şu hedef için göster",
     "Str.Tool.Properties.ExportPicture": "Resmi dışa aktar...",
     "Str.LspArtifact.Title": "Çalışma alanı dosyaları",
     "Str.LspArtifact.Prompt": "{0} sunucusu {1} yerel dosyasına yazmak istedi.",

@@ -2,6 +2,10 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som",
     "Str.Tool.Properties.ExportPicture": "Eksportér billede...",
     "Str.LspArtifact.Title": "Arbejdsområdefiler",
     "Str.LspArtifact.Prompt": "Server {0} har anmodet om at skrive den lokale fil {1}.",

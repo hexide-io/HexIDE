@@ -2,6 +2,10 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بت",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بت",
+    "Str.CodeEditor.ViewAs.Tooltip": "عرض الترجمة الشرطية وفق",
     "Str.Tool.Properties.ExportPicture": "تصدير الصورة...",
     "Str.LspArtifact.Title": "ملفات مساحة العمل",
     "Str.LspArtifact.Prompt": "طلب الخادم {0} كتابة الملف المحلي {1}.",
