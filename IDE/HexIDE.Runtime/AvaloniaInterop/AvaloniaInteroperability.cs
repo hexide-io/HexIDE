@@ -249,6 +249,7 @@ public static class AvaloniaInteroperability
 
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
+        VBProps.RefuseIfRemoved(control);
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -470,10 +471,17 @@ public static class AvaloniaInteroperability
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
+        VBProps.RefuseIfRemoved(c);
         if (c is VBLine line && LineMembers.TryGet(line, property, out value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(c) && MenuMembers.TryGet(c, property, out value) is { } menuMember)
             return menuMember;
+        // A Frame keeps its caption in Header; only the read is measured (#2063).
+        if (c is VBFrame frame && ReferenceEquals(property, VBProperties.CaptionProperty))
+        {
+            value = new Vb6Value(frame.Header as string ?? "");
+            return true;
+        }
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
         if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))

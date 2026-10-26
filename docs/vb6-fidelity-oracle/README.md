@@ -10,6 +10,8 @@ date functions; graphics) should extend it the same way.
 > **Why this matters:** the oracle repeatedly overturned "documented" assumptions. Building from memory / the
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
+- [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
+
 ---
 
 ## The oracle
@@ -580,6 +582,7 @@ added afterwards.
 - [Where the Format commands put a control (2026-10-22, #929, design-time)](where-the-format-commands-put-a-control.md#where-the-format-commands-put-a-control-2026-10-22-929-design-time)
 - [Named arguments (2026-10-22, #1465)](named-arguments.md#named-arguments-2026-10-22-1465)
 - [The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)](the-tabindex-a-new-or-pasted-control-takes.md#the-tabindex-a-new-or-pasted-control-takes-2026-10-22-925-design-time)
+- [Drawing a control into a Frame or PictureBox (2026-10-26, #2039, design-time)](drawing-a-control-into-a-frame-or-picturebox.md#drawing-a-control-into-a-frame-or-picturebox-2026-10-26-2039-design-time)
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
 - [As New (2026-10-22 and 23, #435)](as-new.md#as-new-2026-10-22-and-23-435)
 - [Where VB6's designer puts a control's block (2026-10-23, #1481, design-time)](where-vb6s-designer-puts-a-controls-block.md#where-vb6s-designer-puts-a-controls-block-2026-10-23-1481-design-time)
@@ -642,3 +645,5 @@ added afterwards.
 - [Format's AMPM token (2026-10-26, #2040)](formats-ampm-token.md#formats-ampm-token-2026-10-26-2040)
 - [Format of a number beyond Decimal's range (2026-10-26, #2118)](format-of-a-number-beyond-decimals-range.md#format-of-a-number-beyond-decimals-range-2026-10-26-2118)
 - [A GlobalMultiUse class in a referenced library (2026-10-26, #1107)](a-globalmultiuse-class-in-a-referenced-library.md#a-globalmultiuse-class-in-a-referenced-library-2026-10-26-1107)
+- [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
+- [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
