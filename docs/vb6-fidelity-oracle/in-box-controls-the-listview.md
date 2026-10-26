@@ -362,6 +362,139 @@ SelectedItem was the item that moved up into its Index.
 
 **List view, View 2:** one column of 17-pixel rows, each 157 pixels wide.
 
+### The saved files
+
+**The programs.**
+- **The saves:** three forms of ListViews, written by hand, opened in VB6's IDE, and saved there once the form had been
+  dirtied with a comment. Each block VB6 wrote is therefore its own serialisation of what it had loaded.
+  - In one form, a column's Icon Index was set and a column was inserted in the Column Headers property page before the
+    save.
+  - The Properties window was read for the first ListView of each form.
+- **The run-time reads:** two of the forms were built as EXEs that read every property back, natively and as p-code.
+- **The corpus:** VB6's saves are in `corpus/inbox-controls/pending/listview/` and `listview-columns/`.
+
+**Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
+
+```
+   Begin MSComctlLib.ListView ListView1 
+      Height          =   750
+      Left            =   2250
+      TabIndex        =   5
+      Top             =   1875
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   1323
+      LabelWrap       =   -1  'True
+      HideSelection   =   -1  'True
+      _Version        =   393217
+      ForeColor       =   -2147483640
+      BackColor       =   -2147483643
+      BorderStyle     =   1
+      Appearance      =   1
+      NumItems        =   0
+   End
+```
+
+**The order VB6 writes the lines in,** whatever order they were read in: the extender's Height, Left, TabIndex, Top and
+Width; `_ExtentX` and `_ExtentY`; then
+
+| Lines |
+|---|
+| SortKey, View, Arrange, LabelEdit, SortOrder, Sorted, MultiSelect, LabelWrap, HideSelection, HideColumnHeaders |
+| **OLEDragMode, OLEDropMode**, AllowReorder, Checkboxes, FlatScrollBar, FullRowSelect, GridLines, HotTracking, HoverSelection, PictureAlignment, TextBackground |
+| `_Version` |
+| Icons, SmallIcons, ColHdrIcons |
+| ForeColor, BackColor, BorderStyle, Appearance, MousePointer, Enabled |
+| the Font block |
+| **OLEDragMode, OLEDropMode again** |
+| NumItems, then one block per column |
+
+- **OLEDragMode and OLEDropMode are written twice,** with the same values, once before AllowReorder and once after the
+  Font block.
+- **Three properties are saved under other names:**
+  - AllowColumnReorder as `AllowReorder`;
+  - ColumnHeaderIcons as `ColHdrIcons`;
+  - a column's Icon as `ImageIndex`.
+
+  Lines naming `AllowColumnReorder`, `ColumnHeaderIcons`, or a column's `Icon`, were dropped without a message.
+- **SortOrder 1 and TextBackground 1 are written as `-1  'True`,** as if they were Booleans. Read back at run time, they
+  are 1.
+- **`_ExtentX` and `_ExtentY` are worked out again from the control's size in whole pixels.** A 5000×2500-twip control
+  written by hand with 8819 and 4410 was saved with 8811 and 4419.
+- **The bindings** are written as strings: `Icons = "ImageList1"`.
+
+**Which lines are left out:**
+- **LabelWrap, HideSelection, `_Version`, ForeColor, Appearance and NumItems are written whatever their value.**
+- **BorderStyle 0 is never written.** The line is left out, with Appearance 0 or 1.
+- **BackColor `&H8000000F` was left out.**
+- **Every other line is written only when off its default.** SortOrder 0 and TextBackground 0, written by hand, were
+  dropped.
+
+**A block missing a line** loads as follows, read at run time from a block with only its size and `_Version`:
+
+| Property | Loaded as |
+|---|---|
+| View | 0 |
+| LabelWrap, HideSelection | True |
+| **BorderStyle** | **0**, no border, though a new control starts at 1 |
+| Appearance | 1 |
+| **BackColor** | **`&H8000000F`**, button face, though a new control starts at `&H80000005` |
+| **ForeColor** | **`&H80000012`**, button text, though a new control starts at `&H80000008` |
+| everything else | its default, as listed under Defaults |
+
+Saved again, that block came back with LabelWrap, HideSelection, `ForeColor = -2147483630`, Appearance 1 and
+NumItems 0 written, and no BackColor or BorderStyle.
+
+**The columns:**
+
+```
+      NumItems        =   2
+      BeginProperty ColumnHeader(1) {BDD1F052-858B-11D1-B16A-00C0F0283628} 
+         Key             =   "name"
+         Object.Tag             =   "first"
+         Text            =   "Name"
+         Object.Width           =   2000
+         ImageIndex      =   1
+      EndProperty
+      BeginProperty ColumnHeader(2) {BDD1F052-858B-11D1-B16A-00C0F0283628} 
+         Alignment       =   1
+         SubItemIndex    =   1
+         Key             =   "size"
+         Object.Tag             =   "second"
+         Text            =   "Size"
+         Object.Width           =   1000
+         ImageIndex      =   3
+      EndProperty
+```
+
+- **The block structure:**
+  - There is one flat block per column after NumItems, with the ColumnHeader coclass's GUID.
+  - A nested `BeginProperty ColumnHeaders` block, in the style of the Toolbar's Buttons, was ignored, and saved as
+    `NumItems = 0`.
+- **The lines in a column block:**
+  - They go in the order Alignment, SubItemIndex, Key, `Object.Tag`, Text, `Object.Width`, ImageIndex, each only when
+    off its default.
+  - Bare `Width` and `Tag` lines are read as well, and saved as `Object.Width` and `Object.Tag`.
+  - Position is not saved.
+- **`Object.Width` is HIMETRIC,** as a StatusBar panel's is, and unlike a Toolbar placeholder's, which is twips:
+  - 2000 read back as 1133.858 twips, and 1800 as 1020.472.
+  - The property page showed 1800 as 1020.47.
+  - A column inserted in the page got 1440 twips, and was saved as **2540**.
+- **A column with no `Object.Width` line is 1440 HIMETRIC,** 816.378 twips. VB6 left out a hand-written 1440.
+  `Object.Width = 0` is written.
+- **Inserting a column** in the page at Index 2 gave it SubItemIndex 1, and moved the later columns' SubItemIndex up by
+  one, as `ColumnHeaders.Add` does at run time.
+- **Nothing in the file holds ListItems.** The property pages have no page for them.
+
+**In the IDE:**
+- **The property pages:** General, Image Lists, Sorting, Column Headers, Color, Font and Picture.
+- **Where the settings live:**
+  - The Properties window lists AllowColumnReorder under that name.
+  - Icons, SmallIcons and ColumnHeaderIcons are set only on the Image Lists page.
+  - The columns are set only on the Column Headers page, where Width is shown in twips.
+- **At design time, the control draws its Name as text at the top left, and no column headers,** even in report view.
+  With Checkboxes, a box is drawn before the name. The text is in the control's Font and ForeColor, on its BackColor.
+
 ### In HexIDE
 
 A form holding a ListView is refused at load, as any in-box control HexIDE doesn't model is (#1085).
