@@ -807,3 +807,16 @@ where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own
 **Workaround.** `dump_visual_tree` with `match` gives the path.
 
 **Suggested fix.** End every path refusal with that next step. [#2080](https://github.com/hexide-io/HexIDE/issues/2080).
+## `toggle` reads the state back before work it set off has run
+
+**Symptom (2026-10-26, #1103, Windows).** The Components dialog refuses an uncheck of a library a form uses, and puts the
+box back once the binding's write is over, through the dispatcher.
+`interact {"window":"Components","target":"Window/Custom/Tab/List/Pane[PART_ScrollViewer]/ListItem[#1]/CheckBox[Microsoft Windows Common Controls 6.0 (SP6)]","action":"toggle"}`
+answered `it is now off`. After the refusal's message box was answered, `inspect_element` on the same path read
+`"toggleState": true`.
+
+**Workaround.** When a toggle opens a modal window, answer it and read the state again with `inspect_element`.
+
+**Suggested fix.** Before reading back, drain the dispatcher's queued work, as `click` waits for the next frame; a running
+form's controls already wait for the program (#1255). Where a modal window opened during the call, say that the state may
+change once it is answered. [#2050](https://github.com/hexide-io/HexIDE/issues/2050).
