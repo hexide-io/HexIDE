@@ -425,9 +425,6 @@ folding, keymaps and a mark on every tab with unsaved changes.
 
 ### Fixed
 
-<<<<<<< HEAD
-- **Debug commands grey out when their handlers cannot act** (#733). Toggle Breakpoint and Run To Cursor require an active code window, and Edit Watch requires a selected watch. With the interpreter, Set Next Statement requires a code window and Show Next Statement a paused statement. Enablement refreshes on tab, debugger and watch-selection changes; external-debugger command paths keep their existing enablement.
-=======
 - **MCP: `dump_visual_tree` cuts a tree too large for a client to take inline, and says so** (#1982). The whole IDE
   window ran to 66,000 to 84,000 characters, which Claude Code saved to a file instead of showing. A tree over 40,000
   characters is now cut at the most levels down that fit, and the `note`, written first, says where and how to see
@@ -1049,7 +1046,6 @@ folding, keymaps and a mark on every tab with unsaved changes.
   the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
   first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
   is rounded, as p-code does, and a Variant counter counts in the type its start, limit and step make together.
->>>>>>> upstream/main
 
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 

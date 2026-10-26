@@ -152,8 +152,7 @@ public class MainViewViewModelTests
             new AddinToolWindowService(),
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-<<<<<<< HEAD
-            debug ?? Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+            debug ?? _debugController);
     }
 
     private sealed class RequeryProbe : IDisposable
@@ -260,9 +259,6 @@ public class MainViewViewModelTests
         command.CanExecute(null).Should().BeFalse();
         changes.Should().BeGreaterThan(0);
         requery.ShouldHaveRefreshed();
-=======
-            _debugController);
->>>>>>> upstream/main
     }
 
     // --- Add File: a file that joined read byte for byte ---

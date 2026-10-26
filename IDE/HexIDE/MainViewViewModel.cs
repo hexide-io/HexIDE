@@ -104,16 +104,13 @@ public partial class MainViewViewModel : ObservableObject
         private set => SetProperty(ref _layout, value);
     }
 
-<<<<<<< HEAD
     public DelegateCommand ToggleBreakpointCommand { get; }
     public DelegateCommand RunToCursorCommand { get; }
     public DelegateCommand SetNextStatementCommand { get; }
     public DelegateCommand ShowNextStatementCommand { get; }
     public DelegateCommand EditWatchCommand { get; }
-=======
     public DelegateCommand SaveFormCommand { get; }
     public DelegateCommand SaveFormAsCommand { get; }
->>>>>>> upstream/main
 
     public DelegateCommand StartDefaultProjectCommand { get; }
     public DelegateCommand StartExternalDebugCommand { get; }
