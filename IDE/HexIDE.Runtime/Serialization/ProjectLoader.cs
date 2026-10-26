@@ -72,7 +72,7 @@ public sealed class ProjectLoader
                 var memberReadByteForByte = false;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                    var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
                     memberReadByteForByte = moduleByteForByte;
                     module.TextEncoding = moduleEncoding;
                     var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
@@ -130,7 +130,7 @@ public sealed class ProjectLoader
                 }
 
                 // Form text before companion: the .frm's cited offsets partition the .frx.
-                var (formSource, _, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath);
+                var (formSource, _, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, formPath));
 
                 var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
                 var form = formDeserializer.Deserialize(project, formSource, errorSink, frxBlobs, userControlRegistry);
@@ -197,7 +197,7 @@ public sealed class ProjectLoader
                 var memberReadByteForByte = false;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                    var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
                     memberReadByteForByte = moduleByteForByte;
                     module.TextEncoding = moduleEncoding;
                     // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
@@ -261,9 +261,9 @@ public sealed class ProjectLoader
         return new Result(project, serializedProject, readByteForByte);
     }
 
-    private async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(string path)
+    private async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(string path, Vb6TextEncoding? recorded)
     {
-        var read = await Vb6TextFile.ReadDocumentAsync(path, null, HostAnsi);
+        var read = await Vb6TextFile.ReadDocumentAsync(path, null, HostAnsi, recorded);
         FileRead?.Invoke(path, read.Bytes);
         return read;
     }
