@@ -438,6 +438,44 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     }
 
     [Fact]
+    public async Task TheSameReasonIsRecordedOnceUntilSomethingIsWritten()
+    {
+        await using var capture = new ConversationLog();
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
+        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>())
+            .Returns(false, false, true, false);
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        await capture.DrainAsync();
+        capture.Snapshot("probe").Count(e => e.Detail?.Contains("denied") == true).Should().Be(1);
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.Delete(Path.Combine(_root, "generated.json"));
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        await capture.DrainAsync();
+        capture.Snapshot("probe").Count(e => e.Detail?.Contains("denied") == true)
+            .Should().Be(2, "a write came between the two denials, so the second is news");
+    }
+
+    [Fact]
+    public async Task ARefusedDeclarationIsNotedOnTheConnection()
+    {
+        await using var capture = new ConversationLog();
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
+        var server = Server() with { WorkspaceArtifact = null, WorkspaceArtifactRefused = true };
+        await service.PrepareAsync(server, TestContext.Current.CancellationToken);
+        await service.PrepareAsync(server, TestContext.Current.CancellationToken);
+        await capture.DrainAsync();
+        capture.Snapshot("probe").Should().ContainSingle(e => e.Kind == ConversationEntryKind.Note && e.Fault
+            && e.Detail!.Contains("declaration refused") && e.Detail.Contains("Tools > Language Servers"));
+        _provider.Calls.Should().Be(0);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
+    }
+
+    [Fact]
     public async Task FileCreatedDuringConsentIsNotClobbered()
     {
         var target = Path.Combine(_root, "generated.json");

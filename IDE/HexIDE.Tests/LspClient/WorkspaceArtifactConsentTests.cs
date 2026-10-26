@@ -116,18 +116,73 @@ public sealed class WorkspaceArtifactConsentTests : IDisposable
     }
 
     [Fact]
-    public void OptionsListsAndResetsPersistentWorkspaceGrants()
+    public void OptionsListsEachGrantByItsFileAndCommitsAResetOnOk()
     {
         var file = Path.Combine(_dir, "consent.json");
         var store = new ConsentStore(file);
-        store.RecordWorkspace("x", _dir, "key");
-        var sut = new WorkspaceArtifactPageViewModel(store);
+        store.RecordWorkspace("x", _dir, "key", "build/compile_commands.json", "clangd");
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.LspArtifact.ResetGrant").Returns("Reset {0} for {1} in {2}");
+        var sut = new WorkspaceArtifactPageViewModel(store, localization);
         var grant = sut.Grants.Should().ContainSingle().Subject;
         grant.Server.Should().Be("x");
         grant.Workspace.Should().Be(_dir);
+        grant.File.Should().Be("build/compile_commands.json");
+        grant.Provider.Should().Be("clangd");
+        grant.ResetName.Should().Be($"Reset x for compile_commands.json in {_dir}");
         sut.ResetCommand.Execute(grant);
         sut.Grants.Should().BeEmpty();
+        new ConsentStore(file).Records.Should().ContainSingle("a reset is not committed before OK");
+        sut.SaveToSettings();
         new ConsentStore(file).Records.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AResetForgottenByCancelLeavesTheGrant()
+    {
+        var file = Path.Combine(_dir, "consent.json");
+        new ConsentStore(file).RecordWorkspace("x", _dir, "key", "local.json", "probe");
+        var cancelled = new WorkspaceArtifactPageViewModel(new ConsentStore(file));
+        cancelled.ResetCommand.Execute(cancelled.Grants.Single());
+        // Cancel calls nothing on a page: the dialog closes and the page is dropped.
+        new WorkspaceArtifactPageViewModel(new ConsentStore(file)).Grants.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void RestoringDefaultsLeavesTheGrants()
+    {
+        var file = Path.Combine(_dir, "consent.json");
+        var store = new ConsentStore(file);
+        store.RecordWorkspace("x", _dir, "one", "a.json", "probe");
+        store.RecordWorkspace("y", _dir, "two", "b.json", "probe");
+        var sut = new WorkspaceArtifactPageViewModel(store);
+        sut.RestoreDefaults();
+        sut.SaveToSettings();
+        sut.Grants.Should().HaveCount(2, "a grant is consent, not a setting with a factory value");
+        new ConsentStore(file).Records.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task AllowAlwaysRecordsTheFileAndProviderItCovers()
+    {
+        var file = Path.Combine(_dir, "consent.json");
+        var sut = new WorkspaceArtifactConsent(new ConsentStore(file),
+            (_, _) => Task.FromResult(WorkspaceArtifactDecision.AllowAlways));
+        await sut.AllowAsync("x", "Server X", _dir, Path.Combine(_dir, "local.json"), Spec);
+        var record = new ConsentStore(file).Records.Should().ContainSingle().Subject;
+        record.ArtifactPath.Should().Be("local.json");
+        record.Provider.Should().Be("probe");
+    }
+
+    [Fact]
+    public void ThePromptNamesTheFileAndShowsItsFolderBeneath()
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.LspArtifact.Prompt").Returns("Server {0} has requested to write local file {1}.");
+        var folder = Path.Combine(_dir, "a folder with a long name");
+        var sut = new WorkspaceArtifactConsentViewModel("clangd", Path.Combine(folder, "compile_commands.json"), localization);
+        sut.Message.Should().Be("Server clangd has requested to write local file compile_commands.json.");
+        sut.Folder.Should().Be(folder);
     }
 
     public void Dispose() => Directory.Delete(_dir, true);

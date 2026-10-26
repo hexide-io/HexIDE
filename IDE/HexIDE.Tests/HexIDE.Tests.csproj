@@ -36,6 +36,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
+        <ProjectReference Include="..\HexIDE.Lsp.TestServer\HexIDE.Lsp.TestServer.csproj" />
         <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
         <!-- Build-check the opt-in real adapter tools on CI without executing or bundling an external backend. -->
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />

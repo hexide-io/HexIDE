@@ -206,6 +206,12 @@ public class ProjectSerializer
         for (var i = 0; i < lines.Count; i++)
             if (slots[i] is null)
                 order.Insert(i == 0 ? 0 : order.IndexOf(i - 1) + 1, i);
+        // An Object= line the Components dialog added goes just after the last Form= line, where VB6's Save Project puts
+        // one (measured, #1103), or after Type= in a project with no form.
+        var afterForms = order.FindLastIndex(i => lines[i].Text.StartsWith(SerializedProject.FormKey + "=", StringComparison.OrdinalIgnoreCase)) + 1;
+        if (unknowns.Any(u => u.PositionHint == ProjectDefinition.AfterFormsHint))
+            unknowns = unknowns.Select(u => u.PositionHint == ProjectDefinition.AfterFormsHint ? (PositionHint: Math.Max(afterForms, 1), u.RawLine) : u)
+                .OrderBy(u => u.PositionHint).ToList();
         // Omitted package entries still count their slots, so unknown lines keep their neighbours (#750).
         foreach (var i in order)
             WriteKnownLine(lines[i].Text, lines[i].Omit);

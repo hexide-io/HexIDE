@@ -4,9 +4,16 @@
              x:DataType="vm:WorkspaceArtifactConsentViewModel"
              x:Class="HexIDE.Forms.Views.WorkspaceArtifactConsentView">
     <StackPanel Margin="16" Spacing="12" MaxWidth="520">
-        <TextBlock Text="{CompiledBinding Message}" TextWrapping="Wrap" />
+        <StackPanel Spacing="4">
+            <TextBlock Text="{CompiledBinding Message}" TextWrapping="Wrap" />
+            <!-- The folder on its own line, so a long path wraps there and never splits the file's name (#2073). -->
+            <TextBlock Text="{CompiledBinding Folder}" TextWrapping="Wrap" Opacity="0.75"
+                       IsVisible="{CompiledBinding Folder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="{DynamicResource Str.LspArtifact.Deny}" Command="{CompiledBinding DenyCommand}" />
+            <!-- Deny is the safe answer: it has the focus, and Escape gives it, as the close box does. -->
+            <Button x:Name="DenyButton" Content="{DynamicResource Str.LspArtifact.Deny}"
+                    Command="{CompiledBinding DenyCommand}" IsCancel="True" />
             <Button Content="{DynamicResource Str.LspArtifact.Allow}" Command="{CompiledBinding AllowCommand}" />
             <Button Content="{DynamicResource Str.LspArtifact.Always}" Command="{CompiledBinding AlwaysCommand}" />
         </StackPanel>

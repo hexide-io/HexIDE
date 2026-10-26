@@ -122,6 +122,12 @@ not be reverted before the user was already looking at it.
 - **WHEN** the user selects a different language
 - **THEN** the interface changes immediately, including windows already open
 
+#### Scenario: Tool labels and debugger placeholders follow a live switch
+- **WHEN** the language changes with Object Browser, Locals or Watches already open
+- **THEN** the all-libraries entry and members header use the new language, preserving the selected class
+- **AND** the Locals ready header and out-of-context watch values update immediately
+- **AND** displayed frame names, evaluated values and debugger errors remain intact
+
 ### Requirement: A language change SHALL be revertible without reading the new language
 After a language change the IDE SHALL offer to keep or undo it in a way that does not require reading the
 new language, and SHALL undo it automatically if not confirmed within a short period.
