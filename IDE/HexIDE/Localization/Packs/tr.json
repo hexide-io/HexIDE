@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Protokol İnceleyicisi...",
     "Str.Menu.AddIns": "_Eklentiler",
     "Str.Menu.Window": "_Pencere",
+    "Str.Menu.Window.ReopenClosed": "Kapatılan Pencereyi Yeniden Aç",
+    "Str.Menu.Window.RecentlyClosed": "Son Kapatılan Pencereler",
     "Str.Menu.Window.Split": "_Böl",
     "Str.Menu.Window.ResetLayout": "Pencere _Düzenini Sıfırla",
     "Str.Menu.Help": "_Yardım",

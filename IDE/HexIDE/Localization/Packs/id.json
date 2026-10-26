@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektur Protokol...",
     "Str.Menu.AddIns": "_Add-In",
     "Str.Menu.Window": "_Jendela",
+    "Str.Menu.Window.ReopenClosed": "Buka Kembali Jendela Tertutup",
+    "Str.Menu.Window.RecentlyClosed": "Jendela yang Baru Ditutup",
     "Str.Menu.Window.Split": "_Bagi",
     "Str.Menu.Window.ResetLayout": "_Atur Ulang Tata Letak Jendela",
     "Str.Menu.Help": "Bant_uan",

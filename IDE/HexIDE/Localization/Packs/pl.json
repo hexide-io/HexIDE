@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektor protokołu...",
     "Str.Menu.AddIns": "_Dodatki",
     "Str.Menu.Window": "_Okno",
+    "Str.Menu.Window.ReopenClosed": "Otwórz ponownie zamknięte okno",
+    "Str.Menu.Window.RecentlyClosed": "Ostatnio zamknięte okna",
     "Str.Menu.Window.Split": "_Podziel",
     "Str.Menu.Window.ResetLayout": "_Resetuj układ okien",
     "Str.Menu.Help": "Pomo_c",

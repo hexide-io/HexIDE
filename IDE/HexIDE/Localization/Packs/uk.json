@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Інспектор протоколу...",
     "Str.Menu.AddIns": "Надбудови",
     "Str.Menu.Window": "Вікно",
+    "Str.Menu.Window.ReopenClosed": "Відкрити закрите вікно",
+    "Str.Menu.Window.RecentlyClosed": "Нещодавно закриті вікна",
     "Str.Menu.Window.Split": "Розділити",
     "Str.Menu.Window.ResetLayout": "Скинути розташування вікон",
     "Str.Menu.Help": "Довідка",

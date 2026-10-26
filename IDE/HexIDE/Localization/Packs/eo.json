@@ -169,6 +169,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokola _Inspektilo...",
     "Str.Menu.AddIns": "_Aldonaĵoj",
     "Str.Menu.Window": "_Fenestro",
+    "Str.Menu.Window.ReopenClosed": "Remalfermi fermitan fenestron",
+    "Str.Menu.Window.RecentlyClosed": "Lastatempe fermitaj fenestroj",
     "Str.Menu.Window.Split": "_Dividi",
     "Str.Menu.Window.ResetLayout": "_Restarigi Fenestran Aranĝon",
     "Str.Menu.Help": "_Helpo",
