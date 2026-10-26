@@ -44,6 +44,7 @@ public partial class CodeEditorView : UserControl
     private BookmarkMargin? _bookmarkMargin;
     private Point _lastHoverPoint;
     private FoldingManager? _foldingManager;
+    private StickyScrollController? _stickyScroll;
     private CancellationTokenSource? _foldCts;
     private SemanticTokensColorizer? _semanticColorizer;
     private int _semanticVersion;
@@ -337,6 +338,9 @@ public partial class CodeEditorView : UserControl
             // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
             _foldingManager = FoldingManager.Install(TextEditor.TextArea);
             TextEditor.TextArea.Caret.PositionChanged += KeepCaretOffFoldedRunsEnd;
+            _stickyScroll = new StickyScrollController(StickyHeaders, TextEditor, vm.Settings,
+                () => _foldingManager?.AllFoldings.Where(f =>
+                    !ReferenceEquals(f.Tag, HeaderFoldTag) && !ReferenceEquals(f.Tag, RunFoldTag)) ?? []);
             ApplyFolds(vm, []);
             _semanticColorizer = new SemanticTokensColorizer();
             TextEditor.TextArea.TextView.LineTransformers.Insert(
@@ -512,6 +516,8 @@ public partial class CodeEditorView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Minimap.Detach();
+        _stickyScroll?.Dispose();
+        _stickyScroll = null;
 
         // PaletteChanged is a static event: a Dock document-move re-materialises this view, so an
         // unremoved handler leaks it for the process lifetime and fires a stale redraw per theme
@@ -1139,6 +1145,7 @@ public partial class CodeEditorView : UserControl
             {
                 if (token.IsCancellationRequested || _foldingManager is null) return;
                 ApplyFolds(vm, Vb6FoldingAdapter.FromServer(doc, ranges));
+                _stickyScroll?.Refresh();
             });
         }
         catch (OperationCanceledException) { }
@@ -1617,7 +1624,7 @@ public partial class CodeEditorView : UserControl
             TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
-            TriggerSignatureHelpAsync();
+            TriggerSignatureHelpAsync(ch.ToString());
         // Close signature help when all parens are closed
         if (ch == ')')
             CloseInsightWindowIfBalanced();
@@ -2188,7 +2195,7 @@ public partial class CodeEditorView : UserControl
 
     // ── Signature help ───────────────────────────────────────────────────────
 
-    private void TriggerSignatureHelpAsync()
+    private void TriggerSignatureHelpAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
 
@@ -2199,7 +2206,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token);
+        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token, triggerCharacter);
     }
 
     private void CloseInsightWindowIfBalanced()
@@ -2219,7 +2226,7 @@ public partial class CodeEditorView : UserControl
             _insightWindow?.Close();
     }
 
-    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token, string? triggerCharacter)
     {
         try
         {
@@ -2228,7 +2235,7 @@ public partial class CodeEditorView : UserControl
             await vm.FlushDocumentAsync(token);
             if (token.IsCancellationRequested) return;
 
-            var help = await vm.RequestSignatureHelpAsync(position, token);
+            var help = await vm.RequestSignatureHelpAsync(position, token, triggerCharacter);
             if (token.IsCancellationRequested) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
@@ -2422,7 +2429,7 @@ public partial class CodeEditorView : UserControl
         static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
     }
 
-    private async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+    internal async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
     {
         try
         {
@@ -2437,7 +2444,13 @@ public partial class CodeEditorView : UserControl
             }
 
             await vm.FlushDocumentAsync();
-            var edit = await vm.RequestRenameAsync(position, newName);
+            var result = await vm.RequestRenameAsync(position, newName);
+            if (result?.Refusal is { } serverRefusal)
+            {
+                await vm.ShowRefusalAsync(serverRefusal);
+                return;
+            }
+            var edit = result?.Edit;
 
             if (edit?.Changes is null) return;
 
