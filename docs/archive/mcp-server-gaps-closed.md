@@ -19,9 +19,9 @@ now off`. After the refusal's message box was answered, `inspect_element` read `
 **Fixed (#2050).** On the IDE's own windows, `toggle` now reads the state back once the dispatcher has run what is
 queued ahead of `Background`, so a box put back from a posted callback is reported as put back: `…, but its handler or
 a binding put it back: it is still on`. A refusal that waits for its message box to be answered can't be known
-before the reply, so when a dialog opened during the call the reply adds `a dialog opened during this call, and the
-state may change again once it is answered`. The `modalDialog` note names that dialog. A running form's toggle was
-already read once its program had run (#1255). Guarded by `ToggleSettledTests`.
+before the reply, so when a dialog opened during the call the reply adds `a dialog opened during this call, which
+modalDialog names, and the state may change again once it is answered`. A running form's toggle was
+already read once its program had run (#1280). Guarded by `ToggleSettledTests`.
 
 ## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally — **CLOSED** (#1330, 2026-10-25)
 

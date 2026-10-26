@@ -936,7 +936,8 @@ public static class UiAutomationDriver
     {
         (null, _) or (_, null) => ", but whether it moved could not be read back",
         var (from, to) when from != to => $": it is now {ToggleWords(to.Value)}",
-        (_, var to) => radio
+        // Only a radio button left on was not turned off by a click; one left off was turned on and put back (#2050 review).
+        (_, var to) => radio && to == ToggleState.On
             ? $", and it is still {ToggleWords(to!.Value)}: a click does not turn a radio button off; select another to"
             : $", but {who} put it back: it is still {ToggleWords(to!.Value)}",
     };
@@ -1591,7 +1592,8 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
-    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. Every other action is
+    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. A <c>toggle</c> reads its
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -1627,24 +1629,42 @@ public static class UiAutomationDriver
     /// </summary>
     private static async Task<InteractOutcome> ToggleSettledAsync(Control control, string action, string? value)
     {
-        var peer = ControlAutomationPeer.CreatePeerForElement(control);
-        var toggle = peer.GetProvider<IToggleProvider>();
+        var peer = Safe<AutomationPeer?>(() => ControlAutomationPeer.CreatePeerForElement(control), null);
+        var toggle = peer is null ? null : Safe<IToggleProvider?>(() => peer.GetProvider<IToggleProvider>(), null);
         var before = toggle is null ? null : Safe<ToggleState?>(() => toggle.ToggleState, null);
-        var dialogsBefore = OpenDialogs.Among(OpenWindows()).ToHashSet();
+        // Named before the toggle, as invoke names its target (#578): what the toggle sets off may close its window, or
+        // change a caption that follows the state.
+        var label = peer is null ? null : LabelOf(control, peer);
+        // Known by what they show, as typing knows them (#1257): a MsgBox whose form hides moves to a window of its own.
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
         var outcome = Interact(control, action, value);
         if (toggle is null || before is null || InProgram(control) || outcome is not { Success: true, Settled: null })
             return outcome;
 
-        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
-        var opened = OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(d));
+        // Bounded: a program that keeps the dispatcher busy above Background would otherwise hold the reply for as long as
+        // it runs, and an earlier read is better than none.
+        var settled = Avalonia.Threading.Dispatcher.UIThread
+            .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+        var ran = await Task.WhenAny(settled, Task.Delay(ToggleSettleWait)) == settled;
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        if (now is null)
+            return Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
+                       + "Dump it to see");
+        var opened = OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
         return outcome with
         {
-            Detail = $"toggled '{LabelOf(control, peer)}'"
-                     + ToggleMoved(before, Safe<ToggleState?>(() => toggle.ToggleState, null), control is RadioButton,
-                         "its handler or a binding")
-                     + (opened ? "; a dialog opened during this call, and the state may change again once it is answered" : ""),
+            Detail = $"toggled '{label}'"
+                     + ToggleMoved(before, now, control is RadioButton, "its handler or a binding")
+                     + (ran ? "" : $"; read before the work it set off had finished, which took longer than "
+                                   + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms")
+                     + (opened ? "; a dialog opened during this call, which modalDialog names, and the state may change "
+                                 + "again once it is answered" : ""),
         };
     }
+
+    /// <summary>How long a toggle's reply waits for the work it set off before reading its state anyway.</summary>
+    public static readonly TimeSpan ToggleSettleWait = TimeSpan.FromSeconds(2);
 
     /// <summary>Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.</summary>
     public static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
