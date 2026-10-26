@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "_Kes",
     "Str.Menu.Edit.Copy": "_Kopyala",
     "Str.Menu.Edit.Paste": "_Yapıştır",
+    "Str.Menu.Edit.PasteAsComment": "_Yorum olarak yapıştır",
     "Str.Menu.Edit.PasteLink": "Bağ_lantı Yapıştır",
     "Str.Menu.Edit.Remove": "Kaldır",
     "Str.Menu.Edit.Delete": "_Sil",

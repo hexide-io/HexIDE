@@ -41,6 +41,7 @@
 | Cut | Ctrl+X | Done | |
 | Copy | Ctrl+C | Done | |
 | Paste | Ctrl+V | Done | |
+| Paste as Comment | — | Done | Clipboard lines commented at the paste's indentation, as one undo step; bindable as `PasteAsCommentCommand` (#1993). |
 | Paste Link | — | Missing | Windows-only; see below. OLE linked object; depends on OLE Container infrastructure |
 | Remove | — | Stub | MenuItem present, no handler; context-dependent in VB6 |
 | Delete | Del | Done | Deletes the selection, or the next character when nothing is selected (#708). |

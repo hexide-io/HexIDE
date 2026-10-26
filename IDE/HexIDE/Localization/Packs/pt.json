@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Cor_tar",
     "Str.Menu.Edit.Copy": "_Copiar",
     "Str.Menu.Edit.Paste": "Co_lar",
+    "Str.Menu.Edit.PasteAsComment": "Colar como _comentário",
     "Str.Menu.Edit.PasteLink": "Colar _Ligação",
     "Str.Menu.Edit.Remove": "Remover",
     "Str.Menu.Edit.Delete": "_Eliminar",

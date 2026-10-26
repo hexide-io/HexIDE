@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "برش",
     "Str.Menu.Edit.Copy": "کپی",
     "Str.Menu.Edit.Paste": "چسباندن",
+    "Str.Menu.Edit.PasteAsComment": "چسباندن به‌صورت توضیح",
     "Str.Menu.Edit.PasteLink": "چسباندن پیوند",
     "Str.Menu.Edit.Remove": "حذف",
     "Str.Menu.Edit.Delete": "حذف",

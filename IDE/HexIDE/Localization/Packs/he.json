@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "גזור",
     "Str.Menu.Edit.Copy": "העתק",
     "Str.Menu.Edit.Paste": "הדבק",
+    "Str.Menu.Edit.PasteAsComment": "הדבק כהערה",
     "Str.Menu.Edit.PasteLink": "הדבק קישור",
     "Str.Menu.Edit.Remove": "הסר",
     "Str.Menu.Edit.Delete": "מחק",

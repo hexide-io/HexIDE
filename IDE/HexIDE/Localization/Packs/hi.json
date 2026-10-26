@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "काटें",
     "Str.Menu.Edit.Copy": "कॉपी करें",
     "Str.Menu.Edit.Paste": "पेस्ट करें",
+    "Str.Menu.Edit.PasteAsComment": "टिप्पणी के रूप में चिपकाएँ",
     "Str.Menu.Edit.PasteLink": "लिंक पेस्ट करें",
     "Str.Menu.Edit.Remove": "हटाएँ",
     "Str.Menu.Edit.Delete": "मिटाएँ",

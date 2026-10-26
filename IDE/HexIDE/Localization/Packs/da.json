@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Kli_p",
     "Str.Menu.Edit.Copy": "_Kopier",
     "Str.Menu.Edit.Paste": "_Sæt ind",
+    "Str.Menu.Edit.PasteAsComment": "Indsæt som _kommentar",
     "Str.Menu.Edit.PasteLink": "Sæt _kæde ind",
     "Str.Menu.Edit.Remove": "Fjern",
     "Str.Menu.Edit.Delete": "_Slet",

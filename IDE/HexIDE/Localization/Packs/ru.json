@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Вырезать",
     "Str.Menu.Edit.Copy": "Копировать",
     "Str.Menu.Edit.Paste": "Вставить",
+    "Str.Menu.Edit.PasteAsComment": "Вставить как комментарий",
     "Str.Menu.Edit.PasteLink": "Вставить связь",
     "Str.Menu.Edit.Remove": "Удалить",
     "Str.Menu.Edit.Delete": "Удалить",

@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "قص",
     "Str.Menu.Edit.Copy": "نسخ",
     "Str.Menu.Edit.Paste": "لصق",
+    "Str.Menu.Edit.PasteAsComment": "لصق كتعليق",
     "Str.Menu.Edit.PasteLink": "لصق ارتباط",
     "Str.Menu.Edit.Remove": "إزالة",
     "Str.Menu.Edit.Delete": "حذف",

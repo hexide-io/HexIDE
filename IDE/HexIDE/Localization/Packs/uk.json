@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Вирізати",
     "Str.Menu.Edit.Copy": "Копіювати",
     "Str.Menu.Edit.Paste": "Вставити",
+    "Str.Menu.Edit.PasteAsComment": "Вставити як коментар",
     "Str.Menu.Edit.PasteLink": "Вставити посилання",
     "Str.Menu.Edit.Remove": "Вилучити",
     "Str.Menu.Edit.Delete": "Видалити",

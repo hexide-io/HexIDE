@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "_Vyjmout",
     "Str.Menu.Edit.Copy": "_Kopírovat",
     "Str.Menu.Edit.Paste": "V_ložit",
+    "Str.Menu.Edit.PasteAsComment": "Vložit jako _komentář",
     "Str.Menu.Edit.PasteLink": "Vložit _odkaz",
     "Str.Menu.Edit.Remove": "Odebrat",
     "Str.Menu.Edit.Delete": "_Smazat",

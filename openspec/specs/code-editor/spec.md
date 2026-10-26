@@ -395,3 +395,15 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **THEN** overtype mode is enabled and the status bar displays the localized overtype label
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Paste as Comment
+The code window SHALL offer Paste as Comment in the Edit menu and expose `PasteAsCommentCommand`
+for keymap bindings. It SHALL replace the selection with the clipboard's lines, each prefixed with an
+apostrophe, continuing subsequent lines at the insertion line's leading indentation. The paste SHALL
+be one undo step and use the document's newline convention. Empty or unavailable clipboard text SHALL
+leave the document unchanged.
+
+#### Scenario: Keeping a snippet without compiling it
+- **WHEN** the developer pastes two clipboard lines as comments at an indented caret
+- **THEN** each inserted line begins with an apostrophe at that indentation
+- **AND** Undo restores the previous text in one step

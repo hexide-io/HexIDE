@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Tag_lia",
     "Str.Menu.Edit.Copy": "_Copia",
     "Str.Menu.Edit.Paste": "_Incolla",
+    "Str.Menu.Edit.PasteAsComment": "Incolla come _commento",
     "Str.Menu.Edit.PasteLink": "Incolla colle_gamento",
     "Str.Menu.Edit.Remove": "Rimuovi",
     "Str.Menu.Edit.Delete": "_Elimina",

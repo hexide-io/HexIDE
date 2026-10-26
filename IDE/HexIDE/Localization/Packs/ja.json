@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "切り取り",
     "Str.Menu.Edit.Copy": "コピー",
     "Str.Menu.Edit.Paste": "貼り付け",
+    "Str.Menu.Edit.PasteAsComment": "コメントとして貼り付け",
     "Str.Menu.Edit.PasteLink": "リンクの貼り付け",
     "Str.Menu.Edit.Remove": "削除",
     "Str.Menu.Edit.Delete": "削除",

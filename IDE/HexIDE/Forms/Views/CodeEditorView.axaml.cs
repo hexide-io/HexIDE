@@ -99,6 +99,7 @@ public partial class CodeEditorView : UserControl
     public DelegateCommand Cut { get; }
     public DelegateCommand Delete { get; }
     public DelegateCommand Paste { get; }
+    public DelegateCommand PasteAsComment { get; }
     public DelegateCommand Find { get; }
     public DelegateCommand Replace { get; }
     public DelegateCommand SelectAll { get; }
@@ -155,6 +156,7 @@ public partial class CodeEditorView : UserControl
             else
                 TextEditor.Paste();
         }, () => true);
+        PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
         {
@@ -2021,6 +2023,44 @@ public partial class CodeEditorView : UserControl
             WriteOverBox(area, box, text);
         else
             area.Selection.ReplaceSelectionWithText(text);
+        area.Caret.BringCaretToView();
+    }
+
+    private async Task PasteAsCommentAsync()
+    {
+        var text = await ClipboardTextAsync();
+        if (string.IsNullOrEmpty(text))
+            return;
+        AskBeforeClipboardEdit(paste: true);
+        InsertAsComment(text);
+    }
+
+    internal void InsertAsComment(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+        var area = TextEditor.TextArea;
+        var line = area.Document.GetLineByOffset(TextEditor.SelectionStart);
+        var prefix = area.Document.GetText(line.Offset, TextEditor.SelectionStart - line.Offset);
+        var indentation = new string(prefix.TakeWhile(c => c is ' ' or '\t').ToArray());
+        var newline = TextUtilities.GetNewLineFromDocument(area.Document, line.LineNumber);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var continuationIndent = area.Selection is RectangleSelection { IsEmpty: false } ? "" : indentation;
+        var commented = "'" + string.Join(newline + continuationIndent + "'", lines);
+        using (area.Document.RunUpdate())
+        {
+            if (area.Selection is RectangleSelection { IsEmpty: false } box)
+                WriteOverBox(area, box, commented);
+            else if (DataContext is CodeEditorViewModel vm
+                && EditedSpan() is var (offset, length)
+                && vm.InsertLineBreakPastRun(offset, length, commented) is { } placed)
+            {
+                area.ClearSelection();
+                area.Caret.Offset = placed.End;
+            }
+            else
+                area.Selection.ReplaceSelectionWithText(commented);
+        }
         area.Caret.BringCaretToView();
     }
 

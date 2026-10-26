@@ -189,6 +189,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CutCommand}" Header="{DynamicResource Str.Menu.Edit.Cut}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CopyCommand}" Header="{DynamicResource Str.Menu.Edit.Copy}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.PasteCommand}" Header="{DynamicResource Str.Menu.Edit.Paste}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Paste}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.PasteAsCommentCommand}" Header="{DynamicResource Str.Menu.Edit.PasteAsComment}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.PasteLinkCommand}" Header="{DynamicResource Str.Menu.Edit.PasteLink}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.RemoveCommand}" Header="{DynamicResource Str.Menu.Edit.Remove}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.DeleteCommand}" Header="{DynamicResource Str.Menu.Edit.Delete}" />

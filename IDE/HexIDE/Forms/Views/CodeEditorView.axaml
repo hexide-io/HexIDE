@@ -26,6 +26,8 @@
                               ExecutingCommand="{CompiledBinding #Root.Redo}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CopyCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Copy}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteAsCommentCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.PasteAsComment}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Paste}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CutCommand}"

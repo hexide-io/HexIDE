@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Po_tong",
     "Str.Menu.Edit.Copy": "_Salin",
     "Str.Menu.Edit.Paste": "_Tempel",
+    "Str.Menu.Edit.PasteAsComment": "Tempel sebagai _komentar",
     "Str.Menu.Edit.PasteLink": "Tempel Tau_tan",
     "Str.Menu.Edit.Remove": "Hapus",
     "Str.Menu.Edit.Delete": "_Hapus",

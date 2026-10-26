@@ -89,6 +89,7 @@
     "Str.Menu.Edit.Cut": "Αποκοπή",
     "Str.Menu.Edit.Copy": "Αντιγραφή",
     "Str.Menu.Edit.Paste": "Επικόλληση",
+    "Str.Menu.Edit.PasteAsComment": "Επικόλληση ως σχόλιο",
     "Str.Menu.Edit.PasteLink": "Επικόλληση σύνδεσης",
     "Str.Menu.Edit.Remove": "Κατάργηση",
     "Str.Menu.Edit.Delete": "Διαγραφή",
