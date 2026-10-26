@@ -674,7 +674,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
     /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
-    public void SpawnControlCenter(ComponentBaseClass componentClass, ControlLibrary? library = null)
+    public void SpawnControlCenter(ComponentBaseClass componentClass, RuntimeLibrary? library = null)
     {
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
@@ -783,7 +783,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
     /// </param>
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect, Point? pressedAt = null,
-        ControlLibrary? library = null)
+        RuntimeLibrary? library = null)
     {
         var container = pressedAt is { } press ? ContainerAt(press) : null;
         if (container is not null)
@@ -792,7 +792,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     private void SpawnControl(ComponentBaseClass baseClass, Rect rect, ComponentInstanceViewModel? container,
-        ControlLibrary? library)
+        RuntimeLibrary? library)
     {
         var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",

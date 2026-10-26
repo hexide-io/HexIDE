@@ -32,6 +32,7 @@
     "DockTitleBar":            "#001530",
     "SelectionAdorner":        "#26547C",
     "SelectionAdornerBorder":  "#FFFFFF",
+    "DesignerHiddenControlMask": "#80FFFFFF",
     "FormGridPattern":         "#082040",
     "ControlSpawnerPhantom":   "#1A3A5C",
     "RubberBandFill":          "#1A26547C",

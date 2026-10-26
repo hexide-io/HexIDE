@@ -46,7 +46,7 @@ public class CodeEditorPopupTests : IDisposable
             new CompletionItem("MsgBox", CompletionItemKind.Function),
             new CompletionItem("Mid", CompletionItemKind.Function, "Returns part of a string."),
         ]);
-        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<string?>()).Returns(
             new SignatureHelp([new SignatureInformation("MsgBox(Prompt, [Buttons], [Title])", null,
                 [new ParameterInformation("Prompt"), new ParameterInformation("[Buttons]"), new ParameterInformation("[Title]")])],
                 0, 0));

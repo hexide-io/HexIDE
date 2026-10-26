@@ -55,6 +55,21 @@ public class ShippedPackParityTests
     private const string Canonical = "en";
 
     [Fact]
+    public void EveryShippedProgressFormatIncludesServerTaskAndPercentage()
+    {
+        foreach (var id in LanguageManifest.Packs.Select(p => p.Id))
+        {
+            var pack = JsonSerializer.Deserialize(
+                File.ReadAllText(Path.Combine(PacksDirectory(), $"{id}.json")),
+                LocalizationJsonContext.Default.LanguagePackRecord)!;
+            if (!IsFullTranslation(id)) continue;
+            var format = pack.Strings!["Str.StatusBar.LanguageServerProgress"];
+            string.Format(format, "SERVER", "TASK", "PERCENTAGE").Should()
+                .Contain("SERVER").And.Contain("TASK").And.Contain("PERCENTAGE", $"pack {id}");
+        }
+    }
+
+    [Fact]
     public void EveryShippedTranslationHasEveryCanonicalKey()
     {
         var packs = PacksDirectory();

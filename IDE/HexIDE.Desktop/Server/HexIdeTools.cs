@@ -987,7 +987,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns the current main window state (Maximized/Normal/Minimized) and position/size when in Normal mode.")]
+    [Description("Returns the current main window state (Maximized/Normal/Minimized) and the reported position and client size in every state.")]
     public async Task<WindowStateResult> GetWindowStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1015,7 +1015,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied first; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. A refused call changes nothing.")]
+    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
@@ -1023,7 +1023,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         int? x = null, int? y = null, int? width = null, int? height = null,
         CancellationToken ct = default)
     {
-        var refused = await Dispatcher.UIThread.InvokeAsync(WindowStateChangeResult? () =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var window = (Avalonia.Application.Current!.ApplicationLifetime as
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
@@ -1052,14 +1052,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false,
                     $"width and height must be positive; got {(width is <= 0 ? $"width {width}" : $"height {height}")}. Nothing was changed.", null);
 
-            if (target == Avalonia.Controls.WindowState.Normal && geometry)
+            // Validate before sending even the restore: an asynchronous backend cannot undo it reliably.
+            if (geometry)
             {
-                // Normal first, then the geometry. Restoring from Maximized puts the window back at its restore
-                // bounds, which overwrote a position and size applied before it, and a coordinate left out has
-                // to default to where the RESTORED window is, not to the maximised frame's -11. A refusal puts
-                // the previous state back, so it still changes nothing.
-                var previous = window.WindowState;
-                window.WindowState = target.Value;
                 var position = new Avalonia.PixelPoint(x ?? window.Position.X, y ?? window.Position.Y);
                 var size = Avalonia.PixelSize.FromSize(
                     new Avalonia.Size(width ?? window.ClientSize.Width, height ?? window.ClientSize.Height),
@@ -1067,34 +1062,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var frame = new Avalonia.PixelRect(position, size);
                 var screens = window.Screens.All;
                 if (screens.Count > 0 && !screens.Any(s => s.WorkingArea.Intersects(frame)))
-                {
-                    window.WindowState = previous;
                     return new WindowStateChangeResult(false,
                         $"({position.X},{position.Y}) would put the window on no screen. Screens: "
                         + string.Join("; ", screens.Select(s => $"{s.WorkingArea.X},{s.WorkingArea.Y} {s.WorkingArea.Width}×{s.WorkingArea.Height}"))
                         + ". Nothing was changed.", null);
-                }
-
-                window.Position = position;
-                if (width is not null)  window.Width  = width.Value;
-                if (height is not null) window.Height = height.Value;
-                return null;
             }
 
-            window.WindowState = target.Value;
-            return null;
+            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(window, target.Value, x, y, width, height, ct);
+            return new WindowStateChangeResult(applied, applied ? null : "The window manager has not confirmed the requested change.",
+                WindowStateOf(window), applied ? null : "The window manager did not confirm the requested state or geometry within 1 s of that request; the window field reports what is observed. Re-read with get_window_state.");
         });
-        if (refused is not null)
-            return refused;
-
-        // Read back after layout has run. A new Width or Height reaches ClientSize in the next layout pass, so
-        // reading it straight away reported the size the window had before the call.
-        return await Dispatcher.UIThread.InvokeAsync(() =>
-            (Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow is { } after
-                ? new WindowStateChangeResult(true, null, WindowStateOf(after))
-                : new WindowStateChangeResult(false, "No main window", null),
-            DispatcherPriority.Background);
     }
 
     [McpServerTool(Name = "get_tool_windows")]
@@ -1919,7 +1896,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             "BreakWhenTrue or BreakWhenChanged.",
                 };
 
-            var context = ctx.DebugController.GetLocals()?.Context ?? "(All Procedures)";
+            var context = ctx.DebugController.GetLocals()?.Context ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
             ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });
@@ -2138,7 +2115,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
+    [Description("Captures the window's client area, without its title bar or frame, as a PNG. 'captureArea' explains this in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2165,7 +2142,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
             using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
             if (bitmap is null)
-                return new SnapshotResult(null, "Window has no size", activeDialog);
+                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
@@ -2174,7 +2151,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut));
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut), Title: active.Title);
             if (!inline)
                 return result;
 
@@ -2219,7 +2196,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, is cut at the most levels down that fit, and the 'note', written first, says where.")]
+    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, keeps the active document, cutting hidden children then other branches; the 'note', written first, explains cuts.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -2260,6 +2237,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (match is not null && string.IsNullOrWhiteSpace(match))
             return new VisualTreeResult("'match' is empty, which every node would match; omit it for the whole tree.", null, null);
 
+        string? activeDocumentPath = null;
         var result = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, label, error) = ResolveActiveWindow(window);
@@ -2279,8 +2257,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             var focus = UiAutomationDriver.FocusIn(active);
             if (match is null)
+            {
+                activeDocumentPath = ActiveDocumentPath(start, basePath, ctx.DocumentDockService.ActiveTab);
                 return new VisualTreeResult(null, label, UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly),
                     FocusedPath: focus.FocusedPath, FocusReason: focus.FocusReason);
+            }
 
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
@@ -2294,7 +2275,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
         if (result is { Root: { } tree, Matches: null })
         {
-            var (fitted, fitNote) = FitToReply(tree);
+            var (fitted, fitNote) = FitToReply(tree, activeDocumentPath);
             result = result with { Root = fitted, Note = fitNote };
         }
         return result;
@@ -2312,31 +2293,44 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     internal const int TreeCharacterBudget = 40_000;
 
     /// <summary>
-    /// The tree as it is when it fits <see cref="TreeCharacterBudget"/>; otherwise cut at the most levels down that fit, or
-    /// at one, with a note that says how large it was, where it was cut and how to see the rest.
+    /// The tree as it is when it fits <see cref="TreeCharacterBudget"/>; otherwise omit hidden nodes' children first,
+    /// then cut other branches at the most levels down that fit, or at one, keeping the active document.
+    /// The note says what was cut and how to see the rest.
     /// </summary>
-    internal static (UiNode Tree, string? Note) FitToReply(UiNode tree)
+    internal static (UiNode Tree, string? Note) FitToReply(UiNode tree, string? activeDocumentPath = null)
     {
         var full = SizeOf(tree);
         if (full <= TreeCharacterBudget)
             return (tree, null);
 
         static string N(int n) => n.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+        // Keep the requested root's children so dumping again from a hidden node still makes progress.
+        var showing = tree with { Children = [.. tree.Children.Select(c => CutHidden(c, activeDocumentPath))] };
+        var hiddenCut = SizeOf(showing) != full;
+        var hiddenNote = hiddenCut ? "First, children below hidden nodes were omitted. " : "";
+        if (hiddenCut)
+            tree = showing;
+        if (SizeOf(tree) <= TreeCharacterBudget)
+            return (tree, $"This tree is about {N(full)} characters, more than some clients take inline in a reply. "
+                          + hiddenNote + "A node marked \"truncated\" holds more: dump again with its path as 'root' to see below it, "
+                          + "or use 'match' to find a control by its name or type.");
+
+        var documentNote = activeDocumentPath is null ? "" : "The active document subtree was kept to the requested depth. ";
         var deepest = DepthOf(tree);
         // Only one level below it, so there is no level to cut: it is its children that are many.
         if (deepest <= 1)
-            return (tree, $"The tree is about {N(full)} characters, more than some clients take inline in a reply, though it "
+            return (tree, hiddenNote + $"The tree is about {N(full)} characters, more than some clients take inline in a reply, though it "
                           + "goes only one level down, since this node has many children: scope it with 'root', or use "
                           + "'match' to find a control by its name or type.");
 
         // A tree's size grows with every level kept, so the most levels that fit are found by halving.
         var (low, high) = (1, deepest - 1);
-        var (cut, size) = (CutAt(tree, 1), 0);
+        var (cut, size) = (CutAt(tree, 1, activeDocumentPath), 0);
         size = SizeOf(cut);
         while (low < high)
         {
             var mid = (low + high + 1) / 2;
-            var candidate = CutAt(tree, mid);
+            var candidate = CutAt(tree, mid, activeDocumentPath);
             var candidateSize = SizeOf(candidate);
             if (candidateSize <= TreeCharacterBudget)
                 (low, cut, size) = (mid, candidate, candidateSize);
@@ -2344,14 +2338,31 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 high = mid - 1;
         }
 
-        var note = $"This tree is about {N(full)} characters, more than some clients take inline in a reply, so it was "
-                   + $"cut {low} level{(low == 1 ? "" : "s")} down, about {N(size)} characters. A node marked \"truncated\" "
+        var note = hiddenNote + documentNote + $"This tree is about {N(full)} characters, more than some clients take inline in a reply, so "
+                   + (activeDocumentPath is null ? "it was cut " : "other branches were cut ") + $"{low} level{(low == 1 ? "" : "s")} down, about {N(size)} characters. A node marked \"truncated\" "
                    + "holds more: dump again with its path as 'root' to see below it, or use 'match' to find a control by "
                    + "its name or type.";
         if (size > TreeCharacterBudget)
-            note += " It is still over the limit one level down, since this node has many children: scope it with 'root'.";
+            note += activeDocumentPath is null
+                ? " It is still over the limit one level down, since this node has many children: scope it with 'root'."
+                : " It is still over the limit with other branches cut one level down and the active document kept: scope it with 'root'.";
         return (cut, note);
     }
+
+    internal static string? ActiveDocumentPath(Control start, string basePath, object? document)
+    {
+        if (document is null)
+            return null;
+        var view = start.GetVisualDescendants().OfType<UserControl>().FirstOrDefault(c =>
+            c.IsEffectivelyVisible && ReferenceEquals(c.DataContext, document));
+        return view is null ? null : UiAutomationDriver.PathWithin(start, basePath, view);
+    }
+
+    private static UiNode CutHidden(UiNode node, string? documentPath) => node.Path == documentPath
+        ? node
+        : node.IsHidden == true
+            ? CutAt(node, 0)
+            : node with { Children = [.. node.Children.Select(c => CutHidden(c, documentPath))] };
 
     private static int SizeOf(UiNode tree) => System.Text.Json.JsonSerializer.Serialize(tree, ReplyJson.Options).Length;
 
@@ -2360,9 +2371,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // Keeps 'levels' levels below the node, and marks a node whose children are cut away truncated. Not the same as a
     // dump with that maxDepth under interactiveOnly, which also keeps a node at the cut-off whose children it never
     // looked at: here they were looked at, so a branch with nothing interactive is already gone (#1982 review).
-    private static UiNode CutAt(UiNode node, int levels) => levels == 0
-        ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
-        : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
+    private static UiNode CutAt(UiNode node, int levels, string? documentPath = null)
+    {
+        if (node.Path == documentPath)
+            return node;
+        var ancestor = documentPath?.StartsWith(node.Path + "/", StringComparison.Ordinal) == true;
+        return levels <= 0 && !ancestor
+            ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
+            : node with { Children = [.. node.Children.Select(c => CutAt(c, Math.Max(0, levels - 1), documentPath))] };
+    }
 
     internal static string MatchNote(string match, int total, int unsearched,
         IDocumentDockService? dock = null,
@@ -3027,7 +3044,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(ConversationEntryKind))]
     [DescribesEnum(typeof(ConversationDirection))]
     [DescribesEnum(typeof(ConversationOutcome), "None")]
-    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — without content: 'was this request even sent', 'what came back', 'how long did it take'. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus five found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client), Abandoned (the connection went away first) or TimedOut (the local request deadline expired); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
+    [Description("Lists recorded language-server envelopes — time, direction, method, id, size, outcome and latency — without content. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error or standard output) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus six found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), StandardOutput (a line a named-pipe server wrote to stdout, verbatim), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client), Abandoned (the connection went away first) or TimedOut (the local request deadline expired); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         [Description("One server's connection, as get_lsp_capture_state lists them; omit for every connection.")]
         string? connectionId = null,
@@ -3336,7 +3353,9 @@ internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
-    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null);
+    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null,
+    string? Title = null,
+    string CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
 
 internal record ProjectInfoResult(
     string? ProjectName,
@@ -3414,7 +3433,7 @@ internal record AddFileResult(
 internal record WindowStateResult(string State, int X, int Y, int Width, int Height);
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
-internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window);
+internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);
 
 internal record ToolWindowInfo(string Name, bool Visible);
 
