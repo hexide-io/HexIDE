@@ -42,7 +42,9 @@ is, and a fold that disappeared with the server would expose the text it exists 
 ### Requirement: Language features SHALL degrade rather than fail
 Every language operation SHALL be best-effort: when no server is present, when the handshake failed, or when
 a request errors, the operation SHALL return an empty or absent result and SHALL NOT throw to the caller or
-tear down the connection.
+tear down the connection. Rename error replies other than cancellations SHALL instead return the server's
+message as a refusal, which the code window SHALL show. `-32803 RequestFailed` SHALL be logged at debug
+without consuming the method's failure warning; other errors retain that warning.
 
 Language intelligence is an enhancement, not a precondition for editing. A developer with no server
 installed must still get a working editor, and a single malformed request must not take out the session.
@@ -56,7 +58,7 @@ running.
 
 #### Scenario: A request fails
 - **WHEN** a language request fails or times out
-- **THEN** the caller receives the empty or absent result for that request
+- **THEN** the caller receives the empty or absent result, or a refusal message for a rename error
 - **AND** the connection remains usable for subsequent requests
 
 #### Scenario: The server never answers one request
@@ -70,6 +72,12 @@ running.
 - **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
 - **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed
 - **AND** a later genuine failure SHALL still receive the method's once-per-connection warning
+- **AND** a superseded rename SHALL show no refusal dialog either
+
+#### Scenario: A server refuses a rename
+- **WHEN** a server returns `-32803 RequestFailed` to a rename
+- **THEN** the code window displays the server's message and applies no edits
+- **AND** a later unexpected failure of rename can still produce its first warning
 
 #### Scenario: The server exits unexpectedly
 - **WHEN** the language server process exits while the IDE is running
