@@ -240,8 +240,9 @@ deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or
 after `initialize` has been answered. An externally owned pipe server SHALL receive neither message;
 teardown SHALL close only its connection. A launched pipe server SHALL get two seconds to exit before
 its remaining process tree is killed, including during bring-up. Both messages
-SHALL omit the `params` member. After killing a remaining child, the stdio transport SHALL wait up to
-two seconds for termination before disposing the process handle.
+SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
+kill the remaining process tree and wait up to two seconds for termination before disposing the process
+handle. The process exit code SHALL remain observable in the conversation during client stop.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
@@ -256,6 +257,16 @@ still goes away.
 - **WHEN** the server receives `shutdown` but never answers it
 - **THEN** the client stops waiting after two seconds and attempts `exit`
 - **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
+
+#### Scenario: A stdio server handles exit cleanly
+- **WHEN** the server exits within two seconds of receiving `exit` after `shutdown`
+- **THEN** it is allowed to terminate without being killed
+- **AND** its exit code is recorded in the conversation
+
+#### Scenario: A stdio wrapper ignores exit
+- **WHEN** a launched stdio server remains alive after the exit grace period
+- **THEN** its process tree is killed, including its server child
+- **AND** the observed exit code is recorded before transport disposal finishes
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
