@@ -573,14 +573,41 @@ follow those containers, retaining their relative visual-child order.
 - **WHEN** a selected row is the third row on screen
 - **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
 
+### Requirement: Large discovery trees prioritize showing controls
+
+A `dump_visual_tree` tree exceeding the 40,000-character tree budget SHALL first omit children below
+hidden nodes, retaining the hidden nodes and marking omitted children with `truncated`. The requested
+root SHALL retain its immediate children so a caller can retrieve more by rooting a subsequent dump at
+an omitted branch. If necessary, the server SHALL then cut other branches to the greatest depth
+that fits, retaining at least one level and preserving the active document subtree (to the requested
+maxDepth) and its ancestors. If the active document alone prevents fitting, the note SHALL explain
+that it remains over budget and advise scoping with `root`. The reply note SHALL explain each kind of omission and how to
+retrieve the rest. A tree that fits SHALL remain unchanged; `match` searches SHALL search the unpruned
+tree to the requested depth.
+
+#### Scenario: Hidden toolbars compete with an open document
+- **WHEN** a dump exceeds the budget and omitting hidden toolbar children brings it within budget
+- **THEN** the visible document retains its full requested depth
+- **AND** hidden toolbars retain addressable paths and `truncated` markers
+- **AND** the note explains that hidden children were omitted and can be retrieved using `root`
+
+#### Scenario: Visible chrome still competes with the designer
+- **WHEN** a whole-IDE dump with a designer open remains over budget after hidden children are omitted
+- **THEN** the active designer's subtree retains its controls to the requested depth
+- **AND** other visible branches lose depth before the designer
+- **AND** the note identifies the preserved active document and explains how to retrieve omitted branches
+
 ### Requirement: Pointer drags through interact
 
 `interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and
 modifier keys. Release coordinates SHALL be relative to the target, or to the control at the pasted
 `dump_visual_tree` path. The press SHALL establish implicit capture, allow press work to run, then send
 several moves with the button held before releasing to the pointer capturer or the hit-tested control.
-The reply SHALL name the press landing, release point and recipient, and whether capture routed the release.
-Combining `double` with `to` SHALL be refused before pressing.
+Each held move SHALL be input of its own, with the dispatcher's layout run before the next, as a real
+pointer's moves are. The reply SHALL name the press landing, release point and recipient, and whether
+capture routed the release. A drag pressed in Dock's layout SHALL also say which tools or documents Dock
+moved, and where, or that the layout is unchanged. Combining `double` with `to` SHALL be refused before
+pressing.
 
 #### Scenario: Draw a toolbox control
 
@@ -591,6 +618,17 @@ Combining `double` with `to` SHALL be refused before pressing.
 
 - **WHEN** a drag names another control's path as its release destination
 - **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture
+
+#### Scenario: Dock a tool window by dragging its title strip
+
+- **WHEN** a drag presses a tool window's title strip and releases over the centre of another dock
+- **THEN** Dock's drop target, added on the first held move, has been laid out by the release, and the tool joins that dock
+- **AND** the reply says Dock moved it, from where to where
+
+#### Scenario: A drag that docks nothing
+
+- **WHEN** a drag in Dock's layout releases where no drop target is
+- **THEN** the reply says the layout is unchanged, so nothing was docked
 
 ### Requirement: Properties category expansion
 
