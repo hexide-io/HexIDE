@@ -9,6 +9,12 @@
 > The [addendum](#addendum-2026-10-11-what-a-shipped-command-registry-adds) at the end was measured
 > separately, against `f229c8e` on 2026-10-11, and has the same status.
 
+> **Phase 2 update (#504):** the three omitted routed commands identified below are now in
+> `CommandKeyMapping.Table`. `KeymapServiceTests.CommandTableMatchesEveryRoutedCommandByNameAndInstance`
+> guards its exact names and instances against `ApplicationCommands`. The historical counts and
+> unguarded-table observations below describe the survey revision, not today's coverage. ViewModel
+> commands and broader command metadata remain work for the surface split-outs.
+
 ## The question
 
 `--personality <vb6|vbaode|vba>` was an early attempt at "here is a bunch of JSON to customise the IDE —

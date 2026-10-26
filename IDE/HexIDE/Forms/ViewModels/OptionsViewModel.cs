@@ -111,6 +111,10 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         RootNodes.Add(editor);
         RootNodes.Add(designer);
 
+        var artifacts = new OptionsNodeViewModel(_localization.GetString("Str.LspArtifact.Title"),
+            new WorkspaceArtifactPageViewModel(), "Str.LspArtifact.Title");
+        _keyedNodes.Add(artifacts);
+        RootNodes.Add(artifacts);
         BuildAddinsGroup();
 
         // Developer node — last in the tree, and only when the session is in developer mode.

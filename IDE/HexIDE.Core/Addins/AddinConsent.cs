@@ -21,6 +21,7 @@ public sealed record AddinConsentRecord
     [JsonPropertyName("manifestHash")] public string ManifestHash { get; init; } = "";
     /// <summary><see cref="ConsentDecisions.Allow"/> or <see cref="ConsentDecisions.Block"/>.</summary>
     [JsonPropertyName("decision")]     public string Decision { get; init; } = "";
+    [JsonPropertyName("workspaceRoot")] public string? WorkspaceRoot { get; init; }
     [JsonPropertyName("timestampUtc")] public string TimestampUtc { get; init; } = "";
 }
 

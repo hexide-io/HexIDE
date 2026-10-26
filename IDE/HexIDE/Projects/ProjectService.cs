@@ -1195,7 +1195,8 @@ public class ProjectService : IProjectService
                 throw new OperationCanceledException();
             }
 
-            SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
+            SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")),
+                includeRelatedDocuments: false);
 
             EncodePackageSources(projectDefinition);
 
@@ -2030,7 +2031,7 @@ public class ProjectService : IProjectService
                 DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code) : null);
     }
 
-    private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
+    private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath, bool includeRelatedDocuments = true)
     {
         // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
         // anything is written (EnsureEveryMemberListed), and by here every member it wrote has its path. Not in
@@ -2040,7 +2041,7 @@ public class ProjectService : IProjectService
             throw new InvalidOperationException(
                 $"{definition.Name}'s project file would leave out {string.Join(", ", unlisted)}, which "
               + "have no file, so it was not written.");
-        var serialized = new ProjectSerializer().Serialize(definition, projectPath);
+        var serialized = new ProjectSerializer().Serialize(definition, projectPath, includeRelatedDocuments: includeRelatedDocuments);
         AtomicWriteText(projectPath, serialized,
             Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
         // A kept line names its file from the folder it was read in. A project the loader did not read has that folder

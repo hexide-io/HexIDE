@@ -254,8 +254,8 @@ public class FormInstanceTests
     [AvaloniaFact]
     public void A_fault_in_Form_Load_ends_the_start_before_the_window_is_shown()
     {
-        // A form's Move is not implemented yet, so the statement faults, and a fault ends the run.
-        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    Me.Move 0, 0\n    Debug.Print \"load end\"\nEnd Sub\n");
+        // GoSub is not implemented, so the statement faults, and a fault ends the run.
+        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    GoSub There\nThere:\n    Debug.Print \"load end\"\nEnd Sub\n");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>();
         run.Printed.Should().Equal("load");

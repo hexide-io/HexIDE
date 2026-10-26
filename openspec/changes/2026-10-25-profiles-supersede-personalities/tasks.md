@@ -1,21 +1,26 @@
 # Tasks
 
-This proposal is the #504 deliverable. Every implementation task stays unchecked pending supervisor
-review and Jen's approval. Sizes use `docs/issue-labels.md`; these are separate deliveries, not one
-large implementation issue. No follow-up issue is created by this document.
+Jen approved this change as written on 2026-10-25 in #504 (after #1953). The latest supervisor
+comment authorises phase 2 only for this delivery. Sizes use `docs/issue-labels.md`; these are separate
+deliveries, not one large implementation issue. No follow-up issue is created by this document.
 
 ## 1. Review gate
 
-- [ ] Supervisor reviews proposal, design and deltas; Jen approves the detailed shape.
+- [x] Supervisor reviews proposal, design and deltas; Jen approves the detailed shape. Satisfied by
+  Jen's 2026-10-25 approval in #504, as confirmed by the latest supervisor comment.
 
 ## 2. Prerequisite and independent corrections
 
-- [ ] **#415 — small:** complete and guard `CommandKeyMapping.Table` against routed commands. The
+- [x] **#415 — small:** complete and guard `CommandKeyMapping.Table` against routed commands. The
   existing table is the seam; prove the guard fails with an omitted entry. Broader command metadata and
-  ViewModel/provider joins belong to the surface work, not a new prerequisite hidden in #415.
-- [ ] **#419 — trivial:** verify the live personality spec's toolbar claim is removed (it already is
+  ViewModel/provider joins belong to the surface work, not a new prerequisite hidden in #415. Added
+  the three missing entries; the exact-name/instance guard and all three binding cases failed before
+  the fix (4 cases), then passed. Full HexIDE.Tests: 3,892 passed, 20 skipped; Desktop Debug: zero
+  warnings/errors. Strict OpenSpec validation and tree hygiene pass.
+- [x] **#419 — trivial:** verify the live personality spec's toolbar claim is removed (it already is
   in this checkout); when profiles land, reconcile terminology without implementing toolbar gating
-  against the retiring personality enum.
+  against the retiring personality enum. Verified the live requirement says only menu entries and
+  project types; no toolbar gating or terminology migration is introduced in phase 2.
 
 ## 3. Loader and migration split-outs
 
