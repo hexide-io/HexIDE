@@ -28,15 +28,14 @@ internal static class ProgressBarMembers
     // The extender's members every control has, which the shared bindings and members answer.
     private static readonly HashSet<string> Shared = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Name", "Index", "Left", "Top", "Width", "Height", "Visible", "Tag", "ToolTipText", "Container", "Parent",
+        "Name", "Index", "Left", "Top", "Width", "Height", "Visible", "Tag", "ToolTipText", "TabIndex", "Container", "Parent",
         "Object", "Move", "ZOrder", "Drag", "ShowWhatsThis",
     };
 
-    // The extender's members a ProgressBar has in VB6 that HexIDE doesn't implement yet. TabIndex is no control's at run
-    // time yet (#1974).
+    // The extender's members a ProgressBar has in VB6 that HexIDE doesn't implement yet.
     private static readonly HashSet<string> ExtenderNotImplemented = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Align", "DragIcon", "DragMode", "WhatsThisHelpID", "TabIndex",
+        "Align", "DragIcon", "DragMode", "WhatsThisHelpID",
     };
 
     /// <summary>A member read.</summary>

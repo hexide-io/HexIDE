@@ -115,7 +115,8 @@ the handler either way, so no headless test can tell.
 - Wider: one `f1 resize 5700x4200 ws0`;
 - the same width set again: nothing.
 
-**A form's `Move`** stops the program, refused as not implemented: #1569.
+**A form's `Move`** stopped the program, refused as not implemented. It runs since #1569, which measured it: [A form's
+Move](a-forms-move.md#a-forms-move-2026-10-26-1569).
 
 **Recorded here and left to their own issues:** GotFocus and LostFocus around Activate and Deactivate (#1101), and
 Paint (#991).

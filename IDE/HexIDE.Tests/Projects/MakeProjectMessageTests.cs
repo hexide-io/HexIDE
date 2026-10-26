@@ -42,7 +42,7 @@ public class MakeProjectMessageTests
     }
 
     [Fact]
-    public async Task A_missing_runtime_names_the_folder_looked_in_and_the_files_not_found()
+    public async Task A_missing_runtime_names_the_folder_looked_in_and_the_runner_not_found()
     {
         // #1947: "see the README" pointed at nothing, and gave no way to tell a runtime not built from one built elsewhere.
         var ide = Directory.CreateTempSubdirectory("hexide-make-").FullName;
@@ -52,55 +52,15 @@ public class MakeProjectMessageTests
             windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(Path.Join(ide, "Made.exe"));
             var service = Service();
             service.RuntimeDirectory = ide;
+            // The runner beside the IDE is not the runtime: only standalone/ holds that.
+            File.WriteAllText(Path.Join(ide, ProjectService.StandaloneRunnerName()!), "not the runtime");
 
             Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
 
             await make.Should().ThrowAsync<OperationCanceledException>();
-            await windows.Received().MessageBox(
-                $"{Path.Join(ide, "standalone")} | {string.Join(", ", ProjectService.StandaloneRuntimeFiles()!)}",
+            await windows.Received().MessageBox($"{Path.Join(ide, "standalone")} | {ProjectService.StandaloneRunnerName()}",
                 icon: MessageBoxIcon.Information);
         }
-        finally { Directory.Delete(ide, true); }
-    }
-
-    private static string Fixture(params string[] files)
-    {
-        var ide = Directory.CreateTempSubdirectory("hexide-runtime-").FullName;
-        foreach (var file in files)
-        {
-            var path = Path.Join(ide, file);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, "runtime fixture");
-        }
-        return ide;
-    }
-
-    private static string?[] Found(string ide, params string[] names) =>
-        [.. ProjectService.FindStandaloneRuntime(ide, "win-x64", names)
-            .Select(f => f is null ? null : Path.GetRelativePath(ide, f.FullName).Replace('\\', '/'))];
-
-    [Fact]
-    public void A_runtime_published_without_a_runtime_identifier_is_found_in_its_runtimes_folder()
-    {
-        // A publish with no -r leaves the native libraries under runtimes/<rid>/native/, where Make did not look (#1947).
-        var ide = Fixture("standalone/Runner.exe", "standalone/runtimes/win-x64/native/a.dll");
-        try { Found(ide, "Runner.exe", "a.dll").Should().Equal("standalone/Runner.exe", "standalone/runtimes/win-x64/native/a.dll"); }
-        finally { Directory.Delete(ide, true); }
-    }
-
-    [Fact]
-    public void A_native_library_in_the_runtime_is_preferred_to_the_IDEs_own_copy_and_either_layout_of_that_is_used()
-    {
-        var ide = Fixture("standalone/Runner.exe", "standalone/a.dll", "a.dll", "runtimes/win-x64/native/b.dll");
-        try { Found(ide, "Runner.exe", "a.dll", "b.dll").Should().Equal("standalone/Runner.exe", "standalone/a.dll", "runtimes/win-x64/native/b.dll"); }
-        finally { Directory.Delete(ide, true); }
-    }
-
-    [Fact]
-    public void The_runner_is_taken_only_from_the_runtime_folder()
-    {
-        var ide = Fixture("Runner.exe", "standalone/runtimes/win-x64/native/Runner.exe", "a.dll");
-        try { Found(ide, "Runner.exe", "a.dll").Should().Equal(null, "a.dll"); }
         finally { Directory.Delete(ide, true); }
     }
 
