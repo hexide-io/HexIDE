@@ -4905,6 +4905,10 @@ second copy of an item or a row for one out of view, and a path to it resolved.
 > - **The dump that followed** (`interactiveOnly` false, `maxDepth` 6) listed the four rows in view, Width, Top,
 >   StartUpPosition and Left. Each appeared once, and nothing out of view was listed.
 > - **The dump's order is the reverse of the screen's:** [#1966](https://github.com/hexide-io/HexIDE/issues/1966).
+>   Fixed in #1966: the shared collector orders items-panel containers by their owning list's item index,
+>   with non-container children afterwards. Two Linux headless regressions reproduce the reversed end-jump
+>   and selected-third-row-first cases before the fix, and check item order, uniqueness and path resolution
+>   afterwards (`SelectScrolledOutRowTests`). Live verification of the Properties list remains for review.
 > - **Not met: a row out of view is listed.** After `scroll` `home` and a collapse of Appearance, the next dump
 >   listed Width, the selected row, with `isOffscreen: true`, and so did the one after Appearance was expanded. The
 >   fix says rows out of view are left out: [#1981](https://github.com/hexide-io/HexIDE/issues/1981).

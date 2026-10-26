@@ -4096,7 +4096,13 @@ public static class UiAutomationDriver
             foreach (var attached in AttachedPopupsOf(owner))
                 CollectPopupChildren(attached, acc, firstOnly);
 
-        foreach (var v in parent.GetVisualChildren())
+        // Virtualizing panels keep containers in creation order, which changes after scrolling (#1966).
+        var children = parent.GetVisualChildren();
+        if (parent is Panel { IsItemsHost: true } panel && panel.FindAncestorOfType<ItemsControl>() is { } items)
+            children = children.OrderBy(v => v is Control c && items.IndexFromContainer(c) is >= 0 and var index
+                ? index : int.MaxValue);
+
+        foreach (var v in children)
         {
             if (firstOnly && acc.Count > 0) return;
             if (v is Popup popup)
