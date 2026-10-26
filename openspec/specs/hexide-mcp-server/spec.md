@@ -109,6 +109,11 @@ day it lands, with nothing to add.
 - **WHEN** a dialog is added to the IDE
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
 
+#### Scenario: A grid recycles a row after filtering
+- **WHEN** filtering a DataGrid leaves recycled rows in its rows presenter
+- **THEN** interface discovery SHALL omit those rows and their stale cells
+- **AND** the remaining current rows SHALL each appear once with paths that resolve to them
+
 ### Requirement: Icon-only controls SHALL expose localized action names
 The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be

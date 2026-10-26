@@ -2383,8 +2383,14 @@ public static class UiAutomationDriver
     // with no owner and no index, and a visibility bound to that item, as the Properties window's rows are, keeps it
     // showing. Only containers: a control inside a row has no index of its own either. Only an items panel's own children:
     // a container written into a template, or set as content, is no list's row and no list released it (#1292 review).
+    // DataGrid keeps recycled rows in its presenter with their old Index and DataContext. Slot is the
+    // membership marker (-1 after detach); it is internal, so read it without treating every hidden row as released.
+    private static readonly PropertyInfo? GridRowSlot = typeof(DataGridRow).GetProperty("Slot", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private static bool Released(Control c) =>
-        c is ListBoxItem or TreeViewItem or TabItem
+        c is DataGridRow && c.GetVisualParent() is DataGridRowsPresenter
+        ? Safe(() => GridRowSlot?.GetValue(c) is int slot && slot < 0, false)
+        : c is ListBoxItem or TreeViewItem or TabItem
         && c.GetVisualParent() is Panel { IsItemsHost: true }
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
