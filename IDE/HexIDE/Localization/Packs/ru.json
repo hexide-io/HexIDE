@@ -2,8 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-разрядная",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-разрядная",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Развернуть или восстановить панель",
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
-    "Str.Dock.ScrollRight": "Прокрутить вкладки вправо"
+    "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков"
   }
 }

@@ -407,6 +407,21 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Parentheses coloured by nesting depth
+The VB6 code editor SHALL colour matching parentheses with the same theme-defined foreground, cycling
+through the `BracketDepth1`, `BracketDepth2` and `BracketDepth3` theme palette entries by nesting depth. It SHALL mark unmatched parentheses with a separate theme
+foreground (`BracketUnmatched`), ignore parentheses inside lexer string and comment tokens, and offer a persisted Editor → General
+option to disable this colouring. Existing editors SHALL repaint when the text, palette or option changes.
+
+#### Scenario: Nested pairs and an unmatched parenthesis
+- **WHEN** the editor displays `(()) )`
+- **THEN** the outer pair uses the first palette entry and the inner pair uses the second
+- **AND** the final closing parenthesis uses the unmatched foreground
+
+#### Scenario: Colouring disabled
+- **WHEN** the user disables the nesting-depth option
+- **THEN** parentheses retain ordinary syntax colouring, including unmatched parentheses
+
 ### Requirement: Find scopes SHALL include project members and live buffers
 Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
 All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.

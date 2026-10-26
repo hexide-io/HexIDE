@@ -2,8 +2,7 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "پینل بڑا کریں یا بحال کریں",
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
-    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں"
+    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد"
   }
 }

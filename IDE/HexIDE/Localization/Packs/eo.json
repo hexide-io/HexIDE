@@ -2,8 +2,7 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Maksimumigi aŭ restarigi panelon",
     "Str.Dock.Close": "Fermi panelon",
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
-    "Str.Dock.ScrollRight": "Rulumi langetojn dekstren"
+    "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj"
   }
 }

@@ -2,8 +2,7 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Encabezados fijos al desplazarse",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Máximo de encabezados fijados",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorear paréntesis por profundidad de anidamiento",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
@@ -893,6 +892,8 @@
     "Str.Dock.MaximizeRestore": "Maximizar o restaurar panel",
     "Str.Dock.Close": "Cerrar panel",
     "Str.Dock.ScrollLeft": "Desplazar pestañas a la izquierda",
-    "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha"
+    "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Encabezados fijos al desplazarse",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Máximo de encabezados fijados"
   }
 }
