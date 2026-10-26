@@ -94,9 +94,9 @@ public partial class CallStackToolViewModel : Tool
         finally { synchronizingSelection = false; }
     }
 
-    private CallStackRow CreateRow(string frame, int line, HexIDE.Dap.DapStop? stop = null, int? frameId = null) =>
+    private CallStackRow CreateRow(string frame, int line, HexIDE.Dap.DapStop? stop = null, int? frameId = null, string? module = null, bool isCaller = false) =>
         new(frame, line, string.Format(localization.GetString("Str.Tool.CallStack.RowName"),
-            frame.TrimStart('→', ' '), line), stop, frameId);
+            frame.TrimStart('→', ' '), line), stop, frameId, module, isCaller);
 
     private void Refresh(IDebugController debugController)
     {
@@ -104,21 +104,13 @@ public partial class CallStackToolViewModel : Tool
         FrameShown?.Invoke();
         var stack = debugController.GetCallStack();
         Frames = stack
-<<<<<<< HEAD
-            .Select((f, i) => new CallStackRow((i == 0 ? "→ " : "   ") + $"{f.Module}.{f.ProcName}", f.Line, Module: f.Module, IsCaller: i > 0))
-=======
-            .Select((f, i) => CreateRow((i == 0 ? "→ " : "   ") + $"{f.Module}.{f.ProcName}", f.Line))
->>>>>>> upstream/main
+            .Select((f, i) => CreateRow((i == 0 ? "→ " : "   ") + $"{f.Module}.{f.ProcName}", f.Line, module: f.Module, isCaller: i > 0))
             .ToList();
     }
 }
 
 /// <summary>One Call Stack row: the frame ("Module.Procedure", current marked) and its 1-based line.</summary>
-<<<<<<< HEAD
-public sealed record CallStackRow(string Frame, int Line, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null, string? Module = null, bool IsCaller = false)
-=======
-public sealed record CallStackRow(string Frame, int Line, string AccessibleName, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null)
->>>>>>> upstream/main
+public sealed record CallStackRow(string Frame, int Line, string AccessibleName, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null, string? Module = null, bool IsCaller = false)
 {
     // The name a row is shown and addressed by in dump_visual_tree: "Main, line 6". The record's own text carried the
     // debug session's id and stop generation, so a row's path went stale at every stop (#1182).
