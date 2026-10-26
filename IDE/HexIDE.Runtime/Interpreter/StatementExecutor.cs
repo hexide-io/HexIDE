@@ -378,7 +378,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             decimal m => m.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            DateTime dt => dt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            VbDate dt => dt.Serial.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             _ => null,
         };
         return full is null ? null : v.Type + ":" + full;
@@ -1279,7 +1279,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static Vb6Value.ValueType ForOperandType(Vb6Value.ValueType t) =>
         t == Vb6Value.ValueType.Boolean || t == Vb6Value.ValueType.EmptyVariant ? Vb6Value.ValueType.Integer : t;
 
-    // The result table of + for two numeric types (docs/vb6-fidelity-oracle.md, "+ and -"): the wider of the two, except that
+    // The result table of + for two numeric types (docs/vb6-fidelity-oracle/verified-findings.md, "+ and -"): the wider of the two, except that
     // a Long beside a Single is a Double. A Date beside any number is a Date. A Date beside a Decimal was not measured.
     private static Vb6Value.ValueType ForSumType(Vb6Value.ValueType a, Vb6Value.ValueType b, ParserRuleContext context)
     {
@@ -1584,16 +1584,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A condition that raised under Resume Next enters its own branch, the Then or the ElseIf it was testing (null; see
         // ConditionMet).
         if (await ConditionMet(context.ifBlockStmt().ifConditionStmt().valueStmt(), context) is not false)
-            return await VisitBranch(context.ifBlockStmt().block());
+            return await VisitBranch(context.ifBlockStmt().ifBlockBody()?.block());
 
         foreach (var elseIf in context.ifElseIfBlockStmt())
         {
             if (await ConditionMet(elseIf.ifConditionStmt().valueStmt(), elseIf) is not false)
-                return await VisitBranch(elseIf.block());
+                return await VisitBranch(elseIf.ifBlockBody()?.block());
         }
 
         if (context.ifElseBlockStmt() is { } elseBlock)
-            return await VisitBranch(elseBlock.block());
+            return await VisitBranch(elseBlock.ifBlockBody()?.block());
 
         return default;
     }
@@ -2265,6 +2265,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (variable.Type != Vb6Value.ValueType.Control ||
                 variable.Value is not Control control)
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
+            // Every member of a control Controls.Remove took out is 735 (measured, #1556).
+            VBProps.RefuseIfRemoved(control);
+
+            // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+            if (ProgressBarMembers.TrySet(control, memberIdentifier, value) is { } inBox)
+                return inBox ? default
+                    : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
 
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -2290,10 +2297,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
         {
+            if (procedureOrArrayCall.dictionaryCallStmt() != null)
+                throw new NotImplementedException("Bang access (!) in an assignment target is not supported: "
+                    + procedureOrArrayCall.GetText());
             if (procedureOrArrayCall.baseType() != null||
                 procedureOrArrayCall.iCS_S_NestedProcedureCall() != null ||
-                procedureOrArrayCall.typeHint() != null ||
-                procedureOrArrayCall.dictionaryCallStmt() != null)
+                procedureOrArrayCall.typeHint() != null)
                 throw new NotImplementedException();
 
             if (procedureOrArrayCall.argsCall().Length == 0)
@@ -2940,7 +2949,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <para>
     /// VB6 coerces the CASE VALUE to the SELECTOR's runtime type and then compares — it does not compare
     /// numerically, and it is not symmetric. Both halves are measured (see <i>Select Case matching</i> in
-    /// docs/vb6-fidelity-oracle.md): a <c>String</c> selector holding <c>"1.0"</c> does NOT match
+    /// docs/vb6-fidelity-oracle/select-case-matching--the-coercion-rule.md): a <c>String</c> selector holding <c>"1.0"</c> does NOT match
     /// <c>Case 1</c>, because <c>CStr(1)</c> is <c>"1"</c>; a <c>Long</c> selector holding 2 DOES match
     /// <c>Case 1.7</c>, because <c>CLng(1.7)</c> is 2. Comparing numerically would get both backwards.
     /// </para>
@@ -3014,7 +3023,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>
     /// A Variant selector against a Case value, neither converted into the other's type. Measured, native and p-code
-    /// (docs/vb6-fidelity-oracle.md, <i>A typed selector and a Variant one</i>):
+    /// (docs/vb6-fidelity-oracle/a-typed-selector-and-a-variant-one.md, <i>A typed selector and a Variant one</i>):
     /// <list type="bullet">
     /// <item>Against a TYPED Case value, a literal, a declared variable or a typed Function's result, the selector is read
     /// as that type. Against a String it is text, so 5 is not <c>Is &lt; "10"</c> and <c>Is = "5"</c> matches. Against a
@@ -3141,6 +3150,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && lst.InstanceEnv.TryGetVariableLocation(id, out var fieldLoc)
                 && curLoc == fieldLoc)
                 evtListener = lst;
+            // A control held in a form's WithEvents variable hears its events too (#1556), but a control array element can't
+            // be held (459, measured), and a class module's variable holding one is not implemented.
+            IModuleExecutionRoot? evtRoot = null;
+            if (evtListener != null && value.Value is Control heldControl)
+            {
+                if (VBProps.GetIndex(heldControl) is not null)
+                    throw new VBRunTimeException(context, VBStandardError.ThisComponentDoesntSupportTheSetOfEvents);
+                evtRoot = evtListener.FormWindow as IModuleExecutionRoot
+                    ?? throw new NotImplementedException($"A class's WithEvents {id} holding a control is not implemented (#1556)");
+            }
 
             // Refcount (Phase 4.2): AddRef the new referent BEFORE releasing the slot's old one — this ordering
             // protects `Set x = x` / aliased assignment, and (since a `New` RHS already ran its Initialize during
@@ -3151,6 +3170,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // RaiseEvent during the old source's teardown would reach the just-detached listener).
             if (evtListener != null && oldVal.Value is VbObject oldSrc)
                 oldSrc.RemoveSink(evtListener, id);
+            if (evtListener != null && oldVal.Value is Control oldControl)
+                ControlEvents.Unadvise(oldControl, evtListener, id);
             // Assign the new reference to the slot BEFORE releasing the old one (oracle-verified): a Class_Terminate
             // fired by the release observes the NEW value — `g` points to the new object, not the dying old one — and
             // a reassignment of the slot inside that Terminate is not clobbered by a late slot-write.
@@ -3168,6 +3189,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Advise the new source (RaiseEvent on it now reaches this listener).
             if (evtListener != null && value.Value is VbObject newSrc)
                 newSrc.AddSink(new EventSink(evtMe, id));
+            if (evtListener != null && evtRoot != null && value.Value is Control newControl)
+                ControlEvents.Advise(newControl, evtListener, evtRoot, id);
             await interpreter.ReleaseRef(oldVal);
             return ControlFlow.Nothing;
         }
@@ -3582,6 +3605,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
 
                 var asType = subStmt.asTypeClause();
+                if (isArray && asType?.type()?.complexType() is { } elementType)
+                {
+                    var (qualifier, typeName) = SplitTypeName(elementType.GetText());
+                    if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _))
+                        throw new NotImplementedException($"An array of the user-defined type {elementType.GetText()} is not supported (#178)");
+                }
                 Vb6Value value;
                 // The class or interface name a class-typed Dim was declared with, kept because an object slot
                 // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).
@@ -3614,6 +3643,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     else if (qualifier is null
                              ? VB6InBoxLibraries.TryEnumType(typeName, out _)
                              : VB6InBoxLibraries.TryEnumType(qualifier, typeName, out _))
+                        value = new Vb6Value(0L);
+                    // A referenced control library's enum is a type as well (#1082): `Dim s As ScrollingConstants`, and
+                    // `As MSComctlLib.ScrollingConstants`. Without this the first was an object of a referenced library's
+                    // type, Nothing, where VB6's is a Long.
+                    else if (IsControlLibraryEnum(qualifier, typeName))
                         value = new Vb6Value(0L);
                     else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
                     {
@@ -4227,6 +4261,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Nothing either way. A typo then runs on until the variable is used. With nothing referenced, a name nobody
     /// declares stays VB6's "User-defined type not defined".
     /// </summary>
+    private bool IsControlLibraryEnum(string? qualifier, string typeName)
+    {
+        foreach (var library in interpreter.BuiltIns.ControlLibraries)
+            if ((qualifier is null || library.Name.Equals(qualifier, StringComparison.OrdinalIgnoreCase))
+                && library.ContainerName(typeName) is not null)
+                return true;
+        return false;
+    }
+
     private bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
     {
         aliasScalar = null;

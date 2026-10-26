@@ -9,7 +9,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// <c>Write #</c> and <c>Input #</c> (#1521). Every expected value is what vb6.exe wrote or read for the same statements, native
 /// and p-code alike, under en-GB unless a test says otherwise: the probes and their logs are in
-/// docs/vb6-fidelity-oracle.md, "Write # and Input #".
+/// docs/vb6-fidelity-oracle/write--and-input.md, "Write # and Input #".
 /// <para>The probes read a written file back byte by byte with Binary <c>Get</c>, which HexIDE does not have, so the Write #
 /// tests read the file from C# instead. The Input # probes wrote each file with <c>Print #f, text;</c>, and these tests
 /// write the same bytes from C#; the <c>Input #</c> statement and what it prints are the probe's own.</para>

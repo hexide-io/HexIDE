@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;
@@ -116,10 +118,13 @@ public class FormSerializer
                   + "more than once while writing the form — the containment tree is cyclic or has a "
                   + "component claimed by two parents. Refusing to write a corrupted .frm.");
 
-            vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
+            var inBox = component.BaseClass as InBoxComponentClass;
+            vb.Begin(inBox?.TypeNameOf(component) ?? component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
             vb.BeginSortedProperties();
             WriteAllProperties(vb, component, citations);
             vb.EndSortedProperties();
+            if (inBox is not null)
+                WriteOwnProperties(vb, component, inBox, citations);
             WriteChildren(component, ChildrenOf(component));
             vb.End();
         }
@@ -270,9 +275,14 @@ public class FormSerializer
 
     private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
     {
+        var inBox = instance.BaseClass as InBoxComponentClass;
         foreach (var prop in instance.BaseClass.Properties)
         {
             if (prop == VBProperties.NameProperty)
+                continue;
+
+            // An in-box control's own properties go in the run after its extender's (#1082).
+            if (inBox is not null && inBox.OwnProperties.Contains(prop))
                 continue;
 
             // Invisible controls (e.g. Timer) have no Width/Height/Visible in VB6 — emitting them makes
@@ -281,6 +291,10 @@ public class FormSerializer
                 (prop == VBProperties.WidthProperty
                  || prop == VBProperties.HeightProperty
                  || prop == VBProperties.VisibleProperty))
+                continue;
+
+            if (prop == VBProperties.IntervalProperty && instance.BaseClass is TimerComponentClass
+                && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;
 
             // VB6's designer never writes a Dropdown Combo's Style, even once it was set to another and back: #926's saved
@@ -336,10 +350,69 @@ public class FormSerializer
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)
         {
+            if (inBox is not null && IsOwnRunLine(inBox, raw.Name))
+                continue;
             if (instance.BaseClass.Properties.Any(p =>
                     string.Equals(p.Name, raw.Name, StringComparison.OrdinalIgnoreCase) && instance.TryGetBoxedProperty(p, out _)))
                 continue;
             vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        }
+    }
+
+    // The lines of an in-box control's second run that HexIDE carries rather than models (#1082).
+    private static bool IsOwnRunLine(InBoxComponentClass inBox, string name) =>
+        name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
+        || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// An in-box control's second run (#1082), written after its extender's as VB6 writes it (measured): <c>_ExtentX</c>,
+    /// <c>_ExtentY</c> and <c>_Version</c>, then the control's own properties in the control's order, each only where it
+    /// differs from the control's default but for the one it always writes, a Boolean with its comment and an enum without.
+    /// </summary>
+    private static void WriteOwnProperties(VbFrmFormatSerializer vb, ComponentInstance instance, InBoxComponentClass inBox,
+        CompanionCitations citations)
+    {
+        ComponentInstance.UnknownRawProperty? Carried(string name) =>
+            instance.UnknownRawProperties.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is
+                { Name: not null } raw ? raw : null;
+        void WriteCarried(ComponentInstance.UnknownRawProperty raw) =>
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        static int? ValueOf(ComponentInstance.UnknownRawProperty? raw)
+        {
+            if (raw is not { Lines.Count: 1 } line)
+                return null;
+            var text = line.Lines[0];
+            return int.TryParse(text[(text.IndexOf('=') + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                ? value : null;
+        }
+
+        var readX = Carried("_ExtentX");
+        var readY = Carried("_ExtentY");
+        var extents = inBox.ExtentsToWrite(instance, ValueOf(readX), ValueOf(readY));
+        if (ValueOf(readX) == extents.X && ValueOf(readY) == extents.Y)
+        {
+            WriteCarried(readX!.Value);
+            WriteCarried(readY!.Value);
+        }
+        else
+        {
+            vb.WriteProperty("_ExtentX", typeof(int), extents.X);
+            vb.WriteProperty("_ExtentY", typeof(int), extents.Y);
+        }
+        if (Carried("_Version") is { } version)
+            WriteCarried(version);
+        else
+            vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+
+        foreach (var property in inBox.OwnProperties)
+        {
+            var value = instance.GetBoxedPropertyOrDefault(property);
+            if (value is not null && (inBox.IsAlwaysWritten(property) || !Equals(value, property.BoxedDefaultValue(inBox))))
+                vb.WriteProperty(property.Name, property.PropertyType, value);
+            foreach (var (name, after) in inBox.CarriedOwnProperties)
+                if (ReferenceEquals(after, property) && Carried(name) is { } carried)
+                    WriteCarried(carried);
         }
     }
 }

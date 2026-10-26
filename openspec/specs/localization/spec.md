@@ -26,12 +26,41 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Renaming a symbol in the code window
+- **WHEN** the code window opens the Rename input dialog
+- **THEN** its prompt and title resolve `Str.CodeEditor.Dialog.RenamePrompt` and `Str.CodeEditor.Dialog.RenameTitle` through the active localization service
+
+#### Scenario: Refusing an empty or duplicate component name
+- **WHEN** a control or form rename is refused because the name is empty or already used in the form
+- **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
+
 #### Scenario: Project-load diagnostics cross the runtime boundary
 - **WHEN** the runtime deserializer reports a form-load warning to the IDE
 - **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language
 - **AND** the project-load heading, remaining-warning count and skipped ActiveX Document notice use localization keys
 - **AND** a runtime host without localization retains an English diagnostic
 - **AND** warnings describe the affected content rather than internal development phases
+
+#### Scenario: Call Stack row automation names
+- **WHEN** Call Stack rows are rebuilt at a stop in either debugger
+- **THEN** their automation names use the active language's row-name format with the frame name and line
+- **AND** the row's string representation uses the same text for selection summaries without a container
+- **AND** a language change while stopped is reflected when the rows are next rebuilt
+
+### Requirement: Program message box buttons SHALL use the IDE language
+Message boxes opened through the IDE SHALL resolve their OK, Cancel, Abort, Retry, Ignore, Yes and No
+captions through the localization service when shown. The program's prompt and title SHALL remain its
+own text. The standalone runner, which has no localization service, SHALL retain English button captions.
+
+#### Scenario: A program asks a question in a French IDE
+- **WHEN** a program opens a Yes/No message box in an IDE using French
+- **THEN** its buttons read Oui and Non and return the same results as their English counterparts
+
+#### Scenario: Make Project cannot make a program
+- **WHEN** Make Project finds no startup project, runs in a browser or on an unsupported system, lacks the standalone runtime, or encounters an unexpected error
+- **THEN** the message is resolved through the active language pack
+- **AND** the unsupported-system message names supported operating systems rather than asking for a source-code search
+- **AND** an unexpected error uses the Error icon and says the program was not made, followed by the exception detail
 
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
@@ -93,6 +122,12 @@ not be reverted before the user was already looking at it.
 - **WHEN** the user selects a different language
 - **THEN** the interface changes immediately, including windows already open
 
+#### Scenario: Tool labels and debugger placeholders follow a live switch
+- **WHEN** the language changes with Object Browser, Locals or Watches already open
+- **THEN** the all-libraries entry and members header use the new language, preserving the selected class
+- **AND** the Locals ready header and out-of-context watch values update immediately
+- **AND** displayed frame names, evaluated values and debugger errors remain intact
+
 ### Requirement: A language change SHALL be revertible without reading the new language
 After a language change the IDE SHALL offer to keep or undo it in a way that does not require reading the
 new language, and SHALL undo it automatically if not confirmed within a short period.
@@ -126,6 +161,15 @@ controls to the other side of a form whose layout they did not change.
 #### Scenario: Designing a form under a right-to-left interface
 - **WHEN** a form is open on the design surface under a right-to-left language
 - **THEN** the canvas and the controls on it are not mirrored
+
+#### Scenario: Icon direction under a right-to-left interface
+- **WHEN** a right-to-left language is active
+- **THEN** drawn command icons and tree chevrons SHALL follow Avalonia's inherited mirroring without an additional flip
+- **AND** Object Browser navigation glyphs drawn as text SHALL flip horizontally
+- **AND** Start's play icon SHALL retain its left-to-right appearance in menus and toolbars
+
+Scissors, magnifiers and other non-navigation icons retain their existing inherited mirroring; no additional
+exceptions are selected here (#40).
 
 ### Requirement: A pseudo-localized mode SHALL exist to find untranslated text
 The IDE SHALL provide a generated pseudo-localized mode covering every canonical key, in both directions,

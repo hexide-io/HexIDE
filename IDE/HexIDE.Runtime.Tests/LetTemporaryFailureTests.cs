@@ -321,7 +321,7 @@ public class LetTemporaryFailureTests : BaseVBTestFixture
         AssertDebugLog(["String", new Vb6Value(450L), "-"]);
     }
 
-    // Measured: #878, docs/vb6-fidelity-oracle.md, The in-box objects.
+    // Measured: #878, docs/vb6-fidelity-oracle/an-object-used-as-a-value.md, The in-box objects.
     [Fact]
     public async Task App()
     {

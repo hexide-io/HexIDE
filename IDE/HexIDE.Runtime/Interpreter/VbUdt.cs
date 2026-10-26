@@ -15,7 +15,7 @@ public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, strin
 /// A UDT's type identity is MODULE-scoped — measured. Two modules may each declare a <c>Public Type Point</c>
 /// and they are two unrelated types; <c>Module2.Point</c> names one of them specifically, and a Private one is
 /// invisible from anywhere else. (An Enum is different: its identity is PROJECT-scoped, so two modules may not
-/// both export one and <c>Module2.MyEnum</c> is not a type name at all. See docs/vb6-fidelity-oracle.md.)
+/// both export one and <c>Module2.MyEnum</c> is not a type name at all. See docs/vb6-fidelity-oracle/module-scope-for-types-and-enums.md.)
 /// </para>
 /// </summary>
 public sealed class UdtTypeDef

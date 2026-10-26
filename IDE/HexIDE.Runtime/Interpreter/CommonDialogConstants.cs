@@ -36,11 +36,7 @@ internal static class CommonDialogConstants
 
     internal static bool TryBare(string name, out Vb6Value value) => bare.Value.TryGetValue(name, out value);
 
-    /// <summary>Whether an <c>Object=</c> line names the CommonDialog's library.</summary>
-    internal static bool IsReference(string line)
-    {
-        var trimmed = line.TrimStart();
-        return trimmed.StartsWith("Object", StringComparison.OrdinalIgnoreCase)
-               && trimmed.Contains(Guid, StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>Whether an <c>Object=</c> line, a <c>.vbp</c>'s or a form header's, names the CommonDialog's library.</summary>
+    internal static bool IsReference(string line) =>
+        ProjectElements.ObjectReference.TryParse(line, out var reference) && reference.Names(Guid);
 }

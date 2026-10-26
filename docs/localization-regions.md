@@ -9,6 +9,9 @@ See the [localization system](../openspec/specs/localization/spec.md) spec for t
 and the [language packs](../openspec/specs/language-packs/spec.md) spec for the per-language content this
 catalog tracks.
 
+The status bar’s caret position and insert/overtype indicators are translated in every shipped pack
+and refresh when the language changes (#960).
+
 ## How packs and regions work
 
 - **Pack ids are BCP-47** — a neutral language (`en`, `fr`, `zh-Hans`) or `language-REGION` (`en-GB`,

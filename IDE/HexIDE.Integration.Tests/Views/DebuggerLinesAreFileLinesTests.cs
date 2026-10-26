@@ -106,6 +106,55 @@ public class DebuggerLinesAreFileLinesTests
     }
 
     [AvaloniaFact]
+    public Task A_standard_module_breakpoint_stops_through_the_project_runner() =>
+        ModuleBreakpoint(ModuleKind.StandardModule);
+
+    [AvaloniaFact]
+    public Task A_class_module_breakpoint_stops_through_the_project_runner() =>
+        ModuleBreakpoint(ModuleKind.ClassModule);
+
+    private static async Task ModuleBreakpoint(ModuleKind kind)
+    {
+        var form = AForm(kind == ModuleKind.StandardModule
+            ? "Helpers.Work"
+            : "Dim worker As New Helpers\r\n    worker.Work");
+        var module = new ModuleDefinition(form.Owner, "Helpers", kind);
+        module.RecordOriginalHeader(kind == ModuleKind.StandardModule
+            ? "Attribute VB_Name = \"Helpers\"\r\n"
+            : "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1\r\nEND\r\nAttribute VB_Name = \"Helpers\"\r\n");
+        module.UpdateCode("Public Sub Work()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+        form.Owner.AddModule(module);
+        var line = kind == ModuleKind.StandardModule ? 3 : 7;
+        var breakpoints = new BreakpointService();
+        breakpoints.Toggle(DocumentIdentity.For(module), line);
+        var debugger = new DebugController();
+        var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+        debugger.Stopped += info => stopped.TrySetResult(info);
+        var runner = new ProjectRunnerService(
+            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
+            Substitute.For<ILocalizationService>(), debugger, breakpoints, new WatchService(), new RunScope());
+        var failures = new List<string>();
+        runner.StartFailed += failures.Add;
+        runner.RunFailed += failures.Add;
+        try
+        {
+            runner.RunProject(form.Owner);
+
+            var winner = await Task.WhenAny(stopped.Task, Task.Delay(5000));
+            failures.Should().BeEmpty();
+            winner.Should().BeSameAs(stopped.Task, "F5 must apply the stored module breakpoint and execute its code");
+            var info = await stopped.Task;
+            info.Reason.Should().Be(StopReason.Breakpoint);
+            info.Module.Should().Be("Helpers");
+            info.Line.Should().Be(line);
+        }
+        finally
+        {
+            runner.EndProject();
+        }
+    }
+
+    [AvaloniaFact]
     public void A_form_run_is_given_the_forms_whole_file()
     {
         var form = AForm("Debug.Print 1");

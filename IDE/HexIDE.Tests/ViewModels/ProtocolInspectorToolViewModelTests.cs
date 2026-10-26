@@ -20,6 +20,17 @@ namespace HexIDE.Tests.ViewModels;
 /// </remarks>
 public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 {
+    [Fact]
+    public async Task TimedOutRequestsShowTheirOutcomeAndCountAsFailures()
+    {
+        _capture.Record("probe", ConversationDirection.Sent, ConversationEntryKind.Request, "textDocument/hover", "1", 0);
+        _capture.EndRequests("probe", ConversationDirection.Sent, "1", ConversationOutcome.TimedOut);
+        await _capture.DrainAsync();
+        var envelope = _capture.Snapshot("probe").Single();
+        envelope.IsFailure().Should().BeTrue();
+        new ProtocolInspectorRowViewModel(envelope, false, Loc()).Outcome.Should().Be("Str.Tool.ProtocolInspector.Outcome.TimedOut");
+    }
+
     private readonly ConversationLog _capture = new();
 
     public async ValueTask DisposeAsync()
@@ -303,6 +314,41 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         vm.Rows.Should().HaveCount(2);
         vm.HasPending.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PendingCountsArrivalsSinceRefreshRatherThanHiddenRows()
+    {
+        Frame("vb6", "first");
+        Frame("other", "hidden");
+        var vm = Sut();
+        vm.ShowOnly("vb6");
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(0);
+
+        Frame("other", "new");
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(1);
+        vm.Rows.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task PendingSurvivesEvictionAndClear()
+    {
+        await using var capture = new ConversationLog(new CaptureLimits(EnvelopeEntries: 100, PrologueEntries: 0));
+        for (var i = 0; i < 100; i++)
+            capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "old", null, 1);
+        var vm = Over(capture);
+        capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "new", null, 1);
+        await capture.DrainAsync();
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(1);
+
+        await capture.ClearAsync();
+        capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "afterClear", null, 1);
+        await capture.DrainAsync();
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(2);
     }
 
     // ── Losses ───────────────────────────────────────────────────────────────
