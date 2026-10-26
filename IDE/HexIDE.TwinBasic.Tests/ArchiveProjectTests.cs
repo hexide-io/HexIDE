@@ -29,6 +29,41 @@ public sealed class ArchiveProjectTests : IDisposable
         stream.CanRead.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("{\"project.buildType\": \"ActiveX DLL\"}", "ActiveX DLL")]
+    [InlineData("{\n\t// a comment, as the IDE writes them\n\t\"project.buildType\": \"Standard EXE\",\n}", "Standard EXE")]
+    [InlineData("{\"project.appTitle\": \"x\"}", null)]
+    [InlineData("{\"project.buildType\": 3}", null)]
+    [InlineData("not json", null)]
+    public void A_projects_build_type_comes_from_its_Settings_or_is_unknown(string settings, string? expected)
+    {
+        var project = Read(Container(FileNode("Settings", settings), FileNode("Main.twin", "one")));
+
+        TwinBasicCompilationConstants.BuildTypeOf(project.Container).Should().Be(expected);
+    }
+
+    [Fact]
+    public void A_project_with_no_Settings_has_no_known_build_type()
+    {
+        TwinBasicCompilationConstants.BuildTypeOf(Read(Container(FileNode("Main.twin", "one"))).Container).Should().BeNull();
+    }
+
+    [Fact]
+    public void The_built_ins_are_the_ones_measured_on_beta_1024()
+    {
+        var at32 = TwinBasicCompilationConstants.BuiltIns(win64: false, build: null, buildType: "Standard EXE");
+        at32.Should().BeEquivalentTo(new Dictionary<string, object?>
+        {
+            ["Win16"] = 0, ["Win32"] = 1, ["Win64"] = 0, ["VBA6"] = 1, ["VBA7"] = 1, ["MAC"] = 0, ["TWINBASIC"] = 1,
+            ["TWINBASIC_BUILD"] = null, ["TWINBASIC_BUILD_TYPE"] = "Standard EXE",
+        });
+        var at64 = TwinBasicCompilationConstants.BuiltIns(win64: true, build: 1024, buildType: null);
+        at64["Win64"].Should().Be(1);
+        at64["Win32"].Should().Be(1, "Win32 stays 1 in a 64-bit build");
+        at64["TWINBASIC_BUILD"].Should().Be(1024);
+        at64["twinbasic_build_type"].Should().BeNull("names are found without regard to case, and an unknown one is null");
+    }
+
     [Fact]
     public void Identity_is_project_qualified_and_stable_across_new_snapshots()
     {
