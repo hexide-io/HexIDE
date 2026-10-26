@@ -374,7 +374,7 @@ qualifier edit. The IDE rewrites a member's qualifiers itself when it saves a do
 changes, at the document's own Save or Save As, and when it writes the document to another file. VB6 was
 measured doing the same. A project save leaves an unchanged member's file as it was read, and so did VB6's.
 
-**It answers with nothing** for:
+**It refuses with `-32803 RequestFailed` and a reason** for:
 
 - a caret on a protected line;
 - a name the designer block declares — the form's, a control's or a menu's — wherever the caret is. Its
@@ -387,8 +387,7 @@ measured doing the same. A project save leaves an unchanged member's file as it 
   and `Attribute` (refused as a parameter) were found in the oracle by the review of this document;
 - a caret on a keyword (`VbKeywords.ReservedWords`), a rule older than the rest.
 
-The code window asks the first three questions itself and says why it refuses, because an answer of nothing
-shows the developer nothing at all. It asks the first two before it prompts for a name, and the third after
+The code window asks the first three questions itself and says why it refuses, and also shows the server's refusal message when a request is declined. It asks the first two before it prompts for a name, and the third after
 the prompt and before it sends the request. A local that shares only a property
 name the layout sets, such as `Caption`, or the `Index` parameter of a control array's event handler, is
 renamed as usual: its uses in the code change, and the designer lines that set `Caption` do not.
@@ -397,13 +396,10 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   workspace model. **Semantic rename is explicitly outside the limit**, so this will not grow into it. For
   the same reason a local that shares a control's name is declined along with the control: telling a
   reference to the control from the local is binding.
-- ◐ No `prepareRename`, so the server cannot say before the prompt that a position cannot be renamed. The
-  code window covers a protected line and a declared name itself. On a keyword the prompt still appears,
-  takes a name, and then nothing happens.
-- ◐ Every refusal above is answered with `null`, which the protocol reads as "no change was required" rather
-  than "could not be done". A client that does not ask the same questions first shows nothing, and the
-  keyword refusal reaches HexIDE's own code window that way
-  ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
+- ◐ No `prepareRename`, so the server cannot say before the prompt that a position cannot be renamed. On a
+  keyword the prompt still appears, then the refusal explains why no edit was made (#1015).
+- A caret with no word, or no editable occurrences, still returns `null` (no change required). Rename is
+  scheduled behind prior document changes, including its refusal checks.
 - ◐ Only those six words are refused as a new name, and any other keyword is let through. VB6 refuses
   more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
   line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle/enums.md`](./vb6-fidelity-oracle/enums.md),
@@ -495,7 +491,7 @@ reference implementation the client half is proved against.
 | Signature help | `textDocument/signatureHelp` | 🔧 Wired | ■ user-defined signatures |
 | Go to definition | `textDocument/definition` | 🔧 Wired | ■ cross-file |
 | Document highlights | `textDocument/documentHighlight` | 🔧 Wired | ■ semantic resolution |
-| Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ refusals answered `null` |
+| Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ no prepareRename |
 | Formatting | `textDocument/formatting` | 🔶 Partial | ◐ spacing, range |
 
 Legend: ◐ depth (outstanding work) · ■ boundary (belongs to a language engine).

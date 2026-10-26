@@ -42,7 +42,9 @@ is, and a fold that disappeared with the server would expose the text it exists 
 ### Requirement: Language features SHALL degrade rather than fail
 Every language operation SHALL be best-effort: when no server is present, when the handshake failed, or when
 a request errors, the operation SHALL return an empty or absent result and SHALL NOT throw to the caller or
-tear down the connection.
+tear down the connection. Rename error replies other than cancellations SHALL instead return the server's
+message as a refusal, which the code window SHALL show. `-32803 RequestFailed` SHALL be logged at debug
+without consuming the method's failure warning; other errors retain that warning.
 
 Language intelligence is an enhancement, not a precondition for editing. A developer with no server
 installed must still get a working editor, and a single malformed request must not take out the session.
@@ -56,7 +58,7 @@ running.
 
 #### Scenario: A request fails
 - **WHEN** a language request fails or times out
-- **THEN** the caller receives the empty or absent result for that request
+- **THEN** the caller receives the empty or absent result, or a refusal message for a rename error
 - **AND** the connection remains usable for subsequent requests
 
 #### Scenario: The server never answers one request
@@ -70,6 +72,12 @@ running.
 - **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
 - **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed
 - **AND** a later genuine failure SHALL still receive the method's once-per-connection warning
+- **AND** a superseded rename SHALL show no refusal dialog either
+
+#### Scenario: A server refuses a rename
+- **WHEN** a server returns `-32803 RequestFailed` to a rename
+- **THEN** the code window displays the server's message and applies no edits
+- **AND** a later unexpected failure of rename can still produce its first warning
 
 #### Scenario: The server exits unexpectedly
 - **WHEN** the language server process exits while the IDE is running
@@ -407,6 +415,26 @@ to have it honoured.
 #### Scenario: Another advertiser loses a one-answer feature
 - **WHEN** folding ranges, document symbols, formatting or rename selects the highest-priority advertising claimant
 - **THEN** each other advertising claimant SHALL record a never-sent explanation naming the winner's registration id and capability, once per capability per connection
+
+### Requirement: Signature help SHALL select a non-empty answer within a shared budget
+The registry SHALL ask eligible document claimants concurrently within a shared one-second budget.
+Typed trigger characters SHALL select only claimants advertising that character in
+`signatureHelpProvider.triggerCharacters`; explicit invocation SHALL ask all document claimants.
+The highest-priority answer with at least one signature SHALL win, with registration order breaking ties.
+Empty answers and answers exceeding the budget SHALL be ignored, and different servers' signatures SHALL
+NOT be merged.
+
+#### Scenario: The preferred server has no signatures
+- **WHEN** the highest-priority server returns an empty signatures array and another returns signatures
+- **THEN** the other server's answer is shown
+
+#### Scenario: A typed trigger belongs to one server
+- **WHEN** a character triggers signature help
+- **THEN** only claimants advertising that character are asked
+
+#### Scenario: A preferred server exceeds the budget
+- **WHEN** one server has not answered after one second and another has returned signatures
+- **THEN** the available answer is used without waiting for the slow server
 
 ### Requirement: A server SHALL be given the project's working directory
 Each server SHALL be started with the current project's working directory as its working directory, and told
@@ -982,13 +1010,14 @@ that line (hexide-io/HexIDE#1363).
 ### Requirement: Server work-done progress
 The client SHALL advertise `window.workDoneProgress`, accept string and integer tokens through
 `window/workDoneProgress/create` with a null result, and surface `$/progress` work-done begin/report/end
-in the status bar. Server titles and messages SHALL be flattened and capped at 200 characters together.
+in the status bar. Progress SHALL name the originating registration’s display name and separate title
+and message with a colon, omitting absent parts. Server titles and messages SHALL be flattened and capped at 200 characters together.
 Tokens SHALL be scoped to their connection. End and disconnect SHALL finish progress immediately without
 erasing a later status message from another operation. Cancellation and partial-result progress are not supported.
 
 #### Scenario: An attached server indexes a workspace
 - **WHEN** a server creates a token and sends begin followed by report
-- **THEN** the status bar shows its title, latest message and optional percentage with a localized prefix
+- **THEN** the status bar shows its title, latest message and optional percentage with its registration’s display name in a localized format
 - **AND** omitted report fields retain their prior values
 - **WHEN** the server sends end or disconnects
 - **THEN** its progress is removed immediately and any remaining task can be shown

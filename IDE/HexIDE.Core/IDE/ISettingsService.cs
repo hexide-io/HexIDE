@@ -128,6 +128,12 @@ public interface ISettingsService : INotifyPropertyChanged
 
     bool ShowIndentGuides { get; set; }
 
+    /// <summary>Pin enclosing block headers above the code while scrolling.</summary>
+    bool IsStickyScrollEnabled { get; set; }
+
+    /// <summary>Maximum pinned headers, from outermost inward (1–10).</summary>
+    int StickyScrollDepth { get; set; }
+
     // ── Window state ────────────────────────────────────────────
 
     /// <summary>

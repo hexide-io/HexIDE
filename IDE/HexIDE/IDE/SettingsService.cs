@@ -58,6 +58,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
     // ── Editor extras defaults ──────────────────────────────────
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
+    private bool _isStickyScrollEnabled = SettingsDefaults.IsStickyScrollEnabled;
+    private int _stickyScrollDepth = SettingsDefaults.StickyScrollDepth;
 
     // ── Editor properties ───────────────────────────────────────
 
@@ -215,6 +217,18 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set { if (SetProperty(ref _isMinimapVisible, value)) Save(); }
     }
 
+    public bool IsStickyScrollEnabled
+    {
+        get => _isStickyScrollEnabled;
+        set => SetProperty(ref _isStickyScrollEnabled, value);
+    }
+
+    public int StickyScrollDepth
+    {
+        get => _stickyScrollDepth;
+        set => SetProperty(ref _stickyScrollDepth, Math.Clamp(value, 1, 10));
+    }
+
     // ── Constructor ─────────────────────────────────────────────
 
     public SettingsService() : this(DefaultFilePath()) { }
@@ -273,6 +287,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
+                IsStickyScrollEnabled = _isStickyScrollEnabled,
+                StickyScrollDepth = _stickyScrollDepth,
                 Window = new SettingsData.WindowDataJson
                 {
                     State = _window.State,
@@ -344,6 +360,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
+            IsStickyScrollEnabled = data.IsStickyScrollEnabled;
+            StickyScrollDepth = data.StickyScrollDepth;
             if (data.Window is { } w)
                 _window = new WindowData(w.State, w.X, w.Y, w.Width, w.Height);
 
@@ -432,6 +450,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;
+
+        [JsonPropertyName("isStickyScrollEnabled")]
+        public bool IsStickyScrollEnabled { get; set; } = SettingsDefaults.IsStickyScrollEnabled;
+
+        [JsonPropertyName("stickyScrollDepth")]
+        public int StickyScrollDepth { get; set; } = SettingsDefaults.StickyScrollDepth;
 
         [JsonPropertyName("window")]
         public WindowDataJson? Window { get; set; }
