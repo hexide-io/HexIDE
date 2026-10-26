@@ -108,8 +108,8 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Align (submenu) | — | Done | Full multi-select alignment (Lefts/Rights/Tops/Bottoms/Centers H/V) |
-| Make Same Size (submenu) | — | Done | Same Width / Same Height / Same Size; requires multi-select |
+| Align (submenu) | — | Done | Full multi-select alignment (Lefts/Rights/Tops/Bottoms/Centers H/V); disabled below two selected controls (#930) |
+| Make Same Size (submenu) | — | Done | Same Width / Same Height / Same Size; disabled below two selected controls (#930) |
 | Size to Grid | — | Done | Snaps all selected controls to grid |
 | Horizontal Spacing (submenu) | — | Done | Make Equal / Increase / Decrease / Remove |
 | Vertical Spacing (submenu) | — | Done | Make Equal / Increase / Decrease / Remove |

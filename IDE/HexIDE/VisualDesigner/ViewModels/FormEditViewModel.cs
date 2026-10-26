@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -73,8 +74,24 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public IReadOnlyList<ComponentInstanceViewModel> SelectedComponents { get; private set; } = [];
 
-    public void SetSelectedComponents(IEnumerable<ComponentInstanceViewModel> components) =>
+    public void SetSelectedComponents(IEnumerable<ComponentInstanceViewModel> components)
+    {
         SelectedComponents = [.. components];
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(SelectedComponents)));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private bool HasMultipleSelectedControls => SelectedComponents.Count >= 2;
+
+    public bool CanAlignLefts(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignRights(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignTops(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignBottoms(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignCentersH(object? parameter) => HasMultipleSelectedControls;
+    public bool CanAlignCentersV(object? parameter) => HasMultipleSelectedControls;
+    public bool CanMakeSameWidth(object? parameter) => HasMultipleSelectedControls;
+    public bool CanMakeSameHeight(object? parameter) => HasMultipleSelectedControls;
+    public bool CanMakeSameSize(object? parameter) => HasMultipleSelectedControls;
 
     public ObservableCollection<ComponentInstanceViewModel> AllComponents { get; } = new();
 
@@ -944,7 +961,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignLefts()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Lefts: {targets.Count} controls", targets, [VBProperties.LeftProperty],
@@ -953,7 +970,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignRights()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Rights: {targets.Count} controls", targets, [VBProperties.LeftProperty],
@@ -962,7 +979,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignTops()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Tops: {targets.Count} controls", targets, [VBProperties.TopProperty],
@@ -971,7 +988,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignBottoms()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Bottoms: {targets.Count} controls", targets, [VBProperties.TopProperty],
@@ -980,7 +997,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignCentersH()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers H: {targets.Count} controls", targets, [VBProperties.LeftProperty],
@@ -989,7 +1006,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void AlignCentersV()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers V: {targets.Count} controls", targets, [VBProperties.TopProperty],
@@ -998,7 +1015,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void MakeSameWidth()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Same Width: {targets.Count} controls", targets, [VBProperties.WidthProperty],
@@ -1007,7 +1024,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void MakeSameHeight()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Same Height: {targets.Count} controls", targets, [VBProperties.HeightProperty],
@@ -1016,7 +1033,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void MakeSameSize()
     {
-        if (selectedComponent == null) return;
+        if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Same Size: {targets.Count} controls", targets,
