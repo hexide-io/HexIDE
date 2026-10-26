@@ -20,10 +20,11 @@ public sealed class ControlLibrary
     private readonly string constantsResource;
     private readonly Lazy<Constants> constants;
 
-    internal ControlLibrary(string name, string guid, string version, string file, int persistedVersion,
+    internal ControlLibrary(string name, string description, string guid, string version, string file, int persistedVersion,
         IReadOnlyDictionary<string, int> controls, string constantsResource)
     {
         Name = name;
+        Description = description;
         Guid = guid;
         Version = version;
         File = file;
@@ -32,6 +33,15 @@ public sealed class ControlLibrary
         this.constantsResource = constantsResource;
         constants = new Lazy<Constants>(Load, isThreadSafe: true);
     }
+
+    /// <summary>
+    /// What VB6's Components dialog lists the library as: its type library's registry description, which the dialog shows
+    /// as it is (measured, #1103). The service pack is part of it: "Microsoft Windows Common Controls 6.0 (SP6)".
+    /// </summary>
+    public string Description { get; }
+
+    /// <summary>The <c>.vbp</c> line that references the library, as VB6's Save Project writes it (measured, #1103).</summary>
+    public string ProjectLine => $"Object={Guid}#{Version}#0; {File}";
 
     /// <summary>The library's name, which qualifies its controls' type names and its constants: <c>MSComctlLib</c>.</summary>
     public string Name { get; }
@@ -112,7 +122,8 @@ public sealed class ControlLibrary
 public static class ControlLibraries
 {
     /// <summary>MSCOMCTL.OCX, Microsoft Windows Common Controls 6.0.</summary>
-    public static readonly ControlLibrary MSComctlLib = new("MSComctlLib", "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0",
+    public static readonly ControlLibrary MSComctlLib = new("MSComctlLib", "Microsoft Windows Common Controls 6.0 (SP6)",
+        "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0",
         "MSCOMCTL.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -122,7 +133,8 @@ public static class ControlLibraries
         "mscomctl-constants.json");
 
     /// <summary>COMCTL32.OCX, Microsoft Windows Common Controls 5.0: the same controls but ImageCombo, which 6.0 added.</summary>
-    public static readonly ControlLibrary ComctlLib = new("ComctlLib", "{6B7E6392-850A-101B-AFC0-4210102A8DA7}", "1.3",
+    public static readonly ControlLibrary ComctlLib = new("ComctlLib", "Microsoft Windows Common Controls 5.0 (SP2)",
+        "{6B7E6392-850A-101B-AFC0-4210102A8DA7}", "1.3",
         "COMCTL32.OCX", 327682,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {

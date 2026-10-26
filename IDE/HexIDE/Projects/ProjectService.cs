@@ -1055,7 +1055,7 @@ public class ProjectService : IProjectService
 
     public async Task EditProjectComponents(ProjectDefinition project)
     {
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, windowManager, localization);
         await windowManager.ShowDialog(vm);
     }
 
