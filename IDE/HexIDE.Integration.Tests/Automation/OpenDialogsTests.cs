@@ -111,6 +111,29 @@ public class OpenDialogsTests
         finally { dialog.Close(); ide.Close(); }
     }
 
+    // A check box, a radio button and a toggle button are buttons to Avalonia, but none answers the dialog (#2079).
+    [AvaloniaFact]
+    public void A_dialogs_toggles_are_not_listed_among_its_buttons()
+    {
+        var ide = Shown(new Window(), "IDE");
+        var watch = OpenDialogs.Watch([ide], ide);
+        var dialog = new Window { Title = "Options", Content = new StackPanel { Children =
+        {
+            new CheckBox { Content = "Prompt for project" },
+            new RadioButton { Content = "Public" },
+            new Avalonia.Controls.Primitives.ToggleButton { Content = "Advanced" },
+            new Button { Content = "OK" },
+            new Button { Content = "Cancel" },
+        } } };
+        _ = dialog.ShowDialog(ide);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            OpenDialogs.Note(watch, [ide, dialog]).Should().StartWith("'Options' (OK/Cancel), a modal dialog");
+        }
+        finally { dialog.Close(); ide.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_dialog_the_call_opened_is_named_with_what_it_is_over()
     {
