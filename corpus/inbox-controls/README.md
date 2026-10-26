@@ -53,4 +53,5 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `imagelist/empty-key/` | Four pictures, 16 x 16: no Key and no Tag; Key `k2` and no Tag; Key `k3` and Tag `t3`; no Key and Tag `t4`. An empty Key writes `Key = ""`, and an empty Tag no line |
 | `imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
 | `statusbar/` | Two StatusBars: one with four configured panels (a Spring with Key, Tag and ToolTipText, a Date panel, a disabled Caps panel, an invisible Contents panel), and one in Simple style with ShowTips off. The panels' `Object.Width` and `MinWidth` are HIMETRIC (#1087) |
+| `statusbar-picture/` | A StatusBar whose first panel holds a bitmap and second an icon, written by hand and saved again by VB6, which kept the `.frx` byte for byte and put each `Picture` line first in its panel (#1087) |
 | `defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |

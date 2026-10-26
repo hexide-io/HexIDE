@@ -60,6 +60,13 @@ the two logged the same lines throughout.
 Lengths come back with fractions, such as 2000.126 for 2000. Panel lengths go through HIMETRIC and back, so each is the
 nearest whole HIMETRIC in twips.
 
+**What each reads back as,** by `TypeName`, native and p-code alike:
+- **Integer:** `Panels.Count`, also after `Clear` when it is 0, and a panel's Index.
+- **Single:** Width, MinWidth and Left.
+- **Long:** AutoSize, Alignment, Bevel and Style, and the bar's Style.
+- **Boolean:** Enabled, Visible and the bar's ShowTips.
+- **String:** Key, Text, an unset Tag and SimpleText.
+
 ### Panels
 
 The same family of errors as the ImageList's ListImages:
@@ -221,6 +228,28 @@ VB6's save of the hand-written form:
   - The Caps panel and the invisible panel got none.
   - Whether VB6 writes one for a plain text panel the probe gave no TextSave wasn't measured.
 - **A panel at every default is an empty `BeginProperty Panel1 … EndProperty`.**
+- **A panel's Picture is written first in its block, as an `.frx` reference.** The record is the ImageList's: a
+  4-byte length, StdPicture's CLSID, `lt\0\0`, a 4-byte size, then the picture file as it is.
+  - A form was written by hand with a bitmap on one panel and an icon on another, each line after Text. VB6 loaded it
+    with no log and saved it again.
+  - The `.frx` it wrote was byte for byte the hand-written one.
+  - The `Picture` lines moved to the top of their panels:
+
+  ```
+         BeginProperty Panel1 {8E3867AB-8586-11D1-B16A-00C0F0283628} 
+            Picture         =   "Form1.frx":0000
+            Text            =   "red"
+            TextSave        =   "red"
+         EndProperty
+         BeginProperty Panel2 {8E3867AB-8586-11D1-B16A-00C0F0283628} 
+            Picture         =   "Form1.frx":0352
+            Text            =   "icon"
+            TextSave        =   "icon"
+         EndProperty
+  ```
+
+  Built and run, the saved form gave the first panel a Picture of Type 1 and the second one of Type 3, each 423×423
+  HIMETRIC. VB6's save is `corpus/inbox-controls/pending/statusbar-picture`.
 - **The bar's own properties come after the extents and before `_Version`.** A second bar was kept as written:
 
   ```
