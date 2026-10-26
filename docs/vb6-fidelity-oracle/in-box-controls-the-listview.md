@@ -265,9 +265,9 @@ text.
 | click the selected item again | MouseDown, ItemClick, MouseUp, Click, and a moment later BeforeLabelEdit |
 | double-click an item | MouseDown, ItemClick, MouseUp, Click, DblClick, MouseUp: one ItemClick, and no second MouseDown |
 | Ctrl+click item 4, with 3 selected | MouseDown with Shift 2, ItemClick 4, MouseUp, Click. Both stay selected |
-| Shift+click item 5, after 4 | MouseDown with Shift 1, **ItemClick 4, ItemClick 5, ItemClick 5**, MouseUp, Click |
+| Shift+click item 5, after Ctrl+clicking 4 with 3 selected | MouseDown with Shift 1, **ItemClick 4, ItemClick 5, ItemClick 5**, MouseUp, Click. The selection became 4 and 5, the range from the last item clicked, and 3 was dropped |
 | right-click item 2 | MouseDown with Button 2, ItemClick 2, MouseUp with Button 2, **Click**. It selects item 2 |
-| click the empty area below the items, with 4 and 5 selected | MouseDown, MouseUp, Click, and no ItemClick. Item 5 stayed selected and 4 did not |
+| click the empty area below the items, with 4 and 5 selected | MouseDown, MouseUp, Click, and no ItemClick. Item 5, which had the focus, stayed selected, and 4 did not |
 | click 7 pixels right of the label, inside the first column | MouseDown, MouseUp, Click. Nothing was selected. Native run only |
 | click an item's checkbox | MouseDown, **ItemCheck** with the new Checked, MouseUp, Click. No ItemClick, and the selection is unchanged |
 | click a column header | **ColumnClick and nothing else**: no MouseDown, MouseUp or Click |
@@ -339,8 +339,8 @@ SelectedItem was the item that moved up into its Index.
   - A ReportIcon is drawn at the left edge of its cell, in a right-aligned or centred column too.
 - **Losing the focus:** with HideSelection True, the selection is not drawn at all. With HideSelection False, the
   selected label is drawn on button-face grey.
-- **Enabled False** does not grey the text. Each item's row, across the columns, is painted button-face grey, and the
-  area below stays white.
+- **Enabled False** does not grey the text, and the selected label stays highlighted. Each item's row, across the
+  columns, is painted button-face grey, and the area below stays white.
 - **Colours and borders:**
   - The control's ForeColor colours every label and cell that has no ForeColor of its own.
   - Appearance 0 with BorderStyle 0 draws the control flat, with no border. The header stays raised.
@@ -349,7 +349,7 @@ SelectedItem was the item that moved up into its Index.
 - **The grid:** items sit on a grid 59 pixels across and 59 down, five to a row in the 333-pixel control, starting at
   Left 21 and Top 2.
 - **An item's size:** each was 32 to 40 pixels wide and 37 high.
-- **A long label:** the six-word caption was wrapped to two lines and cut short with `...`, making it 53 by 50.
+- **A long label:** the five-word caption was wrapped to two lines and cut short with `...`, making it 53 by 50.
   - With LabelWrap False it was one line, 133 pixels wide, drawn over its neighbour's label.
 - **Arrange:**
   - **Arrange 1** laid the items out in columns down the left, and **Arrange 2** in rows across the top.
