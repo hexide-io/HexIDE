@@ -2,10 +2,16 @@
 
 **The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md).
-- **The program:** a Sub Main showing a 6000×4500-twip form holding a 5000×3000-twip ListView with VB6's double-clicked
-  property lines, a PictureBox, and the three-picture ImageList saved in [In-box controls: the
+- **The object-model program:** a Sub Main showing a 6000×4500-twip form holding a 5000×3000-twip ListView with VB6's
+  double-clicked property lines, a PictureBox, and the three-picture ImageList saved in [In-box controls: the
   ImageList](in-box-controls-the-imagelist.md). It drives the ListView late-bound under `On Error Resume Next`, logging
   each value with its `TypeName`, or the error.
+- **The events program:** the same form with a TextBox, KeyPreview on, and a report-view ListView with MultiSelect and
+  Checkboxes, three columns and five items with small icons. A driver on the console clicked with real mouse input and
+  typed with real keystrokes, and marked each action in the log. Each event handler logged itself, with the selection.
+- **The drawing program:** the same form, setting up states in turn and asking the driver for a screenshot of each. It
+  logged each item's Left, Top, Width and Height in pixels. The guest runs at 96 dpi, and a VB6 EXE has no manifest, so
+  the control draws without visual styles.
 - **The builds:** `/make` as native code and as p-code, both run on the guest's console. The two logged the same lines
   throughout.
 - **Session 0 can't be used for this control.** Run there, adding a column header raised automation error
@@ -248,6 +254,113 @@ text.
 - **HitTest takes twips in the ListView.** Item 3's Left and Top plus 15 found item 3.
 - `HitTest(-1, -1)` and `(100000, 100000)` returned `Nothing`.
 - `GetFirstVisible` returned item 1, and `Nothing` with no items.
+
+### Events
+
+**The mouse,** on an item's label, with FullRowSelect False and LabelEdit automatic:
+
+| Action | Events, in order |
+|---|---|
+| click an unselected item | MouseDown, **ItemClick**, MouseUp, Click |
+| click the selected item again | MouseDown, ItemClick, MouseUp, Click, and a moment later BeforeLabelEdit |
+| double-click an item | MouseDown, ItemClick, MouseUp, Click, DblClick, MouseUp: one ItemClick, and no second MouseDown |
+| Ctrl+click item 4, with 3 selected | MouseDown with Shift 2, ItemClick 4, MouseUp, Click. Both stay selected |
+| Shift+click item 5, after 4 | MouseDown with Shift 1, **ItemClick 4, ItemClick 5, ItemClick 5**, MouseUp, Click |
+| right-click item 2 | MouseDown with Button 2, ItemClick 2, MouseUp with Button 2, **Click**. It selects item 2 |
+| click the empty area below the items, with 4 and 5 selected | MouseDown, MouseUp, Click, and no ItemClick. Item 5 stayed selected and 4 did not |
+| click 7 pixels right of the label, inside the first column | MouseDown, MouseUp, Click. Nothing was selected. Native run only |
+| click an item's checkbox | MouseDown, **ItemCheck** with the new Checked, MouseUp, Click. No ItemClick, and the selection is unchanged |
+| click a column header | **ColumnClick and nothing else**: no MouseDown, MouseUp or Click |
+| double-click a column header | one ColumnClick |
+
+- **MouseDown and MouseUp give X and Y in twips** from the control's top-left. A click 50 pixels across and 42 down gave
+  750 and 630.
+- **ItemClick is raised for an item already selected,** on every click on it.
+- **SelectedItem can be Nothing inside ItemClick.** It read Nothing in the Ctrl+click's ItemClick and in the
+  Shift+click's last one, and named the clicked item by Click.
+
+**The keyboard,** as the ListView's KeyDown and KeyUp logged it:
+
+| Key | Events |
+|---|---|
+| Space | KeyDown, ItemCheck on the focused item, ItemClick on it, KeyUp |
+| Down | KeyDown, ItemClick on the next item, KeyUp |
+| Ctrl+Down | KeyDown, KeyUp. **The focus moved and the selection didn't** |
+| Home | KeyDown, ItemClick 1, KeyUp |
+
+**SelectedItem is the item with the focus, selected or not.** After Ctrl+Down, item 4 was the only item selected, and
+SelectedItem was item 5. This is what the selection rows above showed: `Selected = False` left SelectedItem in place,
+and `Set SelectedItem = Nothing` left the item selected. Removing the selected item in code left nothing selected, and
+SelectedItem was the item that moved up into its Index.
+
+**Editing a label:**
+- **StartLabelEdit raises BeforeLabelEdit before it returns,** with LabelEdit automatic or manual. With no
+  SelectedItem it raised nothing, and no error.
+- With LabelEdit manual, clicking the selected item again started no edit.
+- While the edit box is open, typed keys go to it and not to the ListView's KeyDown. Enter's KeyUp reaches the ListView
+  once the edit has ended.
+- **Enter after typing raises AfterLabelEdit** with Cancel 0 and the typed text in NewString, a String. **Inside the
+  event, the item's Text is still the old one.**
+- **Escape raises no AfterLabelEdit, and nor does Enter with the text unchanged.**
+- Enter with the text deleted raised AfterLabelEdit with NewString `""`, and the item was left with no text.
+- **`Cancel = True` in BeforeLabelEdit opens no edit box,** and the keys typed then went to the ListView.
+  `Cancel = True` in AfterLabelEdit kept the old text.
+
+**Code raises none of these, except through StartLabelEdit.** No ItemClick, ItemCheck or Click was raised by:
+- setting Selected or SelectedItem;
+- setting Checked to True or False, or setting Text;
+- `ListItems.Add` or `Remove`, or setting Sorted;
+- a column's Width, or EnsureVisible.
+
+### Drawing
+
+**Report view:**
+- **Row height and placement:**
+  - With 16-pixel SmallIcons, rows are 17 pixels high. The first is at Top 17, under a header 17 pixels high, and at
+    Left 2.
+  - With no SmallIcons, rows were 14 pixels high.
+  - With Checkboxes, Left is 18.
+  - With HideColumnHeaders, the first row is at Top 0.
+- **An item's Left and Width cover its icon and its label,** clipped to the first column. With FullRowSelect, Width is
+  the whole row: 253 pixels, the three columns' widths together.
+- **Text and alignment:**
+  - Text too long for the first column is cut short with `...`.
+  - Alignment 1 right-aligns a column's header and its cells, and 2 centres them.
+  - A column's Icon is drawn at the left of its header, and the header text keeps its alignment.
+- **Selection:**
+  - **A selected item is highlighted on its label only,** and its icon is drawn blended with the highlight colour. The
+    item with the focus has a dotted focus rectangle.
+  - FullRowSelect highlights the whole row.
+  - GridLines draws lines between the rows and the columns, carried on through the empty area below the last item.
+- **An item's styles:**
+  - Ghosted dithers the item's icon.
+  - Bold makes the label bold.
+  - **An item's ForeColor colours its label only.** A sub-item's ForeColor and Bold apply to its own cell.
+  - A ReportIcon is drawn at the left edge of its cell, in a right-aligned or centred column too.
+- **Losing the focus:** with HideSelection True, the selection is not drawn at all. With HideSelection False, the
+  selected label is drawn on button-face grey.
+- **Enabled False** does not grey the text. Each item's row, across the columns, is painted button-face grey, and the
+  area below stays white.
+- **Colours and borders:**
+  - The control's ForeColor colours every label and cell that has no ForeColor of its own.
+  - Appearance 0 with BorderStyle 0 draws the control flat, with no border. The header stays raised.
+
+**Icon view, View 0,** with the 16-pixel ImageList as Icons:
+- **The grid:** items sit on a grid 59 pixels across and 59 down, five to a row in the 333-pixel control, starting at
+  Left 21 and Top 2.
+- **An item's size:** each was 32 to 40 pixels wide and 37 high.
+- **A long label:** the six-word caption was wrapped to two lines and cut short with `...`, making it 53 by 50.
+  - With LabelWrap False it was one line, 133 pixels wide, drawn over its neighbour's label.
+- **Arrange:**
+  - **Arrange 1** laid the items out in columns down the left, and **Arrange 2** in rows across the top.
+  - Both took the items in the order of where they already stood, not by Index. Arrange 1 read the old layout down each
+    column, and Arrange 2 read it along each row.
+
+**Small-icon view, View 1:**
+- Items were 157 pixels apart: the widest item's 149 pixels, plus 8.
+- They stayed five to a row, as in icon view, so the row ran past the right edge and a horizontal scroll bar appeared.
+
+**List view, View 2:** one column of 17-pixel rows, each 157 pixels wide.
 
 ### In HexIDE
 
