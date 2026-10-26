@@ -996,16 +996,21 @@ says so. Servers that send the richer shape regardless hide the omission (hexide
 - **THEN** it answers with the tree, and the symbols arrive nested as the document declares them
 
 ### Requirement: The client SHALL declare whole-line folding while it reads folds by line
-While the client reads a server's fold by its lines alone, it SHALL declare `lineFoldingOnly`. The change that
-makes it read a fold's characters SHALL remove the declaration.
+The client SHALL read a server fold's start and end characters, defaulting each absent character to the
+length of its line, and SHALL NOT declare `lineFoldingOnly`. A collapsed server fold SHALL leave the text
+before its start visible, without repeating that text as a title.
 
-A server told nothing may end a fold part-way along its closing line, and a fold read by whole lines then hides
-that line (hexide-io/HexIDE#1363).
+Nested folds sharing a start SHALL both survive updates. Each surviving range SHALL retain its folded state
+after edits and server answers, independently of list order or another range disappearing. A returning server range
+absent from the preceding update SHALL take its default folded state.
 
-#### Scenario: A block's fold from a server that honours the declaration
-- **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
-  alone
-- **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+#### Scenario: A fold ends before an indented closing delimiter
+- **WHEN** an external backend sends a fold ending at the character before a closing delimiter
+- **THEN** the delimiter stays visible when the fold is collapsed
+
+#### Scenario: A procedure fold disappears while its attribute run remains
+- **WHEN** a procedure and its attribute run share a fold start and the next answer omits the procedure fold
+- **THEN** the attribute run keeps its own folded state
 
 ### Requirement: Server work-done progress
 The client SHALL advertise `window.workDoneProgress`, accept string and integer tokens through

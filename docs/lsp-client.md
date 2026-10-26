@@ -443,15 +443,11 @@ server is expected to keep off them — the bundled one does, by the rule in
   file's layout with or without a server, and they do not come through the language-client interface at all.
   They describe the file format, which is the same whichever server is attached, and a fold that vanished with
   the server would expose the text it exists to keep out of the way. A server's folds are merged with them on
-  every answer (`Vb6FoldingAdapter.Merge`): one that nests inside or around them is kept, and one that crosses
-  one of them, **or starts where one of them starts**, is dropped. The second rule is the fold library's
-  doing: it pairs the folds it is given with the sections it holds by start offset alone, so a server fold
-  from the top of the file took the header's section, and the header came back unfolded. A server's
-  procedure fold contains that procedure's attribute fold only because the client reads every server fold
-  as starting at the beginning of its first line. LSP starts a fold after that line's text, and the client
-  also ignores any character offsets a server sends
-  ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)). Read as LSP means it, the fold of a procedure
-  declared on one line would start where its attribute fold starts, and the second rule would drop it.
+  every answer (`Vb6FoldingAdapter.Merge`): one that nests inside or around them is kept, including one
+  with the same start, and one that crosses one of them is dropped. Server folds honour character offsets,
+  defaulting to the end of each line when a character is absent. Folded states are restored by range after
+  every update, so a surviving fold cannot inherit a vanished fold's state when their starts coincide
+  ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 - **Formatting.** An answer is applied to a copy, reduced to the lines it actually changes, and any change to
   a line of the header or a member's attribute run is dropped. A kept empty whole-line hunk deleting a
   complete logical declaration then takes its run with it (#1890). All kept changes form one undo step.
@@ -921,7 +917,7 @@ than inferred.
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
 | ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)) |
-| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. The client declares `lineFoldingOnly`, because a fold is read by whole lines: told nothing, clangd ends a fold part-way along its closing line, and collapsing it hid the closing brace ([#1363](https://github.com/hexide-io/HexIDE/issues/1363)) |
+| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. Character offsets are honoured, defaulting to each line’s length when absent. The temporary `lineFoldingOnly` declaration (#1363) is removed; same-start folds retain state by range ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |
@@ -1115,7 +1111,6 @@ Three clusters account for nearly all of the gap:
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 | A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
-| A server's fold is read from the start of its first line, and its character offsets are ignored | Collapsed, a server's fold hides the line LSP leaves showing. Read as LSP means it, under today's merge, a procedure with an attribute run under a one-line declaration would lose its fold | [#1022](https://github.com/hexide-io/HexIDE/issues/1022) |
 
 ---
 
