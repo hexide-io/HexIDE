@@ -6,10 +6,6 @@ namespace HexIDE.Tools.ObjectBrowser;
 
 public partial class OBLibraryViewModel
 {
-    // Sentinel that represents the "<All Libraries>" dropdown entry.
-    public static readonly OBLibraryViewModel AllLibraries =
-        new("<All Libraries>") { IsLoaded = true };
-
     [Notify] private string name;
     public List<OBClassViewModel> Classes { get; } = new();
 

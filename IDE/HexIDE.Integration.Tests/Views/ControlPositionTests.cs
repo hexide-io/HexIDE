@@ -74,6 +74,19 @@ public class ControlPositionTests
         return run;
     }
 
+    [AvaloniaTheory]
+    [InlineData("Left")]
+    [InlineData("Top")]
+    public void A_Timers_designer_position_cannot_be_read_at_run_time(string property)
+    {
+        var run = RunLoad(Form(TwipsForm,
+            "   Begin VB.Timer Timer1\r\n      Left = 120\r\n      Top = 240\r\n   End\r\n"),
+            $"Dim o As Object\nSet o = Timer1\nOn Error Resume Next\nDebug.Print o.{property}\nDebug.Print CStr(Err.Number)");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("393");
+    }
+
     [AvaloniaFact]
     public void A_frm_position_reads_in_twips_as_a_Single()
     {
