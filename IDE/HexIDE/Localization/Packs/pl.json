@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
+    "Str.LspArtifact.Title": "Pliki obszaru roboczego",
+    "Str.LspArtifact.Prompt": "Serwer {0} poprosił o zapisanie lokalnego pliku {1}.",
+    "Str.LspArtifact.Allow": "Zezwól",
+    "Str.LspArtifact.Deny": "Odmów",
+    "Str.LspArtifact.Always": "Zawsze zezwalaj",
+    "Str.LspArtifact.Grants": "Poniżej są serwery uprawnione do generowania plików obszaru roboczego. Zresetuj zgodę, aby zapytać ponownie w następnej sesji.",
+    "Str.LspArtifact.Reset": "Resetuj",
     "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",
     "Str.Archive.ReadOnly": "Podgląd archiwum tylko do odczytu. Edycja, kompilacja i uruchamianie są niedostępne.",

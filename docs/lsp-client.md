@@ -1109,3 +1109,23 @@ all three would be confidently wrong two-thirds of the time.
 ---
 
 *The behaviour contracts live under [`openspec/specs/lsp-client/`](../openspec/specs/lsp-client/spec.md).*
+
+### Workspace artefact generation
+
+Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
+The client prepares it before launching the server, once per workspace project, behind the
+`IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
+per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
+failure note on that server’s connection in the protocol inspector. Notes name only the configured
+workspace-relative artefact path and exception type; absolute targets and exception messages stay in
+the application log so conversation exports do not expose workspace locations. Writes use a temporary file in the
+same directory and atomically replace the owned target, with ownership checked under a lock. Identical
+bytes skip the write, preserving the timestamp and avoiding needless server watcher work. A provider with nothing to
+describe returns null: nothing is prompted or written, and a target HexIDE still owns is deleted under the same
+confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
+content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
+
+This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
+#456; there is no `.rdproj` provider in phase 1, no public add-in contract (#457), no undeclared generation,
+no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).

@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
+    "Str.LspArtifact.Title": "File dell’area di lavoro",
+    "Str.LspArtifact.Prompt": "Il server {0} ha richiesto di scrivere il file locale {1}.",
+    "Str.LspArtifact.Allow": "Consenti",
+    "Str.LspArtifact.Deny": "Nega",
+    "Str.LspArtifact.Always": "Consenti sempre",
+    "Str.LspArtifact.Grants": "Di seguito sono elencati i server autorizzati a generare file nell’area di lavoro. Reimposta un’autorizzazione per richiederla nella prossima sessione.",
+    "Str.LspArtifact.Reset": "Reimposta",
     "Str.Archive.ProjectFormat": "{0} (archivio di sola lettura)",
     "Str.Archive.Hidden": "Mostra le voci nascoste dell’archivio",
     "Str.Archive.ReadOnly": "Anteprima dell’archivio di sola lettura. Modifica, compilazione ed esecuzione non sono disponibili.",

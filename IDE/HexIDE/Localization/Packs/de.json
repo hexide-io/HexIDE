@@ -3,6 +3,13 @@
   "direction": "ltr",
   "strings": {
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
+    "Str.LspArtifact.Title": "Arbeitsbereichsdateien",
+    "Str.LspArtifact.Prompt": "Server {0} möchte die lokale Datei {1} schreiben.",
+    "Str.LspArtifact.Allow": "Erlauben",
+    "Str.LspArtifact.Deny": "Ablehnen",
+    "Str.LspArtifact.Always": "Immer erlauben",
+    "Str.LspArtifact.Grants": "Unten stehen Server, die Arbeitsbereichsdateien erzeugen dürfen. Setzen Sie eine Erlaubnis zurück, um in der nächsten Sitzung erneut gefragt zu werden.",
+    "Str.LspArtifact.Reset": "Zurücksetzen",
     "Str.Archive.ProjectFormat": "{0} (schreibgeschütztes Archiv)",
     "Str.Archive.Hidden": "Ausgeblendete Archiveinträge anzeigen",
     "Str.Archive.ReadOnly": "Schreibgeschützte Archivvorschau. Bearbeiten, Erstellen und Ausführen sind nicht verfügbar.",
