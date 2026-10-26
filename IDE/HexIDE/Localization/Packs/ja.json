@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "タブ順序を表示（取り消し線: TabStop オフ）",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",

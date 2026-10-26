@@ -2,6 +2,7 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Mostrar orden de tabulación (tachado: TabStop desactivado)",
     "Str.Tool.Properties.ExportPicture": "Exportar imagen...",
     "Str.Archive.ProjectFormat": "{0} (archivo de solo lectura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas del archivo",

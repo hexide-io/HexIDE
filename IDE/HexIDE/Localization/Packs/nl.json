@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",

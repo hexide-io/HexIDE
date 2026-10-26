@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "顯示 Tab 順序（刪除線：TabStop 關閉）",
     "Str.Tool.Properties.ExportPicture": "匯出圖片...",
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",

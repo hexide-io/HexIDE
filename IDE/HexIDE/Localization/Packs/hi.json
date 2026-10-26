@@ -2,6 +2,7 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "टैब क्रम दिखाएँ (कटा हुआ: TabStop बंद)",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.Archive.ProjectFormat": "{0} (केवल-पठन संग्रह)",
     "Str.Archive.Hidden": "संग्रह की छिपी प्रविष्टियाँ दिखाएँ",

@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Show tab order (crossed out: TabStop off)",
     "Str.Tool.Properties.ExportPicture": "Export picture...",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",

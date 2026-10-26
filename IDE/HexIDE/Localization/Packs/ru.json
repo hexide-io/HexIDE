@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",

@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Hiện thứ tự tab (gạch ngang: TabStop tắt)",
     "Str.Tool.Properties.ExportPicture": "Xuất hình ảnh...",
     "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",

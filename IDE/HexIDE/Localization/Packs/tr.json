@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Sekme sırasını göster (üstü çizili: TabStop kapalı)",
     "Str.Tool.Properties.ExportPicture": "Resmi dışa aktar...",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",

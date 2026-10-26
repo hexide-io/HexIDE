@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Designer.ShowTabOrder": "הצגת סדר טאבים (מחוק: TabStop כבוי)",
     "Str.Tool.Properties.ExportPicture": "ייצוא תמונה...",
     "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",

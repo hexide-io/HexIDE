@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",

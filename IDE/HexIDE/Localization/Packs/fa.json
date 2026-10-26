@@ -2,6 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Designer.ShowTabOrder": "نمایش ترتیب پیمایش (خط‌خورده: TabStop خاموش)",
     "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",

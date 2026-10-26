@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Εμφάνιση σειράς Tab (διαγραφή: TabStop ανενεργό)",
     "Str.Tool.Properties.ExportPicture": "Εξαγωγή εικόνας...",
     "Str.Archive.ProjectFormat": "{0} (αρχειοθήκη μόνο για ανάγνωση)",
     "Str.Archive.Hidden": "Εμφάνιση κρυφών καταχωρίσεων αρχειοθήκης",

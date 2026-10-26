@@ -2,6 +2,7 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Designer.ShowTabOrder": "ٹیب کی ترتیب دکھائیں (کٹا ہوا: TabStop بند)",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",

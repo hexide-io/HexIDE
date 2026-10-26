@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Tabulatorreihenfolge anzeigen (durchgestrichen: TabStop aus)",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.Archive.ProjectFormat": "{0} (schreibgeschütztes Archiv)",
     "Str.Archive.Hidden": "Ausgeblendete Archiveinträge anzeigen",

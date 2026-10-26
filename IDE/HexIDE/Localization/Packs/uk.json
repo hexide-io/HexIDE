@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Показати порядок табуляції (закреслено: TabStop вимкнено)",
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",

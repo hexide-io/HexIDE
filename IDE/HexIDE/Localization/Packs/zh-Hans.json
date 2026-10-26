@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）",
     "Str.Tool.Properties.ExportPicture": "导出图片...",
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",
