@@ -2,8 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "_Määritys",
     "Str.Menu.View.Declaration": "_Esittely",
     "Str.Menu.View.LastPosition": "Edellinen sija_inti",
+    "Str.Tool.RecentEdits.Title": "Viimeisimmät muokkaukset",
     "Str.Menu.View.ObjectBrowser": "_Objektiselain",
     "Str.Menu.View.ImmediateWindow": "_Komentoikkuna",
     "Str.Menu.View.LocalsWindow": "_Paikallismuuttujat-ikkuna",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Poista",
     "Str.Designer.Context.BringToFront": "Tuo eteen",
     "Str.Designer.Context.SendToBack": "Vie taakse",
+    "Str.Designer.PreviewForm": "Esikatsele lomaketta",
     "Str.Designer.Context.ViewCode": "Näytä koodi",
     "Str.Designer.Context.AlignToGrid": "Kohdista ruudukkoon",
     "Str.Designer.Context.Properties": "Ominaisuudet",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Suurenna tai palauta paneeli",
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
-    "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle"
+    "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä"
   }
 }

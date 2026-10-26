@@ -407,6 +407,42 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Parentheses coloured by nesting depth
+The VB6 code editor SHALL colour matching parentheses with the same theme-defined foreground, cycling
+through the `BracketDepth1`, `BracketDepth2` and `BracketDepth3` theme palette entries by nesting depth. It SHALL mark unmatched parentheses with a separate theme
+foreground (`BracketUnmatched`), ignore parentheses inside lexer string and comment tokens, and offer a persisted Editor → General
+option to disable this colouring. Existing editors SHALL repaint when the text, palette or option changes.
+
+#### Scenario: Nested pairs and an unmatched parenthesis
+- **WHEN** the editor displays `(()) )`
+- **THEN** the outer pair uses the first palette entry and the inner pair uses the second
+- **AND** the final closing parenthesis uses the unmatched foreground
+
+#### Scenario: Colouring disabled
+- **WHEN** the user disables the nesting-depth option
+- **THEN** parentheses retain ordinary syntax colouring, including unmatched parentheses
+
+### Requirement: Recent edit locations
+The IDE SHALL provide a Recent Edits panel from the View menu, listing edited code locations newest first
+with the module, 1-based line and a text preview. Selecting a row SHALL navigate to that document and line
+without recording another edit. The list SHALL be session-only and contain at most 50 entries.
+
+An edit in the same document within 10 lines of the newest entry SHALL replace that entry; an edit further
+away or in another document SHALL add an entry. Locations SHALL follow inserted or removed text above
+them. Removing a whole tracked line SHALL drop its entry. Closing and reopening a code tab SHALL retain
+its entries; removing its document from the project or unloading the project SHALL drop them.
+
+#### Scenario: Nearby and distant edits
+- **WHEN** a developer edits a line 9 or 10 lines from the newest entry in the same document
+- **THEN** that entry is replaced by the new location
+- **WHEN** the distance is 11 lines, or the edit is in another document
+- **THEN** a new entry is added, evicting the oldest if the list exceeds 50
+
+#### Scenario: Returning to moved text after closing a tab
+- **WHEN** lines are inserted above a recorded location and its code tab is closed and reopened
+- **THEN** the row retains the moved line number and preview
+- **AND** selecting it opens that document at the moved line without adding an entry
+
 ### Requirement: Find scopes SHALL include project members and live buffers
 Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
 All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.

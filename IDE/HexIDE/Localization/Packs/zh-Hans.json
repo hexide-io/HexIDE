@@ -2,8 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "定义",
     "Str.Menu.View.Declaration": "声明",
     "Str.Menu.View.LastPosition": "上一位置",
+    "Str.Tool.RecentEdits.Title": "最近编辑",
     "Str.Menu.View.ObjectBrowser": "对象浏览器",
     "Str.Menu.View.ImmediateWindow": "立即窗口",
     "Str.Menu.View.LocalsWindow": "本地窗口",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "删除",
     "Str.Designer.Context.BringToFront": "置于顶层",
     "Str.Designer.Context.SendToBack": "置于底层",
+    "Str.Designer.PreviewForm": "预览窗体",
     "Str.Designer.Context.ViewCode": "查看代码",
     "Str.Designer.Context.AlignToGrid": "对齐到网格",
     "Str.Designer.Context.Properties": "属性",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "最大化或还原窗格",
     "Str.Dock.Close": "关闭窗格",
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
-    "Str.Dock.ScrollRight": "向右滚动选项卡"
+    "Str.Dock.ScrollRight": "向右滚动选项卡",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量"
   }
 }

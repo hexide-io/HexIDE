@@ -2,8 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
     "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "تعریف",
     "Str.Menu.View.Declaration": "اعلان",
     "Str.Menu.View.LastPosition": "آخرین موقعیت",
+    "Str.Tool.RecentEdits.Title": "ویرایش‌های اخیر",
     "Str.Menu.View.ObjectBrowser": "مرورگر اشیاء",
     "Str.Menu.View.ImmediateWindow": "پنجره فوری",
     "Str.Menu.View.LocalsWindow": "پنجره متغیرهای محلی",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "حذف",
     "Str.Designer.Context.BringToFront": "انتقال به جلو",
     "Str.Designer.Context.SendToBack": "انتقال به عقب",
+    "Str.Designer.PreviewForm": "پیش‌نمایش فرم",
     "Str.Designer.Context.ViewCode": "نمایش کد",
     "Str.Designer.Context.AlignToGrid": "تراز با شبکه",
     "Str.Designer.Context.Properties": "ویژگی‌ها",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "بیشینه‌سازی یا بازیابی پنل",
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
-    "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست"
+    "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده"
   }
 }

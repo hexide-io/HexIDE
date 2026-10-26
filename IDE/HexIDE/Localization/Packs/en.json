@@ -2,8 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Sticky scroll",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximum pinned headers",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
@@ -91,6 +90,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "Dec_laration",
     "Str.Menu.View.LastPosition": "Last Positio_n",
+    "Str.Tool.RecentEdits.Title": "Recent Edits",
     "Str.Menu.View.ObjectBrowser": "_Object Browser",
     "Str.Menu.View.ImmediateWindow": "_Immediate Window",
     "Str.Menu.View.LocalsWindow": "Local_s Window",
@@ -318,6 +318,7 @@
     "Str.Designer.Context.Delete": "_Delete",
     "Str.Designer.Context.BringToFront": "Bring to Front",
     "Str.Designer.Context.SendToBack": "Send to Back",
+    "Str.Designer.PreviewForm": "Preview Form",
     "Str.Designer.Context.ViewCode": "View Code",
     "Str.Designer.Context.AlignToGrid": "Align to Grid",
     "Str.Designer.Context.Properties": "Properties",
@@ -893,6 +894,8 @@
     "Str.ProjectLoad.MissingRecord": "Property '{0}' in '{1}' cites a record its companion does not hold, so the form cannot be saved.",
     "Str.ProjectLoad.Heading": "Couldn't properly deserialize the project:",
     "Str.ProjectLoad.MoreWarnings": "...and {0} more warnings (see log for full list).",
-    "Str.ProjectLoad.ActiveXDocuments": "This project contains ActiveX Document files (.dob) which are not supported in HexIDE and have been skipped:\n\n{0}\n\nActiveX Documents required Internet Explorer or Office binders as a host, both of which are effectively defunct. This project type is out of scope for HexIDE."
+    "Str.ProjectLoad.ActiveXDocuments": "This project contains ActiveX Document files (.dob) which are not supported in HexIDE and have been skipped:\n\n{0}\n\nActiveX Documents required Internet Explorer or Office binders as a host, both of which are effectively defunct. This project type is out of scope for HexIDE.",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Sticky scroll",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximum pinned headers"
   }
 }

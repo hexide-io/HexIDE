@@ -2,8 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "_Definição",
     "Str.Menu.View.Declaration": "D_eclaração",
     "Str.Menu.View.LastPosition": "Última Posiçã_o",
+    "Str.Tool.RecentEdits.Title": "Edições recentes",
     "Str.Menu.View.ObjectBrowser": "Explorador de _Objetos",
     "Str.Menu.View.ImmediateWindow": "Janela _Imediata",
     "Str.Menu.View.LocalsWindow": "Janela de Locai_s",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Eliminar",
     "Str.Designer.Context.BringToFront": "Trazer para a Frente",
     "Str.Designer.Context.SendToBack": "Enviar para Trás",
+    "Str.Designer.PreviewForm": "Pré-visualizar formulário",
     "Str.Designer.Context.ViewCode": "Ver Código",
     "Str.Designer.Context.AlignToGrid": "Alinhar à Grelha",
     "Str.Designer.Context.Properties": "Propriedades",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Maximizar ou restaurar painel",
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
-    "Str.Dock.ScrollRight": "Deslocar separadores para a direita"
+    "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados"
   }
 }
