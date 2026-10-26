@@ -920,28 +920,33 @@ public static class UiAutomationDriver
         var was = Safe<ToggleState?>(() => toggle.ToggleState, null);
         toggle.Toggle();
         if (inProgram)
-            return Ok($"toggled '{label}'") with { Settled = () => Moved("the program") };
-        return Safe<ToggleState?>(() => toggle.ToggleState, null) is null || was is null
+            return Ok($"toggled '{label}'") with
+            {
+                Settled = () => ToggleMoved(was, Safe<ToggleState?>(() => toggle.ToggleState, null), radio, "the program"),
+            };
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        return now is null || was is null
             ? Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
                   + "Dump it to see")
-            : Ok($"toggled '{label}'{Moved("its handler or a binding")}");
-
-        string Moved(string who) => (was, Safe<ToggleState?>(() => toggle.ToggleState, null)) switch
-        {
-            (null, _) or (_, null) => ", but whether it moved could not be read back",
-            var (from, to) when from != to => $": it is now {Words(to.Value)}",
-            (_, var to) => radio
-                ? $", and it is still {Words(to!.Value)}: a click does not turn a radio button off; select another to"
-                : $", but {who} put it back: it is still {Words(to!.Value)}",
-        };
-
-        static string Words(ToggleState state) => state switch
-        {
-            ToggleState.On => "on",
-            ToggleState.Off => "off",
-            _ => "neither on nor off",
-        };
+            : Ok($"toggled '{label}'{ToggleMoved(was, now, radio, "its handler or a binding")}");
     }
+
+    /// <summary>The clause a toggle's reply ends with: the state it moved to, or that it stayed, and why.</summary>
+    private static string ToggleMoved(ToggleState? was, ToggleState? now, bool radio, string who) => (was, now) switch
+    {
+        (null, _) or (_, null) => ", but whether it moved could not be read back",
+        var (from, to) when from != to => $": it is now {ToggleWords(to.Value)}",
+        (_, var to) => radio
+            ? $", and it is still {ToggleWords(to!.Value)}: a click does not turn a radio button off; select another to"
+            : $", but {who} put it back: it is still {ToggleWords(to!.Value)}",
+    };
+
+    private static string ToggleWords(ToggleState state) => state switch
+    {
+        ToggleState.On => "on",
+        ToggleState.Off => "off",
+        _ => "neither on nor off",
+    };
 
     /// <summary>
     /// The reply to an expand or collapse sent through <paramref name="provider"/>, from its state read back. A
@@ -1597,6 +1602,8 @@ public static class UiAutomationDriver
     /// </remarks>
     public static async Task<InteractOutcome> InteractAsync(Control control, string action, string? value, TimeSpan? frameWait = null)
     {
+        if (string.Equals(Normalise(action), "toggle", StringComparison.Ordinal))
+            return await ToggleSettledAsync(control, action, value);
         if (!string.Equals(Normalise(action), "click", StringComparison.Ordinal))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
@@ -1609,6 +1616,34 @@ public static class UiAutomationDriver
                         + "has nothing drawn there yet, since a press is hit-tested against what was drawn: try again once it shows",
             };
         return outcome;
+    }
+
+    /// <summary>
+    /// A toggle, replied to with its state once the work it set off has run. Its own read comes straight after it, so a
+    /// refusal that put the box back from a posted callback, as a binding's write does, was reported as done (#2050). On
+    /// the IDE's own windows the state is read again once the dispatcher has run what is queued ahead of Background; a
+    /// running form's is read by the wait for its program. A dialog the toggle opened may still change it, so the reply
+    /// says so.
+    /// </summary>
+    private static async Task<InteractOutcome> ToggleSettledAsync(Control control, string action, string? value)
+    {
+        var peer = ControlAutomationPeer.CreatePeerForElement(control);
+        var toggle = peer.GetProvider<IToggleProvider>();
+        var before = toggle is null ? null : Safe<ToggleState?>(() => toggle.ToggleState, null);
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (toggle is null || before is null || InProgram(control) || outcome is not { Success: true, Settled: null })
+            return outcome;
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+        var opened = OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(d));
+        return outcome with
+        {
+            Detail = $"toggled '{LabelOf(control, peer)}'"
+                     + ToggleMoved(before, Safe<ToggleState?>(() => toggle.ToggleState, null), control is RadioButton,
+                         "its handler or a binding")
+                     + (opened ? "; a dialog opened during this call, and the state may change again once it is answered" : ""),
+        };
     }
 
     /// <summary>Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.</summary>
