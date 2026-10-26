@@ -94,9 +94,9 @@ public sealed class FontNameTests : IDisposable
 
         """;
 
-    private async Task<(List<string> Printed, List<Exception> Errors, Window Window)> RunAsync(string load, CancellationToken token)
+    private async Task<(List<string> Printed, List<Exception> Errors, Window Window)> RunAsync(string load, CancellationToken token, string? formHead = null)
     {
-        var frm = FormHead + "Private Sub Form_Load()\r\n" + load + "\r\nEnd Sub\r\n";
+        var frm = (formHead ?? FormHead) + "Private Sub Form_Load()\r\n" + load + "\r\nEnd Sub\r\n";
         File.WriteAllText(Path.Combine(dir, "Form1.frm"), frm.ReplaceLineEndings("\r\n"), Encoding.ASCII);
         File.WriteAllText(Path.Combine(dir, "Probe.vbp"), "Type=Exe\r\nForm=Form1.frm\r\nStartup=\"Form1\"\r\nName=\"Probe\"\r\n", Encoding.ASCII);
         var project = (await new ProjectLoader().LoadAsync(Path.Combine(dir, "Probe.vbp"), new NullSink())).Project;
@@ -123,13 +123,13 @@ public sealed class FontNameTests : IDisposable
     private static Control Named(Window window, string name) =>
         window.GetLogicalDescendants().OfType<Control>().First(c => VBProps.GetName(c) == name);
 
-    private async Task Check(string load, Action<List<string>, Window> assert)
+    private async Task Check(string load, Action<List<string>, Window> assert, string? formHead = null)
     {
         using var cancel = new CancellationTokenSource();
         Window? window = null;
         try
         {
-            (var printed, var errors, window) = await RunAsync(load, cancel.Token);
+            (var printed, var errors, window) = await RunAsync(load, cancel.Token, formHead);
             errors.Should().BeEmpty();
             assert(printed, window);
         }
@@ -139,6 +139,64 @@ public sealed class FontNameTests : IDisposable
             window?.Close();
         }
     }
+
+    [AvaloniaFact]
+    public Task Missing_Font_blocks_read_the_forms_font_through_runtime_members() => Check("""
+            Debug.Print Command1.FontName & " " & Command1.FontSize
+            Debug.Print Label2.FontName & " " & Label2.FontSize
+            Debug.Print Label1.FontName & " " & Label1.FontSize & " " & Label1.FontBold
+            Debug.Print Command2.FontName & " " & Command2.FontSize
+            Debug.Print Frame2.FontName & " " & Frame2.FontSize
+            Debug.Print Command4.FontName & " " & Command4.FontSize
+            Debug.Print Command3.FontName & " " & Command3.FontSize
+            Debug.Print Picture1.FontName & " " & Picture1.FontSize & " " & Picture1.FontBold
+            Debug.Print Frame1.FontName & " " & Frame1.FontSize & " " & Frame1.FontBold
+            Me.FontName = "Tahoma"
+            Debug.Print Command1.FontName & " " & Command1.FontSize
+            Command1.FontName = "Tahoma"
+            Debug.Print Label2.FontName & " " & Label2.FontSize
+            """, (printed, _) => printed.Should().Equal(
+                "Arial 12", "Arial 12", "Arial 12 True", "Arial 12", "Arial 12", "Arial 12", "Arial 12",
+                "Courier New 9.75 False", "Times New Roman 9.75 True", "Arial 12", "Arial 12"),
+            FormHead.Replace("Begin VB.Form Form1", """
+                Begin VB.Form Form1
+                   BeginProperty Font
+                      Name = "Arial"
+                      Size = 12
+                      Weight = 400
+                      Italic = 0
+                   EndProperty
+                """).Replace("Begin VB.CommandButton Command1", """
+                Begin VB.PictureBox Picture1
+                   BeginProperty Font
+                      Name = "Courier New"
+                      Size = 9.75
+                      Weight = 400
+                      Italic = 0
+                   EndProperty
+                   Begin VB.CommandButton Command2
+                      Caption = "Command2"
+                   End
+                   Begin VB.Frame Frame2
+                      Caption = "Frame2"
+                      Begin VB.CommandButton Command4
+                         Caption = "Command4"
+                      End
+                   End
+                End
+                Begin VB.Frame Frame1
+                   BeginProperty Font
+                      Name = "Times New Roman"
+                      Size = 9.75
+                      Weight = 700
+                      Italic = 0
+                   EndProperty
+                   Begin VB.CommandButton Command3
+                      Caption = "Command3"
+                   End
+                End
+                Begin VB.CommandButton Command1
+                """));
 
     [AvaloniaFact]
     public void A_face_FontName_takes_is_one_set_control_property_takes_whatever_its_name_ends_in()

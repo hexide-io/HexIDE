@@ -17,7 +17,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Uninstallable=yes
 UninstallDisplayIcon={app}\HexIDE.exe
 OutputDir=..\IDE\bin
-OutputBaseFilename=HexIDE-Setup-{#AppVersion}
+OutputBaseFilename=hexide-windows-amd64-setup
 Compression=lzma2
 SolidCompression=yes
 
