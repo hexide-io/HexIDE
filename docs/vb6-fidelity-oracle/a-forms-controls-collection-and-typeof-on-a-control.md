@@ -88,6 +88,15 @@ digit, so it never hides a control.
 last, and `Controls.Remove "cmdNew"` takes it out. `Controls.Remove "Command1"`, placed at design time, raises 729.
 HexIDE refuses both, naming #1556.
 
+**Shape BackColor (#2070, reported from the #1556 probes).** Native and p-code both read
+`c.BackColor` as -2147483643 (`&H80000005&`, window background) after
+`Set c = Controls.Add("VB.Shape", ...)`. The issue records that Shape exposes BackColor alongside BorderColor
+and FillColor, with BackStyle deciding whether the background paints. No design-time Shape default was probed.
+Provenance: [#2070](https://github.com/hexide-io/HexIDE/issues/2070), reporting the #1556 measurements;
+this is a transcription of that result, not a new probe. HexIDE's property bridge now exposes the stored
+BackColor; dynamic creation remains #1556 and the existing design-time default is unchanged.
+
+
 ### In HexIDE (#1060)
 
 `FormControls` is the collection. The loader builds it in file order and gives it to the form instance. A preserved
