@@ -43,6 +43,8 @@ public sealed class FormControls : ICSharpAsyncProxy
     internal static bool TryOf(Control control, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FormControls? form) =>
         Owners.TryGetValue(control, out form);
 
+    internal VbObject? Form { get; init; }
+
     public int Count => controls.Count;
 
     /// <summary>The form's controls, in the order <c>Controls</c> holds them.</summary>

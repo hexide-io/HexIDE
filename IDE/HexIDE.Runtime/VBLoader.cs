@@ -53,6 +53,8 @@ public class VBLoader
         // transparent one shows the form's BackColor through it (#974).
         canvas.Background = Avalonia.Media.Brushes.Transparent;
         AttachedEvents.AttachFormMouse(canvas);
+        if (form is not null)
+            AvaloniaInterop.ContainerMembers.Register(canvas, Vb6Value.NewObject(form));
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
@@ -86,6 +88,8 @@ public class VBLoader
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
             placed[component] = control;
+            if (control is IVBContainerControl { ChildHost: { } childHost })
+                AvaloniaInterop.ContainerMembers.Register(childHost, new Vb6Value(control));
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
 
@@ -151,7 +155,7 @@ public class VBLoader
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
-        var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
+        var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups) { Form = form };
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
         if (form is not null)
