@@ -239,6 +239,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** the developer chooses Debug ▸ Add Watch, or presses Shift+F9 with the caret on an identifier
 - **THEN** the Add Watch dialog opens, pre-filled with that identifier where one was under the caret
 
+#### Scenario: Localizing a watch context
+- **WHEN** the IDE language changes
+- **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog
+- **AND** named module/procedure contexts SHALL remain unchanged
+
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals

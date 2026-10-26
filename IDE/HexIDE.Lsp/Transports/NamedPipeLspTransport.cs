@@ -415,14 +415,10 @@ public sealed class NamedPipeLspTransport : ILspTransport
             UseShellExecute = false,
             CreateNoWindow = true,
 
-            // Standard error only. The protocol rides the pipe, so this stream carries nothing but the
-            // server's own words — which for a pipe server is the only thing it has to say when it fails
-            // before the pipe exists.
-            //
-            // Standard OUTPUT is deliberately left alone. A pipe server is exactly the kind that writes a
-            // banner there, and redirecting a stream nobody reads fills its buffer and blocks the child —
-            // turning a diagnostic into a hang. Redirect what is read; read what is redirected.
+            // The protocol rides the pipe; both streams carry the server's own words.
+            // Redirect what is read; read what is redirected, so neither can block the child.
             RedirectStandardError = true,
+            RedirectStandardOutput = true,
         };
 
         if (argumentList is not null)
@@ -463,8 +459,17 @@ public sealed class NamedPipeLspTransport : ILspTransport
             Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardError, e.Data));
         };
 
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not { Length: > 0 }) return;
+
+            _logger.LogDebug("[lsp stdout] {Data}", e.Data);
+            Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardOutput, e.Data));
+        };
+
         process.Exited += OnServerExited;
         process.BeginErrorReadLine();
+        process.BeginOutputReadLine();
     }
 
     private void OnServerExited(object? sender, EventArgs e)
