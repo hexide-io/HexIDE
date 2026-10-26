@@ -221,7 +221,9 @@ an edit explicitly reaching into a run remains refused. An empty range edit dele
 text SHALL widen over its run, as a key deletion does. A set whose widened spans overlap another edit
 SHALL be refused without changing the document. Find's Replace and Replace All SHALL likewise widen
 empty replacements over the runs of declarations they empty; non-empty replacements SHALL keep those runs.
-Formatting is unchanged.
+Formatting SHALL first discard changes to protected lines, then match each remaining whole-line hunk to
+its described logical declaration. An empty hunk deleting that entire declaration SHALL remove its attribute
+run as well. A hunk deleting only part of a continued declaration SHALL NOT remove the run.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
@@ -233,6 +235,10 @@ one visible line, so a mark set there would land on a line the developer cannot 
 #### Scenario: Formatting a class
 - **WHEN** a class is formatted by a server whose answer replaces the whole document
 - **THEN** the code is formatted and the header is unchanged
+
+#### Scenario: Formatting deletes a described declaration
+- **WHEN** a kept formatting hunk deletes every physical line of a described declaration
+- **THEN** its attribute run is removed with it, other kept formatting changes apply, and Undo restores both
 
 #### Scenario: Replacing text that also appears in the header
 - **GIVEN** a form with a control named `Command1` and code that refers to it

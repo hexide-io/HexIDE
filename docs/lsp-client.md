@@ -453,8 +453,10 @@ server is expected to keep off them — the bundled one does, by the rule in
   ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)). Read as LSP means it, the fold of a procedure
   declared on one line would start where its attribute fold starts, and the second rule would drop it.
 - **Formatting.** An answer is applied to a copy, reduced to the lines it actually changes, and any change to
-  a line of the header or a member's attribute run is dropped, as one undo step. Lines are compared without
-  their terminators, so a server answering in `\n` for a `\r\n` buffer does not rewrite every line.
+  a line of the header or a member's attribute run is dropped. A kept empty whole-line hunk deleting a
+  complete logical declaration then takes its run with it (#1890). All kept changes form one undo step.
+  Lines are compared without their terminators, so a server answering in `\n` for a `\r\n` buffer does not
+  rewrite every line.
 - **Rename** is not clipped, because a rename partly applied leaves one name meaning two things. An answer
   with any edit in the header or a member's attribute run is refused whole, and the developer is told why.
   The one edit let through is a member's own name where it qualifies one of its attribute lines
