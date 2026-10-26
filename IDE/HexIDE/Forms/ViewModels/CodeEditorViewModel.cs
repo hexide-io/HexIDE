@@ -1114,6 +1114,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Task FlushDocumentAsync(CancellationToken ct = default)
         => session?.FlushAsync(ct) ?? Task.CompletedTask;
 
+    public async Task<DocumentSymbol[]> RequestSearchSymbolsAsync()
+    {
+        await FlushDocumentAsync();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestDocumentSymbolsAsync(uri) : [];
+    }
+
     private async Task RefreshSymbolsAsync()
     {
         if (!lspClient.IsRunning) return;
