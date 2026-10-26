@@ -65,6 +65,10 @@ public partial class WatchesToolViewModel : Tool
         DeleteWatchCommand = new RelayCommand(DeleteSelected);
 
         RebuildRows();
+        localization.LanguageChanged += () =>
+        {
+            foreach (var row in Rows) row.RefreshLocalization();
+        };
         // The controller raises Stopped/Continued on the interpreter's own (UI-thread) execution, so we are on the UI
         // thread and the walk is frozen — the async watch eval completes synchronously against the paused frame.
         watchService.Watches.CollectionChanged += (_, _) =>

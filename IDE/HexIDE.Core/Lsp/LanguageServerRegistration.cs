@@ -69,7 +69,13 @@ public sealed record LanguageServerRegistration(
     /// acts on something already checked. A declaration that failed its checks arrives here as null: the
     /// fault was reported when the file was read, and the server still starts.
     /// </remarks>
-    WorkspaceArtifactSpec? WorkspaceArtifact = null)
+    WorkspaceArtifactSpec? WorkspaceArtifact = null,
+    /// <summary>
+    /// True when the entry declared an artefact that failed its checks, so none will be generated. The fault itself
+    /// is a configuration problem; this lets the launch say so on the connection too, where the other reasons a file
+    /// was not written are shown (#2073).
+    /// </summary>
+    bool WorkspaceArtifactRefused = false)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an
