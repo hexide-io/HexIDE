@@ -796,6 +796,12 @@ The inspector reads strictly more, and the difference is not one of convenience:
 | Several servers at once | one proxy per server, one log each | one timeline, filterable |
 | Output | a text log to read by eye | a grid, a redacted export, and an automation surface |
 
+For a named-pipe server HexIDE launches, both stdout and stderr are redirected and drained. Their lines
+appear verbatim on the connection's timeline as Received entries of kind `StandardOutput` and
+`StandardError`, respectively, including when startup fails before a pipe exists. The inspector,
+trace copy and `list_lsp_messages` distinguish the streams; these entries have no protocol body.
+Attaching to a process started elsewhere cannot observe its output or exit code.
+
 **"Sent" is when a message was serialized, not when its bytes reached the server.** Between the two sit
 StreamJsonRpc's pipe writer and the loop that copies it into the channel, and a message held anywhere there
 looks, from the timeline, exactly like a server that received it and said nothing. So the `stdio` and

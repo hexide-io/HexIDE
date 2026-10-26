@@ -657,6 +657,7 @@
     "Str.Tool.ProtocolInspector.Column.Size": "Grootte",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Dit is een regel die de server naar de standaardfoutuitvoer heeft geschreven en die hierboven volledig te zien is. Het is geen bericht, dus er is geen inhoud om te tonen.",
+    "Str.Tool.ProtocolInspector.StandardOutputHasNoBody": "De standaarduitvoer wordt hierboven volledig weergegeven. Het is geen protocolbericht en heeft dus geen berichtinhoud om te tonen.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Dit item is de eigen notitie van de opname over de verbinding, geen bericht, dus er is geen inhoud om te tonen.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} van de {1} bytes zijn niet bewaard —",
     "Str.Tool.ProtocolInspector.Reply": "— antwoord, {0} bytes —",

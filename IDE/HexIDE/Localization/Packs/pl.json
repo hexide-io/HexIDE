@@ -657,6 +657,7 @@
     "Str.Tool.ProtocolInspector.Column.Size": "Rozmiar",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "To wiersz, który serwer zapisał na standardowym wyjściu błędów, pokazany powyżej w całości. To nie jest komunikat, więc nie ma treści do wyświetlenia.",
+    "Str.Tool.ProtocolInspector.StandardOutputHasNoBody": "Standardowe wyjście jest pokazane w całości powyżej. Nie jest to komunikat protokołu, więc nie ma treści do wyświetlenia.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Ten wpis to notatka rejestrowania dotycząca połączenia, a nie komunikat, więc nie ma treści do wyświetlenia.",
     "Str.Tool.ProtocolInspector.Truncated": "— nie zachowano {0} z {1} bajtów —",
     "Str.Tool.ProtocolInspector.Reply": "— odpowiedź, {0} bajtów —",

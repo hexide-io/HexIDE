@@ -657,6 +657,7 @@
     "Str.Tool.ProtocolInspector.Column.Size": "Größe",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Dies ist eine Zeile, die der Server in die Standardfehlerausgabe geschrieben hat und die oben vollständig zu sehen ist. Sie ist keine Nachricht, daher gibt es keinen Inhalt anzuzeigen.",
+    "Str.Tool.ProtocolInspector.StandardOutputHasNoBody": "Die Standardausgabe wird oben vollständig angezeigt. Sie ist keine Protokollnachricht und hat daher keinen anzuzeigenden Nachrichtenkörper.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Dieser Eintrag ist ein Hinweis der Aufzeichnung zur Verbindung, keine Nachricht, daher gibt es keinen Inhalt anzuzeigen.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} von {1} Bytes wurden nicht aufbewahrt —",
     "Str.Tool.ProtocolInspector.Reply": "— Antwort, {0} Bytes —",
