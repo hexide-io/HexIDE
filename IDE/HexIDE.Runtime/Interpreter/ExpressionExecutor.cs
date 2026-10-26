@@ -1525,6 +1525,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A list's ListCount (#821), and a ListBox's SelCount and Text (#1395).
         if (ListMembers.TryGet(control, memberIdentifier, out var listMember))
             return listMember;
+        if (ContainerMembers.TryGet(control, memberIdentifier, out var containerMember))
+            return containerMember;
         // Any control's Name, and an array element's Index (#1431).
         if (IdentityMembers.TryGet(control, memberIdentifier, out var identityMember))
             return identityMember;
