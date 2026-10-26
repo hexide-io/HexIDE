@@ -44,7 +44,7 @@ public class DockFactoryTests
             Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), windowManager);
 
-        // No saved manifest means the factory builds the default layout.
+        // A missing manifest makes the factory build the default layout.
         var wss = Substitute.For<IWindowStateService>();
         wss.LoadLayoutManifest().Returns(manifest);
 
@@ -64,6 +64,57 @@ public class DockFactoryTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers, protocolInspector, wss, new DockFactoryReference());
         return (factory, immediate);
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left)]
+    [InlineData(DockRegion.Right)]
+    [InlineData(DockRegion.Bottom)]
+    [InlineData(DockRegion.Document)]
+    public void CreateLayout_UnknownKey_PreservesKnownWindows(DockRegion region)
+    {
+        var json = LayoutManifestJson.Serialize(new LayoutManifest(LayoutManifest.CurrentVersion, 0.17, 0.29,
+        [
+            new("futureTool", true, region, 0, 0.2),
+            new("properties", true, DockRegion.Left, 1, null),
+            new("toolbox", true, DockRegion.Right, 2, 0.4),
+            new("immediate", true, DockRegion.Bottom, 3, 0.6),
+            new("objectBrowser", true, DockRegion.Document, 4, null),
+        ]));
+        var (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(json));
+
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+
+        var restored = factory.CaptureManifest(root);
+        restored.LeftProportion.Should().Be(0.17);
+        restored.RightProportion.Should().Be(0.29);
+        foreach (var expected in LayoutManifestJson.Deserialize(json)!.Tools.Where(t => t.Key != "futureTool"))
+        {
+            var actual = restored.Tools.Single(t => t.Key == expected.Key);
+            actual.Open.Should().BeTrue();
+            actual.Region.Should().Be(expected.Region);
+            if (expected.Proportion is { } proportion)
+                actual.Proportion.Should().Be(proportion);
+        }
+        restored.Tools.Should().NotContain(t => t.Key == "futureTool");
+    }
+
+    [Fact]
+    public void CreateLayout_RepeatedUnknownKey_LogsOnce()
+    {
+        using var log = new HexIDE.Tests.Sidecar.CapturedLog();
+        var (factory, _) = CreateFactory(new LayoutManifest(LayoutManifest.CurrentVersion, 0.1, 0.3,
+        [
+            new("futureTool", true, DockRegion.Left, 0, null),
+            new("futureTool", true, DockRegion.Right, 0, null),
+            new("futureClosedTool", false, DockRegion.Document, 0, null),
+        ]));
+
+        factory.CreateLayout();
+
+        log.Messages.Where(m => m.Contains("futureTool")).Should().ContainSingle();
+        log.Messages.Where(m => m.Contains("futureClosedTool")).Should().ContainSingle();
     }
 
     [Fact]

@@ -281,7 +281,13 @@
                                         <controls:ControlsContainer.ItemTemplate>
                                             <DataTemplate x:DataType="visualDesigner:ComponentInstanceViewModel">
                                                 <controls:ControlRenderer Component="{CompiledBinding .}"
-                                                                          />
+                                                                          Classes.runtimeHidden="{CompiledBinding !IsRuntimeVisible}">
+                                                    <controls:ControlRenderer.Styles>
+                                                        <Style Selector="controls|ControlRenderer.runtimeHidden">
+                                                            <Setter Property="OpacityMask" Value="{DynamicResource DesignerHiddenControlMaskBrush}" />
+                                                        </Style>
+                                                    </controls:ControlRenderer.Styles>
+                                                </controls:ControlRenderer>
                                             </DataTemplate>
                                         </controls:ControlsContainer.ItemTemplate>
                                         <controls:ControlsContainer.Styles>
