@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// A store into a <c>Const</c> or an Enum member is refused (#1003). It succeeded for a Const, so every later read gave
 /// the new value. VB6 refuses each of these at compile time, and the message depends on the statement; measured on
 /// vb6.exe, native and p-code agreeing, with a Const and an Enum member alike. HexIDE raises the same compile error as the
-/// statement runs (interpreter-core:40-42). The probes are in docs/vb6-fidelity-oracle.md, <i>What a store into a Const
+/// statement runs (interpreter-core:40-42). The probes are in docs/vb6-fidelity-oracle/what-a-store-into-a-const-is.md, <i>What a store into a Const
 /// is</i>.
 /// </summary>
 public class ConstStoreTests : BaseVBTestFixture
@@ -34,9 +34,8 @@ public class ConstStoreTests : BaseVBTestFixture
     [InlineData(Enum, "Erase eOne", ExpectedArray)]
     public async Task A_store_into_a_constant_is_refused_as_VB6_refuses_it(string declarations, string statement, string message)
     {
-        // Not here: `Module1.MK = 2`, measured as "Assignment to constant not permitted", because a module-qualified store
-        // raises 424 whatever it names (#1006); and LSet and Line Input into a Const, measured as "Variable required",
-        // which HexIDE does not implement.
+        // `Module1.MK = 2` is covered by ModuleQualifiedStoreTests (#1006). LSet and Line Input into a Const,
+        // measured as "Variable required", are not implemented.
         //
         // Under On Error Resume Next, as each probe was: a compile error is not trappable, so nothing steps over it.
         var act = async () => await Run($"{declarations}Main\nSub Main()\n    On Error Resume Next\n    {statement}\n    Debug.Print \"ran on\"\nEnd Sub\n");

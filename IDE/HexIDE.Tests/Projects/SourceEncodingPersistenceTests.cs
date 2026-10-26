@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Events;
@@ -76,6 +78,38 @@ public class SourceEncodingPersistenceTests : IDisposable
         var vbp = Path.Join(dir, "Test.vbp");
         File.WriteAllText(vbp, "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
         return vbp;
+    }
+
+    [Fact]
+    public async Task Making_twice_to_the_same_path_replaces_the_archive_with_the_second_build()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(WriteProject());
+        var project = loaded.Single();
+        var module = project.Modules.Single();
+        var exePath = Path.Join(dir, "Program.exe");
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
+        var standalone = Path.Join(dir, "standalone");
+        Directory.CreateDirectory(standalone);
+        // Copied, never executed: MadeProgramTests is the one that runs a real runner.
+        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
+
+        svc.RuntimeDirectory = dir;
+        await svc.MakeProject(project);
+        using (var archive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll")))
+        using (var reader = new StreamReader(archive.GetEntry("Module1.bas")!.Open()))
+            reader.ReadToEnd().Should().Contain("Public Sub Original()");
+
+        module.UpdateCode(module.Code.Replace("Original", "SecondBuild"));
+        await svc.MakeProject(project);
+
+        using var secondArchive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll"));
+        using var secondReader = new StreamReader(secondArchive.GetEntry("Module1.bas")!.Open());
+        var code = secondReader.ReadToEnd();
+        code.Should().Contain("Public Sub SecondBuild()");
+        code.Should().NotContain("Public Sub Original()");
+        File.ReadAllText(exePath).Should().Be("runtime fixture");
+        Directory.GetFiles(dir, "*.tmp").Should().BeEmpty();
     }
 
     [Fact]

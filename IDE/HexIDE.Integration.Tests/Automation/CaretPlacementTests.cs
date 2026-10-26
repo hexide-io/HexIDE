@@ -54,7 +54,7 @@ public class CaretPlacementTests : IDisposable
     // the text's closing line break makes 7.
     private const string Body = "Option Explicit\r\n\r\nPrivate Sub Foo()\r\n    \r\nEnd Sub\r\n";
 
-    private CodeEditorViewModel Model(string code = Body, ModuleKind kind = ModuleKind.StandardModule)
+    private CodeEditorViewModel Model(string code = Body, ModuleKind kind = ModuleKind.StandardModule, bool form = false)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -71,7 +71,9 @@ public class CaretPlacementTests : IDisposable
         made.Add(vm);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", kind);
         module.UpdateCode(code);
-        vm.Initialize(module);
+        if (form) vm.Initialize(FormDefinition.NewForm(new ProjectDefinition(VBProjectType.EXE, "P"),
+            HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1"));
+        else vm.Initialize(module);
         return vm;
     }
 
@@ -84,6 +86,35 @@ public class CaretPlacementTests : IDisposable
         window.Content = view;
         Dispatcher.UIThread.RunJobs();
         return view.FindControl<TextEditor>("TextEditor")!;
+    }
+
+    [AvaloniaFact]
+    public async Task Typing_after_selecting_a_new_event_lands_in_its_body()
+    {
+        var vm = Model(form: true);
+        var editor = Show(vm);
+
+        var view = (CodeEditorView)windows[^1].Content!;
+        view.FindControl<ComboBox>("ObjectCombo")!.SetCurrentValue(ComboBox.SelectedItemProperty, "Form");
+        Dispatcher.UIThread.RunJobs();
+        vm.SelectedObject.Should().Be("Form");
+        view.FindControl<ComboBox>("ProcedureCombo")!.SetCurrentValue(ComboBox.SelectedItemProperty, "Click");
+        Dispatcher.UIThread.RunJobs();
+        vm.ProcedureNames.Should().Contain("Click");
+        vm.SelectedProcedure.Should().Be("Click");
+        vm.Document.Text.Should().Contain("Private Sub Form_Click()");
+        editor.CaretOffset.Should().Be(vm.Document.Text.IndexOf("Private Sub Form_Click()\r\n", StringComparison.Ordinal)
+            + "Private Sub Form_Click()\r\n".Length);
+        lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            lsp, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), []));
+        Dispatcher.UIThread.RunJobs();
+        await lsp.Received().RequestDocumentSymbolsAsync(vm.GetDocumentUriPublic());
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, "Debug.Print \"loaded\"");
+        Dispatcher.UIThread.RunJobs();
+
+        typed.Success.Should().BeTrue(typed.Error);
+        editor.Document.Text.ReplaceLineEndings("\n").Should()
+            .Contain("Private Sub Form_Click()\nDebug.Print \"loaded\"\nEnd Sub");
     }
 
     private static FoldingManager Folds(TextEditor editor) =>
@@ -278,7 +309,7 @@ public class CaretPlacementTests : IDisposable
     [AvaloniaFact]
     public void Set_property_reads_the_carried_file_caret_after_the_view_clamps_it()
     {
-        var vm = new RelatedDocumentEditorViewModel(lsp);
+        var vm = new RelatedDocumentEditorViewModel(lsp, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
         vm.Document.Text = "0123456789";
         var view = new RelatedDocumentEditorView { DataContext = vm };
         var window = new Window { Width = 800, Height = 600, Content = view };

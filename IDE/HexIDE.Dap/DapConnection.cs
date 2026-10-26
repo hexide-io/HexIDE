@@ -59,6 +59,7 @@ public sealed class DapConnection : IAsyncDisposable
     /// Sends one request and returns its successful response, preserving all JSON fields. An unsuccessful response
     /// raises DapRequestException. Timeout/cancellation abandons the local wait; it does not undo execution remotely.
     /// Cancellation during a write closes the connection because a partial frame cannot be reused safely.
+    /// Connection shutdown fails requests with IOException, including disposal during an in-flight write.
     /// </summary>
     public async Task<DapResponse> RequestAsync(string command, JsonElement? arguments = null,
         CancellationToken cancellationToken = default)
@@ -104,6 +105,10 @@ public sealed class DapConnection : IAsyncDisposable
             var response = await reply.Task.ConfigureAwait(false);
             if (!response.Success) throw new DapRequestException(response);
             return response;
+        }
+        catch (ObjectDisposedException ex) when (_lifetime.IsCancellationRequested)
+        {
+            throw new IOException("DAP connection is closed.", ex);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {

@@ -99,7 +99,11 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
-        Register<Control, VBCursorType, Cursor?>(VBProperties.MousePointerProperty, InputElement.CursorProperty, x => x.ToCursor(), x => VBCursorType.Default);
+        Register<Control, VBCursorType>(VBProperties.MousePointerProperty, AttachedProperties.GetMousePointer, (control, value) =>
+        {
+            control.Cursor = value.ToCursor();
+            AttachedProperties.SetMousePointer(control, value);
+        });
         Register<Control, bool, FlowDirection>(VBProperties.RightToLeftProperty, Visual.FlowDirectionProperty, x => x ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, x => x == FlowDirection.RightToLeft);
         Register<Control, double>(VBProperties.HeightProperty, Layoutable.HeightProperty);
         // Not Visual.IsVisibleProperty: hiding a CONTAINER that way unrealises everything inside it, and an
@@ -132,7 +136,6 @@ public static class AvaloniaInteroperability
         // because without it the assignment was a trappable 461 that On Error Resume Next swallowed, and the
         // transparent-Label rule then dropped the BackColor that followed, a wrong value with no error.
         Register<VBLabel, BackStyles>(VBProperties.BackStyleProperty, VBLabel.BackStyleProperty);
-        // Appearance reads back. Setting it is refused in TrySet: VB6 resets BackColor with it, which is #796.
         Register<VBLabel, VBAppearance>(VBProperties.AppearanceProperty, VBLabel.AppearanceProperty);
         Register<VBCheckBox, VBCheckValue>(VBProperties.CheckValueProperty, VBCheckBox.ValueProperty);
 
@@ -153,7 +156,7 @@ public static class AvaloniaInteroperability
             TextBoxMembers.TextSet(box);
         });
 
-        Register<VBScrollBar, int, double>(VBProperties.ValueProperty, RangeBase.ValueProperty, x => x, x => (int)x);
+        Register<VBScrollBar, int>(VBProperties.ValueProperty, bar => bar.VbValue, (bar, value) => bar.VbValue = value);
 
         Register<VBTimer, int>(VBProperties.IntervalProperty, VBTimer.IntervalProperty);
 
@@ -236,13 +239,6 @@ public static class AvaloniaInteroperability
         if (ReferenceEquals(property, VBProperties.MultiSelectProperty) || ReferenceEquals(property, VBProperties.ComboStyleProperty))
             throw new VBCompileErrorException("Can't assign to read-only property");
 
-        // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property
-        // alone would leave the old BackColor, a wrong value; failing to find it would be a trappable 461 that On
-        // Error Resume Next swallows into the same wrong value. So it is refused, untrappably, until #796.
-        if (control is VBLabel && ReferenceEquals(property, VBProperties.AppearanceProperty))
-            throw new NotImplementedException(
-                "Setting a Label's Appearance at run time is not implemented: VB6 resets its BackColor with it (#796)");
-
         if (bindingsByProperty.TryGetValue(property, out var props))
         {
             foreach (var prop in props)
@@ -279,6 +275,10 @@ public static class AvaloniaInteroperability
                 if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
                     return true;
                 prop.SetUntyped(control, converted);
+                // VB6 resets BackColor with a Label's Appearance (measured, #796).
+                if (control is VBLabel label && ReferenceEquals(property, VBProperties.AppearanceProperty))
+                    label.BackColor = VBColor.FromSystemColor(label.Appearance == VBAppearance._3D
+                        ? VbSystemColor.Btnface : VbSystemColor.Window);
                 return true;
             }
         }
@@ -286,17 +286,10 @@ public static class AvaloniaInteroperability
         return false;
     }
 
-    /// <summary>
-    /// A scroll bar's Value outside its Min..Max is 380 in VB6, from a String too, where Avalonia would clamp it.
-    /// Measured: Min may exceed Max, and the range is checked either way round. HexIDE cannot hold such a bar,
-    /// because Avalonia raises Maximum to Minimum, so a Value set on one would read back clamped (#787).
-    /// </summary>
+    /// <summary>A scroll bar's Value outside either ordering of Min..Max is 380 in VB6, from a String too.</summary>
     private static void CheckScrollBarValue(VBScrollBar bar, int position)
     {
-        if (bar.VbMin > bar.VbMax)
-            throw new NotImplementedException(
-                $"A scroll bar whose Min ({bar.VbMin}) exceeds its Max ({bar.VbMax}) is not implemented (#787)");
-        if (position < bar.VbMin || position > bar.VbMax)
+        if (position < Math.Min(bar.VbMin, bar.VbMax) || position > Math.Max(bar.VbMin, bar.VbMax))
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
@@ -306,7 +299,7 @@ public static class AvaloniaInteroperability
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Measured on vb6.exe (docs/vb6-fidelity-oracle.md, "Assigning to a control property"). A String property
+    /// Measured on vb6.exe (docs/vb6-fidelity-oracle/assigning-to-a-control-property.md, "Assigning to a control property"). A String property
     /// takes CStr of anything (<c>Label1.Caption = 5</c> is "5", <c>= True</c> is "True", Empty is ""). A numeric
     /// property parses a String and raises 13 when it cannot, and rounds half to even. Null raises 94 everywhere.
     /// Each of these raises before the property changes. That is exactly <see cref="VbNumeric.CoerceOnStore"/>,

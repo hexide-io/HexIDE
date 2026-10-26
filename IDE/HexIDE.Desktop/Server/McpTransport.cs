@@ -13,7 +13,7 @@ internal static class McpTransport
     /// that has gone stale.
     /// </summary>
     /// <remarks>
-    /// <para>The SDK's default is stateful, and the documented rebuild loop relaunches the IDE every iteration.
+    /// <para>The SDK's 1.x default was stateful, and the documented rebuild loop relaunches the IDE every iteration.
     /// Stateful, a relaunched IDE answers an attached client's next request with 404 "Session not found". Neither
     /// of the official SDK clients recovers from that: C# 1.3.0 expires its session, and the TypeScript client has
     /// no handling for it. Claude Code also holds the GET stream a stateful server offers, and a shutdown within a
@@ -22,7 +22,7 @@ internal static class McpTransport
     /// <para><b>Why stateless, rather than stateful with the GET stream refused.</b> That alternative would silence
     /// the shutdown but keep the 404, which only a client with recovery of its own, such as Claude Code, survives.
     /// And the protocol has dropped sessions anyway: revision 2026-07-28 removes <c>Mcp-Session-Id</c> and the GET
-    /// stream, and the SDK's 2.x line is stateless by default (#764). Stateful would be a stopgap to undo.</para>
+    /// stream, and the SDK's 2.x line is stateless by default (#764). Keep legacy clients stateless too.</para>
     /// <para><b>What this gives up.</b> A stateless server cannot send anything the client did not ask for: no
     /// <c>tools/list_changed</c> or other notification outside a call, and no sampling, elicitation or roots
     /// request. Nor can a client cancel a call by notification: <c>notifications/cancelled</c> arrives as a POST of

@@ -27,7 +27,7 @@ namespace HexIDE.Tests.LspClient;
 /// bundled server grows its own, a hand-spoken server is the only conformant peer that exists.
 /// </para>
 /// </summary>
-public class TraceOnTheWireTests : IAsyncDisposable
+public partial class TraceOnTheWireTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
     private readonly CancellationTokenSource _cts = new(TimeSpan.FromSeconds(30));

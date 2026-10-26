@@ -4,6 +4,9 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>Rechecks the workspace root and reopens held documents if it moved.</summary>
+    Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
@@ -34,6 +37,9 @@ public interface ILspClient : IAsyncDisposable
     /// </summary>
     event EventHandler<ShowMessageParams>? MessageShown;
 
+    /// <summary>Work-done progress; sender identifies the originating server through a registry.</summary>
+    event EventHandler<ProgressParams>? ProgressReceived;
+
     /// <summary>
     /// The server's running commentary about itself — <c>window/logMessage</c>.
     /// </summary>
@@ -43,7 +49,8 @@ public interface ILspClient : IAsyncDisposable
     /// a server that starts, connects and then serves nothing has only these to explain itself with.
     ///
     /// <para>
-    /// Still logged as well as raised. A message nobody sees is one bug and a message with no trace
+    /// Still logged as well as raised: Log maps to Information, Debug to Trace.
+    /// A message nobody sees is one bug and a message with no trace
     /// afterwards is the next one, which is the argument that already applies to its louder sibling.
     /// </para>
     /// </remarks>
@@ -109,6 +116,9 @@ public interface ILspClient : IAsyncDisposable
     /// </para>
     /// </summary>
     IReadOnlyList<string> DeclinedCapabilities { get; }
+
+    /// <summary>Records that another claimant has priority for this capability, once per connection.</summary>
+    void NotePrioritySkip(string capabilityName, string winnerId) { }
 
     /// <summary>
     /// What the server advertised during initialize, exactly as it sent it — or null if nothing is

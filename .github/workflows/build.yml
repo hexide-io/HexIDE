@@ -49,7 +49,7 @@ jobs:
       skip: ${{ steps.decide.outputs.skip }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The decision is a diff, and a shallow clone has no base commit to diff against.
           fetch-depth: 0
@@ -109,10 +109,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -120,7 +120,7 @@ jobs:
       # rather than a binary. Declared rather than assumed: the runner image happens to ship Node, and a
       # dependency that works by luck is one that breaks on an image change for reasons nobody can see.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -131,7 +131,7 @@ jobs:
       # carries a registry-attested hash for every package in its tree. Cached, so the usual run does not
       # go to the network at all. See docs/foreign-language-servers.md.
       - name: Cache the foreign language servers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           # The lockfile is part of the key: it pins the Node server's whole dependency tree, so a change
@@ -146,7 +146,7 @@ jobs:
       # — it is a JSON document, not a binary — but keyed by OS anyway to match its neighbour rather than
       # invent a second convention.
       - name: Cache the LSP specification model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/lsp-metamodel
           key: >-
@@ -243,6 +243,23 @@ jobs:
       - name: Build HexIDE.Desktop in Release (the configuration the server is absent from)
         run: dotnet build HexIDE.Desktop -f net10.0 -c Release
 
+      - name: Build HexIDE.Standalone in Release
+        run: dotnet build HexIDE.Standalone -f net10.0 -c Release
+
+      - name: Self-test the Release output guard
+        run: bash ../scripts/check-release-output.selftest.sh
+
+      - name: Verify Release excludes the automation server and its dependencies
+        run: bash ../scripts/check-release-output.sh HexIDE.Desktop/bin/Release/net10.0
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ github.job }}-${{ runner.os }}
+          path: IDE/**/TestResults/**
+          retention-days: 7
+
   # ── The same tests, on the two platforms that have only ever been BUILD targets ───────────────────
   #
   # build-ide above is the whole of the per-push suite and it is ubuntu-only, while publish.yml has
@@ -267,9 +284,10 @@ jobs:
   # has no VB6, so every test gated on the VB98 Template tree returns early here exactly as it does on
   # ubuntu. Those stay unproven until they run somewhere with the toolchain installed.
   #
-  # Deliberately NOT added to branch protection by this change. They are visible on a pull request and
-  # do not block a merge, which is the right state while there is no local macOS to reproduce a failure
-  # on. Promoting them to required is a separate, deliberate decision.
+  # build-ide (windows) is now required by branch protection (#1331). macOS remains advisory because
+  # there is no local macOS to reproduce a failure on. The merge rule in CONTRIBUTING.md and CLAUDE.md
+  # still requires waiting for every head-commit job to finish without red and for main's latest run
+  # not to be red; a known flake gets its run posted on its issue and re-run green before merging.
   build-ide-desktop:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
@@ -289,24 +307,24 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       # Declared rather than assumed, for the same reason as build-ide: the images happen to ship Node,
       # and a dependency that works by luck breaks on an image change for reasons nobody can see.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       # runner.os is already in the key, so each platform gets its own cache without inventing a second
       # convention. The first run on each is a cold fetch of that platform's assets.
       - name: Cache the foreign language servers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           key: >-
@@ -315,7 +333,7 @@ jobs:
               'tools/node-lsp/package-lock.json') }}
 
       - name: Cache the LSP specification model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/lsp-metamodel
           key: >-
@@ -334,6 +352,14 @@ jobs:
         working-directory: LspServer
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
 
+      # One test makes a program with the real runner and starts it (#1971): every earlier Make test copied stand-in files
+      # and ran nothing, which is how made programs that could not start shipped in v0.2.0. Nothing else in this job
+      # publishes the runner. Windows only, since the test needs a desktop session to start a program and skips
+      # elsewhere; HEXIDE_REQUIRE_MADE_PROGRAM below turns a missing runner from that skip into a failure.
+      - name: Publish the standalone runner (for the made-program test)
+        if: matrix.name == 'windows'
+        run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
@@ -341,12 +367,21 @@ jobs:
       - name: Run ViewModel Tests
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_REQUIRE_MADE_PROGRAM: ${{ matrix.name == 'windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
 
       - name: Run Integration Tests (headless Avalonia UI)
         run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ github.job }}-${{ runner.os }}
+          path: IDE/**/TestResults/**
+          retention-days: 7
 
   build-lsp-server:
     needs: changes
@@ -361,10 +396,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -374,12 +409,20 @@ jobs:
       - name: Build VB LSP Server
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
 
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ github.job }}-${{ runner.os }}
+          path: LspServer/**/TestResults/**
+          retention-days: 7
+
   # Repo-wide guard: the tree must stay 100% MIT — no GPL-licensed artifacts may reappear.
   guard-mit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # No existence guard. The script used to live only in the private repository, so this
       # step skipped here and reported success — the check has never actually run against
@@ -393,7 +436,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Before the guard, not after: this asks whether the guard can still SEE an untracked
       # file. Three of its scans could not, while its header said they could (#437), and CI

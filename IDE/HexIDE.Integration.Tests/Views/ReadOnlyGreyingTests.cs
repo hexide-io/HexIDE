@@ -831,7 +831,7 @@ public class ReadOnlyGreyingTests : IDisposable
         System.IO.File.WriteAllText(path, "# Notes\none\ntwo\nthree\n");
         try
         {
-            var vm = new RelatedDocumentEditorViewModel(lsp)
+            var vm = new RelatedDocumentEditorViewModel(lsp, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
                 .Initialize(new RelatedDocumentDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "notes.md", path));
             var view = new RelatedDocumentEditorView { DataContext = vm };
             var window = new Window { Content = view, Width = 900, Height = 700 };

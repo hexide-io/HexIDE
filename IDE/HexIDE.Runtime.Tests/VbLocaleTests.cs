@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A running program formats and reads text in its own locale, the user's regional settings, and not in the
 /// thread's culture, which the IDE pins to the invariant one (#777). Expectations marked measured are vb6.exe output
-/// under en-GB (<c>docs/vb6-fidelity-oracle.md</c>); the comma-decimal ones are the round trip, which is the property
+/// under en-GB (<c>docs/vb6-fidelity-oracle/a-running-programs-locale-is-the-users-regional-settings.md</c>); the comma-decimal ones are the round trip, which is the property
 /// the change exists for, and VB6's own text there is documented rather than measured.
 /// </summary>
 public class VbLocaleTests : BaseVBTestFixture
@@ -175,10 +175,10 @@ public class VbLocaleTests : BaseVBTestFixture
     private static readonly string BidiMinus = char.ConvertFromUtf32(0x200E) + "-";
 
     [Theory]
-    [InlineData("th-TH", false)]   // the Buddhist era: 2003 is 2546, and 30 would be 2530
-    [InlineData("fa-IR", true)]    // the Persian calendar: 2003 is 1381, and January is not its first month
-    [InlineData("ar-SA", true)]    // Umm al-Qura, which cannot reach the zero date at all
-    public async Task A_date_is_Gregorian_whatever_the_locales_own_calendar(string name, bool monthsDiffer)
+    [InlineData("th-TH")]   // the Buddhist era: 2003 is 2546, and 30 would be 2530
+    [InlineData("fa-IR")]   // the Persian calendar: 2003 is 1381, and January is not its first month
+    [InlineData("ar-SA")]   // Gregorian on ICU 78, Umm al-Qura on older ICU
+    public async Task A_date_is_Gregorian_whatever_the_locales_own_calendar(string name)
     {
         // CStr writes a Gregorian date (#779), so everything that reads one, or names a month, must be Gregorian too.
         var culture = CultureInfo.GetCultureInfo(name);
@@ -210,7 +210,9 @@ public class VbLocaleTests : BaseVBTestFixture
             new Vb6Value(true),
             new Vb6Value(true),
             new Vb6Value(true)], shown);
-        if (monthsDiffer)
+        var gregorian = (CultureInfo)culture.Clone();
+        gregorian.DateTimeFormat.Calendar = new GregorianCalendar();
+        if (culture.DateTimeFormat.GetMonthName(1) != gregorian.DateTimeFormat.GetMonthName(1))
             debug[8].Value.Should().NotBe(culture.DateTimeFormat.GetMonthName(1), "that is the first month of the locale's own calendar");
     }
 

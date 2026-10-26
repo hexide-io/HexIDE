@@ -190,7 +190,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body)
     {
-        if (body is null || DeclaresDefaultMember)
+        if (body is null || body is VB6Parser.ValueStmtContext || DeclaresDefaultMember)
             return;
         if (body is VB6Parser.AttributeStmtContext attribute
             && attribute.implicitCallStmt_InStmt().GetText() is var name
@@ -211,6 +211,12 @@ public class PrePass : VB6BaseVisitor<object?>
         this.state = state;
     }
 
+    public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
+    {
+        // Expressions contain no declarations, and a flat operator chain can be arbitrarily deep.
+        return node is VB6Parser.ValueStmtContext ? null : base.VisitChildren(node);
+    }
+
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)
     {
         topLevelBlocks.Add(context.block());
@@ -228,8 +234,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitOptionCompareStmt(VB6Parser.OptionCompareStmtContext context)
     {
-        // Recorded for the module. Like honours it (#1547); the comparison operators still compare strings ordinally,
-        // as Option Compare Binary does, which is a documented divergence (docs/interpreter-gaps.md).
+        // Recorded per module for comparisons, Like and intrinsic calls written in that module.
         OptionCompareText = context.TEXT() != null;
         return default;
     }
@@ -253,20 +258,18 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitVariableStmt(VB6Parser.VariableStmtContext context)
     {
-        if (context.WITHEVENTS() != null)
+        foreach (var subStmt in context.variableListStmt().variableSubStmt())
         {
-            // `[Private|Public] WithEvents src As Clock` (class/form-only) — hoist each as an object slot
-            // initialised to Nothing and record the name as an event sink. The declared class (`As Clock`) is not
-            // needed for dispatch (handlers resolve by name), so it's not validated.
-            foreach (var sub in context.variableListStmt().variableSubStmt())
-            {
-                var name = sub.ambiguousIdentifier().GetText();
-                DeclareModuleName(name);
-                WithEventsNames.Add(name);
-                rootEnv.DefineVariable(name, state.Alloc(Vb6Value.Nothing));
-            }
-            return default;
+            if (subStmt.WITHEVENTS() == null)
+                continue;
+            // Only this declarator is an event sink; the declared class is not validated here.
+            var name = subStmt.ambiguousIdentifier().GetText();
+            DeclareModuleName(name);
+            WithEventsNames.Add(name);
+            rootEnv.DefineVariable(name, state.Alloc(Vb6Value.Nothing));
         }
+        if (context.variableListStmt().variableSubStmt().All(sub => sub.WITHEVENTS() != null))
+            return default;
 
         // Module-level `Dim`, `Private`, and `Public` declarations all hoist the same way (visibility is not
         // tracked for variables — an over-permissive simplification). Class fields are usually `Private`/`Public`.
@@ -277,6 +280,8 @@ public class PrePass : VB6BaseVisitor<object?>
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
             {
+                if (subStmt.WITHEVENTS() != null)
+                    continue;
                 DeclareModuleName(subStmt.ambiguousIdentifier().GetText());
                 if (subStmt.typeHint() != null)
                     throw new NotImplementedException("DIM type hints not implemented");
@@ -345,8 +350,7 @@ public class PrePass : VB6BaseVisitor<object?>
                              && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
                     {
                         objectSlot = true;
-                        if (objectType.COLLECTION() != null)
-                            declaredClass = "Collection";
+                        declaredClass = objectType.COLLECTION() != null ? "Collection" : isArray ? null : "Object";
                     }
                     else
                     {
@@ -755,7 +759,10 @@ public class PrePass : VB6BaseVisitor<object?>
             if (asType.fieldLength() != null)
                 throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
             if (asType.NEW() != null)
-                throw new NotImplementedException($"Field '{fieldName}' declared As New inside Type '{name}' is not implemented (#1488)");
+            {
+                fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
+                continue;
+            }
             if (asType.type().complexType() is { } ct)
                 fields.Add(new UdtField(fieldName, null, ct.GetText()));   // nested UDT or Enum, resolved at NewUdt
             else

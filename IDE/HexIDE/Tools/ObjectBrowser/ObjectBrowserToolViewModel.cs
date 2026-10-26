@@ -171,7 +171,7 @@ public partial class ObjectBrowserToolViewModel : Document
         var lib = new OBLibraryViewModel("VB");
         foreach (var component in componentRegistry.Components)
         {
-            var cls = new OBClassViewModel(component.Name, OBClassKind.ClassModule, "VB");
+            var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
             foreach (var prop in component.Properties)
                 cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
             foreach (var evt in component.Events)
@@ -185,7 +185,7 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void AddVbaLibraryStub()
     {
-        vbaLibrary = new OBLibraryViewModel("VBA");
+        vbaLibrary = new OBLibraryViewModel("VBA") { IsLoaded = false };
         Libraries.Add(vbaLibrary);
         ReorderLibraries();
     }
@@ -193,19 +193,34 @@ public partial class ObjectBrowserToolViewModel : Document
     private async Task LoadVbaLibraryAsync(OBLibraryViewModel lib)
     {
         if (lib.IsLoaded) return;
+        var running = (connections.Connections ?? [])
+            .Where(c => c.State == LanguageConnectionState.Running).ToArray();
+        if (!running.Any(c => c.Capabilities is { ValueKind: JsonValueKind.Object } caps
+                && caps.TryGetProperty("experimental", out var experimental)
+                && experimental.ValueKind == JsonValueKind.Object
+                && experimental.TryGetProperty("vbBuiltinSymbols", out var flag)
+                && flag.ValueKind == JsonValueKind.True))
+        {
+            lib.Classes.Clear();
+            lib.Classes.Add(new OBClassViewModel(localization.GetString(running.Length == 0
+                ? "Str.Tool.ObjectBrowser.Vba.NoServer"
+                : "Str.Tool.ObjectBrowser.Vba.NoProvider"), OBClassKind.Module, "VBA") { IsStatus = true });
+            return;
+        }
         IsLoadingMembers = true;
         try
         {
             var symbols = await lspClient.RequestBuiltinSymbolsAsync();
+            lib.Classes.Clear();
             lib.IsLoaded = true;
 
             if (symbols.Length == 0)
             {
-                lib.Classes.Add(new OBClassViewModel("(Built-in symbols unavailable)", OBClassKind.Module, "VBA"));
+                lib.Classes.Add(new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Empty"), OBClassKind.Module, "VBA") { IsStatus = true });
             }
             else
             {
-                var globalsClass = new OBClassViewModel("(Globals)", OBClassKind.Module, "VBA");
+                var globalsClass = new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Globals"), OBClassKind.Module, "VBA");
                 foreach (var sym in symbols)
                     globalsClass.Members.Add(new OBMemberViewModel(sym.Name, OBMemberKind.Method, sym.Signature, sym.Documentation));
                 lib.Classes.Add(globalsClass);
@@ -217,7 +232,6 @@ public partial class ObjectBrowserToolViewModel : Document
         catch (Exception ex)
         {
             Log.Warning(ex, "ObjectBrowser: failed to load VBA built-in symbols");
-            lib.IsLoaded = true;
         }
         finally { IsLoadingMembers = false; }
     }
@@ -227,6 +241,14 @@ public partial class ObjectBrowserToolViewModel : Document
     private void OnProjectUnloaded(ProjectDefinition project)
     {
         if (!projectToLibrary.TryGetValue(project, out var lib)) return;
+        project.FormAdded -= OnFormAdded;
+        project.FormDeleted -= OnFormDeleted;
+        project.ModuleAdded -= OnModuleAdded;
+        project.ModuleDeleted -= OnModuleDeleted;
+        project.PropertyChanged -= OnProjectChanged;
+        foreach (var form in project.Forms) form.PropertyChanged -= OnMemberChanged;
+        foreach (var module in project.Modules) module.PropertyChanged -= OnMemberChanged;
+        PruneHistory(c => lib.Classes.Contains(c));
         Libraries.Remove(lib);
         projectToLibrary.Remove(project);
         if (SelectedLibrary == lib) SelectedLibrary = null;
@@ -235,13 +257,23 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void AddProjectLibrary(ProjectDefinition project)
     {
+        if (projectToLibrary.ContainsKey(project)) return;
+        project.FormAdded += OnFormAdded;
+        project.FormDeleted += OnFormDeleted;
+        project.ModuleAdded += OnModuleAdded;
+        project.ModuleDeleted += OnModuleDeleted;
+        project.PropertyChanged += OnProjectChanged;
         var lib = new OBLibraryViewModel(project.Name);
 
         foreach (var form in project.Forms)
+        {
+            form.PropertyChanged += OnMemberChanged;
             lib.Classes.Add(new OBClassViewModel(form.Name, OBClassKind.Form, project.Name, formDefinition: form));
+        }
 
         foreach (var module in project.Modules)
         {
+            module.PropertyChanged += OnMemberChanged;
             var kind = module.Kind == ModuleKind.ClassModule ? OBClassKind.ClassModule : OBClassKind.Module;
             lib.Classes.Add(new OBClassViewModel(module.Name, kind, project.Name, moduleDefinition: module));
         }
@@ -260,6 +292,84 @@ public partial class ObjectBrowserToolViewModel : Document
         }
 
         ReorderLibraries();
+    }
+
+    private void OnFormAdded(ProjectDefinition project, FormDefinition form)
+    {
+        form.PropertyChanged += OnMemberChanged;
+        projectToLibrary[project].Classes.Add(new OBClassViewModel(form.Name, OBClassKind.Form,
+            project.Name, formDefinition: form));
+        RefreshProjectClasses(project);
+    }
+
+    private void OnModuleAdded(ProjectDefinition project, ModuleDefinition module)
+    {
+        module.PropertyChanged += OnMemberChanged;
+        var kind = module.Kind == ModuleKind.ClassModule ? OBClassKind.ClassModule : OBClassKind.Module;
+        projectToLibrary[project].Classes.Add(new OBClassViewModel(module.Name, kind,
+            project.Name, moduleDefinition: module));
+        RefreshProjectClasses(project);
+    }
+
+    private void OnFormDeleted(ProjectDefinition project, FormDefinition form)
+    {
+        form.PropertyChanged -= OnMemberChanged;
+        RemoveProjectClass(project, c => ReferenceEquals(c.FormDefinition, form));
+    }
+
+    private void OnModuleDeleted(ProjectDefinition project, ModuleDefinition module)
+    {
+        module.PropertyChanged -= OnMemberChanged;
+        RemoveProjectClass(project, c => ReferenceEquals(c.ModuleDefinition, module));
+    }
+
+    private void RemoveProjectClass(ProjectDefinition project, Predicate<OBClassViewModel> matches)
+    {
+        PruneHistory(matches);
+        projectToLibrary[project].Classes.RemoveAll(matches);
+        RebuildFilteredClasses();
+    }
+
+    private void PruneHistory(Predicate<OBClassViewModel> matches)
+    {
+        for (int i = _navHistory.Count - 1; i >= 0; i--)
+        {
+            if (_navHistory[i].Class is not { } cls || !matches(cls)) continue;
+            _navHistory.RemoveAt(i);
+            if (i <= _navIndex) _navIndex--;
+        }
+        BackCommand.RaiseCanExecutedChanged();
+        ForwardCommand.RaiseCanExecutedChanged();
+    }
+
+    private void OnMemberChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != nameof(FormDefinition.Name)) return;
+        if (sender is FormDefinition form) RefreshProjectClasses(form.Owner);
+        else if (sender is ModuleDefinition module) RefreshProjectClasses(module.Owner);
+    }
+
+    private void OnProjectChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.PropertyName) && e.PropertyName != nameof(ProjectDefinition.Name)) return;
+        if (sender is not ProjectDefinition project) return;
+        projectToLibrary[project].Name = project.Name;
+        RefreshProjectClasses(project);
+        ReorderLibraries();
+    }
+
+    private void RefreshProjectClasses(ProjectDefinition project)
+    {
+        var lib = projectToLibrary[project];
+        foreach (var cls in lib.Classes)
+        {
+            cls.Name = cls.FormDefinition?.Name ?? cls.ModuleDefinition!.Name;
+            cls.LibraryName = project.Name;
+        }
+        lib.Classes.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+        RebuildFilteredClasses();
+        OnPropertyChanged(nameof(DescriptionMembership));
+        OnPropertyChanged(nameof(MembersHeader));
     }
 
     private void ReorderLibraries()
@@ -295,7 +405,7 @@ public partial class ObjectBrowserToolViewModel : Document
             foreach (var lib in Libraries)
             {
                 if (lib == OBLibraryViewModel.AllLibraries) continue;
-                all.AddRange(lib.Classes);
+                all.AddRange(lib.Classes.Where(c => !c.IsStatus));
             }
             source = all;
         }
@@ -315,8 +425,12 @@ public partial class ObjectBrowserToolViewModel : Document
             SelectedClass = null;
     }
 
+    private int memberRequestVersion;
+
     private void OnClassSelectionChanged()
     {
+        memberRequestVersion++;
+        IsLoadingMembers = false;
         FilteredMembers.Clear();
         SelectedMember = null;
         GoToDefinitionCommand.RaiseCanExecutedChanged();
@@ -324,17 +438,17 @@ public partial class ObjectBrowserToolViewModel : Document
 
         if (SelectedClass == null) return;
 
-        if (SelectedClass.Members.Count > 0)
+        if (!SelectedClass.CanNavigate && SelectedClass.Members.Count > 0)
         {
             PopulateFilteredMembers(SelectedClass);
             return;
         }
 
         if (lspClient.IsRunning && SelectedClass.CanNavigate)
-            LoadMembersAsync(SelectedClass).ListenErrors();
+            LoadMembersAsync(SelectedClass, memberRequestVersion).ListenErrors();
     }
 
-    private async Task LoadMembersAsync(OBClassViewModel classVm)
+    private async Task LoadMembersAsync(OBClassViewModel classVm, int requestVersion)
     {
         IsLoadingMembers = true;
         try
@@ -344,6 +458,9 @@ public partial class ObjectBrowserToolViewModel : Document
                 : DocumentWireName.For(classVm.FormDefinition!);
 
             var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
+            if (requestVersion != memberRequestVersion) return;
+
+            classVm.Members.Clear();
 
             // Flattened: a server may report the module as one symbol holding its members, and the browser
             // lists members rather than the container. Skipping the container itself would need to know
@@ -356,7 +473,8 @@ public partial class ObjectBrowserToolViewModel : Document
             foreach (var sym in members)
             {
                 var (kind, signature) = MapSymbol(sym);
-                classVm.Members.Add(new OBMemberViewModel(sym.Name, kind, signature));
+                classVm.Members.Add(new OBMemberViewModel(sym.Name, kind, signature,
+                    declarationPosition: sym.SelectionRange.Start));
             }
 
             if (ReferenceEquals(SelectedClass, classVm))
@@ -368,7 +486,7 @@ public partial class ObjectBrowserToolViewModel : Document
         }
         finally
         {
-            IsLoadingMembers = false;
+            if (requestVersion == memberRequestVersion) IsLoadingMembers = false;
         }
     }
 
@@ -673,6 +791,14 @@ public partial class ObjectBrowserToolViewModel : Document
     private void GoToDefinition()
     {
         if (SelectedClass == null) return;
+        if (SelectedClass.CanNavigate && SelectedMember?.DeclarationPosition is { } position)
+        {
+            var uri = SelectedClass.ModuleDefinition != null
+                ? DocumentWireName.For(SelectedClass.ModuleDefinition)
+                : DocumentWireName.For(SelectedClass.FormDefinition!);
+            editorService.NavigateTo(uri, position.Line + 1, position.Character + 1);
+            return;
+        }
         if (SelectedClass.ModuleDefinition != null)
             editorService.EditCode(SelectedClass.ModuleDefinition);
         else if (SelectedClass.FormDefinition != null)

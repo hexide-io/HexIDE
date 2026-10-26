@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Events;
 using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
@@ -39,6 +40,7 @@ public sealed class FileWatcherService : IFileWatcherService
     private readonly IProjectRunnerService projectRunner;
     private readonly ISettingsService settings;
     private readonly IFileBaselineStore baselineStore;
+    private readonly IDisposable savedSubscription;
 
     private readonly ChangeCoalescer coalescer;
     private readonly DirtyDetector dirtyDetector;
@@ -48,6 +50,7 @@ public sealed class FileWatcherService : IFileWatcherService
     private readonly object watchersLock = new();
     private readonly Dictionary<string, (FileSystemWatcher Watcher, int RefCount)> watchers =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ProjectDefinition, HashSet<string>> projectDirectories = new();
     private readonly System.Timers.Timer timer;
     private volatile bool disposed;
 
@@ -79,12 +82,17 @@ public sealed class FileWatcherService : IFileWatcherService
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
         settings.PropertyChanged += OnSettingsChanged;
+        savedSubscription = eventBus.Subscribe<DocumentSavedEvent>(e =>
+        {
+            if ((e.Module?.Owner ?? e.Form?.Owner) is { } project)
+                AttachProject(project);
+        });
 
         timer = new System.Timers.Timer(PollIntervalMs) { AutoReset = false };
         timer.Elapsed += OnTimerElapsed;
 
-        if (settings.ReloadFilesChangedOutsideIde)
-            AttachAll();
+        foreach (var project in projectManager.LoadedProjects)
+            OnProjectLoaded(project);
 
         timer.Start();
     }
@@ -103,29 +111,78 @@ public sealed class FileWatcherService : IFileWatcherService
 
     private void OnProjectLoaded(ProjectDefinition project)
     {
-        if (settings.ReloadFilesChangedOutsideIde)
-            AttachProject(project);
+        if (projectDirectories.ContainsKey(project))
+            return;
+        projectDirectories.Add(project, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        project.PropertyChanged += OnPathChanged;
+        project.FormAdded += OnFormAdded;
+        project.FormDeleted += OnFormDeleted;
+        project.ModuleAdded += OnModuleAdded;
+        project.ModuleDeleted += OnModuleDeleted;
+        foreach (var form in project.Forms)
+            form.PropertyChanged += OnPathChanged;
+        foreach (var module in project.Modules)
+            module.PropertyChanged += OnPathChanged;
+        AttachProject(project);
     }
 
     private void OnProjectUnloaded(ProjectDefinition project)
     {
-        var dir = DirectoryOf(project);
-        if (dir is null)
-            return;
+        project.PropertyChanged -= OnPathChanged;
+        project.FormAdded -= OnFormAdded;
+        project.FormDeleted -= OnFormDeleted;
+        project.ModuleAdded -= OnModuleAdded;
+        project.ModuleDeleted -= OnModuleDeleted;
+        foreach (var form in project.Forms)
+            form.PropertyChanged -= OnPathChanged;
+        foreach (var module in project.Modules)
+            module.PropertyChanged -= OnPathChanged;
         lock (watchersLock)
         {
-            if (!watchers.TryGetValue(dir, out var entry))
+            if (!projectDirectories.Remove(project, out var directories))
                 return;
-            if (entry.RefCount <= 1)
-            {
-                DisposeWatcher(entry.Watcher);
-                watchers.Remove(dir);
-            }
-            else
-            {
-                watchers[dir] = (entry.Watcher, entry.RefCount - 1);
-            }
+            foreach (var dir in directories)
+                ReleaseDirectory(dir);
         }
+    }
+
+    private void OnPathChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ProjectDefinition.AbsolutePath))
+            return;
+        var project = sender switch
+        {
+            ProjectDefinition p => p,
+            FormDefinition f => f.Owner,
+            ModuleDefinition m => m.Owner,
+            _ => null,
+        };
+        if (project is not null)
+            AttachProject(project);
+    }
+
+    private void OnFormAdded(ProjectDefinition project, FormDefinition form)
+    {
+        form.PropertyChanged += OnPathChanged;
+        AttachProject(project);
+    }
+
+    private void OnFormDeleted(ProjectDefinition project, FormDefinition form)
+    {
+        form.PropertyChanged -= OnPathChanged;
+        AttachProject(project);
+    }
+
+    private void OnModuleAdded(ProjectDefinition project, ModuleDefinition module)
+    {
+        module.PropertyChanged += OnPathChanged;
+        AttachProject(project);
+    }
+
+    private void OnModuleDeleted(ProjectDefinition project, ModuleDefinition module)
+    {
+        module.PropertyChanged -= OnPathChanged;
+        AttachProject(project);
     }
 
     private void AttachAll()
@@ -136,25 +193,53 @@ public sealed class FileWatcherService : IFileWatcherService
 
     private void AttachProject(ProjectDefinition project)
     {
-        var dir = DirectoryOf(project);
-        if (dir is null || !Directory.Exists(dir))
+        if (!settings.ReloadFilesChangedOutsideIde)
             return;
+        var desired = project.Forms.Select(f => f.AbsolutePath)
+            .Concat(project.Modules.Select(m => m.AbsolutePath))
+            .Append(project.AbsolutePath)
+            .Select(DirectoryOf).OfType<string>().Where(Directory.Exists)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         lock (watchersLock)
         {
-            if (watchers.TryGetValue(dir, out var entry))
-            {
-                watchers[dir] = (entry.Watcher, entry.RefCount + 1);
+            if (!projectDirectories.TryGetValue(project, out var attached))
                 return;
-            }
-            try
+            foreach (var dir in attached.Except(desired).ToArray())
             {
-                watchers[dir] = (CreateWatcher(dir), 1);
-                Log.Information("FileWatcher: watching {Dir}", dir);
+                ReleaseDirectory(dir);
+                attached.Remove(dir);
             }
-            catch (Exception ex)
+            foreach (var dir in desired.Except(attached))
             {
-                Log.Warning(ex, "FileWatcher: failed to watch {Dir}", dir);
+                if (watchers.TryGetValue(dir, out var entry))
+                    watchers[dir] = (entry.Watcher, entry.RefCount + 1);
+                else
+                {
+                    try
+                    {
+                        watchers[dir] = (CreateWatcher(dir), 1);
+                        Log.Information("FileWatcher: watching {Dir}", dir);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "FileWatcher: failed to watch {Dir}", dir);
+                        continue;
+                    }
+                }
+                attached.Add(dir);
             }
+        }
+    }
+
+    private void ReleaseDirectory(string dir)
+    {
+        var entry = watchers[dir];
+        if (entry.RefCount > 1)
+            watchers[dir] = (entry.Watcher, entry.RefCount - 1);
+        else
+        {
+            DisposeWatcher(entry.Watcher);
+            watchers.Remove(dir);
         }
     }
 
@@ -165,6 +250,8 @@ public sealed class FileWatcherService : IFileWatcherService
             foreach (var (watcher, _) in watchers.Values)
                 DisposeWatcher(watcher);
             watchers.Clear();
+            foreach (var directories in projectDirectories.Values)
+                directories.Clear();
         }
     }
 
@@ -194,9 +281,8 @@ public sealed class FileWatcherService : IFileWatcherService
         catch { /* best-effort */ }
     }
 
-    private static string? DirectoryOf(ProjectDefinition project)
+    private static string? DirectoryOf(string? path)
     {
-        var path = project.AbsolutePath;
         if (string.IsNullOrEmpty(path))
             return null;
         try { return Path.GetDirectoryName(Path.GetFullPath(path)); }
@@ -207,12 +293,14 @@ public sealed class FileWatcherService : IFileWatcherService
 
     private void OnFsChanged(object? sender, FileSystemEventArgs e)
     {
-        if (IsWatchedFile(e.FullPath))
+        if (IsLive(sender) && IsWatchedFile(e.FullPath))
             coalescer.Notify(e.FullPath);
     }
 
     private void OnFsRenamed(object? sender, RenamedEventArgs e)
     {
+        if (!IsLive(sender))
+            return;
         // An atomic write (tmp → target) surfaces here; the old (.tmp) name has no baseline.
         baselineStore.Remove(e.OldFullPath);
         if (IsWatchedFile(e.FullPath))
@@ -225,8 +313,19 @@ public sealed class FileWatcherService : IFileWatcherService
         // transient Deleted of the target immediately followed by its re-creation, and eagerly dropping
         // the baseline would defeat self-write suppression. Route it through the coalescer — the batch
         // processor drops the baseline only if the file is still gone once the burst settles.
-        if (IsWatchedFile(e.FullPath))
+        if (IsLive(sender) && IsWatchedFile(e.FullPath))
             coalescer.Notify(e.FullPath);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="sender"/> is a watcher this service still holds. A released watcher can still raise
+    /// an event already in flight: on macOS the FSEvents stream stops asynchronously, so a write just after a
+    /// project unloads or moves arrived from the watcher it had let go of (#476, seen on macOS CI).
+    /// </summary>
+    private bool IsLive(object? sender)
+    {
+        lock (watchersLock)
+            return watchers.Values.Any(entry => ReferenceEquals(entry.Watcher, sender));
     }
 
     private void OnFsError(object? sender, ErrorEventArgs e) =>
@@ -452,7 +551,10 @@ public sealed class FileWatcherService : IFileWatcherService
         projectManager.ProjectLoaded -= OnProjectLoaded;
         projectManager.ProjectUnloaded -= OnProjectUnloaded;
         settings.PropertyChanged -= OnSettingsChanged;
+        savedSubscription.Dispose();
         try { timer.Stop(); timer.Dispose(); } catch { /* best-effort */ }
+        foreach (var project in projectDirectories.Keys.ToArray())
+            OnProjectUnloaded(project);
         DetachAll();
     }
 }

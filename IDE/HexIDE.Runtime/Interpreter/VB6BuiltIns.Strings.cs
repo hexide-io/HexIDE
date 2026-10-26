@@ -16,10 +16,17 @@ public partial class VB6BuiltIns
         d["Left"]       = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
         d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
-        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value((long)AsStr(a[0]).Length);   // Long — see InStr
-        d["InStr"]      = (_, a, _) => InStr(a);
-        d["InStrRev"]   = (_, a, _) => InStrRev(a);
-        d["Replace"]    = (_, a, _) => new Vb6Value(Replace(a));
+        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(a is IntrinsicArgumentValues { LenVariableSize: { } size } ? size : (long)AsStr(a[0]).Length);   // Long — see InStr
+        d["InStr"]      = (_, a, text) => InStr(a, text);
+        d["LenB"]       = (_, a, _) => LenB(a);
+        d["AscB"]       = (_, a, _) => AscB(a[0]);
+        d["InStrB"]     = (_, a, _) => InStrB(a);
+        d["MidB"]       = (_, a, _) => NullOrStr(a[0], s => MidB(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : null));
+        d["LeftB"]      = (_, a, _) => NullOrStr(a[0], s => LeftB(s, AsInt(a[1])));
+        d["RightB"]     = (_, a, _) => NullOrStr(a[0], s => RightB(s, AsInt(a[1])));
+        d["ChrB"]       = (_, _, _) => throw OddByteString("ChrB");
+        d["InStrRev"]   = (_, a, text) => InStrRev(a, text);
+        d["Replace"]    = (_, a, text) => new Vb6Value(Replace(a, text));
         d["Trim"]       = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));
         d["LTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimStart(' '));
         d["RTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimEnd(' '));
@@ -34,7 +41,7 @@ public partial class VB6BuiltIns
         d["AscW"]       = (_, a, _) => new Vb6Value((int)(short)FirstCharacterOf(a[0]));
         d["Str"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(StrFn(a[0]));
         d["Val"]        = (_, a, _) => new Vb6Value(Val(AsStr(a[0])));
-        d["StrComp"]    = (_, a, _) => StrComp(a);
+        d["StrComp"]    = (_, a, text) => StrComp(a, text);
         d["StrConv"]    = (_, a, _) => StrConv(a);
     }
 
@@ -42,10 +49,10 @@ public partial class VB6BuiltIns
     // the compare is read first, as CLng reads it (0.5 is 0 and 1.5 is 2), so a Null one is 94 whatever the strings are; 0
     // is binary and 1 text (VbTextCompare), 2 and a negative are 5. Then the strings, an array being 13 even beside a Null,
     // and anything else read as & reads it, so StrComp(5, "5") is 0. Given no compare, vb6.exe takes the calling module's
-    // Option Compare (measured); this compares binary there until #1572.
-    private static Vb6Value StrComp(IReadOnlyList<Vb6Value> a)
+    // Option Compare (measured, #1572).
+    private static Vb6Value StrComp(IReadOnlyList<Vb6Value> a, bool compareText)
     {
-        var text = Supplied(a, 2) && IsTextCompare(CompareArgument(a[2]));
+        var text = Supplied(a, 2) ? IsTextCompare(CompareArgument(a[2])) : compareText;
         var first = StrCompOperand(a[0]);
         var second = StrCompOperand(a[1]);
         if (first is null || second is null)
@@ -126,6 +133,91 @@ public partial class VB6BuiltIns
 
     private static VBRunTimeException InvalidCall() => new(VBStandardError.InvalidProcedureCall);
 
+    // The byte-string functions (#1510), measured on vb6.exe, native and p-code alike. A String is a run of bytes, two to a
+    // character with the low byte first, and each of these counts bytes where its plain form counts characters: LenB("abc")
+    // is 6, LeftB("abc", 4) is "ab", and InStrB("abc", "b") is 3.
+
+    // LenB: a declared scalar's size, as Len gives it, and otherwise twice the length of the text, a Variant's included
+    // (LenB of a Variant holding 12345 is 10). A Type's size in memory is padded, LenB of an Integer and a Long being 8
+    // where Len is 6, and isn't built.
+    private static Vb6Value LenB(IReadOnlyList<Vb6Value> a)
+    {
+        if (a[0].IsNull) return Vb6Value.Null;
+        if (a is IntrinsicArgumentValues { LenVariableSize: { } size }) return new Vb6Value(size);
+        if (a[0].Type == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("LenB of a user-defined type is not implemented: it is the Type's size in memory, "
+                + "padded, which HexIDE does not lay out (#1510).");
+        return new Vb6Value(2L * AsStr(a[0]).Length);
+    }
+
+    // AscB: the string's first byte, a Byte. An empty string is 5, and Null 94.
+    private static Vb6Value AscB(Vb6Value v)
+    {
+        if (v.IsNull) throw InvalidUseOfNull();
+        var s = AsStr(v);
+        return s.Length > 0 ? new Vb6Value((byte)s[0]) : throw InvalidCall();
+    }
+
+    // InStrB([start,] string1, string2[, compare]): the byte at which string2 first starts, at or after the byte start, or 0. A
+    // match may start inside a character. The compare is read and ignored: the search is always by byte, so "b" is not in
+    // "ABC" even with vbTextCompare. Unlike InStr, an empty string2 is found at start only within string1.
+    private static Vb6Value InStrB(IReadOnlyList<Vb6Value> a)
+    {
+        int start = 1, i = 0;
+        if (a.Count >= 3) { start = AsInt(a[0]); i = 1; }
+        if (Supplied(a, 3)) AsInt(a[3]);
+        if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
+        if (start < 1) throw InvalidCall();
+        string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
+        int bytes = 2 * s1.Length, findBytes = 2 * s2.Length;
+        if (bytes == 0 || start > bytes) return new Vb6Value(0L);
+        for (var at = start - 1; at + findBytes <= bytes; at++)
+        {
+            var k = 0;
+            while (k < findBytes && ByteAt(s1, at + k) == ByteAt(s2, k))
+                k++;
+            if (k == findBytes)
+                return new Vb6Value((long)at + 1);
+        }
+        return new Vb6Value(0L);
+    }
+
+    // MidB, LeftB and RightB: a start below 1 or a negative length is 5, and a length past the end takes what there is.
+    private static string MidB(string s, int start, int? length)
+    {
+        if (start < 1 || length < 0) throw InvalidCall();
+        var bytes = 2 * s.Length;
+        if (start > bytes) return "";
+        return ByteSlice(s, start - 1, Math.Min(length ?? bytes, bytes - (start - 1)), "MidB");
+    }
+
+    private static string LeftB(string s, int length) =>
+        length < 0 ? throw InvalidCall() : ByteSlice(s, 0, Math.Min(length, 2 * s.Length), "LeftB");
+
+    private static string RightB(string s, int length)
+    {
+        if (length < 0) throw InvalidCall();
+        var take = Math.Min(length, 2 * s.Length);
+        return ByteSlice(s, 2 * s.Length - take, take, "RightB");
+    }
+
+    private static byte ByteAt(string s, int i) => (byte)(i % 2 == 0 ? s[i / 2] : s[i / 2] >> 8);
+
+    // The bytes from the 0-based start, as a String. Bytes that pair up make characters, wherever they start: MidB("abc", 2, 2)
+    // is the character &H6200. An odd number of them is a String HexIDE cannot hold, its strings being whole characters.
+    private static string ByteSlice(string s, int start, int length, string function)
+    {
+        if (length % 2 != 0) throw OddByteString(function);
+        var chars = new char[length / 2];
+        for (var k = 0; k < chars.Length; k++)
+            chars[k] = (char)(ByteAt(s, start + 2 * k) | ByteAt(s, start + 2 * k + 1) << 8);
+        return new string(chars);
+    }
+
+    private static NotImplementedException OddByteString(string function) =>
+        new($"{function} gave a String of an odd number of bytes, which HexIDE cannot hold yet: its strings are whole "
+            + "characters (#1510). ChrB is always one byte.");
+
     private static string Left(string s, int n)
     {
         if (n < 0) throw InvalidCall();
@@ -172,10 +264,10 @@ public partial class VB6BuiltIns
     // is, while Asc, Sgn, DatePart and the date parts really are Integer. Building the result from an
     // `int` runs it through Vb6Value(int)'s magnitude rule, which reports anything fitting Int16 as an
     // Integer — right for an arithmetic literal, wrong for a function with a declared return type. (#193)
-    private static Vb6Value InStr(IReadOnlyList<Vb6Value> a)
+    private static Vb6Value InStr(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         // InStr([start,] string1, string2[, compare]). A leading numeric start is present only with 3+ args.
-        int start = 1, i = 0, compare = 0;
+        int start = 1, i = 0, compare = compareText ? 1 : 0;
         if (a.Count >= 3) { start = AsInt(a[0]); i = 1; }
         if (Supplied(a, 3)) compare = AsInt(a[3]);
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
@@ -206,13 +298,13 @@ public partial class VB6BuiltIns
         return s.IndexOf(find, start, StringComparison.Ordinal);
     }
 
-    private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a)
+    private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         // InStrRev(string1, string2[, start[, compare]]) — start defaults to -1 (from the end).
         if (a[0].IsNull || a[1].IsNull) return Vb6Value.Null;
         string s1 = AsStr(a[0]), s2 = AsStr(a[1]);
         int start = Supplied(a, 2) ? AsInt(a[2]) : -1;
-        int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
+        int compare = Supplied(a, 3) ? AsInt(a[3]) : (compareText ? 1 : 0);
         // A start past the end is 0, even where the text is there to find (measured, #1567).
         if (start > s1.Length) return new Vb6Value(0L);
         int from = start < 0 ? s1.Length - 1 : start - 1;
@@ -224,13 +316,13 @@ public partial class VB6BuiltIns
             : s1.LastIndexOf(s2, from, StringComparison.Ordinal)) + 1);
     }
 
-    private static string Replace(IReadOnlyList<Vb6Value> a)
+    private static string Replace(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         // Replace(expression, find, replace[, start[, count[, compare]]]) — returns from `start` onward.
         string s = AsStr(a[0]), find = AsStr(a[1]), repl = AsStr(a[2]);
         int start = Supplied(a, 3) ? AsInt(a[3]) : 1;
         int count = Supplied(a, 4) ? AsInt(a[4]) : -1;
-        int compare = Supplied(a, 5) ? AsInt(a[5]) : 0;
+        int compare = Supplied(a, 5) ? AsInt(a[5]) : (compareText ? 1 : 0);
         if (start < 1) throw InvalidCall();
         string sub = start <= s.Length ? s.Substring(start - 1) : "";
         if (find.Length == 0 || count == 0) return sub;
@@ -369,6 +461,10 @@ public partial class VB6BuiltIns
             if (e < s.Length && (s[e] == '+' || s[e] == '-')) e++;
             if (e < s.Length && char.IsDigit(s[e])) { i = e; while (i < s.Length && char.IsDigit(s[i])) i++; }
         }
-        return double.TryParse(s.Substring(0, i), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;
+        if (!double.TryParse(s.Substring(0, i), NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+            return 0;
+        if (!double.IsFinite(d))
+            throw new VBRunTimeException(VBStandardError.Overflow);
+        return d;
     }
 }

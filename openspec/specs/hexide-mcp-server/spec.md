@@ -12,16 +12,32 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 > opens no port. Making it a supported opt-in feature for end users is a decided direction rather than
 > current behaviour, and the requirements below describe what ships today.
 
-> **Known divergence.** The requirements below state intended behaviour. One is only partly met: "A tool that
-> names a document SHALL name its project, and count lines from the top of the file" holds for every tool that
-> takes a document's name, and not yet for those that report or act on a document without taking one. The note a
-> run-control reply gives when a run pauses, the context the locals and watch tools report, the designer tools'
-> undo, redo and format replies, and the tab tools, which take and report a tab's title, still name a form or
-> module without its project, so with two projects each holding a `Form1` none of them can say which one it
-> means. Tracked in [#886](https://github.com/hexide-io/HexIDE/issues/886). The requirement is stated as intended
-> rather than narrowed to the tools that meet it, because the code is incomplete here, not the intent.
-
 ## Requirements
+
+### Requirement: Shutdown SHALL preserve the reply and a cancelled IDE's server
+`shutdown_ide` SHALL close the main window only after its HTTP response completes. Server cancellation
+and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
+available. The reply reports a request, not confirmation of process exit.
+
+#### Scenario: Shutdown is requested through a tool call
+- **WHEN** `shutdown_ide` returns its result
+- **THEN** the main-window close is deferred until the HTTP response completes
+
+#### Scenario: A close is cancelled
+- **WHEN** shutdown is requested but the IDE stays open
+- **THEN** the automation server and its context remain available
+
+### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
+On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
+so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
+reported exit code even if cleanup throws, and SHALL close the log after shutdown returns so window
+closing messages can still reach the file.
+
+#### Scenario: The requested port is already taken
+- **WHEN** the server cannot bind the requested port
+- **THEN** the add-in loader is disposed before desktop shutdown runs with exit code 3
+- **AND** a cleanup exception does not prevent that shutdown
+- **AND** the log closes after desktop shutdown returns
 
 ### Requirement: The server SHALL be inactive unless explicitly requested
 The IDE SHALL start no server, open no port and create no listener unless a port is supplied at launch.
@@ -45,6 +61,11 @@ binary cannot serve automation requests under any argument.
 Being off by default protects a user who does nothing; being absent protects one who is talked into
 something. It also keeps a web-server dependency out of shipped binaries, which is worth having for its own
 sake — the smallest attack surface is the code that is not there.
+
+#### Scenario: CI checks the distributed configuration
+- **WHEN** the build-ide job runs
+- **THEN** Desktop and Standalone compile in Release
+- **AND** the Desktop output is checked for server code, MCP dependencies and AspNetCore references
 
 #### Scenario: A released build asked to serve
 - **WHEN** a distributed build is launched with a port argument
@@ -88,6 +109,22 @@ day it lands, with nothing to add.
 - **WHEN** a dialog is added to the IDE
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
 
+### Requirement: Icon-only controls SHALL expose localized action names
+The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
+localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
+accepted by path matching, as well as being available to screen readers. Document-tab close buttons, designer caption buttons,
+dropdown toggles, property color/font picker buttons and all eight scroll bar line/page buttons SHALL likewise
+have localized names describing their actions.
+
+#### Scenario: Discovering an icon-only dock button
+- **WHEN** a caller discovers a dock pane's close button
+- **THEN** its name describes closing the pane in the active language, rather than naming the glyph's .NET type
+
+#### Scenario: Discovering scroll bar buttons after a language change
+- **WHEN** a caller inspects a vertical or horizontal scroll bar after changing the IDE language
+- **THEN** its line and page buttons expose action names in the active language, including on existing controls
+- **AND** path matching accepts those names
+
 ### Requirement: A purpose-built tool SHALL be justified against the generic mechanism
 A new dedicated tool SHALL be added only where the generic mechanism genuinely cannot reach the surface, and
 where the tool reads state the interface does not expose, performs a transaction such as persisting or
@@ -126,6 +163,9 @@ web page and sends none. Refusing it would turn a security control into an outag
 
 This addresses the browser vector only. Anything that can already open a socket to the port may put whatever
 it likes in a header, and the control against that is authentication, which this requirement does not claim.
+
+The IDE and the real-HTTP test server SHALL install the same loopback middleware. Tests SHALL exercise
+foreign `Host` and `Origin` headers on `/mcp`, a foreign `Host` on `/health`, and a permitted loopback request.
 
 #### Scenario: A request naming this machine
 - **WHEN** a request arrives whose `Host` is a loopback address on the bound port
@@ -268,11 +308,25 @@ a language server knows the document by, it SHALL say so. Every line number a to
 counted from the top of the file, header included. Reading a document's content SHALL return its whole file
 whether or not it is open. Writing content SHALL NOT be refused for being in the shape reading returned — the
 whole file with its header unchanged, or the code alone — which leaves the existing refusal of a document the
-IDE will not save in force for its own reason.
+IDE will not save in force for its own reason. A refused whole replacement SHALL report a changed header first,
+then each member whose Attribute lines are changed, added or removed, in the same reply.
 
 A caller that has never seen the IDE cannot know which of a document's several names a bare `uri` field holds,
 and a name that is only unique within a project is ambiguous the moment a group is open. A read whose result
 the matching write refuses breaks the most basic loop an automation client runs.
+
+Run-control pause notes SHALL qualify the module with the running project. Locals and watch replies SHALL
+identify the running project in which expressions are evaluated. Active-designer replies SHALL name the
+designer's document, including a UserControl's or PropertyPage's owning module. Tab listings SHALL report
+project and document for source editors and designers. Tab activation and closing SHALL accept a document
+name with an optional project through the document lookup, alongside title addressing for tool tabs. A match
+that names more than one tab SHALL be refused; a caller MAY select code or designer by tab type.
+
+#### Scenario: Choosing between code and designer tabs
+- **WHEN** both tabs for Second/Form1 are open and a caller addresses Form1 in Second without a tab type
+- **THEN** the call refuses the ambiguity and explains how to select code or designer
+- **WHEN** the caller also supplies the designer type
+- **THEN** only Second/Form1's designer is activated or closed, and the reply names Second and Form1
 
 #### Scenario: Setting a breakpoint by name in the wrong case
 - **WHEN** a client sets a breakpoint in `form1` of a project containing `Form1`
@@ -282,6 +336,19 @@ the matching write refuses breaks the most basic loop an automation client runs.
 - **WHEN** a client reads the content of a form the IDE will save, and writes the same text back
 - **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
   its member's, which the save writes with its member's name, as the form's own Save does
+
+#### Scenario: A replacement changes both the header and a member's Attribute lines
+- **WHEN** a client submits a whole file with both its header and a member's Attribute lines changed
+- **THEN** the write is refused without changing the document, and the one reply names the header first and the member next
+
+### Requirement: Automation saves explain rewritten member qualifiers
+The successful replies from `set_file_content`, `set_control_property` and `add_control` SHALL report in their
+`note` any member Attribute qualifiers their save rewrote, naming the old and new names and explaining that
+VB6's own Save writes the member's name.
+
+#### Scenario: A save rewrites a stale qualifier
+- **WHEN** any of those tools saves a document with `Attribute Gone.VB_Description` under `Public Function Total()`
+- **THEN** its successful reply explains that the save wrote Total's Attribute lines with its name, where they said Gone
 
 ### Requirement: An IDE started for an agent session SHALL run tool calls from that session only
 When the IDE is started with the name of an agent session, the server SHALL run a tool call only when the client names
@@ -326,3 +393,71 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+### Requirement: Snapshot coordinates include popup overhang
+
+A snapshot SHALL include the window and its open native popups at their relative screen positions,
+including popups extending left of or above the window. The reply SHALL report the window origin in
+full-image pixels as `windowOffsetX` and `windowOffsetY`, zero when no left or top overhang exists.
+Tool descriptions SHALL explain how to map inspected window-relative bounds into both returned images.
+
+#### Scenario: A menu extends left of the window
+
+- **WHEN** an open native popup extends left of the captured window
+- **THEN** the window is shifted right in the image to leave room for the overhang
+- **AND** the reply reports that shift as `windowOffsetX`
+- **AND** a window-relative x coordinate maps to `x * scale + windowOffsetX` in the full image
+- **AND** in the inline copy it maps to `(x + windowOffsetX / scale) * inlineScale`
+
+### Requirement: Automation SHALL be able to start with a pathless project
+The `--newproject-unsaved` launch flag SHALL create a Standard EXE and skip the startup dialog without saving
+its project or component files. It SHALL take precedence over `--newproject` and a positional project path.
+The existing `--newproject` flag SHALL continue saving to a unique temporary directory. `add_file` SHALL
+leave new documents pathless and explain the null path and how to save them in its reply.
+
+#### Scenario: Exercising an untitled document from launch
+- **WHEN** the IDE starts with `--newproject-unsaved`
+- **THEN** its initial form and project have no file paths
+- **AND** opening the form's code uses its `untitled:` URI until it is saved
+
+### Requirement: Named controls SHALL expose their visible labels
+The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
+peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
+and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
+replies SHALL use the meaningful label when available.
+
+#### Scenario: Discovering a named menu
+- **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
+- **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
+- **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
+- **AND** expanding it names `Tools` in the reply
+
+### Requirement: Attribute window waits when settling running-form actions
+
+An automation reply for a running form SHALL distinguish a handler waiting on a window from one suspended at a
+time slice, breakpoint or asynchronous control call. Starting a window wait SHALL clear that handler's earlier
+DoEvents loop mark, so a loop resumed by answering the window is waited for as work the action sets going.
+A window already open before the action SHALL be considered by the program wait only when the program was
+waiting on a window before the action.
+
+#### Scenario: Answer a window after an earlier DoEvents
+- **WHEN** a handler calls DoEvents, waits at a MsgBox or modal form, then runs a finite DoEvents loop
+- **AND** an automation action answers or closes that window
+- **THEN** the reply waits for the loop to finish, up to the usual program wait limit
+
+#### Scenario: An unrelated old dialog during a busy loop
+- **WHEN** a watch finds the program between two DoEvents, with an unrelated dialog already open
+- **AND** the action queues a handler that opens no window
+- **THEN** the old dialog does not end the program wait or get named as holding the handler
+
+### Requirement: Discovery and legacy clients share a stateless transport
+The automation server SHALL support discovery for the 2026-07-28 protocol revision and SHALL keep both discovery
+and legacy initialize clients stateless, without issuing an MCP session ID or offering a standalone GET stream.
+
+#### Scenario: Discovery without initialization
+- **WHEN** a client sends `server/discover` without first sending `initialize`
+- **THEN** the server advertises `2026-07-28` among its supported versions and issues no MCP session ID
+
+#### Scenario: Rebuild with an attached client
+- **WHEN** the server restarts on the same endpoint after a client has connected
+- **THEN** that client's next tool call is answered without a stale transport session

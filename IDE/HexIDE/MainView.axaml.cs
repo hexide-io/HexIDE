@@ -118,6 +118,9 @@ public partial class MainView : UserControl
     private void RebuildAddInsMenu(ObservableCollection<AddinMenuItemViewModel> items)
     {
         AddInsMenuItem.Items.Clear();
+        AddInsMenuItem.Items.Add(AddInManagerMenuItem);
+        if (items.Count > 0)
+            AddInsMenuItem.Items.Add(new Separator());
         foreach (var vm in items)
             AddInsMenuItem.Items.Add(BuildMenuItem(vm));
     }

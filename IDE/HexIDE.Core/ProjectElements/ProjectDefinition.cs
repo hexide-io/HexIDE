@@ -130,9 +130,17 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public IReadOnlyList<RelatedDocumentDefinition> RelatedDocuments => relatedDocuments;
     public IReadOnlyList<VbReference> References => references;
 
+    // Recognised .vbp keys in read order. Empty for a new project, which uses the writer's default order.
+    public List<string> KnownLineKeys { get; } = new();
+
     // Unknown key=value lines from the .vbp file (before any [Section] header), preserved verbatim.
     // PositionHint = count of recognised keys seen before each unknown line.
     public List<(int PositionHint, string RawLine)> UnknownPreSectionLines { get; } = new();
+
+    /// <summary>The control libraries the project's <c>Object=</c> lines name, in the order it lists them (#1082).</summary>
+    public IEnumerable<ObjectReference> ObjectReferences =>
+        UnknownPreSectionLines.Select(l => ObjectReference.TryParse(l.RawLine, out var r) ? r : (ObjectReference?)null)
+            .Where(r => r is not null).Select(r => r!.Value);
 
     // Verbatim .vbp item lines (Form=/UserDocument=/...) for project items that were parsed but not
     // loaded into the live model — e.g. a UserDocument (.dob, unsupported) or a Form whose .frm file is
@@ -140,6 +148,15 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     // lacks the file or a non-Windows machine. (A future spec may surface these in the project explorer
     // with a "missing"/"unsupported" glyph; for now they are preserved opaquely.)
     public List<string> PreservedItemLines { get; } = new();
+
+    // Indexed by the kept line's position in PreservedItemLines, never by its text or rebased path.
+    public Dictionary<int, int> PreservedItemLineSlots { get; } = new();
+
+    public void PreserveItemLine(string line, int slot)
+    {
+        PreservedItemLineSlots.Add(PreservedItemLines.Count, slot);
+        PreservedItemLines.Add(line);
+    }
 
     // The folder those lines, and each related document's original line, name their files relative to: the folder of
     // the project file they were read from. It stays put when the project file moves, so a Save As to another folder

@@ -6,9 +6,9 @@ namespace HexIDE.Runtime.Tests;
 /// <c>IsMissing</c>, and what an omitted argument actually is.
 ///
 /// <para>Every expectation is measured against real <c>vb6.exe</c> — see <i>IsMissing and the shape of an
-/// omitted argument</i> in <c>docs/vb6-fidelity-oracle.md</c>. The measurements matter because the obvious
+/// omitted argument</i> in <c>docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md</c>. The measurements matter because the obvious
 /// guesses are wrong twice over: an omitted argument is <b>not</b> Empty, and an <c>Optional</c> with a
-/// declared type or a default is <b>never</b> missing.</para>
+/// non-Variant declared type or a default is <b>never</b> missing.</para>
 ///
 /// <para>It became expressible only once #135 gave a blank argument its own value rather than dropping it,
 /// which is why this sits on top of that work.</para>
@@ -26,6 +26,25 @@ public class IsMissingTests : BaseVBTestFixture
             """);
 
         AssertDebugLog([true]);
+    }
+
+    [Fact]
+    public async Task An_explicit_Variant_Optional_distinguishes_omission_from_Empty_and_a_default()
+    {
+        // Measured native and in the IDE, #866: As Variant can hold Missing just as an untyped parameter can.
+        await Run("""
+            Function Probe(Optional v As Variant) As String
+                Probe = IsMissing(v) & "|" & TypeName(v) & "|" & VarType(v)
+            End Function
+            Function WithDefault(Optional v As Variant = 5) As String
+                WithDefault = IsMissing(v) & "|" & TypeName(v) & "|" & VarType(v)
+            End Function
+            Debug.Print Probe()
+            Debug.Print Probe(Empty)
+            Debug.Print WithDefault()
+            """);
+
+        AssertDebugLog(["True|Error|10", "False|Empty|0", "False|Integer|2"]);
     }
 
     [Fact]
@@ -56,7 +75,7 @@ public class IsMissingTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_typed_Optional_is_never_missing()
+    public async Task An_Integer_Optional_is_never_missing()
     {
         // There is no Missing to hold in an Integer: an omitted typed Optional gets the type's zero.
         await Run("""

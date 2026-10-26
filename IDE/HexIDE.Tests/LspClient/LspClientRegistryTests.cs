@@ -51,6 +51,91 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Theory]
+    [InlineData("foldingRangeProvider")]
+    [InlineData("documentSymbolProvider")]
+    [InlineData("documentFormattingProvider")]
+    [InlineData("renameProvider")]
+    public async Task PickOneFeaturesExplainWhichAdvertiserWon(string capability)
+    {
+        var winner = FakeServer();
+        var loser = FakeServer();
+        var unavailable = FakeServer(capabilitiesJson: "{}");
+        var unrelated = FakeServer();
+        var sut = Registry(Registration("unavailable", unavailable, priority: 20),
+            Registration("winner", winner, priority: 10), Registration("loser", loser),
+            Registration("unrelated", unrelated, language: "markdown"));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        switch (capability)
+        {
+            case "foldingRangeProvider":
+                await sut.RequestFoldingRangesAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                break;
+            case "documentSymbolProvider":
+                await sut.RequestDocumentSymbolsAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                break;
+            case "documentFormattingProvider":
+                await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                break;
+            case "renameProvider":
+                await sut.RequestRenameAsync(Vb6Doc, new Position(0, 0), "renamed", TestContext.Current.CancellationToken);
+                break;
+        }
+
+        loser.Received(1).NotePrioritySkip(capability, "winner");
+        winner.DidNotReceiveWithAnyArgs().NotePrioritySkip(default!, default!);
+        unavailable.DidNotReceiveWithAnyArgs().NotePrioritySkip(default!, default!);
+        unrelated.DidNotReceiveWithAnyArgs().NotePrioritySkip(default!, default!);
+    }
+
+    [Fact]
+    public async Task PrioritySkipsAreRecordedOncePerCapabilityPerConnection()
+    {
+        await using var log = new HexIDE.Conversations.ConversationLog();
+        await using var client = new VBLspClient(Substitute.For<ILspTransport>(),
+            Substitute.For<ILogger<VBLspClient>>(), "vb6", capture: log, connectionId: "loser");
+        ((ILspClient)client).NotePrioritySkip("foldingRangeProvider", "winner");
+        ((ILspClient)client).NotePrioritySkip("foldingRangeProvider", "winner");
+        ((ILspClient)client).NotePrioritySkip("renameProvider", "winner");
+        await log.DrainAsync();
+        var entries = log.Snapshot("loser");
+        entries.Should().HaveCount(2);
+        entries.Should().OnlyContain(e => e.Kind == HexIDE.Conversations.ConversationEntryKind.NeverSent
+            && e.Direction == HexIDE.Conversations.ConversationDirection.Sent && !e.Fault);
+        entries.Select(e => e.Detail).Should().BeEquivalentTo(
+            "not asked: 'winner' has priority for 'foldingRangeProvider'",
+            "not asked: 'winner' has priority for 'renameProvider'");
+        await client.StopAsync();
+        ((ILspClient)client).NotePrioritySkip("foldingRangeProvider", "new-winner");
+        await log.DrainAsync();
+        log.Snapshot("loser").Should().ContainSingle(e =>
+            e.Detail == "not asked: 'new-winner' has priority for 'foldingRangeProvider'");
+
+    }
+
+    [Fact]
+    public async Task ProgressRetainsItsServerIdentityAndStopForwardsItsEnd()
+    {
+        var server = FakeServer();
+        await using var sut = Registry(Registration("vb6", server));
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
+        var received = new List<(object? Sender, string Kind)>();
+        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind));
+        var token = JsonSerializer.SerializeToElement("index");
+        server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
+            new ProgressParams(token, new WorkDoneProgressValue("begin", "indexing")));
+        server.StopAsync().Returns(_ =>
+        {
+            server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
+                new ProgressParams(token, new WorkDoneProgressValue("end")));
+            return Task.CompletedTask;
+        });
+        await sut.StopAsync();
+        received.Select(p => p.Kind).Should().Equal("begin", "end");
+        received.Should().OnlyContain(p => ReferenceEquals(p.Sender, server));
+    }
+
     [Fact]
     public async Task OnlyServersClaimingTheDocumentsLanguageAreStarted()
     {

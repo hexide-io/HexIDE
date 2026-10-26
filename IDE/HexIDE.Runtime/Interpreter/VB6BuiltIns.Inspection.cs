@@ -27,8 +27,8 @@ public partial class VB6BuiltIns
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
-        // place — an Optional with a declared type or a default gets that instead and is NOT missing.
-        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle.md.
+        // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
+        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md.
         d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
 
         // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.
@@ -47,6 +47,7 @@ public partial class VB6BuiltIns
     // (best-effort — VB6 returns the declared VB class). Everything else routes through the primitive map.
     private static string TypeNameOf(Vb6Value v)
     {
+        if (v.Value is DebugProxy) throw new VBCompileErrorException("Syntax error");
         if (!v.Type.IsArray)
         {
             if (v.Value is Control ctrl) return ControlTypeName(ctrl);
@@ -159,7 +160,7 @@ public partial class VB6BuiltIns
         const NumberStyles styles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint
             | NumberStyles.AllowThousands | NumberStyles.AllowExponent
             | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
-        return double.TryParse(s, styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
+        return double.TryParse(WithoutThousandsAfterDigit(s), styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
     }
 
     private static bool AllChars(string s, int from, Func<char, bool> pred)

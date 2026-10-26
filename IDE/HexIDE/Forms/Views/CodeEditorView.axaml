@@ -53,6 +53,8 @@
                               ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
                               ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ToggleFold}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ToggleBookmark}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}"
@@ -113,6 +115,9 @@
                 <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vba64}" />
             </ComboBox>
         </Grid>
+        <!-- The code and its minimap read left to right whatever the IDE's language, so the minimap stays beside the
+             code's right edge, where its lines end (#1944). The boxes above are chrome, and follow the language. -->
+        <DockPanel FlowDirection="LeftToRight">
         <controls:MinimapControl x:Name="Minimap"
                                  DockPanel.Dock="Right"
                                  Width="110"
@@ -146,12 +151,13 @@
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
                         <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NextBookmark}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  />
                             <Separator />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" />
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
@@ -162,5 +168,6 @@
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>
         </ClassicBorderDecorator>
+        </DockPanel>
     </DockPanel>
 </UserControl>

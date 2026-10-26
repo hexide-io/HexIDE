@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The text VB6 makes of a Single, a Double, a Currency, a Decimal and a Date (#772, #771). Unless a test says
-/// otherwise, every expectation is a row measured on vb6.exe under an en-GB locale (docs/vb6-fidelity-oracle.md,
+/// otherwise, every expectation is a row measured on vb6.exe under an en-GB locale (docs/vb6-fidelity-oracle/turning-a-number-or-a-date-into-text.md,
 /// "Turning a number or a date into text"), so each is asserted in en-GB explicitly: CI runs in the invariant
 /// culture and a developer may run in any, and the date patterns differ between them. The tests that are not
 /// measurements are the ones about what the oracle cannot show: values VB6 cannot make, and locales other than
@@ -13,6 +13,26 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class VbDisplayTests : BaseVBTestFixture
 {
+    // #879: measured on vb6.exe, native and in the IDE (oracle: "An array used as text").
+    [Theory]
+    [InlineData("c = \"v=\" & Array(1)")]
+    [InlineData("c = CStr(Array(1))")]
+    [InlineData("c = Len(Array(1))")]
+    [InlineData("c = UCase(Array(1))")]
+    [InlineData("s = Array(1)")]
+    [InlineData("Dim a(1) As Long\nc = \"v=\" & a")]
+    public async Task An_array_used_as_text_raises_13(string use)
+    {
+        // The typed-array row is VB6's compile-time Type mismatch, raised here when executed.
+        await Run($"Dim c\nDim s As String\nc = \"keep\"\ns = \"keep\"\nOn Error Resume Next\n{use}\nDebug.Print Err.Number\nDebug.Print s\n");
+
+        AssertDebugLog([new Vb6Value(13L), new Vb6Value("keep")]);
+
+        // Preserve HexIDE's debugger display; VB6's `?` of an array is unmeasured.
+        var array = new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.Integer, true), [(0, 1)]);
+        HexIDE.Runtime.VBDebugConsole.Format(array).Should().Be(array.Value!.ToString());
+    }
+
     private static readonly CultureInfo EnGb = CultureInfo.GetCultureInfo("en-GB");
 
     private static string Text(Vb6Value value) => VbDisplay.ToText(value, EnGb);

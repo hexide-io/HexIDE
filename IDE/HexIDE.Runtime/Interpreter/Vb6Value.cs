@@ -324,9 +324,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
 
         public override string ToString()
         {
-            if (array)
-                return type + "()";
-            return type.ToString();
+            var name = type.Match(inner => inner.ToString(), primitive => primitive.ToString());
+            return array ? name + "()" : name;
         }
     }
 
@@ -420,8 +419,9 @@ public class VBArray
     public bool IsDefined => bounds.Count > 0;
 
     /// <summary>
-    /// How many running calls hold one of its elements ByRef (#1455). While any does, ReDim, Erase and a store into a variable
-    /// holding the array raise 10 (<see cref="IsLocked"/>).
+    /// How many running calls hold an element ByRef (#1455), plus For Each loops walking this array (#1460).
+    /// While any does, ReDim and Erase raise 10 (<see cref="IsLocked"/>). The ByRef path also refuses stores into
+    /// a variable holding the array.
     /// </summary>
     public int LockCount { get; set; }
 

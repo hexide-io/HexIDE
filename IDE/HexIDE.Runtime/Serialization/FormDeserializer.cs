@@ -62,7 +62,17 @@ public class FormDeserializer
         // Each its own list, which VB6's Properties window gives it (#1585).
         componentsByTypeNames["VB.UserControl"]  = UserControlRootClass.Instance;
         componentsByTypeNames["VB.PropertyPage"] = PropertyPageRootClass.Instance;
+        // An in-box control under each library that declares it: MSComctlLib.ProgressBar and ComctlLib.ProgressBar (#1082).
+        foreach (var inBox in InBoxComponents)
+            foreach (var library in inBox.Libraries)
+                componentsByTypeNames[library.TypeName(inBox.ControlClassName)] = inBox;
     }
+
+    /// <summary>The in-box ActiveX controls HexIDE implements (#1082).</summary>
+    internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
+    [
+        Components.InBox.ProgressBarComponentClass.Instance,
+    ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
@@ -84,13 +94,13 @@ public class FormDeserializer
         }
         catch (Exception ex)
         {
-            errorSink.LogError($"Failed to parse form file: {ex.Message}");
+            errorSink.LogError("Str.ProjectLoad.ParseFailed", "Failed to parse form file: {0}", ex.Message);
             return null;
         }
 
         if (!VisualRootTypes.Contains(rootComponent.Type))
         {
-            errorSink.LogError($"This is not a valid form file");
+            errorSink.LogError("Str.ProjectLoad.InvalidForm", "This is not a valid form file");
             return null;
         }
 
@@ -147,7 +157,7 @@ public class FormDeserializer
                 // A CommonDialog is kept the same way, but it runs (#1084) and saves byte for byte, so there is nothing to
                 // warn of: the warning used to tell the user, as the project opened, that a control which works did not.
                 if (!serializedComponent.Type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
-                    errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
+                    errorSink.LogError("Str.ProjectLoad.UnknownControl", "Class {0} of control {1} is not a supported control class — preserved as unknown.", serializedComponent.Type, serializedComponent.Name);
 
                 // No depth contribution. The block is recorded on the component it was read from, indented
                 // to its real load depth, and re-emitted at the ordinal it held among that component's
@@ -314,7 +324,7 @@ public class FormDeserializer
                 var val = serializedProperty.Value;
                 void InvalidValue()
                 {
-                    errorSink.LogError($"Property {serializedProperty.Key} in {serializedComponent.Name} had an invalid value.");
+                    errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);
                     // Kept as written, so a save puts it back rather than losing it: a palette colour
                     // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
                     unparsedKnownNames.Add(serializedProperty.Key);
@@ -411,7 +421,7 @@ public class FormDeserializer
                                 capturedBlobs.Add(blob);
                             }
                             else
-                                errorSink.LogError($"Property {serializedProperty.Key} in {serializedComponent.Name}: .frx offset not found.");
+                                errorSink.LogError("Str.ProjectLoad.MissingOffset", "Property {0} in {1}: .frx offset not found.", serializedProperty.Key, serializedComponent.Name);
                         }
                         // No companion at all: skip, leaving the blob null. Silent HERE by design — this
                         // arm cannot tell a missing file from a form that never had one, and refusing to
@@ -513,13 +523,17 @@ public class FormDeserializer
                     // dropped, and the form records it: the save path then leaves the companion untouched rather
                     // than truncating or deleting the user's images.
                     form.MarkUnmodelledBinaryProperty();
-                    errorSink.LogError($"Property '{name}' in '{serializedComponent.Name}' cites a record its companion does not hold, so the form cannot be saved.");
+                    errorSink.LogError("Str.ProjectLoad.MissingRecord", "Property '{0}' in '{1}' cites a record its companion does not hold, so the form cannot be saved.", name, serializedComponent.Name);
                     continue;
                 }
                 capturedBlobs.UnionWith(records.Values);
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
             }
+            // An in-box control is written back under the type name it was read under, and with the extents it was read with
+            // until it is sized (#1082).
+            if (componentClass is Components.InBox.InBoxComponentClass inBox)
+                inBox.Loaded(instance, serializedComponent.Type);
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
