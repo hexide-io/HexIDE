@@ -653,20 +653,6 @@ reach 5123, and an IDE there serves both, since neither names itself.
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
 
-## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
-
-**Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
-control, moves with the button held, and a release somewhere else. `interact {"target":"<a Label on a running form>",
-"action":"click","value":"10,5"}` presses and releases at that one point, and `click`'s own remarks call a drag
-"beyond it". No other call raises a pointer press.
-
-**Workaround.** None through the surface. `MouseEventTests` drives the drags headlessly with `MouseDown`, `MouseMove`
-and `MouseUp`.
-
-**Suggested fix.** Let `click` take a release point, as in `10,5 to 200,30`: press on the target, move with the button
-held, release at the second point to whatever holds the pointer.
-[#1402](https://github.com/hexide-io/HexIDE/issues/1402).
-
 ## `press_key` with Alt and a letter never reaches a control's access key
 
 **Symptom (2026-10-23, #1390, Windows).** On a running form whose `cmdWide` is captioned `One &Wide`,
