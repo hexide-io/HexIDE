@@ -820,7 +820,23 @@ public static class UiAutomationDriver
             .OrderBy(i => primaryFirst && i == owner.SelectedIndex ? 0 : 1)
             .Select(i => owner.ContainerFromIndex(i) is Control c
                 ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
-                : owner.Items[i]?.ToString() ?? $"#{i}")];
+                : NameWithoutRow(owner.Items[i], i))];
+
+    /// <summary>
+    /// What a selected item is called while it has no row, scrolled out of a long list or in one with no room to show it.
+    /// The IDE's view models carry the name their row is given as <c>AccessibleName</c>, which the row binds, so that is
+    /// the name the dump would show. Failing that, the item's own text, but never its type's name, which names no row:
+    /// a Properties list too short to show a row answered "HexIDE.VisualDesigner.PropertyViewModel" (#2026).
+    /// </summary>
+    private static string NameWithoutRow(object? item, int index)
+    {
+        if (item?.GetType().GetProperty("AccessibleName")?.GetValue(item) is string { Length: > 0 } accessible)
+            return accessible;
+        var text = item?.ToString();
+        return text is null || IsDefaultText(text, item)
+            ? $"#{index}, whose row is not made until it is scrolled into view"
+            : text;
+    }
 
     /// <summary>
     /// Whether <paramref name="text"/> is what <paramref name="item"/> gives with no ToString of its own: its type, as object
