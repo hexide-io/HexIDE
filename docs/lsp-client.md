@@ -742,6 +742,15 @@ advertises the capability supplies the single answer (registration order breaks 
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
 
+Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
+It returns when all answers arrive or that budget expires, taking only answers received in time. Items
+with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
+order breaking ties; its detail and insertion text stay intact. Advertised trigger characters are unioned
+for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
+route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
+`textDocument/completion` inspector note record that it was answered after the popup opened. The
+underlying request keeps its normal cancellation and 30-second deadline.
+
 Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
 Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
 Use synthetic paths outside a user profile in fixtures. Windows clone roots under `Repos` warn
