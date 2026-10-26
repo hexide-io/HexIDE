@@ -96,21 +96,21 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StepOutCommand}"
                               ExecutingCommand="{CompiledBinding StepOut}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RunToCursorCommand}"
-                              ExecutingCommand="{CompiledBinding RunToCursor}" />
+                              ExecutingCommand="{CompiledBinding RunToCursorCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AddWatchCommand}"
                               ExecutingCommand="{CompiledBinding AddWatch}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.EditWatchCommand}"
-                              ExecutingCommand="{CompiledBinding EditWatch}" />
+                              ExecutingCommand="{CompiledBinding EditWatchCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.QuickWatchCommand}"
                               ExecutingCommand="{CompiledBinding QuickWatch}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}"
-                              ExecutingCommand="{CompiledBinding ToggleBreakpoint}" />
+                              ExecutingCommand="{CompiledBinding ToggleBreakpointCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ClearAllBreakpointsCommand}"
                               ExecutingCommand="{CompiledBinding ClearAllBreakpoints}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SetNextStatementCommand}"
-                              ExecutingCommand="{CompiledBinding SetNextStatement}" />
+                              ExecutingCommand="{CompiledBinding SetNextStatementCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ShowNextStatementCommand}"
-                              ExecutingCommand="{CompiledBinding ShowNextStatement}" />
+                              ExecutingCommand="{CompiledBinding ShowNextStatementCommand}" />
 
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}"
                               ExecutingCommand="{CompiledBinding ProjectReferencesCommand}" />

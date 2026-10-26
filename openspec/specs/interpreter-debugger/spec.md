@@ -204,6 +204,21 @@ The debug keymap is the deepest layer of VB6 muscle memory and is bound by defau
 - **WHEN** the developer uses the default keymap
 - **THEN** F5 starts or continues, Shift+F5 restarts, Ctrl+Break breaks, F8 steps into, Shift+F8 steps over, Ctrl+Shift+F8 steps out, Ctrl+F8 runs to cursor, F9 toggles a breakpoint, Ctrl+Shift+F9 clears all breakpoints, Ctrl+F9 sets the next statement, Shift+F9 opens Quick Watch, Ctrl+W edits a watch, Ctrl+G opens the Immediate window, and Ctrl+L opens the Call Stack
 
+### Requirement: Debug command enablement follows the handler guards
+The IDE SHALL disable Toggle Breakpoint and Run To Cursor unless the active document is a code window, and Edit Watch unless a watch row is selected. When no external debugger session is active, it SHALL disable Set Next Statement unless the active document is a code window, and Show Next Statement unless the debug controller has a current stop. The external-debugger branches of Set Next Statement and Show Next Statement SHALL retain their existing enablement while an external session is active. These predicates SHALL apply to the shared routed commands used by menus, toolbar buttons and shortcuts.
+
+#### Scenario: Changing the active document
+- **WHEN** the active document changes between a code window and another document or no document
+- **THEN** Toggle Breakpoint, Run To Cursor and Set Next Statement refresh their enablement
+
+#### Scenario: Entering or leaving a debugger stop
+- **WHEN** the debug controller raises Stopped or Continued (including reset)
+- **THEN** Show Next Statement refreshes its enablement from the current stop
+
+#### Scenario: Changing watch selection without changing focus
+- **WHEN** a watch row is selected or selection is cleared, including when the rows are rebuilt
+- **THEN** Edit Watch refreshes its enablement without requiring a focus change
+
 ### Requirement: The debugger SHALL be drivable by automation
 The debugger SHALL expose an automation surface mirroring the IDE debug commands.
 

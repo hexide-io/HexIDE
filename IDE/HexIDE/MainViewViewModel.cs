@@ -104,6 +104,11 @@ public partial class MainViewViewModel : ObservableObject
         private set => SetProperty(ref _layout, value);
     }
 
+    public DelegateCommand ToggleBreakpointCommand { get; }
+    public DelegateCommand RunToCursorCommand { get; }
+    public DelegateCommand SetNextStatementCommand { get; }
+    public DelegateCommand ShowNextStatementCommand { get; }
+    public DelegateCommand EditWatchCommand { get; }
     public DelegateCommand SaveFormCommand { get; }
     public DelegateCommand SaveFormAsCommand { get; }
 
@@ -975,6 +980,29 @@ public partial class MainViewViewModel : ObservableObject
             () => AddFileAsync().ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
 
+        bool HasActiveCodeWindow() => documentDockService.ActiveDocument is CodeEditorViewModel;
+        ToggleBreakpointCommand = new DelegateCommand(ToggleBreakpoint, HasActiveCodeWindow);
+        RunToCursorCommand = new DelegateCommand(RunToCursor, HasActiveCodeWindow);
+        SetNextStatementCommand = new DelegateCommand(SetNextStatement, () => ExternalDebugger?.IsActive == true || HasActiveCodeWindow());
+        ShowNextStatementCommand = new DelegateCommand(ShowNextStatement, () => ExternalDebugger?.IsActive == true || debugController.CurrentStop is not null);
+        EditWatchCommand = new DelegateCommand(EditWatch, () => Watches.SelectedRow is not null);
+
+        // Routed commands listen to CommandManager, not to the delegate behind their binding.
+        foreach (var command in new[] { ToggleBreakpointCommand, RunToCursorCommand, SetNextStatementCommand,
+                     ShowNextStatementCommand, EditWatchCommand })
+            command.CanExecuteChanged += (_, _) => Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
+
+        if (externalDebugger is not null)
+            externalDebugger.Changed += () =>
+            {
+                SetNextStatementCommand.RaiseCanExecutedChanged();
+                ShowNextStatementCommand.RaiseCanExecutedChanged();
+            };
+        debugController.Stopped += _ => ShowNextStatementCommand.RaiseCanExecutedChanged();
+        debugController.Continued += () => ShowNextStatementCommand.RaiseCanExecutedChanged();
+        Watches.ObservePropertyChanged(x => x.SelectedRow)
+            .Subscribe(_ => EditWatchCommand.RaiseCanExecutedChanged());
+
         bool CanSearchActiveDocument() =>
             documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.ISearchableDocument;
 
@@ -1041,6 +1069,10 @@ public partial class MainViewViewModel : ObservableObject
                     _activeDesigner.UndoStack.Changed += _activeDesignerUndoHandler;
                 }
                 UpdateUndoHeaders();
+
+                ToggleBreakpointCommand.RaiseCanExecutedChanged();
+                RunToCursorCommand.RaiseCanExecutedChanged();
+                SetNextStatementCommand.RaiseCanExecutedChanged();
 
                 // Whether Find has anything to search is a property of the active document, so this is
                 // the only moment at which the answer can change.
