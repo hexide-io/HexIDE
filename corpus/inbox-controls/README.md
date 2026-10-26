@@ -44,7 +44,7 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 ## `pending/`
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
-controls: the ImageList" (hexide-io/HexIDE#1083). The `.vbp` files beside them are hand-written, as in `input/`.
+controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087). The `.vbp` files beside them are hand-written, as in `input/`.
 
 | Folder | What it is |
 |---|---|
@@ -52,4 +52,5 @@ controls: the ImageList" (hexide-io/HexIDE#1083). The `.vbp` files beside them a
 | `imagelist/custom/` | The same with a Custom size of 24 by 20 and UseMaskColor unticked, holding a 32 x 32 bitmap and a 16 x 16 one |
 | `imagelist/empty-key/` | Four pictures, 16 x 16: no Key and no Tag; Key `k2` and no Tag; Key `k3` and Tag `t3`; no Key and Tag `t4`. An empty Key writes `Key = ""`, and an empty Tag no line |
 | `imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
+| `statusbar/` | Two StatusBars: one with four configured panels (a Spring with Key, Tag and ToolTipText, a Date panel, a disabled Caps panel, an invisible Contents panel), and one in Simple style with ShowTips off. The panels' `Object.Width` and `MinWidth` are HIMETRIC (#1087) |
 | `defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |
