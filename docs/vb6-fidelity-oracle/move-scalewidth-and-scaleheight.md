@@ -36,8 +36,9 @@ one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On 
   Single form without a menu.
 
 **In HexIDE (#1071):**
-- **Move on a control** does this, the check included. Move with an omitted argument (`Move 1, , 3`), with none, or on
-  a form, is not measured, and stops the run.
+- **Move on a control** does this, the check included. Move on a control with an omitted argument (`Move 1, , 3`) or
+  with none is not measured, and stops the run. A form's Move was measured and built by #1569: [A form's
+  Move](a-forms-move.md#a-forms-move-2026-10-26-1569).
 - **ScaleWidth and ScaleHeight on a form** read the client area in whole pixels, in the form's ScaleMode. Setting them
   is #990. On a form with a menu bar they are the area below the bar, as in VB6 (#1127): the window is the form's
   ClientHeight plus VB6's 19-pixel bar tall, so the canvas gets the whole ClientHeight.

@@ -98,7 +98,7 @@
                        Foreground="{DynamicResource WarningBannerForegroundBrush}"
                        TextWrapping="Wrap" />
         </Border>
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,10" Margin="0,0,0,2">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,Auto,10" Margin="0,0,0,2">
             <ComboBox FontWeight="Bold" Grid.Column="1"
                       x:Name="ObjectCombo"
                       ItemsSource="{CompiledBinding ObjectNames}"
@@ -107,6 +107,15 @@
                       x:Name="ProcedureCombo"
                       ItemsSource="{CompiledBinding ProcedureNames}"
                       SelectedItem="{CompiledBinding SelectedProcedure}" />
+            <ComboBox Grid.Column="4" Margin="10,0,0,0"
+                      x:Name="ConditionalTargetCombo"
+                      IsVisible="False"
+                      SelectedIndex="{CompiledBinding ConditionalTargetIndex}"
+                      ToolTip.Tip="{DynamicResource Str.CodeEditor.ViewAs.Tooltip}">
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vb6}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vba32}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vba64}" />
+            </ComboBox>
         </Grid>
         <!-- The code and its minimap read left to right whatever the IDE's language, so the minimap stays beside the
              code's right edge, where its lines end (#1944). The boxes above are chrome, and follow the language. -->
