@@ -64,7 +64,7 @@ public class ObjectBrowserVbaLibraryTests
         vm.SelectedLibrary = vba;
         vm.FilteredClasses.Should().ContainSingle().Which.Name.Should().Be("Str.Tool.ObjectBrowser.Vba." + status);
 
-        vm.SelectedLibrary = OBLibraryViewModel.AllLibraries;
+        vm.SelectedLibrary = vm.Libraries[0];
         vm.FilteredClasses.Should().NotContain(c => c.LibraryName == "VBA");
         vba.Classes.Should().ContainSingle().Which.Name.Should().Be("Str.Tool.ObjectBrowser.Vba." + status);
     }
@@ -96,7 +96,7 @@ public class ObjectBrowserVbaLibraryTests
         vm.SelectedLibrary = vm.Libraries.Single(l => l.Name == "VBA");
         vm.SelectedLibrary.IsLoaded.Should().BeTrue();
         vm.FilteredClasses.Should().ContainSingle().Which.Name.Should().Be("Str.Tool.ObjectBrowser.Vba.Empty");
-        vm.SelectedLibrary = OBLibraryViewModel.AllLibraries;
+        vm.SelectedLibrary = vm.Libraries[0];
         vm.FilteredClasses.Should().NotContain(c => c.LibraryName == "VBA");
     }
 
@@ -108,7 +108,7 @@ public class ObjectBrowserVbaLibraryTests
         vba.IsLoaded.Should().BeFalse();
         vm.SelectedLibrary = vm.Libraries.Single(l => l.Name == "VB");
         client.RequestBuiltinSymbolsAsync(Arg.Any<CancellationToken>()).Returns([new VbaBuiltinSymbol("Abs", "Function Abs(number)", "Absolute value")]);
-        vm.SelectedLibrary = OBLibraryViewModel.AllLibraries;
+        vm.SelectedLibrary = vm.Libraries[0];
         vba.IsLoaded.Should().BeTrue();
         vm.FilteredClasses.Should().ContainSingle(c => c.LibraryName == "VBA" && c.Members.Count == 1);
     }

@@ -207,7 +207,6 @@ gets:
   - MouseIcon and hWnd;
   - OLEDrag, and the OLE drag-and-drop events;
   - Align, DragIcon, DragMode and WhatsThisHelpID at run time;
-  - reading TabIndex, which is no control's yet (#1974);
   - the default member, `pb = 30`, which is no control's yet (#790).
 - **A member a ProgressBar lacks** is refused with "Method or data member not found", whether the program is
   early-bound or late-bound. That is VB6's answer early-bound. Late-bound, VB6 gives 438.
