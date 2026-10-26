@@ -29,7 +29,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(180);
 
     // What vb6.exe actually writes to /out, measured rather than assumed -- see "What `/make` writes to
-    // `/out`, and what "Line N" counts" in docs/vb6-fidelity-oracle.md:
+    // `/out`, and what "Line N" counts" in docs/vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md:
     //
     //     <CRLF>Compile Error in File '<ABSOLUTE path>', Line <N> : <message><CRLF>Build of 'x.exe' failed.
     //
@@ -304,8 +304,8 @@ public class Vb6ToolchainService : IVb6ToolchainService
     /// <remarks>
     /// <para>
     /// <b>VB6's <c>N</c> is a 0-based index into the CODE VIEW</b>, which is the file minus its header and
-    /// minus <b>every</b> <c>Attribute</c> line, module-level and procedure-level alike. Measured across
-    /// nine probes; see the oracle. Both of the obvious readings are wrong: it is not a file line, and it
+    /// minus <b>every</b> logical <c>Attribute</c> line and its continuations, module-level and procedure-level
+    /// alike. Measured in the oracle, including #968. Both of the obvious readings are wrong: it is not a file line, and it
     /// is not 1-based.
     /// </para>
     /// <para>
@@ -331,9 +331,13 @@ public class Vb6ToolchainService : IVb6ToolchainService
 
         var lines = code.Replace("\r\n", "\n").Split('\n');
         var counted = -1;
+        var continued = false;
+        var hidden = false;
         for (var i = 0; i < lines.Length; i++)
         {
-            if (IsHiddenFromVb6LineCount(lines[i])) continue;
+            if (!continued) hidden = IsHiddenFromVb6LineCount(lines[i]);
+            continued = ReadOnlyRegions.EndsWithContinuation(lines[i].AsSpan());
+            if (hidden) continue;
             if (++counted == printedLine) return headerLines + i;
         }
 
@@ -342,7 +346,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
         return headerLines + Math.Max(lines.Length - 1, 0);
     }
 
-    /// <summary>A line the compiler did not count when numbering the code view.</summary>
+    /// <summary>A logical line the compiler did not count when numbering the code view.</summary>
     private static bool IsHiddenFromVb6LineCount(string line) =>
         line.TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase);
 }

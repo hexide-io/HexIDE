@@ -55,6 +55,37 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
+    // While a Move sets the size, Width and Height change in turn and Resize waits for both (#1569).
+    private int resizingOnce;
+    private bool resizePending;
+
+    /// <summary>
+    /// Holds Resize back until the returned scope ends, and then raises it once if the size changed: a form's Move sets
+    /// Width and Height together, and VB6 raises one Resize for the two, with both new (measured, #1569).
+    /// </summary>
+    internal IDisposable ResizeOnce()
+    {
+        resizingOnce++;
+        return new ResizeScope(this);
+    }
+
+    private sealed class ResizeScope(VBFormRuntime form) : IDisposable
+    {
+        private bool done;
+
+        public void Dispose()
+        {
+            if (done)
+                return;
+            done = true;
+            if (--form.resizingOnce == 0 && form.resizePending)
+            {
+                form.resizePending = false;
+                form.windowContext.WindowResized(sizeSet: true);
+            }
+        }
+    }
+
     // Whether the window system has sized the window since it was first shown. Until then ClientSize is still the size the
     // window was made at, the platform's default, and the size it is being shown at is its Width and Height (#994).
     private bool sized;
@@ -85,6 +116,15 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         // where VB6 raises Resize with WindowState already 1, so the state is watched too.
         if (change.Property == IsVisibleProperty && IsVisible)
             windowContext.Shown();
+        else if (change.Property == WidthProperty || change.Property == HeightProperty)
+        {
+            // Use the requested size until layout reports it, and raise inside the setter, even in Load (#1570).
+            sized = false;
+            if (resizingOnce > 0)
+                resizePending = true;
+            else
+                windowContext.WindowResized(sizeSet: true);
+        }
         else if (change.Property == WindowStateProperty)
             windowContext.WindowResized();
     }

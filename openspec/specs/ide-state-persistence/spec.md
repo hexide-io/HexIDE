@@ -34,6 +34,11 @@ someone who closed the toolbox because they work in code did so deliberately. Si
 visibility: a properties panel restored to a default width is one the developer has to widen again before
 they can read it.
 
+#### Scenario: Toolbox home
+- **WHEN** the IDE starts without recorded state or resets its window layout
+- **THEN** the Toolbox is open in the left region
+- **AND** closing and reopening it returns it to that region and records it as open for restart
+
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted
 - **THEN** the same arrangement is restored

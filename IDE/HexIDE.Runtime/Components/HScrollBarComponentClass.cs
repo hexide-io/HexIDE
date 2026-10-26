@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using HexIDE.Runtime.BuiltinControls;
@@ -27,11 +28,11 @@ public abstract class ScrollBarComponentClass : ComponentBaseClass
         return new VBScrollBar()
         {
             Orientation = Orientation,
-            Minimum = instance.GetPropertyOrDefault(MinProperty),
-            Maximum = instance.GetPropertyOrDefault(MaxProperty),
+            Minimum = Math.Min(instance.GetPropertyOrDefault(MinProperty), instance.GetPropertyOrDefault(MaxProperty)),
+            Maximum = Math.Max(instance.GetPropertyOrDefault(MinProperty), instance.GetPropertyOrDefault(MaxProperty)),
             VbMin = instance.GetPropertyOrDefault(MinProperty),
             VbMax = instance.GetPropertyOrDefault(MaxProperty),
-            Value = instance.GetPropertyOrDefault(ValueProperty),
+            VbValue = instance.GetPropertyOrDefault(ValueProperty),
             LargeChange = instance.GetPropertyOrDefault(LargeChangeProperty),
             SmallChange = instance.GetPropertyOrDefault(SmallChangeProperty),
         };

@@ -238,6 +238,16 @@ internal static class VbSignatures
             ["Asc"]  = [new SignatureEntry("Asc(String As String) As Integer", ["String"],   "Returns the character code of the first character in a string.")],
             ["ChrW"] = [new SignatureEntry("ChrW(CharCode As Long) As String", ["CharCode"], "Returns the Unicode character associated with the specified code.")],
             ["AscW"] = [new SignatureEntry("AscW(String As String) As Integer",["String"],   "Returns the Unicode character code of the first character.")],
+            // Byte strings (#1510): each counts the string's bytes, two to a character, where its plain form counts characters.
+            ["ChrB"] = [new SignatureEntry("ChrB(CharCode As Long) As String", ["CharCode"], "Returns a string of the one byte given.")],
+            ["AscB"] = [new SignatureEntry("AscB(String As String) As Byte",   ["String"],   "Returns the first byte of a string.")],
+            ["LenB"] = [new SignatureEntry("LenB(Expression) As Long",         ["Expression"], "Returns the number of bytes in a string, or a variable's size.")],
+            ["LeftB"] = [new SignatureEntry("LeftB(String, Length As Long) As String", ["String", "Length"], "Returns the first bytes of a string.")],
+            ["RightB"] = [new SignatureEntry("RightB(String, Length As Long) As String", ["String", "Length"], "Returns the last bytes of a string.")],
+            ["MidB"] = [new SignatureEntry("MidB(String, Start As Long, [Length As Long]) As String", ["String", "Start", "Length"],
+                "Returns bytes from a string, from the byte at Start.")],
+            ["InStrB"] = [new SignatureEntry("InStrB([Start As Long,] String1, String2, [Compare As VbCompareMethod]) As Long",
+                ["Start", "String1", "String2", "Compare"], "Returns the byte at which one string first occurs within another.")],
 
             // Date / Time
             ["Now"]      = [new SignatureEntry("Now() As Date",              [],         "Returns the current date and time.")],

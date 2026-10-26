@@ -66,7 +66,7 @@ public class ConversionFunctionsTests : BaseVBTestFixture
     public async Task CDate_ParsesStringAndSerial()
     {
         await Run("Debug.Print CDate(\"1/1/2000\")\nDebug.Print CDate(36526)\n");
-        AssertDebugLog([new Vb6Value(new DateTime(2000, 1, 1)), new Vb6Value(new DateTime(2000, 1, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1))), new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1)))]);
     }
 
     [Theory]
@@ -103,6 +103,16 @@ public class ConversionFunctionsTests : BaseVBTestFixture
     {
         // .NET parses "1E+400" to Infinity, as it parses "Infinity". Measured: VB6 raises 6 for both.
         Func<Task> act = () => Run($"Debug.Print {expr}\n");
+        (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
+    }
+
+    [Theory]
+    [InlineData("CDbl", "1E+400")]
+    [InlineData("Val", "1E+400")]
+    [InlineData("CSng", "1E+39")]
+    public async Task Floating_point_string_overflow_raises_error_6(string conversion, string input)
+    {
+        Func<Task> act = () => Run($"Debug.Print {conversion}(\"{input}\")\n");
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
     }
 

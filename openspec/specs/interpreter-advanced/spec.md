@@ -71,6 +71,15 @@ at a time.
 - **WHEN** a program uses a construct on the boundary map
 - **THEN** it fails clearly, and the boundary map already says so
 
+#### Scenario: Declaring an unsupported UDT array
+- **WHEN** a module or procedure declares a fixed or dynamic array of a user-defined type
+- **THEN** the interpreter refuses the declaration with a message naming the unsupported array and its type
+
+#### Scenario: Unsupported bang access in an array-result assignment
+- **WHEN** an assignment target uses bang access on an indexed or called result
+- **THEN** the interpreter refuses it with a message naming bang access and the target
+- **AND** the host reports the limitation without a trappable VB6 error number
+
 #### Scenario: Recording a new boundary
 - **WHEN** a construct is found to be out of reach
 - **THEN** it is added to the boundary map with what it is, rather than minimised

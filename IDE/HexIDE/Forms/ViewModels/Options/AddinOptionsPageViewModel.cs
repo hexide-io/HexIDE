@@ -20,12 +20,14 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     private readonly IAddinRegistry _registry;
     private readonly string _assemblyPath;
     private readonly string _manifestHash;
+    private readonly string? _compatibilityError;
 
     public AddinOptionsPageViewModel(IAddinRegistry registry, AddinInfo info, Func<object>? contributedFactory = null)
     {
         _registry = registry;
         _assemblyPath = info.AssemblyPath;
         _manifestHash = info.ManifestHash;
+        _compatibilityError = info.CompatibilityError;
         Title = string.IsNullOrWhiteSpace(info.Title) ? "(unnamed add-in)" : info.Title;
         Description = string.IsNullOrWhiteSpace(info.Description) ? "(no description provided)" : info.Description;
         Version = string.IsNullOrWhiteSpace(info.Version) ? "—" : info.Version;
@@ -65,7 +67,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject
 
     /// <summary>An add-in is "enabled" unless it has been explicitly disabled.</summary>
     public bool IsAddinEnabled => Status != AddinStatus.Disabled;
-    public string StatusText => Status.ToString();
+    public string StatusText => Status == AddinStatus.Incompatible ? _compatibilityError ?? Status.ToString() : Status.ToString();
     public string ToggleLabel => IsAddinEnabled ? "Deactivate" : "Activate";
 
     /// <summary>The first-load consent state, derived from the load status.</summary>

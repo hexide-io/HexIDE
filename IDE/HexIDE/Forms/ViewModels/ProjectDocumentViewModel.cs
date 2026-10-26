@@ -55,6 +55,9 @@ public partial class ProjectDocumentViewModel : BaseEditorWindowViewModel
 
     public ProjectDefinition? Project => project;
 
+    /// <summary>Read-only, so its marker never shows, whether or not the project it renders is saved.</summary>
+    public override bool CanHoldUnsavedChanges => false;
+
     /// <summary>Where the project lives, or the reason there is nowhere.</summary>
     [Notify] private string location = string.Empty;
 

@@ -18,7 +18,7 @@ internal partial class KeymapJsonContext : JsonSerializerContext { }
 /// <summary>
 /// Maps JSON command names to their RoutedCommand instances.
 /// Covers all commands in ApplicationCommands so packs can assign gestures to any command.
-/// Keep in sync with ApplicationCommands.cs when adding new commands.
+/// Guarded against ApplicationCommands by KeymapServiceTests.
 /// </summary>
 internal static class CommandKeyMapping
 {
@@ -60,11 +60,13 @@ internal static class CommandKeyMapping
             ["ParameterInfoCommand"]                   = ApplicationCommands.ParameterInfoCommand,
             ["CompleteWordCommand"]                    = ApplicationCommands.CompleteWordCommand,
             ["BookmarksCommand"]                       = ApplicationCommands.BookmarksCommand,
+            ["ToggleFoldCommand"]                      = ApplicationCommands.ToggleFoldCommand,
             ["ToggleBookmarkCommand"]                  = ApplicationCommands.ToggleBookmarkCommand,
             ["NextBookmarkCommand"]                    = ApplicationCommands.NextBookmarkCommand,
             ["PreviousBookmarkCommand"]                = ApplicationCommands.PreviousBookmarkCommand,
             ["ClearAllBookmarksCommand"]               = ApplicationCommands.ClearAllBookmarksCommand,
             ["GoToDefinitionCommand"]                  = ApplicationCommands.GoToDefinitionCommand,
+            ["GoToDeclarationCommand"]                 = ApplicationCommands.GoToDeclarationCommand,
             ["RenameSymbolCommand"]                    = ApplicationCommands.RenameSymbolCommand,
             ["FormatDocumentCommand"]                  = ApplicationCommands.FormatDocumentCommand,
             // ── View ──────────────────────────────────────────────
@@ -73,6 +75,7 @@ internal static class CommandKeyMapping
             ["OpenImmediateCommand"]                   = ApplicationCommands.OpenImmediateCommand,
             ["OpenLocalsCommand"]                      = ApplicationCommands.OpenLocalsCommand,
             ["OpenWatchesCommand"]                     = ApplicationCommands.OpenWatchesCommand,
+            ["OpenCallStackCommand"]                   = ApplicationCommands.OpenCallStackCommand,
             ["OpenProjectExplorerCommand"]             = ApplicationCommands.OpenProjectExplorerCommand,
             ["OpenPropertiesCommand"]                  = ApplicationCommands.OpenPropertiesCommand,
             ["OpenFormLayoutCommand"]                  = ApplicationCommands.OpenFormLayoutCommand,
@@ -80,6 +83,7 @@ internal static class CommandKeyMapping
             ["OpenToolBoxCommand"]                     = ApplicationCommands.OpenToolBoxCommand,
             ["OpenDataViewCommand"]                    = ApplicationCommands.OpenDataViewCommand,
             ["OpenColorPaletteCommand"]                = ApplicationCommands.OpenColorPaletteCommand,
+            ["ResetWindowLayoutCommand"]               = ApplicationCommands.ResetWindowLayoutCommand,
             // ── Run ───────────────────────────────────────────────
             ["StartDefaultProjectCommand"]             = ApplicationCommands.StartDefaultProjectCommand,
             ["StartDefaultProjectWithFullCompileCommand"] = ApplicationCommands.StartDefaultProjectWithFullCompileCommand,

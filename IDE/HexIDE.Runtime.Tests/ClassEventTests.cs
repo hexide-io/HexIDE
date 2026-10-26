@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// Interpreter-advanced Phase 5 — custom events (<c>Event</c> / <c>RaiseEvent</c> / <c>WithEvents</c>). A source
 /// class raises events; a listener class with a <c>WithEvents</c> field handles them via <c>{var}_{event}</c>,
 /// synchronously, with ByRef write-back. VB6 events are multicast (a per-source observer list, attach order).
-/// Every expectation is pinned against <c>vb6.exe</c> (docs/vb6-fidelity-oracle.md "Custom events").
+/// Every expectation is pinned against <c>vb6.exe</c> (docs/vb6-fidelity-oracle/custom-events--event--raiseevent--withevents.md "Custom events").
 /// </summary>
 public class ClassEventTests : BaseVBTestFixture
 {
@@ -25,6 +25,27 @@ public class ClassEventTests : BaseVBTestFixture
         "Public Sub Attach(c As Clock)\nSet src = c\nEnd Sub\n" +
         "Public Sub Detach()\nSet src = Nothing\nEnd Sub\n" +
         "Private Sub src_Tick(ByRef Cancel As Boolean)\nDebug.Print \"L\" & Id\nCancel = True\nEnd Sub\n";
+
+    [Theory]
+    [InlineData("Public WithEvents A As Class2, WithEvents B As Class2", "[AB]")]
+    [InlineData("Private WithEvents A As Class2, WithEvents B As Class2", "[AB]")]
+    [InlineData("Dim WithEvents A As Class2, WithEvents B As Class2", "[AB]")]
+    [InlineData("Public WithEvents A As Class2, B As Class2", "[A]")]
+    [InlineData("Public A As Class2, WithEvents B As Class2", "[B]")]
+    public async Task WithEvents_AppliesToEachDeclarator(string declaration, string expected)
+    {
+        await RunClasses(
+            "Dim o As Class1\nSet o = New Class1\nDebug.Print o.Test()\n",
+            ("Class2", "Public Event Ev()\nPublic Sub Fire()\nRaiseEvent Ev\nEnd Sub\n"),
+            ("Class1", declaration + "\n" +
+                "Public Hits As String\n" +
+                "Private Sub A_Ev()\nHits = Hits & \"A\"\nEnd Sub\n" +
+                "Private Sub B_Ev()\nHits = Hits & \"B\"\nEnd Sub\n" +
+                "Public Function Test() As String\n" +
+                "Set A = New Class2\nSet B = New Class2\nA.Fire\nB.Fire\n" +
+                "Test = \"[\" & Hits & \"]\"\nEnd Function\n"));
+        AssertDebugLog([expected]);
+    }
 
     [Fact]
     public async Task Handler_Runs_Synchronously_And_ByRefCancel_SeenByRaiser()

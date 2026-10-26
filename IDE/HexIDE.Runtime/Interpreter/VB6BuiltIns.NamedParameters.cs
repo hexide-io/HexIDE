@@ -15,9 +15,10 @@ public partial class VB6BuiltIns
     /// other intrinsic leaving out a required one is "Argument not optional".</param>
     internal sealed record IntrinsicParameters(string[] Names, int Required, bool OmittedIsSyntaxError = false);
 
-    // #1561 measured positional calls only. Refuse named calls explicitly until an oracle probe supplies them.
+    // #1561 measured positional calls only, and so did #1510 for the byte-string functions. Refuse named calls
+    // explicitly until an oracle probe supplies them.
     private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
-    { "CurDir", "Dir", "FileLen", "FileDateTime", "GetAttr" };
+    { "AscB", "ChrB", "CurDir", "Dir", "FileLen", "FileDateTime", "GetAttr", "InStrB", "LeftB", "MidB", "RightB" };
 
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -139,6 +140,7 @@ public partial class VB6BuiltIns
     internal sealed class IntrinsicArgumentValues(int capacity) : List<Vb6Value>(capacity)
     {
         internal HashSet<int> Omitted { get; } = new();
+        internal long? LenVariableSize { get; set; }
 
         internal void AddArgument(Vb6Value value, bool omitted)
         {

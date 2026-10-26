@@ -1,10 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="HexIDE.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <!--If you are willing to use Windows/MacOS native APIs you will need to create 3 projects.
     One for Windows with net10.0-windows TFM, one for MacOS with net10.0-macos and one with net10.0 TFM for Linux.-->
     <TargetFrameworks>$(DotNetVersionDesktop)</TargetFrameworks>
     <Nullable>enable</Nullable>
+        <!-- LibraryImport-generated marshalling only; NativeInteropTests guards handwritten code. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationIcon>..\HexIDE\Icons\AppIcon\hexide.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

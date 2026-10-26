@@ -38,6 +38,9 @@ public class DesignRecordTests
     private static readonly Regex OperationHeading =
         new(@"^##\s+(?<op>ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements\s*$", RegexOptions.Compiled);
 
+    private static readonly Regex RenameRequirement =
+        new(@"^- (?<direction>FROM|TO): `###\s+Requirement:\s*(?<name>.+?)`\s*$", RegexOptions.Compiled);
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -53,7 +56,7 @@ public class DesignRecordTests
 
     private static string ArchiveDirectory() => Path.Combine(ChangesDirectory(), "archive");
 
-    /// <summary>A delta's requirement headings, grouped by the operation they sit under.</summary>
+    /// <summary>A delta's requirements, including rename list items, grouped by operation.</summary>
     private static Dictionary<string, List<string>> Operations(string deltaPath)
     {
         var byOperation = new Dictionary<string, List<string>>(StringComparer.Ordinal);
@@ -67,15 +70,57 @@ public class DesignRecordTests
                 continue;
             }
 
-            if (RequirementHeading.Match(line) is { Success: true } req)
+            var operation = current;
+            var req = RequirementHeading.Match(line);
+            if (current == "RENAMED" && RenameRequirement.Match(line) is { Success: true } rename)
             {
-                if (!byOperation.TryGetValue(current, out var names))
-                    byOperation[current] = names = [];
+                req = rename;
+                operation = rename.Groups["direction"].Value == "FROM" ? "RENAMED" : "ADDED";
+            }
+
+            if (req.Success)
+            {
+                if (!byOperation.TryGetValue(operation, out var names))
+                    byOperation[operation] = names = [];
                 names.Add(req.Groups["name"].Value);
             }
         }
 
         return byOperation;
+    }
+
+    [Theory]
+    [InlineData("RENAMED", "Old name")]
+    [InlineData("ADDED", "New name")]
+    public void RenameListItemsAreCollectedByOperation(string operation, string name)
+    {
+        var path = Path.Combine(RepoRoot(), "artifacts", $"rename-{Guid.NewGuid():N}.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        try
+        {
+            File.WriteAllText(path, """
+                ## ADDED Requirements
+                ### Requirement: Ordinary addition
+                ## MODIFIED Requirements
+                ### Requirement: Ordinary modification
+                ## REMOVED Requirements
+                ### Requirement: Ordinary removal
+                ## RENAMED Requirements
+                - FROM: `### Requirement: Old name`
+                - TO: `### Requirement: New name`
+                """);
+
+            var operations = Operations(path);
+            operations.Should().ContainKey(operation);
+            operations[operation].Should().Contain(name);
+            operations["ADDED"].Should().Contain("Ordinary addition");
+            operations["MODIFIED"].Should().Equal("Ordinary modification");
+            operations["REMOVED"].Should().Equal("Ordinary removal");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     private static HashSet<string> RequirementsIn(string specPath) =>

@@ -64,6 +64,7 @@ public partial class VB6BuiltIns
         if (!isAsync && !Builtins.TryGetValue(name, out fn))
             return null;
 
+        CheckValueBeforeObject(name, args);
         for (var i = 0; i < args.Count; i++)
             args[i] = ArgumentAsUsed(name, i, args[i]);
 
@@ -73,6 +74,26 @@ public partial class VB6BuiltIns
         if (string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase))
             return await InputBox(args);
         return fn!(this, args, compareText);
+    }
+
+    // Measured (#959, p41): these typed value arguments convert before a class in the text slot is read.
+    // Keep the existing order for object numeric arguments and other combinations, which were not measured.
+    private static void CheckValueBeforeObject(string name, IReadOnlyList<Vb6Value> args)
+    {
+        var (text, number) = name.ToUpperInvariant() switch
+        {
+            "LEFT" or "MID" => (0, 1),
+            "REPLACE" => (0, 3),
+            "SPLIT" => (0, 2),
+            "INSTR" => (1, 3),
+            _ => (-1, -1)
+        };
+        if (number >= 0 && Supplied(args, number) && args[text].Value is VbObject
+            && args[number].Type == Vb6Value.ValueType.String)
+            _ = AsInt(args[number]);
+        if (string.Equals(name, "Left", StringComparison.OrdinalIgnoreCase)
+            && args[0].Value is VbObject && args[1].IsNull)
+            throw InvalidUseOfNull();
     }
 
     /// <summary>
@@ -162,7 +183,8 @@ public partial class VB6BuiltIns
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));
         d["FileLen"] = (self, a, _) => new Vb6Value((long)self.Files.FileLength(AsStr(a[0])));
-        d["FileDateTime"] = (self, a, _) => new Vb6Value(self.Files.FileDateTime(AsStr(a[0])));
+        // Whole seconds, as Now is (measured, #783), and as the file time showed when a fraction was still cut off.
+        d["FileDateTime"] = (self, a, _) => new Vb6Value(VbDate.FromDateTime(WholeSeconds(self.Files.FileDateTime(AsStr(a[0])))));
         d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
         d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
@@ -347,8 +369,26 @@ public partial class VB6BuiltIns
     /// <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
         => VB6InBoxLibraries.TryBare(name, out constant)
-           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant));
+           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant))
+           || TryControlLibraryConstant(name, out constant);
 
     /// <summary>Whether the project references the CommonDialog control, whose constants then resolve (#1084).</summary>
     internal bool CommonDialogReferenced { get; set; }
+
+    /// <summary>
+    /// The in-box control libraries the project references, in its order (#1082). Their constants resolve as the
+    /// CommonDialog's do, after the four in-box libraries, and only while the project references the library: a bare
+    /// <c>ccScrollingSmooth</c> without MSCOMCTL.OCX is an undeclared variable, as in VB6. The 5.0 and 6.0 libraries
+    /// declare their 152 shared names with the same values in the same enums (measured), so their order never changes a value.
+    /// </summary>
+    internal IReadOnlyList<Components.InBox.ControlLibrary> ControlLibraries { get; set; } = [];
+
+    private bool TryControlLibraryConstant(string name, out Vb6Value constant)
+    {
+        foreach (var library in ControlLibraries)
+            if (library.TryBare(name, out constant))
+                return true;
+        constant = default;
+        return false;
+    }
 }

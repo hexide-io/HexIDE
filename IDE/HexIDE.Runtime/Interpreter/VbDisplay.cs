@@ -9,7 +9,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every rule here was measured on vb6.exe under an en-GB locale (<c>docs/vb6-fidelity-oracle.md</c>, "Turning a
+/// Every rule here was measured on vb6.exe under an en-GB locale (<c>docs/vb6-fidelity-oracle/turning-a-number-or-a-date-into-text.md</c>, "Turning a
 /// number or a date into text"). .NET's own <c>ToString()</c> differs in each of them: it writes a Single or Double
 /// in its shortest round-trip form (<c>0.33333334</c>, <c>0.30000000000000004</c>), never switches to E notation
 /// where VB6 does, writes negative zero as <c>-0</c>, keeps a Currency's or Decimal's trailing zeros, and always
@@ -44,11 +44,12 @@ public static class VbDisplay
         // An object stands for its default member: Err its Number, and one with none is 438 (ObjectAsValue). Its CLR
         // type name, which the last arm gave, is never right (#436).
         VbObject or ICSharpProxy => ToText(ObjectAsValue.Scalar(value, null), culture),
+        VBArray => throw new VBRunTimeException(VBStandardError.TypeMismatch),
         string s => s,
         float f => Floating(f, 7, culture),
         double d => Floating(d, 15, culture),
         decimal m => Exact(m, culture),
-        DateTime dt => Date(dt, culture),
+        VbDate dt => Date(dt.Instant, culture),
         // The integer types have no separator to take from the locale, only a sign, which is always ASCII.
         byte or short or int or long => ((IFormattable)value.Value).ToString(null, CultureInfo.InvariantCulture),
         _ => value.Value.ToString() ?? "",
@@ -152,7 +153,8 @@ public static class VbDisplay
     /// <summary>
     /// A Date in the locale's short date and long time, leaving out a midnight time and the zero date: a date only
     /// (<c>02/01/2003</c>), a time only (<c>10:30:00</c>, and <c>00:00:00</c> for the zero date at midnight), or both.
-    /// A year below 1000 is not padded (<c>01/01/100</c>, measured).
+    /// A year below 1000 is not padded (<c>01/01/100</c>, measured). It is shown to the second, as VB6 rounds it
+    /// (VbDate.Instant, #783): 12:00:00.6 is <c>12:00:01</c>, and 23:59:59.6 the next day at midnight, so the date alone.
     /// </summary>
     private static string Date(DateTime value, CultureInfo culture)
     {

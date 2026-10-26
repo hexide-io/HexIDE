@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Sequential files (#1145): Open For Input, Output and Append, Line Input #, Print #, Close, FreeFile and EOF. Every
 /// expected value is what vb6.exe printed or wrote for the same statements, native and p-code alike: the probe and its
-/// log are in docs/vb6-fidelity-oracle.md, "Sequential files".
+/// log are in docs/vb6-fidelity-oracle/sequential-files.md, "Sequential files".
 /// </summary>
 public class SequentialFileTests : BaseVBTestFixture, IDisposable
 {
@@ -22,6 +22,23 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
     private string PathOf(string name) => Path.Combine(dir, name);
 
     private List<string?> Printed() => debug.Select(v => v.Value as string).ToList();
+
+    [Fact]
+    public async Task Print_of_an_array_raises_13()
+    {
+        // #879: measured on vb6.exe, native and in the IDE.
+        await Run($$"""
+            Dim f As Integer
+            f = FreeFile
+            Open "{{PathOf("array.txt")}}" For Output As #f
+            On Error Resume Next
+            Print #f, Array(1)
+            Debug.Print Err.Number
+            Close #f
+            """);
+
+        AssertDebugLog([new Vb6Value(13L)]);
+    }
 
     [Fact]
     public async Task Multiple_file_numbers_on_one_line_copy_and_close_both_files()

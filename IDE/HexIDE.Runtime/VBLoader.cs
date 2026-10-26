@@ -13,6 +13,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Runtime.BuiltinControls;
@@ -41,7 +42,7 @@ public class VBLoader
         IBasicStandardLibrary? standardLibrary = null,
         VbObject? form = null)
     {
-        RefuseUncreatableControls(element, standardLibrary is not null);
+        RefuseUnsupportedControls(element, standardLibrary is not null);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -152,6 +153,7 @@ public class VBLoader
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
         var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
+        controls.Maker = (componentClass, name, container) => MakeAtRunTime(componentClass, name, container, canvas, element);
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
         if (form is not null)
@@ -521,6 +523,81 @@ public class VBLoader
     }
 
     /// <summary>
+    /// A control <c>Controls.Add</c> makes (#1556), as vb6.exe makes one (measured, the oracle's "Controls.Add and
+    /// Controls.Remove"): at 0, 0 in its container, its class's size, hidden, with an empty Caption and Text, the form's
+    /// font as it stands at that moment, and under every control already there.
+    /// </summary>
+    private static Control MakeAtRunTime(ComponentBaseClass componentClass, string name, Control? container, Canvas formCanvas,
+        FormDefinition form)
+    {
+        var host = formCanvas;
+        if (container is not null)
+        {
+            ComponentBaseClass containerClass = container is VBFrame ? FrameComponentClass.Instance : PictureBoxComponentClass.Instance;
+            if (!containerClass.TryGetChildHost(container, out var childHost))
+                throw new NotImplementedException($"Controls.Add into this {containerClass.ClassName} is not implemented (#1556)");
+            host = childHost;
+        }
+        var font = formCanvas.FindLogicalAncestorOfType<Window>() is { } window ? AttachedProperties.GetFont(window) : null;
+        font ??= form.Components.FirstOrDefault(c => c.BaseClass is FormComponentClass)?.GetPropertyOrDefault(VBProperties.FontProperty);
+
+        var component = new ComponentInstance(componentClass, name)
+            .SetProperty(VBProperties.CaptionProperty, "")
+            .SetProperty(VBProperties.TextProperty, "")
+            .SetProperty(VBProperties.VisibleProperty, false)
+            .SetProperty(VBProperties.LeftProperty, 0)
+            .SetProperty(VBProperties.TopProperty, 0);
+        if (font is { } f)
+            component.SetProperty(VBProperties.FontProperty, f);
+        // A Timer's Interval is 0 (measured), which the property's own default isn't yet (#2068).
+        if (componentClass is TimerComponentClass)
+            component.SetProperty(VBProperties.IntervalProperty, 0);
+        if (AddedSize(componentClass, font) is var (width, height))
+            component.SetProperty(VBProperties.WidthProperty, width / VBScaleModeExtensions.PixelToTwips)
+                .SetProperty(VBProperties.HeightProperty, height / VBScaleModeExtensions.PixelToTwips);
+
+        Control? made = null;
+        PlaceComponentTree(component, host, formCanvas, form, (_, control, _) => made = control);
+        VBProps.SetRunTimeId(made!);
+        return made!;
+    }
+
+    // Each class's size when Controls.Add makes it, in twips (measured): 1200 by 480, but for these. None for a Timer, which
+    // has no position, nor a Line, whose ends are all 0.
+    private static (double Width, double Height)? AddedSize(ComponentBaseClass componentClass, VBFont? font) => componentClass switch
+    {
+        TimerComponentClass or LineComponentClass => null,
+        ListBoxComponentClass => (1200, AddedListBoxHeight(font)),
+        ComboBoxComponentClass => (1200, 315),
+        HScrollBarComponentClass => (1200, 240),
+        VScrollBarComponentClass => (240, 1200),
+        _ => (1200, 480),
+    };
+
+    // An added ListBox's row, in pixels, by the font it takes (measured, fourteen fonts): its height is 60 twips and as many
+    // rows as fit in 480, at least one.
+    private static readonly (string Font, double Size, int Row)[] AddedListBoxRows =
+    [
+        ("MS Sans Serif", 8.25, 13), ("MS Sans Serif", 9.75, 16), ("MS Sans Serif", 12, 20), ("MS Sans Serif", 13.5, 24),
+        ("Microsoft Sans Serif", 8.25, 13), ("Tahoma", 8.25, 13), ("Tahoma", 9.75, 16), ("Verdana", 8.25, 13),
+        ("Arial", 8.25, 14), ("Arial", 9.75, 16), ("Arial", 12, 18), ("Times New Roman", 12, 19), ("Courier New", 9.75, 16),
+        ("Segoe UI", 9, 15),
+    ];
+
+    private static double AddedListBoxHeight(VBFont? font)
+    {
+        foreach (var (name, size, row) in AddedListBoxRows)
+            if (font is { } f && string.Equals(f.FontFamilyName, name, StringComparison.OrdinalIgnoreCase) && Math.Abs(f.Size - size) < 0.01)
+            {
+                double rowTwips = row * VBScaleModeExtensions.PixelToTwips;
+                return 60 + Math.Max(1, Math.Floor(420 / rowTwips)) * rowTwips;
+            }
+        throw new NotImplementedException(
+            $"Controls.Add of a ListBox in {font?.FontFamilyName} {font?.Size} is not implemented: its height follows its font, " +
+            "and was measured for fourteen fonts, not this one (#1556)");
+    }
+
+    /// <summary>
     /// Places one component on <paramref name="host"/> and recurses into whatever it contains.
     ///
     /// Shared by the running form and the hosted-UserControl spawner, which stay separate methods on
@@ -636,17 +713,26 @@ public class VBLoader
     }
 
     /// <summary>
-    /// A form holding a control HexIDE cannot create is refused before any control is placed (#857). Left out, the control
-    /// made the form a different program: code naming it read Empty, was told the name was not defined, or skipped a call
+    /// A form holding a control HexIDE cannot create, or a data-bound control, is refused before placement (#857, #859).
+    /// Left out, the control made the form a different program: code naming it read Empty, was told the name was not defined, or skipped a call
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUncreatableControls(FormDefinition element, bool canShowDialogs)
+    private static void RefuseUnsupportedControls(FormDefinition element, bool canShowDialogs)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
             if (!(canShowDialogs && CommonDialogBlock(block) is not null))
                 DescribeUncreatable(block, lines);
+        foreach (var component in element.Components)
+            foreach (var property in component.UnknownRawProperties)
+                if (property.Name.Equals("DataSource", StringComparison.OrdinalIgnoreCase))
+                {
+                    var line = property.Lines.FirstOrDefault() ?? "";
+                    var source = DesignTimeValue(line[(line.IndexOf('=') + 1)..].Trim());
+                    var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+                    lines.Add($"HexIDE does not implement data binding: {name} has DataSource {source.Value}.");
+                }
         if (lines.Count > 0)
             throw new NotImplementedException(string.Join("\n", lines.Distinct()));
     }
@@ -720,13 +806,16 @@ public class VBLoader
             var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 3)
                 continue;
+            // An in-box control HexIDE will model names the issue that tracks it (#1082).
+            var tracked = Components.InBox.InBoxComponentClass.IssueFor(parts[1]) is { } issue
+                ? $", which isn't implemented yet (#{issue})" : "";
             if (outer is not { } container)
             {
                 outer = (parts[1], parts[2]);
-                lines.Add($"HexIDE cannot create {parts[2]} ({parts[1]}).");
+                lines.Add($"HexIDE cannot create {parts[2]} ({parts[1]}){tracked}.");
             }
             else
-                lines.Add($"HexIDE cannot create {parts[2]}, inside {container.Name} ({container.Type}).");
+                lines.Add($"HexIDE cannot create {parts[2]}, inside {container.Name} ({container.Type}){tracked}.");
         }
     }
 
