@@ -3727,7 +3727,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // ReleaseRef no-ops non-objects. Only proc-body executors have ownedSlots (module/field-init = null).
                 // A Static's slot is kept instead, for the next call.
                 if (keep is not null && currentEnv.TryGetOwnVariableLocation(localName, out var staticLoc))
+                {
                     keep.Add(subStmt, staticLoc);
+                    currentEnv.AllocatedSlots?.Remove(staticLoc);
+                }
                 else if (ownedSlots != null && currentEnv.TryGetVariableLocation(localName, out var localLoc))
                     ownedSlots.Add(localLoc);
             }

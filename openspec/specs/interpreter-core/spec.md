@@ -379,3 +379,19 @@ syntax errors for modules and expressions, and returning null for unparseable st
 #### Scenario: SLL cannot parse an entry
 - **WHEN** SLL cancels parsing a module or Immediate-window entry
 - **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
+
+### Requirement: Procedure activation storage is reclaimed on exit
+The interpreter SHALL reclaim storage allocated by a procedure activation after its scope-exit reference
+releases, on normal return, early exit, error unwind and parameter-binding failure. Caller storage aliased
+ByRef and persistent Static storage SHALL survive the callee's exit. Freed slot numbers SHALL NOT be reused;
+exhausting the slot counter SHALL raise error 7 rather than overwrite live storage. Debugger inspection of
+freed storage SHALL report it as out of scope without throwing into the UI.
+
+#### Scenario: Repeated calls
+- **WHEN** a procedure with parameters and locals is called repeatedly
+- **THEN** completed activations leave no allocated slots of their own behind
+- **AND** recursive activations retain their slots until each returns
+
+#### Scenario: A retained debugger frame
+- **WHEN** the debugger inspects a frame after its procedure returns
+- **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope

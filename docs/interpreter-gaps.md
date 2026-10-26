@@ -23,6 +23,17 @@
   `visibility` rule, so it hoists like `Public` (subject to the same cross-module unqualified-variable-read gap in
   *Partial*). Noted only because it is an ancient construct one might expect to be missing.
 
+## Slot lifetime (#79)
+
+Procedure activations reclaim their allocated slots after scope-exit reference releases, including on error
+unwind and failed parameter binding. Static slots pass to the run or instance and remain persistent; ByRef
+aliases never belong to the callee. Freed slot numbers are not reused, and exhausted numbering raises error 7.
+Debugger inspection treats freed slots as out of scope.
+
+Instance fields and instance Statics still retain their storage after termination. Phase 2 is deferred until
+member accesses on terminated instances have been counted across the Runtime suite, Battleship and the #2067
+sweep, as the issue's design note requires. Replacing the module-environment clone is separate performance work.
+
 ## Known host limitation
 
 - **Linux locale categories (#798):** the program uses one culture, captured from .NET's
