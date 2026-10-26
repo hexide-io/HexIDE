@@ -57,13 +57,20 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
+code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
+content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
+existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
-The stdio transport kills any remaining child and waits up to two seconds for termination before
-disposing its process handle.
+The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
+tree and waits up to two seconds for termination before disposing its process handle (#2023). Its
+exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
+exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
 progress below), plus `window/logMessage` and
@@ -129,6 +136,16 @@ For language operations, a deadline returns the request's empty or absent result
 an answer. Cancellation sends `$/cancelRequest` best effort; returning never depends on its acknowledgement.
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
+
+Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
+answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
+has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
+it for good. Then the connection is disposed, which ends the stuck writes (#1221).
+
+`FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
+reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
+requests the client does not support. Each scenario asserts what a user would see. It is an in-process
+server over raw frames, so it proves nothing about interoperability: that stays with the foreign servers.
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
@@ -656,8 +673,18 @@ that supply no ID use the executable name.
 
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean
-IDE shutdown. This is cooperative: servers that ignore it can still outlive a crash. Clean shutdown
-continues to kill the launched process tree. See [configuration](language-servers.md#placeholders-in-arguments).
+IDE shutdown. On Windows, both stdio and launched pipe servers are assigned to the shared
+`ChildProcessJob` kill-on-close job immediately after launch. The OS ends assigned processes and
+their subsequent descendants even when HexIDE is killed without shutdown or disposal. Assignment
+failure fails the connection and tears down the launched process; externally owned pipe servers
+are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
+are outside this guarantee. On Linux and macOS, `{pid}` remains cooperative: servers that ignore
+it can still outlive a crash. The decided `HexIDE.ProcessWatchdog` follow-up is not implemented yet.
+The lifetime test helper is launched with its own dependencies and runtime configuration;
+its stdio and pipe readiness checks run on Linux too. The assertion that killing its owner
+ends the server and child remains Windows-only.
+Clean shutdown continues to terminate launched servers. See
+[configuration](language-servers.md#placeholders-in-arguments).
 
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
@@ -731,6 +758,15 @@ For folding ranges, document symbols, formatting and rename, the highest-priorit
 advertises the capability supplies the single answer (registration order breaks ties). Each other
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
+
+Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
+It returns when all answers arrive or that budget expires, taking only answers received in time. Items
+with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
+order breaking ties; its detail and insertion text stay intact. Advertised trigger characters are unioned
+for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
+route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
+`textDocument/completion` inspector note record that it was answered after the popup opened. The
+underlying request keeps its normal cancellation and 30-second deadline.
 
 Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
 Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
@@ -1099,3 +1135,23 @@ all three would be confidently wrong two-thirds of the time.
 ---
 
 *The behaviour contracts live under [`openspec/specs/lsp-client/`](../openspec/specs/lsp-client/spec.md).*
+
+### Workspace artefact generation
+
+Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
+The client prepares it before launching the server, once per workspace project, behind the
+`IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
+per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
+failure note on that server’s connection in the protocol inspector. Notes name only the configured
+workspace-relative artefact path and exception type; absolute targets and exception messages stay in
+the application log so conversation exports do not expose workspace locations. Writes use a temporary file in the
+same directory and atomically replace the owned target, with ownership checked under a lock. Identical
+bytes skip the write, preserving the timestamp and avoiding needless server watcher work. A provider with nothing to
+describe returns null: nothing is prompted or written, and a target HexIDE still owns is deleted under the same
+confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
+content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
+
+This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
+#456; there is no `.rdproj` provider in phase 1, no public add-in contract (#457), no undeclared generation,
+no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).

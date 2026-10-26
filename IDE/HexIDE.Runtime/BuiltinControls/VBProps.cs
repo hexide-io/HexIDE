@@ -44,6 +44,28 @@ public class VBProps
             AutomationProperties.SetControlTypeOverride(control, type);
     }
 
+    // A control made by Controls.Add (#1556): only Controls.Remove takes it out, and it has no event handlers by its name.
+    public static readonly AttachedProperty<bool> AddedAtRunTimeProperty =
+        AvaloniaProperty.RegisterAttached<VBProps, Control, bool>("AddedAtRunTime");
+    public static bool GetAddedAtRunTime(AvaloniaObject element) => element.GetValue(AddedAtRunTimeProperty);
+    public static void SetAddedAtRunTime(AvaloniaObject element, bool value) => element.SetValue(AddedAtRunTimeProperty, value);
+
+    // A control Controls.Remove has taken out, which a variable can still hold: every use of it is 735 (measured, #1556).
+    public static readonly AttachedProperty<bool> RemovedProperty =
+        AvaloniaProperty.RegisterAttached<VBProps, Control, bool>("Removed");
+    public static bool GetRemoved(AvaloniaObject element) => element.GetValue(RemovedProperty);
+    public static void SetRemoved(AvaloniaObject element, bool value) => element.SetValue(RemovedProperty, value);
+
+    /// <summary>
+    /// A removed control, which is no longer usable: 735 for every property read or written and every method (measured,
+    /// #1556). <c>TypeName</c> still names its class.
+    /// </summary>
+    public static void RefuseIfRemoved(Control control)
+    {
+        if (GetRemoved(control))
+            throw new VBRunTimeException(VBStandardError.ControlRemoved);
+    }
+
     // The ScaleMode a container gives the controls on it: the unit a program reads and writes their Left, Top, Width and
     // Height in (#933). Set on the canvas they are placed on: the form's own, and a PictureBox's child host; a Frame has
     // none, and its children stay in twips even on a pixel form (measured).

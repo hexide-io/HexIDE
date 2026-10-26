@@ -203,6 +203,64 @@ public sealed class CompilerRecordingTests
         foreach (var line in File.ReadLines(file)) CompilerRecordingReplay.CheckRedaction(line);
     }
 
+    private static string Recording(string beta, params (string Direction, byte[] Payload)[] frames)
+    {
+        var lines = new List<string> { JsonSerializer.Serialize(new CompilerRecordingHeader(1, beta, "Community", "root-initialization")) };
+        lines.AddRange(frames.Select((f, i) => JsonSerializer.Serialize(
+            new CompilerRecordedFrame(i + 1, "root", f.Direction, "Binary", Convert.ToBase64String(f.Payload)))));
+        return string.Join("\r\n", lines) + "\r\n";
+    }
+
+    private static IReadOnlyList<string> Compare(string previous, string current) =>
+        CompilerRecordingComparison.Differences(new StringReader(previous), new StringReader(current));
+
+    [Fact]
+    public void Two_betas_whose_exchanges_match_compare_equal_whatever_their_headers_say()
+    {
+        var a = Recording("1024", ("send", [22, 0, 0, 0]), ("receive", [0, 0, 0, 0]));
+        var b = Recording("1025", ("send", [22, 0, 0, 0]), ("receive", [0, 0, 0, 0]));
+
+        Compare(a, b).Should().BeEmpty("only the beta named in the header differs");
+    }
+
+    [Fact]
+    public void A_changed_payload_is_named_by_frame_and_offset_and_shows_both_sides()
+    {
+        var a = Recording("1024", ("send", "\u0016\0\0\0initialize"u8.ToArray()));
+        var b = Recording("1025", ("send", "\u0016\0\0\0initialise"u8.ToArray()));
+
+        var difference = Compare(a, b).Should().ContainSingle().Which;
+        difference.Should().Contain("frame 1").And.Contain("send").And.Contain("offset 12");
+        difference.Should().Contain("initialize").And.Contain("initialise");
+    }
+
+    [Fact]
+    public void A_frame_only_one_beta_has_is_named()
+    {
+        var a = Recording("1024", ("send", [22]), ("receive", [1]));
+        var b = Recording("1025", ("send", [22]), ("receive", [1]), ("receive", [2]));
+
+        Compare(a, b).Should().ContainSingle().Which.Should().Contain("frame 3").And.Contain("only in beta 1025");
+    }
+
+    [Fact]
+    public void A_frame_that_changes_direction_is_a_difference()
+    {
+        var a = Recording("1024", ("send", [22]));
+        var b = Recording("1025", ("receive", [22]));
+
+        Compare(a, b).Should().ContainSingle().Which.Should().Contain("frame 1").And.Contain("receive");
+    }
+
+    [Fact]
+    public void Recordings_of_different_scenarios_do_not_compare()
+    {
+        var a = Recording("1024", ("send", [22]));
+        var b = Recording("1025", ("send", [22])).Replace("root-initialization", "preparation");
+
+        Compare(a, b).Should().ContainSingle().Which.Should().Contain("scenario");
+    }
+
     private static byte[] Integer(int value)
     {
         var bytes = new byte[4];

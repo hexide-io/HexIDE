@@ -62,11 +62,11 @@ a workspace SHALL require the user's consent, recorded per server, and that cons
 - **THEN** the user SHALL be asked, naming the server and the file, and a granted consent SHALL be
   remembered for that server and revocable afterwards
 
-#### Scenario: A denied write disables the server, not the IDE
+#### Scenario: A denied write leaves the server launching without the artefact
 
 - **GIVEN** a user who denies the write
 - **WHEN** the server would have started
-- **THEN** no file SHALL be written, the server SHALL NOT be started, and the reason SHALL be recorded
+- **THEN** no file SHALL be written, the server SHALL still start, and the reason SHALL be recorded
   against the connection
 
 ### Requirement: A failed artefact degrades to the server's own behaviour
@@ -75,8 +75,8 @@ A malformed artefact declaration SHALL be reported and ignored rather than preve
 starting, because a server that reads no descriptor may still be useful, while a server that does not start
 is certainly not.
 
-A provider that throws, or a write that fails, SHALL disable that server alone and SHALL record the reason
-where the user can read it.
+A provider that throws, or a write that fails, SHALL leave the server launching without the artefact
+and SHALL record the reason on the connection in the protocol inspector.
 
 #### Scenario: A declaration naming an unknown provider
 
