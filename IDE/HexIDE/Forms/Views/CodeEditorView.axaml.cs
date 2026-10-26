@@ -44,6 +44,7 @@ public partial class CodeEditorView : UserControl
     private BookmarkMargin? _bookmarkMargin;
     private Point _lastHoverPoint;
     private FoldingManager? _foldingManager;
+    private StickyScrollController? _stickyScroll;
     private CancellationTokenSource? _foldCts;
     private SemanticTokensColorizer? _semanticColorizer;
     private int _semanticVersion;
@@ -337,6 +338,9 @@ public partial class CodeEditorView : UserControl
             // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
             _foldingManager = FoldingManager.Install(TextEditor.TextArea);
             TextEditor.TextArea.Caret.PositionChanged += KeepCaretOffFoldedRunsEnd;
+            _stickyScroll = new StickyScrollController(StickyHeaders, TextEditor, vm.Settings,
+                () => _foldingManager?.AllFoldings.Where(f =>
+                    !ReferenceEquals(f.Tag, HeaderFoldTag) && !ReferenceEquals(f.Tag, RunFoldTag)) ?? []);
             ApplyFolds(vm, []);
             _semanticColorizer = new SemanticTokensColorizer();
             TextEditor.TextArea.TextView.LineTransformers.Insert(
@@ -512,6 +516,8 @@ public partial class CodeEditorView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Minimap.Detach();
+        _stickyScroll?.Dispose();
+        _stickyScroll = null;
 
         // PaletteChanged is a static event: a Dock document-move re-materialises this view, so an
         // unremoved handler leaks it for the process lifetime and fires a stale redraw per theme
@@ -1139,6 +1145,7 @@ public partial class CodeEditorView : UserControl
             {
                 if (token.IsCancellationRequested || _foldingManager is null) return;
                 ApplyFolds(vm, Vb6FoldingAdapter.FromServer(doc, ranges));
+                _stickyScroll?.Refresh();
             });
         }
         catch (OperationCanceledException) { }

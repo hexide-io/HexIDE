@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitars",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitars",

@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "التمرير الثابت",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "الحد الأقصى للعناوين المثبتة",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بت",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بت",

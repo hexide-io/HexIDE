@@ -2,6 +2,8 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Encabezados fijos al desplazarse",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Máximo de encabezados fijados",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",

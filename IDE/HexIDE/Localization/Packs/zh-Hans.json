@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位",

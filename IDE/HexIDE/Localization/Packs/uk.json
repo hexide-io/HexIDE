@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",

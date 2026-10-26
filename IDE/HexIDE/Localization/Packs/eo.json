@@ -2,6 +2,8 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
