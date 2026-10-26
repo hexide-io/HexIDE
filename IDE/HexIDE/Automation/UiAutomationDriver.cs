@@ -3696,10 +3696,12 @@ public static class UiAutomationDriver
     {
         var segs = (targetPath ?? string.Empty)
             .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Neither is a path at all, so each says where paths come from: a caller who guessed one from a snapshot, as
+        // "Editor/General" from the Options dialog's tree, was told only what was wrong with it (#2080).
         if (segs.Length == 0)
-            return (null, "empty target path");
+            return (null, EmptyPath + "; " + WherePathsComeFrom(null));
         if (!string.Equals(StripUnderscore(segs[0]), "Window", StringComparison.OrdinalIgnoreCase))
-            return (null, $"path must start with 'Window' (got '{segs[0]}')");
+            return (null, $"{NotFromWindow} (got '{segs[0]}'); {WherePathsComeFrom(segs[^1])}");
 
         Control current = root;
         var traversed = "Window";
@@ -3736,6 +3738,23 @@ public static class UiAutomationDriver
             traversed += "/" + segs[i];
         }
         return (current, null);
+    }
+
+    /// <summary>The start of the refusal for a target that is empty.</summary>
+    public const string EmptyPath = "empty target path";
+
+    /// <summary>The start of the refusal for a target whose first segment is not <c>Window</c>.</summary>
+    public const string NotFromWindow = "path must start with 'Window'";
+
+    private static string WherePathsComeFrom(string? guess) =>
+        "a path comes from dump_visual_tree, whose every node carries its 'path', and its 'match' finds a control by "
+        + "name" + (string.IsNullOrWhiteSpace(guess) ? "" : $", as dump_visual_tree {{\"match\":\"{SearchTextOf(guess)}\"}}");
+
+    // What a guessed segment names: the text in its brackets, an id, or the segment itself.
+    private static string SearchTextOf(string segment)
+    {
+        var seg = ParseSegment(segment);
+        return seg.Discriminator ?? seg.IdShortcut ?? seg.Type ?? segment;
     }
 
     private static (Control? control, string? error) ResolveSegment(Control parent, string raw, string parentPath)
