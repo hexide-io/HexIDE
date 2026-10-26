@@ -50,6 +50,7 @@ internal static class ColorKeyMapping
             ["DockTitleBar"]            = ("DockTitleBarBrush",                          true),
             ["SelectionAdorner"]        = ("SelectionAdornerBrush",                      true),
             ["SelectionAdornerBorder"]  = ("SelectionAdornerBorderBrush",                true),
+            ["DesignerHiddenControlMask"] = ("DesignerHiddenControlMaskBrush",             true),
             ["FormGridPattern"]         = ("FormGridPatternBrush",                       true),
             ["ControlSpawnerPhantom"]   = ("ControlSpawnerPhantomBrush",                 true),
             ["RubberBandFill"]          = ("RubberBandFillBrush",                        true),

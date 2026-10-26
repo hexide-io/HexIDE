@@ -93,3 +93,19 @@ against the pack's Window background.
 #### Scenario: Warning and validation surfaces in a dark pack
 - **WHEN** Dark or Abyss is selected
 - **THEN** warning banners and validation text use that pack's explicit colours rather than Classic's defaults
+
+### Requirement: Hidden controls SHALL be dimmed in the designer
+The designer SHALL dim a modelled control whose own Visible property is False using the theme's
+`DesignerHiddenControlMask` colour (the `DesignerHiddenControlMaskBrush` resource). Only the preview SHALL
+be dimmed; the control SHALL remain selectable and editable. This is a HexIDE addition.
+
+#### Scenario: Changing visibility while designing
+- **WHEN** a control's Visible property becomes False
+- **THEN** its preview uses the theme's dimming mask immediately
+- **AND** its selection and editing remain available
+- **WHEN** Visible becomes True
+- **THEN** the preview has no dimming mask
+
+#### Scenario: Changing the dimming colour
+- **WHEN** the theme's DesignerHiddenControlMask colour changes
+- **THEN** hidden controls already on the designer use the new mask

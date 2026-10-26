@@ -79,6 +79,9 @@
     <!-- Designer: selection handle border (white outline around blue handle) -->
     <SolidColorBrush x:Key="SelectionAdornerBorderBrush"  Color="White" />
 
+    <!-- Designer: alpha mask dims controls whose Visible property is False. -->
+    <SolidColorBrush x:Key="DesignerHiddenControlMaskBrush" Color="#80FFFFFF" />
+
     <!-- Designer: grid dot pattern on form canvas -->
     <SolidColorBrush x:Key="FormGridPatternBrush"         Color="#474747" />
     <!-- Designer: phantom border shown while dragging a new control onto the canvas -->

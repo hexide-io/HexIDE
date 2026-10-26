@@ -78,6 +78,8 @@ public partial class ComponentInstanceViewModel : ObservableObject
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(AddressedName));
         }
+        else if (propertyClass == VBProperties.VisibleProperty)
+            OnPropertyChanged(nameof(IsRuntimeVisible));
         else if (propertyClass == VBProperties.CaptionProperty)
             OnPropertyChanged(nameof(Caption));
         else if (propertyClass == VBProperties.BackColorProperty)
@@ -332,6 +334,8 @@ public partial class ComponentInstanceViewModel : ObservableObject
     }
 
     public string Name => instance.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
+
+    public bool IsRuntimeVisible => instance.GetPropertyOrDefault(VBProperties.VisibleProperty);
 
     public string? Caption => instance.GetPropertyOrDefault(VBProperties.CaptionProperty);
 
