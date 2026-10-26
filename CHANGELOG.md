@@ -13,10 +13,6 @@ release by `scripts/changelog-gather.sh` (#1375). The entries below were recorde
 
 ### Added
 
-- **Inactive conditional branches are greyed in the code window** (#1113). A selector after the Procedure box
-  previews VB6, VBA 32-bit or VBA 64-bit constants. It appears only in modules with `#If`, defaults to VB6,
-  and stays in that window for the session. It changes neither F5 nor language-server diagnostics.
-
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
   The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on
@@ -44,7 +40,6 @@ release by `scripts/changelog-gather.sh` (#1375). The entries below were recorde
 
 - **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
   request position, and parameter info being open before the typing reply when the server answers after a delay.
-
 
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
