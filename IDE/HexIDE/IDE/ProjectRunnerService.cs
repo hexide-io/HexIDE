@@ -797,12 +797,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
-            return await windowManager.MessageBox(text, caption, buttons, icon);
+            return await windowManager.MessageBox(text, caption, buttons, icon, isProgramDialog: true);
         }
 
         public async Task<string?> InputBox(string prompt, string? title, string defaultText)
         {
-            return await windowManager.InputBox(prompt, title, defaultText);
+            return await windowManager.InputBox(prompt, title, defaultText, isProgramDialog: true);
         }
 
         // The Immediate window shows the text, not the typed values (#1380).

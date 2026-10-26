@@ -35,7 +35,7 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
 
 #### Scenario: Project-load diagnostics cross the runtime boundary
-- **WHEN** the runtime deserializer reports a form-load warning to the IDE
+- **WHEN** the runtime deserializer or project loader reports a form- or module-load warning to the IDE
 - **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language
 - **AND** the project-load heading, remaining-warning count and skipped ActiveX Document notice use localization keys
 - **AND** a runtime host without localization retains an English diagnostic
@@ -92,6 +92,14 @@ literals as a side effect of the IDE's menu language. What a program writes and 
 The interpreter takes those as its own locale at startup, before the pin, rather than from the thread
 (`VbLocale`, #777). So the IDE's language, the user's regional locale and the culture of the IDE's threads are
 three separate things, and translating the IDE cannot change what a program computes.
+
+The program locale SHALL replace U+202F and U+00A0 in date/time patterns and AM/PM designators
+with ordinary U+0020 spaces (#2102).
+
+#### Scenario: ICU supplies a nonbreaking space before AM or PM
+- **WHEN** the program locale's long-time pattern contains U+202F before its AM/PM token
+- **THEN** converting a Date to text uses an ordinary space there
+- **AND** the original host culture is unchanged
 
 #### Scenario: Running a program with a non-English IDE language
 - **WHEN** the IDE language is changed and a VB6 program is run

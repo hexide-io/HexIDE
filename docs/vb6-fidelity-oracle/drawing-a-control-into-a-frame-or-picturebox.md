@@ -51,11 +51,27 @@ A second run made Picture1 1395 × 1095, which puts its client area off the grid
 - **A rule I proposed from the first run is also wrong:** "the extent rounded **up** to the grid, plus a pixel". It fitted
   the four edges then measured, two of which were already on the grid. The off-grid Picture1 rules it out.
 
-**In HexIDE:**
-- A drawn control goes into the innermost container under the press. It's snapped on that container's grid and held on
-  every side.
-- `add_control` behaves as a drag begun at its top-left.
-- Two differences remain (#2058). HexIDE snaps a drawn corner down rather than to the nearest line, and it doesn't add
-  the extra pixel, so each drawn control is 15 twips short each way.
+**The grid off, and the rounding (#2058).** Three more drags on the same form, whose client origin the saved positions
+put at (126, 179) on screen:
 
-**Not measured:** the grid turned off, and a container that isn't on the grid itself.
+| Case | Grid | Pressed, released (client px) | Saved | px |
+|---|---|---|---|---|
+| n1 | on | 5, 14 → 50, 30 | Left 120, Top 240, 615 × 255 | 8, 16; 41 × 17 |
+| n2 | off | 5, 14 → 50, 31 | Left 75, Top 210, 690 × 270 | 5, 14; 46 × 18 |
+| n3 | off | 314, 16 → 335, 53 | Left 4710, Top 240, 330 × 570 | 314, 16; 22 × 38 |
+
+- **n1 decides the rounding.** 5 went to 8 and 14 to 16; snapped down, they'd have been 0 and 8.
+- **n2 and n3 show the extra pixel doesn't come from the grid.** With the grid off, a 45 × 17 span is 46 × 18, and a
+  21 × 37 span is 22 × 38.
+
+**In HexIDE.** A drawn control:
+- goes into the innermost container under the press;
+- has its corners snapped to the nearest line of that container's grid;
+- is held on every side;
+- ends one pixel past its far corner.
+
+`add_control` behaves as a drag begun at its top-left, and keeps the size it's given.
+
+**Not measured:**
+- a corner exactly half way between two lines (HexIDE sends it up, as a double-click's placement goes, #1473);
+- a container that isn't on the grid itself.
