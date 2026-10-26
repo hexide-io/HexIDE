@@ -212,7 +212,8 @@ write did not land.
 The IDE SHALL save contributed tool windows by their registration ID in a separate add-in key namespace,
 including their open state, left/right/bottom dock region, stack order and proportion. It SHALL retain saved entries
 before the matching add-in registers, including across eager saves, and apply them when registration arrives.
-Reset Window Layout SHALL discard saved add-in placements. A new tool SHALL use the right column by default.
+Reset Window Layout SHALL discard saved add-in placements, return open registered add-in tools to the right
+column and keep closed tools closed. A new tool SHALL use the right column by default.
 
 #### Scenario: An add-in registers after the layout is loaded
 - **WHEN** a saved add-in tool registers after startup
@@ -222,3 +223,8 @@ Reset Window Layout SHALL discard saved add-in placements. A new tool SHALL use 
 #### Scenario: Saving before registration
 - **WHEN** the IDE saves its layout before a saved add-in tool registers
 - **THEN** its saved entry is preserved for later registration
+
+#### Scenario: Resetting with registered add-in tools
+- **WHEN** the developer resets the window layout with add-in tools registered
+- **THEN** open add-in tools return to the default right column
+- **AND** closed add-in tools remain closed

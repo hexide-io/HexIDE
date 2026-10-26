@@ -164,21 +164,37 @@ public class DockFactoryTests
         factory.CaptureManifest(root).Tools.Should().Contain(saved with { Open = true });
     }
 
-    [Fact]
-    public void AddinTool_NewRegistration_IsCapturedAndResetDiscardsSavedPlacement()
+    [Theory]
+    [InlineData(DockRegion.Left)]
+    [InlineData(DockRegion.Right)]
+    [InlineData(DockRegion.Bottom)]
+    public void AddinTool_Reset_ReturnsOpenToolsToDefaultRegion_AndKeepsClosedToolsClosed(DockRegion region)
     {
-        var (factory, _) = CreateFactory();
+        var saved = new ToolLayoutState("addin:sample", true, region, 0, 0.42);
+        var (factory, _) = CreateFactory(LayoutManifest.Default with
+        {
+            LeftProportion = 0.17,
+            RightProportion = 0.27,
+            Tools = LayoutManifest.Default.Tools.Append(saved).ToArray()
+        });
         var root = factory.CreateLayout();
         factory.InitLayout(root);
         var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
-        factory.PlaceTool(root, tool, rightFallback: false);
-        factory.CaptureManifest(root).Tools.Single(t => t.Key == "addin:sample")
-            .Region.Should().Be(DockRegion.Bottom);
+        var closed = new HexIDE.Addins.AddinToolWindowViewModel("closed", "Closed", () => new object());
+        factory.RegisterAddinTool(root, tool);
+        factory.RegisterAddinTool(root, closed);
+        factory.CloseDockable(closed);
 
-        root = factory.ResetLayout();
+        root = factory.ResetLayout(root);
         factory.InitLayout(root);
-        factory.PlaceTool(root, tool, rightFallback: true);
-        factory.CaptureManifest(root).Tools.Single(t => t.Key == "addin:sample")
-            .Region.Should().Be(DockRegion.Right);
+
+        var manifest = factory.CaptureManifest(root);
+        var reset = manifest.Tools.Single(t => t.Key == saved.Key);
+        reset.Open.Should().BeTrue();
+        reset.Region.Should().Be(DockRegion.Right);
+        reset.Proportion.Should().NotBe(0.42);
+        manifest.Tools.Single(t => t.Key == "addin:closed").Open.Should().BeFalse();
+        manifest.LeftProportion.Should().Be(LayoutManifest.DefaultLeftProportion);
+        manifest.RightProportion.Should().Be(LayoutManifest.DefaultRightProportion);
     }
 }

@@ -306,10 +306,17 @@ public partial class MainViewViewModel : ObservableObject
 
         /// <summary>Discard the saved manifest and rebuild the default arrangement, reusing the live
         /// document dock so open editor/designer tabs (and their service subscription) survive the reset.</summary>
-        public IRootDock ResetLayout()
+        public IRootDock ResetLayout(IRootDock layout)
         {
             windowStateService.ResetLayoutManifest();
-            return BuildLayout(LayoutManifest.Default, DocumentDock);
+            var defaults = LayoutManifest.Default with
+            {
+                Tools = LayoutManifest.Default.Tools.Concat(toolsByKey
+                    .Where(t => t.Key.StartsWith("addin:", StringComparison.Ordinal))
+                    .Select(t => new ToolLayoutState(t.Key, Locate(layout, t.Value) != null,
+                        DockRegion.Right, int.MaxValue, null))).ToArray()
+            };
+            return BuildLayout(defaults, DocumentDock);
         }
 
         // ---- build a fresh layout tree from a manifest ----
@@ -1668,7 +1675,7 @@ public partial class MainViewViewModel : ObservableObject
     /// <summary>Discard the saved layout and rebuild the default arrangement live, keeping open documents.</summary>
     public void ResetWindowLayout()
     {
-        var fresh = dockFactory.ResetLayout();
+        var fresh = dockFactory.ResetLayout(Layout);
         dockFactory.InitLayout(fresh);
         Layout = fresh;
         _lastSavedLayoutJson = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
