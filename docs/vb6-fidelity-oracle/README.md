@@ -647,3 +647,4 @@ added afterwards.
 - [A GlobalMultiUse class in a referenced library (2026-10-26, #1107)](a-globalmultiuse-class-in-a-referenced-library.md#a-globalmultiuse-class-in-a-referenced-library-2026-10-26-1107)
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
+- [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
