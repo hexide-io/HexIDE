@@ -411,6 +411,20 @@ SHALL report none for an IDE started without one.
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
 
+### Requirement: Snapshots identify the title and capture area
+
+The snapshot description and reply SHALL explain that the image captures the window's client area,
+without its title bar or frame, with open popups included unless the reply's note says otherwise.
+The reply SHALL report the captured window's actual title in `title`, including for the IDE's own
+window and an empty caption. It SHALL retain `activeDialog` with its previous meaning for compatibility.
+
+#### Scenario: Confirming a running form's caption
+
+- **WHEN** a caller captures a running form titled Hello
+- **THEN** the reply reports `title: "Hello"`
+- **AND** `captureArea` explains that the image omits the title bar and frame
+- **AND** the compatibility field `activeDialog` still reports Hello
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
