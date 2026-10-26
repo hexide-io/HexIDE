@@ -17,21 +17,21 @@ public class DateCurrencyVariantTests : BaseVBTestFixture
     public async Task DateLiteral_ParsesInvariantUsFormat()
     {
         await Run("Debug.Print #1/1/2000#\n");
-        AssertDebugLog([new Vb6Value(new DateTime(2000, 1, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1)))]);
     }
 
     [Fact]
     public async Task DatePlusNumber_IsDate()
     {
         await Run("Debug.Print #1/1/2000# + 31\n");
-        AssertDebugLog([new Vb6Value(new DateTime(2000, 2, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 2, 1)))]);
     }
 
     [Fact]
     public async Task DateMinusNumber_IsDate()
     {
         await Run("Debug.Print #1/1/2000# - 1\n");
-        AssertDebugLog([new Vb6Value(new DateTime(1999, 12, 31))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(1999, 12, 31)))]);
     }
 
     [Fact]

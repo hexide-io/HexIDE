@@ -23,6 +23,13 @@
   `visibility` rule, so it hoists like `Public` (subject to the same cross-module unqualified-variable-read gap in
   *Partial*). Noted only because it is an ancient construct one might expect to be missing.
 
+## Known host limitation
+
+- **Linux locale categories (#798):** the program uses one culture, captured from .NET's
+  `CultureInfo.CurrentCulture` as `VbLocale.Default`. Separate `LC_TIME` and `LC_NUMERIC` overrides
+  are not applied, so date and number parsing and formatting can differ from the desktop's split locale.
+  The decision on 2026-10-26 was to document this limitation and leave runtime behaviour unchanged.
+
 ---
 # HexIDE VB6 Interpreter — Categorised Gap Report
 

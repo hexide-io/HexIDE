@@ -118,6 +118,16 @@ public class NewControlNameTests
     }
 
     [AvaloniaFact]
+    public void A_new_Timer_starts_with_zero_Interval()
+    {
+        var vm = Designer(EmptyForm);
+
+        vm.SpawnControlAt(TimerComponentClass.Instance, new Rect(10, 10, 28, 28));
+
+        vm.SelectedComponent!.Instance.GetPropertyOrDefault(VBProperties.IntervalProperty).Should().Be(0);
+    }
+
+    [AvaloniaFact]
     public void A_new_button_is_captioned_with_its_name()
     {
         var vm = Designer(EmptyForm);
