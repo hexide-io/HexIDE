@@ -120,6 +120,12 @@ day it lands, with nothing to add.
 - **WHEN** a dialog is added to the IDE
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
 
+#### Scenario: Selecting a property hidden by a collapsed category
+- **WHEN** `interact` selects a property by text in the categorized Properties list and its category is collapsed
+- **AND** the category row and its toggle are showing
+- **THEN** the refusal SHALL name the category as displayed and tell the caller to `toggle` the Button in that row
+- **AND** the selection and category expansion remain unchanged
+
 ### Requirement: Icon-only controls SHALL expose localized action names
 The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
 localized automation names describing their actions. The name SHALL belong to the control's automation peer and be
