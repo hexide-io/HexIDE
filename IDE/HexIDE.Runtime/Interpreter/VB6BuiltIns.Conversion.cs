@@ -200,15 +200,17 @@ public partial class VB6BuiltIns
     internal static Vb6Value CDate(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
-        if (v.Value is DateTime) return v;
+        if (v.Value is VbDate) return v;
         if (v.Type == VT.String)
             // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777). A
             // serial is read too: `CDate("36526")` is 1 January 2000 (#967).
             return StringToDate(AsStr(v), null);
-        // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
-        // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).
-        try { return new Vb6Value(DateTime.FromOADate(ToNum(v))); }
-        catch (ArgumentException) { throw new VBRunTimeException(VBStandardError.Overflow); }
+        // A serial outside the Date range, strictly between -657435 and 2958466, is a trappable Overflow (Err 6,
+        // oracle-verified). Inside it the serial is kept exactly, a fraction of a second included (measured, #783).
+        var serial = ToNum(v);
+        return VbDate.InRange(serial)
+            ? new Vb6Value(new VbDate(serial))
+            : throw new VBRunTimeException(VBStandardError.Overflow);
     }
 
     // VB6 Hex/Oct: the WIDTH follows the operand's type (verified vs vb6.exe) — Byte/Integer -> 16-bit,

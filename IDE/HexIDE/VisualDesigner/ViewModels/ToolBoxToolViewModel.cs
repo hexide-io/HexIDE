@@ -4,6 +4,8 @@ using Avalonia.Media;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Dock.Model.Mvvm.Controls;
@@ -48,6 +50,13 @@ public partial class ToolBoxToolViewModel : Tool
 
         selectedComponent = Arrow;
 
+        documentDockService.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IDocumentDockService.ActiveDocument)
+                && documentDockService.ActiveDocument is FormEditViewModel { FormDefinition.Owner: { } project })
+                ShowProject(project);
+        };
+
         componentRegistry.ComponentRegistered += OnComponentRegistered;
         componentRegistry.ComponentUnregistered += OnComponentUnregistered;
 
@@ -56,6 +65,47 @@ public partial class ToolBoxToolViewModel : Tool
             return IconFactory.Themed($"Geo.{char.ToUpperInvariant(name[0])}{name[1..]}");
         }
     }
+
+    private ProjectDefinition? project;
+    private readonly List<ComponentToolViewModel> inBoxTools = new();
+
+    /// <summary>The project whose in-box controls the toolbox offers: the one whose form was designed last.</summary>
+    public ProjectDefinition? Project => project;
+
+    /// <summary>
+    /// Offer the in-box controls HexIDE implements from each library <paramref name="shown"/> references, one button for each
+    /// library that declares one (#1103). VB6's toolbox shows a library's controls while the project references it, and the
+    /// Components dialog is where a project comes to reference one.
+    /// </summary>
+    public void ShowProject(ProjectDefinition? shown)
+    {
+        if (!ReferenceEquals(project, shown))
+        {
+            if (project is not null)
+                project.ObjectReferencesChanged -= OnObjectReferencesChanged;
+            project = shown;
+            if (project is not null)
+                project.ObjectReferencesChanged += OnObjectReferencesChanged;
+        }
+
+        if (SelectedComponent is { Library: not null })
+            SelectedComponent = Arrow;
+        foreach (var tool in inBoxTools)
+            Components.Remove(tool);
+        inBoxTools.Clear();
+        if (project is null)
+            return;
+
+        var libraries = project.ObjectReferences.Select(ControlLibraries.For).OfType<RuntimeLibrary>().Distinct();
+        foreach (var library in libraries)
+        foreach (var inBox in InBoxComponentClass.Implemented.Where(c => library.Controls.ContainsKey(c.ControlClassName)))
+            inBoxTools.Add(new ComponentToolViewModel(this, inBox, IconFactory.Themed("Geo.Object")) { Library = library });
+        var at = Components.IndexOf(Components.Last(c => c.BaseClass is ShapeComponentClass)) + 1;
+        foreach (var tool in inBoxTools)
+            Components.Insert(at++, tool);
+    }
+
+    private void OnObjectReferencesChanged(ProjectDefinition changed) => ShowProject(changed);
 
     private void OnComponentRegistered(IComponentClass component)
     {
@@ -74,6 +124,12 @@ public partial class ToolBoxToolViewModel : Tool
     {
         foreach (var component in Components)
             component.RaiseIsSelected();
+    }
+
+    public void SpawnControl(ComponentToolViewModel tool)
+    {
+        if (tool.BaseClass is { } baseClass && documentDockService.ActiveDocument is FormEditViewModel formEditViewModel)
+            formEditViewModel.SpawnControlCenter(baseClass, tool.Library);
     }
 
     public void SpawnControl(ComponentBaseClass baseClass)

@@ -258,6 +258,27 @@ public class TypeKeysTests : IDisposable
         await lsp.Received().RequestCompletionAsync(Arg.Any<string>(), new Position(4, 6), Arg.Any<CancellationToken>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(".")]
+    [InlineData("!")]
+    public async Task Advertised_punctuation_asks_for_completion(string trigger)
+    {
+        lsp.CompletionTriggerCharacters(Arg.Any<string>()).Returns(new[] { ".", "!" });
+        lsp.RequestCompletionForTriggerAsync(Arg.Any<string>(), Arg.Any<Position>(), trigger,
+            Arg.Any<CancellationToken>()).Returns(Array.Empty<CompletionItem>());
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, trigger);
+        Dispatcher.UIThread.RunJobs();
+
+        typed.Success.Should().BeTrue(typed.Error);
+        await lsp.Received(1).RequestCompletionForTriggerAsync(Arg.Any<string>(), new Position(4, 5),
+            trigger, Arg.Any<CancellationToken>());
+        await lsp.DidNotReceive().RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(),
+            Arg.Any<CancellationToken>());
+    }
+
     [AvaloniaFact]
     public void The_document_mode_asks_for_nothing_which_is_why_the_keyboard_mode_exists()
     {
@@ -348,13 +369,13 @@ public class TypeKeysTests : IDisposable
         var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
 
         typed.Success.Should().BeTrue(typed.Error);
-        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>());
+        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>(), "(");
     }
 
     [AvaloniaFact]
     public async Task The_parameter_info_a_parenthesis_asks_for_is_open_before_the_reply()
     {
-        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<string?>()).Returns(async _ =>
         {
             await Task.Delay(150);
             return (SignatureHelp?)new SignatureHelp([new SignatureInformation("MsgBox(Prompt)", null,
@@ -457,7 +478,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             typed.Success.Should().BeFalse();
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over the window");
+            typed.Error.Should().Be("key 1 of 3 was sent to TextBox and raised 'Reset?' over the window; "
+                                   + "that key may not have landed. Nothing after it was sent. "
+                                   + "Answer the dialog, then check the text before deciding what to send next");
             box.Text.Should().Be("a", "the rest would have gone to the dialog");
         }
         finally { prompt?.Close(); }
@@ -485,8 +508,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             typed.Success.Should().BeFalse();
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over 'Form1', "
-                                           + "and a person's next key would go to it");
+            typed.Error.Should().Be("key 1 of 3 was sent to TextBox and raised 'Reset?' over 'Form1'; "
+                                   + "that key may not have landed. Nothing after it was sent. "
+                                   + "Answer the dialog, then check the text before deciding what to send next");
             box.Text.Should().Be("a", "the rest would have gone to the dialog");
         }
         finally
@@ -711,7 +735,7 @@ public class TypeKeysTests : IDisposable
 
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
-            typed.Error.Should().Contain("'Reset?' opened over 'Form1'");
+            typed.Error.Should().Contain("'Reset?'").And.Contain("over 'Form1'");
             OpenDialogs.Note(watch, [window, form, prompt!]).Should().BeNull();
         }
         finally
@@ -739,8 +763,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             // Said what it is, not only its title, which a program's box shares with its project (#1975).
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Project1' (a message box")
-                .And.Contain(") opened in a window of its own, and a person's next key would go to it");
+            typed.Error.Should().StartWith("key 1 of 3 was sent to TextBox and raised 'Project1' (a message box")
+                .And.EndWith(") in a window of its own; that key may not have landed. Nothing after it was sent. "
+                             + "Answer the dialog, then check the text before deciding what to send next");
         }
         finally { shown?.Close(); }
     }

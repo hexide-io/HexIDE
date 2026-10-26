@@ -4,26 +4,23 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Runtime.Components.InBox;
 
 /// <summary>
-/// A library of the ActiveX controls VB6 shipped in the box (#1082): MSCOMCTL.OCX's <c>MSComctlLib</c>, and the 5.0
-/// library before it, COMCTL32.OCX's <c>ComctlLib</c>. Its identity is its type library's, as a project's <c>Object=</c>
-/// line names it, and it lists every control the type library declares, HexIDE's or not, so a control it doesn't
-/// implement yet can be named with the issue that tracks it.
+/// A library HexIDE implements, identified by a project's Object= or Reference= line. Control libraries carry their
+/// control catalogue and constants; class libraries supply managed factories, GlobalMultiUse members and enums.
 /// </summary>
 /// <remarks>
-/// The GUIDs, versions, control lists and constants were read from the type libraries themselves on the oracle VM
-/// (the oracle's "In-box controls: the ProgressBar"): a coclass flagged as a control is listed here, and an object a
-/// control hands out (a <c>ListItem</c>, a <c>Panel</c>) is not. Nothing is hosted through COM: each control HexIDE has is
-/// its own implementation, registered under each library's type name.
+/// The in-box control libraries' GUIDs, versions, control lists and constants were read from their type libraries on
+/// the oracle VM (the oracle's "In-box controls: the ProgressBar"). Nothing is hosted through COM.
 /// </remarks>
-public sealed class ControlLibrary
+public sealed class RuntimeLibrary
 {
-    private readonly string constantsResource;
+    private readonly string? constantsResource;
     private readonly Lazy<Constants> constants;
 
-    internal ControlLibrary(string name, string guid, string version, string file, int persistedVersion,
+    internal RuntimeLibrary(string name, string description, string guid, string version, string file, int persistedVersion,
         IReadOnlyDictionary<string, int> controls, string constantsResource)
     {
         Name = name;
+        Description = description;
         Guid = guid;
         Version = version;
         File = file;
@@ -33,13 +30,57 @@ public sealed class ControlLibrary
         constants = new Lazy<Constants>(Load, isThreadSafe: true);
     }
 
+    public RuntimeLibrary(string name, string guid, string version,
+        IReadOnlyList<LibraryClass> classes, IReadOnlyDictionary<string, IReadOnlyDictionary<string, long>> enums)
+    {
+        Name = name;
+        Description = name;
+        Guid = guid;
+        Version = version;
+        File = "";
+        Controls = new Dictionary<string, int>();
+        Classes = classes;
+        constants = new Lazy<Constants>(() =>
+        {
+            var bare = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+            var containers = new Dictionary<string, Dictionary<string, Vb6Value>>(StringComparer.OrdinalIgnoreCase);
+            var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (container, entries) in enums)
+            {
+                var members = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (member, value) in entries)
+                    bare.TryAdd(member, members[member] = new Vb6Value(value));
+                containers[container] = members;
+                names[container] = container;
+            }
+            return new Constants(bare, containers, names);
+        });
+    }
+
+    public IReadOnlyList<LibraryClass> Classes { get; } = [];
+
+    public bool IsNamedBy(VbReference reference) =>
+        Guid.Equals(reference.Guid, StringComparison.OrdinalIgnoreCase) && Version == reference.Version;
+
+    /// <summary>
+    /// What VB6's Components dialog lists the library as: its type library's registry description, which the dialog shows
+    /// as it is (measured, #1103). The service pack is part of it: "Microsoft Windows Common Controls 6.0 (SP6)".
+    /// </summary>
+    public string Description { get; }
+
+    /// <summary>The <c>.vbp</c> line that references the library, as VB6's Save Project writes it (measured, #1103).</summary>
+    public string ProjectLine => $"Object={Guid}#{Version}#0; {File}";
+
+    /// <summary>The form header line that declares the library, as VB6's designer writes it when one is placed (#1082).</summary>
+    public string FormLine => $"Object = \"{Guid}#{Version}#0\"; \"{File}\"";
+
     /// <summary>The library's name, which qualifies its controls' type names and its constants: <c>MSComctlLib</c>.</summary>
     public string Name { get; }
 
-    /// <summary>Its type library's GUID, with braces, as an <c>Object=</c> line writes it.</summary>
+    /// <summary>Its type library's GUID, with braces.</summary>
     public string Guid { get; }
 
-    /// <summary>Its type library's version, as an <c>Object=</c> line writes it: 2.0.</summary>
+    /// <summary>Its type library's version: 2.0.</summary>
     public string Version { get; }
 
     /// <summary>The control file: MSCOMCTL.OCX.</summary>
@@ -79,8 +120,8 @@ public sealed class ControlLibrary
 
     private Constants Load()
     {
-        var asm = typeof(ControlLibrary).Assembly;
-        var resource = asm.GetManifestResourceNames().Single(n => n.EndsWith(constantsResource, StringComparison.Ordinal));
+        var asm = typeof(RuntimeLibrary).Assembly;
+        var resource = asm.GetManifestResourceNames().Single(n => n.EndsWith(constantsResource!, StringComparison.Ordinal));
         using var stream = asm.GetManifestResourceStream(resource)!;
         using var doc = JsonDocument.Parse(stream);
         var bare = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
@@ -112,7 +153,8 @@ public sealed class ControlLibrary
 public static class ControlLibraries
 {
     /// <summary>MSCOMCTL.OCX, Microsoft Windows Common Controls 6.0.</summary>
-    public static readonly ControlLibrary MSComctlLib = new("MSComctlLib", "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0",
+    public static readonly RuntimeLibrary MSComctlLib = new("MSComctlLib", "Microsoft Windows Common Controls 6.0 (SP6)",
+        "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0",
         "MSCOMCTL.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -122,7 +164,8 @@ public static class ControlLibraries
         "mscomctl-constants.json");
 
     /// <summary>COMCTL32.OCX, Microsoft Windows Common Controls 5.0: the same controls but ImageCombo, which 6.0 added.</summary>
-    public static readonly ControlLibrary ComctlLib = new("ComctlLib", "{6B7E6392-850A-101B-AFC0-4210102A8DA7}", "1.3",
+    public static readonly RuntimeLibrary ComctlLib = new("ComctlLib", "Microsoft Windows Common Controls 5.0 (SP2)",
+        "{6B7E6392-850A-101B-AFC0-4210102A8DA7}", "1.3",
         "COMCTL32.OCX", 327682,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
@@ -132,13 +175,13 @@ public static class ControlLibraries
         "comctl32-constants.json");
 
     /// <summary>Every in-box control library HexIDE knows.</summary>
-    public static IReadOnlyList<ControlLibrary> All { get; } = [MSComctlLib, ComctlLib];
+    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib];
 
     /// <summary>The library <paramref name="reference"/> names, or null for one HexIDE doesn't know.</summary>
-    public static ControlLibrary? For(ObjectReference reference) => All.FirstOrDefault(l => l.IsNamedBy(reference));
+    public static RuntimeLibrary? For(ObjectReference reference) => All.FirstOrDefault(l => l.IsNamedBy(reference));
 
     /// <summary>The library a control's type name is in, by its prefix: <c>MSComctlLib.ListView</c>'s is MSComctlLib.</summary>
-    public static ControlLibrary? ForTypeName(string typeName)
+    public static RuntimeLibrary? ForTypeName(string typeName)
     {
         var dot = typeName.IndexOf('.');
         return dot < 0 ? null : All.FirstOrDefault(l => typeName.AsSpan(0, dot).Equals(l.Name, StringComparison.OrdinalIgnoreCase));
@@ -150,12 +193,34 @@ public static class ControlLibraries
     /// </summary>
     /// <remarks>VB6 writes both lines for a form that holds the control, and a form copied in from another project may
     /// bring its header line alone; the CommonDialog's reference is read the same way (#1084).</remarks>
-    public static IReadOnlyList<ControlLibrary> ReferencedBy(ProjectDefinition project)
+    public static IReadOnlyList<RuntimeLibrary> ReferencedBy(ProjectDefinition project)
     {
-        var referenced = new List<ControlLibrary>();
+        var referenced = new List<RuntimeLibrary>();
         foreach (var reference in project.ObjectReferences.Concat(project.Forms.SelectMany(f => f.ObjectReferences)))
             if (For(reference) is { } library && !referenced.Contains(library))
                 referenced.Add(library);
         return referenced;
+    }
+}
+
+/// <summary>A managed class supplied by a library. Members lists the names it exposes without an instance.</summary>
+public sealed record LibraryClass(string Name, Func<ICSharpProxy> Factory,
+    IReadOnlyList<string> Members, bool GlobalMultiUse = false);
+
+public static class RuntimeLibraries
+{
+    public static IReadOnlyList<RuntimeLibrary> All { get; } = ControlLibraries.All;
+
+    public static IReadOnlyList<RuntimeLibrary> ReferencedBy(ProjectDefinition project,
+        IReadOnlyList<RuntimeLibrary>? known = null)
+    {
+        var result = new List<RuntimeLibrary>();
+        foreach (var reference in project.References)
+            foreach (var library in known ?? All)
+                if (library.IsNamedBy(reference) && !result.Contains(library))
+                    result.Add(library);
+        foreach (var library in ControlLibraries.ReferencedBy(project))
+            if (!result.Contains(library)) result.Add(library);
+        return result;
     }
 }

@@ -162,6 +162,11 @@ declaration, the existing split at the first line break SHALL apply.
 This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
 whole-declaration paste question in the archived #273 design record without changing that historical record.
 
+For a file ending in a folded member attribute run without a final line break, Select All SHALL select the
+whole buffer while leaving the caret at the declaration's end; Shift+Left SHALL then end the selection one
+character before that point. Select-to-document-end from above the run SHALL select only to the declaration's
+end. This edge case is retained by decision #1019; the measured VB6-saved files all have a final line break.
+
 #### Scenario: Pasting a comment before a replacement declaration
 - **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed
   by a compatible declaration
@@ -216,7 +221,9 @@ an edit explicitly reaching into a run remains refused. An empty range edit dele
 text SHALL widen over its run, as a key deletion does. A set whose widened spans overlap another edit
 SHALL be refused without changing the document. Find's Replace and Replace All SHALL likewise widen
 empty replacements over the runs of declarations they empty; non-empty replacements SHALL keep those runs.
-Formatting is unchanged.
+Formatting SHALL first discard changes to protected lines, then match each remaining whole-line hunk to
+its described logical declaration. An empty hunk deleting that entire declaration SHALL remove its attribute
+run as well. A hunk deleting only part of a continued declaration SHALL NOT remove the run.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
@@ -228,6 +235,10 @@ one visible line, so a mark set there would land on a line the developer cannot 
 #### Scenario: Formatting a class
 - **WHEN** a class is formatted by a server whose answer replaces the whole document
 - **THEN** the code is formatted and the header is unchanged
+
+#### Scenario: Formatting deletes a described declaration
+- **WHEN** a kept formatting hunk deletes every physical line of a described declaration
+- **THEN** its attribute run is removed with it, other kept formatting changes apply, and Undo restores both
 
 #### Scenario: Replacing text that also appears in the header
 - **GIVEN** a form with a control named `Command1` and code that refers to it
@@ -395,3 +406,101 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **THEN** overtype mode is enabled and the status bar displays the localized overtype label
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Find scopes SHALL include project members and live buffers
+Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
+All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.
+Current Project SHALL target the active document's owning project (code, designer or carried file),
+then the Project Explorer selection, then the startup project, and SHALL display that project's name.
+Project scopes SHALL prefer open editors' live buffers over stored code, without flushing editors.
+Closed members SHALL be searched without opening non-matching files; selecting a hit SHALL open its
+editor and select the matching text. Forms, modules and carried files SHALL participate.
+
+#### Scenario: Unsaved edits are searchable
+- **WHEN** a term is added to or removed from an open module without saving
+- **AND** Find searches that project
+- **THEN** the results reflect the live buffer, and the module's stored code is unchanged
+
+#### Scenario: A group contains several projects
+- **WHEN** a code window or designer in a non-startup project is active
+- **THEN** Current Project names and searches that document's project
+- **AND** All Projects searches every loaded project
+
+### Requirement: Structural and selection scopes SHALL restrict every search and replacement
+Current Procedure and Current Module SHALL use containing procedure or module ranges reported by the
+active document's language server, including nested symbols, and SHALL fall back to Current Document
+when no containing range is reported. Selected Text SHALL preserve the original selected span across
+Find selections and track edits to its boundaries. These limits SHALL apply to Find, Replace and
+Replace All, including plain text, patterns, either direction and wrapping.
+
+#### Scenario: A foreign language server reports a procedure
+- **WHEN** the active carried file's server reports a procedure containing the caret
+- **AND** Current Procedure is selected
+- **THEN** Find and replacement are confined to that procedure
+
+#### Scenario: Find selects a match inside Selected Text
+- **WHEN** Find selects one match inside the original selected text
+- **THEN** the next search still covers the original span rather than only that match
+
+### Requirement: Replace All SHALL confirm changes across files
+Before Replace All changes matches in more than one document, it SHALL ask for confirmation.
+Refusal SHALL leave every buffer unchanged and SHALL NOT open closed editors for replacement.
+Accepted replacement SHALL edit live editor buffers, leaving saving to the developer.
+
+#### Scenario: Cross-file replacement is cancelled
+- **WHEN** matches exist in multiple files and the developer refuses confirmation
+- **THEN** no file is opened or changed by replacement
+
+### Requirement: Sticky scroll shows enclosing block headers
+The code window SHALL pin the headers of language-server folding ranges enclosing its top visible code
+line, when their header lines have scrolled out of view. It SHALL list distinct headers from outermost
+inward, up to the configured depth. The editor's serialized header and member-attribute folds SHALL NOT
+supply sticky headers. Without server ranges there SHALL be no pinned headers.
+
+#### Scenario: Scrolling inside nested blocks
+- **WHEN** the top visible code line is inside nested server folding ranges whose headers are above it
+- **THEN** their source header lines appear above the code, in nesting order
+- **AND** scrolling out of a range removes its header
+- **AND** a replacement folding response updates the pinned headers
+
+#### Scenario: Navigating from a pinned header
+- **WHEN** the developer clicks a pinned header
+- **THEN** the editor places the caret at column one of that header's line and scrolls to it
+- **AND** keyboard focus returns to the code
+
+### Requirement: Sticky scroll is configurable
+Editor → General SHALL offer a sticky-scroll switch and a maximum header depth of one through ten.
+Sticky scroll SHALL default to enabled with a depth of three. Applying either option SHALL update open
+code windows, and both settings SHALL persist between sessions and participate in Restore Defaults.
+
+#### Scenario: Limiting or disabling pinned headers
+- **WHEN** the developer applies a depth of one
+- **THEN** only the outermost enclosing header is pinned
+- **WHEN** the developer disables sticky scroll
+- **THEN** open code windows show no pinned headers
+
+### Requirement: Inactive conditional branches SHALL be greyed for the selected view target
+The code window SHALL grey only the interpreter preprocessor's determined inactive lines in the theme's
+`InactiveCodeTextBrush`. It SHALL recompute after text edits with a debounce, and SHALL grey nothing when
+conditional compilation fails. Undetermined lines SHALL remain ungreyed. An edit that leaves every line where it
+was SHALL keep the greying until the next evaluation, and an edit that adds or removes lines SHALL clear it.
+
+#### Scenario: Editing an incomplete directive
+- **WHEN** an edit leaves an unterminated `#If` block
+- **THEN** the code window removes its inactive greying until preprocessing succeeds again
+
+#### Scenario: Typing on a line
+- **WHEN** the developer types within a line of a module whose inactive branches are greyed
+- **THEN** the greying stays as it is until the next evaluation, rather than flashing off with each keystroke
+
+### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
+A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
+VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+VBA's constants are not measured, since there is no VBA oracle.
+
+#### Scenario: Previewing a VBA branch
+- **WHEN** a module contains `#If VBA7 Then` with an `#Else` branch
+- **THEN** the default VB6 view greys the VBA7 branch
+- **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
+- **THEN** the view greys the Else branch instead, without changing what F5 runs

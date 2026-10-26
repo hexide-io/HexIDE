@@ -15,6 +15,7 @@ using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
 using HexIDE.Utils;
+using HexIDE.VisualDesigner;
 
 namespace HexIDE.Automation;
 
@@ -920,28 +921,34 @@ public static class UiAutomationDriver
         var was = Safe<ToggleState?>(() => toggle.ToggleState, null);
         toggle.Toggle();
         if (inProgram)
-            return Ok($"toggled '{label}'") with { Settled = () => Moved("the program") };
-        return Safe<ToggleState?>(() => toggle.ToggleState, null) is null || was is null
+            return Ok($"toggled '{label}'") with
+            {
+                Settled = () => ToggleMoved(was, Safe<ToggleState?>(() => toggle.ToggleState, null), radio, "the program"),
+            };
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        return now is null || was is null
             ? Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
                   + "Dump it to see")
-            : Ok($"toggled '{label}'{Moved("its handler or a binding")}");
-
-        string Moved(string who) => (was, Safe<ToggleState?>(() => toggle.ToggleState, null)) switch
-        {
-            (null, _) or (_, null) => ", but whether it moved could not be read back",
-            var (from, to) when from != to => $": it is now {Words(to.Value)}",
-            (_, var to) => radio
-                ? $", and it is still {Words(to!.Value)}: a click does not turn a radio button off; select another to"
-                : $", but {who} put it back: it is still {Words(to!.Value)}",
-        };
-
-        static string Words(ToggleState state) => state switch
-        {
-            ToggleState.On => "on",
-            ToggleState.Off => "off",
-            _ => "neither on nor off",
-        };
+            : Ok($"toggled '{label}'{ToggleMoved(was, now, radio, "its handler or a binding")}");
     }
+
+    /// <summary>The clause a toggle's reply ends with: the state it moved to, or that it stayed, and why.</summary>
+    private static string ToggleMoved(ToggleState? was, ToggleState? now, bool radio, string who) => (was, now) switch
+    {
+        (null, _) or (_, null) => ", but whether it moved could not be read back",
+        var (from, to) when from != to => $": it is now {ToggleWords(to.Value)}",
+        // Only a radio button left on was not turned off by a click; one left off was turned on and put back (#2050 review).
+        (_, var to) => radio && to == ToggleState.On
+            ? $", and it is still {ToggleWords(to!.Value)}: a click does not turn a radio button off; select another to"
+            : $", but {who} put it back: it is still {ToggleWords(to!.Value)}",
+    };
+
+    private static string ToggleWords(ToggleState state) => state switch
+    {
+        ToggleState.On => "on",
+        ToggleState.Off => "off",
+        _ => "neither on nor off",
+    };
 
     /// <summary>
     /// The reply to an expand or collapse sent through <paramref name="provider"/>, from its state read back. A
@@ -1120,7 +1127,9 @@ public static class UiAutomationDriver
                                ? $" Make it show first, as a person would: 'expand' "
                                  + string.Join(", then ", holders.Select(h => $"'{LabelOf(h)}'"))
                                  + (holders.Count == 1 ? ", which holds it" : ", which hold it")
-                               : " Make it show first, as a person would, for instance by expanding what holds it"));
+                               : CollapsedPropertyCategoryHolding(onlyHidden) is { } category
+                                   ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                                   : " Make it show first, as a person would, for instance by expanding what holds it"));
         }
         if (candidates.Count == 0)
             return Err(control switch
@@ -1478,7 +1487,9 @@ public static class UiAutomationDriver
     public const string ClickValue =
         "a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, "
         + "right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by "
-        + "spaces, as in '10,5 right double' or 'double'";
+        + "spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag "
+        + "(paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, "
+        + "or the target without a path; to cannot accompany double";
 
     /// <summary>
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
@@ -1489,8 +1500,8 @@ public static class UiAutomationDriver
     /// </summary>
     /// <remarks>
     /// Raised on the element, as <see cref="Hover(Control, double?, double?)"/> raises its events, not through the input
-    /// manager: so the press is not implicitly captured, and nothing sets <c>IsPointerOver</c>. A press, a move with the
-    /// button held and a release somewhere else, which is a drag, is beyond it.
+    /// manager: nothing sets <c>IsPointerOver</c>. A drag establishes the mouse press's implicit capture before
+    /// raising the press, then routes held moves and the release to the capturer, or the hit-tested element.
     ///
     /// <para>
     /// Only the press is raised here. The release is the outcome's <see cref="InteractOutcome.Release"/>, which
@@ -1501,7 +1512,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
-        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var problem))
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var destination, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
@@ -1513,6 +1524,32 @@ public static class UiAutomationDriver
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
                         + "or on a part of it that is not hit-tested");
+
+        var releasePoint = inWindow;
+        var releaseWhere = where;
+        if (destination is not null)
+        {
+            var colon = destination.LastIndexOf(':');
+            var releaseControl = control;
+            if (colon >= 0)
+            {
+                var resolved = Resolve(topLevel, destination[..colon]);
+                if (resolved.control is not { } found)
+                    return Fail($"could not resolve the release path: {resolved.error}; nothing was pressed");
+                releaseControl = found;
+            }
+            var coordinates = destination[(colon + 1)..].Split(',');
+            if (coordinates.Length != 2
+                || !double.TryParse(coordinates[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var rx)
+                || !double.TryParse(coordinates[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ry)
+                || !double.IsFinite(rx) || !double.IsFinite(ry))
+                return Fail($"'{destination}' is not a release point; click takes {ClickValue}; nothing was pressed");
+            var releaseLocal = new Point(rx, ry);
+            if (releaseControl.TranslatePoint(releaseLocal, topLevel) is not { } translated)
+                return Fail("could not translate the release point into window coordinates; nothing was pressed");
+            releasePoint = translated;
+            releaseWhere = FormattableString.Invariant($"({rx:0.#}, {ry:0.#}) on '{Describe(releaseControl)}', which is ({translated.X:0.#}, {translated.Y:0.#}) in the window");
+        }
 
         var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
@@ -1533,6 +1570,10 @@ public static class UiAutomationDriver
         var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
             ? UiSaveFeedback.Watch(saveButton.Command) : null;
 #endif
+        // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
+        // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
+        if (destination is not null)
+            pointer.Capture(hit as IInputElement);
         hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
             new PointerPointProperties(held | rawKeys, pressKind), keys));
 
@@ -1552,11 +1593,30 @@ public static class UiAutomationDriver
             try
             {
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
-                var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive ?? hit;
-                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
+                if (destination is not null)
+                {
+                    for (var step = 1; step <= 8; step++)
+                    {
+                        var point = inWindow + (releasePoint - inWindow) * (step / 8.0);
+                        var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
+                            ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
+                        receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
+                            point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
+                    }
+                }
+                var captured = pointer.Captured is not null;
+                var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
+                    ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
+                if (releasedOn is null)
+                    return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
+                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                var recipient = destination is null ? "" : releasedOn is Control releasedControl
+                    ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
+                    : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
-                var outcome = new InteractOutcome(true, "pointer", $"{(second ? "double-clicked" : "clicked")} {pressed}", null,
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
+                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")})"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
@@ -1568,6 +1628,7 @@ public static class UiAutomationDriver
             {
                 return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
             }
+            finally { pointer.Capture(null); }
         }
 
         InteractOutcome SecondPress()
@@ -1582,7 +1643,7 @@ public static class UiAutomationDriver
         }
 
         return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
-            Release: () => Release(second: false));
+            Release: () => Release(second: false), ClickWatch: destination is null ? null : watch);
     }
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
@@ -1590,7 +1651,8 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
-    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. Every other action is
+    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. A <c>toggle</c> reads its
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -1601,6 +1663,8 @@ public static class UiAutomationDriver
     /// </remarks>
     public static async Task<InteractOutcome> InteractAsync(Control control, string action, string? value, TimeSpan? frameWait = null)
     {
+        if (string.Equals(Normalise(action), "toggle", StringComparison.Ordinal))
+            return await ToggleSettledAsync(control, action, value);
         if (!string.Equals(Normalise(action), "click", StringComparison.Ordinal))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
@@ -1614,6 +1678,52 @@ public static class UiAutomationDriver
             };
         return outcome;
     }
+
+    /// <summary>
+    /// A toggle, replied to with its state once the work it set off has run. Its own read comes straight after it, so a
+    /// refusal that put the box back from a posted callback, as a binding's write does, was reported as done (#2050). On
+    /// the IDE's own windows the state is read again once the dispatcher has run what is queued ahead of Background; a
+    /// running form's is read by the wait for its program. A dialog the toggle opened may still change it, so the reply
+    /// says so.
+    /// </summary>
+    private static async Task<InteractOutcome> ToggleSettledAsync(Control control, string action, string? value)
+    {
+        var peer = Safe<AutomationPeer?>(() => ControlAutomationPeer.CreatePeerForElement(control), null);
+        var toggle = peer is null ? null : Safe<IToggleProvider?>(() => peer.GetProvider<IToggleProvider>(), null);
+        var before = toggle is null ? null : Safe<ToggleState?>(() => toggle.ToggleState, null);
+        // Named before the toggle, as invoke names its target (#578): what the toggle sets off may close its window, or
+        // change a caption that follows the state.
+        var label = peer is null ? null : LabelOf(control, peer);
+        // Known by what they show, as typing knows them (#1257): a MsgBox whose form hides moves to a window of its own.
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (toggle is null || before is null || InProgram(control) || outcome is not { Success: true, Settled: null })
+            return outcome;
+
+        // Bounded: a program that keeps the dispatcher busy above Background would otherwise hold the reply for as long as
+        // it runs, and an earlier read is better than none.
+        var settled = Avalonia.Threading.Dispatcher.UIThread
+            .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+        var ran = await Task.WhenAny(settled, Task.Delay(ToggleSettleWait)) == settled;
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        if (now is null)
+            return Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
+                       + "Dump it to see");
+        var opened = OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
+        return outcome with
+        {
+            Detail = $"toggled '{label}'"
+                     + ToggleMoved(before, now, control is RadioButton, "its handler or a binding")
+                     + (ran ? "" : $"; read before the work it set off had finished, which took longer than "
+                                   + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms")
+                     + (opened ? "; a dialog opened during this call, which modalDialog names, and the state may change "
+                                 + "again once it is answered" : ""),
+        };
+    }
+
+    /// <summary>How long a toggle's reply waits for the work it set off before reading its state anyway.</summary>
+    public static readonly TimeSpan ToggleSettleWait = TimeSpan.FromSeconds(2);
 
     /// <summary>Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.</summary>
     public static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
@@ -1644,6 +1754,8 @@ public static class UiAutomationDriver
     {
         if (outcome.Release is not { } release)
             return outcome;
+        if (outcome.ClickWatch is { } pressWatch)
+            await WaitForProgramAsync(pressWatch, outcome);
         await Task.Delay(ClickHoldMs);
         var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
         if (!released.Success || released.NextClick is not { } next)
@@ -1737,6 +1849,7 @@ public static class UiAutomationDriver
                         Idle = watch.Pump.IsIdle && watch.Pump.AtDoEvents.All(watch.LoopsBefore.Contains),
                         Started = string.Join(", ", watch.Pump.BusySince(watch.LiveBefore).Distinct()),
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
+                        Waiting = string.Join(", ", watch.Pump.WaitingHandlers.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,
                         // What it is, as the note says it: the title alone is 'HexIDE' for two of the IDE's dialogs (#1975).
@@ -1753,6 +1866,7 @@ public static class UiAutomationDriver
             var opened = state.Opened.Count == 0
                 ? ""
                 : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
+            var waiting = state.Waiting.Length == 0 ? "" : $", with {state.Waiting} waiting to run";
             if (state.Idle)
             {
                 // What the action left on the form, read only now that the program has run what it set off (#1280).
@@ -1771,7 +1885,7 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is paused at {stop.Module} line {stop.Line} ({stop.Reason}), "
-                             + $"with {state.Busy} not finished; it runs on, and the form may change, once the program "
+                             + $"with {state.Busy} not finished{waiting}; it runs on, and the form may change, once the program "
                              + $"continues{opened})",
                 };
             // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
@@ -1782,7 +1896,7 @@ public static class UiAutomationDriver
                 OpenDialogs.NamedInReply(dialog);
                 return outcome with
                 {
-                    Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
+                    Detail = outcome.Detail + $" (the program is still running {state.Busy}{waiting}, and has a window open over "
                              + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
@@ -1793,25 +1907,23 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)}s "
-                             + $"later, so the form may still change{opened})",
+                             + $"later{waiting}, so the form may still change{opened})",
                 };
             await Task.Delay(20, ct).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// The event queue of the program behind <paramref name="window"/>, with the form that leads to it: a running form,
-    /// a window it owns, or a program's MsgBox or InputBox. The box can be owned by the IDE, which shows a Sub Main
-    /// program's box over the active window, so a box is matched to the run by what it is, and its form is the run's
-    /// first open one. Null for any other window.
-    /// </summary>
+    /// <summary>The program behind a running form or a box raised by its MsgBox or InputBox call.</summary>
     internal static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
     {
-        for (var at = window; at is not null; at = at.Owner as Window)
-            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
-                return (events, at);
-        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox))
+        if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
+            return (events, window);
+        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog: true }
+            or HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog: true }))
             return null;
+        for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
+            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
+                return (ownerEvents, at);
         return OpenWindows().FirstOrDefault(w => w is HexIDE.Runtime.IModuleExecutionRoot { Events: not null }) is { } form
             ? (((HexIDE.Runtime.IModuleExecutionRoot)form).Events!, form)
             : null;
@@ -1859,8 +1971,24 @@ public static class UiAutomationDriver
         [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
-    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string problem)
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out string problem)
     {
+        destination = null;
+        var match = System.Text.RegularExpressions.Regex.Match(value ?? "", @"(?:^|\s)to\s+(.+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            destination = match.Groups[1].Value.Trim();
+            value = value![..match.Index];
+            // Tokens after the release point are unambiguous; spaces within a pasted path stay intact.
+            while (destination.LastIndexOf(' ') is var space && space >= 0)
+            {
+                var tail = destination[(space + 1)..];
+                if (tail.ToLowerInvariant() is not ("double" or "left" or "right" or "middle" or "shift" or "ctrl" or "control" or "alt"))
+                    break;
+                value += " " + tail;
+                destination = destination[..space].TrimEnd();
+            }
+        }
         at = null;
         button = MouseButton.Left;
         keys = KeyModifiers.None;
@@ -1880,7 +2008,8 @@ public static class UiAutomationDriver
                 var parts = word.Split(',');
                 if (at is not null || parts.Length != 2
                     || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var x)
-                    || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                    || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y)
+                    || !double.IsFinite(x) || !double.IsFinite(y))
                 {
                     problem = $"'{token}' is not a point; click takes {ClickValue}";
                     return false;
@@ -1906,6 +2035,11 @@ public static class UiAutomationDriver
                 return false;
             }
             keys |= held;
+        }
+        if (twice && destination is not null)
+        {
+            problem = "double cannot be combined with to: a double click repeats at one point, while to drags to a release point";
+            return false;
         }
         return true;
     }
@@ -2249,6 +2383,21 @@ public static class UiAutomationDriver
     private static List<TreeViewItem> CollapsedNodesHolding(Control control) =>
         [.. control.GetVisualAncestors().OfType<TreeViewItem>().Where(n => !n.IsExpanded).Reverse()];
 
+    private static string? CollapsedPropertyCategoryHolding(Control control)
+    {
+        if (control.DataContext is not PropertyViewModel property
+            || ItemsControl.ItemsControlFromItemContainer(control) is not ListBox list)
+            return null;
+
+        for (var i = 0; i < list.ItemCount; i++)
+            if (list.Items[i] is PropertyCategoryViewModel { IsExpanded: false } category
+                && category.Category == property.PropertyClass.Category
+                && list.ContainerFromIndex(i) is { } row && Shows(row) is true
+                && row.GetVisualDescendants().OfType<ToggleButton>().Any(t => Shows(t) is true))
+                return category.Header;
+        return null;
+    }
+
     /// <summary>
     /// The open dropdown <paramref name="item"/> is in, or null. Found before the item is selected: a selection
     /// handler that replaces the list recycles the item's container and clears its parent, and the dropdown would then
@@ -2328,8 +2477,14 @@ public static class UiAutomationDriver
     // with no owner and no index, and a visibility bound to that item, as the Properties window's rows are, keeps it
     // showing. Only containers: a control inside a row has no index of its own either. Only an items panel's own children:
     // a container written into a template, or set as content, is no list's row and no list released it (#1292 review).
+    // DataGrid keeps recycled rows in its presenter with their old Index and DataContext. Slot is the
+    // membership marker (-1 after detach); it is internal, so read it without treating every hidden row as released.
+    private static readonly PropertyInfo? GridRowSlot = typeof(DataGridRow).GetProperty("Slot", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private static bool Released(Control c) =>
-        c is ListBoxItem or TreeViewItem or TabItem
+        c is DataGridRow && c.GetVisualParent() is DataGridRowsPresenter
+        ? Safe(() => GridRowSlot?.GetValue(c) is int slot && slot < 0, false)
+        : c is ListBoxItem or TreeViewItem or TabItem
         && c.GetVisualParent() is Panel { IsItemsHost: true }
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
@@ -2783,9 +2938,9 @@ public static class UiAutomationDriver
                     var where = dialog.Owner is null ? "in a window of its own"
                         : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
-                        $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"{OpenDialogs.DescriptionOf(dialog)} opened {where}, and a person's next key would go to it. Answer it, then "
-                        + "send the rest");
+                        $"key {i + 1} of {keys.Count} was sent to {surface.GetType().Name}{address} and raised "
+                        + $"{OpenDialogs.DescriptionOf(dialog)} {where}; that key may not have landed. Nothing after it was sent. "
+                        + "Answer the dialog, then check the text before deciding what to send next");
                 }
             }
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
@@ -3965,7 +4120,13 @@ public static class UiAutomationDriver
             foreach (var attached in AttachedPopupsOf(owner))
                 CollectPopupChildren(attached, acc, firstOnly);
 
-        foreach (var v in parent.GetVisualChildren())
+        // Virtualizing panels keep containers in creation order, which changes after scrolling (#1966).
+        var children = parent.GetVisualChildren();
+        if (parent is Panel { IsItemsHost: true } panel && panel.FindAncestorOfType<ItemsControl>() is { } items)
+            children = children.OrderBy(v => v is Control c && items.IndexFromContainer(c) is >= 0 and var index
+                ? index : int.MaxValue);
+
+        foreach (var v in children)
         {
             if (firstOnly && acc.Count > 0) return;
             if (v is Popup popup)

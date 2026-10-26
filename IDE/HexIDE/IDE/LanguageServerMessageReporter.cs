@@ -28,7 +28,7 @@ public sealed class LanguageServerMessageReporter : IDisposable
     private readonly ILspClient _client;
     private readonly IStatusBarService _statusBar;
     private readonly ILocalizationService _localization;
-    private readonly Dictionary<(object? Server, string Token), WorkDoneProgressValue> _progress = [];
+    private readonly Dictionary<(object? Server, string Token), ProgressParams> _progress = [];
     private readonly object _progressGate = new();
     private string? _displayedProgress;
 
@@ -82,20 +82,27 @@ public sealed class LanguageServerMessageReporter : IDisposable
                 }
             }
             else if (p.Value.Kind == "begin")
-                _progress[key] = p.Value;
+                _progress[key] = p;
             else if (p.Value.Kind == "report" && _progress.TryGetValue(key, out var previous))
-                _progress[key] = p.Value with
+                _progress[key] = previous with
                 {
-                    Title = previous.Title,
-                    Message = p.Value.Message ?? previous.Message,
-                    Percentage = p.Value.Percentage ?? previous.Percentage,
+                    Value = p.Value with
+                    {
+                        Title = previous.Value.Title,
+                        Message = p.Value.Message ?? previous.Value.Message,
+                        Percentage = p.Value.Percentage ?? previous.Value.Percentage,
+                    },
                 };
             else return;
 
-            var value = _progress.TryGetValue(key, out var current) ? current : _progress.Last().Value;
-            var text = Flatten((value.Title ?? "") + " " + (value.Message ?? ""));
-            if (value.Percentage is { } percentage) text += $" ({percentage}%)";
-            _displayedProgress = string.Format(_localization.GetString("Str.StatusBar.LanguageServerProgress"), text);
+            var progress = _progress.TryGetValue(key, out var current) ? current : _progress.Last().Value;
+            var value = progress.Value;
+            var text = Flatten(string.Join(": ", new[] { value.Title, value.Message }
+                .Where(part => !string.IsNullOrWhiteSpace(part))));
+            var name = Flatten(progress.ServerDisplayName ?? _localization.GetString("Str.StatusBar.LanguageServer"));
+            var percentageText = value.Percentage is { } percentage ? $" ({percentage}%)" : "";
+            _displayedProgress = text.Length == 0 ? name + percentageText
+                : string.Format(_localization.GetString("Str.StatusBar.LanguageServerProgress"), name, text, percentageText);
             _statusBar.SetMessage(_displayedProgress);
         }
     }

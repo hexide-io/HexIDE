@@ -144,7 +144,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     var rename = await client.RequestRenameAsync(uri, at, "Renamed", TestContext.Current.CancellationToken);
                     var highlight = await client.RequestDocumentHighlightAsync(uri, at, TestContext.Current.CancellationToken);
 
-                    if (rename?.Changes is { Count: > 0 })
+                    if (rename?.Edit?.Changes is { Count: > 0 })
                         failures.Add($"{name}: rename from {line}:{character} answered with edits");
                     if (highlight is { Length: > 0 })
                         failures.Add($"{name}: highlight from {line}:{character} answered with {highlight.Length} ranges");
@@ -198,11 +198,11 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                 if (declared.Contains(word))
                 {
                     declinedDeclared++;
-                    if (rename?.Changes is { Count: > 0 })
+                    if (rename?.Edit?.Changes is { Count: > 0 })
                         failures.Add($"{name}: renaming {word}, which the designer block declares, answered with edits");
                     continue;
                 }
-                if (rename?.Changes is not { } changes || !changes.TryGetValue(uri, out var edits))
+                if (rename?.Edit?.Changes is not { } changes || !changes.TryGetValue(uri, out var edits))
                     continue; // a keyword, or nothing the server will rename
                 renamed++;
 
@@ -243,7 +243,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
         var rename = await client.RequestRenameAsync(uri, new Position(15, 21), "Amount", TestContext.Current.CancellationToken);
 
-        rename!.Changes![uri].Select(e => (e.Range.Start.Line, e.Range.Start.Character))
+        rename!.Edit!.Changes![uri].Select(e => (e.Range.Start.Line, e.Range.Start.Character))
             .Should().Equal((15, 20), (16, 10), (17, 10), (18, 0));
     }
 
@@ -268,7 +268,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         {
             var ideRefuses = !ProjectNaming.IsValidName(name) || ProjectNaming.IsReservedWord(name);
             var rename = await client.RequestRenameAsync(uri, new Position(15, 21), name, TestContext.Current.CancellationToken);
-            var serverRefuses = rename is null;
+            var serverRefuses = rename?.Refusal is not null;
             if (ideRefuses != serverRefuses)
                 disagreements.Add($"'{name}': the IDE {(ideRefuses ? "refuses" : "accepts")} it, the server {(serverRefuses ? "refuses" : "accepts")} it");
         }

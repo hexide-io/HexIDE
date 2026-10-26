@@ -9,6 +9,7 @@ using HexIDE.Conversations;
 using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
@@ -986,7 +987,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns the current main window state (Maximized/Normal/Minimized) and position/size when in Normal mode.")]
+    [Description("Returns the current main window state (Maximized/Normal/Minimized) and the reported position and client size in every state.")]
     public async Task<WindowStateResult> GetWindowStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1014,7 +1015,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied first; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. A refused call changes nothing.")]
+    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
@@ -1022,7 +1023,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         int? x = null, int? y = null, int? width = null, int? height = null,
         CancellationToken ct = default)
     {
-        var refused = await Dispatcher.UIThread.InvokeAsync(WindowStateChangeResult? () =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var window = (Avalonia.Application.Current!.ApplicationLifetime as
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
@@ -1051,14 +1052,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false,
                     $"width and height must be positive; got {(width is <= 0 ? $"width {width}" : $"height {height}")}. Nothing was changed.", null);
 
-            if (target == Avalonia.Controls.WindowState.Normal && geometry)
+            // Validate before sending even the restore: an asynchronous backend cannot undo it reliably.
+            if (geometry)
             {
-                // Normal first, then the geometry. Restoring from Maximized puts the window back at its restore
-                // bounds, which overwrote a position and size applied before it, and a coordinate left out has
-                // to default to where the RESTORED window is, not to the maximised frame's -11. A refusal puts
-                // the previous state back, so it still changes nothing.
-                var previous = window.WindowState;
-                window.WindowState = target.Value;
                 var position = new Avalonia.PixelPoint(x ?? window.Position.X, y ?? window.Position.Y);
                 var size = Avalonia.PixelSize.FromSize(
                     new Avalonia.Size(width ?? window.ClientSize.Width, height ?? window.ClientSize.Height),
@@ -1066,34 +1062,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var frame = new Avalonia.PixelRect(position, size);
                 var screens = window.Screens.All;
                 if (screens.Count > 0 && !screens.Any(s => s.WorkingArea.Intersects(frame)))
-                {
-                    window.WindowState = previous;
                     return new WindowStateChangeResult(false,
                         $"({position.X},{position.Y}) would put the window on no screen. Screens: "
                         + string.Join("; ", screens.Select(s => $"{s.WorkingArea.X},{s.WorkingArea.Y} {s.WorkingArea.Width}×{s.WorkingArea.Height}"))
                         + ". Nothing was changed.", null);
-                }
-
-                window.Position = position;
-                if (width is not null)  window.Width  = width.Value;
-                if (height is not null) window.Height = height.Value;
-                return null;
             }
 
-            window.WindowState = target.Value;
-            return null;
+            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(window, target.Value, x, y, width, height, ct);
+            return new WindowStateChangeResult(applied, applied ? null : "The window manager has not confirmed the requested change.",
+                WindowStateOf(window), applied ? null : "The window manager did not confirm the requested state or geometry within 1 s of that request; the window field reports what is observed. Re-read with get_window_state.");
         });
-        if (refused is not null)
-            return refused;
-
-        // Read back after layout has run. A new Width or Height reaches ClientSize in the next layout pass, so
-        // reading it straight away reported the size the window had before the call.
-        return await Dispatcher.UIThread.InvokeAsync(() =>
-            (Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow is { } after
-                ? new WindowStateChangeResult(true, null, WindowStateOf(after))
-                : new WindowStateChangeResult(false, "No main window", null),
-            DispatcherPriority.Background);
     }
 
     [McpServerTool(Name = "get_tool_windows")]
@@ -1269,8 +1247,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [McpServerTool(Name = "add_control")]
     [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
     public async Task<AddControlResult> AddControlAsync(
-        string formName, string type,
-        double x, double y, double width, double height,
+        string formName,
+        [Description("A class as get_toolbox_items lists it, such as CommandButton or VB.CommandButton. An in-box control is offered only while the project references its library, which Project > Components sets, and once for each such library: its type name picks the library, as ComctlLib.ProgressBar does, and a bare ProgressBar takes the first.")] string type,
+        [Description("Pixels from the form's left. Where x and y fall inside a Frame or PictureBox, the control goes into the innermost one, as one drawn from that point does, and is held within it; x and y are still measured from the form, and the reply gives its place inside the container.")] double x,
+        double y, double width, double height,
         string? project = null,
         CancellationToken ct = default)
     {
@@ -1288,21 +1268,30 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     $"{document.Display} is not open in the visual designer — call view_designer first",
                     Project: document.Project.Name, Document: document.Name);
 
-            var componentClass = designer.ToolsBoxToolViewModel.Components
-                .Where(c => c.BaseClass is not null)
-                .FirstOrDefault(c =>
-                    string.Equals(c.BaseClass!.VBTypeName, type, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals("VB." + type, c.BaseClass!.VBTypeName, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(c.BaseClass!.Name, type, StringComparison.OrdinalIgnoreCase))
-                ?.BaseClass;
+            // A type name picks its button first, so ComctlLib.ProgressBar reaches COMCTL32.OCX's where both libraries are
+            // referenced; a bare class name takes the first button of that class (#1103).
+            var tools = designer.ToolsBoxToolViewModel.Components.Where(c => c.BaseClass is not null).ToList();
+            var tool = tools.FirstOrDefault(c =>
+                           string.Equals(c.VBTypeName, type, StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals("VB." + type, c.VBTypeName, StringComparison.OrdinalIgnoreCase))
+                       ?? tools.FirstOrDefault(c => string.Equals(c.BaseClass!.Name, type, StringComparison.OrdinalIgnoreCase));
+            var componentClass = tool?.BaseClass;
 
             if (componentClass is null)
             {
-                var known = string.Join(", ", designer.ToolsBoxToolViewModel.Components
-                    .Where(c => c.BaseClass is not null)
-                    .Select(c => c.BaseClass!.VBTypeName.Replace("VB.", "")));
+                var known = string.Join(", ", tools.Select(c => c.VBTypeName!.Replace("VB.", "")));
+                // An in-box control is in the toolbox only while the project references its library, as in VB6.
+                var inBox = HexIDE.Runtime.Components.InBox.InBoxComponentClass.Implemented.FirstOrDefault(c =>
+                    string.Equals(c.ControlClassName, type, StringComparison.OrdinalIgnoreCase)
+                    || c.Libraries.Any(l => string.Equals(l.TypeName(c.ControlClassName), type, StringComparison.OrdinalIgnoreCase)));
+                var files = inBox?.Libraries.Select(l => l.File).ToList() ?? [];
+                var why = inBox is null
+                    ? ""
+                    : $" {inBox.ControlClassName} comes from {string.Join(" or ", files)}, and {document.Project.Name} "
+                      + (files.Count == 1 ? "doesn't reference it" : files.Count == 2 ? "references neither" : "references none of them")
+                      + ": check one in Project > Components first, as in VB6.";
                 return new AddControlResult(false, null,
-                    $"Unknown control type '{type}'. Known types: {known}",
+                    $"Unknown control type '{type}'. Known types: {known}.{why}",
                     Project: document.Project.Name, Document: document.Name);
             }
 
@@ -1320,14 +1309,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}",
                     Project: document.Project.Name, Document: document.Name);
 
-            designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
+            // As a drag begun at its top-left: inside a Frame or PictureBox, it goes into the innermost one there (#2039).
+            designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height), new Avalonia.Point(x, y), tool!.Library);
             // Where it landed, and whether that is on the form at all: twips passed as pixels put a control
             // fifteen times too far out, and the reply used to be plain success. (#675)
             var placed = designer.SelectedComponent;
             var note = placed is null
                 ? null
                 : $"{placed.Name} is at Left {PropertyText.Display(placed.RelativeLeft)}, Top {PropertyText.Display(placed.RelativeTop)}, "
-                  + $"Width {PropertyText.Display(placed.Width)}, Height {PropertyText.Display(placed.Height)}, in pixels."
+                  + $"Width {PropertyText.Display(placed.Width)}, Height {PropertyText.Display(placed.Height)}, in pixels"
+                  + (placed.Instance.Container is null or { BaseClass: FormComponentClass }
+                      ? "."
+                      : $". It is inside {placed.ContainerName}, as a control drawn there is, so Left and Top are measured from {placed.ContainerName}.")
                   + OutsideContainerNote(placed);
             return new AddControlResult(true, placed?.Name, null, form, note, document.Project.Name, document.Name);
         });
@@ -1401,10 +1394,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         if (control.LiesWithinContainer) return "";
         var bounds = control.ContainerBounds;
+        // Twips passed as pixels start a control far off its container. One that starts inside and only runs past an
+        // edge is what VB6's own designer draws at a container's edge (#2039), so the twips hint would mislead there.
+        var startsOutside = control.Left >= bounds.Right || control.Top >= bounds.Bottom
+                            || control.Left + control.Width <= bounds.Left || control.Top + control.Height <= bounds.Top;
         return $" It lies at least partly outside {control.ContainerName}, whose client area is "
                + $"{PropertyText.Display(bounds.Width)} × {PropertyText.Display(bounds.Height)} pixels, so part or all "
-               + "of it will not be seen at run time. If these numbers came from a .frm or from VB6, they are twips: "
-               + "divide by 15.";
+               + "of it will not be seen at run time."
+               + (startsOutside ? " If these numbers came from a .frm or from VB6, they are twips: divide by 15." : "");
     }
 
     /// <summary>
@@ -1429,7 +1426,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "Commands: AlignLefts, AlignRights, AlignTops, AlignBottoms, AlignCentersH, AlignCentersV, " +
         "MakeSameWidth, MakeSameHeight, MakeSameSize, MakeHorizontalSpacingEqual, IncreaseHorizontalSpacing, " +
         "DecreaseHorizontalSpacing, RemoveHorizontalSpacing, MakeVerticalSpacingEqual, IncreaseVerticalSpacing, " +
-        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
+        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. Align*, MakeSame* and spacing commands require 2 selected controls; SizeToGrid and Center* require 1. Below the minimum the reply refuses the command and explains how to select more with interact. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
     public async Task<MutateResult> InvokeFormatCommandAsync(string command, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1450,6 +1447,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}."), designer.OpenDocument);
             }
 
+            var selected = designer.SelectedComponents.Count > 0
+                ? designer.SelectedComponents.Select(c => c.Name).ToList()
+                : designer.SelectedComponent is { } one ? [one.Name] : [];
+            var selection = selected.Count == 0
+                ? "no control is selected"
+                : $"the selection is {string.Join(", ", selected)}"
+                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
+            var rule = $"'{entry.Name}' requires at least {entry.MinimumSelection} selected control"
+                + (entry.MinimumSelection == 1 ? "" : "s");
+            if (selected.Count < entry.MinimumSelection)
+                return Naming(new MutateResult(false, $"{rule}; {selection}. Use interact with action 'select' on a control, "
+                    + "then 'add_to_selection' on each additional control."), designer.OpenDocument);
+
             // A command with nothing to act on returns without a word, and so does one whose controls already
             // satisfy it, so whether a step landed is the only reliable sign that anything moved. (#655)
             var landed = false;
@@ -1458,18 +1468,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             try { entry.Of(designer)(); }
             finally { designer.UndoStack.Changed -= OnChanged; }
 
-            var selected = designer.SelectedComponents.Count > 0
-                ? designer.SelectedComponents.Select(c => c.Name).ToList()
-                : designer.SelectedComponent is { } one ? [one.Name] : [];
-            var selection = selected.Count == 0
-                ? "no control is selected"
-                : $"the selection is {string.Join(", ", selected)}"
-                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
             return Naming(new MutateResult(true, null, landed
                 ? $"Applied '{designer.UndoStack.UndoDescription}' as one undo step; {selection}."
-                : $"Nothing changed, and no undo step was added: {selection}. The spacing commands need two or more "
-                  + "selected controls, the others at least one, and a selection that already satisfies the command "
-                  + "is left as it is."), designer.OpenDocument);
+                : $"Nothing changed, and no undo step was added: {selection}. {rule}; "
+                  + "a selection that already satisfies the command is left as it is."), designer.OpenDocument);
         });
     }
 
@@ -1894,7 +1896,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             "BreakWhenTrue or BreakWhenChanged.",
                 };
 
-            var context = ctx.DebugController.GetLocals()?.Context ?? "(All Procedures)";
+            var context = ctx.DebugController.GetLocals()?.Context ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
             ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });
@@ -1935,13 +1937,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_toolbox_items")]
-    [Description("Returns the names of all controls currently in the Toolbox, in order. Includes both built-in controls and any add-in registered controls.")]
+    [Description("Returns the names of all controls currently in the Toolbox, in order, each with the type name a control placed from it takes. Includes both built-in controls and any add-in registered controls. An in-box control, such as the ProgressBar, is there once for each of its libraries the project references, which Project > Components sets: MSComctlLib.ProgressBar from MSCOMCTL.OCX, ComctlLib.ProgressBar from COMCTL32.OCX.")]
     public async Task<ToolboxItemsResult> GetToolboxItemsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var items = ctx.ToolBoxViewModel.Components
-                .Select(c => new ToolboxItem(c.Name, c.BaseClass?.VBTypeName))
+                .Select(c => new ToolboxItem(c.Name, c.VBTypeName))
                 .ToArray();
             return new ToolboxItemsResult(items);
         });
@@ -2035,28 +2037,28 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
     }
 
-    private static readonly (string Name, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
+    private static readonly (string Name, int MinimumSelection, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
     [
-        ("AlignLefts", d => d.AlignLefts),
-        ("AlignRights", d => d.AlignRights),
-        ("AlignTops", d => d.AlignTops),
-        ("AlignBottoms", d => d.AlignBottoms),
-        ("AlignCentersH", d => d.AlignCentersH),
-        ("AlignCentersV", d => d.AlignCentersV),
-        ("MakeSameWidth", d => d.MakeSameWidth),
-        ("MakeSameHeight", d => d.MakeSameHeight),
-        ("MakeSameSize", d => d.MakeSameSize),
-        ("MakeHorizontalSpacingEqual", d => d.MakeHorizontalSpacingEqual),
-        ("IncreaseHorizontalSpacing", d => d.IncreaseHorizontalSpacing),
-        ("DecreaseHorizontalSpacing", d => d.DecreaseHorizontalSpacing),
-        ("RemoveHorizontalSpacing", d => d.RemoveHorizontalSpacing),
-        ("MakeVerticalSpacingEqual", d => d.MakeVerticalSpacingEqual),
-        ("IncreaseVerticalSpacing", d => d.IncreaseVerticalSpacing),
-        ("DecreaseVerticalSpacing", d => d.DecreaseVerticalSpacing),
-        ("RemoveVerticalSpacing", d => d.RemoveVerticalSpacing),
-        ("SizeToGrid", d => d.SizeToGrid),
-        ("CenterHorizontally", d => d.CenterHorizontally),
-        ("CenterVertically", d => d.CenterVertically),
+        ("AlignLefts", 2, d => d.AlignLefts),
+        ("AlignRights", 2, d => d.AlignRights),
+        ("AlignTops", 2, d => d.AlignTops),
+        ("AlignBottoms", 2, d => d.AlignBottoms),
+        ("AlignCentersH", 2, d => d.AlignCentersH),
+        ("AlignCentersV", 2, d => d.AlignCentersV),
+        ("MakeSameWidth", 2, d => d.MakeSameWidth),
+        ("MakeSameHeight", 2, d => d.MakeSameHeight),
+        ("MakeSameSize", 2, d => d.MakeSameSize),
+        ("MakeHorizontalSpacingEqual", 2, d => d.MakeHorizontalSpacingEqual),
+        ("IncreaseHorizontalSpacing", 2, d => d.IncreaseHorizontalSpacing),
+        ("DecreaseHorizontalSpacing", 2, d => d.DecreaseHorizontalSpacing),
+        ("RemoveHorizontalSpacing", 2, d => d.RemoveHorizontalSpacing),
+        ("MakeVerticalSpacingEqual", 2, d => d.MakeVerticalSpacingEqual),
+        ("IncreaseVerticalSpacing", 2, d => d.IncreaseVerticalSpacing),
+        ("DecreaseVerticalSpacing", 2, d => d.DecreaseVerticalSpacing),
+        ("RemoveVerticalSpacing", 2, d => d.RemoveVerticalSpacing),
+        ("SizeToGrid", 1, d => d.SizeToGrid),
+        ("CenterHorizontally", 1, d => d.CenterHorizontally),
+        ("CenterVertically", 1, d => d.CenterVertically),
     ];
 
     // Named as LocalizationService names them when developer mode lists them.
@@ -2113,7 +2115,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
+    [Description("Captures the window's client area, without its title bar or frame, as a PNG. 'captureArea' explains this in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2140,7 +2142,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
             using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
             if (bitmap is null)
-                return new SnapshotResult(null, "Window has no size", activeDialog);
+                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
@@ -2149,7 +2151,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut));
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut), Title: active.Title);
             if (!inline)
                 return result;
 
@@ -2222,7 +2224,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
                      + "on screen, the selected code tab's and the Immediate window's among them, and 'PropertiesTool' "
                      + "the Properties window. Only what is in the tree is found, so not a document in a tab that is not "
-                     + "selected. Every node is searched, interactive or not, to 'maxDepth' below 'root'; the reply's "
+                     + "selected, or a dialog page that is not selected. Every node is searched, interactive or not, to "
+                     + "'maxDepth' below 'root'; the reply's "
                      + "'note' says how many matched and what was not searched.")]
         string? match = null,
         CancellationToken ct = default)
@@ -2259,7 +2262,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
                 UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly: false), match, MatchLimit);
-            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched),
+            var options = active.GetVisualDescendants().OfType<Control>().Prepend(active)
+                .Select(c => c.DataContext).OfType<OptionsViewModel>().FirstOrDefault();
+            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched,
+                    label == "MainWindow" ? ctx.DocumentDockService : null, options?.RootNodes, options?.SelectedNode),
                 focus.FocusedPath, focus.FocusReason);
         });
         // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
@@ -2335,7 +2341,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
         : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
 
-    private static string MatchNote(string match, int total, int unsearched)
+    internal static string MatchNote(string match, int total, int unsearched,
+        IDocumentDockService? dock = null,
+        IEnumerable<OptionsNodeViewModel>? pages = null,
+        OptionsNodeViewModel? selectedPage = null)
     {
         var note = total switch
         {
@@ -2346,9 +2355,33 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                                          + "Narrow 'match', or scope with 'root'.",
             _ => $"{total} nodes match '{match}'.",
         };
-        return unsearched == 0 ? note
-            : note + $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
+        if (unsearched > 0)
+            note += $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
               + "not searched: raise maxDepth, or search again from a truncated node's path as 'root'.";
+        var tabs = dock?.AllTabs.Where(t => !ReferenceEquals(t, dock.ActiveTab)).Select(t => t.Title ?? "").ToArray() ?? [];
+        if (tabs.Length > 0)
+            note += $" {tabs.Length} open tab(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", tabs.Select(t => $"'{t}'")) + ". activate_document_tab brings one to the front.";
+
+        IEnumerable<string> UnselectedPages(IEnumerable<OptionsNodeViewModel> nodes,
+            string prefix = "")
+        {
+            foreach (var node in nodes)
+            {
+                var title = prefix + node.Title;
+                if (node.Page is not null && !ReferenceEquals(node, selectedPage))
+                    yield return title;
+                foreach (var child in UnselectedPages(node.Children, title + " > "))
+                    yield return child;
+            }
+        }
+        var omittedPages = UnselectedPages(pages ?? []).ToArray();
+        if (omittedPages.Length > 0)
+            note += $" {omittedPages.Length} page(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", omittedPages.Select(p => $"'{p}'"))
+                    + ". Use dump_visual_tree to find the category tree, then interact 'expand' on its category "
+                    + "and 'select' on a page to search its contents.";
+        return note;
     }
 
     [McpServerTool(Name = "inspect_element")]
@@ -2373,13 +2406,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. The primary is the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. The primary is the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags; any control, a Label or a form's area included); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
         string action,
-        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'.")]
+        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double.")]
         string? value = null,
         [Description(WindowParameter)]
         string? window = null,
@@ -2971,7 +3004,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(ConversationEntryKind))]
     [DescribesEnum(typeof(ConversationDirection))]
     [DescribesEnum(typeof(ConversationOutcome), "None")]
-    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — without content: 'was this request even sent', 'what came back', 'how long did it take'. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus five found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client), Abandoned (the connection went away first) or TimedOut (the local request deadline expired); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
+    [Description("Lists recorded language-server envelopes — time, direction, method, id, size, outcome and latency — without content. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error or standard output) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus six found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), StandardOutput (a line a named-pipe server wrote to stdout, verbatim), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client), Abandoned (the connection went away first) or TimedOut (the local request deadline expired); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         [Description("One server's connection, as get_lsp_capture_state lists them; omit for every connection.")]
         string? connectionId = null,
@@ -3280,7 +3313,9 @@ internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
-    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null);
+    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null,
+    string? Title = null,
+    string CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
 
 internal record ProjectInfoResult(
     string? ProjectName,
@@ -3358,7 +3393,7 @@ internal record AddFileResult(
 internal record WindowStateResult(string State, int X, int Y, int Width, int Height);
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
-internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window);
+internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);
 
 internal record ToolWindowInfo(string Name, bool Visible);
 

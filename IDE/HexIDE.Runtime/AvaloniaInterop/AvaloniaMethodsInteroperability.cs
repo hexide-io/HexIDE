@@ -14,6 +14,7 @@ public static class AvaloniaMethodsInteroperability
 {
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        VBProps.RefuseIfRemoved(c);
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
         // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
         // is 438 late-bound (measured).
@@ -214,6 +215,7 @@ public static class AvaloniaMethodsInteroperability
     /// </summary>
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        VBProps.RefuseIfRemoved(c);
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);
