@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -65,29 +66,43 @@ public static class SnapshotComposer
         CollectOpenPopupRoots(window, window, popups);
 
         var placements = new List<(Visual Visual, PixelRect Rect)>();
+        var noArea = new List<LeftOutPopup>();
         foreach (var popup in popups)
         {
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
-            if (rect.Width <= 0 || rect.Height <= 0) continue;
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                noArea.Add(new LeftOutPopup(KindOf(popup), rect, "which has no area to draw"));
+                continue;
+            }
             placements.Add((popup, rect));
         }
 
-        // A headless window has no screens, and then none is ruled out.
-        var screens = window.Screens?.All.Select(s => s.Bounds).ToList();
-        return Compose(window, windowRect, placements, scaling, screens is { Count: > 0 } ? screens : null,
+        // Where the platform reports no screens, or only ones with no area, none rules a popup out.
+        var screens = window.Screens?.All.Select(s => s.Bounds).Where(b => b.Width > 0 && b.Height > 0).ToList();
+        var image = Compose(window, windowRect, placements, scaling, screens is { Count: > 0 } ? screens : null,
             out windowOffset, out leftOut);
+        if (noArea.Count > 0)
+            leftOut = [.. noArea, .. leftOut];
+        return image;
     }
 
-    /// <summary>A popup the snapshot does not show: where it was reported, and why it was left out.</summary>
-    public sealed record LeftOutPopup(PixelRect Rect, string Reason);
+    /// <summary>
+    /// A popup the snapshot does not show: what it holds, where it was reported in screen pixels, and why it was left out.
+    /// </summary>
+    public sealed record LeftOutPopup(string Kind, PixelRect Rect, string Reason);
 
     /// <summary>
-    /// The most bytes one render target is given. A canvas is the union of the window and its popups, so one popup
-    /// reported far away, as Windows parks a window it is not showing at (-32000, -32000), made a canvas whose bytes
-    /// overflow an Int32 and threw "Positive number required" (#1960). Sixteen thousand pixels square is past any
-    /// display, and well inside an Int32.
+    /// The most bytes one render target is given: 16,384 × 16,384 pixels' worth, 1 GiB. A render target's size in bytes is
+    /// an Int32, so a canvas past 2 GiB overflowed it, and a negative size threw "Positive number required" (#1960). A
+    /// popup reported far from the window would do it, for example at (-32000, -32000), since the canvas is the union of
+    /// the window and its popups. Where the popup in #1960 was really reported is not established.
     /// </summary>
     private const long MaxCanvasBytes = 16384L * 16384 * 4;
+
+    // What a popup holds, a MenuFlyoutPresenter or a ComboBox's list, which is how a reply can tell popups apart.
+    private static string KindOf(Visual popup) =>
+        popup is ContentControl { Content: Control content } ? content.GetType().Name : popup.GetType().Name;
 
     internal static RenderTargetBitmap Compose(Visual window, PixelRect windowRect,
         List<(Visual Visual, PixelRect Rect)> placements, double scaling, out PixelPoint windowOffset)
@@ -99,23 +114,28 @@ public static class SnapshotComposer
         out PixelPoint windowOffset, out IReadOnlyList<LeftOutPopup> leftOut)
     {
         // A popup on no screen is not on screen, so a picture of what is on screen leaves it out. One that would make
-        // the image too big to allocate is left out too, rather than costing the whole snapshot. Either is named.
+        // the image too big to allocate is left out too, rather than costing the whole snapshot. Either is named. The
+        // extent is reckoned in longs: a rectangle's right edge is an Int32, and a popup's own size can be the largest
+        // one, which is what a cast from an infinite size gives.
         var canvas = windowRect;
         var dropped = new List<LeftOutPopup>();
         placements = placements.Where(p =>
         {
             if (screens is not null && !screens.Any(screen => screen.Intersects(p.Rect)))
             {
-                dropped.Add(new LeftOutPopup(p.Rect, "it lies on no screen"));
+                dropped.Add(new LeftOutPopup(KindOf(p.Visual), p.Rect, "which is on none of the screens"));
                 return false;
             }
-            var union = canvas.Union(p.Rect);
-            if ((long)union.Width * union.Height * 4 > MaxCanvasBytes)
+            var width = Math.Max((long)canvas.X + canvas.Width, (long)p.Rect.X + p.Rect.Width) - Math.Min(canvas.X, p.Rect.X);
+            var height = Math.Max((long)canvas.Y + canvas.Height, (long)p.Rect.Y + p.Rect.Height) - Math.Min(canvas.Y, p.Rect.Y);
+            if (width * height * 4 > MaxCanvasBytes)
             {
-                dropped.Add(new LeftOutPopup(p.Rect, "it lies too far from the window to draw both in one image"));
+                dropped.Add(new LeftOutPopup(KindOf(p.Visual), p.Rect,
+                    $"which would make the image {width} × {height} pixels with what is drawn before it, more than "
+                    + "16,384 × 16,384 pixels' worth"));
                 return false;
             }
-            canvas = union;
+            canvas = canvas.Union(p.Rect);
             return true;
         }).ToList();
         leftOut = dropped;
