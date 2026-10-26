@@ -506,7 +506,9 @@ public static class UiAutomationDriver
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
                            ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
-                           : " Target the copy that shows, or make it show first; invoke_command and set_property act on "
+                           : shows is false && CollapsedPropertyCategoryHolding(control) is { } category
+                               ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                               : " Make it show first; invoke_command and set_property act on "
                              + "its view model and still work"));
 
         AutomationPeer peer;
