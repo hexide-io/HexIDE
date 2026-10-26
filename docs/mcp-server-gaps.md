@@ -419,19 +419,15 @@ part of it.
 `invoke_menu_item {"path":"Project/Add Module"}` does the same for `Module3`. An untouched module loaded from
 disk reads `false`.
 
-**Since #273 task 3.18 the `content` half of that reply reads differently, and the defect does not.**
-`get_file_content` now returns a module's whole file, so a new `Helpers` answers with its one header line,
-`Attribute VB_Name = "Helpers"`, rather than `""`. `hasUnsavedChanges` still compares the code section with
-the model's, which did not change, so it still reads `true`. The `""` above is what was measured, before
-that change.
+**Resolved (#500, #597).** #489 measured that a new document has no file until it is saved, and #500
+removed the immediate write. The reply now correctly reports `hasUnsavedChanges: true` for a new
+form, module, class, UserControl or PropertyPage. `get_file_content`'s description explicitly says that
+a document with no file yet always has unsaved changes. Save Project asks where to write it; after
+saving, an untouched document reads `false`. No render baseline should be recorded at creation.
 
-**Workaround.** Read `hasUnsavedChanges` on a document added in this session as "new", not as "edited".
-
-**Suggested fix.** Undecided, and filed as needs-decision:
-[#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
-document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
-description.
-
+`WriteAtSaveTests.A_new_member_has_unsaved_changes_until_its_first_save` covers the transition for all
+five document kinds, in both saved and unsaved projects. The calls above record the original symptom,
+before #500; they no longer describe a file written by `add_file`.
 
 
 ## The code window's gutters are not in the control tree, so a gutter click cannot be driven
