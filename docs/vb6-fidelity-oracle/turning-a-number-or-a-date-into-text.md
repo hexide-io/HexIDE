@@ -175,6 +175,8 @@ A third run, same guest and locale.
 - **"General Date", the `c` token and "General Number" write exactly what `CStr` writes.** The named formats were never different paths.
 - **`Len` is not a string function on a number.** It measures a numeric variable's storage and refuses a numeric expression outright (#780). So the earlier draft's `Len(CSng(1) / 3)` row, which HexIDE answered 9, was not valid VB6.
 - **A fraction of a second rounds to the nearest second; it is not cut off** (#783). The rounding can carry into the next day. Of the halves, 0.5 and 2.5 s round up and 1.5 s rounds down. That fits rounding the serial's exact binary value, where `0.5 + 1.5 / 86400` falls just short of the half. I would not call it a tie rule from three rows.
+  **Overturned by #783's sweep (2026-10-26):** `0.5 + 0.5 / 86400` is also short of the half in binary, and rounds up. The rule, fitted to
+  418 serials, is in [A date's fraction of a second](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783).
 - **A string too large for a Double is an Overflow**, not infinity (#782).
 
 ### HexIDE, after #772 and #771

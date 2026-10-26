@@ -64,6 +64,42 @@ from <https://github.com/microsoft/language-server-protocol>. These are download
 `artifacts/` directory when the tests run; a clone contains none of them and no release artefact does
 either. The attribution above is given because CC BY asks for it, not because the file is conveyed.
 
+## Installer
+
+The Windows installer, `hexide-windows-amd64-setup.exe`, is built with **Inno Setup 6.7.3**, and its setup
+program carries Inno Setup's own code. HexIDE's code is unaffected. Inno Setup's licence, as published with
+release `is-6_7_3` at <https://github.com/jrsoftware/issrc/blob/is-6_7_3/license.txt>:
+
+```
+Inno Setup License
+==================
+
+Except where otherwise noted, all of the documentation and software included in the Inno
+Setup package is copyrighted by Jordan Russell.
+
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+
+This software is provided "as-is," without any express or implied warranty. In no event shall
+the author be held liable for any damages arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose, including commercial
+applications, and to alter and redistribute it, provided that the following conditions are met:
+
+1. All redistributions of source code files must retain all copyright notices that are currently
+   in place, and this list of conditions without modification.
+
+2. All redistributions in binary form must retain all occurrences of the above copyright notice
+   and web site addresses that are currently in place (for example, in the About boxes).
+
+3. The origin of this software must not be misrepresented; you must not claim that you wrote
+   the original software. If you use this software to distribute a product, an acknowledgment
+   in the product documentation would be appreciated but is not required.
+
+4. Modified versions in source or binary form must be plainly marked as such, and must not
+   be misrepresented as being the original software.
+```
+
 ## Icons
 
 - **Fluent UI System Icons** — Copyright (c) Microsoft Corporation. MIT License.

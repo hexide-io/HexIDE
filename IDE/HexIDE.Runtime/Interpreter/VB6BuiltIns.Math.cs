@@ -61,6 +61,11 @@ public partial class VB6BuiltIns
         {
             float => new Vb6Value((float)r),
             decimal => v.Type == VT.Currency ? Vb6Value.NewCurrency((decimal)r) : Vb6Value.NewDecimal((decimal)r),
+            // A Date stays a Date, cut on its serial: Int and Fix of 1999-12-31 23:59:59.6 are both 31/12/1999, where
+            // CStr of the date itself is 01/01/2000 (measured, #783). Only Int can leave the range, from a time on 1 January 100.
+            VbDate when VbDate.InRange(r) => new Vb6Value(new VbDate(r)),
+            VbDate => throw new NotImplementedException(
+                "Int of a time on 1 January 100 is not implemented: the day before is outside the Date range, and what vb6.exe does was not measured (#783)"),
             _ => new Vb6Value(r)
         };
     }
