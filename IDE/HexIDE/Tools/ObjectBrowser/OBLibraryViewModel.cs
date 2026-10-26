@@ -1,15 +1,12 @@
 using System.Collections.Generic;
 using HexIDE.Runtime.ProjectElements;
+using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.ObjectBrowser;
 
-public class OBLibraryViewModel
+public partial class OBLibraryViewModel
 {
-    // Sentinel that represents the "<All Libraries>" dropdown entry.
-    public static readonly OBLibraryViewModel AllLibraries =
-        new("<All Libraries>") { IsLoaded = true };
-
-    public string Name { get; }
+    [Notify] private string name;
     public List<OBClassViewModel> Classes { get; } = new();
 
     // Non-null for type-library references that are loaded on demand.
@@ -20,7 +17,7 @@ public class OBLibraryViewModel
 
     public OBLibraryViewModel(string name, VbReference? reference = null)
     {
-        Name = name;
+        this.name = name;
         Reference = reference;
         IsLoaded = reference == null; // project/VB libraries are pre-loaded
     }

@@ -118,7 +118,7 @@ public class Vb6ToolchainDiagnosticsTests
 
     /// <summary>
     /// A failing build's log, in the shape vb6.exe actually writes -- measured, and quoted in
-    /// docs/vb6-fidelity-oracle.md. The leading blank line is real, and so are the spaces either side of
+    /// docs/vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md. The leading blank line is real, and so are the spaces either side of
     /// the colon.
     /// </summary>
     private static string CompileErrorIn(string path, int line = 7, string message = "Type mismatch") =>

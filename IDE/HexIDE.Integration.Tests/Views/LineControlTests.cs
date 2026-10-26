@@ -25,7 +25,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// p-code agreeing, by reading members back and by reading pixels with <c>Point</c> on a painted form (the oracle's
 /// "The Line control").
 /// </summary>
-public class LineControlTests
+public class LineControlTests : WindowTestFixture
 {
     private static string Form(string scale, string controls) =>
         "VERSION 5.00\r\n"

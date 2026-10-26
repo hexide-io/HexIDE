@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog;
 
@@ -14,6 +16,8 @@ namespace HexIDE.IDE;
 public partial class SettingsService : ObservableObject, ISettingsService
 {
     private readonly string _filePath;
+    private readonly HashSet<string> _changedProperties = new();
+    private bool _loading;
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
     // Defaults derive from SettingsDefaults (the single source of truth).
@@ -223,8 +227,18 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Persistence ─────────────────────────────────────────────
 
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!_loading && e.PropertyName is { } name)
+            _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
+        base.OnPropertyChanged(e);
+    }
+
     public void Save()
     {
+        if (_loading || _changedProperties.Count == 0)
+            return;
+
         try
         {
             var data = new SettingsData
@@ -260,8 +274,18 @@ public partial class SettingsService : ObservableObject, ISettingsService
                     Height = _window.Height
                 }
             };
-            var json = JsonSerializer.Serialize(data, s_jsonOptions);
-            File.WriteAllText(_filePath, json);
+            // Preserve fields changed outside this instance, including settings from newer versions.
+            var latest = File.Exists(_filePath)
+                ? JsonNode.Parse(File.ReadAllText(_filePath))!.AsObject()
+                : new JsonObject();
+            var current = JsonSerializer.SerializeToNode(data)!.AsObject();
+            // Only keys the file actually holds: a property that raises a change but isn't persisted must not
+            // write a null over whatever the file says under that name.
+            foreach (var name in _changedProperties)
+                if (current.ContainsKey(name))
+                    latest[name] = current[name]?.DeepClone();
+            AtomicFileWriter.WriteAllText(_filePath, latest.ToJsonString(s_jsonOptions));
+            _changedProperties.Clear();
             Log.Debug("SettingsService: Saved to {Path}", _filePath);
         }
         catch (Exception ex)
@@ -272,6 +296,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     public void Load()
     {
+        _loading = true;
         try
         {
             if (!File.Exists(_filePath))
@@ -318,6 +343,11 @@ public partial class SettingsService : ObservableObject, ISettingsService
         catch (Exception ex)
         {
             Log.Warning(ex, "SettingsService: Failed to load from {Path}, using defaults", _filePath);
+        }
+        finally
+        {
+            _loading = false;
+            _changedProperties.Clear();
         }
     }
 

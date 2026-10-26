@@ -447,7 +447,7 @@ internal sealed class LspDocumentSession : IDisposable
             // A severity a server omits is an error: the protocol leaves it to the client, and treating an
             // unstated severity as a hint would hide real problems from a server that never sets it.
             var isError = diagnostic.Severity is null || diagnostic.Severity == DiagnosticSeverity.Error;
-            markers.Add(new LspMarker(startOffset, endOffset, isError, diagnostic.Message));
+            markers.Add(new LspMarker(startOffset, endOffset, isError, diagnostic.Message, diagnostic.Source));
         }
 
         return markers;

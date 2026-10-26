@@ -1,4 +1,4 @@
-// Generated from vb6.exe's measurements for #1567: see "Option Compare Text" in docs/vb6-fidelity-oracle.md.
+// Generated from vb6.exe's measurements for #1567: see "Option Compare Text" in docs/vb6-fidelity-oracle/option-compare-text-and-vb6s-text-compare.md.
 namespace HexIDE.Runtime.Tests;
 
 internal static class TextCompareMeasurements

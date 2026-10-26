@@ -32,7 +32,7 @@ namespace HexIDE.Desktop.Server;
 /// keeps the message as thrown.
 /// </para>
 /// </remarks>
-internal static class ToolFailures
+internal static partial class ToolFailures
 {
     /// <summary>
     /// Checks text before the SDK converts its JsonNode request to CallToolRequestParams. That conversion writes
@@ -168,8 +168,8 @@ internal static class ToolFailures
         return problems.Count > 0 ? problems : [WithoutProfile(ex.Message)];
     }
 
-    // Tools are declared in this assembly (the test host links this file beside its own attributed tools).
-    private static readonly Dictionary<string, Dictionary<string, Type>> ParameterTypes = typeof(ToolFailures).Assembly
+    // Tools are declared in this assembly; the test host adds its synthetic tool signatures.
+    internal static readonly Dictionary<string, Dictionary<string, Type>> ParameterTypes = typeof(ToolFailures).Assembly
         .GetTypes().Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null)
         .SelectMany(t => t.GetMethods())
         .Where(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name is not null)
@@ -241,7 +241,7 @@ internal static class ToolFailures
             && !string.Equals(shortForm, profile, StringComparison.OrdinalIgnoreCase))
             forms.Add(shortForm);
 
-        // And each spelled with forward slashes, as a file:///C:/Users/... URI carries it in an LSP message (#606).
+        // And each spelled with forward slashes, as a file:///<drive>:/Users/... URI carries it in an LSP message (#606).
         foreach (var form in forms.ToList())
             if (form.Contains('\\'))
                 forms.Add(form.Replace('\\', '/'));
@@ -255,6 +255,6 @@ internal static class ToolFailures
         return length is > 0 and < 1024 ? new string(buffer, 0, (int)length) : null;
     }
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetShortPathNameW", SetLastError = true)]
-    private static extern uint GetShortPathName(string longPath, char[] shortPath, uint bufferLength);
+    [LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16, EntryPoint = "GetShortPathNameW", SetLastError = true)]
+    private static partial uint GetShortPathName(string longPath, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] char[] shortPath, uint bufferLength);
 }

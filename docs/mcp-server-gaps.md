@@ -150,8 +150,16 @@ than calling a tool: three refused calls in a row drop the tools until `/mcp`.
 
 **Retiring this entry** needs the client change named at the top. Everything #765 asked to be checked live has
 been, except what the client does with a 400, which no switch-over has produced yet.
-No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on. #764 records a
-server-side idea that may win back the added-tool case, to measure during the SDK upgrade.
+No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on.
+
+**SDK upgrade (#764).** The server now uses 2.2.0, supporting `server/discover` and revision 2026-07-28;
+legacy clients remain stateless too. The historical Claude Code measurements above are not measurements of
+this SDK. Recheck a fresh connection for the absence of the legacy negotiation fallback, then call an existing
+tool before and after a rebuild/relaunch, including a 40-second downtime, and check that the tools remain
+callable without `/mcp`. Repeat tool-list discovery after adding a tool. The comment on #764 suggests
+`notifications/tools/list_changed` on a call's response stream; no notification or subscription handler has
+been added, and its effect on Claude Code remains unmeasured. Keep this entry open until the client behaviour
+is measured again; the upgrade alone does not retire it.
 
 ---
 
@@ -206,7 +214,13 @@ Linux, and that a real mouse behaves normally after a hover ends.
 > is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
 > with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
 > process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
-> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
+> look in the log. The four IDE-owned timer callbacks named in #652 now catch and log exceptions with
+> their purpose and stack, remaining nonfatal. This covers dock-layout capture, the language revert
+> countdown, the minimap redraw and the designer code-navigation follow-up; the DEBUG crash hook remains
+> an unwrapped framework probe. VB6 Timer events keep their existing interpreter runtime-error handling
+> (checked in the later #652 comment). WSL/Ubuntu headless probes on Avalonia 12 confirm that throwing Tick and Run
+> callbacks execute without reaching `Dispatcher.UIThread.UnhandledException`; the three logging regressions
+> (Tick, Run, RunOnce) each fail with an empty log when the guard is reduced to calling the body directly.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
@@ -296,6 +310,12 @@ the confirmation the tool promises. Either way, do not leave a window up with no
 shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
 what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
 
+**Ordering hardened for #644 (2026-10-25; live verification pending).** The main-window close now waits
+for HTTP response completion, and server/context cleanup waits for desktop `Exit`, rather than the
+cancellable `ShutdownRequested` event. Headless regression coverage checks response ordering and the
+exit subscription. The original trigger remains unknown; keep this entry open until a running IDE check
+confirms a complete reply followed by exit, and a cancelled close leaves `/health` and tools working.
+
 ---
 
 ## An empty reply that does not say why is a defect, not a null result
@@ -354,30 +374,9 @@ by re-reading prose that had just been written. That half is the first-contact e
 
 ---
 
-## Every automation route to a new document saves it, so the pathless state cannot be reached
+## A newly created pathless form initially reads without its header (#885)
 
-**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
-the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
-by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
-`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
-into `%TEMP%` before the first tool call
-(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
-file.
-
-**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
-*ordinary* state: nothing is written until the project is saved. #273 names such a document
-`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
-servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
-through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
-spelling is dead code.
-
-**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
-`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
-`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
-writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
-of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
-
-**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+**Symptom, since #273 task 3.18.** Read in code, not run. `get_file_content`
 returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
 which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
 change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
@@ -385,12 +384,6 @@ its lines count from the top of that header. So a line number read before then i
 it. **Workaround:** read the content again after any designer change or save before using a line number from it.
 Where a created form's first header should come from, so that it holds one from the start, is
 [#885](https://github.com/hexide-io/HexIDE/issues/885).
-
-**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
-leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
-way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
-can reach the state the product will normally be in once #500 lands. Until then, any verification of
-`untitled:` naming through this surface is verifying something the surface itself prevents.
 
 ## Three tools accept a negative control size and report success
 
@@ -426,18 +419,16 @@ part of it.
 `invoke_menu_item {"path":"Project/Add Module"}` does the same for `Module3`. An untouched module loaded from
 disk reads `false`.
 
-**Since #273 task 3.18 the `content` half of that reply reads differently, and the defect does not.**
-`get_file_content` now returns a module's whole file, so a new `Helpers` answers with its one header line,
-`Attribute VB_Name = "Helpers"`, rather than `""`. `hasUnsavedChanges` still compares the code section with
-the model's, which did not change, so it still reads `true`. The `""` above is what was measured, before
-that change.
+**Resolved (#500, #597).** #489 measured that a new document has no file until it is saved, and #500
+removed the immediate write. The reply now correctly reports `hasUnsavedChanges: true` for a new
+form, module, class, UserControl or PropertyPage. `get_file_content`'s description explicitly says that
+a document with no file yet always has unsaved changes. Save Project asks where to write it; after
+saving, an untouched document reads `false`. No render baseline should be recorded at creation.
 
-**Workaround.** Read `hasUnsavedChanges` on a document added in this session as "new", not as "edited".
+`WriteAtSaveTests.A_new_member_has_unsaved_changes_until_its_first_save` covers the transition for all
+five document kinds, in both saved and unsaved projects. The calls above record the original symptom,
+before #500; they no longer describe a file written by `add_file`.
 
-**Suggested fix.** Undecided, and filed as needs-decision:
-[#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
-document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
-description.
 
 ## The code window's gutters are not in the control tree, so a gutter click cannot be driven
 
@@ -466,34 +457,16 @@ dedicated tool if the authoring policy justifies one. Filed as
 shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
 `expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
 CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
-folds one again. A `click` action on `interact` would cover this margin as well as the gutters.
+folds one again in that build. Since #1014, Edit → Toggle Fold can toggle the innermost section at the caret
+or starting on its row, including a member run beside its procedure fold. This supplies a command workaround;
+it does not address clicking the margin itself. A `click` action on `interact` would cover this margin as well
+as the gutters.
 
 **A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
 the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
 it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
-
-## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
-
-**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
-member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
-`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
-Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
-place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
-a change it did not make, with no reason given.
-
-**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
-through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
-`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
-added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
-names `set_file_content` alone.
-
-**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
-re-qualified.
-
-**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
-is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
 
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 
@@ -528,63 +501,6 @@ returned before the write, which is applied the same way.
 `type_text` give. The issue lists this tool among the writers that still edit such a file.
 [#701](https://github.com/hexide-io/HexIDE/issues/701).
 
-## Replies that report or act on a document without taking its name do not say which project's it is
-
-**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
-loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
-that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
-group holding a `Form1` in each of two projects:
-
-```
-step_over {}               → "note": "Paused at Form1 line 9 (Step)."
-                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
-get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
-invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
-                             as invoke_designer_redo, get_undo_state and invoke_format_command
-get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
-get_open_editors {}        → each editor's title, and 'activeWindow' as a title
-```
-
-None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
-`project`; the run-control notes beside them do not. A tab's title starts with its project's name
-(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
-the IDE's language, and not the `project` and `document` every naming tool takes and returns.
-
-**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
-lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
-designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
-a name.
-
-**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
-locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
-tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
-Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
-SHALL identify it by its project and its name", is only partly met.
-[#886](https://github.com/hexide-io/HexIDE/issues/886).
-
-## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
-→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
-interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
-→ opened menu 'ToolsMenuItem'
-```
-
-An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
-carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
-x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
-is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
-Cross-platform by code reading.
-
-**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
-label fallback, but that is read in code and was not tried.
-
-**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
-it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
-[#948](https://github.com/hexide-io/HexIDE/issues/948).
 
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 
@@ -611,41 +527,29 @@ names the rule and points to `add_to_selection`, and the no-op note generated fr
 cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
 
 
-## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+## The code window's completion description: desktop snapshot composition still needs a live check
 
-**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
-`TrySetContent`) compares the header first and returns on the first difference:
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it.
+[#1334](https://github.com/hexide-io/HexIDE/issues/1334).
 
-```
-set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
-→ refused: "The content would change the document's header (its designer block, class header or leading
-   Attribute lines), which only the IDE changes. ..."
-```
+**Fixed in code, with headless regression tests.** The dump now reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and requests insertion through the completion list's own commit path. The current list
+appends to the typed prefix rather than replacing it (#941); the test checks the resulting document text.
 
-A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
-first reply did not give.
+**Still open.** The snapshot composer uses that same attached-popup route to discover the description's
+top-level root and compose it after the list. This has not been checked live. Headless popups render in the
+window's own overlay, so headless rendering cannot prove the desktop composition works. A running IDE
+`take_snapshot(window: "ide")` with a described completion selected remains required.
 
-**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
-sending again.
+**Workaround.** Read the description with `dump_visual_tree(window: "ide", interactiveOnly: false)`.
+For snapshot visibility, no verified workaround.
 
-**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
-[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
-
-## The code window's completion list: its description tooltip is out of reach, and `double_click` does not commit an item
-
-**Symptom.** Recorded when #942 closed (#1247), from the code and the headless tests; no call was recorded. Since #942,
-`dump_visual_tree` lists an open completion list and its items under the `TextEditor` that opened it, and
-`take_snapshot` composes the list into the image. The description tooltip the list shows beside an item is reached by
-neither, so a caller cannot read an item's description or tell that one is showing. Committing an item with
-`interact` `double_click` does not work either: the list takes a commit on the press, which `double_click` does not
-send.
-
-**Workaround.** For the description, none. To commit an item, `select` it and then `press_key` Tab. Until #941 is
-fixed, Enter does not commit and Tab appends the item instead of replacing the word being typed.
-
-**Suggested fix.** Reach the description tooltip by the route that reaches the list itself, so the dump lists it
-under the list and the snapshot composes it. Have `double_click` on a completion item commit it, or say in its reply
-that it did not. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+**Suggested check.** In a running IDE select a completion with a description, then call
+`take_snapshot(window: "ide")` and confirm the tooltip's text, position and unclipped extent. Keep this
+entry open until that check passes.
 
 ## A document save reached through a menu, key or click can reply before its picker opens
 
@@ -684,19 +588,6 @@ the eventual picker takes it. Prefer the tools that await their save and report 
 pending-answer feedback to document saves. Waiting for dispatcher idle or adding a fixed delay would not establish
 completion. The remaining scope is [#1335](https://github.com/hexide-io/HexIDE/issues/1335).
 
-## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally
-
-**Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
-HTTP endpoint rather than a client's tool call ("a 3840×2054 window came back as a 1568×838 PNG of 75 KB"), and
-says "Not yet run through Claude Code over a tunnel". A raw request shows nothing about what a client does with the
-image block, and a client on another machine receiving the image is what #957 was filed for. Covered headless by
-`InlineSnapshotTests` only.
-
-**Workaround.** Without `inline`, copy the file from the IDE's machine by hand.
-
-**Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
-IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
-
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
 **Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
@@ -720,35 +611,6 @@ reach 5123, and an IDE there serves both, since neither names itself.
 **Suggested fix.** None that needs no setup: telling two unnamed clients apart needs something a client sends
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
-
-## A reply names a waiting dialog only by its title, and two of the IDE's dialogs share one
-
-**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
-dialog appear in a reply's note as `"'HexIDE', a modal dialog over 'Project1 - HexIDE [run]', is open and waits for an
-answer…"`. One holds a `MessageBox` with Yes and No, and the other a `RuntimeErrorView` with Continue, End, Debug and
-Help. Only `dump_visual_tree {"window":"HexIDE","maxDepth":3}` tells them apart, through class names. Separately, the
-only call found that lists the open windows was one naming a window that doesn't exist, `window: "x"`, which is refused
-with the list.
-
-**Workaround.** Dump the dialog before answering it, and read its buttons. Name an unknown window to get the list.
-
-**Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
-windows on request, or say in the `window` description that an unknown name lists them.
-[#1365](https://github.com/hexide-io/HexIDE/issues/1365).
-
-## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
-
-**Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
-control, moves with the button held, and a release somewhere else. `interact {"target":"<a Label on a running form>",
-"action":"click","value":"10,5"}` presses and releases at that one point, and `click`'s own remarks call a drag
-"beyond it". No other call raises a pointer press.
-
-**Workaround.** None through the surface. `MouseEventTests` drives the drags headlessly with `MouseDown`, `MouseMove`
-and `MouseUp`.
-
-**Suggested fix.** Let `click` take a release point, as in `10,5 to 200,30`: press on the target, move with the button
-held, release at the second point to whatever holds the pointer.
-[#1402](https://github.com/hexide-io/HexIDE/issues/1402).
 
 ## `press_key` with Alt and a letter never reaches a control's access key
 
@@ -849,3 +711,57 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
   `isReadOnly` for the value pattern.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
+
+## `take_snapshot` of a running form leaves out its title bar without saying so
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
+the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
+- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
+- The image is the form's client area, grey and empty, with no title bar.
+- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
+  captured, and took `activeDialog` as the confirmation.
+
+Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
+comes back in a field named `activeDialog`.
+
+**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
+"maxDepth":1}`.
+
+**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
+what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
+
+## The `modalDialog` note lists a dialog's check boxes among its buttons
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** `invoke_menu_item {"path":"Tools/Options"}`
+answered with `"modalDialog":"'Options' (Prompt for project/Reload files changed outside the IDE/Reset All/Restore
+Defaults/OK/Cancel), a modal dialog over 'Project1 - HexIDE [design]', …"`. The first two are check boxes on the page
+showing. They are not answers to the dialog. `OpenDialogs.DescriptionOf` takes every `Button`, and Avalonia's
+`CheckBox` and `RadioButton` derive from it.
+
+**Workaround.** Dump the dialog to see which are buttons.
+
+**Suggested fix.** Leave `ToggleButton`s out of the buttons. [#2079](https://github.com/hexide-io/HexIDE/issues/2079).
+
+## A path not starting with `Window` is refused without saying where paths come from
+
+**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
+snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
+and was refused with `path must start with 'Window' (got 'Editor')`. The refusal is accurate, but it doesn't name
+where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
+
+**Workaround.** `dump_visual_tree` with `match` gives the path.
+
+**Suggested fix.** End every path refusal with that next step. [#2080](https://github.com/hexide-io/HexIDE/issues/2080).
+## `toggle` reads the state back before work it set off has run
+
+**Symptom (2026-10-26, #1103, Windows).** The Components dialog refuses an uncheck of a library a form uses, and puts the
+box back once the binding's write is over, through the dispatcher.
+`interact {"window":"Components","target":"Window/Custom/Tab/List/Pane[PART_ScrollViewer]/ListItem[#1]/CheckBox[Microsoft Windows Common Controls 6.0 (SP6)]","action":"toggle"}`
+answered `it is now off`. After the refusal's message box was answered, `inspect_element` on the same path read
+`"toggleState": true`.
+
+**Workaround.** When a toggle opens a modal window, answer it and read the state again with `inspect_element`.
+
+**Suggested fix.** Before reading back, drain the dispatcher's queued work, as `click` waits for the next frame; a running
+form's controls already wait for the program (#1255). Where a modal window opened during the call, say that the state may
+change once it is answered. [#2050](https://github.com/hexide-io/HexIDE/issues/2050).

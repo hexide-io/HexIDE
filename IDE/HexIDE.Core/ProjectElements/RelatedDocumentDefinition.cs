@@ -53,6 +53,9 @@ public partial class RelatedDocumentDefinition : INotifyPropertyChanged
     /// </summary>
     public string? OriginalItemLine { get; }
 
+    /// <summary>The recognised-line slot the reclassified entry was read from.</summary>
+    public int? OriginalItemSlot { get; init; }
+
     public RelatedDocumentDefinition(
         ProjectDefinition owner, string name, string? absolutePath = null, string? originalItemLine = null)
     {

@@ -33,6 +33,20 @@ public sealed class LanguageServerConfigFile
     /// </remarks>
     [JsonPropertyName("capture")]
     public CaptureLimitsEntry? Capture { get; set; }
+
+    /// <summary>
+    /// Arguments added to an entry's own, by entry id, without replacing the entry (#262).
+    /// </summary>
+    /// <remarks>
+    /// <b>A channel of its own rather than a merge or a placeholder.</b> A user entry that shares a default's id
+    /// replaces it wholesale, and the bundled server's command is found at run time, so before this there was no way to
+    /// pass that server one more argument. A field-level merge would make an entry behave differently depending on
+    /// whether its id happened to be a default's. A placeholder for the found command would bring a template language
+    /// into a file that has none. This adjusts arguments and nothing else, and it is written apart from the servers,
+    /// so the effective entry can still be read off the file.
+    /// </remarks>
+    [JsonPropertyName("arguments")]
+    public Dictionary<string, ServerArguments>? Arguments { get; set; }
 }
 
 /// <summary>
@@ -54,6 +68,10 @@ public sealed class LanguageServerConfigFile
 /// </remarks>
 public sealed class WorkspaceArtifactEntry
 {
+    /// <summary>Provider-owned settings, passed through without interpreting their schema.</summary>
+    [JsonPropertyName("settings")]
+    public JsonElement? Settings { get; set; }
+
     /// <summary>
     /// Where the file goes, relative to the workspace root.
     /// </summary>
@@ -168,7 +186,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("command")]
     public string? Command { get; set; }
     [JsonPropertyName("arguments")]
-    public string? Arguments { get; set; }
+    public ServerArguments? Arguments { get; set; }
+
+    [JsonPropertyName("environment")]
+    public Dictionary<string, string>? Environment { get; set; }
 
     /// <summary>Where to run it. Defaults to the project's own directory when absent.</summary>
     [JsonPropertyName("workingDirectory")]
@@ -177,6 +198,10 @@ public sealed class LanguageServerEntry
     // ── websocket ─────────────────────────────────────────────────────────────────────────────────────
     [JsonPropertyName("endpoint")]
     public string? Endpoint { get; set; }
+
+    /// <summary><c>connect</c> (default) or <c>listen</c>.</summary>
+    [JsonPropertyName("websocketRole")]
+    public string? WebSocketRole { get; set; }
 
     // ── pipe ──────────────────────────────────────────────────────────────────────────────────────────
     [JsonPropertyName("pipeName")]
@@ -317,5 +342,7 @@ public enum LanguageServerConfigProblemKind
 // Names are pinned per property rather than left to the naming policy. This is a file people have
 // written and keep; a C# rename must not quietly change what their file has to say.
 [JsonSerializable(typeof(LanguageServerConfigFile))]
+[JsonSerializable(typeof(LanguageServerEntry))]
+[JsonSerializable(typeof(string[]))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 public partial class LanguageServerConfigJsonContext : JsonSerializerContext { }
