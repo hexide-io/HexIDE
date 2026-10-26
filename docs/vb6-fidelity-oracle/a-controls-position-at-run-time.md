@@ -95,3 +95,12 @@ What it still does not do:
 - **A TextBox's and CommandButton's floors** (#1029): `Text1.Width = 7` reads 7, where VB6 gives 150.
 - **Mouse X and Y**, `Move`, and the Scale* properties are not converted here: #974, and #990.
 
+
+## A Timer's designer position (#2069)
+
+Issue #2069 records the vb6.exe SP6 measurements made for #1556, with native and p-code agreeing.
+Through `Dim o As Object`, reading `o.Left` or `o.Top` raises run-time error **393**, for both a Timer
+saved in the form and one created with `Controls.Add`. The recorded description is
+"'Left' property cannot be read at run time". Early-bound `Form1.Timer1.Left` fails compilation with
+"Method or data member not found". A Timer's designer position is not a readable run-time position.
+Writes were not measured.
