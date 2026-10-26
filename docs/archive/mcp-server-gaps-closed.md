@@ -9,6 +9,28 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `take_snapshot` threw "Positive number required" with a text box's flyout reopened in a dialog — **CLOSED** (#1960, 2026-10-26)
+
+**Symptom (2026-10-25, Windows, IDE in Arabic).** With Replace open and its first box's Cut/Copy/Paste flyout reopened by a
+second `interact` `expand`, `take_snapshot()` and `take_snapshot(window: 'استبدال')` failed with an unhandled
+`System.ArgumentException: Positive number required (Parameter 'size')`, thrown from `RenderTargetBitmap`'s constructor
+in `SnapshotComposer.Compose`. Escape closed the flyout and the next snapshot worked.
+
+**Workaround (before the fix).** Close the popup, then take the snapshot.
+
+**Fixed (#1960).** The canvas is the union of the window and every open popup in screen pixels. A popup reported far
+from the window, as Windows parks a window it is not showing at (-32000, -32000), made it a canvas whose bytes
+overflow an `Int32`, which is the only way a canvas at least the window's size gives that exception. `Compose` now
+leaves out a popup that lies on no screen, and one that would take the image past 16,384 pixels square, and
+`take_snapshot`'s `note` names each, where it was reported and why. The window and every other popup are drawn.
+`SnapshotComposerTests` pin both. A popup at (-32000, -32000) threw the same exception before the fix.
+
+**Live (#1960, 2026-10-26).** Windows, a Debug build of the fix, from a Claude Code session's hexide tools. The report's
+steps did not reproduce the failure: across six cycles of `collapse` and `expand` on Replace's first box (three in English,
+three in Arabic, the dialog titled `استبدال`), 14 snapshots each drew the flyout inside the 546×291 dialog, with no note.
+Where the reported flyout really was placed is not established, so the fix is pinned by the composer's tests, not by a
+live reproduction.
+
 ## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally — **CLOSED** (#1330, 2026-10-25)
 
 **Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
