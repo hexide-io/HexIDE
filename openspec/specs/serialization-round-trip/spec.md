@@ -611,6 +611,36 @@ bytes are valid UTF-8.
 - **WHEN** its project is opened on a Windows-1252 host
 - **THEN** the module reads `Ã©`, not `é`
 
+### Requirement: A project SHALL record UTF-8 that detection cannot infer
+
+When saving a project, a source member retained as UTF-8 without a byte-order mark whose text has no
+character above U+00FF SHALL have a `path=utf-8` entry in a trailing `[HexIDE]` section of the `.vbp`.
+The path SHALL be the path used by the member's project item line, including after Save As. No entry
+SHALL be written for a member with a BOM, a character above U+00FF, or another encoding. Other tools'
+trailing sections SHALL be preserved, and the section SHALL follow every standard project key.
+
+A fresh open SHALL try that project's record after the encoding last read in and before the host's code
+page. The record SHALL apply only if strict decoding and encoding reproduce the bytes. A shared member
+SHALL follow the record of the project being opened. Source bytes SHALL NOT gain a BOM for this purpose.
+Whether VB6's File → Save Project retains the section is unmeasured; `/make` accepting trailing sections
+does not establish save behaviour.
+
+#### Scenario: An edit removes the UTF-8 signature
+- **GIVEN** a BOM-less UTF-8 module holding `' café 日本`
+- **WHEN** its code becomes `' café` and the project is saved and freshly opened
+- **THEN** its `.vbp` records its member path as `utf-8` and the module reads as `' café`
+- **AND** its file remains UTF-8 without a BOM
+
+#### Scenario: Detection becomes sufficient again
+- **GIVEN** a member with an encoding record
+- **WHEN** a character above U+00FF is added and the project is saved
+- **THEN** the redundant record is removed
+
+#### Scenario: An external editor replaces the recorded file with ANSI
+- **GIVEN** a member recorded as UTF-8 whose bytes no longer decode strictly as UTF-8
+- **WHEN** the project is freshly opened
+- **THEN** decoding continues to the host's code page and the byte-for-byte fallback as before
+
 ### Requirement: An edit the file's encoding cannot hold SHALL be refused the same way on every save path
 
 When a document holds a character its encoding cannot represent, the IDE SHALL refuse to save it rather than

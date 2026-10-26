@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
 using Path = System.IO.Path;
 
@@ -81,6 +82,7 @@ public class ProjectSerializer
             AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
         }
 
+        var encodingPaths = new List<string>();
         foreach (var form in project.Forms)
         {
             if ((pathOf?.Invoke(form) ?? form.AbsolutePath) is not { } formPath)
@@ -88,6 +90,10 @@ public class ProjectSerializer
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, formPath));
             AddKnownLine($"{SerializedProject.FormKey}={relativePath}");
+            if (form.TextEncoding == Vb6TextEncoding.Utf8 &&
+                ProjectEncodingRecords.NeedsRecord(form.TextEncoding,
+                    new FormSerializer().Serialize(form, Path.GetFileName(formPath)).frmText))
+                encodingPaths.Add(relativePath);
         }
 
         foreach (var module in project.Modules)
@@ -96,6 +102,14 @@ public class ProjectSerializer
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, modulePath));
+            if (module.TextEncoding == Vb6TextEncoding.Utf8)
+            {
+                var text = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage && module.FormPart is { } designer
+                    ? new FormSerializer().Serialize(designer, module.Code, Path.GetFileName(modulePath)).frmText
+                    : ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader);
+                if (ProjectEncodingRecords.NeedsRecord(module.TextEncoding, text))
+                    encodingPaths.Add(relativePath);
+            }
             var key = module.Kind switch
             {
                 ModuleKind.ClassModule  => SerializedProject.ClassKey,
@@ -215,10 +229,11 @@ public class ProjectSerializer
             writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
 
         // Append the extension tail (third-party [SectionName]...EOF content)
-        if (!string.IsNullOrEmpty(project.ExtensionTail))
+        var extensionTail = ProjectEncodingRecords.Write(project.ExtensionTail, encodingPaths);
+        if (!string.IsNullOrEmpty(extensionTail))
         {
             writer.WriteLine();
-            writer.Write(project.ExtensionTail);
+            writer.Write(extensionTail);
         }
 
         return writer.ToString();
