@@ -367,10 +367,12 @@ SelectedItem was the item that moved up into its Index.
 **The programs.**
 - **The saves:** three forms of ListViews, written by hand, opened in VB6's IDE, and saved there once the form had been
   dirtied with a comment. Each block VB6 wrote is therefore its own serialisation of what it had loaded.
-  - In one form, a column's Icon Index was set and a column was inserted in the Column Headers property page before the
-    save.
+  - In the second form, a column's Icon Index was set and a column was inserted in the Column Headers property page
+    before the save.
   - The Properties window was read for the first ListView of each form.
-- **The run-time reads:** two of the forms were built as EXEs that read every property back, natively and as p-code.
+- **The run-time reads:** EXEs read every property back, natively and as p-code.
+  - The first read the second form as written by hand, which is where the missing-line values below come from.
+  - The second read VB6's own save of the third form, the round trip from VB6's writer to its reader.
 - **The corpus:** VB6's saves are in `corpus/inbox-controls/pending/listview/` and `listview-columns/`.
 
 **Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
@@ -424,7 +426,9 @@ Width; `_ExtentX` and `_ExtentY`; then
 - **The bindings** are written as strings: `Icons = "ImageList1"`.
 
 **Which lines are left out:**
-- **LabelWrap, HideSelection, `_Version`, ForeColor, Appearance and NumItems are written whatever their value.**
+- **LabelWrap, HideSelection, `_Version`, ForeColor, Appearance and NumItems were written in every save here, at their
+  defaults too.** LabelWrap and HideSelection were seen at both values, Appearance at 0 and 1, and ForeColor at
+  `&H80000008`, `&H80000012` and 255.
 - **BorderStyle 0 is never written.** The line is left out, with Appearance 0 or 1.
 - **BackColor `&H8000000F` was left out.**
 - **Every other line is written only when off its default.** SortOrder 0 and TextBackground 0, written by hand, were
@@ -485,6 +489,7 @@ NumItems 0 written, and no BackColor or BorderStyle.
 - **Inserting a column** in the page at Index 2 gave it SubItemIndex 1, and moved the later columns' SubItemIndex up by
   one, as `ColumnHeaders.Add` does at run time.
 - **Nothing in the file holds ListItems.** The property pages have no page for them.
+- **Not measured:** Picture, the background picture, and MouseIcon, the two properties that go to the `.frx`.
 
 **In the IDE:**
 - **The property pages:** General, Image Lists, Sorting, Column Headers, Color, Font and Picture.
