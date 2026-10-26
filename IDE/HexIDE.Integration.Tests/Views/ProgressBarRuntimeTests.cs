@@ -59,11 +59,11 @@ public class ProgressBarRuntimeTests
             Debug.Print ProgressBar1.Value, TypeName(ProgressBar1.Value), ProgressBar1.Min, ProgressBar1.Max, TypeName(ProgressBar1.Max)
             Debug.Print ProgressBar1.Orientation, TypeName(ProgressBar1.Orientation), ProgressBar1.Scrolling, ProgressBar1.Appearance
             Debug.Print ProgressBar1.BorderStyle, ProgressBar1.OLEDropMode, ProgressBar1.MousePointer, TypeName(ProgressBar1.MousePointer)
-            Debug.Print ProgressBar1.Enabled, TypeName(ProgressBar1)
+            Debug.Print ProgressBar1.Enabled, TypeName(ProgressBar1), ProgressBar1.TabIndex, TypeName(ProgressBar1.TabIndex)
             """);
 
         printed.Should().Equal("0", "Single", "0", "100", "Single", "0", "Long", "0", "1", "0", "0", "0", "Long",
-            "True", "ProgressBar");
+            "True", "ProgressBar", "0", "Integer");
     }
 
     [AvaloniaTheory]
@@ -245,7 +245,6 @@ public class ProgressBarRuntimeTests
     [InlineData("Debug.Print ProgressBar1.Align")]
     [InlineData("ProgressBar1.WhatsThisHelpID = 5")]
     [InlineData("ProgressBar1.DragMode = 1")]
-    [InlineData("Debug.Print ProgressBar1.TabIndex")]
     public async Task What_HexIDE_does_not_implement_is_refused_as_such(string code)
     {
         var act = () => Run(code);
