@@ -218,7 +218,23 @@ and no Tag, and the icon with Key `ico` and Tag `t3`:
   - A Custom size of 24 by 20 wrote `ImageWidth = 24` and `ImageHeight = 20`.
   - UseMaskColor unticked wrote `UseMaskColor = 0 'False` after MaskColor.
 - **`Object.Tag`** is the Tag, and its name is padded as though it were `Tag`, so `=` sits seven columns further right
-  than in the lines around it. An empty Tag writes no line. Whether an empty Key writes one wasn't saved.
+  than in the lines around it.
+- **An empty Key writes `Key = ""`, and an empty Tag writes no line.** A second save had four images: no Key and no Tag;
+  Key `k2` and no Tag; Key `k3` and Tag `t3`; and no Key with Tag `t4`. Every one wrote its `Key` line, straight after
+  `Picture`, the empty ones as `Key             =   ""`. Only the two with a Tag wrote `Object.Tag`, after the Key:
+
+  ```
+         BeginProperty ListImage1 {2C247F27-8591-11D1-B16A-00C0F0283628} 
+            Picture         =   "Form1.frx":0000
+            Key             =   ""
+         EndProperty
+         ...
+         BeginProperty ListImage4 {2C247F27-8591-11D1-B16A-00C0F0283628} 
+            Picture         =   "Form1.frx":087E
+            Key             =   ""
+            Object.Tag             =   "t4"
+         EndProperty
+  ```
 - **The `.frx` holds each picture as an object record:**
   - a 4-byte length of what follows;
   - StdPicture's CLSID, `{0BE35204-8F91-11CE-9DE3-00AA004BB851}`, 16 bytes;
