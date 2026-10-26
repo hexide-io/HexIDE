@@ -235,13 +235,14 @@ directly works too, but now and then fails with "Read-only file system" while wr
 like a flaky test and isn't. Keep `apt-get update` in the first command. The SDK packages change most months,
 and an out-of-date package list asks for files that have been removed, which fails with a wall of 404s.
 
-WSL runs a newer Ubuntu than CI does. If CI fails and WSL does not, try CI's exact version (24.04) in a
-container with [Podman](https://podman.io/). Podman is free, whereas Docker Desktop needs a paid licence in
+WSL and CI both run Ubuntu 26.04 now, since GitHub moved `ubuntu-latest` on 2026-10-19. If CI fails and
+WSL does not, try CI's own image in a container with [Podman](https://podman.io/). The tag below follows
+CI's release, which a failing job's log names on its `Image:` line. Podman is free, whereas Docker Desktop needs a paid licence in
 larger organisations. Run this from PowerShell; in Git Bash, MSYS rewrites `/repo/IDE` into a Windows path:
 
 ```powershell
 podman run --rm -v "C:\path\to\HexIDE:/repo" -v hexide-nuget:/root/.nuget -w /repo/IDE `
-  mcr.microsoft.com/dotnet/sdk:10.0-noble `
+  mcr.microsoft.com/dotnet/sdk:10.0-resolute `
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 
