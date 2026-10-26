@@ -72,6 +72,37 @@ public class NamedPipeProcessNoticeTests
             connectTimeout: TimeSpan.FromSeconds(3));
 
     [Fact]
+    public async Task StandardOutputIsReadEvenWhenTheServerNeverCreatesItsPipe()
+    {
+        var launch = OperatingSystem.IsWindows()
+            ? new NamedPipeLaunch("cmd.exe", "/c \"echo stdout-one& echo stdout-two& exit 9\"")
+            : new NamedPipeLaunch("/bin/sh", "-c \"echo stdout-one; echo stdout-two; exit 9\"");
+        await using var transport = Transport(launch, PipeName());
+        var seen = new List<TransportNotice>();
+        var gate = new Lock();
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, n) =>
+        {
+            lock (gate)
+            {
+                seen.Add(n);
+                if (seen.Count(notice => notice.Kind == TransportNoticeKind.StandardOutput) >= 2) reported.TrySetResult();
+            }
+        };
+
+        var handler = await transport.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
+        handler.Should().BeNull();
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "two standard-output lines from the server that never creates its pipe", TestContext.Current.CancellationToken);
+        lock (gate)
+        {
+            seen.Where(n => n.Kind == TransportNoticeKind.StandardOutput).Select(n => n.Text)
+                .Should().Equal("stdout-one", "stdout-two");
+            seen.Should().NotContain(n => n.Kind == TransportNoticeKind.StandardError);
+        }
+    }
+
+    [Fact]
     public async Task EveryLineTheServerWroteToStandardErrorReachesTheNoticeChannel()
     {
         // Before this the ProcessStartInfo did not set RedirectStandardError at all, so these lines were

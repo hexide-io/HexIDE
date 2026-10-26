@@ -78,16 +78,17 @@ public class WorkDoneProgressReporterTests
     {
         var client = Substitute.For<ILspClient>();
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString("Str.StatusBar.LanguageServerProgress").Returns("Language server: {0}");
+        localization.GetString("Str.StatusBar.LanguageServerProgress").Returns("{0}: {1}{2}");
+        localization.GetString("Str.StatusBar.LanguageServer").Returns("Language server");
         localization.GetString("Str.StatusBar.Ready").Returns("Ready");
         var status = new StatusBarService(localization);
         return (client, status, new LanguageServerMessageReporter(client, status, localization));
     }
 
     private static void Send(ILspClient client, object sender, string token, string kind,
-        string? title = null, string? message = null, uint? percentage = null) =>
+        string? title = null, string? message = null, uint? percentage = null, string? serverName = null) =>
         client.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(sender,
-            new ProgressParams(JsonSerializer.SerializeToElement(token), new WorkDoneProgressValue(kind, title, message, percentage)));
+            new ProgressParams(JsonSerializer.SerializeToElement(token), new WorkDoneProgressValue(kind, title, message, percentage)) { ServerDisplayName = serverName });
 
     [Fact]
     public void ProgressBeginReportAndEndUpdateThenImmediatelyClearTheStatus()
@@ -97,9 +98,9 @@ public class WorkDoneProgressReporterTests
         Send(client, client, "one", "begin", "indexing", percentage: 0);
         status.Message.Should().Be("Language server: indexing (0%)");
         Send(client, client, "one", "report", message: "headers", percentage: 50);
-        status.Message.Should().Be("Language server: indexing headers (50%)");
+        status.Message.Should().Be("Language server: indexing: headers (50%)");
         Send(client, client, "one", "report");
-        status.Message.Should().Be("Language server: indexing headers (50%)");
+        status.Message.Should().Be("Language server: indexing: headers (50%)");
         Send(client, client, "one", "end", message: "done");
         status.Message.Should().Be("Ready");
     }
@@ -110,7 +111,7 @@ public class WorkDoneProgressReporterTests
         var (client, status, reporter) = Setup();
         using var _ = reporter;
         Send(client, client, "one", "begin", "index\r\n  files", "many\nheaders");
-        status.Message.Should().Be("Language server: index files many headers");
+        status.Message.Should().Be("Language server: index files: many headers");
         Send(client, client, "one", "report", message: new string('x', 5000));
         status.Message.Length.Should().BeLessThan(230);
         status.Message.Should().EndWith("…");
@@ -122,12 +123,28 @@ public class WorkDoneProgressReporterTests
         var (client, status, reporter) = Setup();
         using var _ = reporter;
         var other = new object();
-        Send(client, client, "same", "begin", "first");
-        Send(client, other, "same", "begin", "second");
+        Send(client, client, "same", "begin", "first", serverName: "Bundled");
+        Send(client, other, "same", "begin", "second", serverName: "External");
+        status.Message.Should().Be("External: second");
         Send(client, other, "same", "end");
-        status.Message.Should().Be("Language server: first");
+        status.Message.Should().Be("Bundled: first");
         Send(client, client, "same", "end");
         status.Message.Should().Be("Ready");
+    }
+
+    [Theory]
+    [InlineData("phase", "files", null, "External: phase: files")]
+    [InlineData("phase", null, 0u, "External: phase (0%)")]
+    [InlineData(null, "files", 50u, "External: files (50%)")]
+    [InlineData(null, null, null, "External")]
+    public void NamedProgressOmitsMissingParts(string? title, string? message, uint? percentage, string expected)
+    {
+        var (client, status, reporter) = Setup();
+        using var _ = reporter;
+        client.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(client,
+            new ProgressParams(JsonSerializer.SerializeToElement("one"),
+                new WorkDoneProgressValue("begin", title, message, percentage)) { ServerDisplayName = "External" });
+        status.Message.Should().Be(expected);
     }
 
     [Fact]

@@ -51,6 +51,8 @@ public class SettingsServiceTests : IDisposable
     [InlineData(nameof(SettingsService.IsDebugToolbarVisible), true)]
     [InlineData(nameof(SettingsService.IsFormEditorToolbarVisible), true)]
     [InlineData(nameof(SettingsService.IsMinimapVisible), false)]
+    [InlineData("IsStickyScrollEnabled", false)]
+    [InlineData("StickyScrollDepth", 5)]
     public void Save_PreservesOtherInstancesChanges(string propertyName, object value)
     {
         var first = CreateSut();
@@ -64,6 +66,46 @@ public class SettingsServiceTests : IDisposable
         var reloaded = CreateSut();
         property.GetValue(reloaded).Should().Be(value);
         reloaded.Window.Should().Be(second.Window);
+    }
+
+    [Fact]
+    public void StickyScroll_OptionsLoadSaveAndRestoreDefaults()
+    {
+        var settings = CreateSut();
+        var enabled = typeof(SettingsService).GetProperty("IsStickyScrollEnabled");
+        var depth = typeof(SettingsService).GetProperty("StickyScrollDepth");
+        enabled.Should().NotBeNull();
+        depth.Should().NotBeNull();
+        enabled!.GetValue(settings).Should().Be(true);
+        depth!.GetValue(settings).Should().Be(3);
+        enabled.SetValue(settings, false);
+        depth.SetValue(settings, 7);
+        var page = new HexIDE.Forms.ViewModels.Options.EditorGeneralPageViewModel(settings);
+        var pageEnabled = page.GetType().GetProperty("IsStickyScrollEnabled")!;
+        var pageDepth = page.GetType().GetProperty("StickyScrollDepth")!;
+        pageEnabled.GetValue(page).Should().Be(false);
+        pageDepth.GetValue(page).Should().Be(7);
+        page.RestoreDefaults();
+        enabled.GetValue(settings).Should().Be(false, "reset previews until Apply");
+        depth.GetValue(settings).Should().Be(7);
+        pageEnabled.GetValue(page).Should().Be(true);
+        pageDepth.GetValue(page).Should().Be(3);
+        page.SaveToSettings();
+        settings.Save();
+        enabled.GetValue(CreateSut()).Should().Be(true);
+        depth.GetValue(CreateSut()).Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData(-2, 1)]
+    [InlineData(100, 10)]
+    public void StickyScroll_DepthIsClampedWhenLoading(int input, int expected)
+    {
+        File.WriteAllText(SettingsPath, "{\"stickyScrollDepth\":" + input + "}");
+        var settings = CreateSut();
+        var depth = typeof(SettingsService).GetProperty("StickyScrollDepth");
+        depth.Should().NotBeNull();
+        depth!.GetValue(settings).Should().Be(expected);
     }
 
     [Fact]

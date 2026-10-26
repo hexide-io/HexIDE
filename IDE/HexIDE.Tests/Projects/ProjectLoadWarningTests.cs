@@ -19,6 +19,7 @@ public class ProjectLoadWarningTests : IDisposable
         Directory.CreateDirectory(dir);
         localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>() switch
         {
+            "Str.ProjectLoad.FormNotFound" => "Formular fehlt: {0}",
             "Str.ProjectLoad.Heading" => "Warnungen:",
             "Str.ProjectLoad.MoreWarnings" => "Weitere: {0}",
             "Str.ProjectLoad.UnknownControl" => "Klasse {0}, Steuerelement {1}",
@@ -73,14 +74,61 @@ public class ProjectLoadWarningTests : IDisposable
         Messages.Should().ContainSingle().Which.Should().Be("Übersprungen:   • Report.dob");
     }
 
+    [Theory]
+    [InlineData("UserControl=Control1.ctl", "Control1.ctl", "ModuleFailed", true)]
+    [InlineData("Module=Module1; Module1.bas", "Module1.bas", "ModuleFailed", true)]
+    [InlineData("Form=Missing.frm", "Missing.frm", "FormNotFound", false)]
+    [InlineData("Form=Broken.frm", "Broken.frm", "FormFailed", false)]
+    [InlineData("Form=Broken.frm", "Broken.frm", "FormFailedWithReason", true)]
+    public async Task Loader_supplies_a_key_fallback_and_separate_arguments(
+        string item, string member, string suffix, bool throwOnRead)
+    {
+        var token = TestContext.Current.CancellationToken;
+        var path = Path.Join(dir, "P.vbp");
+        await File.WriteAllTextAsync(path, "Type=Exe\r\nName=\"P\"\r\n" + item + "\r\n", token);
+        if (suffix != "FormNotFound")
+            await File.WriteAllTextAsync(Path.Join(dir, member), "Begin VB.Label Label1\r\nEnd", token);
+        var sink = new Sink();
+        var loader = new ProjectLoader
+        {
+            FileRead = (_, _) =>
+            {
+                if (throwOnRead) throw new IOException("read probe");
+            }
+        };
+
+        await loader.LoadAsync(path, sink);
+
+        sink.Key.Should().Be("Str.ProjectLoad." + suffix);
+        sink.Arguments.Should().Equal(throwOnRead ? [member, "read probe"] : [member]);
+        var expected = suffix switch
+        {
+            "ModuleFailed" => $"Failed to load module {member}: read probe",
+            "FormNotFound" => $"Form file not found: {member}",
+            "FormFailed" => $"Failed to load form {member}",
+            _ => $"Failed to load form {member}: read probe"
+        };
+        string.Format(sink.Fallback!, sink.Arguments).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task Loader_warning_uses_the_current_language_and_keeps_the_path()
+    {
+        await Open("VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd\r\n", "Form=Missing.frm\r\n");
+        Messages.Should().ContainSingle().Which.ReplaceLineEndings("\n")
+            .Should().Be("Warnungen:\nFormular fehlt: Missing.frm");
+    }
+
     private sealed class Sink : IDeserializeErrorSink
     {
         public string? Key;
+        public string? Fallback;
         public object[] Arguments = [];
         public void LogError(string error) { }
         public void LogError(string key, string fallback, params object[] arguments)
         {
             Key = key;
+            Fallback = fallback;
             Arguments = arguments;
         }
     }
