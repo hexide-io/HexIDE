@@ -392,6 +392,8 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
 
     public string Header { get; }
 
+    internal PropertyCategory Category => category;
+
     public override string AccessibleName => Header;
 }
 

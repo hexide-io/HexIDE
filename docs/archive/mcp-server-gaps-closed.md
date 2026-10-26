@@ -9,6 +9,21 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## Keyboard `type_text` counted a prompt-raising key as typed — **CLOSED** (#2035, 2026-10-26)
+
+**Symptom (2026-10-26, Windows, #1975's live check).** Keyboard `type_text` of `xyz` into the code window
+while running replied `typed 1 of 3 key(s)` and told the caller to answer the reset prompt, then send the
+rest. After Cancel, `get_file_content` showed the line unchanged and `hasUnsavedChanges: false`: the `x`
+had not landed. The brief does not record the full call's target arguments.
+
+**Workaround (before the fix).** Answer the prompt, then read the text before choosing what to resend.
+
+**Fixed (#2035).** The stop reply identifies the key sent and the dialog it raised, warns that the key
+may not have landed, says nothing after it was sent, and directs the caller to answer and check the text
+before deciding what to send next. It makes no claim about what each answer does to an arbitrary edit.
+`TypeKeysTests` covers dialogs over the typing window, another window, and in a window of their own.
+Live verification of the revised reply remains for the supervising session.
+
 ## A waiting dialog's buttons included its check boxes and radio buttons — **CLOSED** (#2079, 2026-10-26)
 
 **Symptom (2026-10-26, #534's first-contact baseline, Windows).** Opening Tools > Options gave
@@ -1926,7 +1941,8 @@ is defensive at these four sites. It was exercised end to end on the backstop in
 > `x` and `y` now apply independently. A left-out coordinate keeps the window's current value, read after
 > restoring from Maximized, so it is the restored position, not the maximised frame's -11. The reply carries
 > the resulting `window` (state, position, size) as `get_window_state` reports it, read after layout, so a new
-> size is not reported as the old one.
+> size is not reported as the old one on synchronous backends. This layout-only wait did not cover X11
+> window-manager round trips (#946).
 
 **Symptom.** On a window at (190,190) 945×447:
 - `set_window_state {"state":"Normal","width":-50,"x":-99999}` answered only `An error occurred invoking 'set_window_state'.`
@@ -4073,7 +4089,10 @@ deliberately. Cross-platform by code reading.
 > - **`take_snapshot`** drew the row in full: its time, `•` and `broken-txt` in normal text, and the failure in bold
 >   red in the Method column.
 > - **The filtered dump** also lists a recycled grid row holding the same failure, marked `isHidden`:
->   [#1977](https://github.com/hexide-io/HexIDE/issues/1977).
+>   [#1977](https://github.com/hexide-io/HexIDE/issues/1977). Fixed by excluding recycled rows in the
+>   DataGrid rows presenter, including their stale cells. A headless regression filters two rows to one
+>   and checks that the remaining row appears once and its path resolves. Live recheck: repeat the
+>   filter and dump above; the one shown failure should have one DataItem, with no recycled duplicate.
 >
 > **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
 > A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
@@ -4905,6 +4924,10 @@ second copy of an item or a row for one out of view, and a path to it resolved.
 > - **The dump that followed** (`interactiveOnly` false, `maxDepth` 6) listed the four rows in view, Width, Top,
 >   StartUpPosition and Left. Each appeared once, and nothing out of view was listed.
 > - **The dump's order is the reverse of the screen's:** [#1966](https://github.com/hexide-io/HexIDE/issues/1966).
+>   Fixed in #1966: the shared collector orders items-panel containers by their owning list's item index,
+>   with non-container children afterwards. Two Linux headless regressions reproduce the reversed end-jump
+>   and selected-third-row-first cases before the fix, and check item order, uniqueness and path resolution
+>   afterwards (`SelectScrolledOutRowTests`). Live verification of the Properties list remains for review.
 > - **Not met: a row out of view is listed.** After `scroll` `home` and a collapse of Appearance, the next dump
 >   listed Width, the selected row, with `isOffscreen: true`, and so did the one after Appearance was expanded. The
 >   fix says rows out of view are left out: [#1981](https://github.com/hexide-io/HexIDE/issues/1981).
@@ -5299,6 +5322,53 @@ and remaining selection. `type_text` uses that replacement API too, placing text
 segment as a person's typing does. Wholly protected spans still refuse with #1042's region wording.
 Verified by headless code-window integration tests, including unchanged protected text and post-edit selection.
 
+
+## `set_window_state` replies with the window's state from before the change on Linux — **IMPLEMENTED, live verification pending** (#946)
+
+**Symptom.** Each call followed by `get_window_state {}` (Linux, openSUSE Leap 16 under XWayland, Debug build of
+main at b15c7cf, 2026-10-13):
+
+```
+set_window_state {"state":"Normal"}
+→ {"window":{"state":"Maximized","x":0,"y":32,"width":1920,"height":1011}}
+get_window_state {}
+→ {"state":"Normal","x":240,"y":171,"width":1440,"height":733}
+
+set_window_state {"state":"Normal","x":100,"y":100,"width":1280,"height":720}
+→ position updated, width and height still 1440x733
+get_window_state {}
+→ 1280x720
+
+set_window_state {"state":"Maximized"}
+→ {"window":{"state":"Normal", ...}}
+get_window_state {}
+→ Maximized, 0,32 1920x1011
+```
+
+The reply says `success: true` and carries the old value in the field described as the resulting state. #602's
+re-read waits only for HexIDE's own layout, and on Avalonia 12.0.4's X11 backend, which every Linux session uses,
+XWayland included, state and geometry change only when the window manager answers. Linux-specific by code
+reading: the other backends, Headless included, take the requested value at once, so tests cannot reproduce it.
+Read in code and not run, from Maximized: a restore with a size writes the maximised origin back as the position,
+and a refused off-screen position cannot undo a restore already sent while the reply says "Nothing was changed."
+The archived #602 entry's "read after layout, so a new size is not reported as the old one" holds only where the
+platform applies a change at once.
+
+**Workaround.** Ignore the reply's `window` and re-read with `get_window_state {}`.
+
+**Suggested fix.** Wait, bounded at about a second, until the window reports the target state and, when geometry
+was passed, a move or resize has arrived; on timeout, reply with what the window reports and a note to re-read.
+Check the frame against the screens before any state change, so a refusal never has to undo a restore.
+[#946](https://github.com/hexide-io/HexIDE/issues/946).
+
+
+**Implementation.** State confirmation is bounded at 1 s; geometry follows a confirmed restore and waits up to
+a further second for move/resize notifications (no exact-size requirement, since a window manager may clamp).
+Unconfirmed requests return `success: false`, observed `window`, and a `note` directing the caller to
+`get_window_state`. Geometry is validated before restoring; omitted coordinates are not written back. The no-
+window-manager case is reported as unconfirmed too. Headless tests cover delayed confirmation and timeout;
+X11/XWayland verification remains for the supervising session.
+
 ## `get_document_tabs` doesn't say whether a tab has unsaved changes — **CLOSED** (#1945, 2026-10-25)
 
 **Symptom (2026-10-25, Debug build with #1797).** With #1797's unsaved-changes marker live, a designer tab draws
@@ -5350,6 +5420,28 @@ On a second new project, with the project view opened by `interact {"action":"do
 `TreeItem[Project1 (Project1.vbp)]`, `get_document_tabs` listed `{"title":"Project1.vbp","type":"code","isActive":true}`,
 with no `isModified`, beside Form1's designer with one. It still had none after `add_file` added a module.
 
+## `take_snapshot` of a running form leaves out its title bar without saying so
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
+the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
+- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
+- The image is the form's client area, grey and empty, with no title bar.
+- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
+  captured, and took `activeDialog` as the confirmation.
+
+Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
+comes back in a field named `activeDialog`.
+
+**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
+"maxDepth":1}`.
+
+**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
+what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
+
+**Fixed (#2078).** The description and reply now identify the capture as the client area, without its title bar
+or frame. Read `title` for the captured window's actual title, including the IDE's or an empty caption;
+`activeDialog` remains as a compatibility field with its previous meaning. Open popups are still included
+unless `note` says otherwise. Native-frame capture remains the separate part 2 gap in `docs/mcp-server-gaps.md` (#1595).
 
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 

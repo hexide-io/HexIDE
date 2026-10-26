@@ -1162,3 +1162,23 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+### Requirement: Semantic tokens SHALL overlay lexical colours
+The client SHALL declare relative, full semantic token requests with the standard token types and modifiers,
+and without overlapping or multiline tokens. It SHALL ask only the highest-priority document claimant that
+advertises full semantic tokens, decoding against that claimant's legend. Editors SHALL ask on attachment,
+500 ms after changes, and when the server state changes. Tokens SHALL override lexical foreground colours
+only on their ranges; read-only region and diagnostic colours SHALL retain their precedence.
+
+An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
+permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
+version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+
+#### Scenario: A server colours a name differently from the lexical rules
+- **WHEN** a full response classifies a range as a class
+- **THEN** that range uses the theme's type colour
+- **AND** uncovered text keeps its lexical colour
+
+#### Scenario: Analysis is not ready
+- **WHEN** a full request fails
+- **THEN** the editor keeps lexical colouring
+- **AND** a later edit schedules another full request
