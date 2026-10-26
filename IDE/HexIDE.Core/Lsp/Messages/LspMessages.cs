@@ -257,7 +257,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("diagnostic")] DiagnosticClientCapabilities? Diagnostic = null,
     // Appended, never inserted, for the reason on InitializeParams.Trace.
     [property: JsonPropertyName("documentSymbol")] DocumentSymbolClientCapabilities? DocumentSymbol = null,
-    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null);
+    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null,
+    [property: JsonPropertyName("inlayHint")] InlayHintClientCapabilities? InlayHint = null);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -460,7 +461,8 @@ public record ServerCapabilities(
     [property: JsonPropertyName("codeLensProvider")]            System.Text.Json.JsonElement? CodeLensProvider = null,
     [property: JsonPropertyName("diagnosticProvider")]          System.Text.Json.JsonElement? DiagnosticProvider = null,
     [property: JsonPropertyName("executeCommandProvider")]      System.Text.Json.JsonElement? ExecuteCommandProvider = null,
-    [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null)
+    [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null,
+    [property: JsonPropertyName("inlayHintProvider")]           System.Text.Json.JsonElement? InlayHintProvider = null)
 {
     /// <summary>
     /// True when a capability is present and switched on, in either shape the protocol permits.
@@ -998,3 +1000,22 @@ public record WorkDoneProgressValue(
     [property: JsonPropertyName("title")] string? Title = null,
     [property: JsonPropertyName("message")] string? Message = null,
     [property: JsonPropertyName("percentage")] uint? Percentage = null);
+
+public record InlayHintClientCapabilities();
+
+public record InlayHintParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range);
+
+public record InlayHint(
+    [property: JsonPropertyName("position")] Position Position,
+    [property: JsonPropertyName("label")] System.Text.Json.JsonElement Label)
+{
+    [JsonIgnore]
+    public string Text => Label.ValueKind == System.Text.Json.JsonValueKind.String
+        ? Label.GetString() ?? ""
+        : Label.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? string.Concat(Label.EnumerateArray().Select(part =>
+                part.TryGetProperty("value", out var value) ? value.GetString() : ""))
+            : "";
+}

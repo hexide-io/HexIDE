@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisch inspringen",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Opmaken bij opslaan",
     "Str.Options.EditorGeneral.Display.Header": "Weergave",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Inline-hints tonen",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Minimap weergeven",
     "Str.Options.EditorFormatting.Indentation.Header": "Inspringing",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabbreedte:",

@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Αυτόματη εσοχή",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Μορφοποίηση κατά την αποθήκευση",
     "Str.Options.EditorGeneral.Display.Header": "Εμφάνιση",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Εμφάνιση ενσωματωμένων υποδείξεων",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Εμφάνιση μικρογραφίας",
     "Str.Options.EditorFormatting.Indentation.Header": "Εσοχή",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Πλάτος στηλοθέτη:",

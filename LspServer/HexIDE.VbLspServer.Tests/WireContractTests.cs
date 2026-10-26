@@ -24,6 +24,87 @@ public class WireContractTests
         "y = 10\n" +                 // 4  y undeclared → diagnostic (severity 2)
         "End Sub\n";                 // 5
 
+    [Fact]
+    public async Task InlayHintsFollowDocumentLifecycle()
+    {
+        await using var h = new Harness();
+        var initialized = await h.Rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
+            new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }, cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        initialized.GetProperty("capabilities").GetProperty("inlayHintProvider").GetBoolean().Should().BeTrue();
+        await h.Rpc.NotifyWithParameterObjectAsync("initialized", new { });
+        var parameters = new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line = 0, character = 0 }, end = new { line = 9, character = 0 } },
+        };
+        (await RequestAsync(h, "textDocument/inlayHint", parameters)).GetArrayLength().Should().Be(0);
+        await OpenAsync(h, Uri, "Sub Before()\nEnd Sub\n");
+        await h.NextDiagnosticsAsync();
+        (await RequestAsync(h, "textDocument/inlayHint", parameters))[0].GetProperty("label").GetString()
+            .Should().Be("' Sub Before");
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+        {
+            textDocument = new { uri = Uri, version = 2 },
+            contentChanges = new[] { new { text = "Sub After()\nEnd Sub\n" } },
+        });
+        await h.NextDiagnosticsAsync();
+        (await RequestAsync(h, "textDocument/inlayHint", parameters))[0].GetProperty("label").GetString()
+            .Should().Be("' Sub After");
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didClose", DocParams(Uri));
+        await h.NextDiagnosticsAsync();
+        (await RequestAsync(h, "textDocument/inlayHint", parameters)).GetArrayLength().Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("Sub Foo()\nEnd Sub\n", 1, "' Sub Foo")]
+    [InlineData("Sub Foo(): End Sub\n", 0, "' Sub Foo")]
+    [InlineData("Function Foo() As Long\nEnd Function\n", 1, "' Function Foo")]
+    [InlineData("Property Get Foo() As Long\nEnd Property\n", 1, "' Property Get Foo")]
+    [InlineData("Property Let Foo(ByVal x As Long)\nEnd Property\n", 1, "' Property Let Foo")]
+    [InlineData("Property Set Foo(ByVal x As Object)\nEnd Property\n", 1, "' Property Set Foo")]
+    [InlineData("Sub Foo()\nIf x > 1 Then\nEnd If\nEnd Sub\n", 2, "' If x > 1")]
+    [InlineData("Sub Foo()\nDo While x > 1\nLoop\nEnd Sub\n", 2, "' Do While x > 1")]
+    [InlineData("Sub Foo()\nDo\nLoop Until x > 1\nEnd Sub\n", 2, "' Do")]
+    [InlineData("Sub Foo()\nFor i = 1 To 3\nNext\nEnd Sub\n", 2, "' For i")]
+    [InlineData("Sub Foo()\nFor Each item In items\nNext\nEnd Sub\n", 2, "' For Each item")]
+    [InlineData("Sub Foo()\nWhile x > 1\nWend\nEnd Sub\n", 2, "' While x > 1")]
+    [InlineData("Sub Foo()\nSelect Case x\nEnd Select\nEnd Sub\n", 2, "' Select Case x")]
+    [InlineData("Sub Foo()\nWith obj\nEnd With\nEnd Sub\n", 2, "' With obj")]
+    [InlineData("Sub Foo()\nIf outer Then\nIf inner Then\nEnd If\nEnd If\nEnd Sub\n", 3, "' If inner")]
+    [InlineData("Sub Foo()\nIf outer Then\nIf inner Then\nEnd If\nEnd If\nEnd Sub\n", 4, "' If outer")]
+    public async Task InlayHintsNameTheClosedBlock(string source, int line, string label)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, source);
+        await h.NextDiagnosticsAsync();
+        var hints = await RequestAsync(h, "textDocument/inlayHint", new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line, character = 0 }, end = new { line, character = 100 } },
+        });
+        hints.GetArrayLength().Should().Be(1);
+        hints[0].GetProperty("label").GetString().Should().Be(label);
+        hints[0].GetProperty("position").GetProperty("line").GetInt32().Should().Be(line);
+        hints[0].GetProperty("position").GetProperty("character").GetInt32()
+            .Should().Be(source.ReplaceLineEndings("\n").Split('\n')[line].Length);
+    }
+
+    [Fact]
+    public async Task InlayHintsSkipSingleLineIf()
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, "Sub Foo()\nIf x Then x = 1\nEnd Sub\n");
+        await h.NextDiagnosticsAsync();
+        var hints = await RequestAsync(h, "textDocument/inlayHint", new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line = 0, character = 0 }, end = new { line = 9, character = 0 } },
+        });
+        hints.GetArrayLength().Should().Be(1);
+        hints[0].GetProperty("label").GetString().Should().Be("' Sub Foo");
+    }
+
     // ── document sync + diagnostics ─────────────────────────────────────────────────────────────
     [Theory]
     [InlineData("\r")]

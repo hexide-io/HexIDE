@@ -1,6 +1,6 @@
 # The bundled VB6 language server — what it analyses
 
-This document describes what HexIDE's **own** language server produces: the ten live language features, how
+This document describes what HexIDE's **own** language server produces: the eleven live language features, how
 deep each genuinely is, and — separately, because the distinction is load-bearing — which limitations are
 work outstanding and which are the architecture holding a line.
 
@@ -444,6 +444,19 @@ than obeyed.
 
 ---
 
+## 11. Block-end inlay hints
+
+`textDocument/inlayHint` is advertised and returns labels after `End Sub`, `End Function`, `End Property`,
+`End If`, `Loop`, `Next`, `Wend`, `End Select` and `End With` (#1998). The cached CST pairs each closer with
+its opener: procedures show their kind and name, `If` its condition, `For` its counter, and the other
+blocks their opening expression or header. Nested blocks keep their own labels; a single-line `If` has
+none. Labels such as `' Sub Foo` and `' If x > 1` are display text, never edits to the file. Requests are
+filtered to their supplied range, using UTF-16 positions after the closing physical line.
+
+This is syntactic, inside the CST boundary. Parameter-name and inferred-type hints remain outside it.
+No `inlayHint/resolve` or refresh is offered. The same parse used for diagnostics refreshes the hint cache;
+closing a document evicts it.
+
 ## The server's own trace
 
 Not a language feature, so it is absent from the table below — but it is the only way to see *why* one of
@@ -497,6 +510,7 @@ reference implementation the client half is proved against.
 | Document highlights | `textDocument/documentHighlight` | 🔧 Wired | ■ semantic resolution |
 | Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ refusals answered `null` |
 | Formatting | `textDocument/formatting` | 🔶 Partial | ◐ spacing, range |
+| Block-end hints | `textDocument/inlayHint` | ✅ Full | ■ parameter names and inferred types |
 
 Legend: ◐ depth (outstanding work) · ■ boundary (belongs to a language engine).
 

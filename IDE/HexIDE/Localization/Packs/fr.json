@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentation automatique",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Mettre en forme à l'enregistrement",
     "Str.Options.EditorGeneral.Display.Header": "Affichage",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Afficher les indications intégrées",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Afficher la mini-carte",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentation",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Largeur de tabulation :",

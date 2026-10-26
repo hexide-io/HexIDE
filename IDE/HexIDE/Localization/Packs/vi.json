@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Tự động thụt lề",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Định dạng khi lưu",
     "Str.Options.EditorGeneral.Display.Header": "Hiển thị",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Hiện gợi ý nội tuyến",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Hiện bản đồ thu nhỏ",
     "Str.Options.EditorFormatting.Indentation.Header": "Thụt lề",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Độ rộng tab:",

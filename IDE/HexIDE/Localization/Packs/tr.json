@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Otomatik Girinti",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Kaydederken Biçimlendir",
     "Str.Options.EditorGeneral.Display.Header": "Görüntü",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Satır içi ipuçlarını göster",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mini Haritayı Göster",
     "Str.Options.EditorFormatting.Indentation.Header": "Girinti",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Sekme Genişliği:",

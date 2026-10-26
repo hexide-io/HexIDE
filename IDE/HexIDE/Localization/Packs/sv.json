@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatiskt indrag",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatera vid spara",
     "Str.Options.EditorGeneral.Display.Header": "Visning",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Visa infogade tips",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Visa miniatyrkarta",
     "Str.Options.EditorFormatting.Indentation.Header": "Indrag",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabbredd:",

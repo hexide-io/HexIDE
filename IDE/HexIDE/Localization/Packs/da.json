@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisk indrykning",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatér ved gem",
     "Str.Options.EditorGeneral.Display.Header": "Visning",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Vis indlejrede tip",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Vis minikort",
     "Str.Options.EditorFormatting.Indentation.Header": "Indrykning",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabulatorbredde:",

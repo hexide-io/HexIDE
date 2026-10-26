@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "خودکار اندر دھکیلنا",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "محفوظ کرتے وقت فارمیٹ کریں",
     "Str.Options.EditorGeneral.Display.Header": "ڈسپلے",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "ان لائن اشارے دکھائیں",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "منی میپ دکھائیں",
     "Str.Options.EditorFormatting.Indentation.Header": "اندر دھکیلنا",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "ٹیب چوڑائی:",

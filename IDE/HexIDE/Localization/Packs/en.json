@@ -399,6 +399,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Auto Indent",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format on Save",
     "Str.Options.EditorGeneral.Display.Header": "Display",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Show inlay hints",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Show Minimap",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentation",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tab Width:",

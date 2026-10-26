@@ -52,6 +52,26 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task InlayHintsUseTheWholeDocumentAndRespectTheToggle()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var hint = new InlayHint(new Position(1, 7),
+            System.Text.Json.JsonDocument.Parse("\"label\"").RootElement.Clone());
+        _settingsService.ShowInlayHints.Returns(true);
+        _lspClient.RequestInlayHintsAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<CancellationToken>()).Returns([hint]);
+        (await vm.RequestInlayHintsAsync(TestContext.Current.CancellationToken)).Should().Equal(hint);
+        var last = vm.Document.GetLineByNumber(vm.Document.LineCount);
+        await _lspClient.Received(1).RequestInlayHintsAsync(vm.GetDocumentUriPublic(),
+            new(new(0, 0), new(last.LineNumber - 1, last.Length)), Arg.Any<CancellationToken>());
+        _lspClient.ClearReceivedCalls();
+        _settingsService.ShowInlayHints.Returns(false);
+        (await vm.RequestInlayHintsAsync(TestContext.Current.CancellationToken)).Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestInlayHintsAsync(Arg.Any<string>(),
+            Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
     public void ModifiedMarker_FollowsCodeEditsAndRevertWithoutRenderingModel()
     {
         var form = TestHelpers.CreateForm(name: "Form1");

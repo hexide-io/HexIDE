@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "स्वतः इंडेंट",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "सहेजने पर फ़ॉर्मेट करें",
     "Str.Options.EditorGeneral.Display.Header": "प्रदर्शन",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "इनलाइन संकेत दिखाएँ",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "मिनीमैप दिखाएँ",
     "Str.Options.EditorFormatting.Indentation.Header": "इंडेंटेशन",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "टैब चौड़ाई:",

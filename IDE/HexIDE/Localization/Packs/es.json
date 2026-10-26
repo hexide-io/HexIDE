@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Sangría automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatear al guardar",
     "Str.Options.EditorGeneral.Display.Header": "Visualización",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostrar sugerencias intercaladas",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostrar minimapa",
     "Str.Options.EditorFormatting.Indentation.Header": "Sangría",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Ancho de tabulación:",

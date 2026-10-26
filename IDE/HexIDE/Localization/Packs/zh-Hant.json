@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "自動縮排",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "儲存時格式化",
     "Str.Options.EditorGeneral.Display.Header": "顯示",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "顯示內嵌提示",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "顯示縮圖",
     "Str.Options.EditorFormatting.Indentation.Header": "縮排",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "定位點寬度:",

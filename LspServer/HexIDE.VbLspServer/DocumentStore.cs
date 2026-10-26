@@ -37,6 +37,7 @@ internal sealed class DocumentStore
     public Dictionary<string, string> Source { get; } = new();
     public Dictionary<string, List<LspDiagnostic>> Diagnostics { get; } = new();
     public Dictionary<string, List<LspSymbol>> Symbols { get; } = new();
+    public Dictionary<string, List<LspInlayHint>> InlayHints { get; } = new();
     public Dictionary<string, List<LspFoldingRange>> Foldings { get; } = new();
     public Dictionary<string, IReadOnlyDictionary<string, VbDeclaration>> DeclaredTypes { get; } = new();
 
@@ -114,12 +115,14 @@ internal sealed class DocumentStore
         Diagnostics.Remove(uri);
         Symbols.Remove(uri);
         Foldings.Remove(uri);
+        InlayHints.Remove(uri);
         DeclaredTypes.Remove(uri);
     }
 
     private void Refresh(string uri, string source, List<LspDiagnostic> diagnostics,
                          VisualBasic6Parser.StartRuleContext? tree)
     {
+        InlayHints[uri]    = VbInlayHintProvider.GetHints(tree, source);
         Diagnostics[uri]   = diagnostics;
         Symbols[uri]       = VbSymbolProvider.GetSymbols(tree);      // shares the tree (no reparse)
         Foldings[uri]      = VbFoldingProvider.GetFoldings(source);  // regex, no parse

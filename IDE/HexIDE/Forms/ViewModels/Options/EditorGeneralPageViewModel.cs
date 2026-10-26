@@ -22,6 +22,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
     [ObservableProperty] private bool _autoIndent;
     [ObservableProperty] private bool _formatOnSave;
     [ObservableProperty] private bool _isMinimapVisible;
+    [ObservableProperty] private bool _showInlayHints;
 
     public void LoadFromSettings()
     {
@@ -31,6 +32,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         AutoIndent = _settings.AutoIndent;
         FormatOnSave = _settings.FormatOnSave;
         IsMinimapVisible = _settings.IsMinimapVisible;
+        ShowInlayHints = _settings.ShowInlayHints;
     }
 
     public void SaveToSettings()
@@ -41,6 +43,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         _settings.AutoIndent = AutoIndent;
         _settings.FormatOnSave = FormatOnSave;
         _settings.IsMinimapVisible = IsMinimapVisible;
+        _settings.ShowInlayHints = ShowInlayHints;
     }
 
     public void RestoreDefaults()
@@ -51,5 +54,6 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         AutoIndent = SettingsDefaults.AutoIndent;
         FormatOnSave = SettingsDefaults.FormatOnSave;
         IsMinimapVisible = SettingsDefaults.IsMinimapVisible;
+        ShowInlayHints = SettingsDefaults.ShowInlayHints;
     }
 }

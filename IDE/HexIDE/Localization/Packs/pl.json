@@ -397,6 +397,7 @@
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatyczne wcięcia",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatuj przy zapisie",
     "Str.Options.EditorGeneral.Display.Header": "Wyświetlanie",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Pokaż wskazówki w kodzie",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Pokaż minimapę",
     "Str.Options.EditorFormatting.Indentation.Header": "Wcięcia",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Szerokość tabulatora:",

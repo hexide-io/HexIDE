@@ -56,6 +56,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _showInlayHints = SettingsDefaults.ShowInlayHints;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
 
     // ── Editor properties ───────────────────────────────────────
@@ -202,6 +203,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras properties ────────────────────────────────
 
+    public bool ShowInlayHints
+    {
+        get => _showInlayHints;
+        set { if (SetProperty(ref _showInlayHints, value)) Save(); }
+    }
+
     public bool IsMinimapVisible
     {
         get => _isMinimapVisible;
@@ -265,6 +272,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsDebugToolbarVisible = _isDebugToolbarVisible,
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 IsMinimapVisible = _isMinimapVisible,
+                ShowInlayHints = _showInlayHints,
                 Window = new SettingsData.WindowDataJson
                 {
                     State = _window.State,
@@ -335,6 +343,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isDebugToolbarVisible = data.IsDebugToolbarVisible;
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             _isMinimapVisible = data.IsMinimapVisible;
+            _showInlayHints = data.ShowInlayHints;
             if (data.Window is { } w)
                 _window = new WindowData(w.State, w.X, w.Y, w.Width, w.Height);
 
@@ -417,6 +426,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("isFormEditorToolbarVisible")]
         public bool IsFormEditorToolbarVisible { get; set; } = SettingsDefaults.IsFormEditorToolbarVisible;
+
+        [JsonPropertyName("showInlayHints")]
+        public bool ShowInlayHints { get; set; } = SettingsDefaults.ShowInlayHints;
 
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;
