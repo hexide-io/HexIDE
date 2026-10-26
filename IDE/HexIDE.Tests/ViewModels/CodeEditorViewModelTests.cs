@@ -755,6 +755,8 @@ public class CodeEditorViewModelTests : IDisposable
     public async Task RenameShowsTheServersRefusal()
     {
         var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
         _windowManager.InputBox("New name:", "Rename", "Long").Returns("Foo");
         _lspClient.RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), "Foo", Arg.Any<CancellationToken>())
             .Returns(new RenameResult(null, "Long is a keyword"));
