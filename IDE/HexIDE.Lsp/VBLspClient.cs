@@ -1729,6 +1729,9 @@ public sealed class VBLspClient : ILspClient
         return [.. symbols];
     }
 
+    /// <summary>How long stopping waits on a server, once for the answer to <c>shutdown</c> and once for <c>exit</c> to go out.</summary>
+    internal static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(2);
+
     public async Task StopAsync()
     {
         ClearProgress();
@@ -1761,10 +1764,13 @@ public sealed class VBLspClient : ILspClient
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
             {
-                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: TimeSpan.FromSeconds(2));
+                await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: ShutdownTimeout);
             }
             catch { }
-            try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
+            // Bounded too (#1221). A server that has stopped reading fills the pipe, so the write ahead of this one
+            // never finishes and exit queues behind it for good. The shutdown deadline above does not cover that: it
+            // ends the wait for an answer, not the send. Disposing the connection below ends the stuck writes.
+            try { await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout); } catch { }
         }
         DisposeRpc();
 
