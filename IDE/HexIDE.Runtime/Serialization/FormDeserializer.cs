@@ -62,7 +62,17 @@ public class FormDeserializer
         // Each its own list, which VB6's Properties window gives it (#1585).
         componentsByTypeNames["VB.UserControl"]  = UserControlRootClass.Instance;
         componentsByTypeNames["VB.PropertyPage"] = PropertyPageRootClass.Instance;
+        // An in-box control under each library that declares it: MSComctlLib.ProgressBar and ComctlLib.ProgressBar (#1082).
+        foreach (var inBox in InBoxComponents)
+            foreach (var library in inBox.Libraries)
+                componentsByTypeNames[library.TypeName(inBox.ControlClassName)] = inBox;
     }
+
+    /// <summary>The in-box ActiveX controls HexIDE implements (#1082).</summary>
+    internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
+    [
+        Components.InBox.ProgressBarComponentClass.Instance,
+    ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
@@ -520,6 +530,10 @@ public class FormDeserializer
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
             }
+            // An in-box control is written back under the type name it was read under, and with the extents it was read with
+            // until it is sized (#1082).
+            if (componentClass is Components.InBox.InBoxComponentClass inBox)
+                inBox.Loaded(instance, serializedComponent.Type);
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);

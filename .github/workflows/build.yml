@@ -49,7 +49,7 @@ jobs:
       skip: ${{ steps.decide.outputs.skip }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The decision is a diff, and a shallow clone has no base commit to diff against.
           fetch-depth: 0
@@ -109,10 +109,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -120,7 +120,7 @@ jobs:
       # rather than a binary. Declared rather than assumed: the runner image happens to ship Node, and a
       # dependency that works by luck is one that breaks on an image change for reasons nobody can see.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -131,7 +131,7 @@ jobs:
       # carries a registry-attested hash for every package in its tree. Cached, so the usual run does not
       # go to the network at all. See docs/foreign-language-servers.md.
       - name: Cache the foreign language servers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           # The lockfile is part of the key: it pins the Node server's whole dependency tree, so a change
@@ -146,7 +146,7 @@ jobs:
       # — it is a JSON document, not a binary — but keyed by OS anyway to match its neighbour rather than
       # invent a second convention.
       - name: Cache the LSP specification model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/lsp-metamodel
           key: >-
@@ -254,7 +254,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ github.job }}-${{ runner.os }}
           path: IDE/**/TestResults/**
@@ -307,24 +307,24 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       # Declared rather than assumed, for the same reason as build-ide: the images happen to ship Node,
       # and a dependency that works by luck breaks on an image change for reasons nobody can see.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       # runner.os is already in the key, so each platform gets its own cache without inventing a second
       # convention. The first run on each is a cold fetch of that platform's assets.
       - name: Cache the foreign language servers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           key: >-
@@ -333,7 +333,7 @@ jobs:
               'tools/node-lsp/package-lock.json') }}
 
       - name: Cache the LSP specification model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/lsp-metamodel
           key: >-
@@ -352,6 +352,14 @@ jobs:
         working-directory: LspServer
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
 
+      # One test makes a program with the real runner and starts it (#1971): every earlier Make test copied stand-in files
+      # and ran nothing, which is how made programs that could not start shipped in v0.2.0. Nothing else in this job
+      # publishes the runner. Windows only, since the test needs a desktop session to start a program and skips
+      # elsewhere; HEXIDE_REQUIRE_MADE_PROGRAM below turns a missing runner from that skip into a failure.
+      - name: Publish the standalone runner (for the made-program test)
+        if: matrix.name == 'windows'
+        run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
@@ -359,6 +367,7 @@ jobs:
       - name: Run ViewModel Tests
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_REQUIRE_MADE_PROGRAM: ${{ matrix.name == 'windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
@@ -368,7 +377,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ github.job }}-${{ runner.os }}
           path: IDE/**/TestResults/**
@@ -387,10 +396,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -402,7 +411,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ github.job }}-${{ runner.os }}
           path: LspServer/**/TestResults/**
@@ -413,7 +422,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # No existence guard. The script used to live only in the private repository, so this
       # step skipped here and reported success — the check has never actually run against
@@ -427,7 +436,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Before the guard, not after: this asks whether the guard can still SEE an untracked
       # file. Three of its scans could not, while its header said they could (#437), and CI
