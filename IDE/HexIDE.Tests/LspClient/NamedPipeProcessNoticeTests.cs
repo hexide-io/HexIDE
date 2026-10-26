@@ -80,11 +80,20 @@ public class NamedPipeProcessNoticeTests
         await using var transport = Transport(launch, PipeName());
         var seen = new List<TransportNotice>();
         var gate = new Lock();
-        transport.Notice += (_, n) => { lock (gate) seen.Add(n); };
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, n) =>
+        {
+            lock (gate)
+            {
+                seen.Add(n);
+                if (seen.Count(notice => notice.Kind == TransportNoticeKind.StandardOutput) >= 2) reported.TrySetResult();
+            }
+        };
 
         var handler = await transport.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
         handler.Should().BeNull();
-        await WaitFor(() => Count(seen, gate, TransportNoticeKind.StandardOutput) >= 2);
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "two standard-output lines from the server that never creates its pipe", TestContext.Current.CancellationToken);
         lock (gate)
         {
             seen.Where(n => n.Kind == TransportNoticeKind.StandardOutput).Select(n => n.Text)
