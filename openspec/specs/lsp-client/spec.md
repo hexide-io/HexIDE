@@ -370,6 +370,26 @@ to have it honoured.
 - **WHEN** folding ranges, document symbols, formatting or rename selects the highest-priority advertising claimant
 - **THEN** each other advertising claimant SHALL record a never-sent explanation naming the winner's registration id and capability, once per capability per connection
 
+### Requirement: Signature help SHALL select a non-empty answer within a shared budget
+The registry SHALL ask eligible document claimants concurrently within a shared one-second budget.
+Typed trigger characters SHALL select only claimants advertising that character in
+`signatureHelpProvider.triggerCharacters`; explicit invocation SHALL ask all document claimants.
+The highest-priority answer with at least one signature SHALL win, with registration order breaking ties.
+Empty answers and answers exceeding the budget SHALL be ignored, and different servers' signatures SHALL
+NOT be merged.
+
+#### Scenario: The preferred server has no signatures
+- **WHEN** the highest-priority server returns an empty signatures array and another returns signatures
+- **THEN** the other server's answer is shown
+
+#### Scenario: A typed trigger belongs to one server
+- **WHEN** a character triggers signature help
+- **THEN** only claimants advertising that character are asked
+
+#### Scenario: A preferred server exceeds the budget
+- **WHEN** one server has not answered after one second and another has returned signatures
+- **THEN** the available answer is used without waiting for the slow server
+
 ### Requirement: A server SHALL be given the project's working directory
 Each server SHALL be started with the current project's working directory as its working directory, and told
 that directory as its workspace root, unless its entry states otherwise.

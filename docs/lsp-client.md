@@ -727,6 +727,12 @@ documents run together are not a third one.
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
 
+Signature help asks eligible document claimants concurrently within one shared one-second budget
+(#2027). A typed `(` or `,` goes only to servers advertising that character in
+`signatureHelpProvider.triggerCharacters`; explicit parameter info asks all claimants. The highest-priority
+non-empty answer received within the budget wins (registration order breaks ties). Empty answers and
+servers exceeding the budget contribute nothing; signatures from different servers are not merged.
+
 For folding ranges, document symbols, formatting and rename, the highest-priority claimant that
 advertises the capability supplies the single answer (registration order breaks ties). Each other
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,

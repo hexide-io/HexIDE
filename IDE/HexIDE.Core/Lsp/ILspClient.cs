@@ -220,8 +220,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>
     Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.</summary>
-    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default);
+    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.
+    /// A typed trigger selects advertising servers in the registry; null means explicit invocation.</summary>
+    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null);
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>
