@@ -39,7 +39,28 @@ public interface IWorkspaceArtifactProvider
 /// provider emitting paths generally wants them relative to it.
 /// </param>
 /// <param name="Project">The project being described.</param>
-public sealed record WorkspaceArtifactContext(string WorkspaceRoot, WorkspaceProjectSnapshot Project, JsonElement? Settings = null);
+/// <param name="LibraryNames">
+/// Reads a referenced library's own name. Null until the workspace has consented to this artefact, and on a host that
+/// can't read type libraries; a provider then uses the name the project file records.
+/// </param>
+public sealed record WorkspaceArtifactContext(string WorkspaceRoot, WorkspaceProjectSnapshot Project,
+    JsonElement? Settings = null, IWorkspaceLibraryNames? LibraryNames = null);
+
+/// <summary>
+/// The identifier code qualifies a referenced library's members with, which a project file doesn't record: a
+/// <c>.vbp</c>'s <c>Reference=</c> line ends with the library's description, "OLE Automation" where code says
+/// <c>stdole</c>.
+/// </summary>
+/// <remarks>
+/// <b>Reading one loads the library, so a provider is given this only after consent.</b> A project nobody has allowed an
+/// artefact for must never have its libraries loaded: a project file names their paths, and a path on another machine
+/// is contacted as it loads (#2071's security review).
+/// </remarks>
+public interface IWorkspaceLibraryNames
+{
+    /// <summary>The library's own name, or null when it can't be read.</summary>
+    string? NameOf(WorkspaceProjectReference reference);
+}
 
 /// <summary>
 /// The providers this session knows, looked up by the name configuration uses.

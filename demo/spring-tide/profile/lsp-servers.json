@@ -10,6 +10,7 @@
       "pipeRole": "connect",
       "command": "SET THIS to the published language server executable - see the demo README",
       "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
+      "workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" },
       "priority": 10
     },
     { "id": "hexide.vb6", "enabled": false }

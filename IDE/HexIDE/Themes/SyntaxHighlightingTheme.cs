@@ -59,6 +59,8 @@ public static class SyntaxHighlightingTheme
         ("Keyword",         "#7AA6F0"), // 6.23 /  8.01 — blue,   as light #0000B0
         ("IOKeyword",       "#7AA6F0"), // 6.23 /  8.01
         ("StorageModifier", "#7AA6F0"), // 6.23 /  8.01
+        ("Identifier",      "#D4D4D4"),
+        ("Operator",        "#D4D4D4"),
         ("Type",            "#9CC4F5"), // 8.48 / 10.91 — lighter blue (light nudges #0000B0 to #0000B1)
         ("Function",        "#D3B07C"), // 7.49 /  9.64 — tan,    as light #74531F
         ("MetadataKeyword", "#E58FE5"), // 6.85 /  8.81 — magenta, as light #FF00FF

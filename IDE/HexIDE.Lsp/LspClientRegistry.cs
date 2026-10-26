@@ -343,6 +343,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ? c.RequestFoldingRangesAsync(uri, ct)
             : Task.FromResult<FoldingRange[]>([]);
 
+    public Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken ct = default) =>
+        StartedClaimantsFor(uri).FirstOrDefault(c => ServerCapabilities.SupportsSemanticTokensFull(c.AdvertisedCapabilities)) is { } client
+            ? client.RequestSemanticTokensAsync(uri, ct)
+            : Task.FromResult<SemanticTokenResult?>(null);
+
     // ── Merged features ─────────────────────────────────────────────────────────────────────────────
     // Completions genuinely combine: two servers offer different candidates for one prefix, and dropping
     // either would hide something the user could have typed. This is the case the merge helpers exist for.
