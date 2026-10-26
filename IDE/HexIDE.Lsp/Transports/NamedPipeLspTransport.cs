@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
+using HexIDE.Processes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -96,6 +97,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private PipeStream? _pipe;
     private Process? _process;
+    private ChildProcessJob? _job;
 
     /// <summary>
     /// Set when a launch was configured, ran, and produced no handle to own.
@@ -437,6 +439,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             startInfo.Arguments,
             string.IsNullOrEmpty(startInfo.WorkingDirectory) ? "<inherited>" : startInfo.WorkingDirectory);
 
+        _job = new ChildProcessJob();
         var process = Process.Start(startInfo);
         if (process is null)
         {
@@ -449,6 +452,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         _process = process;
+        _job.Assign(process);
         process.EnableRaisingEvents = true;
 
         process.ErrorDataReceived += (_, e) =>
@@ -507,7 +511,11 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         if (process is null)
+        {
+            _job?.Dispose();
+            _job = null;
             return;
+        }
 
         // Killing the child is required, not tidy-up. A real third-party server was measured taking a
         // client PID on its command line, silently ignoring it, logging that it "will not be able to
@@ -535,5 +543,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         catch { /* already gone */ }
 
         process.Dispose();
+        _job?.Dispose();
+        _job = null;
     }
 }
