@@ -197,8 +197,9 @@ cd LspServer && dotnet test HexIDE.VbLspServer.Tests/   # LSP server
 
 ### Making a program
 
-**File → Make** writes your project out as a program that runs without HexIDE. It needs HexIDE's standalone runtime,
-the runner a program is made from.
+**File → Make** writes your project out as a program that runs without HexIDE, and without .NET. The program is
+HexIDE's standalone runner, one self-contained file, renamed and placed beside your project's archive. Make needs that
+runner.
 
 - **A download from Releases** already has it, in the `standalone` folder beside the IDE.
 - **A build from source** doesn't. Publish the runner into a `standalone` folder beside the IDE you run. For the IDE
@@ -208,10 +209,13 @@ the runner a program is made from.
   dotnet publish HexIDE.Standalone -f net10.0 -o HexIDE.Desktop/bin/Debug/net10.0/standalone/
   ```
 
-If Make still says the runtime is missing, its message names the folder it looked in and the files it didn't find.
+  The runner's project file publishes it single-file and self-contained, for the platform you publish on, so the
+  command needs no other options.
 
-**Known issue:** a made program doesn't start yet, because Make copies the runner but not the library it loads
-([#1971](https://github.com/hexide-io/HexIDE/issues/1971)).
+If Make still says the runtime is missing, its message names the folder it looked in and the file it didn't find.
+
+Programs made with v0.2.0 don't start, because that release's runner wasn't a single file
+([#1971](https://github.com/hexide-io/HexIDE/issues/1971)). Make them again with a later release.
 
 ### Open in Visual Studio
 

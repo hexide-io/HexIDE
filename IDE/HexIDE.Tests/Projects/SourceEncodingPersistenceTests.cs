@@ -91,11 +91,8 @@ public class SourceEncodingPersistenceTests : IDisposable
         windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
         var standalone = Path.Join(dir, "standalone");
         Directory.CreateDirectory(standalone);
-        // These files are copied, never executed. Keep the real standalone build out of the fixture.
-        foreach (var name in new[] { "HexIDE.Standalone.exe", "HexIDE.Standalone", "av_libglesv2.dll",
-                     "libHarfBuzzSharp.dll", "libSkiaSharp.dll", "libAvaloniaNative.dylib",
-                     "libHarfBuzzSharp.dylib", "libSkiaSharp.dylib", "libHarfBuzzSharp.so", "libSkiaSharp.so" })
-            File.WriteAllText(Path.Join(standalone, name), "runtime fixture");
+        // Copied, never executed: MadeProgramTests is the one that runs a real runner.
+        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
 
         svc.RuntimeDirectory = dir;
         await svc.MakeProject(project);
