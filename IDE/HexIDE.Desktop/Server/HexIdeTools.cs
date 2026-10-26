@@ -2194,7 +2194,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
+    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, is cut at the deepest maxDepth that fits, and the 'note' says where. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -2252,8 +2252,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             var focus = UiAutomationDriver.FocusIn(active);
             if (match is null)
-                return new VisualTreeResult(null, label, UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly),
+            {
+                var (tree, fitNote) = FitToReply(UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly), maxDepth);
+                return new VisualTreeResult(null, label, tree, Note: fitNote,
                     FocusedPath: focus.FocusedPath, FocusReason: focus.FocusReason);
+            }
 
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
@@ -2265,6 +2268,58 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     // Enough to choose from; past it the caller is told to narrow the text or the root, not handed the whole tree again.
     private const int MatchLimit = 50;
+
+    /// <summary>
+    /// The most characters a dump's tree is given. Claude Code takes a tool reply inline up to about 25,000 tokens, and
+    /// saves a larger one to a file for the model to read in chunks, so the first call a caller makes, the whole IDE
+    /// window at 66,000 to 84,000 characters, gave nothing it could read in the reply (#1982). A dump's JSON is a few
+    /// characters a token, so this leaves room.
+    /// </summary>
+    internal const int TreeCharacterBudget = 40_000;
+
+    /// <summary>
+    /// The tree as it is when it fits <see cref="TreeCharacterBudget"/>; otherwise cut at the deepest level that fits, or
+    /// at one level, with a note that says how large it was, where it was cut and how to see the rest.
+    /// </summary>
+    internal static (UiNode Tree, string? Note) FitToReply(UiNode tree, int maxDepth)
+    {
+        var full = SizeOf(tree);
+        if (full <= TreeCharacterBudget)
+            return (tree, null);
+
+        static string N(int n) => n.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+        // Only one level below it, so there is no level to cut: it is its children that are many.
+        if (Math.Min(maxDepth, DepthOf(tree)) <= 1)
+            return (tree, $"The tree is about {N(full)} characters, more than some clients take inline in a reply, though it "
+                          + "goes only one level down, since this node has many children: scope it with 'root', or use "
+                          + "'match' to find a control by its name or type.");
+        var depth = Math.Min(maxDepth, DepthOf(tree)) - 1;
+        UiNode cut;
+        int size;
+        do
+        {
+            cut = CutAt(tree, Math.Max(depth, 1));
+            size = SizeOf(cut);
+        } while (size > TreeCharacterBudget && --depth >= 1);
+        depth = Math.Max(depth, 1);
+
+        var note = $"The tree to maxDepth {maxDepth} is about {N(full)} characters, more than some clients take inline in a "
+                   + $"reply, so it was cut at maxDepth {depth}, about {N(size)} characters. A node marked \"truncated\" holds "
+                   + "more: dump again with its path as 'root' to see below it, or use 'match' to find a control by its "
+                   + "name or type.";
+        if (size > TreeCharacterBudget)
+            note += " It is still over the limit at maxDepth 1, since this node has many children: scope it with 'root'.";
+        return (cut, note);
+    }
+
+    private static int SizeOf(UiNode tree) => System.Text.Json.JsonSerializer.Serialize(tree, ReplyJson.Options).Length;
+
+    private static int DepthOf(UiNode node) => node.Children.Length == 0 ? 0 : 1 + node.Children.Max(DepthOf);
+
+    // Keeps 'levels' levels below the node, as maxDepth does: a node whose children are cut away is marked truncated.
+    private static UiNode CutAt(UiNode node, int levels) => levels == 0
+        ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
+        : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
 
     private static string MatchNote(string match, int total, int unsearched)
     {
