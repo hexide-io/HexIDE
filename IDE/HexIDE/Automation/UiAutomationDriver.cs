@@ -2892,7 +2892,7 @@ public static class UiAutomationDriver
             var top = TopLevel.GetTopLevel(control);
             var before = top?.FocusManager?.GetFocusedElement() as Control;
             // A container means the keyboard as it stands, not its first focusable descendant.
-            var retained = before is not null && (ReferenceEquals(before, control) || IsUnder(control, before));
+            var retained = before is not null && (ReferenceEquals(before, control) || IsUnderInView(control, before));
             if ((retained ? before : FindKeyTarget(control)) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
@@ -2921,8 +2921,11 @@ public static class UiAutomationDriver
                 return selectionDelete && !pressedIn.Selection.IsEmpty
                     ? refused with { Error = refused.Error + SelectionState(pressedIn) } : refused;
 
+            // From the target's window, which a flyout's item is in as the dump shows it, not from the item's own root,
+            // whose path no tool can resolve (#2030).
             var beforePath = before is null ? "nothing"
-                : PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
+                : (top is Control window ? PathWithin(window, "Window", before) : null)
+                  ?? PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
             var focused = target.IsFocused || target.Focus();
             var after = top?.FocusManager?.GetFocusedElement() as Control;
             var focusMove = !ReferenceEquals(before, after)
@@ -3663,6 +3666,28 @@ public static class UiAutomationDriver
     private static bool IsUnder(Visual ancestor, Visual target) => target.GetVisualAncestors().Contains(ancestor);
 
     /// <summary>
+    /// Whether <paramref name="target"/> is below <paramref name="ancestor"/> in the control view, which nests an open
+    /// popup's content under the control that owns it, as the dump does. On the desktop a flyout's items have a visual
+    /// root of their own, so a visual walk from one never reached the window: focus in a text box's Cut/Copy/Paste
+    /// flyout read as no focus in the dialog, and press_key moved it out before pressing (#2030). Where the visual chain
+    /// ends, the walk goes on from the root's logical parent, the popup, and from that to the control that owns it.
+    /// </summary>
+    internal static bool IsUnderInView(Visual ancestor, Visual target)
+    {
+        var steps = 0;
+        for (var at = target.GetVisualParent() ?? LogicalOwnerOf(target); at is not null && steps++ < 1000;
+             at = at.GetVisualParent() ?? LogicalOwnerOf(at))
+        {
+            if (ReferenceEquals(at, ancestor))
+                return true;
+        }
+        return false;
+
+        static Visual? LogicalOwnerOf(Visual root) =>
+            root is Avalonia.LogicalTree.ILogical { LogicalParent: Visual owner } ? owner : null;
+    }
+
+    /// <summary>
     /// The control-view path of <paramref name="target"/>, walked down from <paramref name="from"/> (whose own
     /// path is <paramref name="fromPath"/>) choosing each segment exactly as <c>dump_visual_tree</c> does, so it
     /// round-trips through <see cref="Resolve"/>. A target the control view folds into a wrapper -- a TextArea
@@ -3671,7 +3696,7 @@ public static class UiAutomationDriver
     /// </summary>
     internal static string? PathWithin(Control from, string fromPath, Control target)
     {
-        if (!ReferenceEquals(from, target) && !IsUnder(from, target))
+        if (!ReferenceEquals(from, target) && !IsUnderInView(from, target))
             return null;
 
         var current = from;
@@ -3681,7 +3706,7 @@ public static class UiAutomationDriver
             var siblings = new List<MeaningfulChild>();
             CollectMeaningfulChildren(current, siblings);
             var next = siblings.FirstOrDefault(m =>
-                ReferenceEquals(m.Control, target) || IsUnder(m.Control, target));
+                ReferenceEquals(m.Control, target) || IsUnderInView(m.Control, target));
             if (next is null)
                 break;
             path += "/" + BestSegment(next, siblings);
