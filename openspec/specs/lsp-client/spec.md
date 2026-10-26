@@ -1126,11 +1126,18 @@ anyway, so it is recorded rather than defended.
 - **AND** it emits nothing for a project carrying no C/C++ files
 - **AND** a real clangd test observes diagnostics changing when the generated arguments define HEXIDE_PROBE
 
+#### Scenario: RDCore project descriptor
+- **WHEN** the rdcore provider is configured
+- **THEN** it emits a `.rdproj` with PascalCase keys, listing every form, module, class and user control as a module by its host path relative to the workspace root
+- **AND** it carries the project's references, and its Conditional Compilation Arguments as precompiler constants, none for a line vb6.exe refuses
+- **AND** it lists no other files, since RDCore parses every listed file as code
+- **AND** it emits nothing for a project with no code files
+
 #### Scenario: Capability boundaries
 - **WHEN** a server declares no artefact
 - **THEN** no artefact is generated for it
 - **AND** the capability grants neither writes outside the workspace nor writes without consent
-- **AND** the public add-in provider contract and `.rdproj` provider remain outside phase 1
+- **AND** the public add-in provider contract remains outside this change
 
 ### Requirement: Completion SHALL merge within a bounded popup budget
 The registry SHALL ask every document claimant concurrently and return when all answer or one

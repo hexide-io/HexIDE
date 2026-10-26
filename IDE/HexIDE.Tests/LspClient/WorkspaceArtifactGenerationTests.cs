@@ -218,6 +218,36 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
             Arg.Any<WorkspaceArtifactSpec>());
     }
 
+    [Theory]
+    [InlineData(false, "first")]
+    [InlineData(true, "first")]
+    [InlineData(true, null)]
+    public async Task LibrariesAreReadOnlyOnceTheWorkspaceHasConsented(bool allowed, string? content)
+    {
+        // A library's name is read by loading it, from a path the project file names: a project nobody allowed an artefact
+        // for, or one with nothing to describe, never gets that far (#2071's security review).
+        var names = Substitute.For<IWorkspaceLibraryNames>();
+        names.NameOf(Arg.Any<WorkspaceProjectReference>()).Returns("named");
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, libraryNames: names);
+        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<WorkspaceArtifactSpec>()).Returns(allowed);
+        _provider.Content = content;
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        var target = Path.Combine(_root, "generated.json");
+        if (allowed && content is not null)
+        {
+            names.ReceivedWithAnyArgs(1).NameOf(default!);
+            File.ReadAllText(target).Should().Be("first named");
+        }
+        else
+        {
+            names.DidNotReceiveWithAnyArgs().NameOf(default!);
+            File.Exists(target).Should().BeFalse();
+        }
+    }
+
     [Fact]
     public async Task ExistingForeignFileIsLeftAloneWithoutPrompt()
     {
@@ -521,7 +551,13 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         public string? Content { get; set; } = "first";
         public int Calls { get; private set; }
         public Exception? Failure { get; set; }
-        public string? Produce(WorkspaceArtifactContext context) { Calls++; if (Failure is not null) throw Failure; return Content; }
+        public string? Produce(WorkspaceArtifactContext context)
+        {
+            Calls++;
+            if (Failure is not null) throw Failure;
+            return Content is null || context.LibraryNames is not { } names ? Content
+                : Content + " " + names.NameOf(new WorkspaceProjectReference("library"));
+        }
     }
 
     internal sealed class Workspace(string root) : IWorkspaceArtifactWorkspace

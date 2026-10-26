@@ -28,14 +28,16 @@ namespace HexIDE;
 public partial class DISetup
 {
     private static IWorkspaceArtifactProviderRegistry CreateArtifactProviders() =>
-        new WorkspaceArtifactProviderRegistry([new HexIDE.Lsp.Providers.ClangdCompilationDatabaseProvider()]);
+        new WorkspaceArtifactProviderRegistry([new HexIDE.Lsp.Providers.ClangdCompilationDatabaseProvider(),
+            new HexIDE.Lsp.Providers.RdcoreProjectProvider()]);
 
     private static WorkspaceArtifactService CreateArtifacts(ILspWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWindowManager windows,
         ILocalizationService localization, ILoggerFactory loggerFactory, ConversationLog capture) =>
         new((IWorkspaceArtifactWorkspace)workspace, providers, new WorkspaceArtifactConsent(windows, localization),
             loggerFactory.CreateLogger<WorkspaceArtifactService>(),
-            System.IO.Path.Combine(UserDataPath.Directory, "lsp-artifact-ownership.json"), capture);
+            System.IO.Path.Combine(UserDataPath.Directory, "lsp-artifact-ownership.json"), capture,
+            new HexIDE.IDE.TypeLibraryNames());
 
     [Conditional("DI")]
     static void Setup() =>
