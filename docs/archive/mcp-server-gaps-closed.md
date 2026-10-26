@@ -9,6 +9,29 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `dump_visual_tree {}` on the IDE window was more than Claude Code takes inline — **CLOSED** (#1982, 2026-10-26)
+
+**Symptom (2026-10-25, #1330's check of #942, Windows).** `dump_visual_tree {}`, the call a first-time caller makes,
+returned 66,822 to 83,944 characters on the IDE's main window. Claude Code saved each reply to a file and told the model
+to read it in chunks, so nothing could be read from the reply itself.
+
+**Fixed (#1982).** A tree over 40,000 characters is cut at the deepest `maxDepth` that fits, and the reply's `note`
+says how large the whole tree was, where it was cut and how to see the rest: a node marked `truncated` holds more, so
+dump again with its path as `root`, or use `match`. A node with too many children to fit even one level down says so.
+The tool's description says so too. Guarded by `DumpFitsReplyTests`.
+
+**Live (#1982, 2026-10-26).** Windows, a Debug build of the fix, from a Claude Code session's hexide tools, with Form1's
+code and designer open:
+
+- `dump_visual_tree {}` came back inline: `The tree to maxDepth 20 is about 75,967 characters, more than some clients
+  take inline in a reply, so it was cut at maxDepth 7, about 33,631 characters.` Every `truncated` node was at level 7.
+- `dump_visual_tree {"interactiveOnly": false}`: about 108,281 characters, cut at maxDepth 6, about 35,875, inline.
+- A dump rooted at a truncated node, the designer's `Custom[Root]`, listed its children, with no note.
+- `maxDepth: 3` came back whole, with no note.
+
+The cut is one depth everywhere, so hidden toolbars came back whole while the open document was cut:
+[#2033](https://github.com/hexide-io/HexIDE/issues/2033).
+
 ## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally — **CLOSED** (#1330, 2026-10-25)
 
 **Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
