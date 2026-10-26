@@ -6,6 +6,7 @@ using System.ComponentModel;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Runtime.TypeLibrary;
 using HexIDE.IDE;
 using HexIDE.Lsp;
 
@@ -140,7 +141,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                     _ => WorkspaceProjectFileKind.Unknown
                 });
             foreach (var f in project.RelatedDocuments) Add(f, f.AbsolutePath, WorkspaceProjectFileKind.Carried);
-            var references = project.References.Select(r => new WorkspaceProjectReference(r.Name ?? "",
+            var references = project.References.Select(r => new WorkspaceProjectReference(LibraryName(r),
                 Guid.TryParse(r.Guid, out var guid) ? guid : null,
                 Version.TryParse(r.Version, out var version) ? version.Major : null,
                 Version.TryParse(r.Version, out version) ? version.Minor : null,
@@ -151,6 +152,26 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
         }
         _projects = contexts;
         ProjectChanged?.Invoke();
+    }
+
+    /// <summary>Reads a type library's own name: GUID, version and host path in, name or null out. Swapped by tests.</summary>
+    internal Func<string, string, string?, string?> ReadLibraryName { get; set; } = TypeLibReader.ReadName;
+    private readonly Dictionary<(string Guid, string Version, string? Path), string?> _libraryNames = [];
+
+    /// <summary>
+    /// The name code qualifies a library's members with, which a project file doesn't record: its <c>Reference=</c> line
+    /// ends with the library's description, "OLE Automation" where code says <c>stdole</c>, and a backend that resolves a
+    /// reference by name finds nothing by the description. Read from the type library itself, once a session, and
+    /// synchronously, so the first artefact written for a project already has it; reading only the name costs a library
+    /// load, not a walk of its types. The description stands in on a host that can't read type libraries.
+    /// </summary>
+    private string LibraryName(VbReference reference)
+    {
+        var path = reference.LibPath is null ? null : SerializedProject.ToHostPath(reference.LibPath);
+        var key = (reference.Guid, reference.Version, path);
+        if (!_libraryNames.TryGetValue(key, out var name))
+            _libraryNames[key] = name = ReadLibraryName(reference.Guid, reference.Version, path);
+        return name ?? reference.Name ?? "";
     }
 
     private void Observe(INotifyPropertyChanged item)

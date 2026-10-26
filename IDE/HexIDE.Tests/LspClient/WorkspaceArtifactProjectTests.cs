@@ -80,6 +80,43 @@ public sealed class WorkspaceArtifactProjectTests
         sut.Dispose();
     }
 
+    [Fact]
+    public void AReferenceIsNamedAsCodeNamesItsLibraryReadOnceASession()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1")
+        {
+            AbsolutePath = Path.Combine(Path.GetTempPath(), "artifact-library", "Project1.vbp")
+        };
+        project.AddReference(new VbReference("{00020430-0000-0000-C000-000000000046}", "2.0", 0, null, "OLE Automation"));
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { project });
+        var sut = new ProjectLspWorkspace(() => manager);
+        var reads = 0;
+        sut.ReadLibraryName = (guid, version, _) =>
+        {
+            reads++;
+            return guid.Contains("00020430") && version == "2.0" ? "stdole" : null;
+        };
+        project.AddReference(new VbReference(Guid.NewGuid().ToString(), "1.0", 0, null, "Unregistered Library"));
+        sut.Projects[0].Project.References.Select(r => r.Name).Should().Equal("stdole", "Unregistered Library");
+        project.AddModule(new ModuleDefinition(project, "Module1", ModuleKind.StandardModule)
+        {
+            AbsolutePath = Path.Combine(Path.GetTempPath(), "artifact-library", "Module1.bas")
+        });
+        sut.Projects[0].Project.References[0].Name.Should().Be("stdole");
+        reads.Should().Be(2, "each library is read once a session, however often the projection refreshes");
+        sut.Dispose();
+    }
+
+    public static bool OnWindows => OperatingSystem.IsWindows();
+
+    [Fact(Skip = "Type libraries are read only on Windows.", SkipUnless = nameof(OnWindows))]
+    public void TheTypeLibraryNamesOleAutomationStdole()
+    {
+        HexIDE.Runtime.TypeLibrary.TypeLibReader.ReadName("{00020430-0000-0000-C000-000000000046}", "2.0", null)
+            .Should().Be("stdole");
+    }
+
     [Theory]
     [InlineData("CondComp=\"DEBUG = 1 : Trace = -2\"", 2)]
     [InlineData("CondComp=\"DEBUG = 70000\"", 0)]

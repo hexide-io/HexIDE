@@ -59,6 +59,48 @@ public static partial class TypeLibReader
         }
     }
 
+    /// <summary>
+    /// Only the library's own name, the identifier code qualifies its members with (<c>stdole</c> for the library a project
+    /// file describes as "OLE Automation"), without walking its types: by registry GUID and version, else from the file.
+    /// Null off Windows, or when neither loads.
+    /// </summary>
+    public static string? ReadName(string guidString, string version, string? path)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try { return ReadNameCore(guidString, version, path); }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "TypeLibReader: failed to read the name of {Guid} v{Version}", guidString, version);
+            return null;
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static string? ReadNameCore(string guidString, string version, string? path)
+    {
+        ITypeLib? typeLib = null;
+        if (Guid.TryParse(guidString, out var guid))
+        {
+            var parts = version.Split('.');
+            ushort major = parts.Length > 0 && ushort.TryParse(parts[0], out var maj) ? maj : (ushort)0;
+            ushort minor = parts.Length > 1 && ushort.TryParse(parts[1], out var min) ? min : (ushort)0;
+            int hr = LoadRegTypeLib(ref guid, major, minor, 0, out IntPtr pointer);
+            typeLib = TakeTypeLib(hr, pointer);
+        }
+        if (typeLib == null && !string.IsNullOrEmpty(path) && File.Exists(path))
+        {
+            int hr = LoadTypeLib(path, out IntPtr pointer);
+            typeLib = TakeTypeLib(hr, pointer);
+        }
+        if (typeLib == null) return null;
+        try
+        {
+            GetLibDocumentation(typeLib, out string? name, out _);
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+        finally { Marshal.ReleaseComObject(typeLib); }
+    }
+
     [SupportedOSPlatform("windows")]
     private static TypeLibInfo? ReadByGuidCore(string guidString, string version)
     {
