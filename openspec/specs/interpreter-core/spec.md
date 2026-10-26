@@ -62,6 +62,25 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Measured compile refusals SHALL stop execution
+The interpreter SHALL raise its compile-error exception when execution reaches `Continue Do` or `With Debug`,
+with "Syntax error". A scalar assignment through explicit `Me.` to an explicitly Private class field SHALL
+raise "Method or data member not found". These refusals are measured on vb6.exe SP6, native and p-code (#2121);
+the walk does not check paths it never executes.
+
+#### Scenario: Continue in a post-tested Do loop
+- **WHEN** execution reaches `Continue Do` inside `Do ... Loop Until`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Debug used as a With target
+- **WHEN** execution reaches `With Debug`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Private field assigned through Me
+- **WHEN** a class declares `Private mN As Integer` and its method executes `Me.mN = 5`
+- **THEN** execution stops with the compile error "Method or data member not found"
+- **AND** `On Error Resume Next` cannot trap that compile error
+
 ### Requirement: Cross-module constants SHALL initialise their module on demand
 A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
 declarations first, once, regardless of project list order or startup entry point. Re-entering a module still

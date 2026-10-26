@@ -1151,7 +1151,9 @@ bytes skip the write, preserving the timestamp and avoiding needless server watc
 describe returns null: nothing is prompted or written, and a target HexIDE still owns is deleted under the same
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
+The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
+`.rdproj` RDCore's language server needs at the workspace root, which it reads only when it starts.
 
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
-#456; there is no `.rdproj` provider in phase 1, no public add-in contract (#457), no undeclared generation,
+#456; there is no public add-in contract (#457), no undeclared generation,
 no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
