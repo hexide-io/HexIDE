@@ -86,7 +86,7 @@ digit, so it never hides a control.
 
 **`Controls.Add` and `Remove`.** `Set c = Controls.Add("VB.CommandButton", "cmdNew")` gives a CommandButton, enumerated
 last, and `Controls.Remove "cmdNew"` takes it out. `Controls.Remove "Command1"`, placed at design time, raises 729.
-HexIDE refuses both, naming #1556.
+#1556 measured both in full and HexIDE runs them: "Controls.Add and Controls.Remove".
 
 ### In HexIDE (#1060)
 
@@ -109,3 +109,10 @@ to.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
 
+
+## Reading a Frame caption (#2063)
+
+Provenance: issue hexide-io/HexIDE#2063, reporting measurements made while testing #1556.
+With `Set c = Controls.Add("VB.Frame", "z")`, reading `c.Caption` returns the empty string
+in both native and p-code VB6 builds. Reading `Frame1.Caption` returns the caption saved
+in the `.frm`. The issue does not record a caption-assignment probe or its result.
