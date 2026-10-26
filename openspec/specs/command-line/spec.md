@@ -24,3 +24,13 @@ a file beside the executable, and the IDE opened nothing and reported nothing.
 #### Scenario: A relative user data directory
 - **WHEN** HexIDE is started from a directory `D` with `--user-data-dir profile`
 - **THEN** per-user files are kept in `D/profile`, not beside the executable
+
+### Requirement: Desktop startup does not depend on window activation
+The desktop main window SHALL initialize its startup project hook, dock layout-save handler and add-in
+menus and commands once when it opens. Activation SHALL continue to refresh command availability without
+repeating initialization.
+
+#### Scenario: An X display without a window manager
+- **WHEN** the desktop main window opens without being activated, with `--newproject` specified
+- **THEN** the startup hook creates the default project
+- **AND** later activation or reopening the same window does not run initialization again

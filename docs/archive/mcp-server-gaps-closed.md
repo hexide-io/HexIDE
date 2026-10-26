@@ -24,6 +24,74 @@ before deciding what to send next. It makes no claim about what each answer does
 `TypeKeysTests` covers dialogs over the typing window, another window, and in a window of their own.
 Live verification of the revised reply remains for the supervising session.
 
+## A drag couldn't dock a tool window, and its reply read as a drag that worked — **CLOSED** (#2175, 2026-10-26)
+
+**Symptom (2026-10-26, #1877's live check, Windows).** Dragging AI Chat's title strip onto the Immediate dock's centre,
+or the Toolbox dock's, did nothing. The reply was the same as for a drag that docked:
+`interact {"target":"…/List[#1]/TitleBar[AI Chat]","action":"click","value":"120,15 to …/List[#0]/TitleBar[Immediate]:460,63","window":"ide"}`
+→ `dragged the left button at (120, 15) on 'ToolChromeControl' … release received by 'Grid[PART_Grid]' … (pointer
+capturer)`. The same verb drove Dock's column splitters.
+
+**Workaround (before the fix).** None through the surface.
+
+**Cause.** The eight held moves were raised in one synchronous loop, with no layout between them. Dock adds its drop
+target on the first move past its drag threshold and finds the drop from that target's layout, so the release came
+over a target with no size. A layout pass between the moves was enough to make a headless drag dock, which confirmed
+it. A splitter adds nothing mid-drag, which is why it worked.
+
+**Fixed (#2175).** Each held move is input of its own. `FinishAsync` raises them one at a time and lets the
+dispatcher run everything above Background between them, layout included. A drag pressed in Dock's layout now ends
+its reply with what Dock moved, as `Dock moved 'Properties' from a dock of its own to the dock with 'Immediate'`, or
+with `Dock's layout is unchanged, so nothing was docked: …`. Guarded by `DragDockTests`.
+
+**Live (2026-10-26, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Properties dragged by its title strip onto the Immediate dock became a tab beside Immediate, and the reply said so.
+- A drag back onto its own title strip said the layout was unchanged.
+- A drop on the Toolbox dock's upper half split it, with Properties in a new dock above the Toolbox. The reply said
+  Properties moved "to a dock of its own".
+
+## A path not starting with `Window` was refused without saying where paths come from — **CLOSED** (#2080, 2026-10-26)
+
+**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
+snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
+and was refused with `path must start with 'Window' (got 'Editor')`. The refusal was accurate, but it didn't say
+where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
+
+**Fixed (#2080).** An empty target, and one not starting with `Window`, now end with the next step: `a path comes
+from dump_visual_tree, whose every node carries its 'path', and its 'match' finds a control by name`. A guessed
+path also gets a call to send as it stands, matching its last segment in the window it was looked for in:
+`as dump_visual_tree {"window":"Options","match":"General"}`. Guarded by `PathRefusalTests`.
+
+## `inspect_element`'s `selectionItems` named a selection with no row by its view model's type — **CLOSED** (#2026, 2026-10-26)
+
+**Symptom (2026-10-26, #1981's live check, Windows).** At the IDE's default size the Properties window's categorized
+list was 0 px tall, so no row was made. `inspect_element` on `…/List[CategorizedProperties]` answered
+`"selectionItems":["HexIDE.VisualDesigner.PropertyViewModel"]`. Once the window was maximized, it answered
+`["Caption"]`.
+
+**Fixed (#2026).** A selected item with no row is named by its `AccessibleName`, the name the IDE's view models give
+their rows to bind, which is the name the dump shows. Failing that, it is named by its own text. With neither, the
+reply says `#25, which has no row to read a name from: a list makes rows only for what it shows`, never a
+type's name. Guarded by `UnrealizedSelectionTests`.
+
+## Focus in a flyout read as no focus, and `press_key` moved it out before pressing — **CLOSED** (#2030, 2026-10-26)
+
+**Symptom (2026-10-26, #1960's live check, Windows).** With Replace's Cut/Copy/Paste flyout open,
+`dump_visual_tree {"window":"auto","match":"Paste"}` gave `"focusedPath":null`, and
+`press_key {"target":"Window","key":"Escape","window":"Replace"}` replied `moved focus from
+Window/List/Pane/MenuItem[Paste] to Window/Custom/Edit[#0]; pressed Escape on TextBox …`. That one Escape closed the
+whole dialog, where a person's closes only the flyout.
+
+**Cause.** On the desktop a flyout's items sit in a popup root of their own, and the focus checks walked visual
+ancestors, which never reached the dialog. The popup root has no logical parent leading back either: a first fix that
+followed it was measured live and changed nothing.
+
+**Fixed (#2030).** Focus is placed in the control view as the dump places popups. The walk goes from a popup's
+content to the control the popup is placed at, so focus in a flyout counts as in its owner's window. `focusedPath` now
+names `Window/Custom/Edit[#0]/Pane[#0]/MenuItem[Paste]`, `press_key` presses Escape on the flyout's item without moving
+focus, and its reply names that item by the same path. Guarded by `FocusInPopupTests`.
+
 ## A waiting dialog's buttons included its check boxes and radio buttons — **CLOSED** (#2079, 2026-10-26)
 
 **Symptom (2026-10-26, #534's first-contact baseline, Windows).** Opening Tools > Options gave
@@ -133,8 +201,19 @@ code and designer open:
 - A dump rooted at a truncated node, the designer's `Custom[Root]`, listed its children, with no note.
 - `maxDepth: 3` came back whole, with no note.
 
-The cut is one depth everywhere, so hidden toolbars came back whole while the open document was cut:
-[#2033](https://github.com/hexide-io/HexIDE/issues/2033).
+The cut was one depth everywhere, so hidden toolbars came back whole while the open document was cut
+([#2033](https://github.com/hexide-io/HexIDE/issues/2033)). The #2033 fix first omits children below hidden
+nodes when a tree exceeds the budget, retaining their paths, `isHidden` and `truncated` markers. Only if
+that still exceeds the budget does it cut levels in other branches, preserving the active document
+subtree and its ancestors. The requested root keeps its children
+so dumping from a hidden node makes progress. This applies with either `interactiveOnly` setting; trees
+that already fit and `match` searches are unchanged. The note explains what was omitted and how to see it.
+PR #2169's live check failed: `dump_visual_tree {}` still cut the designer at `Custom[Root]/Pane`,
+eight levels down, with both 3 and 26 controls (supervisor, 2026-10-26). Hidden pruning alone was insufficient.
+The follow-up preserves the active tab's content while cutting other branches; if that content alone
+exceeds the budget the note says it is still over and advises `root`.
+Covered headlessly by `DumpFitsReplyTests` and `ActiveDocumentDumpTests`; live verification of this
+follow-up remains for supervisor review.
 
 ## `dump_visual_tree` kept a row a list had scrolled away from, with `isOffscreen: true` — **CLOSED** (#1981, 2026-10-26)
 
