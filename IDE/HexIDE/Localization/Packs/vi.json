@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Giữ nội dung thông điệp",
     "Str.Tool.LanguageServers.ShowAllMessages": "Hiện mọi thông điệp đã ghi",
     "Str.Tool.LanguageServers.ShowMessages": "Hiện thông điệp của nó",
+    "Str.Tool.LanguageServers.StandardError": "Lỗi chuẩn",
+    "Str.Tool.LanguageServers.ServerMessages": "Thông báo máy chủ",
     "Str.Tool.LanguageServers.CopyReport": "Sao chép báo cáo",
     "Str.Tool.LanguageServers.ReportRedacted": "Báo cáo thay đường dẫn và địa chỉ bằng tên giả.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Máy chủ này không công bố khả năng nào.",

@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Διατήρηση σωμάτων μηνυμάτων",
     "Str.Tool.LanguageServers.ShowAllMessages": "Εμφάνιση όλων των καταγεγραμμένων μηνυμάτων",
     "Str.Tool.LanguageServers.ShowMessages": "Εμφάνιση των μηνυμάτων του",
+    "Str.Tool.LanguageServers.StandardError": "Τυπική έξοδος σφαλμάτων",
+    "Str.Tool.LanguageServers.ServerMessages": "Μηνύματα διακομιστή",
     "Str.Tool.LanguageServers.CopyReport": "Αντιγραφή αναφοράς",
     "Str.Tool.LanguageServers.ReportRedacted": "Η αναφορά αντικαθιστά διαδρομές και διευθύνσεις με πλαστά ονόματα.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Αυτός ο διακομιστής δεν δήλωσε καμία δυνατότητα.",

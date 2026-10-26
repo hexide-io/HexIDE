@@ -1211,3 +1211,21 @@ version or detached view SHALL NOT be applied. Delta, range and refresh requests
 - **WHEN** a full request fails
 - **THEN** the editor keeps lexical colouring
 - **AND** a later edit schedules another full request
+
+### Requirement: Retained connection explanations and export
+
+The client SHALL retain the last 100 stderr lines and last 100 server show/log notifications
+in separate per-client histories independently of log level and protocol capture arming.
+The connection view SHALL display their full text and include it in redacted plain-text
+reports, with copy and save actions for the whole view and for one row. Message forwarding
+SHALL preserve the originating client; logs and status messages SHALL name its registration.
+
+#### Scenario: A failed server explains itself
+- **WHEN** a server writes stderr or sends `window/showMessage` or `window/logMessage`
+- **THEN** its row retains the explanation after stop, until that client is replaced
+- **AND** the oldest entry in each history is discarded when its 100-entry limit is reached
+
+#### Scenario: Export one connection
+- **WHEN** a user copies or saves one server’s report
+- **THEN** the existing report redactor processes that row including its retained explanations
+- **AND** cancelling the save picker writes nothing

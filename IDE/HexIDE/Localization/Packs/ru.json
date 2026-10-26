@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Сохранять тела сообщений",
     "Str.Tool.LanguageServers.ShowAllMessages": "Показать все записанные сообщения",
     "Str.Tool.LanguageServers.ShowMessages": "Показать его сообщения",
+    "Str.Tool.LanguageServers.StandardError": "Стандартный поток ошибок",
+    "Str.Tool.LanguageServers.ServerMessages": "Сообщения сервера",
     "Str.Tool.LanguageServers.CopyReport": "Копировать отчёт",
     "Str.Tool.LanguageServers.ReportRedacted": "В отчёте пути и адреса заменены вымышленными именами.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Этот сервер не объявил ни одной возможности.",

@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "שמור גופי הודעות",
     "Str.Tool.LanguageServers.ShowAllMessages": "הצג את כל ההודעות שנרשמו",
     "Str.Tool.LanguageServers.ShowMessages": "הצג את ההודעות שלו",
+    "Str.Tool.LanguageServers.StandardError": "פלט שגיאות תקני",
+    "Str.Tool.LanguageServers.ServerMessages": "הודעות שרת",
     "Str.Tool.LanguageServers.CopyReport": "העתק דוח",
     "Str.Tool.LanguageServers.ReportRedacted": "הדוח מחליף נתיבים וכתובות בשמות בדויים.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "שרת זה לא הכריז על יכולות כלשהן.",

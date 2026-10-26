@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Conserver le corps des messages",
     "Str.Tool.LanguageServers.ShowAllMessages": "Afficher tous les messages enregistrés",
     "Str.Tool.LanguageServers.ShowMessages": "Afficher ses messages",
+    "Str.Tool.LanguageServers.StandardError": "Sortie d’erreur standard",
+    "Str.Tool.LanguageServers.ServerMessages": "Messages du serveur",
     "Str.Tool.LanguageServers.CopyReport": "Copier le rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Le rapport remplace les chemins et les adresses par des noms fictifs.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Ce serveur n'a annoncé aucune capacité.",

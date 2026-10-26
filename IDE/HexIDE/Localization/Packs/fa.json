@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "نگهداری بدنهٔ پیام‌ها",
     "Str.Tool.LanguageServers.ShowAllMessages": "نمایش همهٔ پیام‌های ثبت‌شده",
     "Str.Tool.LanguageServers.ShowMessages": "نمایش پیام‌های آن",
+    "Str.Tool.LanguageServers.StandardError": "خطای استاندارد",
+    "Str.Tool.LanguageServers.ServerMessages": "پیام‌های سرور",
     "Str.Tool.LanguageServers.CopyReport": "کپی گزارش",
     "Str.Tool.LanguageServers.ReportRedacted": "گزارش، مسیرها و نشانی‌ها را با نام‌های ساختگی جایگزین می‌کند.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "این سرور هیچ قابلیتی اعلام نکرد.",

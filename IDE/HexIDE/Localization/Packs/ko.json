@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "메시지 본문 보관",
     "Str.Tool.LanguageServers.ShowAllMessages": "기록된 메시지 모두 보기",
     "Str.Tool.LanguageServers.ShowMessages": "이 서버의 메시지 보기",
+    "Str.Tool.LanguageServers.StandardError": "표준 오류",
+    "Str.Tool.LanguageServers.ServerMessages": "서버 메시지",
     "Str.Tool.LanguageServers.CopyReport": "보고서 복사",
     "Str.Tool.LanguageServers.ReportRedacted": "보고서는 경로와 주소를 가명으로 대체합니다.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "이 서버는 어떤 기능도 알리지 않았습니다.",

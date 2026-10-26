@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "メッセージ本文を保持する",
     "Str.Tool.LanguageServers.ShowAllMessages": "記録されたすべてのメッセージを表示",
     "Str.Tool.LanguageServers.ShowMessages": "このサーバーのメッセージを表示",
+    "Str.Tool.LanguageServers.StandardError": "標準エラー出力",
+    "Str.Tool.LanguageServers.ServerMessages": "サーバーメッセージ",
     "Str.Tool.LanguageServers.CopyReport": "レポートをコピー",
     "Str.Tool.LanguageServers.ReportRedacted": "レポートでは、パスとアドレスが架空の名前に置き換えられます。",
     "Str.Tool.LanguageServers.AdvertisedNothing": "このサーバーは機能を何も通知しませんでした。",

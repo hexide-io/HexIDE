@@ -717,6 +717,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Serva corpora nuntiorum",
     "Str.Tool.LanguageServers.ShowAllMessages": "Ostende omnes nuntios notatos",
     "Str.Tool.LanguageServers.ShowMessages": "Ostende nuntios eius",
+    "Str.Tool.LanguageServers.StandardError": "Errores communes",
+    "Str.Tool.LanguageServers.ServerMessages": "Nuntii ministri",
     "Str.Tool.LanguageServers.CopyReport": "Describe relationem",
     "Str.Tool.LanguageServers.ReportRedacted": "Relatio semitas et inscriptiones nominibus fictis substituit.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Hic servitor nullas facultates nuntiavit.",

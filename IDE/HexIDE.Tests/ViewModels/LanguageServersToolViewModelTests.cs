@@ -60,7 +60,45 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         var registry = Substitute.For<ILanguageConnectionRegistry>();
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
-        return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms), registry);
+        return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, Substitute.For<HexIDE.IDE.IWindowManager>()), registry);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavesTheSelectedReportToDisk(bool singleRow)
+    {
+        var (vm, registry) = Sut(Conn("one", "vb6"), Conn("two", "vb6"));
+        var windows = Substitute.For<HexIDE.IDE.IWindowManager>();
+        vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, windows);
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
+        windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(path);
+        var row = singleRow ? vm.Groups.Single().Rows.First() : null;
+        try
+        {
+            await vm.SaveReportAsync(row);
+            var text = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+            text.Should().Contain("[one]");
+            if (singleRow) text.Should().NotContain("[two]");
+            else text.Should().Contain("[two]");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void RowHistoryAppearsInTheShareableReport()
+    {
+        var connection = Conn("one", "vb6") with
+        {
+            StandardError = ["startup failed"],
+            Messages = ["window/showMessage [Error]: full server explanation"],
+        };
+        var (vm, _) = Sut(connection);
+        var row = vm.Groups.Single().Rows.Single();
+        row.StandardErrorText.Should().Be("startup failed");
+        row.MessagesText.Should().Contain("full server explanation");
+        vm.RowReportText(row).Should().Contain("startup failed").And.Contain("full server explanation");
+        vm.ReportText.Should().Contain("startup failed").And.Contain("full server explanation");
     }
 
     [Fact]
@@ -180,7 +218,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
             new LanguageServerConfigProblem(null, "lsp-servers.json is not valid JSON", true),
         ]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, Substitute.For<HexIDE.IDE.IWindowManager>());
 
         vm.HasProblems.Should().BeTrue();
         vm.HasNoServers.Should().BeTrue("a file that failed to parse contributes no servers");
@@ -261,7 +299,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Starting)]);
         registry.ConfigurationProblems.Returns([]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, Substitute.For<HexIDE.IDE.IWindowManager>());
         vm.Groups.Single().Rows.Single().IsArmed = true;
 
         registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Running)]);
@@ -307,7 +345,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.ConfigurationProblems.Returns([]);
 
         _capture.ArmsEveryConnection = true;
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, Substitute.For<HexIDE.IDE.IWindowManager>());
 
         vm.ArmsFutureServers.Should().BeTrue();
     }
@@ -391,7 +429,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         ]);
         registry.ConfigurationProblems.Returns([]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, Substitute.For<HexIDE.IDE.IWindowManager>());
 
         vm.ReportText.Should().NotContain("Ledger");
     }

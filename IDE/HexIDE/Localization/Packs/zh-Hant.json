@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "保留訊息內容",
     "Str.Tool.LanguageServers.ShowAllMessages": "顯示所有已記錄的訊息",
     "Str.Tool.LanguageServers.ShowMessages": "顯示其訊息",
+    "Str.Tool.LanguageServers.StandardError": "標準錯誤輸出",
+    "Str.Tool.LanguageServers.ServerMessages": "伺服器訊息",
     "Str.Tool.LanguageServers.CopyReport": "複製報告",
     "Str.Tool.LanguageServers.ReportRedacted": "報告會將路徑與位址替換為化名。",
     "Str.Tool.LanguageServers.AdvertisedNothing": "此伺服器未宣告任何能力。",

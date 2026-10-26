@@ -24,6 +24,23 @@ public class VBLspClientTests
             .Returns(Task.FromResult<IJsonRpcMessageHandler?>(null));
 
     [Fact]
+    public async Task StandardErrorIsRetainedWithoutLoggingAndSurvivesStop()
+    {
+        GivenTransportHasNoServer();
+        await using var sut = CreateSut();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        for (var i = 0; i < 102; i++)
+            _transport.Notice += Raise.Event<EventHandler<TransportNotice>>(_transport,
+                new TransportNotice(TransportNoticeKind.StandardError, $"line {i}"));
+        var snapshot = sut.StandardError;
+        snapshot.Should().HaveCount(100);
+        snapshot.First().Should().Be("line 2");
+        snapshot.Last().Should().Be("line 101");
+        await sut.StopAsync();
+        sut.StandardError.Should().Equal(snapshot);
+    }
+
+    [Fact]
     public async Task StartAsync_WhenTransportHasNoServer_StaysDisabledAndDoesNotThrow()
     {
         GivenTransportHasNoServer();

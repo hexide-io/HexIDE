@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "پیغامات کا مواد محفوظ رکھیں",
     "Str.Tool.LanguageServers.ShowAllMessages": "تمام ریکارڈ شدہ پیغامات دکھائیں",
     "Str.Tool.LanguageServers.ShowMessages": "اس کے پیغامات دکھائیں",
+    "Str.Tool.LanguageServers.StandardError": "معیاری خرابی",
+    "Str.Tool.LanguageServers.ServerMessages": "سرور کے پیغامات",
     "Str.Tool.LanguageServers.CopyReport": "رپورٹ کاپی کریں",
     "Str.Tool.LanguageServers.ReportRedacted": "رپورٹ میں راستوں اور پتوں کی جگہ فرضی نام رکھ دیے جاتے ہیں۔",
     "Str.Tool.LanguageServers.AdvertisedNothing": "اس سرور نے کوئی صلاحیت ظاہر نہیں کی۔",

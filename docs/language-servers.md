@@ -323,7 +323,7 @@ In order of likelihood:
 - **Per-project configuration.** Attaching a server is a decision about what code runs on your machine,
   and a per-project file is written by whoever wrote the project.
 - **Discovery of servers already installed.** Nothing scans your machine for language servers.
-- **A user interface.** Today this file is the whole of it.
+- **Configuration editing in the IDE.** Edit this file to attach a server; **Tools → Language Servers…** shows the connections and their health.
 
 For an incoming WebSocket, set `"websocketRole": "listen"` and an endpoint with a trailing slash
 (e.g. `ws://localhost:1234/lsp/`). HexIDE owns that HTTP listener until teardown and accepts one
@@ -400,3 +400,17 @@ something already able to change the project's files.
 Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
 no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
 generated without a declaration, and core contains no backend schema.
+
+## Keeping a server’s explanation
+
+**Tools → Language Servers…** retains the last 100 stderr lines and the last 100
+`window/showMessage` / `window/logMessage` notifications separately for each running client,
+regardless of log level or protocol body capture. The oldest entries are discarded when full.
+Text in the row is kept in full, including line breaks; the status bar still flattens and
+shortens notifications, and now names the registration that sent them. Histories remain
+available after a connection stops and reset when its client is replaced.
+
+Use **Copy report** or **Save…** in the header for all connections, or beside a server for
+that server alone. Both include the retained explanations and use the same pseudonymisation
+as the existing report. Review a report before sharing it: arbitrary server prose can contain
+information the redactor does not recognise. Cancelling the save picker writes nothing.

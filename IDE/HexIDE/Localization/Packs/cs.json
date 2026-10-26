@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Uchovávat těla zpráv",
     "Str.Tool.LanguageServers.ShowAllMessages": "Zobrazit všechny zaznamenané zprávy",
     "Str.Tool.LanguageServers.ShowMessages": "Zobrazit jeho zprávy",
+    "Str.Tool.LanguageServers.StandardError": "Standardní chybový výstup",
+    "Str.Tool.LanguageServers.ServerMessages": "Zprávy serveru",
     "Str.Tool.LanguageServers.CopyReport": "Kopírovat hlášení",
     "Str.Tool.LanguageServers.ReportRedacted": "Hlášení nahrazuje cesty a adresy smyšlenými názvy.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Tento server neoznámil žádné schopnosti.",

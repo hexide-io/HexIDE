@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Gem meddelelsesindhold",
     "Str.Tool.LanguageServers.ShowAllMessages": "Vis alle optagede meddelelser",
     "Str.Tool.LanguageServers.ShowMessages": "Vis dens meddelelser",
+    "Str.Tool.LanguageServers.StandardError": "Standardfejl",
+    "Str.Tool.LanguageServers.ServerMessages": "Servermeddelelser",
     "Str.Tool.LanguageServers.CopyReport": "Kopiér rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapporten erstatter stier og adresser med opdigtede navne.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Denne server annoncerede ingen funktioner.",

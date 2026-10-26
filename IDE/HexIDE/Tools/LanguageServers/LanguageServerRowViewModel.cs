@@ -257,6 +257,11 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     /// documents are open and are not reaching the server (hexide-io/HexIDE#273).</summary>
     public bool ShowsDocumentCount => IsRunning;
 
+    public bool HasStandardError => _c.StandardError is { Count: > 0 };
+    public bool HasMessages => _c.Messages is { Count: > 0 };
+    public string StandardErrorText => string.Join(Environment.NewLine, _c.StandardError ?? []);
+    public string MessagesText => string.Join(Environment.NewLine, _c.Messages ?? []);
+
     public string WorkspaceRoot => _c.WorkspaceRootUri ?? "";
     public bool HasWorkspaceRoot => !string.IsNullOrWhiteSpace(_c.WorkspaceRootUri);
     /// <summary>
@@ -295,6 +300,8 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
         }
         if (HasDeclined) lines.Add($"  declined by the client: {string.Join(", ", Declined)}");
         if (HasWorkspaceRoot) lines.Add($"  workspace root sent: {redactor.Uri(WorkspaceRoot)}");
+        if (StandardErrorText.Length > 0) lines.Add("  stderr:" + Environment.NewLine + redactor.Body(StandardErrorText));
+        if (MessagesText.Length > 0) lines.Add("  messages:" + Environment.NewLine + redactor.Body(MessagesText));
         lines.Add("  advertised at initialize:");
 
         // Through the body rule as well. These are the server's own words, but a server that echoes its

@@ -61,7 +61,7 @@ public sealed class LanguageServerMessageReporter : IDisposable
         var text = Flatten(p.Message);
         if (text.Length == 0) return;
 
-        _statusBar.SetTemporaryMessage(Prefixed(p.Type, text), DwellFor(p.Type));
+        _statusBar.SetTemporaryMessage(Prefixed(p.Type, sender is VBLspClient client ? $"[{client.ConnectionId}] {text}" : text), DwellFor(p.Type));
     }
 
     private void OnProgress(object? sender, ProgressParams p)

@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Behold meldingsinnhold",
     "Str.Tool.LanguageServers.ShowAllMessages": "Vis alle registrerte meldinger",
     "Str.Tool.LanguageServers.ShowMessages": "Vis meldingene dens",
+    "Str.Tool.LanguageServers.StandardError": "Standardfeil",
+    "Str.Tool.LanguageServers.ServerMessages": "Servermeldinger",
     "Str.Tool.LanguageServers.CopyReport": "Kopier rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapporten erstatter baner og adresser med oppdiktede navn.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Denne serveren deklarerte ingen funksjoner.",

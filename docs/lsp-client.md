@@ -106,6 +106,16 @@ the client asks again.
 
 ---
 
+### Retained server explanations
+
+The Language Servers view keeps separate 100-entry FIFO histories of stderr lines and
+`window/showMessage` / `window/logMessage` notifications per client, without depending on
+logging level or body-capture arming. Snapshots include the full text and survive stop;
+replacing the client starts fresh histories. Registry message events preserve the originating
+client as sender. Log prefixes and status messages identify its registration, even when
+several registrations claim the same language. Whole-view and row copy/save reports include
+these histories through the existing redactor.
+
 ### Work-done progress
 
 The client declares `window.workDoneProgress: true`, accepts `window/workDoneProgress/create` with

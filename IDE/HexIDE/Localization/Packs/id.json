@@ -718,6 +718,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Simpan isi pesan",
     "Str.Tool.LanguageServers.ShowAllMessages": "Tampilkan semua pesan yang direkam",
     "Str.Tool.LanguageServers.ShowMessages": "Tampilkan pesannya",
+    "Str.Tool.LanguageServers.StandardError": "Kesalahan standar",
+    "Str.Tool.LanguageServers.ServerMessages": "Pesan server",
     "Str.Tool.LanguageServers.CopyReport": "Salin laporan",
     "Str.Tool.LanguageServers.ReportRedacted": "Laporan mengganti jalur dan alamat dengan nama rekaan.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Server ini tidak mengumumkan kemampuan apa pun.",
