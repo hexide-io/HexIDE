@@ -1,0 +1,121 @@
+using HexIDE.Automation;
+using HexIDE.Desktop.Server;
+
+namespace HexIDE.Tests.Infrastructure;
+
+/// <summary>
+/// A dump too large for a client to take inline is cut at the most levels down that fit, and says so (#1982). The whole IDE
+/// window was 66,000 to 84,000 characters, which Claude Code saved to a file rather than show.
+/// </summary>
+public class DumpFitsReplyTests
+{
+    private static UiNode Node(string path, params UiNode[] children) =>
+        new(path, "Pane", null, null, "Panel", null, [], true, false, null, children);
+
+    // A root, 20 panes and 40 leaves under each, with paths long enough that the leaves alone pass the budget.
+    private static UiNode Wide() => Node("Window", [.. Enumerable.Range(0, 20).Select(i =>
+        Node($"Window/Pane[#{i}]", [.. Enumerable.Range(0, 40).Select(j =>
+            Node($"Window/Pane[#{i}]/Custom[SomeFairlyLongControlName]/Pane[#{j}]"))]))]);
+
+    // Three children a level, six levels down: 3, 9, 27, 81, 243 and 729 nodes, so a cut at 3 fits and one at 4 does not.
+    private static UiNode Deep(string path = "Window", int levels = 6) => levels == 0
+        ? Node(path)
+        : Node(path, [.. Enumerable.Range(0, 3).Select(i => Deep($"{path}/Pane[#{i}]", levels - 1))]);
+
+    private static IEnumerable<(UiNode Node, int Level)> Flat(UiNode n, int level = 0) =>
+        new[] { (n, level) }.Concat(n.Children.SelectMany(c => Flat(c, level + 1)));
+
+    private static int Size(UiNode n) => System.Text.Json.JsonSerializer.Serialize(n, ReplyJson.Options).Length;
+
+    [Fact]
+    public void A_tree_that_fits_comes_back_whole_with_no_note()
+    {
+        var tree = Node("Window", Node("Window/Button[OK]"));
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree);
+
+        fitted.Should().BeSameAs(tree);
+        note.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_deep_tree_is_cut_at_the_most_levels_that_fit()
+    {
+        var tree = Deep();
+        Size(tree).Should().BeGreaterThan(HexIdeTools.TreeCharacterBudget, "the tree must be too large for this to test anything");
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree);
+
+        var levels = Flat(fitted).ToList();
+        var cutAt = levels.Max(n => n.Level);
+        Size(fitted).Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
+        Size(CutAt(tree, cutAt + 1)).Should().BeGreaterThan(HexIdeTools.TreeCharacterBudget, "one level more must not fit");
+        cutAt.Should().BeGreaterThan(1, "the search must go deeper than one level when it can");
+        levels.Where(n => n.Node.Truncated == true).Should().OnlyContain(n => n.Level == cutAt);
+        levels.Where(n => n.Level == cutAt).Should().OnlyContain(n => n.Node.Truncated == true);
+        note.Should().StartWith("This tree is about ").And.Contain($"so it was cut {cutAt} levels down, about ");
+    }
+
+    [Fact]
+    public void A_wide_tree_is_cut_one_level_down_and_marks_what_holds_more()
+    {
+        var (fitted, note) = HexIdeTools.FitToReply(Wide());
+
+        Size(fitted).Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
+        fitted.Children.Should().HaveCount(20);
+        fitted.Children.Should().AllSatisfy(c =>
+        {
+            c.Children.Should().BeEmpty();
+            c.Truncated.Should().BeTrue();
+        });
+        note.Should().Contain("so it was cut 1 level down, about ").And.Contain("dump again with its path as 'root'");
+    }
+
+    [Fact]
+    public void A_cut_keeps_a_leaf_a_leaf()
+    {
+        var tree = Node("Window", [Node("Window/Button[OK]"), .. Wide().Children]);
+
+        var (fitted, _) = HexIdeTools.FitToReply(tree);
+
+        fitted.Children[0].Truncated.Should().BeNull("a node with nothing below it has nothing cut away");
+    }
+
+    [Fact]
+    public void A_node_with_too_many_children_says_it_is_still_over()
+    {
+        var tree = Node("Window", [.. Enumerable.Range(0, 800).Select(i =>
+            Node($"Window/Pane[#{i}]/Custom[SomeFairlyLongControlName]", Node("leaf")))]);
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree);
+
+        Flat(fitted).Should().NotContain(n => n.Node.Path == "leaf");
+        note.Should().Contain("cut 1 level down").And.EndWith("scope it with 'root'.");
+    }
+
+    [Fact]
+    public void A_node_with_only_children_is_not_said_to_be_cut()
+    {
+        var tree = Node("Window", [.. Enumerable.Range(0, 800).Select(i => Node($"Window/Pane[#{i}]/Custom[SomeFairlyLongControlName]"))]);
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree);
+
+        fitted.Should().BeSameAs(tree);
+        note.Should().Contain("goes only one level down").And.NotContain("cut ");
+    }
+
+    // The note comes before the tree, so a client that keeps only the start of a long reply still has it.
+    [Fact]
+    public void The_note_is_written_before_the_tree()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new VisualTreeResult(null, "MainWindow", Node("Window"), Note: "a note"), ReplyJson.Options);
+
+        json.IndexOf("\"note\"", StringComparison.Ordinal).Should()
+            .BeLessThan(json.IndexOf("\"root\"", StringComparison.Ordinal));
+    }
+
+    private static UiNode CutAt(UiNode node, int levels) => levels == 0
+        ? node with { Children = [], Truncated = node.Children.Length > 0 ? true : null }
+        : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
+}
