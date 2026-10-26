@@ -920,28 +920,34 @@ public static class UiAutomationDriver
         var was = Safe<ToggleState?>(() => toggle.ToggleState, null);
         toggle.Toggle();
         if (inProgram)
-            return Ok($"toggled '{label}'") with { Settled = () => Moved("the program") };
-        return Safe<ToggleState?>(() => toggle.ToggleState, null) is null || was is null
+            return Ok($"toggled '{label}'") with
+            {
+                Settled = () => ToggleMoved(was, Safe<ToggleState?>(() => toggle.ToggleState, null), radio, "the program"),
+            };
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        return now is null || was is null
             ? Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
                   + "Dump it to see")
-            : Ok($"toggled '{label}'{Moved("its handler or a binding")}");
-
-        string Moved(string who) => (was, Safe<ToggleState?>(() => toggle.ToggleState, null)) switch
-        {
-            (null, _) or (_, null) => ", but whether it moved could not be read back",
-            var (from, to) when from != to => $": it is now {Words(to.Value)}",
-            (_, var to) => radio
-                ? $", and it is still {Words(to!.Value)}: a click does not turn a radio button off; select another to"
-                : $", but {who} put it back: it is still {Words(to!.Value)}",
-        };
-
-        static string Words(ToggleState state) => state switch
-        {
-            ToggleState.On => "on",
-            ToggleState.Off => "off",
-            _ => "neither on nor off",
-        };
+            : Ok($"toggled '{label}'{ToggleMoved(was, now, radio, "its handler or a binding")}");
     }
+
+    /// <summary>The clause a toggle's reply ends with: the state it moved to, or that it stayed, and why.</summary>
+    private static string ToggleMoved(ToggleState? was, ToggleState? now, bool radio, string who) => (was, now) switch
+    {
+        (null, _) or (_, null) => ", but whether it moved could not be read back",
+        var (from, to) when from != to => $": it is now {ToggleWords(to.Value)}",
+        // Only a radio button left on was not turned off by a click; one left off was turned on and put back (#2050 review).
+        (_, var to) => radio && to == ToggleState.On
+            ? $", and it is still {ToggleWords(to!.Value)}: a click does not turn a radio button off; select another to"
+            : $", but {who} put it back: it is still {ToggleWords(to!.Value)}",
+    };
+
+    private static string ToggleWords(ToggleState state) => state switch
+    {
+        ToggleState.On => "on",
+        ToggleState.Off => "off",
+        _ => "neither on nor off",
+    };
 
     /// <summary>
     /// The reply to an expand or collapse sent through <paramref name="provider"/>, from its state read back. A
@@ -1478,7 +1484,9 @@ public static class UiAutomationDriver
     public const string ClickValue =
         "a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, "
         + "right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by "
-        + "spaces, as in '10,5 right double' or 'double'";
+        + "spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag "
+        + "(paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, "
+        + "or the target without a path; to cannot accompany double";
 
     /// <summary>
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
@@ -1489,8 +1497,8 @@ public static class UiAutomationDriver
     /// </summary>
     /// <remarks>
     /// Raised on the element, as <see cref="Hover(Control, double?, double?)"/> raises its events, not through the input
-    /// manager: so the press is not implicitly captured, and nothing sets <c>IsPointerOver</c>. A press, a move with the
-    /// button held and a release somewhere else, which is a drag, is beyond it.
+    /// manager: nothing sets <c>IsPointerOver</c>. A drag establishes the mouse press's implicit capture before
+    /// raising the press, then routes held moves and the release to the capturer, or the hit-tested element.
     ///
     /// <para>
     /// Only the press is raised here. The release is the outcome's <see cref="InteractOutcome.Release"/>, which
@@ -1501,7 +1509,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
-        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var problem))
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var destination, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
@@ -1513,6 +1521,32 @@ public static class UiAutomationDriver
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
                         + "or on a part of it that is not hit-tested");
+
+        var releasePoint = inWindow;
+        var releaseWhere = where;
+        if (destination is not null)
+        {
+            var colon = destination.LastIndexOf(':');
+            var releaseControl = control;
+            if (colon >= 0)
+            {
+                var resolved = Resolve(topLevel, destination[..colon]);
+                if (resolved.control is not { } found)
+                    return Fail($"could not resolve the release path: {resolved.error}; nothing was pressed");
+                releaseControl = found;
+            }
+            var coordinates = destination[(colon + 1)..].Split(',');
+            if (coordinates.Length != 2
+                || !double.TryParse(coordinates[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var rx)
+                || !double.TryParse(coordinates[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ry)
+                || !double.IsFinite(rx) || !double.IsFinite(ry))
+                return Fail($"'{destination}' is not a release point; click takes {ClickValue}; nothing was pressed");
+            var releaseLocal = new Point(rx, ry);
+            if (releaseControl.TranslatePoint(releaseLocal, topLevel) is not { } translated)
+                return Fail("could not translate the release point into window coordinates; nothing was pressed");
+            releasePoint = translated;
+            releaseWhere = FormattableString.Invariant($"({rx:0.#}, {ry:0.#}) on '{Describe(releaseControl)}', which is ({translated.X:0.#}, {translated.Y:0.#}) in the window");
+        }
 
         var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
@@ -1533,6 +1567,10 @@ public static class UiAutomationDriver
         var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
             ? UiSaveFeedback.Watch(saveButton.Command) : null;
 #endif
+        // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
+        // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
+        if (destination is not null)
+            pointer.Capture(hit as IInputElement);
         hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
             new PointerPointProperties(held | rawKeys, pressKind), keys));
 
@@ -1552,11 +1590,30 @@ public static class UiAutomationDriver
             try
             {
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
-                var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive ?? hit;
-                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
+                if (destination is not null)
+                {
+                    for (var step = 1; step <= 8; step++)
+                    {
+                        var point = inWindow + (releasePoint - inWindow) * (step / 8.0);
+                        var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
+                            ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
+                        receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
+                            point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
+                    }
+                }
+                var captured = pointer.Captured is not null;
+                var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
+                    ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
+                if (releasedOn is null)
+                    return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
+                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                var recipient = destination is null ? "" : releasedOn is Control releasedControl
+                    ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
+                    : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
-                var outcome = new InteractOutcome(true, "pointer", $"{(second ? "double-clicked" : "clicked")} {pressed}", null,
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
+                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")})"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
@@ -1568,6 +1625,7 @@ public static class UiAutomationDriver
             {
                 return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
             }
+            finally { pointer.Capture(null); }
         }
 
         InteractOutcome SecondPress()
@@ -1582,7 +1640,7 @@ public static class UiAutomationDriver
         }
 
         return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
-            Release: () => Release(second: false));
+            Release: () => Release(second: false), ClickWatch: destination is null ? null : watch);
     }
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
@@ -1590,7 +1648,8 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
-    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. Every other action is
+    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. A <c>toggle</c> reads its
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -1601,6 +1660,8 @@ public static class UiAutomationDriver
     /// </remarks>
     public static async Task<InteractOutcome> InteractAsync(Control control, string action, string? value, TimeSpan? frameWait = null)
     {
+        if (string.Equals(Normalise(action), "toggle", StringComparison.Ordinal))
+            return await ToggleSettledAsync(control, action, value);
         if (!string.Equals(Normalise(action), "click", StringComparison.Ordinal))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
@@ -1614,6 +1675,52 @@ public static class UiAutomationDriver
             };
         return outcome;
     }
+
+    /// <summary>
+    /// A toggle, replied to with its state once the work it set off has run. Its own read comes straight after it, so a
+    /// refusal that put the box back from a posted callback, as a binding's write does, was reported as done (#2050). On
+    /// the IDE's own windows the state is read again once the dispatcher has run what is queued ahead of Background; a
+    /// running form's is read by the wait for its program. A dialog the toggle opened may still change it, so the reply
+    /// says so.
+    /// </summary>
+    private static async Task<InteractOutcome> ToggleSettledAsync(Control control, string action, string? value)
+    {
+        var peer = Safe<AutomationPeer?>(() => ControlAutomationPeer.CreatePeerForElement(control), null);
+        var toggle = peer is null ? null : Safe<IToggleProvider?>(() => peer.GetProvider<IToggleProvider>(), null);
+        var before = toggle is null ? null : Safe<ToggleState?>(() => toggle.ToggleState, null);
+        // Named before the toggle, as invoke names its target (#578): what the toggle sets off may close its window, or
+        // change a caption that follows the state.
+        var label = peer is null ? null : LabelOf(control, peer);
+        // Known by what they show, as typing knows them (#1257): a MsgBox whose form hides moves to a window of its own.
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (toggle is null || before is null || InProgram(control) || outcome is not { Success: true, Settled: null })
+            return outcome;
+
+        // Bounded: a program that keeps the dispatcher busy above Background would otherwise hold the reply for as long as
+        // it runs, and an earlier read is better than none.
+        var settled = Avalonia.Threading.Dispatcher.UIThread
+            .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+        var ran = await Task.WhenAny(settled, Task.Delay(ToggleSettleWait)) == settled;
+        var now = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        if (now is null)
+            return Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
+                       + "Dump it to see");
+        var opened = OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
+        return outcome with
+        {
+            Detail = $"toggled '{label}'"
+                     + ToggleMoved(before, now, control is RadioButton, "its handler or a binding")
+                     + (ran ? "" : $"; read before the work it set off had finished, which took longer than "
+                                   + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms")
+                     + (opened ? "; a dialog opened during this call, which modalDialog names, and the state may change "
+                                 + "again once it is answered" : ""),
+        };
+    }
+
+    /// <summary>How long a toggle's reply waits for the work it set off before reading its state anyway.</summary>
+    public static readonly TimeSpan ToggleSettleWait = TimeSpan.FromSeconds(2);
 
     /// <summary>Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.</summary>
     public static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
@@ -1644,6 +1751,8 @@ public static class UiAutomationDriver
     {
         if (outcome.Release is not { } release)
             return outcome;
+        if (outcome.ClickWatch is { } pressWatch)
+            await WaitForProgramAsync(pressWatch, outcome);
         await Task.Delay(ClickHoldMs);
         var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
         if (!released.Success || released.NextClick is not { } next)
@@ -1861,8 +1970,24 @@ public static class UiAutomationDriver
         [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
-    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string problem)
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out string problem)
     {
+        destination = null;
+        var match = System.Text.RegularExpressions.Regex.Match(value ?? "", @"(?:^|\s)to\s+(.+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            destination = match.Groups[1].Value.Trim();
+            value = value![..match.Index];
+            // Tokens after the release point are unambiguous; spaces within a pasted path stay intact.
+            while (destination.LastIndexOf(' ') is var space && space >= 0)
+            {
+                var tail = destination[(space + 1)..];
+                if (tail.ToLowerInvariant() is not ("double" or "left" or "right" or "middle" or "shift" or "ctrl" or "control" or "alt"))
+                    break;
+                value += " " + tail;
+                destination = destination[..space].TrimEnd();
+            }
+        }
         at = null;
         button = MouseButton.Left;
         keys = KeyModifiers.None;
@@ -1882,7 +2007,8 @@ public static class UiAutomationDriver
                 var parts = word.Split(',');
                 if (at is not null || parts.Length != 2
                     || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var x)
-                    || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                    || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y)
+                    || !double.IsFinite(x) || !double.IsFinite(y))
                 {
                     problem = $"'{token}' is not a point; click takes {ClickValue}";
                     return false;
@@ -1908,6 +2034,11 @@ public static class UiAutomationDriver
                 return false;
             }
             keys |= held;
+        }
+        if (twice && destination is not null)
+        {
+            problem = "double cannot be combined with to: a double click repeats at one point, while to drags to a release point";
+            return false;
         }
         return true;
     }

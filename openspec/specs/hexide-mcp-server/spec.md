@@ -473,3 +473,22 @@ as waiting to run separately from handlers already started.
 - **THEN** the reply names the suspended handler as still running
 - **AND** events with handlers queued behind it are named as waiting to run
 - **AND** events without handlers are omitted
+
+### Requirement: Pointer drags through interact
+
+`interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and
+modifier keys. Release coordinates SHALL be relative to the target, or to the control at the pasted
+`dump_visual_tree` path. The press SHALL establish implicit capture, allow press work to run, then send
+several moves with the button held before releasing to the pointer capturer or the hit-tested control.
+The reply SHALL name the press landing, release point and recipient, and whether capture routed the release.
+Combining `double` with `to` SHALL be refused before pressing.
+
+#### Scenario: Draw a toolbox control
+
+- **WHEN** a toolbox control is selected and `interact` clicks the designer canvas with `20,20 to 100,60`
+- **THEN** held moves show the drawing phantom and release places the control using the drawn rectangle
+
+#### Scenario: Release over a different control
+
+- **WHEN** a drag names another control's path as its release destination
+- **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture
