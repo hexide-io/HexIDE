@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "همگام‌سازی پوشهٔ منبع",
     "Str.Archive.FolderReadyFormat": "پوشهٔ منبع از بایگانی ذخیره‌شده همگام شد:\n{0}\n\nویرایش‌های پوشه همگام‌سازی را متوقف می‌کنند و وارد نمی‌شوند. برای به‌روزرسانی پیش‌نمایش‌ها پروژه را دوباره بارگذاری کنید.",
     "Str.Archive.FolderErrorFormat": "همگام‌سازی پوشهٔ منبع متوقف شد:\n{0}\n\nبایگانی تغییر نکرد.",
+    "Str.Archive.OpenErrorFormat": "باز کردن {0} ممکن نشد:\n{1}",
     "Str.Debug.External.Breakpoint": "نقطهٔ توقف خارجی: خط درخواستی {0}؛ خط آداپتور {1}؛ تأییدشده: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "در انتظار تأیید نقطهٔ توقف.",
     "Str.Tool.Immediate.Expired": "زمینهٔ ارزیابی تغییر کرد؛ پاسخ کنار گذاشته شد.",

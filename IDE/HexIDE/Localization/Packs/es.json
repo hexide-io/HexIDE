@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Sincronizar carpeta de fuentes",
     "Str.Archive.FolderReadyFormat": "Carpeta de fuentes sincronizada desde el archivo guardado:\n{0}\n\nLos cambios en la carpeta detienen la sincronización; no se importan. Vuelva a cargar el proyecto para actualizar las vistas previas.",
     "Str.Archive.FolderErrorFormat": "Se detuvo la sincronización de la carpeta de fuentes:\n{0}\n\nEl archivo no se modificó.",
+    "Str.Archive.OpenErrorFormat": "No se pudo abrir {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Punto de interrupción externo: línea solicitada {0}; línea del adaptador {1}; verificado: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Esperando la verificación del punto de interrupción.",
     "Str.Tool.Immediate.Expired": "El contexto de evaluación cambió; se descartó la respuesta.",

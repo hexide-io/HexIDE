@@ -37,3 +37,12 @@ Selecting an archive entry or activating an archive tab MUST NOT implicitly targ
 #### Scenario: Archive selected in a mixed workspace
 - **WHEN** an archive is selected while a VB6 startup project is loaded
 - **THEN** implicit startup build, run and add-item commands are unavailable
+
+### Requirement: Report refused archive opens without unloading projects
+The IDE MUST report a refused archive open with the selected file name and the reader's reason. Opening an archive from the project picker MUST preserve already open projects and their documents on failure.
+
+#### Scenario: The reader refuses the selected archive
+- **WHEN** the user selects a malformed archive in Open Project
+- **THEN** an error message names the file and includes the reader's reason
+- **AND** the existing projects and documents remain open
+- **AND** the refused archive is not added to recent projects

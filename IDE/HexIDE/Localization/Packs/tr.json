@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Kaynak klasörünü eşitle",
     "Str.Archive.FolderReadyFormat": "Kaynak klasörü kaydedilmiş arşivden eşitlendi:\n{0}\n\nKlasördeki düzenlemeler eşitlemeyi durdurur; içe aktarılmazlar. Önizlemeleri yenilemek için projeyi yeniden yükleyin.",
     "Str.Archive.FolderErrorFormat": "Kaynak klasörü eşitlemesi durduruldu:\n{0}\n\nArşiv değiştirilmedi.",
+    "Str.Archive.OpenErrorFormat": "{0} açılamadı:\n{1}",
     "Str.Debug.External.Breakpoint": "Harici kesme noktası: istenen satır {0}; bağdaştırıcı satırı {1}; doğrulandı: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Kesme noktası doğrulaması bekleniyor.",
     "Str.Tool.Immediate.Expired": "Değerlendirme bağlamı değişti; yanıt atıldı.",

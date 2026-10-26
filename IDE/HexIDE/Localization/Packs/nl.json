@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Bronmap synchroniseren",
     "Str.Archive.FolderReadyFormat": "Bronmap gesynchroniseerd vanuit het opgeslagen archief:\n{0}\n\nWijzigingen in de map stoppen de synchronisatie; ze worden niet geïmporteerd. Laad het project opnieuw om voorbeelden bij te werken.",
     "Str.Archive.FolderErrorFormat": "Synchronisatie van de bronmap gestopt:\n{0}\n\nHet archief is niet gewijzigd.",
+    "Str.Archive.OpenErrorFormat": "Kan {0} niet openen:\n{1}",
     "Str.Debug.External.Breakpoint": "Extern onderbrekingspunt: aangevraagde regel {0}; adapterregel {1}; geverifieerd: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Wachten op verificatie van het onderbrekingspunt.",
     "Str.Tool.Immediate.Expired": "De evaluatiecontext is gewijzigd; het antwoord is genegeerd.",

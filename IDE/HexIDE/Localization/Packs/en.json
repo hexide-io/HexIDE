@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Synchronize source folder",
     "Str.Archive.FolderReadyFormat": "Source folder synchronized from the saved archive:\n{0}\n\nFolder edits stop synchronization; they are not imported. Reload the project to refresh previews.",
     "Str.Archive.FolderErrorFormat": "Source folder synchronization stopped:\n{0}\n\nThe archive was not modified.",
+    "Str.Archive.OpenErrorFormat": "Could not open {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "External breakpoint: requested line {0}; adapter line {1}; verified: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Waiting for breakpoint verification.",
     "Str.Tool.Immediate.Expired": "The evaluation context changed; its reply was discarded.",

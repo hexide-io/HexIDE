@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Sinkronigi fontdosierujon",
     "Str.Archive.FolderReadyFormat": "La fontdosierujo estis sinkronigita el la konservita arkivo:\n{0}\n\nŜanĝoj en la dosierujo haltigas sinkronigon; ili ne estas importataj. Reŝargu la projekton por ĝisdatigi antaŭrigardojn.",
     "Str.Archive.FolderErrorFormat": "La sinkronigo de la fontdosierujo haltis:\n{0}\n\nLa arkivo ne estis modifita.",
+    "Str.Archive.OpenErrorFormat": "Ne eblis malfermi {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Ekstera haltpunkto: petita linio {0}; adaptila linio {1}; konfirmita: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Atendante konfirmon de haltpunkto.",
     "Str.Tool.Immediate.Expired": "La taksada kunteksto ŝanĝiĝis; ĝia respondo estis forĵetita.",

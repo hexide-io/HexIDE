@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Quellordner synchronisieren",
     "Str.Archive.FolderReadyFormat": "Quellordner aus dem gespeicherten Archiv synchronisiert:\n{0}\n\nÄnderungen im Ordner stoppen die Synchronisierung; sie werden nicht importiert. Laden Sie das Projekt neu, um die Vorschau zu aktualisieren.",
     "Str.Archive.FolderErrorFormat": "Synchronisierung des Quellordners angehalten:\n{0}\n\nDas Archiv wurde nicht geändert.",
+    "Str.Archive.OpenErrorFormat": "{0} konnte nicht geöffnet werden:\n{1}",
     "Str.Debug.External.Breakpoint": "Externer Haltepunkt: angeforderte Zeile {0}; Adapterzeile {1}; bestätigt: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Warten auf Bestätigung des Haltepunkts.",
     "Str.Tool.Immediate.Expired": "Der Auswertungskontext hat sich geändert; die Antwort wurde verworfen.",

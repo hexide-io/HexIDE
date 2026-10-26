@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Indicem fontium synchroniza",
     "Str.Archive.FolderReadyFormat": "Index fontium ex archivo servato synchronizatus est:\n{0}\n\nMutationes in indice synchronismum sistunt; non importantur. Proiectum denuo onera ut praespectiones renoventur.",
     "Str.Archive.FolderErrorFormat": "Synchronismus indicis fontium substitit:\n{0}\n\nArchivum non mutatum est.",
+    "Str.Archive.OpenErrorFormat": "{0} aperiri non potuit:\n{1}",
     "Str.Debug.External.Breakpoint": "Punctum sistendi externum: linea petita {0}; linea adaptoris {1}; confirmatum: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Confirmatio puncti sistendi exspectatur.",
     "Str.Tool.Immediate.Expired": "Contextus aestimationis mutatus est; responsum omissum est.",

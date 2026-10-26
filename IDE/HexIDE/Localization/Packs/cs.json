@@ -16,6 +16,7 @@
     "Str.Archive.SyncFolder": "Synchronizovat složku zdrojů",
     "Str.Archive.FolderReadyFormat": "Složka zdrojů byla synchronizována z uloženého archivu:\n{0}\n\nÚpravy ve složce zastaví synchronizaci; neimportují se. Náhledy aktualizujete opětovným načtením projektu.",
     "Str.Archive.FolderErrorFormat": "Synchronizace složky zdrojů se zastavila:\n{0}\n\nArchiv nebyl změněn.",
+    "Str.Archive.OpenErrorFormat": "Nelze otevřít {0}:\n{1}",
     "Str.Debug.External.Breakpoint": "Externí bod přerušení: požadovaný řádek {0}; řádek adaptéru {1}; ověřeno: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Čeká se na ověření bodu přerušení.",
     "Str.Tool.Immediate.Expired": "Kontext vyhodnocení se změnil; odpověď byla zahozena.",
