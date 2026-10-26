@@ -352,6 +352,14 @@ jobs:
         working-directory: LspServer
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
 
+      # One test makes a program with the real runner and starts it (#1971): every earlier Make test copied stand-in files
+      # and ran nothing, which is how made programs that could not start shipped in v0.2.0. Nothing else in this job
+      # publishes the runner. Windows only, since the test needs a desktop session to start a program and skips
+      # elsewhere; HEXIDE_REQUIRE_MADE_PROGRAM below turns a missing runner from that skip into a failure.
+      - name: Publish the standalone runner (for the made-program test)
+        if: matrix.name == 'windows'
+        run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
@@ -359,6 +367,7 @@ jobs:
       - name: Run ViewModel Tests
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_REQUIRE_MADE_PROGRAM: ${{ matrix.name == 'windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
