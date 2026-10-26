@@ -114,6 +114,9 @@ public class VBOptionButton : RadioButton
     // each of them, so the Tab key reaches the first in its direction and selects it (measured, #1583). Each keeps its own
     // TabStop besides.
     private bool tabStop = true;
+
+    /// <summary>The TabStop the form or code gave it, which a program reads back, whatever stop its group allows it.</summary>
+    internal bool ProgramTabStop => tabStop;
     private bool settingTabStop;
 
     // Set while the focus selects it, until its GotFocus has been raised.
