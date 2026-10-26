@@ -861,7 +861,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 31 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 32 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -883,7 +883,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 17 of 41
+### `textDocument/*` — 18 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -921,7 +921,7 @@ than inferred.
 | ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
 | ✅ | `textDocument/rename` | → |  |
 | ○ | `textDocument/selectionRange` | → |  |
-| ○ | `textDocument/semanticTokens/full` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
@@ -1067,7 +1067,7 @@ in the first place; the guard will catch it, but the guard is a backstop, not a 
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy
+- **Features needing a bound AST** — references, code actions, inlay hints, call hierarchy
   and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
@@ -1111,7 +1111,7 @@ awaiting effort, they are **server** features awaiting a server.
 |---|---|---|
 | Find all references | `textDocument/references` | Not wired |
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
-| Semantic tokens | `textDocument/semanticTokens` | Not wired |
+| Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Inlay hints | `textDocument/inlayHint` | Not wired |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
@@ -1151,7 +1151,19 @@ bytes skip the write, preserving the timestamp and avoiding needless server watc
 describe returns null: nothing is prompted or written, and a target HexIDE still owns is deleted under the same
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
+The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
+`.rdproj` RDCore's language server needs at the workspace root, which it reads only when it starts.
 
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
-#456; there is no `.rdproj` provider in phase 1, no public add-in contract (#457), no undeclared generation,
+#456; there is no public add-in contract (#457), no undeclared generation,
 no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
+### Semantic colours
+
+The client declares standard token types and modifiers, relative encoding, full requests only, and no
+overlapping or multiline tokens. An editor asks on attachment, 500 ms after edits, and when a server
+comes up. Only the highest-priority full provider is asked; its legend travels with its answer.
+Keywords, comments, strings, numbers and operators use the named syntax palette; names use Identifier,
+and types use Type. Both palettes follow the theme. Read-only region and diagnostic colours retain
+precedence. Uncovered text retains lexical colouring. Empty or failed answers clear the overlay and
+log once per document per connection; the next change retries. Invalid ranges are discarded and stale
+responses are ignored. No range request is sent (#2054).

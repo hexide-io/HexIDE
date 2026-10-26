@@ -209,6 +209,37 @@ public class SelectScrolledOutRowTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_dump_lists_scrolled_rows_in_item_order(bool home)
+    {
+        var (window, list, _) = ScrolledRows();
+        try
+        {
+            list.Height = 100;
+            list.UpdateLayout();
+            UiAutomationDriver.Interact(list, "select", home ? "Row2" : "Row28").Success.Should().BeTrue();
+            if (home)
+            {
+                list.ScrollIntoView(28);
+                list.UpdateLayout();
+                list.ScrollIntoView(0);
+                list.UpdateLayout();
+            }
+
+            var dump = Flatten(UiAutomationDriver.Dump(window, "Window", 12, false)).ToList();
+            var rows = dump.Where(n => n.ControlType == "ListItem").ToList();
+            var indices = rows.Select(n => int.Parse(n.Name![3..])).ToList();
+            indices.Count.Should().BeGreaterThan(2);
+            indices.Should().BeInAscendingOrder();
+            indices.Should().OnlyHaveUniqueItems();
+            foreach (var row in rows)
+                UiAutomationDriver.Resolve(window, row.Path).control.Should().BeSameAs(list.ContainerFromIndex(int.Parse(row.Name![3..])));
+        }
+        finally { window.Close(); }
+    }
+
     // Only Row28 has an input surface; panel order cannot decide which item receives input (#1327).
     private static (Window Window, ListBox List, TextBox Box) ReleasedTextBox()
     {
