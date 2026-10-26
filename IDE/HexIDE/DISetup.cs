@@ -99,26 +99,6 @@ public partial class DISetup
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
-            .Bind<CodeEditorViewModel>().As(Transient).To(ctx =>
-            {
-                // Resolve optional services explicitly to bound the constructor alternatives in the graph.
-                ctx.Inject<IWindowManager>(out var windows);
-                ctx.Inject<IEditorService>(out var editors);
-                ctx.Inject<IProjectService>(out var projects);
-                ctx.Inject<IEventBus>(out var events);
-                ctx.Inject<ILspClient>(out var lsp);
-                ctx.Inject<ISettingsService>(out var settings);
-                ctx.Inject<IStatusBarService>(out var status);
-                ctx.Inject<IBookmarkService>(out var bookmarks);
-                ctx.Inject<IBreakpointService>(out var breakpoints);
-                ctx.Inject<IDebugController>(out var debugger);
-                ctx.Inject<IRunScope>(out var runScope);
-                ctx.Inject<ILocalizationService>(out var localization);
-                ctx.Inject<ExternalDebugService>(out var external);
-                ctx.Inject<RecentEditHistory>(out var history);
-                return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, runScope, localization, external, history);
-            })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
