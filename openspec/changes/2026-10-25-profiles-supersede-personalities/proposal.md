@@ -6,8 +6,8 @@ Issue #504 records the decision to replace personalities with profiles and remov
 A fixed enumeration cannot represent a bundle authored outside this repository. Safe mode, a directory
 and an installed name are three selections of the same base experience.
 
-**Status: proposal for supervisor review and Jen's approval; no implementation is authorised by this
-change.** The supersession decision is settled; the detailed choices below are proposed for approval.
+**Status: approved by Jen as written on 2026-10-25 in #504, following #1953.** The latest supervisor
+comment authorises phase 2 only; subsequent implementation phases remain separate deliveries.
 The feasibility evidence is `docs/profile-bundles.md`; current behaviour is checked against
 `PersonalityProfiles`, `IProjectTemplate.Templates` and `ServerOptions` in this checkout.
 
@@ -36,13 +36,14 @@ The feasibility evidence is `docs/profile-bundles.md`; current behaviour is chec
 
 ## Impact
 
-This deliverable changes documentation only. Runtime, localization packs, CLI help, living coverage
-counts and published capability specs continue to describe today's implementation. The future loader
+The original proposal changed documentation only. Phase 2 completes and guards the routed-command
+keymap table and verifies the already-corrected personality spec. The live keymap spec records full
+routed-command coverage; localization packs, CLI help and living coverage counts are unchanged. The future loader
 will run before settings-dependent services and the first window; surfaces will consume a resolved
 profile rather than branch on its name. No interpreter or VB6 semantics change.
 
 ## Delivery after approval
 
-`design.md` defines the proposed format and alternatives. `tasks.md` keeps implementation unchecked,
+`design.md` defines the approved format and alternatives. `tasks.md` records progress,
 split into reviewable work with sizes and validation. #415, #418 and #419 remain separate issues;
 additional split-outs are proposed here, not filed or claimed by this change.

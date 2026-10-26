@@ -1871,6 +1871,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
 
+    public IReadOnlyList<string> CompletionTriggerCharacters => LiveDocumentUri is { } uri
+        ? lspClient.CompletionTriggerCharacters(uri) : [];
+
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(
+        Position position, string triggerCharacter, CancellationToken ct = default) =>
+        LiveDocumentUri is { } uri
+            ? lspClient.RequestCompletionForTriggerAsync(uri, position, triggerCharacter, ct)
+            : Task.FromResult<CompletionItem[]>([]);
+
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 

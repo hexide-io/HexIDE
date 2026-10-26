@@ -162,6 +162,11 @@ declaration, the existing split at the first line break SHALL apply.
 This placement rule (#1039) is a HexIDE decision; the exact VB6 paste has not been measured. It settles the
 whole-declaration paste question in the archived #273 design record without changing that historical record.
 
+For a file ending in a folded member attribute run without a final line break, Select All SHALL select the
+whole buffer while leaving the caret at the declaration's end; Shift+Left SHALL then end the selection one
+character before that point. Select-to-document-end from above the run SHALL select only to the declaration's
+end. This edge case is retained by decision #1019; the measured VB6-saved files all have a final line break.
+
 #### Scenario: Pasting a comment before a replacement declaration
 - **WHEN** the developer selects a described declaration's text through its end and pastes a comment followed
   by a compatible declaration
