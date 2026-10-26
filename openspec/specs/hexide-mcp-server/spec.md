@@ -461,3 +461,16 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Realized items SHALL be listed in item order
+The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items
+panel's own containers by their owning `ItemsControl` index. Children without an item index SHALL
+follow those containers, retaining their relative visual-child order.
+
+#### Scenario: Selection scrolls a virtualized list
+- **WHEN** `interact` selects a row out of view and the list realizes rows around it
+- **THEN** the dump lists those rows in item order, each once, and their paths resolve to those containers
+
+#### Scenario: A selected row is visible near the top
+- **WHEN** a selected row is the third row on screen
+- **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
