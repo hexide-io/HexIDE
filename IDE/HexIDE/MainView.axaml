@@ -229,6 +229,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.ObjectBrowser}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Objectbrowser}" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.ImmediateWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Immediatewindow}" Command="{x:Static vb:ApplicationCommands.OpenImmediateCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Tool.Outline.Title}" Command="{CompiledBinding OpenOutlineCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LocalsWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Localswindow}" Command="{x:Static vb:ApplicationCommands.OpenLocalsCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.WatchWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Watchwindow}" Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.CallStack}" Command="{x:Static vb:ApplicationCommands.OpenCallStackCommand}" />

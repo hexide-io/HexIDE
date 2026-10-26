@@ -50,12 +50,14 @@ public class LayoutManifestJsonTests
     }
 
     [Fact]
-    public void Default_HasTwelveToolsWithExpectedHomes()
+    public void Default_HasThirteenToolsWithExpectedHomes()
     {
         var d = LayoutManifest.Default;
 
         d.Version.Should().Be(LayoutManifest.CurrentVersion);
-        d.Tools.Should().HaveCount(12);
+        d.Tools.Should().HaveCount(13);
+        d.Tools.Single(t => t.Key == "outline").Open.Should().BeFalse();
+        d.Tools.Single(t => t.Key == "outline").Region.Should().Be(DockRegion.Right);
 
         d.Tools.Single(t => t.Key == "toolbox").Region.Should().Be(DockRegion.Left);
         d.Tools.Single(t => t.Key == "properties").Region.Should().Be(DockRegion.Right);

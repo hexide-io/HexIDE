@@ -55,6 +55,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
+            .Bind().As(Singleton).To<OutlineToolViewModel>()
             .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
             {
                 // Make the optional debugger dependency explicit instead of expanding constructor alternatives.
