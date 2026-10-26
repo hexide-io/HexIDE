@@ -1737,6 +1737,7 @@ public static class UiAutomationDriver
                         Idle = watch.Pump.IsIdle && watch.Pump.AtDoEvents.All(watch.LoopsBefore.Contains),
                         Started = string.Join(", ", watch.Pump.BusySince(watch.LiveBefore).Distinct()),
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
+                        Waiting = string.Join(", ", watch.Pump.WaitingHandlers.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,
                         // What it is, as the note says it: the title alone is 'HexIDE' for two of the IDE's dialogs (#1975).
@@ -1753,6 +1754,7 @@ public static class UiAutomationDriver
             var opened = state.Opened.Count == 0
                 ? ""
                 : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
+            var waiting = state.Waiting.Length == 0 ? "" : $", with {state.Waiting} waiting to run";
             if (state.Idle)
             {
                 // What the action left on the form, read only now that the program has run what it set off (#1280).
@@ -1771,7 +1773,7 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is paused at {stop.Module} line {stop.Line} ({stop.Reason}), "
-                             + $"with {state.Busy} not finished; it runs on, and the form may change, once the program "
+                             + $"with {state.Busy} not finished{waiting}; it runs on, and the form may change, once the program "
                              + $"continues{opened})",
                 };
             // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
@@ -1782,7 +1784,7 @@ public static class UiAutomationDriver
                 OpenDialogs.NamedInReply(dialog);
                 return outcome with
                 {
-                    Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
+                    Detail = outcome.Detail + $" (the program is still running {state.Busy}{waiting}, and has a window open over "
                              + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
@@ -1793,7 +1795,7 @@ public static class UiAutomationDriver
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)}s "
-                             + $"later, so the form may still change{opened})",
+                             + $"later{waiting}, so the form may still change{opened})",
                 };
             await Task.Delay(20, ct).ConfigureAwait(false);
         }

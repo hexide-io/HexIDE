@@ -461,3 +461,15 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: Program wait replies distinguish running and queued handlers
+
+Program wait replies SHALL name only events with handlers in the program and SHALL describe queued handlers
+as waiting to run separately from handlers already started.
+
+#### Scenario: Events arrive while a MsgBox holds a handler
+
+- **WHEN** a handler is suspended at a MsgBox and other control events arrive
+- **THEN** the reply names the suspended handler as still running
+- **AND** events with handlers queued behind it are named as waiting to run
+- **AND** events without handlers are omitted
