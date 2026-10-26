@@ -93,6 +93,14 @@ The interpreter takes those as its own locale at startup, before the pin, rather
 (`VbLocale`, #777). So the IDE's language, the user's regional locale and the culture of the IDE's threads are
 three separate things, and translating the IDE cannot change what a program computes.
 
+The program locale SHALL replace U+202F and U+00A0 in date/time patterns and AM/PM designators
+with ordinary U+0020 spaces (#2102).
+
+#### Scenario: ICU supplies a nonbreaking space before AM or PM
+- **WHEN** the program locale's long-time pattern contains U+202F before its AM/PM token
+- **THEN** converting a Date to text uses an ordinary space there
+- **AND** the original host culture is unchanged
+
 #### Scenario: Running a program with a non-English IDE language
 - **WHEN** the IDE language is changed and a VB6 program is run
 - **THEN** the program's numeric parsing and formatting are unchanged
