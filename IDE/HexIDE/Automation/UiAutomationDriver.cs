@@ -1567,6 +1567,10 @@ public static class UiAutomationDriver
         var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
             ? UiSaveFeedback.Watch(saveButton.Command) : null;
 #endif
+        // A drag in Dock's layout says what it moved, or that nothing moved: one whose drop found no target read the same
+        // as one that docked (#2175).
+        var dockLayout = destination is null ? null : (hit as Visual)?.FindAncestorOfType<Dock.Avalonia.Controls.DockControl>()?.Layout;
+        var placedBefore = dockLayout is null ? null : DockPlacement(dockLayout);
         // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
         // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
         if (destination is not null)
@@ -1585,22 +1589,31 @@ public static class UiAutomationDriver
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
         var pressed = $"the {name} button{holding} at {where}{landing}";
+        // Each held move is input of its own, raised by FinishAsync with the dispatcher's layout run between them, as a
+        // real pointer's moves are. Dock adds its drop target on the first move past its threshold and finds the drop
+        // from that target's layout, so eight moves raised in one burst left the release over a target with no size,
+        // and nothing docked (#2175). A control that captured the pointer on its press takes them, as it would.
+        Exception? moveFailed = null;
+        List<Action>? moves = destination is null ? null : [.. Enumerable.Range(1, 8).Select(step => (Action)(() =>
+        {
+            try
+            {
+                var point = inWindow + (releasePoint - inWindow) * (step / 8.0);
+                var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
+                    ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
+                receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
+                    point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
+            }
+            catch (Exception ex) { moveFailed ??= ex; }
+        }))];
         InteractOutcome Release(bool second)
         {
             try
             {
+                if (moveFailed is not null)
+                    return new InteractOutcome(false, "pointer", null,
+                        $"pressed {pressed}, and a held move threw, so the button was let go without a release: {moveFailed.Message}");
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
-                if (destination is not null)
-                {
-                    for (var step = 1; step <= 8; step++)
-                    {
-                        var point = inWindow + (releasePoint - inWindow) * (step / 8.0);
-                        var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
-                            ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
-                        receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
-                            point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
-                    }
-                }
                 var captured = pointer.Captured is not null;
                 var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
@@ -1612,8 +1625,9 @@ public static class UiAutomationDriver
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
+                var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!));
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
-                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")})"), null,
+                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
@@ -1640,8 +1654,68 @@ public static class UiAutomationDriver
         }
 
         return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
-            Release: () => Release(second: false), ClickWatch: destination is null ? null : watch);
+            Release: () => Release(second: false), ClickWatch: destination is null ? null : watch, HeldMoves: moves);
     }
+
+    /// <summary>Where a tool or document sits in a Dock layout, read before and after a drag (#2175).</summary>
+    private sealed record DockPlace(Dock.Model.Core.IDockable? Owner, int Index, bool Floating, string[] Beside);
+
+    /// <summary>
+    /// Every tool and document in <paramref name="layout"/>, floating windows included, with the dock that holds it, its
+    /// tab position there, and what else that dock holds, which is how a dock the IDE gives no name is told apart.
+    /// </summary>
+    private static Dictionary<Dock.Model.Core.IDockable, DockPlace> DockPlacement(Dock.Model.Core.IDock layout)
+    {
+        var placed = new Dictionary<Dock.Model.Core.IDockable, DockPlace>(ReferenceEqualityComparer.Instance);
+        void Walk(Dock.Model.Core.IDock dock, bool floating)
+        {
+            var children = dock.VisibleDockables?.ToList() ?? [];
+            var leaves = children.Where(c => c is Dock.Model.Controls.ITool or Dock.Model.Controls.IDocument).ToList();
+            foreach (var child in children)
+            {
+                if (child is Dock.Model.Core.IDock inner)
+                    Walk(inner, floating);
+                else if (leaves.Contains(child))
+                    placed[child] = new DockPlace(dock, leaves.IndexOf(child), floating,
+                        [.. leaves.Where(l => !ReferenceEquals(l, child)).Select(DockableName)]);
+            }
+            if (dock is Dock.Model.Controls.IRootDock { Windows: { } windows })
+                foreach (var window in windows)
+                    if (window.Layout is { } floated)
+                        Walk(floated, true);
+        }
+        Walk(layout, false);
+        return placed;
+    }
+
+    /// <summary>What a drag changed in a Dock layout, as a clause for its reply: what moved where, or that nothing did.</summary>
+    private static string DockMoved(Dictionary<Dock.Model.Core.IDockable, DockPlace> before,
+        Dictionary<Dock.Model.Core.IDockable, DockPlace> after)
+    {
+        var moved = new List<string>();
+        foreach (var (dockable, now) in after)
+        {
+            if (!before.TryGetValue(dockable, out var was))
+                continue;
+            if (!ReferenceEquals(was.Owner, now.Owner) || was.Floating != now.Floating)
+                moved.Add($"'{DockableName(dockable)}' from {At(was)} to {At(now)}");
+            else if (was.Index != now.Index)
+                moved.Add($"'{DockableName(dockable)}' within {At(now)}, from tab {was.Index + 1} to tab {now.Index + 1}");
+        }
+        return moved.Count == 0
+            ? "; Dock's layout is unchanged, so nothing was docked: the release was not over one of Dock's drop targets, "
+              + "or dropped what it dragged where it was"
+            : "; Dock moved " + string.Join(", and ", moved);
+
+        static string At(DockPlace place) =>
+            (place.Beside.Length == 0 ? "a dock of its own" : "the dock with " + string.Join(", ", place.Beside.Select(b => $"'{b}'")))
+            + (place.Floating ? ", in a floating window" : "");
+    }
+
+    private static string DockableName(Dock.Model.Core.IDockable dockable) =>
+        !string.IsNullOrEmpty(dockable.Title) ? dockable.Title
+        : !string.IsNullOrEmpty(dockable.Id) ? dockable.Id
+        : dockable.GetType().Name;
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
     public static readonly TimeSpan ClickFrameWait = TimeSpan.FromSeconds(1);
@@ -1754,6 +1828,12 @@ public static class UiAutomationDriver
         if (outcome.ClickWatch is { } pressWatch)
             await WaitForProgramAsync(pressWatch, outcome);
         await Task.Delay(ClickHoldMs);
+        foreach (var move in outcome.HeldMoves ?? [])
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(move, Avalonia.Threading.DispatcherPriority.Input);
+            // Everything queued above Background, the layout a move asked for among it, has run before the next one (#2175).
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+        }
         var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
         if (!released.Success || released.NextClick is not { } next)
             return released;
@@ -4475,6 +4555,10 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
 /// </param>
 /// <param name="NextClick">The second press of a double click, after the first release has settled. Not serialized.</param>
+/// <param name="HeldMoves">
+/// A drag's held moves, which <see cref="UiAutomationDriver.FinishAsync"/> raises one by one before the release, with the
+/// dispatcher's layout run between them (#2175). Not serialized.
+/// </param>
 /// <param name="ClickWatch">The program before the first press, waited for between clicks. Not serialized.</param>
 /// <param name="Settled">
 /// What the action left on a running form, read once the program has run what it set off: a clause for the detail, or
@@ -4489,6 +4573,7 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);

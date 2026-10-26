@@ -468,8 +468,11 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 modifier keys. Release coordinates SHALL be relative to the target, or to the control at the pasted
 `dump_visual_tree` path. The press SHALL establish implicit capture, allow press work to run, then send
 several moves with the button held before releasing to the pointer capturer or the hit-tested control.
-The reply SHALL name the press landing, release point and recipient, and whether capture routed the release.
-Combining `double` with `to` SHALL be refused before pressing.
+Each held move SHALL be input of its own, with the dispatcher's layout run before the next, as a real
+pointer's moves are. The reply SHALL name the press landing, release point and recipient, and whether
+capture routed the release. A drag pressed in Dock's layout SHALL also say which tools or documents Dock
+moved, and where, or that the layout is unchanged. Combining `double` with `to` SHALL be refused before
+pressing.
 
 #### Scenario: Draw a toolbox control
 
@@ -480,3 +483,14 @@ Combining `double` with `to` SHALL be refused before pressing.
 
 - **WHEN** a drag names another control's path as its release destination
 - **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture
+
+#### Scenario: Dock a tool window by dragging its title strip
+
+- **WHEN** a drag presses a tool window's title strip and releases over the centre of another dock
+- **THEN** Dock's drop target, added on the first held move, has been laid out by the release, and the tool joins that dock
+- **AND** the reply says Dock moved it, from where to where
+
+#### Scenario: A drag that docks nothing
+
+- **WHEN** a drag in Dock's layout releases where no drop target is
+- **THEN** the reply says the layout is unchanged, so nothing was docked
