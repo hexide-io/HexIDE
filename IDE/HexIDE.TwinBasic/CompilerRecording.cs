@@ -20,7 +20,8 @@ public sealed class CompilerRecordingValues
     {
         this.values = values.Select(x => new Binding(x.Key, x.Value.ToArray(), Encoding.UTF8.GetBytes(x.Key)))
             .OrderByDescending(x => x.Value.Length).ToArray();
-        if (this.values.Any(x => !Regex.IsMatch(x.Key, @"^\{(stage|pid|instance|port:(root|fs|language|debugger|formImage|liveBackup))\}$") || x.Value.Length == 0))
+        // {language} stands for the language data an initialization carries: an install's pack is not ours to keep.
+        if (this.values.Any(x => !Regex.IsMatch(x.Key, @"^\{(stage|pid|instance|language|port:(root|fs|language|debugger|formImage|liveBackup))\}$") || x.Value.Length == 0))
             throw new ArgumentException("Named, nonempty recording values are required.", nameof(values));
     }
 
@@ -163,7 +164,7 @@ public static class CompilerRecordingReplay
             var bytes = type == WebSocketMessageType.Text
                 ? Encoding.UTF8.GetBytes(values.SubstituteText(frame.Payload, false))
                 : values.Substitute(Convert.FromBase64String(frame.Payload), false);
-            if (Regex.IsMatch(Encoding.UTF8.GetString(bytes), @"\{(?:stage|pid|instance|port:[^}]+)\}"))
+            if (Regex.IsMatch(Encoding.UTF8.GetString(bytes), @"\{(?:stage|pid|instance|language|port:[^}]+)\}"))
                 throw new InvalidDataException($"Unsubstituted placeholder at frame {sequence}.");
             var peer = peers[frame.Channel];
             if (frame.Direction == "receive") await peer.SendAsync(bytes, type, cancellationToken).ConfigureAwait(false);
