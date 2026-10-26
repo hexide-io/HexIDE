@@ -4088,7 +4088,10 @@ deliberately. Cross-platform by code reading.
 > - **`take_snapshot`** drew the row in full: its time, `•` and `broken-txt` in normal text, and the failure in bold
 >   red in the Method column.
 > - **The filtered dump** also lists a recycled grid row holding the same failure, marked `isHidden`:
->   [#1977](https://github.com/hexide-io/HexIDE/issues/1977).
+>   [#1977](https://github.com/hexide-io/HexIDE/issues/1977). Fixed by excluding recycled rows in the
+>   DataGrid rows presenter, including their stale cells. A headless regression filters two rows to one
+>   and checks that the remaining row appears once and its path resolves. Live recheck: repeat the
+>   filter and dump above; the one shown failure should have one DataItem, with no recycled duplicate.
 >
 > **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
 > A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
