@@ -1548,8 +1548,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>
     /// Fold every remaining member onto a value, left to right.
     ///
-    /// A UDT hands the rest of the chain to <see cref="GetUdtField"/>, which already walked its own bags.
-    /// Everything else resolves a step at a time — so a chain may change kind as it goes (an object field
+    /// A UDT hands the rest of the chain to <see cref="GetUdtField"/> to walk its owned fields and indices.
+    /// Other members resolve a step at a time — so a chain may change kind as it goes (an object field
     /// holding a UDT, a UDT field holding an object) without any step needing to know what follows it.
     /// </summary>
     internal async Task<Vb6Value> ResolveMemberChain(
@@ -1559,8 +1559,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         for (var i = from; i < members.Length; i++)
         {
             if (current.Value is VbUdt)
-                return await interpreter.Loading((Root: current, Members: members[i..], Context: ctx),
-                    static s => (Vb6Value)GetUdtField(s.Root, s.Members, s.Context)!);
+                return await GetUdtField(current, members[i..], ctx);
             // A member reached through a Variant is late-bound, and its result is a Variant's whatever the member is
             // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
             // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
@@ -1778,7 +1777,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // Read a UDT field chain (`e.City`, `e.Address.City`) — navigate owned bags, returning the final field's
     // value (a nested-UDT field returns the live reference; the immediate consumer, a Let/ByVal, deep-copies it).
-    private static object? GetUdtField(Vb6Value root, VB6Parser.ICS_S_MemberCallContext[] members, Antlr4.Runtime.ParserRuleContext ctx)
+    private async Task<Vb6Value> GetUdtField(Vb6Value root, VB6Parser.ICS_S_MemberCallContext[] members, Antlr4.Runtime.ParserRuleContext ctx)
     {
         var current = root;
         foreach (var m in members)
@@ -1786,8 +1785,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (current.Value is not VbUdt bag)
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch, "Member access on a non-UDT value");
             var fieldName = MemberName(m);
-            if (!bag.TryGet(fieldName, out current))
-                throw new VBRunTimeException(ctx, VBStandardError.MethodOrDataMemberNotFound, fieldName);
+            current = await interpreter.Loading((Bag: bag, Name: fieldName, Context: ctx),
+                static s => s.Bag.TryGet(s.Name, out var value) ? value
+                    : throw new VBRunTimeException(s.Context, VBStandardError.MethodOrDataMemberNotFound, s.Name));
+            if (MemberArgs(m) is { } args)
+                current = IndexResult(current, await EvaluateCallArgs(args), ctx);
         }
         return current;
     }
