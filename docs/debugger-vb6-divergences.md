@@ -283,11 +283,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **HexIDE:** the Call Stack is a **dockable tool window** (a `Document`/tool pane, not a modal dialog), and each
   frame carries a right-aligned **Line** column (the 1-based statement line of that activation, counted from the
   top of the file: D25). Current frame is marked with an arrow; there are no Show/Close buttons (the dock owns
-  close; double-click-to-navigate is a later nice-to-have).
+  close; selection or double-click navigates to the calling statement).
 - **Why:** a non-modal, always-available pane fits the dock-based IDE better than a modal dialog, and the interpreter
   *does* track a per-frame current line, so surfacing it is a cheap, useful modern-additive (muscle-memory:
   recognisable list, plus more info). Project name is omitted (single-project interpreter).
 - **Status:** **by design** (additive evolution). User-recognisable; strictly more information than VB6's list.
+
+Caller navigation (#1866): selecting or double-clicking a built-in caller now opens its calling statement and
+marks it with a green gutter triangle, leaving the current statement unchanged. This matches the behaviour
+recorded in #1866; the dockable pane uses selection/double-click rather than VB6's modal **Show** button.
 
 ### D17. The Call Stack is anchored at the paused frame; a frozen re-entrant event's frames are excluded
 - **VB6:** its own break-mode call-stack presentation for re-entrant (event-during-event) situations.

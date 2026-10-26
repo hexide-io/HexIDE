@@ -1126,11 +1126,18 @@ anyway, so it is recorded rather than defended.
 - **AND** it emits nothing for a project carrying no C/C++ files
 - **AND** a real clangd test observes diagnostics changing when the generated arguments define HEXIDE_PROBE
 
+#### Scenario: RDCore project descriptor
+- **WHEN** the rdcore provider is configured
+- **THEN** it emits a `.rdproj` with PascalCase keys, listing every form, module, class and user control as a module by its host path relative to the workspace root
+- **AND** it carries the project's references, and its Conditional Compilation Arguments as precompiler constants, none for a line vb6.exe refuses
+- **AND** it lists no other files, since RDCore parses every listed file as code
+- **AND** it emits nothing for a project with no code files
+
 #### Scenario: Capability boundaries
 - **WHEN** a server declares no artefact
 - **THEN** no artefact is generated for it
 - **AND** the capability grants neither writes outside the workspace nor writes without consent
-- **AND** the public add-in provider contract and `.rdproj` provider remain outside phase 1
+- **AND** the public add-in provider contract remains outside this change
 
 ### Requirement: Completion SHALL merge within a bounded popup budget
 The registry SHALL ask every document claimant concurrently and return when all answer or one
@@ -1155,3 +1162,23 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+### Requirement: Semantic tokens SHALL overlay lexical colours
+The client SHALL declare relative, full semantic token requests with the standard token types and modifiers,
+and without overlapping or multiline tokens. It SHALL ask only the highest-priority document claimant that
+advertises full semantic tokens, decoding against that claimant's legend. Editors SHALL ask on attachment,
+500 ms after changes, and when the server state changes. Tokens SHALL override lexical foreground colours
+only on their ranges; read-only region and diagnostic colours SHALL retain their precedence.
+
+An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
+permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
+version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+
+#### Scenario: A server colours a name differently from the lexical rules
+- **WHEN** a full response classifies a range as a class
+- **THEN** that range uses the theme's type colour
+- **AND** uncovered text keeps its lexical colour
+
+#### Scenario: Analysis is not ready
+- **WHEN** a full request fails
+- **THEN** the editor keeps lexical colouring
+- **AND** a later edit schedules another full request

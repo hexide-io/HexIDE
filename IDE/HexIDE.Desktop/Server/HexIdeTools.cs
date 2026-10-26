@@ -9,6 +9,7 @@ using HexIDE.Conversations;
 using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
@@ -986,7 +987,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns the current main window state (Maximized/Normal/Minimized) and position/size when in Normal mode.")]
+    [Description("Returns the current main window state (Maximized/Normal/Minimized) and the reported position and client size in every state.")]
     public async Task<WindowStateResult> GetWindowStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1014,7 +1015,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied first; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. A refused call changes nothing.")]
+    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
@@ -1022,7 +1023,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         int? x = null, int? y = null, int? width = null, int? height = null,
         CancellationToken ct = default)
     {
-        var refused = await Dispatcher.UIThread.InvokeAsync(WindowStateChangeResult? () =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var window = (Avalonia.Application.Current!.ApplicationLifetime as
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
@@ -1051,14 +1052,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new WindowStateChangeResult(false,
                     $"width and height must be positive; got {(width is <= 0 ? $"width {width}" : $"height {height}")}. Nothing was changed.", null);
 
-            if (target == Avalonia.Controls.WindowState.Normal && geometry)
+            // Validate before sending even the restore: an asynchronous backend cannot undo it reliably.
+            if (geometry)
             {
-                // Normal first, then the geometry. Restoring from Maximized puts the window back at its restore
-                // bounds, which overwrote a position and size applied before it, and a coordinate left out has
-                // to default to where the RESTORED window is, not to the maximised frame's -11. A refusal puts
-                // the previous state back, so it still changes nothing.
-                var previous = window.WindowState;
-                window.WindowState = target.Value;
                 var position = new Avalonia.PixelPoint(x ?? window.Position.X, y ?? window.Position.Y);
                 var size = Avalonia.PixelSize.FromSize(
                     new Avalonia.Size(width ?? window.ClientSize.Width, height ?? window.ClientSize.Height),
@@ -1066,34 +1062,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var frame = new Avalonia.PixelRect(position, size);
                 var screens = window.Screens.All;
                 if (screens.Count > 0 && !screens.Any(s => s.WorkingArea.Intersects(frame)))
-                {
-                    window.WindowState = previous;
                     return new WindowStateChangeResult(false,
                         $"({position.X},{position.Y}) would put the window on no screen. Screens: "
                         + string.Join("; ", screens.Select(s => $"{s.WorkingArea.X},{s.WorkingArea.Y} {s.WorkingArea.Width}×{s.WorkingArea.Height}"))
                         + ". Nothing was changed.", null);
-                }
-
-                window.Position = position;
-                if (width is not null)  window.Width  = width.Value;
-                if (height is not null) window.Height = height.Value;
-                return null;
             }
 
-            window.WindowState = target.Value;
-            return null;
+            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(window, target.Value, x, y, width, height, ct);
+            return new WindowStateChangeResult(applied, applied ? null : "The window manager has not confirmed the requested change.",
+                WindowStateOf(window), applied ? null : "The window manager did not confirm the requested state or geometry within 1 s of that request; the window field reports what is observed. Re-read with get_window_state.");
         });
-        if (refused is not null)
-            return refused;
-
-        // Read back after layout has run. A new Width or Height reaches ClientSize in the next layout pass, so
-        // reading it straight away reported the size the window had before the call.
-        return await Dispatcher.UIThread.InvokeAsync(() =>
-            (Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow is { } after
-                ? new WindowStateChangeResult(true, null, WindowStateOf(after))
-                : new WindowStateChangeResult(false, "No main window", null),
-            DispatcherPriority.Background);
     }
 
     [McpServerTool(Name = "get_tool_windows")]
@@ -1448,7 +1426,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "Commands: AlignLefts, AlignRights, AlignTops, AlignBottoms, AlignCentersH, AlignCentersV, " +
         "MakeSameWidth, MakeSameHeight, MakeSameSize, MakeHorizontalSpacingEqual, IncreaseHorizontalSpacing, " +
         "DecreaseHorizontalSpacing, RemoveHorizontalSpacing, MakeVerticalSpacingEqual, IncreaseVerticalSpacing, " +
-        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
+        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. Align*, MakeSame* and spacing commands require 2 selected controls; SizeToGrid and Center* require 1. Below the minimum the reply refuses the command and explains how to select more with interact. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
     public async Task<MutateResult> InvokeFormatCommandAsync(string command, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1469,6 +1447,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}."), designer.OpenDocument);
             }
 
+            var selected = designer.SelectedComponents.Count > 0
+                ? designer.SelectedComponents.Select(c => c.Name).ToList()
+                : designer.SelectedComponent is { } one ? [one.Name] : [];
+            var selection = selected.Count == 0
+                ? "no control is selected"
+                : $"the selection is {string.Join(", ", selected)}"
+                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
+            var rule = $"'{entry.Name}' requires at least {entry.MinimumSelection} selected control"
+                + (entry.MinimumSelection == 1 ? "" : "s");
+            if (selected.Count < entry.MinimumSelection)
+                return Naming(new MutateResult(false, $"{rule}; {selection}. Use interact with action 'select' on a control, "
+                    + "then 'add_to_selection' on each additional control."), designer.OpenDocument);
+
             // A command with nothing to act on returns without a word, and so does one whose controls already
             // satisfy it, so whether a step landed is the only reliable sign that anything moved. (#655)
             var landed = false;
@@ -1477,18 +1468,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             try { entry.Of(designer)(); }
             finally { designer.UndoStack.Changed -= OnChanged; }
 
-            var selected = designer.SelectedComponents.Count > 0
-                ? designer.SelectedComponents.Select(c => c.Name).ToList()
-                : designer.SelectedComponent is { } one ? [one.Name] : [];
-            var selection = selected.Count == 0
-                ? "no control is selected"
-                : $"the selection is {string.Join(", ", selected)}"
-                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
             return Naming(new MutateResult(true, null, landed
                 ? $"Applied '{designer.UndoStack.UndoDescription}' as one undo step; {selection}."
-                : $"Nothing changed, and no undo step was added: {selection}. The spacing commands need two or more "
-                  + "selected controls, the others at least one, and a selection that already satisfies the command "
-                  + "is left as it is."), designer.OpenDocument);
+                : $"Nothing changed, and no undo step was added: {selection}. {rule}; "
+                  + "a selection that already satisfies the command is left as it is."), designer.OpenDocument);
         });
     }
 
@@ -2054,28 +2037,28 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
     }
 
-    private static readonly (string Name, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
+    private static readonly (string Name, int MinimumSelection, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
     [
-        ("AlignLefts", d => d.AlignLefts),
-        ("AlignRights", d => d.AlignRights),
-        ("AlignTops", d => d.AlignTops),
-        ("AlignBottoms", d => d.AlignBottoms),
-        ("AlignCentersH", d => d.AlignCentersH),
-        ("AlignCentersV", d => d.AlignCentersV),
-        ("MakeSameWidth", d => d.MakeSameWidth),
-        ("MakeSameHeight", d => d.MakeSameHeight),
-        ("MakeSameSize", d => d.MakeSameSize),
-        ("MakeHorizontalSpacingEqual", d => d.MakeHorizontalSpacingEqual),
-        ("IncreaseHorizontalSpacing", d => d.IncreaseHorizontalSpacing),
-        ("DecreaseHorizontalSpacing", d => d.DecreaseHorizontalSpacing),
-        ("RemoveHorizontalSpacing", d => d.RemoveHorizontalSpacing),
-        ("MakeVerticalSpacingEqual", d => d.MakeVerticalSpacingEqual),
-        ("IncreaseVerticalSpacing", d => d.IncreaseVerticalSpacing),
-        ("DecreaseVerticalSpacing", d => d.DecreaseVerticalSpacing),
-        ("RemoveVerticalSpacing", d => d.RemoveVerticalSpacing),
-        ("SizeToGrid", d => d.SizeToGrid),
-        ("CenterHorizontally", d => d.CenterHorizontally),
-        ("CenterVertically", d => d.CenterVertically),
+        ("AlignLefts", 2, d => d.AlignLefts),
+        ("AlignRights", 2, d => d.AlignRights),
+        ("AlignTops", 2, d => d.AlignTops),
+        ("AlignBottoms", 2, d => d.AlignBottoms),
+        ("AlignCentersH", 2, d => d.AlignCentersH),
+        ("AlignCentersV", 2, d => d.AlignCentersV),
+        ("MakeSameWidth", 2, d => d.MakeSameWidth),
+        ("MakeSameHeight", 2, d => d.MakeSameHeight),
+        ("MakeSameSize", 2, d => d.MakeSameSize),
+        ("MakeHorizontalSpacingEqual", 2, d => d.MakeHorizontalSpacingEqual),
+        ("IncreaseHorizontalSpacing", 2, d => d.IncreaseHorizontalSpacing),
+        ("DecreaseHorizontalSpacing", 2, d => d.DecreaseHorizontalSpacing),
+        ("RemoveHorizontalSpacing", 2, d => d.RemoveHorizontalSpacing),
+        ("MakeVerticalSpacingEqual", 2, d => d.MakeVerticalSpacingEqual),
+        ("IncreaseVerticalSpacing", 2, d => d.IncreaseVerticalSpacing),
+        ("DecreaseVerticalSpacing", 2, d => d.DecreaseVerticalSpacing),
+        ("RemoveVerticalSpacing", 2, d => d.RemoveVerticalSpacing),
+        ("SizeToGrid", 1, d => d.SizeToGrid),
+        ("CenterHorizontally", 1, d => d.CenterHorizontally),
+        ("CenterVertically", 1, d => d.CenterVertically),
     ];
 
     // Named as LocalizationService names them when developer mode lists them.
@@ -2132,7 +2115,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
+    [Description("Captures the window's client area, without its title bar or frame, as a PNG. 'captureArea' explains this in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2159,7 +2142,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
             using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
             if (bitmap is null)
-                return new SnapshotResult(null, "Window has no size", activeDialog);
+                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
@@ -2168,7 +2151,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut));
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut), Title: active.Title);
             if (!inline)
                 return result;
 
@@ -2241,7 +2224,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
                      + "on screen, the selected code tab's and the Immediate window's among them, and 'PropertiesTool' "
                      + "the Properties window. Only what is in the tree is found, so not a document in a tab that is not "
-                     + "selected. Every node is searched, interactive or not, to 'maxDepth' below 'root'; the reply's "
+                     + "selected, or a dialog page that is not selected. Every node is searched, interactive or not, to "
+                     + "'maxDepth' below 'root'; the reply's "
                      + "'note' says how many matched and what was not searched.")]
         string? match = null,
         CancellationToken ct = default)
@@ -2278,7 +2262,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
                 UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly: false), match, MatchLimit);
-            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched),
+            var options = active.GetVisualDescendants().OfType<Control>().Prepend(active)
+                .Select(c => c.DataContext).OfType<OptionsViewModel>().FirstOrDefault();
+            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched,
+                    label == "MainWindow" ? ctx.DocumentDockService : null, options?.RootNodes, options?.SelectedNode),
                 focus.FocusedPath, focus.FocusReason);
         });
         // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
@@ -2354,7 +2341,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
         : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
 
-    private static string MatchNote(string match, int total, int unsearched)
+    internal static string MatchNote(string match, int total, int unsearched,
+        IDocumentDockService? dock = null,
+        IEnumerable<OptionsNodeViewModel>? pages = null,
+        OptionsNodeViewModel? selectedPage = null)
     {
         var note = total switch
         {
@@ -2365,9 +2355,33 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                                          + "Narrow 'match', or scope with 'root'.",
             _ => $"{total} nodes match '{match}'.",
         };
-        return unsearched == 0 ? note
-            : note + $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
+        if (unsearched > 0)
+            note += $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
               + "not searched: raise maxDepth, or search again from a truncated node's path as 'root'.";
+        var tabs = dock?.AllTabs.Where(t => !ReferenceEquals(t, dock.ActiveTab)).Select(t => t.Title ?? "").ToArray() ?? [];
+        if (tabs.Length > 0)
+            note += $" {tabs.Length} open tab(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", tabs.Select(t => $"'{t}'")) + ". activate_document_tab brings one to the front.";
+
+        IEnumerable<string> UnselectedPages(IEnumerable<OptionsNodeViewModel> nodes,
+            string prefix = "")
+        {
+            foreach (var node in nodes)
+            {
+                var title = prefix + node.Title;
+                if (node.Page is not null && !ReferenceEquals(node, selectedPage))
+                    yield return title;
+                foreach (var child in UnselectedPages(node.Children, title + " > "))
+                    yield return child;
+            }
+        }
+        var omittedPages = UnselectedPages(pages ?? []).ToArray();
+        if (omittedPages.Length > 0)
+            note += $" {omittedPages.Length} page(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", omittedPages.Select(p => $"'{p}'"))
+                    + ". Use dump_visual_tree to find the category tree, then interact 'expand' on its category "
+                    + "and 'select' on a page to search its contents.";
+        return note;
     }
 
     [McpServerTool(Name = "inspect_element")]
@@ -3299,7 +3313,9 @@ internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
-    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null);
+    int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null,
+    string? Title = null,
+    string CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
 
 internal record ProjectInfoResult(
     string? ProjectName,
@@ -3377,7 +3393,7 @@ internal record AddFileResult(
 internal record WindowStateResult(string State, int X, int Y, int Width, int Height);
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
-internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window);
+internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);
 
 internal record ToolWindowInfo(string Name, bool Visible);
 

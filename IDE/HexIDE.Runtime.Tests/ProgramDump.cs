@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -23,7 +22,6 @@ internal sealed class ProgramDump
     public const string Entry = "HexDumpMain";
 
     private static readonly object Gate = new();
-    private static readonly CultureInfo Display = CultureInfo.GetCultureInfo("en-US");
     private static readonly JsonSerializerOptions Json = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly Lazy<ProgramDump?> Configured = new(() => ForName(Environment.GetEnvironmentVariable(Variable)));
 
@@ -53,7 +51,7 @@ internal sealed class ProgramDump
 
     /// <summary>Appends one program and what it did. <paramref name="thrown"/> is whatever the run threw, if anything.</summary>
     public void Record(string test, int sequence, IReadOnlyList<(string Name, bool IsClass, string Source)> modules,
-        IEnumerable<Vb6Value> log, Exception? thrown)
+        IEnumerable<Vb6Value> log, string output, Exception? thrown)
     {
         var record = new Program(
             test,
@@ -66,7 +64,9 @@ internal sealed class ProgramDump
                 return new Module(m.Name, i == 0 ? "startup" : "module", m.Source, wrapped, bare);
             }).ToList(),
             // TypeName's answer, which a comparison's type pass reads.
-            log.Select(v => new Printed(VB6BuiltIns.DebugTypeName(v), VbDisplay.ToText(v, Display))).ToList(),
+            log.Select(v => new Printed(VB6BuiltIns.DebugTypeName(v), VbPrint.ItemText(v))).ToList(),
+            OutputLines(output),
+            VbLocale.Current.Name,
             thrown switch
             {
                 null => null,
@@ -106,7 +106,7 @@ internal sealed class ProgramDump
         var entry = new StringBuilder();
         var body = module.moduleBody();
         if (body is null)
-            return (source, false);
+            return (source + $"\nPublic Sub {Entry}()\nEnd Sub\n", false);
         if (body.Start.StartIndex > 0)
             head.Append(source[..body.Start.StartIndex].TrimEnd()).Append('\n');
 
@@ -140,9 +140,16 @@ internal sealed class ProgramDump
         }
 
         var wrapped = new StringBuilder().Append(head).Append(declarations).Append(procedures);
-        if (entry.Length > 0)
-            wrapped.Append($"Public Sub {Entry}()\n").Append(entry).Append("End Sub\n");
+        wrapped.Append($"Public Sub {Entry}()\n").Append(entry).Append("End Sub\n");
         return (wrapped.ToString(), entry.Length > 0);
+    }
+
+    private static IReadOnlyList<string> OutputLines(string output)
+    {
+        var lines = output.ReplaceLineEndings("\n").Split('\n').ToList();
+        if (lines[^1].Length == 0)
+            lines.RemoveAt(lines.Count - 1);
+        return lines;
     }
 
     private static bool IsDeclaration(VB6Parser.BlockStmtContext statement) => statement.GetChild(0) switch
@@ -169,6 +176,8 @@ internal sealed class ProgramDump
         [property: JsonPropertyName("sequence")] int Sequence,
         [property: JsonPropertyName("modules")] IReadOnlyList<Module> Modules,
         [property: JsonPropertyName("printed")] IReadOnlyList<Printed> Printed,
+        [property: JsonPropertyName("lines")] IReadOnlyList<string> Lines,
+        [property: JsonPropertyName("locale")] string Locale,
         [property: JsonPropertyName("error")] Failure? Error);
 
     private sealed record Module(

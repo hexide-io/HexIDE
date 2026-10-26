@@ -10,6 +10,7 @@ using HexIDE.Events;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 
 namespace HexIDE.Tests.Projects;
@@ -78,6 +79,83 @@ public class SourceEncodingPersistenceTests : IDisposable
         var vbp = Path.Join(dir, "Test.vbp");
         File.WriteAllText(vbp, "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
         return vbp;
+    }
+
+    [Theory]
+    [InlineData("Module", "bas", "Attribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("Class", "cls", "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("Form", "frm", "VERSION 5.00\r\nBegin VB.Form Member1\r\nEnd\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("UserControl", "ctl", "VERSION 5.00\r\nBegin VB.UserControl Member1\r\nEnd\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("PropertyPage", "pag", "VERSION 5.00\r\nBegin VB.PropertyPage Member1\r\nEnd\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    public async Task Removing_the_last_UTF8_signature_character_survives_a_fresh_open(string key, string extension, string header)
+    {
+        var memberPath = Path.Join(dir, "Member1." + extension);
+        File.WriteAllBytes(memberPath, Vb6TextFile.Encode(header + "' café 日本\r\n", Vb6TextEncoding.Utf8));
+        var vbp = Path.Join(dir, "Test.vbp");
+        var item = key is "Module" or "Class" ? "Member1; Member1." + extension : "Member1." + extension;
+        File.WriteAllText(vbp, $"Type=Exe\r\n{key}={item}\r\nName=\"Test\"\r\n[Other]\r\nKeep=unchanged\r\n[HexIDE]\r\nFuture=kept\r\n");
+        var (svc, project) = await OpenInWestern(vbp);
+        if (key == "Form")
+            project.Forms.Single().UpdateCode("' café\r\n");
+        else
+            project.Modules.Single().UpdateCode("' café\r\n");
+
+        await svc.SaveProject(project, false);
+
+        var saved = File.ReadAllText(vbp).ReplaceLineEndings("\n");
+        saved.Should().Contain($"[HexIDE]\nFuture=kept\nMember1.{extension}=utf-8\n");
+        saved.Should().Contain("[Other]\nKeep=unchanged\n");
+        saved.IndexOf("[HexIDE]", StringComparison.Ordinal).Should().BeGreaterThan(saved.IndexOf("Name=", StringComparison.Ordinal));
+        File.ReadAllBytes(memberPath).Take(3).Should().NotEqual(new byte[] { 0xEF, 0xBB, 0xBF });
+        var reopened = await new ProjectLoader { HostAnsi = new Vb6TextEncoding(1252) }
+            .LoadAsync(vbp, Substitute.For<IDeserializeErrorSink>());
+        var code = key == "Form" ? reopened.Project.Forms.Single().Code : reopened.Project.Modules.Single().Code;
+        code.Should().Contain("' café").And.NotContain("Ã");
+    }
+
+    [Fact]
+    public async Task The_project_being_opened_decides_the_encoding_of_a_shared_module()
+    {
+        var member = Path.Join(dir, "Module1.bas");
+        File.WriteAllBytes(member, Vb6TextFile.Encode("Attribute VB_Name = \"Module1\"\r\n' café\r\n", Vb6TextEncoding.Utf8));
+        var withRecord = Path.Join(dir, "Recorded.vbp");
+        var withoutRecord = Path.Join(dir, "Unrecorded.vbp");
+        const string project = "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n";
+        File.WriteAllText(withRecord, project + "[HexIDE]\r\nModule1.bas=utf-8\r\n");
+        File.WriteAllText(withoutRecord, project);
+        var loader = new ProjectLoader { HostAnsi = new Vb6TextEncoding(1252) };
+        var sink = Substitute.For<IDeserializeErrorSink>();
+
+        (await loader.LoadAsync(withRecord, sink)).Project.Modules.Single().Code.Should().Contain("' café");
+        (await loader.LoadAsync(withoutRecord, sink)).Project.Modules.Single().Code.Should().Contain("' cafÃ©");
+        File.WriteAllBytes(member, Vb6TextFile.Encode("Attribute VB_Name = \"Module1\"\r\n' café\r\n", new Vb6TextEncoding(1252)));
+        var replaced = (await loader.LoadAsync(withRecord, sink)).Project.Modules.Single();
+        replaced.Code.Should().Contain("' café");
+        replaced.TextEncoding.Should().Be(new Vb6TextEncoding(1252), "a stale record must decode strictly before it applies");
+    }
+
+    [Fact]
+    public async Task Encoding_records_follow_Save_As_and_disappear_when_detection_can_infer_UTF8_again()
+    {
+        var vbp = WriteProject();
+        var memberPath = Path.Join(dir, "Module1.bas");
+        File.WriteAllBytes(memberPath, Vb6TextFile.Encode("Attribute VB_Name = \"Module1\"\r\n' café 日本\r\n", Vb6TextEncoding.Utf8));
+        var (svc, project) = await OpenInWestern(vbp);
+        project.Modules.Single().UpdateCode("' café\r\n");
+        var elsewhere = Path.Join(dir, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        var savedPath = Path.Join(elsewhere, "Moved.vbp");
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(savedPath);
+
+        await svc.SaveProject(project, true);
+
+        File.ReadAllText(savedPath).ReplaceLineEndings("\n").Should().Contain("[HexIDE]\n..\\Module1.bas=utf-8\n");
+        var loader = new ProjectLoader { HostAnsi = new Vb6TextEncoding(1252) };
+        var reopened = (await loader.LoadAsync(savedPath, Substitute.For<IDeserializeErrorSink>())).Project;
+        reopened.Modules.Single().Code.Should().Contain("' café");
+        project.Modules.Single().UpdateCode("' café 日本\r\n");
+        await svc.SaveProject(project, false);
+        File.ReadAllText(savedPath).Should().NotContain("[HexIDE]");
     }
 
     [Fact]

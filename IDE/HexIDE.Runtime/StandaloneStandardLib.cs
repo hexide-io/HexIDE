@@ -30,7 +30,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
 
     public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
     {
-        var msgBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
+        var msgBox = new MessageBox { IsProgramDialog = true, Text = text, Buttons = buttons, Icon = icon };
         var window = new Window
         {
             Title = caption ?? OmittedTitleStandIn,
@@ -45,7 +45,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     public async Task<string?> InputBox(string prompt, string? title, string defaultText)
     {
         string? result = null;
-        var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
+        var inputBox = new InputBox { IsProgramDialog = true, Prompt = prompt, Text = defaultText };
         var window = new Window
         {
             Title = title ?? OmittedTitleStandIn,

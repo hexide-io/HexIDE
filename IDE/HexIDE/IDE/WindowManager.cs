@@ -118,13 +118,14 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
-    public async Task<string?> InputBox(string prompt, string? caption, string defaultText)
+    public async Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false)
     {
         caption ??= "HexIDE";
         if (Static.SingleView)
         {
             var inputBox = new InputBox
             {
+                IsProgramDialog = isProgramDialog,
                 Prompt = prompt,
                 Text = defaultText
             };
@@ -149,7 +150,7 @@ public class WindowManager : IWindowManager
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             string? result = null;
-            var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
+            var inputBox = new InputBox { IsProgramDialog = isProgramDialog, Prompt = prompt, Text = defaultText };
             var window = MakeDialogWindow(caption, inputBox);
             inputBox.TextRequest += r => { result = r; window.Close(); };
             await window.ShowDialog(GetTopWindow(desktop));
@@ -190,20 +191,21 @@ public class WindowManager : IWindowManager
         }
     }
 
-    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
+    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
     {
-        var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
+        var messageBox = new MessageBox { IsProgramDialog = isProgramDialog, Text = text, Buttons = buttons, Icon = icon };
         var window = MakeDialogWindow(caption, messageBox);
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
 
-    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
+    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
     {
         caption ??= "HexIDE";
         if (Static.SingleView)
         {
             var messageBox = new MessageBox
             {
+                IsProgramDialog = isProgramDialog,
                 Text = text,
                 Buttons = buttons,
                 Icon = icon
@@ -230,7 +232,7 @@ public class WindowManager : IWindowManager
         {
             // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
             // its owner keeps waiting (see ShowAndWait).
-            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner);
+            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner, isProgramDialog);
         }
         else
             throw new NotImplementedException();

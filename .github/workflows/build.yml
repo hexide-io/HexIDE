@@ -375,10 +375,12 @@ jobs:
 
       # The macOS runner was lost four times on 2026-10-26, each time 40 minutes or more into the ViewModel tests, and each
       # time GitHub kept no log: something starves it before the step's timeout can act (#2128). This watchdog runs for
-      # the rest of the job. Every two minutes it records free memory and the largest processes. Below 8% free it records
-      # them once more and ends the test run, so the runner lives to upload the record and the step's own log. It writes
-      # under TestResults, which the upload step below keeps on a failure.
-      - name: Start a memory watchdog (macOS)
+      # the rest of the job. Every two minutes it records free memory, free disk, the process count, and the largest
+      # processes by memory and by CPU. Below 8% free memory, below 3 GB free disk, or above 2000 processes, it records them
+      # once more and ends the test run, so the runner lives to upload the record and the step's own log. Memory alone
+      # stayed healthy through a later loss, so the disk and the process count are watched too. It writes under
+      # TestResults, which the upload step below keeps on a failure.
+      - name: Start a resource watchdog (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p TestResults
@@ -386,12 +388,19 @@ jobs:
           log="$1"; i=0
           while sleep 30; do
             free=$(memory_pressure -Q | awk '/percentage/ { gsub("%", "", $NF); print $NF }')
+            disk=$(df -k / | awk 'NR == 2 { print int($4 / 1048576) }')
+            procs=$(ps -A | wc -l | tr -d ' ')
+            low=""
+            [ "${free:-100}" -lt 8 ] && low="free memory below 8%"
+            [ "${disk:-100}" -lt 3 ] && low="free disk below 3 GB"
+            [ "${procs:-0}" -gt 2000 ] && low="more than 2000 processes"
             i=$((i + 1))
-            if [ $((i % 4)) -eq 0 ] || [ "${free:-100}" -lt 8 ]; then
-              { date -u +%H:%M:%S; echo "free memory ${free:-?}%"; ps -A -m -o pid,ppid,rss,%cpu,etime,command | head -12; } >> "$log"
+            if [ $((i % 4)) -eq 0 ] || [ -n "$low" ]; then
+              { date -u +%H:%M:%S; echo "free memory ${free:-?}%, free disk ${disk:-?} GB, ${procs:-?} processes"
+                ps -A -m -o pid,ppid,rss,%cpu,etime,command | head -8; ps -A -r -o pid,ppid,rss,%cpu,etime,command | head -6; } >> "$log"
             fi
-            if [ "${free:-100}" -lt 8 ]; then
-              echo "free memory below 8%: ending the test run so the runner survives" >> "$log"
+            if [ -n "$low" ]; then
+              echo "$low: ending the test run so the runner survives" >> "$log"
               pkill -f 'HexIDE\.(Integration\.)?Tests'
               exit 0
             fi
