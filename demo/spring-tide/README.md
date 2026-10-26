@@ -69,7 +69,7 @@ undoing.
 
 **`.rdproj`, which HexIDE writes.** RDCore analyses only modules listed in a `.rdproj` at the workspace root,
 and HexIDE hands it the directory holding the `.vbp`. The profile's entry declares
-`"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }`, so on the first open HexIDE asks
+`"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore", "restartOnChange": true }`, so on the first open HexIDE asks
 whether the server may write that file, then writes it from the project: `TideTable.bas` as a module, the
 project's references, and its Conditional Compilation Arguments. Choose **Allow**. Choose **Deny**, and the
 server starts without it and analyses nothing, which looks exactly like clean code. The file is ignored by

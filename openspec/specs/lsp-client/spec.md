@@ -1120,6 +1120,12 @@ anyway, so it is recorded rather than defended.
 - **THEN** the artefact is regenerated after debouncing, subject to the same consent and ownership checks
 - **AND** regeneration sends no watched-file notification in this phase (#456)
 
+#### Scenario: Restart on change
+- **WHEN** an entry sets `restartOnChange` and a regeneration changes its artefact's bytes, including taking the file back
+- **THEN** that server alone is restarted, once for the debounced batch of changes, and its open documents are opened on it again
+- **AND** the write before the first launch, an identical regeneration and a refused or denied write restart nothing
+- **AND** an entry that doesn't set it is never restarted for its artefact
+
 #### Scenario: Clangd compilation database
 - **WHEN** the clangd provider is configured
 - **THEN** it emits one compilation command per carried C/C++ file, using configured compiler arguments followed by that file, with its containing directory as working directory

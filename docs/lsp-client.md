@@ -1141,7 +1141,8 @@ all three would be confidently wrong two-thirds of the time.
 Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
 The client prepares it before launching the server, once per workspace project, behind the
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
-per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+per-workspace consent, hash-based ownership, and debounced regeneration after material project changes. An entry
+that sets `restartOnChange` has its server restarted, alone, when a regeneration changes the file (#2072).
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in

@@ -51,7 +51,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         _workspace.ProjectChanged += OnProjectChanged;
     }
 
-    public async Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken)
+    public event Action<string>? RestartRequested;
+
+    public Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken) =>
+        PrepareAsync(server, null, cancellationToken);
+
+    /// <param name="changed">Collects the server's id when a write or delete changed its file; null before a launch.</param>
+    private async Task PrepareAsync(LanguageServerRegistration server, ISet<string>? changed,
+        CancellationToken cancellationToken)
     {
         if (server.WorkspaceArtifactRefused)
             Note(server, "Workspace artefact declaration refused, so no file is generated: see the configuration "
@@ -65,7 +72,10 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             foreach (var project in _workspace.Projects)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                try { await WriteAsync(server, spec, project); }
+                try
+                {
+                    if (await WriteAsync(server, spec, project)) changed?.Add(server.Id);
+                }
                 catch (Exception ex)
                 {
                     _log.LogWarning(ex, "Workspace artefact for {Server} was not written; launching anyway.", server.Id);
@@ -76,7 +86,8 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         finally { _gate.Release(); }
     }
 
-    private async Task WriteAsync(LanguageServerRegistration server, WorkspaceArtifactSpec spec,
+    /// <returns>Whether the file on disk changed: written new or different, or taken back.</returns>
+    private async Task<bool> WriteAsync(LanguageServerRegistration server, WorkspaceArtifactSpec spec,
         WorkspaceArtifactContext project)
     {
         var target = SafePath(project.WorkspaceRoot, spec.RelativePath);
@@ -84,28 +95,25 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         {
             _log.LogWarning("Refused workspace artefact path {Path} for {Server}.", spec.RelativePath, server.Id);
             Note(server, $"Refused workspace artefact path {spec.RelativePath}.");
-            return;
+            return false;
         }
         if (!OwnsOrAbsent(target))
         {
             _log.LogInformation("Leaving existing workspace artefact {Path} alone for {Server}.", target, server.Id);
             Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: not owned by HexIDE.");
-            return;
+            return false;
         }
-        if (_providers.Find(spec.ProviderName) is not { } provider) return;
+        if (_providers.Find(spec.ProviderName) is not { } provider) return false;
         var content = provider.Produce(project with { Settings = spec.Settings });
         // Empty is nothing to describe too, so HexIDE never owns an empty file: see OwnsOrAbsent.
         if (string.IsNullOrEmpty(content))
-        {
-            if (File.Exists(target)) Relinquish(server, spec, project, target);
-            return;
-        }
+            return File.Exists(target) && Relinquish(server, spec, project, target);
         var consentRoot = Resolve(Path.GetFullPath(project.WorkspaceRoot));
         if (!await _consent.AllowAsync(server.Id, server.DisplayName, consentRoot, target, spec))
         {
             _log.LogInformation("Workspace artefact {Path} denied for {Server}; launching without it.", target, server.Id);
             Note(server, $"Workspace artefact {spec.RelativePath} denied; launching without it.");
-            return;
+            return false;
         }
         // Only now may the provider read past the snapshot. A library's name is read by loading the library, from a path
         // the project file names, so a project nobody has allowed an artefact for must never get that far. The content
@@ -113,24 +121,24 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         if (_libraryNames is not null)
         {
             content = provider.Produce(project with { Settings = spec.Settings, LibraryNames = _libraryNames });
-            if (string.IsNullOrEmpty(content)) return;
+            if (string.IsNullOrEmpty(content)) return false;
         }
         // Consent may have held a modal open: recheck both the links and the content before writing.
         if (SafePath(project.WorkspaceRoot, spec.RelativePath) != target)
         {
             Note(server, "Refused workspace artefact path: links changed during consent.");
-            return;
+            return false;
         }
         if (!OwnsOrAbsent(target))
         {
             Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: changed during consent.");
-            return;
+            return false;
         }
         var bytes = Encoding.UTF8.GetBytes(content);
         if (bytes.Length > MaxArtifactLength)
         {
             Note(server, $"Workspace artefact {spec.RelativePath} not written: larger than any artefact HexIDE writes.");
-            return;
+            return false;
         }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         // Deny other readers/writers while checking ownership; allow replacement on Windows.
@@ -142,14 +150,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                 || Convert.ToHexString(SHA256.HashData(owned)) != previous)
             {
                 Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
-                return;
+                return false;
             }
             owned.Position = 0;
             if (owned.Length == bytes.Length)
             {
                 var existing = new byte[bytes.Length];
                 owned.ReadExactly(existing);
-                if (existing.AsSpan().SequenceEqual(bytes)) return;
+                if (existing.AsSpan().SequenceEqual(bytes)) return false;
             }
         }
         var temporary = Path.Combine(Path.GetDirectoryName(target)!, ".hexide-artifact-" + Guid.NewGuid().ToString("N"));
@@ -171,25 +179,26 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         _lastNote.Remove(server.Id);
         SaveOwnership();
         // #456: regeneration deliberately sends no didChangeWatchedFiles in this phase.
+        return true;
     }
 
     /// <summary>
     /// A provider with nothing to describe takes back what HexIDE wrote, and only that: no prompt, the same confinement
     /// and the same ownership check under a lock as a replace, so a delete reaches no further than a write could.
     /// </summary>
-    private void Relinquish(LanguageServerRegistration server, WorkspaceArtifactSpec spec, WorkspaceArtifactContext project,
+    private bool Relinquish(LanguageServerRegistration server, WorkspaceArtifactSpec spec, WorkspaceArtifactContext project,
         string target)
     {
         // The provider ran since the path was checked, and a provider may read files: recheck the links before deleting.
         if (SafePath(project.WorkspaceRoot, spec.RelativePath) != target)
         {
             Note(server, $"Refused workspace artefact path {spec.RelativePath}.");
-            return;
+            return false;
         }
         if (!OwnsOrAbsent(target))
         {
             Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
-            return;
+            return false;
         }
         using (var owned = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Delete))
         {
@@ -197,7 +206,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                 || Convert.ToHexString(SHA256.HashData(owned)) != previous)
             {
                 Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
-                return;
+                return false;
             }
             File.Delete(target);
         }
@@ -206,6 +215,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         _log.LogInformation("Removed workspace artefact {Path} for {Server}: its provider has nothing to describe.",
             target, server.Id);
         Note(server, $"Removed workspace artefact {spec.RelativePath}: its provider has nothing to describe.", fault: false);
+        return true;
     }
 
     private void SaveOwnership()
@@ -302,21 +312,42 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     private async Task RegenerateAsync(CancellationToken token)
     {
+        // The debounce batches restarts with regeneration: several quick project changes give one of each. A restart is
+        // asked for even when a later change cancels this pass, since a file already rewritten won't differ next time.
+        LanguageServerRegistration[] servers = [];
+        var changed = new HashSet<string>(StringComparer.Ordinal);
         try
         {
             await Task.Delay(300, token);
-            LanguageServerRegistration[] servers;
             await _gate.WaitAsync(token);
             try { servers = _active.Values.ToArray(); }
             finally { _gate.Release(); }
-            foreach (var server in servers) await PrepareAsync(server, token);
+            foreach (var server in servers) await PrepareAsync(server, changed, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _log.LogWarning(ex, "Workspace artefact regeneration failed."); }
+        finally
+        {
+            foreach (var server in servers.Where(s => changed.Contains(s.Id))) RequestRestart(server);
+        }
+    }
+
+    /// <summary>
+    /// Asks for a restart of a server that reads its artefact only when it starts and said so (#2072): it would otherwise
+    /// keep analysing what the file listed when it launched. A stopgap until such a server re-reads the file itself.
+    /// </summary>
+    private void RequestRestart(LanguageServerRegistration server)
+    {
+        if (_disposed || server.WorkspaceArtifact is not { RestartOnChange: true } spec) return;
+        _log.LogInformation("Restarting {Server}: its workspace artefact {Path} changed.", server.Id, spec.RelativePath);
+        Note(server, $"Workspace artefact {spec.RelativePath} changed; restarting the server to read it.", fault: false);
+        RestartRequested?.Invoke(server.Id);
     }
 
     public void Dispose()
     {
+        // The registry disposes the service it was given, and so may its owner: a second call finds nothing to do.
+        if (_disposed) return;
         _disposed = true;
         _workspace.ProjectChanged -= OnProjectChanged;
         _pending?.Cancel();
