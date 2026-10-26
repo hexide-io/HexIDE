@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "Процедура",
     "Str.Tool.CallStack.Column.Line": "Рядок",
     "Str.Tool.CallStack.RowName": "{0}, рядок {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Усі бібліотеки>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Члени '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Закрити оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Оглядач об'єктів",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Перейти до визначення",

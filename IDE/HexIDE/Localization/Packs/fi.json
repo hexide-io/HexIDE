@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "Proseduuri",
     "Str.Tool.CallStack.Column.Line": "Rivi",
     "Str.Tool.CallStack.RowName": "{0}, rivi {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Kaikki kirjastot>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Kohteen '{0}' jäsenet",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Sulje objektiselain",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektiselain",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Siirry määritykseen",

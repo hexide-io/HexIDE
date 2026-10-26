@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "Procedura",
     "Str.Tool.CallStack.Column.Line": "Wiersz",
     "Str.Tool.CallStack.RowName": "{0}, wiersz {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Wszystkie biblioteki>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Elementy klasy '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Zamknij Przegladarke obiektow",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Przegladarka obiektow",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Przejdz do definicji",

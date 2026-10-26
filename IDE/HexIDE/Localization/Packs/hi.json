@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "प्रक्रिया",
     "Str.Tool.CallStack.Column.Line": "पंक्ति",
     "Str.Tool.CallStack.RowName": "{0}, पंक्ति {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<सभी लाइब्रेरी>",
+    "Str.Tool.ObjectBrowser.MembersOf": "'{0}' के सदस्य",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "ऑब्जेक्ट ब्राउज़र बंद करें",
     "Str.Tool.ObjectBrowser.Chrome.Title": "ऑब्जेक्ट ब्राउज़र",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "परिभाषा पर जाएँ",

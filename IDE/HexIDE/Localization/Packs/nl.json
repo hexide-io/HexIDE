@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "Procedure",
     "Str.Tool.CallStack.Column.Line": "Regel",
     "Str.Tool.CallStack.RowName": "{0}, regel {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Alle bibliotheken>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Leden van '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Objectbrowser sluiten",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objectbrowser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Naar definitie gaan",

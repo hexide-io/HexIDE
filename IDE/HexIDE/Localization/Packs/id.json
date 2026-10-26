@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "Prosedur",
     "Str.Tool.CallStack.Column.Line": "Baris",
     "Str.Tool.CallStack.RowName": "{0}, baris {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Semua Pustaka>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Anggota '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Tutup Penjelajah Objek",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Penjelajah Objek",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Buka Definisi",

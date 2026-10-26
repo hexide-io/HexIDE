@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "程序",
     "Str.Tool.CallStack.Column.Line": "行",
     "Str.Tool.CallStack.RowName": "{0}，第 {1} 行",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<所有程式庫>",
+    "Str.Tool.ObjectBrowser.MembersOf": "'{0}' 的成員",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "關閉物件瀏覽器",
     "Str.Tool.ObjectBrowser.Chrome.Title": "物件瀏覽器",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "移至定義",

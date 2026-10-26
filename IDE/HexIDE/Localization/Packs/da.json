@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "Procedure",
     "Str.Tool.CallStack.Column.Line": "Linje",
     "Str.Tool.CallStack.RowName": "{0}, linje {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<Alle biblioteker>",
+    "Str.Tool.ObjectBrowser.MembersOf": "Medlemmer af '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Luk objektgennemser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Objektgennemser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Gå til definition",

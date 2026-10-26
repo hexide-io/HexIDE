@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "طریقہ کار",
     "Str.Tool.CallStack.Column.Line": "لائن",
     "Str.Tool.CallStack.RowName": "{0}، سطر {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<تمام لائبریریاں>",
+    "Str.Tool.ObjectBrowser.MembersOf": "'{0}' کے اراکین",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "آبجیکٹ براؤزر بند کریں",
     "Str.Tool.ObjectBrowser.Chrome.Title": "آبجیکٹ براؤزر",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "تعریف پر جائیں",

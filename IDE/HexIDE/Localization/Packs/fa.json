@@ -319,6 +319,8 @@
     "Str.Tool.CallStack.Column.Frame": "رویه",
     "Str.Tool.CallStack.Column.Line": "خط",
     "Str.Tool.CallStack.RowName": "{0}، خط {1}",
+    "Str.Tool.ObjectBrowser.AllLibraries": "<همهٔ کتابخانه‌ها>",
+    "Str.Tool.ObjectBrowser.MembersOf": "اعضای '{0}'",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "بستن مرورگر اشیاء",
     "Str.Tool.ObjectBrowser.Chrome.Title": "مرورگر اشیاء",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "رفتن به تعریف",
