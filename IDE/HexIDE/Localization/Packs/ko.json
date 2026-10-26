@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "항상 허용",
     "Str.LspArtifact.Grants": "작업 영역 파일을 생성하도록 허용된 서버 목록입니다. 권한을 초기화하면 다음 세션에서 다시 묻습니다.",
     "Str.LspArtifact.Reset": "초기화",
+    "Str.LspArtifact.ResetGrant": "{2}의 {1}에 대한 {0} 초기화",
     "Str.Archive.ProjectFormat": "{0} (읽기 전용 아카이브)",
     "Str.Archive.Hidden": "숨겨진 아카이브 항목 표시",
     "Str.Archive.ReadOnly": "읽기 전용 아카이브 미리 보기입니다. 편집, 빌드 및 실행은 사용할 수 없습니다.",

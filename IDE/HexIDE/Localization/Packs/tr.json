@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "Her zaman izin ver",
     "Str.LspArtifact.Grants": "Çalışma alanı dosyaları oluşturmasına izin verilen sunucular aşağıdadır. Sonraki oturumda yeniden sorulması için izni sıfırlayın.",
     "Str.LspArtifact.Reset": "Sıfırla",
+    "Str.LspArtifact.ResetGrant": "{2} içindeki {1} için {0} iznini sıfırla",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",
     "Str.Archive.ReadOnly": "Salt okunur arşiv önizlemesi. Düzenleme, derleme ve çalıştırma kullanılamaz.",

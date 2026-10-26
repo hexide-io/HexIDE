@@ -16,6 +16,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private readonly ILogger<WorkspaceArtifactService> _log;
     private readonly Dictionary<string, string> _hashes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, LanguageServerRegistration> _active = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _lastNote = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private CancellationTokenSource? _pending;
     private bool _disposed;
@@ -49,6 +50,9 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     public async Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken)
     {
+        if (server.WorkspaceArtifactRefused)
+            Note(server, "Workspace artefact declaration refused, so no file is generated: see the configuration "
+                + "problems in Tools > Language Servers.");
         if (server.WorkspaceArtifact is not { } spec) return;
         await _gate.WaitAsync(cancellationToken);
         try
@@ -153,6 +157,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         }
         finally { File.Delete(temporary); }
         _hashes[target] = Convert.ToHexString(SHA256.HashData(bytes));
+        _lastNote.Remove(server.Id);
         SaveOwnership();
         // #456: regeneration deliberately sends no didChangeWatchedFiles in this phase.
     }
@@ -204,8 +209,18 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         catch (Exception ex) { _log.LogWarning(ex, "Could not save workspace artefact ownership."); }
     }
 
+    /// <summary>
+    /// Records a reason on the server's connection, once: the same reason again for the same server, with no write in
+    /// between, is the same news. The launch and the regeneration a project's load sets off straight after it would
+    /// otherwise each record it (#2073).
+    /// </summary>
     private void Note(LanguageServerRegistration server, string reason, bool fault = true)
     {
+        lock (_lastNote)
+        {
+            if (_lastNote.TryGetValue(server.Id, out var last) && last == reason) return;
+            _lastNote[server.Id] = reason;
+        }
         _capture?.Record(server.Id, ConversationDirection.Local, ConversationEntryKind.Note,
             null, null, 0, detail: reason, fault: fault);
     }

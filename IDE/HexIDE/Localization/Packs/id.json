@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "Selalu izinkan",
     "Str.LspArtifact.Grants": "Server yang diizinkan membuat berkas ruang kerja tercantum di bawah. Atur ulang izin agar ditanyakan lagi pada sesi berikutnya.",
     "Str.LspArtifact.Reset": "Atur ulang",
+    "Str.LspArtifact.ResetGrant": "Atur ulang {0} untuk {1} di {2}",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",
     "Str.Archive.ReadOnly": "Pratinjau arsip hanya baca. Penyuntingan, kompilasi, dan eksekusi tidak tersedia.",

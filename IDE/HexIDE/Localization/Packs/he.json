@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "אפשר תמיד",
     "Str.LspArtifact.Grants": "להלן השרתים שמורשים ליצור קובצי סביבת עבודה. אפס הרשאה כדי להישאל שוב בהפעלה הבאה.",
     "Str.LspArtifact.Reset": "אפס",
+    "Str.LspArtifact.ResetGrant": "אפס את {0} עבור {1} ב-{2}",
     "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",
     "Str.Archive.ReadOnly": "תצוגה מקדימה של הארכיון לקריאה בלבד. עריכה, בנייה והרצה אינן זמינות.",

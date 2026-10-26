@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "Toujours autoriser",
     "Str.LspArtifact.Grants": "Les serveurs autorisés à générer des fichiers dans l’espace de travail sont listés ci-dessous. Réinitialisez une autorisation pour être interrogé à la prochaine session.",
     "Str.LspArtifact.Reset": "Réinitialiser",
+    "Str.LspArtifact.ResetGrant": "Réinitialiser {0} pour {1} dans {2}",
     "Str.Archive.ProjectFormat": "{0} (archive en lecture seule)",
     "Str.Archive.Hidden": "Afficher les entrées masquées de l’archive",
     "Str.Archive.ReadOnly": "Aperçu de l’archive en lecture seule. La modification, la compilation et l’exécution ne sont pas disponibles.",

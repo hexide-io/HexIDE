@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "Salli aina",
     "Str.LspArtifact.Grants": "Alla ovat palvelimet, jotka saavat luoda työtilan tiedostoja. Nollaa lupa, jotta sitä kysytään uudelleen seuraavassa istunnossa.",
     "Str.LspArtifact.Reset": "Nollaa",
+    "Str.LspArtifact.ResetGrant": "Nollaa {0}: {1} kansiossa {2}",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
     "Str.Archive.ReadOnly": "Arkiston esikatselu on vain luku -tilassa. Muokkaus, kääntäminen ja suoritus eivät ole käytettävissä.",

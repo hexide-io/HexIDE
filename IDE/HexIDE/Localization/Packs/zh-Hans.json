@@ -14,6 +14,7 @@
     "Str.LspArtifact.Always": "始终允许",
     "Str.LspArtifact.Grants": "以下列出了获准生成工作区文件的服务器。重置授权后，将在下次会话中再次询问。",
     "Str.LspArtifact.Reset": "重置",
+    "Str.LspArtifact.ResetGrant": "重置 {2} 中 {1} 的 {0}",
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",
     "Str.Archive.ReadOnly": "只读归档预览。无法编辑、生成或运行。",
