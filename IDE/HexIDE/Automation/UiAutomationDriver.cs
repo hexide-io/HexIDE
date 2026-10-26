@@ -1135,7 +1135,7 @@ public static class UiAutomationDriver
         // Only where a row has no container: the item count holds the hidden rows too, so comparing it with the rows that
         // show sent every miss in a list with a hidden row here, to scroll nothing and say it had (#1256).
         if (matches.Count == 0 && control is ListBox virtualized
-            && Enumerable.Range(0, virtualized.ItemCount).Any(i => virtualized.ContainerFromIndex(i) is null))
+            && Enumerable.Range(0, virtualized.ItemCount).Any(i => OutOfView(virtualized, i)))
         {
             HashSet<int> hidden = [.. hiddenRows.Select(r => virtualized.IndexFromContainer(r.Control)).Where(i => i >= 0)];
             (matches, facet, broughtIntoView, var hiddenRefusal) = MatchAmongUnrealized(virtualized, value, hidden);
@@ -1256,7 +1256,7 @@ public static class UiAutomationDriver
         string? hiddenRefusal = null;
         for (var index = 0; index < list.ItemCount; index++)
         {
-            if (list.ContainerFromIndex(index) is not null) continue;
+            if (!OutOfView(list, index)) continue;
             list.ScrollIntoView(index);
             list.UpdateLayout();
             var rows = SelectableCandidates(list);
@@ -1277,6 +1277,10 @@ public static class UiAutomationDriver
         }
         return ([], "", false, hiddenRefusal);
     }
+
+    // A row with no container, or one held out of view, which the walk leaves out (#1981): either is scrolled to to be seen.
+    private static bool OutOfView(ListBox list, int index) =>
+        list.ContainerFromIndex(index) is not { } row || HeldOutOfView(row);
 
     // What a miss says of the rows left out as not showing.
     private static string HiddenNote(int count) => count switch
@@ -2312,7 +2316,7 @@ public static class UiAutomationDriver
                 && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem)
                 // A row a list has let go of, as scrolling leaves a recycled one holding the last item it showed: it
                 // stood in for that item, so a select refused it, or found it twice (#1256 review).
-                && !Released(c))
+                && !Released(c) && !HeldOutOfView(c))
             {
                 result.Add(new MeaningfulChild(c, info));
             }
@@ -2330,8 +2334,23 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
+    // A row a virtualizing list keeps though it is scrolled out of view: the list's tab-once row, the one a Tab into the list
+    // lands on, which selecting a row makes it. The panel keeps it for that Tab, apart from the rows it has realized for
+    // the view, and arranges it where it would be, outside the view, so no person sees it: it is left out as rows out of
+    // view are. Its index is real, so Released keeps it. Told by membership, not geometry: a hidden row's bounds are stale,
+    // and the held row's place is an estimate (#1981 review). Kept while focus is in it, a person's keys going there, or
+    // while a dropdown it holds is open, which is on screen (#1981).
+    private static bool HeldOutOfView(Control c) =>
+        c is ListBoxItem or TreeViewItem or TabItem
+        && c.GetVisualParent() is VirtualizingPanel { IsItemsHost: true }
+        && !c.IsKeyboardFocusWithin
+        && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
+        && owner.IndexFromContainer(c) >= 0
+        && !owner.GetRealizedContainers().Contains(c)
+        && !c.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen);
+
     private static bool InReleasedRow(Control c) =>
-        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(r => Released(r) || HeldOutOfView(r));
 
     private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
 
@@ -3955,7 +3974,7 @@ public static class UiAutomationDriver
             }
             // A row its list has let go of is no row of it, though it still shows the item it last held: listed, it was a
             // second copy of an item, or a row for one out of view, and a path to it reached a row no person sees (#1292).
-            else if (v is Control released && Released(released))
+            else if (v is Control released && (Released(released) || HeldOutOfView(released)))
             {
             }
             else if (v is Control c)
@@ -4091,7 +4110,7 @@ public static class UiAutomationDriver
                     foreach (var d in Descendants(content)) yield return d;
             }
             // As the control-view walk leaves it out: a released row reached by its id was the row the dump no longer lists (#1292 review).
-            else if (v is Control released && Released(released))
+            else if (v is Control released && (Released(released) || HeldOutOfView(released)))
             {
             }
             else if (v is Control c)
