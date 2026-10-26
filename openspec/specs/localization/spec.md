@@ -93,6 +93,14 @@ The interpreter takes those as its own locale at startup, before the pin, rather
 (`VbLocale`, #777). So the IDE's language, the user's regional locale and the culture of the IDE's threads are
 three separate things, and translating the IDE cannot change what a program computes.
 
+The program locale SHALL replace U+202F and U+00A0 in date/time patterns and AM/PM designators
+with ordinary U+0020 spaces (#2102).
+
+#### Scenario: ICU supplies a nonbreaking space before AM or PM
+- **WHEN** the program locale's long-time pattern contains U+202F before its AM/PM token
+- **THEN** converting a Date to text uses an ordinary space there
+- **AND** the original host culture is unchanged
+
 #### Scenario: Running a program with a non-English IDE language
 - **WHEN** the IDE language is changed and a VB6 program is run
 - **THEN** the program's numeric parsing and formatting are unchanged
@@ -121,6 +129,12 @@ not be reverted before the user was already looking at it.
 #### Scenario: Switching language
 - **WHEN** the user selects a different language
 - **THEN** the interface changes immediately, including windows already open
+
+#### Scenario: Tool labels and debugger placeholders follow a live switch
+- **WHEN** the language changes with Object Browser, Locals or Watches already open
+- **THEN** the all-libraries entry and members header use the new language, preserving the selected class
+- **AND** the Locals ready header and out-of-context watch values update immediately
+- **AND** displayed frame names, evaluated values and debugger errors remain intact
 
 ### Requirement: A language change SHALL be revertible without reading the new language
 After a language change the IDE SHALL offer to keep or undo it in a way that does not require reading the

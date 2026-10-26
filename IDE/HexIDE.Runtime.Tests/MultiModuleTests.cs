@@ -167,9 +167,10 @@ public class MultiModuleTests : BaseVBTestFixture
     {
         // A `With` in the caller must NOT be visible inside a called Sub — a leading `.Print` there is Error 91.
         // (This is the per-activation With fix folded into Phase 1.)
-        Func<Task> act = () => Run(
+        Func<Task> act = () => RunClasses(
             "Sub UsesLeadingDot()\n.Print 1\nEnd Sub\n" +
-            "With Debug\nUsesLeadingDot\nEnd With\n");
+            "Dim c As Box\nSet c = New Box\nWith c\nUsesLeadingDot\nEnd With\n",
+            ("Box", "Public N As Integer\n"));
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(91);
     }
 

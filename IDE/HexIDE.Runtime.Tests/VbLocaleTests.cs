@@ -83,7 +83,7 @@ public class VbLocaleTests : BaseVBTestFixture
     {
         await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
 
-        AssertDebugLog([new Vb6Value(new DateTime(year, month, day))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(year, month, day)))]);
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public class VbLocaleTests : BaseVBTestFixture
 
         await RunWith(narrow, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
 
-        AssertDebugLog([new Vb6Value(new DateTime(1930, 1, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(1930, 1, 1)))]);
     }
 
     [Theory]
@@ -171,6 +171,47 @@ public class VbLocaleTests : BaseVBTestFixture
 
     // ── what the program takes from the locale, and what stays VB6's own ───────────────────────────
 
+    [Theory]
+    [InlineData('\u202f')]
+    [InlineData('\u00a0')]
+    public async Task A_time_uses_an_ordinary_space_before_AM_or_PM(char space)
+    {
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("en-US").Clone();
+        culture.DateTimeFormat.LongTimePattern = $"h:mm:ss{space}tt";
+        using var locale = VbLocale.Use(culture);
+
+        await Run("Debug.Print CStr(#6:55:15 AM#)\n" +
+                  "Debug.Print Format(#6:55:15 PM#, \"Long Time\")\n");
+
+        AssertDebugLog([new Vb6Value("6:55:15 AM"), new Vb6Value("6:55:15 PM")]);
+        culture.DateTimeFormat.LongTimePattern.Should().Be($"h:mm:ss{space}tt");
+    }
+
+    [Theory]
+    [InlineData("ShortDatePattern")]
+    [InlineData("LongDatePattern")]
+    [InlineData("ShortTimePattern")]
+    [InlineData("LongTimePattern")]
+    [InlineData("FullDateTimePattern")]
+    [InlineData("MonthDayPattern")]
+    [InlineData("YearMonthPattern")]
+    [InlineData("AMDesignator")]
+    [InlineData("PMDesignator")]
+    public void Date_and_time_patterns_and_designators_normalize_nonbreaking_spaces(string propertyName)
+    {
+        var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+        var property = typeof(DateTimeFormatInfo).GetProperty(propertyName)!;
+        const string pattern = "'a\u202fb\u00a0c'";
+        property.SetValue(culture.DateTimeFormat, pattern);
+
+        var program = VbLocale.ForProgram(culture);
+
+        property.GetValue(program.DateTimeFormat).Should().Be("'a b c'");
+        property.GetValue(culture.DateTimeFormat).Should().Be(pattern);
+        program.IsReadOnly.Should().BeTrue();
+        VbLocale.ForProgram(culture).Should().BeSameAs(program);
+    }
+
     /// <summary>A bidi mark before the minus sign, as ICU writes it for 43 cultures.</summary>
     private static readonly string BidiMinus = char.ConvertFromUtf32(0x200E) + "-";
 
@@ -185,7 +226,7 @@ public class VbLocaleTests : BaseVBTestFixture
         // What CStr writes, and the patterns it writes with, spelled out by code point: the ICU data differs between
         // platforms (macOS's could not read its own ar-SA date back), so a failure on CI must show what was written.
         var program = VbLocale.ForProgram(culture).DateTimeFormat;
-        var written = VbDisplay.ToText(new Vb6Value(new DateTime(2003, 1, 2)), culture);
+        var written = VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(new DateTime(2003, 1, 2))), culture);
         var shown = $"CStr wrote {CodePoints(written)}; short date {CodePoints(program.ShortDatePattern)}, "
                     + $"long time {CodePoints(program.LongTimePattern)}, AM {CodePoints(program.AMDesignator)}, "
                     + $"PM {CodePoints(program.PMDesignator)}, calendar {program.Calendar.GetType().Name}";
@@ -202,8 +243,8 @@ public class VbLocaleTests : BaseVBTestFixture
             "Debug.Print MonthName(1)\n");
 
         debug.Take(8).Should().Equal([
-            new Vb6Value(new DateTime(2003, 1, 2)),
-            new Vb6Value(new DateTime(2030, 1, 1)),
+            new Vb6Value(VbDate.FromDateTime(new DateTime(2003, 1, 2))),
+            new Vb6Value(VbDate.FromDateTime(new DateTime(2030, 1, 1))),
             new Vb6Value(true),
             new Vb6Value("2003"),
             new Vb6Value("2003"),
@@ -232,7 +273,7 @@ public class VbLocaleTests : BaseVBTestFixture
             using var _ = VbLocale.Use(culture);
             foreach (var date in dates)
             {
-                var written = VbDisplay.ToText(new Vb6Value(date));
+                var written = VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(date)));
                 if (!VB6BuiltIns.TryReadDate(written, out var read) || VB6BuiltIns.OnZeroDateIfTimeOnly(read) != date)
                     failures.Add($"{culture.Name}: {date:s} wrote {CodePoints(written)}");
             }
@@ -291,7 +332,7 @@ public class VbLocaleTests : BaseVBTestFixture
         // Measured under en-GB, day first (oracle, "A date the locale's order cannot make").
         await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
 
-        AssertDebugLog([new Vb6Value(new DateTime(year, month, day, hour, hour == 0 ? 0 : 30, 0))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(year, month, day, hour, hour == 0 ? 0 : 30, 0)))]);
     }
 
     [Theory]

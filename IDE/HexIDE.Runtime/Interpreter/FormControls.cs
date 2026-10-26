@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using HexIDE.Runtime.BuiltinControls;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -109,7 +110,9 @@ public sealed class FormControls : ICSharpAsyncProxy
         while (cursor.Position < cursor.Remaining.Count)
         {
             var control = cursor.Remaining[cursor.Position++];
-            if (!controls.Contains(control))
+            // An element unloaded ahead of the loop is passed over, but a control Controls.Remove took out is still handed
+            // out, and using it is 735 (measured, #1556).
+            if (!controls.Contains(control) && !VBProps.GetRemoved(control))
                 continue;
             item = new Vb6Value(control);
             return true;
@@ -127,8 +130,184 @@ public sealed class FormControls : ICSharpAsyncProxy
             "count" when args.Count == 0 => new Vb6Value((int)controls.Count),
             "count" => throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment),
             "item" => Item(args),
-            "add" or "remove" => throw new NotImplementedException(
-                $"Controls.{method} is not implemented: adding a control by its class name at run time is #1556"),
+            "add" => Add(args),
+            "remove" => Remove(args),
             _ => throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         });
+
+    /// <summary>
+    /// Makes a control for <c>Controls.Add</c>: of its class, by its name, in the container's own host, or on the form where
+    /// that is null. The loader sets it, since it knows the form.
+    /// </summary>
+    internal Func<ComponentBaseClass, string, Control?, Control>? Maker { get; set; }
+
+    // The Frame or PictureBox each control added into one was added into. A container's children sit on its child host,
+    // which is a part of its template, so the tree does not lead from one to the other.
+    private readonly Dictionary<Control, Control> containers = [];
+
+    // The VB library's classes that are no controls, which Add refuses by their own name (measured).
+    private static readonly HashSet<string> NotControls = new(StringComparer.OrdinalIgnoreCase)
+        { "VB.Form", "VB.MDIForm", "VB.Menu", "VB.UserControl" };
+
+    // The VB library's other classes, whose answer to Add was not measured, and its controls HexIDE doesn't implement.
+    private static readonly HashSet<string> NotMeasuredOrNotImplemented = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "VB.PropertyPage", "VB.UserDocument", "VB.App", "VB.Clipboard", "VB.Forms", "VB.Global", "VB.LicenseInfo", "VB.Licenses",
+        "VB.Printer", "VB.Printers", "VB.Screen", "VB.Controls", "VB.VBControlExtender",
+        "VB.DriveListBox", "VB.DirListBox", "VB.FileListBox", "VB.Data", "VB.OLE",
+    };
+
+    /// <summary>
+    /// <c>Controls.Add(ProgID, Name[, Container])</c> (#1556), measured with vb6.exe, native and p-code alike (the oracle's
+    /// "Controls.Add and Controls.Remove"). The name is checked first, then the class, then the container: 727 for a name
+    /// a control on the form has in any case, 728 for <c>""</c>, and no other check on it; 711 for a class nothing is
+    /// registered for, 720 for one that is no control; 721 for a container that holds no controls. Too few or too many
+    /// arguments, and Null or a String where an object is wanted, are the late-bound call's raw HRESULTs.
+    /// </summary>
+    private Vb6Value Add(IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count is < 2 or > 3)
+            throw new VBRunTimeException(VBStandardError.DispatchWrongNumberOfArguments);
+        var progId = TextArgument(args[0], "class");
+        var name = TextArgument(args[1], "name");
+
+        if (name.Length == 0)
+            throw new VBRunTimeException(VBStandardError.NotALegalControlName(name));
+        if (arrays.ContainsKey(name) || controls.Exists(c => string.Equals(VBProps.GetName(c), name, StringComparison.OrdinalIgnoreCase)))
+            throw new VBRunTimeException(VBStandardError.ControlNameTaken(name));
+
+        if (NotControls.Contains(progId))
+            throw new VBRunTimeException(VBStandardError.NotAValidControlType(progId[(progId.IndexOf('.') + 1)..]));
+        if (NotMeasuredOrNotImplemented.Contains(progId))
+            throw new NotImplementedException($"Controls.Add of {progId} is not implemented (#1556)");
+        if (progId.Length == 0
+            || progId.StartsWith("VB.", StringComparison.OrdinalIgnoreCase) && !Serialization.FormDeserializer.TryGetComponentClass(progId, out _))
+            throw new VBRunTimeException(VBStandardError.InvalidClassString(progId));
+        // Anything else is an ActiveX ProgID, which vb6.exe answers from the registry: 711 when nothing is registered for it,
+        // 720 for Scripting.Dictionary, and an unmeasured answer for a control the project references.
+        if (!progId.StartsWith("VB.", StringComparison.OrdinalIgnoreCase)
+            || !Serialization.FormDeserializer.TryGetComponentClass(progId, out var componentClass))
+            throw new NotImplementedException($"Controls.Add of an ActiveX control, {progId}, is not implemented (#1556)");
+
+        var container = args.Count == 3 ? ContainerArgument(args[2]) : null;
+        var control = (Maker ?? throw new NotImplementedException("Controls.Add on this form is not implemented (#1556)"))
+            (componentClass, name, container);
+        VBProps.SetAddedAtRunTime(control, true);
+        if (container is not null)
+            containers[control] = container;
+        // Last in the tab order, one past the highest on the form (measured), where its class has a TabIndex.
+        if (componentClass.Properties.Contains(VBProperties.TabIndexProperty))
+            KeyboardNavigation.SetTabIndex(control,
+                controls.Where(HasTabIndex).Select(KeyboardNavigation.GetTabIndex).DefaultIfEmpty(-1).Max() + 1);
+        controls.Add(control);
+        return new Vb6Value(control);
+    }
+
+    // A class name or a control name, as Add reads it: a String as it is, a number as its text, Empty as "".
+    private static string TextArgument(Vb6Value value, string which)
+    {
+        if (value.IsNull)
+            throw new VBRunTimeException(VBStandardError.DispatchTypeMismatch);
+        if (value.Type == Vb6Value.ValueType.String)
+            return (string)value.Value!;
+        if (value.Type == Vb6Value.ValueType.EmptyVariant)
+            return "";
+        if (Vb6Value.TryNumericToDouble(value, out _) && value.Type != Vb6Value.ValueType.Date)
+            return VbDisplay.ToText(value);
+        throw new NotImplementedException($"Controls.Add with a {value.Type} for its {which} is not implemented (#1556)");
+    }
+
+    // Add's third argument: a Frame or a PictureBox, or the form itself, which is where the control goes without one.
+    private Control? ContainerArgument(Vb6Value value)
+    {
+        if (value.Value is VbObject form)
+            return ReferenceEquals(form.Controls, this)
+                ? null
+                : throw new NotImplementedException("Controls.Add into another form is not implemented (#1556)");
+        if (value.Value is Control control)
+        {
+            if (!controls.Contains(control))
+                throw new NotImplementedException("Controls.Add into another form's control is not implemented (#1556)");
+            return control is VBFrame or VBPictureBox
+                ? control
+                : throw new VBRunTimeException(VBStandardError.NotAValidControlContainer(VB6BuiltIns.DebugTypeName(value)));
+        }
+        if (value.Type == Vb6Value.ValueType.Object && value.Value is null)
+            throw new VBRunTimeException(VBStandardError.NotAValidControlContainer("<Nothing>"));
+        if (value.Type == Vb6Value.ValueType.String)
+            throw new VBRunTimeException(VBStandardError.DispatchTypeMismatch);
+        throw new NotImplementedException($"Controls.Add into a {value.Type} is not implemented (#1556)");
+    }
+
+    // Whether a control has a place in the tab order: an Image, Shape, Line, Timer, menu or CommonDialog has none.
+    private static bool HasTabIndex(Control control) => control is not (VBImage or VBShape or VBLine or VBTimer or VBMenu or VBCommonDialog);
+
+    /// <summary>
+    /// <c>Controls.Remove(Index)</c> (#1556): a control added with Add, by its name in any case, the control itself, or its
+    /// position, as <c>Controls(i)</c> reads one. A design-time control is 729, a name not there 730, <c>""</c> 728, and a
+    /// position out of range 9. A container goes with everything in it, every control taken out closes its gap in the tab
+    /// order, and a variable still holding one can no longer use it (735).
+    /// </summary>
+    private Vb6Value? Remove(IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count != 1)
+            throw new VBRunTimeException(VBStandardError.DispatchWrongNumberOfArguments);
+        var target = RemoveTarget(args[0]);
+        if (!VBProps.GetAddedAtRunTime(target))
+            throw new VBRunTimeException(VBStandardError.OnlyAddedControlsCanBeRemoved);
+        (target.Parent as Panel)?.Children.Remove(target);
+        // What it holds first, then itself.
+        foreach (var gone in controls.Where(c => !ReferenceEquals(c, target) && IsInside(c, target)).Append(target).ToList())
+        {
+            controls.Remove(gone);
+            containers.Remove(gone);
+            VBProps.SetRemoved(gone, true);
+            if (!HasTabIndex(gone))
+                continue;
+            var tab = KeyboardNavigation.GetTabIndex(gone);
+            foreach (var other in controls.Where(c => HasTabIndex(c) && KeyboardNavigation.GetTabIndex(c) > tab))
+                KeyboardNavigation.SetTabIndex(other, KeyboardNavigation.GetTabIndex(other) - 1);
+        }
+        return null;
+    }
+
+    private Control RemoveTarget(Vb6Value what)
+    {
+        if (what.IsNull)
+            throw new VBRunTimeException(VBStandardError.DispatchTypeMismatch);
+        if (what.Value is Control control)
+            return controls.Contains(control)
+                ? control
+                : throw new NotImplementedException("Controls.Remove of a control not on this form is not implemented (#1556)");
+        if (what.Type == Vb6Value.ValueType.String && what.Value is string name && !(name.Length > 0 && char.IsAsciiDigit(name[0])))
+        {
+            // A control array's name is the late-bound E_NOINTERFACE (measured).
+            if (name.Length > 0 && arrays.ContainsKey(name))
+                throw new VBRunTimeException(VBStandardError.NoSuchInterfaceSupported);
+            return (Control)Named(name).Value!;
+        }
+        if (what.Type != Vb6Value.ValueType.String && !Vb6Value.TryNumericToDouble(what, out _))
+            throw new NotImplementedException($"Controls.Remove of a {what.Type} is not implemented (#1556)");
+        int position;
+        try
+        {
+            position = Convert.ToInt32(VB6BuiltIns.NarrowNum(what, Vb6Value.ValueType.Integer).Value);
+        }
+        // "1abc" is a position that doesn't convert, which the late-bound call answers as its raw HRESULT (measured).
+        catch (VBRunTimeException e) when (e.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+        {
+            throw new VBRunTimeException(VBStandardError.DispatchTypeMismatch);
+        }
+        return position >= 0 && position < controls.Count
+            ? controls[position]
+            : throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);
+    }
+
+    private bool IsInside(Control control, Control container)
+    {
+        for (var holder = control; containers.TryGetValue(holder, out var next); holder = next)
+            if (ReferenceEquals(next, container))
+                return true;
+        return false;
+    }
 }
