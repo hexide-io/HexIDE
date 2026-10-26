@@ -58,6 +58,7 @@ developer locked out of the IDE by its own remembered layout has no way to reset
 #### Scenario: A layout referring to something that no longer exists
 - **WHEN** recorded state describes a tool window the IDE no longer has
 - **THEN** the rest of the layout is applied and the unknown entry is ignored
+- **AND** each unknown tool key is logged once per restore, even if it appears more than once
 
 #### Scenario: A window positioned off-screen
 - **WHEN** the recorded position is not visible on any attached display
