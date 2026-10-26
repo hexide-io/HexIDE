@@ -201,8 +201,19 @@ code and designer open:
 - A dump rooted at a truncated node, the designer's `Custom[Root]`, listed its children, with no note.
 - `maxDepth: 3` came back whole, with no note.
 
-The cut is one depth everywhere, so hidden toolbars came back whole while the open document was cut:
-[#2033](https://github.com/hexide-io/HexIDE/issues/2033).
+The cut was one depth everywhere, so hidden toolbars came back whole while the open document was cut
+([#2033](https://github.com/hexide-io/HexIDE/issues/2033)). The #2033 fix first omits children below hidden
+nodes when a tree exceeds the budget, retaining their paths, `isHidden` and `truncated` markers. Only if
+that still exceeds the budget does it cut levels in other branches, preserving the active document
+subtree and its ancestors. The requested root keeps its children
+so dumping from a hidden node makes progress. This applies with either `interactiveOnly` setting; trees
+that already fit and `match` searches are unchanged. The note explains what was omitted and how to see it.
+PR #2169's live check failed: `dump_visual_tree {}` still cut the designer at `Custom[Root]/Pane`,
+eight levels down, with both 3 and 26 controls (supervisor, 2026-10-26). Hidden pruning alone was insufficient.
+The follow-up preserves the active tab's content while cutting other branches; if that content alone
+exceeds the budget the note says it is still over and advises `root`.
+Covered headlessly by `DumpFitsReplyTests` and `ActiveDocumentDumpTests`; live verification of this
+follow-up remains for supervisor review.
 
 ## `dump_visual_tree` kept a row a list had scrolled away from, with `isOffscreen: true` — **CLOSED** (#1981, 2026-10-26)
 
