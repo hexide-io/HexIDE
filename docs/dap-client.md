@@ -164,8 +164,8 @@ diagnostics and path pseudonymisation through the shared exporter.
 fast stops, refused/cancelled resumes, startup deadlines, terminal state, output and overflow.
 
 ```text
-dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
-dotnet test IDE/HexIDE.Tests -- --filter-class "*DapProcessTests"
+dotnet test --project IDE/HexIDE.Tests/HexIDE.Tests.csproj -- --filter-class "*DapConnectionTests"
+dotnet test --project IDE/HexIDE.Tests/HexIDE.Tests.csproj -- --filter-class "*DapProcessTests"
 ```
 
 The opt-in [real adapter smoke](dap-adapter-smoke.md) launches a separately installed adapter and its real

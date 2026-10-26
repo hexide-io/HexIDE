@@ -48,4 +48,11 @@ Serilog.Sinks.File	Apache-2.0
 StreamJsonRpc	MIT
 Svg.Skia	MIT
 xunit.analyzers	Apache-2.0
-xunit.v3	Apache-2.0
+xunit.v3.mtp-v2	Apache-2.0
+xunit.v3.core.mtp-v2	Apache-2.0
+
+# MTP v2 transitive dependencies: registration API checked at 2.0.2 for #2008.
+Microsoft.Testing.Extensions.Telemetry	MIT
+Microsoft.Testing.Extensions.TrxReport.Abstractions	MIT
+Microsoft.Testing.Platform	MIT
+Microsoft.Testing.Platform.MSBuild	MIT

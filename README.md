@@ -190,9 +190,9 @@ cd IDE && dotnet build HexIDE.Desktop/
 dotnet run --project HexIDE.Desktop/
 
 # Run the test suites
-cd IDE       && dotnet test HexIDE.Runtime.Tests/       # VB6 interpreter
-cd IDE       && dotnet test HexIDE.Tests/               # IDE view-models
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/   # LSP server
+cd IDE       && dotnet test --project HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj       # VB6 interpreter
+cd IDE       && dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj               # IDE view-models
+cd LspServer && dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj   # LSP server
 ```
 
 ### Making a program

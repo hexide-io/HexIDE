@@ -22,7 +22,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// <b>Read from the source, not by reflecting over the built assembly</b>, and that is not a stylistic
 /// preference. Nothing in the tree references <c>HexIDE.Desktop</c>, so its <c>bin/</c> holds an assembly
 /// only once somebody has built that project: on CI the step that does so runs two steps AFTER this
-/// suite, and in a fresh clone running the documented <c>dotnet test HexIDE.Tests/</c> it never runs at
+/// suite, and in a fresh clone running the documented <c>dotnet test --project HexIDE.Tests/HexIDE.Tests.csproj</c> it never runs at
 /// all. The reflecting version therefore failed three tests on first contact and passed only on a
 /// machine that happened to have built the IDE — a guard reporting on the state of a working directory
 /// rather than on the thing it was written to check. Both halves of the question are claims about

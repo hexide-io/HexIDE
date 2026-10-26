@@ -30,7 +30,7 @@ replaceable — not for any licensing reason (the whole tree is MIT).
 dotnet build HexIDE.VbLspServer/
 
 # Run tests
-dotnet test HexIDE.VbLspServer.Tests/
+dotnet test --project HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj
 ```
 
 ## Usage

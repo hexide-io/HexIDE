@@ -49,4 +49,4 @@ rsync -a --delete \
 
 echo "test-linux.sh: $source_root -> $copy" >&2
 cd "$copy/$project"
-exec dotnet test "$@"
+exec dotnet test --project "$(basename "$project").csproj" "$@"

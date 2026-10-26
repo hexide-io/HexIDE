@@ -6,13 +6,11 @@
     <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-    <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" />
     <Using Include="AwesomeAssertions" />
-    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
     <Using Include="Xunit" />
     <ProjectReference Include="../HexIDE.TwinBasic/HexIDE.TwinBasic.csproj" />
