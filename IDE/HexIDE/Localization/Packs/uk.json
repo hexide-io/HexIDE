@@ -359,6 +359,7 @@
     "Str.Designer.Context.Delete": "Видалити",
     "Str.Designer.Context.BringToFront": "На передній план",
     "Str.Designer.Context.SendToBack": "На задній план",
+    "Str.Designer.PreviewForm": "Попередній перегляд форми",
     "Str.Designer.Context.ViewCode": "Переглянути код",
     "Str.Designer.Context.AlignToGrid": "Вирівняти за сіткою",
     "Str.Designer.Context.Properties": "Властивості",

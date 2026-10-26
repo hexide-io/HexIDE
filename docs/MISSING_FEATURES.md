@@ -167,8 +167,8 @@
 ## Window Menu
 
 | Item | Shortcut | Status | Notes |
-|---|---|---|---|
 | Reopen Closed Window / Recently Closed Windows | Ctrl+Shift+T (Cmd+Shift+T on macOS) | Done | **HexIDE addition** — last 20 closed code, designer and tool document tabs, session-only; restores code caret; pruned on document removal and project close (#2000) |
+|---|---|---|---|
 | Split | — | Stub | Always disabled |
 | Tile Horizontally | — | Done | Publishes rearrange event; MDI host responds |
 | Tile Vertically | — | Done | Publishes rearrange event; MDI host responds |
@@ -287,6 +287,7 @@
 | Smart / alignment guides | Missing | Grid only |
 | Property search / filter | Missing | No search box in Properties window |
 | Invisible control dimming | Done | Controls with Visible=False, including through a containing control, have a theme-supplied dimming mask in the designer and remain selectable and editable (#2002); a HexIDE addition |
+| Live form preview | Done | **HexIDE addition** — Preview Form in the designer opens an interactive runtime window without starting the project or executing VB code. Edits and resizing in the preview are discarded on close. Uses the runtime loader; controls the runtime cannot create are refused (#2003) |
 | Control rendering quality | Partial | Bitmap snapshot via `ControlRenderer`; text/font preview approximate |
 | Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). None of VB6's own 22 template forms is held now: #60 carries the companion records cited by unmodelled controls, including `Web Browser.frm`'s ImageList. The remaining gates are described in the Save {file} row above ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
 | Controls HexIDE does not model | Done | **Diverges from VB6 by design** in one respect: each is drawn as a box where VB6's IDE draws the empty PictureBox it puts in such a control's place, at its `Left` and `Top`, sized by its `Width` and `Height` or VB6's 1200 × 480 twips without them (measured; `_ExtentX`/`_ExtentY` play no part), and HexIDE labels the box with the control's class where VB6 leaves it empty. Inert: it cannot be selected or moved, and the control is written back from the block it was read as ([#157](https://github.com/hexide-io/HexIDE/issues/157)). A box inside a Frame or PictureBox moves, deletes and undoes with it. A box is drawn in its own place among the controls the designer models, as VB6 stacks the control: over its container, and over or under each control as the file and Bring to Front or Send to Back put it (#1553) |

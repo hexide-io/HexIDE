@@ -359,6 +359,7 @@
     "Str.Designer.Context.Delete": "삭제",
     "Str.Designer.Context.BringToFront": "맨 앞으로 가져오기",
     "Str.Designer.Context.SendToBack": "맨 뒤로 보내기",
+    "Str.Designer.PreviewForm": "폼 미리 보기",
     "Str.Designer.Context.ViewCode": "코드 보기",
     "Str.Designer.Context.AlignToGrid": "눈금에 맞춤",
     "Str.Designer.Context.Properties": "속성",

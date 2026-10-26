@@ -359,6 +359,7 @@
     "Str.Designer.Context.Delete": "_Slet",
     "Str.Designer.Context.BringToFront": "Placér forrest",
     "Str.Designer.Context.SendToBack": "Placér bagest",
+    "Str.Designer.PreviewForm": "Forhåndsvis formular",
     "Str.Designer.Context.ViewCode": "Vis kode",
     "Str.Designer.Context.AlignToGrid": "Justér efter gitter",
     "Str.Designer.Context.Properties": "Egenskaber",
