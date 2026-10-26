@@ -188,7 +188,13 @@ public class ResizeAdorner : TemplatedControl
                     newWidth = Math.Min(adornedElementChild.MaxWidth, newWidth);
             }
 
-            Apply(adornedElement, newLeft, newTop, newWidth, newHeight);
+            if (xDirection == ResizeXDirection.None && yDirection == ResizeYDirection.None)
+            {
+                adornedElement.SetCurrentValue(Canvas.LeftProperty, newLeft);
+                adornedElement.SetCurrentValue(Canvas.TopProperty, newTop);
+            }
+            else
+                Apply(adornedElement, newLeft, newTop, newWidth, newHeight);
 
             // Move all group drag participants by the same snapped delta as the primary.
             if (xDirection == ResizeXDirection.None && yDirection == ResizeYDirection.None &&
@@ -262,7 +268,12 @@ public class ResizeAdorner : TemplatedControl
                 isResizing = true;
                 OnDragStarted?.Invoke();
                 initialPosition = e.GetPosition(this.GetVisualParent());
-                originalBounds = adornedElement.Bounds;
+                // Bounds includes layout rounding at the display scale; dragging must start from the declared size.
+                var width = adornedElement.GetValue(WidthProperty);
+                var height = adornedElement.GetValue(HeightProperty);
+                originalBounds = new Rect(0, 0,
+                    double.IsNaN(width) ? adornedElement.Bounds.Width : width,
+                    double.IsNaN(height) ? adornedElement.Bounds.Height : height);
                 originalOrigin = new Point(double.IsNaN(Canvas.GetLeft(adornedElement)) ? 0 : Canvas.GetLeft(adornedElement),
                     double.IsNaN(Canvas.GetTop(adornedElement)) ? 0 : Canvas.GetTop(adornedElement));
                 xDirection = GetResizeXDirection(control);

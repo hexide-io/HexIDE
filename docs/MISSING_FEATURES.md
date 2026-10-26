@@ -261,7 +261,7 @@
 | Grid display | Done | Visual dot grid; configurable size |
 | Snap to grid | Done | Controlled by Options |
 | Select single control | Done | |
-| Move control | Done | Drag via title grip |
+| Move control | Done | Drag via title grip; preserves the declared size at display scaling above 100% (#2180) |
 | Resize control (all 8 handles) | Done | Full ResizeAdorner |
 | Delete selected control | Done | |
 | Bring to Front / Send to Back | Done | |
