@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A call from <c>Class_Initialize</c> to one of the object's own methods does not terminate the object it is
-/// building. Measured on vb6.exe; the probe is in docs/vb6-fidelity-oracle.md, "Subscripts, bounds, and a method
+/// building. Measured on vb6.exe; the probe is in docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md, "Subscripts, bounds, and a method
 /// called from Class_Initialize".
 /// </summary>
 public class ClassInitializeSiblingCallTests : BaseVBTestFixture
@@ -30,6 +30,22 @@ public class ClassInitializeSiblingCallTests : BaseVBTestFixture
         End Sub
 
         """;
+
+    [Fact]
+    public async Task Reset_calls_the_private_sibling_Sub_from_Class_Initialize()
+    {
+        await RunClasses("""
+            Dim k As Counter
+            Set k = New Counter
+            Debug.Print "after New " & k.Count
+            Set k = Nothing
+            Debug.Print "after Set Nothing"
+
+            """, ("Counter", Counter.Replace("ZeroIt", "Reset")));
+        AssertDebugLog([
+            "init start", "zero", "bump 1", "init end 1", "after New 1", "terminate 1", "after Set Nothing",
+        ]);
+    }
 
     [Fact]
     public async Task Siblings_called_from_Class_Initialize_leave_the_object_alive_until_its_last_reference_goes()

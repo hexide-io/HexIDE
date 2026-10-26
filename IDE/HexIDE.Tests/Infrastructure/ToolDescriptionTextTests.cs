@@ -85,6 +85,13 @@ public class ToolDescriptionTextTests
     }
 
     [Fact]
+    public void Interact_explains_the_primary_and_how_to_choose_it()
+    {
+        ToolSource.Tools.Single(t => t.Name == "interact").Parameters.Single(p => p.Name == "action").Description
+            .Should().Contain("names the primary").And.Contain("The primary is the last control added");
+    }
+
+    [Fact]
     public void Close_says_which_message_boxes_refuse_it()
     {
         // An OK-only box has no Cancel, yet its close box answers vbOK; only Yes/No and Abort/Retry/Ignore refuse.

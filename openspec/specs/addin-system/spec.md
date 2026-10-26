@@ -72,7 +72,7 @@ such a form is recoverable; writing it is not.
 #### Scenario: Contributing a tool window
 - **WHEN** an add-in registers a tool window with a factory
 - **THEN** the window docks, floats and hides like a built-in one
-- **AND** its content is constructed on first display rather than at registration
+- **AND** its content is constructed eagerly at registration
 
 #### Scenario: Contributing a control
 - **WHEN** an add-in registers a custom VB6 control
@@ -118,7 +118,9 @@ back must be able to wait for the edit to land rather than guess.
 
 ### Requirement: A failing add-in SHALL NOT affect the IDE or other add-ins
 Loading and initializing each add-in SHALL be isolated so that a failure is recorded against that add-in
-alone, and the IDE and every other add-in SHALL continue to load.
+alone, and the IDE and every other add-in SHALL continue to load. If initialization fails, the IDE SHALL
+remove registrations and lifecycle subscriptions made during that initialization, dispose the failed
+instance, and retain the original failure even if cleanup throws.
 
 Third-party code fails, and it fails at startup where the damage is greatest. If one add-in throwing
 prevented the IDE from starting, the user's only recovery would be to find and delete files by hand — from
@@ -127,7 +129,14 @@ an IDE they cannot open.
 #### Scenario: An add-in throws during initialization
 - **WHEN** an add-in throws while initializing
 - **THEN** it is recorded as failed with the reason
+- **AND** its earlier contributions and lifecycle subscriptions are removed
 - **AND** the IDE and the remaining add-ins load normally
+
+#### Scenario: A tool-window factory throws during initialization
+- **WHEN** an add-in registers contributions and then a tool-window factory throws
+- **THEN** the factory failure is recorded against the add-in
+- **AND** no contribution from that initialization remains
+- **AND** cleanup continues even when a removal observer or the failed instance's disposal throws
 
 ### Requirement: Each add-in SHALL load in its own isolated context
 Each add-in SHALL be loaded into its own unloadable context, and its private dependencies SHALL resolve
@@ -169,7 +178,8 @@ header included, and every position it reads or writes SHALL be counted from the
 document's content SHALL accept either the whole file with its header unchanged or the code alone, keeping the
 header, and SHALL be refused if it would change the header, or a member's attribute lines other than by moving or
 renaming them with that member or deleting them with its declaration. An edit to a range of a document SHALL be
-refused if it would change the header or any other read-only region. Either refusal SHALL tell the add-in why, and
+refused if its requested span would change the header or any other read-only region. An empty range edit
+removing a declaration's whole text SHALL also remove its Attribute run, as a key deletion does. Either refusal SHALL tell the add-in why, and
 a refusal for a member's attribute lines SHALL name the member.
 
 An add-in SHALL be able to name a document by its project as well as its name, and SHALL be able to reach a

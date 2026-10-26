@@ -66,6 +66,10 @@ public class ExecutionState
 
     /// <summary>The declared class/interface name of a slot, or null when the slot isn't class-typed.</summary>
     public string? DeclaredClassOf(int location) =>
+        DeclaredViewOf(location) is { } name && name != "Object" ? name : null;
+
+    // Object selects late binding on a read, but imposes no class constraint on a store (#1435).
+    public string? DeclaredViewOf(int location) =>
         declaredClasses.TryGetValue(location, out var c) ? c : null;
 
     /// <summary>Mark a slot as never-writable. Used for Enum members, which VB6 treats as constants.</summary>

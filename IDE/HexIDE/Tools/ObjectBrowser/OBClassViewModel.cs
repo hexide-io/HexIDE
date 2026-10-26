@@ -1,16 +1,18 @@
 using System.Collections.Generic;
 using HexIDE.Runtime.ProjectElements;
+using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.ObjectBrowser;
 
-public class OBClassViewModel
+public partial class OBClassViewModel
 {
-    public string Name { get; }
+    [Notify] private string name;
 
     /// <summary>The name: what a list of these is read by in automation, which names a row by its item's ToString (#1299).</summary>
     public override string ToString() => Name;
     public OBClassKind Kind { get; }
-    public string LibraryName { get; }
+    [Notify] private string libraryName;
+    public bool IsStatus { get; init; }
 
     public ModuleDefinition? ModuleDefinition { get; }
     public FormDefinition? FormDefinition { get; }
@@ -30,9 +32,9 @@ public class OBClassViewModel
     public OBClassViewModel(string name, OBClassKind kind, string libraryName,
         ModuleDefinition? moduleDefinition = null, FormDefinition? formDefinition = null)
     {
-        Name = name;
+        this.name = name;
         Kind = kind;
-        LibraryName = libraryName;
+        this.libraryName = libraryName;
         ModuleDefinition = moduleDefinition;
         FormDefinition = formDefinition;
     }

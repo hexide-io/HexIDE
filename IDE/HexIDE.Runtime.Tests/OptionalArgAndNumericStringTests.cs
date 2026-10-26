@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// #190 — two defects in the built-in call machinery, both oracle-pinned against vb6.exe (see "Omitted
-/// optional arguments, and string operands to numeric intrinsics" in docs/vb6-fidelity-oracle.md).
+/// optional arguments, and string operands to numeric intrinsics" in docs/vb6-fidelity-oracle/omitted-optional-arguments-and-string-operands-to-numeric-intrinsics.md).
 ///
 /// A skipped optional argument arrives as <c>Vb6Value.Missing</c>, and the guard deciding whether to use a
 /// default tested for <c>EmptyVariant</c>, so the default was never selected. And every intrinsic on the

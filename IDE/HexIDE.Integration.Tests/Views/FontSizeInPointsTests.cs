@@ -143,9 +143,10 @@ public class FontSizeInPointsTests
             var sample = window.GetLogicalDescendants().OfType<TextBlock>().Single(t => t.Text == "AaBbCcDdEe 0123");
             sample.FontFamily.ToString().Should().Be("Arial", "it opened on Arial");
 
-            vm.SelectedFamily = "Courier New";
+            var chosen = vm.FontFamilies.First(f => f != "Arial");
+            vm.SelectedFamily = chosen;
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-            sample.FontFamily.ToString().Should().Be("Courier New", "Courier New was chosen");
+            sample.FontFamily.ToString().Should().Be(chosen, "another offered family was chosen");
         }
         finally { window.Close(); }
     }

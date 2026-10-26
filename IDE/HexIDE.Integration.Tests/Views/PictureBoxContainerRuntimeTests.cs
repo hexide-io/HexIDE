@@ -21,7 +21,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// the border decorator, which makes the layout offset and the drawn border the same number by construction
 /// rather than by two pieces of arithmetic that can drift apart.
 /// </summary>
-public class PictureBoxContainerRuntimeTests
+public class PictureBoxContainerRuntimeTests : WindowTestFixture
 {
     // Picture1 at (20, 10) with a default (3-D, Fixed Single) border, so its client origin is (22, 12) and
     // Label1 at (10, 10) inside it belongs at (32, 22) on the form.

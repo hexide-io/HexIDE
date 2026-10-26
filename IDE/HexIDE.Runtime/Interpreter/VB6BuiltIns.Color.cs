@@ -5,7 +5,7 @@ using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 namespace HexIDE.Runtime.Interpreter;
 
 // RGB and QBColor. Every value, type and error below was measured on vb6.exe; the probes are in
-// docs/vb6-fidelity-oracle.md, "RGB, QBColor and MsgBox's style".
+// docs/vb6-fidelity-oracle/rgb-qbcolor-and-msgboxs-style.md, "RGB, QBColor and MsgBox's style".
 public partial class VB6BuiltIns
 {
     // QBColor's sixteen, as the Long it returns: blue in the high byte, so QBColor(1), blue, is &H800000.

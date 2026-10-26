@@ -8,6 +8,31 @@ options {
     caseInsensitive = true;
 }
 
+@members {
+    public override IToken NextToken()
+    {
+        if (Interpreter is not PhysicalLineSimulator)
+            Interpreter = new PhysicalLineSimulator(this);
+        return base.NextToken();
+    }
+
+    // ANTLR counts only LF itself. Count a lone CR too, including in skipped continuations/comments.
+    private sealed class PhysicalLineSimulator(VisualBasic6Lexer lexer)
+        : LexerATNSimulator(lexer, _ATN, VisualBasic6Lexer.decisionToDFA, VisualBasic6Lexer.sharedContextCache)
+    {
+        public override void Consume(ICharStream input)
+        {
+            var loneCr = input.LA(1) == '\r' && input.LA(2) != '\n';
+            base.Consume(input);
+            if (loneCr)
+            {
+                Line++;
+                Column = 0;
+            }
+        }
+    }
+}
+
 // A comment, in both of VB6's spellings. Mirrored from the interpreter's grammar; the fuller note is
 // there. Two things about it are load-bearing and easy to undo by tidying:
 //
@@ -83,6 +108,8 @@ CONST: 'CONST';
 DATE: 'DATE';
 
 DECLARE: 'DECLARE';
+
+PTRSAFE: 'PTRSAFE';
 
 DEFBOOL: 'DEFBOOL';
 
@@ -523,12 +550,23 @@ IDENTIFIER: LETTER LETTERORDIGIT*;
 
 // whitespace, line breaks, comments, ...
 
+// Unlike the interpreter, the LSP server also accepts lone CR boundaries in externally edited files (#1052).
+fragment LINE_END: '\r' '\n'? | '\n';
+
+// A continuation between word fragments must separate names rather than concatenate them (#224).
+// Other continuations retain their existing handling, including KWSEP inside multi-word keywords.
+IDENTIFIER_CONTINUATION
+   : {char.IsLetterOrDigit((char)InputStream.LA(-1)) || InputStream.LA(-1) == '_'}?
+     [ \t]+ '_' [ \t]* LINE_END [ \t]*
+     {char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
+   ;
+
 // A whitespace RUN before the underscore, and any whitespace after it — mirrored from the interpreter's
 // grammar, where the conformance corpus showed the one-space form rejects a tab before the underscore and
 // the multi-space alignment real VB6 is full of. Kept identical on purpose: GrammarParityTests exists
 // because the two halves disagreeing about what VB6 is reaches users as an editor that accepts what the
 // interpreter refuses, or the reverse.
-LINE_CONTINUATION: [ \t]+ '_' [ \t]* '\r'? '\n' -> skip;
+LINE_CONTINUATION: [ \t]+ '_' [ \t]* LINE_END -> skip;
 
 // The separator INSIDE a multi-word keyword. Mirrored from the interpreter's grammar: a single literal
 // space refused both an aligning run of spaces and a line continuation between the two words, and
@@ -549,7 +587,7 @@ fragment KWSEP: ([ \t] | LINE_CONTINUATION)+;
 // terminator is a line break OR end-of-file so a dangling ` _` as the last line is absorbed too — it must
 // not be merely optional, or ` _ _` and ` _ x` get absorbed as far as the underscore and the rest is read
 // as a statement, and both are syntax errors in VB6. Mirrored from the interpreter's grammar.
-NEWLINE: WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n' | EOF))* WS?;
+NEWLINE: WS? LINE_END (WS '_' [ \t]* (LINE_END | EOF))* WS?;
 
 WS: [ \t]+;
 

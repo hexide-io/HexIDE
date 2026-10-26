@@ -27,8 +27,8 @@ public partial class VB6BuiltIns
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
-        // place — an Optional with a declared type or a default gets that instead and is NOT missing.
-        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle.md.
+        // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
+        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md.
         d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
 
         // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.
@@ -47,6 +47,7 @@ public partial class VB6BuiltIns
     // (best-effort — VB6 returns the declared VB class). Everything else routes through the primitive map.
     private static string TypeNameOf(Vb6Value v)
     {
+        if (v.Value is DebugProxy) throw new VBCompileErrorException("Syntax error");
         if (!v.Type.IsArray)
         {
             if (v.Value is Control ctrl) return ControlTypeName(ctrl);
@@ -58,9 +59,15 @@ public partial class VB6BuiltIns
     private static string StripVb(string n) => n.StartsWith("VB", StringComparison.Ordinal) ? n.Substring(2) : n;
 
     /// <summary>A control's class, as TypeName gives it and TypeOf matches it: <c>TextBox</c>, <c>CommonDialog</c>.</summary>
-    internal static string ControlTypeName(Control control) =>
+    internal static string ControlTypeName(Control control) => control switch
+    {
         // A menu's separator is a Menu to a program, as every menu is (#1126).
-        control is HexIDE.Runtime.BuiltinControls.VBMenuSeparator ? "Menu" : StripVb(control.GetType().Name);
+        HexIDE.Runtime.BuiltinControls.VBMenuSeparator => "Menu",
+        // One class draws both scroll bars, which VB6 names by their direction (measured, #1556): it was "ScrollBar", and
+        // TypeOf c Is HScrollBar was False.
+        HexIDE.Runtime.BuiltinControls.VBScrollBar bar => bar.Orientation == Avalonia.Layout.Orientation.Vertical ? "VScrollBar" : "HScrollBar",
+        _ => StripVb(control.GetType().Name),
+    };
 
     // Measured (#840): TypeName(Err) is "ErrObject" and TypeName(App) is "App", which neither class's own name gives.
     private static string InBoxTypeName(ICSharpProxy px) => px switch
@@ -159,7 +166,7 @@ public partial class VB6BuiltIns
         const NumberStyles styles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint
             | NumberStyles.AllowThousands | NumberStyles.AllowExponent
             | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
-        return double.TryParse(s, styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
+        return double.TryParse(WithoutThousandsAfterDigit(s), styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
     }
 
     private static bool AllChars(string s, int from, Func<char, bool> pred)

@@ -82,7 +82,18 @@ public class OpenDialogNoteTests
         {
             var dialog = new Window { Title = title };
             _ = dialog.ShowDialog(Main);
-            Dispatcher.UIThread.RunJobs();
+            // Keeping the caller's context: Avalonia leaves a job's own on the thread, which took the watch NoteAsync set away
+            // from a NamedInReply made after this pump. OpenDialogsTests.RunJobsKeepingContext has the reasoning (#2029).
+            var context = ExecutionContext.Capture();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+            }
+            finally
+            {
+                if (context is not null)
+                    ExecutionContext.Restore(context);
+            }
             Windows.Add(dialog);
             return dialog;
         }

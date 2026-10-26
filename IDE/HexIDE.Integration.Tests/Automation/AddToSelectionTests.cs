@@ -37,7 +37,44 @@ public class AddToSelectionTests
 
             outcome.Success.Should().BeTrue(outcome.Error);
             list.Selection.SelectedIndexes.Should().BeEquivalentTo([0, 2]);
-            outcome.Detail.Should().Be("added 'three' to the selection; 2 items are selected now: one, three");
+            outcome.Detail.Should().Be("added 'three' to the selection; 2 items are selected now: one, three; one is the primary item (on a form designer, the reference Align and Make Same measure against)");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Adding_lists_the_primary_first_even_when_it_has_a_higher_index()
+    {
+        var (window, list) = Show(SelectionMode.Multiple);
+        try
+        {
+            UiAutomationDriver.Interact(Row(list, 2), "select", null);
+
+            var outcome = UiAutomationDriver.Interact(Row(list, 0), "add_to_selection", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            list.SelectedIndex.Should().Be(2);
+            outcome.Detail.Should().Be("added 'one' to the selection; 2 items are selected now: three, one; three is the primary item (on a form designer, the reference Align and Make Same measure against)");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Removing_the_primary_names_the_new_primary()
+    {
+        var (window, list) = Show(SelectionMode.Multiple);
+        try
+        {
+            list.Selection.Select(2);
+            list.Selection.Select(1);
+            list.Selection.Select(0);
+
+            var outcome = UiAutomationDriver.Interact(Row(list, 2), "remove_from_selection", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            list.Selection.SelectedIndexes.Should().BeEquivalentTo([0, 1]);
+            list.SelectedIndex.Should().Be(0);
+            outcome.Detail.Should().Be("removed 'three' from the selection; 2 items are selected now: one, two; one is the primary item (on a form designer, the reference Align and Make Same measure against)");
         }
         finally { window.Close(); }
     }

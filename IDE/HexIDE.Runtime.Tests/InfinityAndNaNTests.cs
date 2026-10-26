@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Tests;
 /// </para>
 ///
 /// <para>
-/// The rule, measured against vb6.exe (see <i>Infinity and NaN</i> in docs/vb6-fidelity-oracle.md): an
+/// The rule, measured against vb6.exe (see <i>Infinity and NaN</i> in docs/vb6-fidelity-oracle/infinity-nan-and-division-by-zero.md): an
 /// infinite result is <b>Err 6</b> (Overflow) and a NaN is <b>Err 5</b> (Invalid procedure call). <c>^</c>
 /// carries one extra case that no result inspection can infer — <c>0 ^ -1</c> is infinite but VB6 calls it
 /// Err 5, because the cause is its domain rather than its magnitude.

@@ -11,10 +11,10 @@
             IndexOutOfRangeException in LazyGenericsSupport). That is a compiler defect, not a
             missing native toolchain, so it fails on every RID.
 
-            SelfContained is deliberately NOT set here. This runner ships inside both release
-            packages, and each needs a different answer, so the release workflow publishes the
-            project twice and passes the flag explicitly. A local publish without the flag is
-            framework dependent, which is what a dev machine wants.
+            A made program is this runner, renamed, beside its project archive, and Make copies that
+            one file (#1971). So a publish is one self-contained single file, with the native
+            libraries inside it, in both release packages and on a dev machine alike. A publish
+            with no runtime identifier takes the SDK's own. Building is unaffected.
         -->
         <PublishAot>false</PublishAot>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -28,6 +28,14 @@
 
     <PropertyGroup>
         <ApplicationManifest>app.manifest</ApplicationManifest>
+    </PropertyGroup>
+
+    <!-- _IsPublishing is set by dotnet publish for its restore and build too, so the three agree on the runtime. -->
+    <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+        <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</RuntimeIdentifier>
+        <SelfContained>true</SelfContained>
+        <PublishSingleFile>true</PublishSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
 
     <ItemGroup>

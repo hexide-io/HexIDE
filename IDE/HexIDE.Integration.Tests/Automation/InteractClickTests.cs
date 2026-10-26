@@ -12,6 +12,12 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using HexIDE.Automation;
+using HexIDE.IDE;
+using HexIDE.Localization;
+using HexIDE.Projects;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.VisualDesigner;
 
 namespace HexIDE.Integration.Tests.Automation;
 
@@ -24,12 +30,12 @@ public class InteractClickTests
     private sealed record Scene(Window Window, Button Button, Border Pad, Border Cover, Border Under);
 
     // A Button, a Border that records its pointer events, and a Border lying under another one.
-    private static Scene Build()
+    private static Scene Build(bool namedPads = false)
     {
         var button = new Button { Content = "go", Width = 80, Height = 30 };
-        var pad = new Border { Background = Brushes.White, Width = 100, Height = 60 };
+        var pad = new Border { Name = namedPads ? "Press pad" : null, Background = Brushes.White, Width = 100, Height = 60 };
         var under = new Border { Background = Brushes.White, Width = 60, Height = 40 };
-        var cover = new Border { Background = Brushes.Gray, Width = 60, Height = 40 };
+        var cover = new Border { Name = namedPads ? "Release pad" : null, Background = Brushes.Gray, Width = 60, Height = 40 };
         var canvas = new Canvas { Width = 400, Height = 300 };
         foreach (var (control, left, top) in new (Control, double, double)[] { (button, 10, 10), (pad, 10, 60), (under, 200, 60), (cover, 200, 60) })
         {
@@ -315,12 +321,114 @@ public class InteractClickTests
         finally { scene.Window.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task A_drag_draws_a_toolbox_control_from_the_press_to_the_release()
+    {
+        var toolbox = new ToolBoxToolViewModel(
+            Substitute.For<IDocumentDockService>(), Substitute.For<IComponentRegistry>(),
+            Substitute.For<ILocalizationService>());
+        toolbox.SelectedComponent = System.Linq.Enumerable.First(toolbox.Components,
+            c => c.BaseClass == CommandButtonComponentClass.Instance);
+        using var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>())
+            .Initialize(new FormDefinition(
+                new ProjectDefinition(VBProjectType.EXE, "P"),
+                FormComponentClass.Instance, "Form1"));
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var canvas = view.FindControl<Canvas>("NewControlSpawner")!;
+
+            var outcome = await UiAutomationDriver.FinishAsync(
+                UiAutomationDriver.Interact(canvas, "click", "20,20 to 100,60"));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            vm.Components.Should().ContainSingle();
+            var drawn = vm.Components[0];
+            new Rect(drawn.Left, drawn.Top, drawn.Width, drawn.Height).Should().Be(new Rect(20, 20, 80, 40));
+            outcome.Detail.Should().Contain("dragged").And.Contain("Canvas[NewControlSpawner]")
+                .And.Contain("(20, 20)").And.Contain("(100, 60)").And.Contain("pointer capturer");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
-    [InlineData("10", "'10' is not a point, a button or a key")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_drag_routes_held_moves_and_release_to_capture_or_the_control_under_the_point(bool capture)
+    {
+        var scene = Build(namedPads: true);
+        try
+        {
+            Avalonia.Automation.AutomationProperties.SetAutomationId(scene.Cover, "Release pad");
+            var seen = new List<string>();
+            var moves = new List<Point>();
+            scene.Pad.PointerPressed += (_, e) =>
+            {
+                e.Pointer.Capture(capture ? scene.Pad : null);
+                Dispatcher.UIThread.Post(() => seen.Add("press work"));
+            };
+            scene.Pad.PointerMoved += (_, e) =>
+            {
+                seen.Should().Contain("press work");
+                e.GetCurrentPoint(scene.Pad).Properties.IsRightButtonPressed.Should().BeTrue();
+                e.KeyModifiers.Should().Be(KeyModifiers.Shift);
+                moves.Add(e.GetPosition(scene.Window));
+            };
+            Control? recipient = null;
+            scene.Pad.PointerReleased += (_, _) => recipient = scene.Pad;
+            scene.Cover.PointerReleased += (_, _) => recipient = scene.Cover;
+            // A complete discovery path, including spaces, can be pasted before the colon.
+            static UiNode? Find(UiNode node) => node.AutomationId == "Release pad" ? node
+                : System.Linq.Enumerable.FirstOrDefault(System.Linq.Enumerable.Select(node.Children, Find), n => n is not null);
+            var path = Find(UiAutomationDriver.Dump(scene.Window, "Window", 10, false))!.Path;
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click",
+                $"10,5 right shift to {path}:20,10"));
+            outcome.Success.Should().BeTrue(outcome.Error);
+            recipient.Should().Be(capture ? scene.Pad : scene.Cover);
+            if (capture)
+            {
+                moves.Count.Should().BeGreaterThan(1, "a drag sends several held moves");
+                moves.Should().EndWith(new Point(220, 70));
+            }
+            outcome.Detail.Should().Contain("(10, 5)").And.Contain("(20, 10)")
+                .And.Contain(capture ? "Border[Press pad]" : "Border[Release pad]")
+                .And.Contain(capture ? "pointer capturer" : "under the release point, no capture");
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("double to 20,10")]
+    [InlineData("10,5 to 20,10 double")]
+    public void Double_and_to_are_refused_before_pressing(string value)
+    {
+        var scene = Build();
+        try
+        {
+            var pressed = false;
+            scene.Pad.PointerPressed += (_, _) => pressed = true;
+            var outcome = UiAutomationDriver.Interact(scene.Pad, "click", value);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("double cannot be combined with to").And.Contain("a double click repeats at one point");
+            pressed.Should().BeFalse();
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("10", "'10' is not a point, a button, a key or double")]
     [InlineData("1,2,3", "'1,2,3' is not a point")]
     [InlineData("1,2 3,4", "'3,4' is not a point")]
     [InlineData("left right", "names two")]
-    [InlineData("wiggle", "'wiggle' is not a point, a button or a key")]
+    [InlineData("wiggle", "'wiggle' is not a point, a button, a key or double")]
     public void A_value_click_cannot_read_is_refused_with_what_it_takes(string value, string why)
     {
         var scene = Build();

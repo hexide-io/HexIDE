@@ -1,4 +1,4 @@
-// Generated from vb6.exe's measured Text order: see "Option Compare Text" in docs/vb6-fidelity-oracle.md (#1567). The
+// Generated from vb6.exe's measured Text order: see "Option Compare Text" in docs/vb6-fidelity-oracle/option-compare-text-and-vb6s-text-compare.md (#1567). The
 // rows come from a measurement, not from a rule, so a change belongs in a new measurement; TextCompareTests replays
 // every measured pair against them.
 namespace HexIDE.Runtime.Interpreter;

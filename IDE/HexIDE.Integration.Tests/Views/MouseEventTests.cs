@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using HexIDE.Automation;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Runtime;
@@ -84,6 +87,36 @@ public class MouseEventTests
             Window.MouseDown(point, button, modifiers);
             Window.MouseUp(point, button, modifiers);
             Dispatcher.UIThread.RunJobs();
+        }
+
+        // Headless MouseDown/MouseUp render and drain the dispatcher around every event. Their
+        // stopwatch timestamps therefore include JIT, rendering and GC time: two consecutive Click
+        // calls can exceed Avalonia's 500 ms double-click interval. Supply gesture time at the raw
+        // input boundary, leaving hit testing, capture and Avalonia's click counting intact.
+        public void ClickSequence(Point point, int count = 2, ulong intervalMs = 100)
+        {
+            // Avalonia 12 hides Input and raw Timestamp from its reference assembly. The
+            // implementation exposes them; restore the callback even if a click throws.
+            var platform = Window.PlatformImpl!;
+            var inputProperty = platform.GetType().GetProperty("Input")!;
+            var input = (System.Action<RawInputEventArgs>)inputProperty.GetValue(platform)!;
+            var timestampProperty = typeof(RawInputEventArgs).GetProperty("Timestamp")!;
+            ulong timestamp = 0;
+            inputProperty.SetValue(platform, (System.Action<RawInputEventArgs>)(e =>
+            {
+                if (e is RawPointerEventArgs)
+                    timestampProperty.SetValue(e, timestamp);
+                input(e);
+            }));
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    timestamp += intervalMs;
+                    Click(point);
+                }
+            }
+            finally { inputProperty.SetValue(platform, input); }
         }
 
         public void Dispose()
@@ -450,15 +483,108 @@ public class MouseEventTests
         // press starts a new click.
         using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true));
 
-        run.Click(new Point(300, 10));
-        run.Click(new Point(300, 10));
-        run.Click(new Point(300, 10));
+        run.ClickSequence(new Point(300, 10), count: 3);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal(
             "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
             "Form DblClick", "Form MouseUp 1 0 4500 150",
             "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click");
+    }
+
+    private static async Task<InteractOutcome> AutomationClick(Running run, string value)
+    {
+        // As the tool does: the target must have drawn a frame, and the reply waits for the program's work.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        var watch = UiAutomationDriver.WatchProgram(run.Window);
+        var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(run.Window, "click", value));
+        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Automation_drag_on_a_Label_clicks_only_when_released_over_it(bool over)
+    {
+        // #1373: A_press_on_a_Label... and A_press_on_a_Label_moved_off_it_and_back above.
+        using var run = Start(Form(Twips, Static), Handlers("Label1"));
+        var end = over ? run.At("Label1", 20, 10) : new Point(300, 190);
+        var start = run.At("Label1", 10, 10);
+        var outcome = await AutomationClick(run, System.FormattableString.Invariant($"{start.X},{start.Y} to {end.X},{end.Y}"));
+        outcome.Success.Should().BeTrue(outcome.Error);
+        run.Errors.Should().BeEmpty();
+        Events(run).Should().Equal(over
+            ? new[] { "Label1 MouseDown", "Label1 MouseUp", "Label1 Click" }
+            : new[] { "Label1 MouseDown", "Label1 MouseUp" });
+    }
+
+    [AvaloniaFact]
+    public async Task Automation_drag_selects_the_ListBox_release_row()
+    {
+        // #1374: A_ListBox_s_selection_follows_a_press_moved_across_the_items... below.
+        using var run = Start(Form(Twips, AList), ListHandlers);
+        var start = Item(run, 0);
+        var end = Item(run, 2);
+        var outcome = await AutomationClick(run, System.FormattableString.Invariant($"{start.X},{start.Y} to {end.X},{end.Y}"));
+        outcome.Success.Should().BeTrue(outcome.Error);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 0", "Click 2", "MouseUp 1 2");
+        ((ListBox)run.Named("List1")).SelectedIndex.Should().Be(2);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(15L)]
+    [InlineData(-1L)]
+    public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs)
+    {
+        // Same vb6.exe order as A_double_click_on_the_form_raises_DblClick... above (#1031).
+        using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true), Debugger(timeSliceMs));
+        var outcome = await AutomationClick(run, "300,10 double");
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("double-clicked").And.Contain("left button").And.Contain("(300, 10)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
+            "Form DblClick", "Form MouseUp 1 0 4500 150");
+    }
+
+    [AvaloniaFact]
+    public async Task Automation_click_right_double_runs_the_forms_DblClick_in_the_measured_order()
+    {
+        // Oracle: A click with real input, form right double click: the left order with Button 2.
+        using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true));
+        var outcome = await AutomationClick(run, "300,10 right double");
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("double-clicked").And.Contain("right button");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 2 0 4500 150", "Form MouseUp 2 0 4500 150", "Form Click",
+            "Form DblClick", "Form MouseUp 2 0 4500 150");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Unload Me")]
+    [InlineData("Me.Hide")]
+    public async Task Automation_click_double_stops_when_the_first_Click_removes_the_form(string action)
+    {
+        using var run = Start(Form(Twips, ""), Handlers("Form", click: false, dblClick: true)
+            + $"Private Sub Form_Click()\r\n    Debug.Print \"first click\"\r\n    {action}\r\nEnd Sub\r\n", Debugger(-1));
+        var outcome = await AutomationClick(run, "double");
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("second click").And.Contain("hidden or closed");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().HaveCount(3).And.NotContain("Form DblClick");
+        run.Printed[2].Should().Be("first click");
+    }
+
+    [AvaloniaFact]
+    public void Automation_double_click_explains_that_it_did_not_press()
+    {
+        using var run = Start(Form(Twips, ""), Handlers("Form", dblClick: true));
+        var outcome = UiAutomationDriver.Interact(run.Window, "double_click", null);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("DoubleTapped").And.Contain("no pointer press").And.Contain("'click'")
+            .And.Contain("'double'").And.Contain("DblClick");
+        run.Printed.Should().BeEmpty();
     }
 
     // DblClick on the controls, measured with real input, native and p-code agreeing (the oracle's "A click with real
@@ -470,8 +596,7 @@ public class MouseEventTests
         using var run = Start(Form(Twips, Controls), Handlers("Label1", dblClick: true));
         var at = run.At("Label1", 5, 3);
 
-        run.Click(at);
-        run.Click(at);
+        run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Label1 MouseDown 1 0 75 45", "Label1 MouseUp 1 0 75 45", "Label1 Click",
@@ -484,8 +609,7 @@ public class MouseEventTests
         using var run = Start(Form(Twips, Controls), Handlers("Text1", dblClick: true));
         var at = run.At("Text1", 10, 5);
 
-        run.Click(at);
-        run.Click(at);
+        run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Text1 MouseDown 1 0 120 45", "Text1 MouseUp 1 0 120 45", "Text1 Click",
@@ -499,8 +623,7 @@ public class MouseEventTests
             Handlers("Frame1", dblClick: true));
         var at = run.At("Frame1", 140, 60);
 
-        run.Click(at);
-        run.Click(at);
+        run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Frame1 MouseDown 1 0 2100 900", "Frame1 MouseUp 1 0 2100 900", "Frame1 Click",
@@ -516,12 +639,24 @@ public class MouseEventTests
             Handlers("Option1", dblClick: true));
         var at = run.At("Option1", 10, 5);
 
-        run.Click(at);
-        run.Click(at);
+        run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Option1 MouseDown 1 0 150 75", "Option1 Click", "Option1 MouseUp 1 0 150 75",
             "Option1 MouseDown 1 0 150 75", "Option1 DblClick", "Option1 MouseUp 1 0 150 75");
+    }
+
+    [AvaloniaFact]
+    public void OptionButton_presses_outside_the_double_click_interval_raise_no_DblClick()
+    {
+        using var run = Start(Form(Twips, Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n")),
+            Handlers("Option1", dblClick: true));
+
+        run.ClickSequence(run.At("Option1", 10, 5), intervalMs: 600);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Option1 MouseDown 1 0 150 75", "Option1 Click", "Option1 MouseUp 1 0 150 75",
+            "Option1 MouseDown 1 0 150 75", "Option1 MouseUp 1 0 150 75");
     }
 
     [AvaloniaFact]
@@ -531,8 +666,7 @@ public class MouseEventTests
         using var run = Start(Form(Twips, Controls), Handlers("Command1"));
         var at = run.At("Command1", 10, 5);
 
-        run.Click(at);
-        run.Click(at);
+        run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75",
@@ -545,8 +679,7 @@ public class MouseEventTests
         using var run = Start(Form(Twips, Controls), Handlers("lblCell", index: true, click: false, dblClick: true));
         var at = run.At("lblCell", 5, 3);
 
-        run.Click(at);
-        run.Click(at);
+        run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("lblCell MouseDown (0) 1 0 75 45", "lblCell MouseUp (0) 1 0 75 45",
@@ -667,8 +800,7 @@ public class MouseEventTests
     {
         using var run = Start(Form(Twips, AList), ListHandlers);
 
-        run.Click(Item(run, 0));
-        run.Click(Item(run, 0));
+        run.ClickSequence(Item(run, 0));
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("MouseDown 1 0", "Click 0", "MouseUp 1 0", "DblClick 0", "MouseUp 1 0");

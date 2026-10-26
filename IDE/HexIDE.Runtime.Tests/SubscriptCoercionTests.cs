@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A subscript or an array bound is a Long, coerced as <c>CLng</c> coerces it. Every expectation was measured on
-/// vb6.exe; the probe is in docs/vb6-fidelity-oracle.md, "Subscripts, bounds, and a method called from
+/// vb6.exe; the probe is in docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md, "Subscripts, bounds, and a method called from
 /// Class_Initialize". Only an Integer, a Byte or an integral string used to be accepted, and anything else stopped
 /// the run with an untrappable "Type mismatch": <c>a(i)</c> with <c>i</c> a Long, and <c>a(UBound(a))</c>.
 /// </summary>

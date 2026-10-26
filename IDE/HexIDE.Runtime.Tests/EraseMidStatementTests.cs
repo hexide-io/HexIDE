@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Regression for four interpreter "Missed (undocumented)" gaps that used to throw NotImplementedException:
 /// the Mid statement, the Erase statement, Beep, and DoEvents. Every string/error result is oracle-pinned
-/// against vb6.exe (see docs/vb6-fidelity-oracle.md).
+/// against vb6.exe (see docs/vb6-fidelity-oracle/arrays-copy-wherever-vb6-stores-one.md).
 /// </summary>
 public class EraseMidStatementTests : BaseVBTestFixture
 {

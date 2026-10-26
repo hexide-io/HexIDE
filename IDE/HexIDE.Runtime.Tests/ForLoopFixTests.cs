@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Regression tests for the three HIGH For…Next defects surfaced by the 2026-08-09 adversarial bug-hunt (all in
 /// <c>VisitForNextStmt</c>) plus the sibling empty-body NRE in the Do loops. Every expectation is oracle-pinned
-/// against real vb6.exe (see <c>docs/vb6-fidelity-oracle.md</c>). Before the fix: #1 hung the IDE, #2 threw an NRE,
+/// against real vb6.exe (see <c>docs/vb6-fidelity-oracle/resume-next-into-a-block.md</c>). Before the fix: #1 hung the IDE, #2 threw an NRE,
 /// #3 threw a spurious type-mismatch.
 /// </summary>
 public class ForLoopFixTests : BaseVBTestFixture
@@ -43,6 +43,25 @@ public class ForLoopFixTests : BaseVBTestFixture
     {
         await Run("For i = 1 To 50000\nNext\nDebug.Print i\n");
         AssertDebugLog([new Vb6Value(50001L)]);
+    }
+
+    // #841: measured with #839's fifth probe, M1–M3, native and p-code.
+    [Theory]
+    [InlineData("Long")]
+    [InlineData("Variant")]
+    public async Task BodyIncrement_ChangesCounterAtNext(string counterType)
+    {
+        await Run($"Dim i As {counterType}\nFor i = 1 To 10\nDebug.Print i\ni = i + 1\nNext\nDebug.Print i\n");
+        var value = (int n) => counterType == "Long" ? new Vb6Value((long)n) : new Vb6Value(n);
+        AssertDebugLog([value(1), value(3), value(5), value(7), value(9), value(11)]);
+    }
+
+    [Fact]
+    public async Task BodyReset_RestartsCounterAtNext()
+    {
+        await Run("Dim i As Long\nDim passes As Long\nFor i = 1 To 3\nDebug.Print i\npasses = passes + 1\nIf passes = 8 Then Exit For\nIf i = 3 Then i = 0\nNext\n");
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(2L), new Vb6Value(3L), new Vb6Value(1L),
+            new Vb6Value(2L), new Vb6Value(3L), new Vb6Value(1L), new Vb6Value(2L)]);
     }
 
     // NOTE: the sibling empty-body NRE in the Do loops (Do/Loop, Do While…/Loop) is fixed by the same null-guard as
