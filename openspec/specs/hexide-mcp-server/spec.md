@@ -439,6 +439,13 @@ time slice, breakpoint or asynchronous control call. Starting a window wait SHAL
 DoEvents loop mark, so a loop resumed by answering the window is waited for as work the action sets going.
 A window already open before the action SHALL be considered by the program wait only when the program was
 waiting on a window before the action.
+Only a running form or a box marked by the program's own MsgBox or InputBox call SHALL opt into the
+program wait. An IDE dialog SHALL use the IDE settling path even when a running form owns it.
+
+#### Scenario: An IDE dialog over a running form
+- **WHEN** interact toggles a checkbox in an IDE dialog owned by a running form
+- **THEN** it reads the dialog's settled state through the IDE path
+- **AND** it does not attribute that dialog's state to the program continuing
 
 #### Scenario: Answer a window after an earlier DoEvents
 - **WHEN** a handler calls DoEvents, waits at a MsgBox or modal form, then runs a finite DoEvents loop
