@@ -14,6 +14,17 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
+When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
+and target, describe the dialog and where it opened, warn that the key may not have landed, and state
+that no later keys were sent. It SHALL tell the caller to answer the dialog and check the text before
+deciding what to send next.
+
+#### Scenario: A key opens the reset prompt
+- **WHEN** the first key of `xyz` opens a dialog
+- **THEN** the reply identifies key 1 of 3 as sent and possibly unapplied
+- **AND** it directs the caller to answer and check the text rather than blindly send `yz`
+
 ### Requirement: Shutdown SHALL preserve the reply and a cancelled IDE's server
 `shutdown_ide` SHALL close the main window only after its HTTP response completes. Server cancellation
 and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
