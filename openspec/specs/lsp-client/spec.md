@@ -92,6 +92,21 @@ break callers silently, so the convention is part of the contract rather than an
 - **WHEN** hover is requested at a position with nothing to describe
 - **THEN** an absent result is returned rather than an empty one
 
+### Requirement: Hover content unions
+
+The client SHALL accept hover contents as `MarkupContent`, a `MarkedString`, or `MarkedString[]`.
+It SHALL preserve markup content's kind and value, normalize marked strings to Markdown (language-tagged
+values as fenced code blocks), and join array parts with blank lines. Any supplied hover range SHALL
+be preserved.
+
+#### Scenario: A server replies with a legacy Markdown string
+- **WHEN** a hover reply contains `{"contents":"answered"}`
+- **THEN** the client returns Markdown content with value `answered` for the editor's tooltip
+
+#### Scenario: A server replies with mixed marked strings
+- **WHEN** hover contents is an array of Markdown strings and language-tagged values
+- **THEN** the client returns their Markdown text and fenced code blocks separated by blank lines
+
 ### Requirement: Diagnostic hover messages
 
 The editor SHALL show the messages of all diagnostic markers covering the hovered offset, including
