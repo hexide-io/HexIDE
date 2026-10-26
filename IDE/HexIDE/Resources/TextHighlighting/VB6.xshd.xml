@@ -35,6 +35,8 @@ Written clean-room for #715 from VisualBasic6Lexer.g4.
   <Color name="StorageModifier" foreground="#0000B0" />
   <Color name="Type" foreground="#0000B1" />
   <Color name="Function" foreground="#74531F" />
+  <Color name="Identifier" foreground="#222222" />
+  <Color name="Operator" foreground="#222222" />
   <Color name="MetadataKeyword" foreground="#A000A0" />
   <RuleSet ignoreCase="true">
     <Rule color="Comment">(?:'|\bRem\b).*$</Rule>

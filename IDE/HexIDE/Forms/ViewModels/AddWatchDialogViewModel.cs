@@ -19,6 +19,7 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
     private readonly ILocalizationService _localization;
     private readonly WatchService _watchService;
     private readonly WatchExpression? _editing;
+    private readonly string _context;
 
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
@@ -28,7 +29,15 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
     {
         _localization = localization;
         _watchService = watchService;
-        Context = context;
+        _context = context;
+        var weak = new WeakReference<AddWatchDialogViewModel>(this);
+        localization.LanguageChanged += () =>
+        {
+            if (weak.TryGetTarget(out var dialog))
+            {
+                dialog.OnPropertyChanged(nameof(Context));
+            }
+        };
         _editing = editing;
         AllowsBreakConditions = !expressionOnly;
         if (editing is not null)
@@ -47,7 +56,8 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
     public string Title => _localization.GetString(
         _editing is null ? "Str.Dialog.AddWatch.Title" : "Str.Dialog.AddWatch.EditTitle");
 
-    public string Context { get; }
+    public string Context => _context == WatchExpression.AllProceduresContext
+        ? _localization.GetString("Str.Dialog.AddWatch.AllContext") : _context;
     public bool AllowsBreakConditions { get; }
 
     [ObservableProperty] private string _expression = string.Empty;
@@ -68,7 +78,7 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
         {
             if (_editing is null)
             {
-                _watchService.Add(new WatchExpression(expr, SelectedType, Context));
+                _watchService.Add(new WatchExpression(expr, SelectedType, _context));
             }
             else
             {

@@ -27,6 +27,52 @@ public class WatchesToolViewModelTests
         store.Watches.Last().Type.Should().Be(WatchType.BreakWhenTrue);
     }
 
+    [AvaloniaFact]
+    public async Task AllProceduresContext_IsStoredIndependentlyOfLanguage()
+    {
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(Alle Prozeduren)");
+        var sut = CreateSut();
+        await sut.OpenAddWatchDialog("count");
+        var dialog = (HexIDE.Forms.ViewModels.AddWatchDialogViewModel)
+            _windowManager.ReceivedCalls().Single(c => c.GetMethodInfo().Name == "ShowDialog").GetArguments()[0]!;
+        dialog.OkCommand.Execute(null);
+        _watchService.Watches.Single().Context.Should().Be("(All Procedures)");
+        sut.Rows.Single().Context.Should().Be("(Alle Prozeduren)");
+    }
+
+    [AvaloniaFact]
+    public void WatchContext_RefreshesOnLanguageSwitch_WithoutChangingNamedContext()
+    {
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        _watchService.Add(new WatchExpression("count", WatchType.Expression, "(All Procedures)"));
+        _watchService.Add(new WatchExpression("other", WatchType.Expression, "Module1.Go"));
+        var sut = CreateSut();
+        var row = sut.Rows[0];
+        var notified = false;
+        row.PropertyChanged += (_, e) => { if (e.PropertyName == "Context") notified = true; };
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(Alle Prozeduren)");
+        _localization.LanguageChanged += Raise.Event<Action>();
+        row.Context.Should().Be("(Alle Prozeduren)");
+        notified.Should().BeTrue();
+        sut.Rows[1].Context.Should().Be("Module1.Go");
+    }
+
+    [Fact]
+    public void DialogContext_RefreshesOnLanguageSwitch_AndStoresCanonicalContext()
+    {
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
+        var dialog = new HexIDE.Forms.ViewModels.AddWatchDialogViewModel(
+            _localization, _watchService, "(All Procedures)", "count");
+        var notified = false;
+        dialog.PropertyChanged += (_, e) => { if (e.PropertyName == "Context") notified = true; };
+        _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(Alle Prozeduren)");
+        _localization.LanguageChanged += Raise.Event<Action>();
+        dialog.Context.Should().Be("(Alle Prozeduren)");
+        notified.Should().BeTrue();
+        dialog.OkCommand.Execute(null);
+        _watchService.Watches.Single().Context.Should().Be("(All Procedures)");
+    }
+
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private readonly WatchService _watchService = new();
     private readonly IDebugController _debug = Substitute.For<IDebugController>();

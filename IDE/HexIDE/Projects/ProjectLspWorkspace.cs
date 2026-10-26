@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.ComponentModel;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
@@ -144,8 +145,9 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 Version.TryParse(r.Version, out var version) ? version.Major : null,
                 Version.TryParse(r.Version, out version) ? version.Minor : null,
                 r.Lcid, r.LibPath is null ? null : SerializedProject.ToHostPath(r.LibPath))).ToArray();
+            var arguments = CompilationArguments.TryForProject(project, out var parsed) ? parsed : CompilationArguments.None;
             contexts.Add(new WorkspaceArtifactContext(root,
-                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references)));
+                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments.Values)));
         }
         _projects = contexts;
         ProjectChanged?.Invoke();
