@@ -6,9 +6,10 @@ They are VB6's way to make a control at run time without a design-time element t
 
 **The probe.** `/make` and a run of the EXE, native and p-code, in session 0, with every probe line under
 `On Error Resume Next` and written to a file. Form1 is Arial 12 with a back colour of `&H00C0FFFF&`. Its blocks, in file
-order: `Frame1`, `Picture1` (Courier New 9.75, back colour `&H00FFC0C0&`), `Text1`, `Command1`, `Option1(0)`. Four
-rounds: the form loaded and not shown, the same shown, one control's own `WS_VISIBLE` bit read with `GetWindowLong`,
-and six one-statement projects for the shapes the compiler might refuse. Native and p-code agree on every line.
+order: `Frame1`, `Picture1` (Courier New 9.75, back colour `&H00FFC0C0&`), `Text1`, `Command1`, `Option1(0)`. Seven
+rounds: the form loaded and not shown; the same shown; one control's own `WS_VISIBLE` bit read with `GetWindowLong`;
+six one-statement projects for the shapes the compiler might refuse; which handlers an added control's events reach; 
+which error wins when more than one argument is wrong; and the list boxes' heights under fourteen fonts. Native and p-code agree on every line.
 
 ### What Add makes
 
@@ -25,8 +26,30 @@ and six one-statement projects for the shapes the compiler might refuse. Native 
 | `Line` | `X1`, `Y1`, `X2`, `Y2` all 0 | |
 | `Timer` | no position: `Left` is 393 | |
 
-The ListBox, ComboBox and FileListBox heights are each a whole number of rows of the form's Arial 12. They were measured
-with that font only.
+**The ListBox's height follows its font, and the ComboBox's does not.** A seventh round set the form's font before each
+`Add`, since the new control takes it:
+
+| Font | ListBox height | Rows × row (pixels) | ComboBox height |
+|---|---|---|---|
+| MS Sans Serif 8.25 | 450 | 2 × 13 | 315 |
+| MS Sans Serif 9.75 | 300 | 1 × 16 | 315 |
+| MS Sans Serif 12 | 360 | 1 × 20 | 315 |
+| MS Sans Serif 13.5 | 420 | 1 × 24 | 315 |
+| Microsoft Sans Serif 8.25 | 450 | 2 × 13 | 315 |
+| Tahoma 8.25 | 450 | 2 × 13 | 315 |
+| Tahoma 9.75 | 300 | 1 × 16 | 315 |
+| Verdana 8.25 | 450 | 2 × 13 | 315 |
+| Arial 8.25 | 480 | 2 × 14 | 315 |
+| Arial 9.75 | 300 | 1 × 16 | 315 |
+| Arial 12 | 330 | 1 × 18 | 315 |
+| Times New Roman 12 | 345 | 1 × 19 | 315 |
+| Courier New 9.75 | 300 | 1 × 16 | 315 |
+| Segoe UI 9 | 285 | 1 × 15 | 315 |
+
+Every ListBox height is 60 twips plus as many whole rows as fit in the 480 the other classes get, a row being a whole
+number of pixels: the integral height of a 480-twip request. The row heights are inferred from the heights, and one
+answer fits each: a row must be whole pixels and the next row must not fit. The ComboBox is 315 under every font tried.
+The FileListBox's 360, with Arial 12, is one row of 20 pixels by the same rule, and was measured with that font only.
 
 - **Hidden.** The control's own `WS_VISIBLE` is off when it is made, for every windowed class tried, and `Visible = True`
   sets it. A design-time control's is on. `Visible` itself read False throughout, design-time controls included,
@@ -70,11 +93,19 @@ with that font only.
 | `""` | 728, `'' is not a legal control name` |
 | `"1abc"`, `"a b"`, `"a.b"`, 40 and 41 characters, `"Next"`, `"Form1"`, the name of a `WithEvents` variable | accepted |
 | `"vb.commandbutton"` | accepted |
-| `"CommandButton"`, `"VB.Nope"`, `""` | 711, `Invalid class string.` and `Looking for object with ProgID: CommandButton` on a second line |
+| `"CommandButton"`, `"VB.Nope"`, `""` | 711, `Invalid class string.`, a line feed alone, then `Looking for object with ProgID: CommandButton` |
+| `123`, a number | 711, the ProgID `123` |
+| `Null`, as the class or the name | -2147352571, `Type mismatch` |
+| `123` as the name | accepted, as `"123"` |
+| `Empty` as the name | 728 |
 | `"MSComctlLib.ProgressBar"` and `.ProgressBar.2`, with no `Object=` in the project | 711 |
 | `"VB.Form"`, `"VB.MDIForm"`, `"VB.Menu"`, `"VB.UserControl"` | 720, `'Form' is not a valid control type` |
 | `"Scripting.Dictionary"` | 720, `'Scripting.Dictionary' is not a valid control type` |
 | no name, or four arguments | compiles, and is -2147352562, `Wrong number of arguments or invalid property assignment`, at run time |
+
+**Which error wins.** The name is checked first, then the class, then the container: `Add("VB.Nope", "Command1")` and
+`Add("VB.Form", "Command1")` are 727, `Add("", "")` is 728, `Add("VB.CommandButton", "Command1", Text1)` is 727, and
+`Add("VB.Nope", "x1", Text1)` is 711.
 
 The arity errors come back as the raw HRESULT, not as 450, because `Controls` is reached late-bound. The statement form
 `Controls.Add "VB.Label", "lblStmt"` adds the control. `Controls.Add("VB.Label", "lblParen")` as a statement is a
@@ -93,6 +124,7 @@ syntax error.
 | `""` | 728 |
 | `999`, `-1` | 9, `Subscript out of range` |
 | `Null` | -2147352571, `Type mismatch` |
+| `"1abc"`, the name of a control added as `1abc` | -2147352571, `Type mismatch`: a String starting with a digit is a position, as `Controls(i)` reads one, so that control cannot be removed by name |
 | no argument, or two | compiles, and is -2147352562 at run time |
 
 - **A container goes with what it holds.** Removing an added Frame holding an added button and label takes all three
@@ -109,6 +141,22 @@ syntax error.
 
 ### Events
 
+**Only `WithEvents` hears an added control.** A form's `a0_Click` does not run for a control added as `a0`: the
+handlers a form has by a control's name are its design-time controls'. A variable declared `Private WithEvents b As
+VB.CommandButton` and set to the added control hears it.
+
+| Held by | `Value = True` runs |
+|---|---|
+| an `Object` variable only | nothing |
+| `b` | `b_Click` |
+| `b` and then `b2`, both | `b2_Click`, then `b_Click`: the one set last first |
+| `b2`, after `Set b = Nothing` | `b2_Click` |
+| `b`, holding the design-time `Command1` | `Command1_Click`, then `b_Click` |
+
+`Set o = Option1(0)`, a control array element into `Private WithEvents o As VB.OptionButton`, is 459, `Object or class
+does not support the set of events`, and `Option1(0)`'s click then runs `Option1_Click` alone.
+
+
 `Private WithEvents b As VB.CommandButton` and `Set b = Controls.Add("VB.CommandButton", "cmdEv")`: `b.Value = True`
 raises `b_Click`. A TextBox added the same way raises `tb_Change` on `tb.Text = "changed"`.
 
@@ -122,6 +170,6 @@ control, and an intrinsic one is not.
   at, because session 0 has none.
 - Where a windowless control (a `Label`, `Shape`, `Line` or `Image`) goes among the windowless ones: `GetWindow` cannot
   see them.
-- The list boxes' heights under any other font.
+- The ListBox's height under a font not in the table.
 - `Add` of an ActiveX control the project does reference, and a licensed one: the probe project had no `Object=`.
 - A `Data` control's `Container`, which was an error for the one added and is unexplained.
