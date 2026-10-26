@@ -229,6 +229,28 @@ public class GuardedFormattingTests : IDisposable
         vm.Document.Text.Should().Contain("\r\n    Unload Me\r\n");
     }
 
+    [AvaloniaTheory]
+    [InlineData("\r\n")]
+    [InlineData("\n")]
+    public void FormattingDeletesTheRunWithItsWholeDeclaration(string newline)
+    {
+        var vm = OpenForm(out _);
+        var declaration = "private sub cmdOK_Click()";
+        var run = "Attribute cmdOK_Click.VB_Description = \"Orders\"";
+        vm.Document.Text = vm.Document.Text.ReplaceLineEndings(newline)
+            .Replace(declaration + newline, declaration + newline + run + newline);
+        var before = vm.Document.Text;
+        var after = before.Replace(declaration + newline, "")
+            .Replace("unload me", "    Unload Me");
+
+        vm.ApplyFormatting([new TextEdit(
+            new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(vm.Document.LineCount, 0)), after)]);
+
+        vm.Document.Text.Should().Be(after.Replace(run + newline, ""));
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
     public void APreciseEditInsideTheHeaderIsDropped()
     {
