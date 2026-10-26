@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",

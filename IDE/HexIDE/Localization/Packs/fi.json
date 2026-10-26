@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",

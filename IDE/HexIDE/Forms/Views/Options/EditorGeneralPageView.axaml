@@ -19,6 +19,7 @@
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.Display.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
                 <CheckBox IsChecked="{CompiledBinding IsMinimapVisible}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowMinimap}" />
+                <CheckBox IsChecked="{CompiledBinding ColorBracketsByDepth}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ColorBracketsByDepth}" />
             </StackPanel>
         </HeaderedContentControl>
     </StackPanel>

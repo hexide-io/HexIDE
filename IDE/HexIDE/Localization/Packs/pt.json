@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
     "Str.Tool.Properties.ExportPicture": "Exportar imagem...",
     "Str.Archive.ProjectFormat": "{0} (arquivo só de leitura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas do arquivo",

@@ -2,6 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
     "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",

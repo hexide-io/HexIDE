@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности",
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",

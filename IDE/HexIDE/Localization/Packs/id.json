@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",

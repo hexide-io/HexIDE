@@ -103,6 +103,10 @@
          writes, and the label of a folded section (#273). A grey that still clears WCAG AA 4.5:1 on the editor's
          background (4.95:1 on #FFFFFF), so it reads as not the developer's to edit without becoming hard to
          read. Every shipped pack carries its own value: this one fails the bar on a dark editor. -->
+    <SolidColorBrush x:Key="BracketDepth1Brush" Color="#74531F" />
+    <SolidColorBrush x:Key="BracketDepth2Brush" Color="#0000B0" />
+    <SolidColorBrush x:Key="BracketDepth3Brush" Color="#800080" />
+    <SolidColorBrush x:Key="BracketUnmatchedBrush" Color="#B00020" />
     <SolidColorBrush x:Key="ReadOnlyTextBrush" Color="#707070" />
 
     <!-- Warning triangle icon (amber, with exclamation) for the developer-mode banner -->

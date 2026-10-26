@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
     "Str.Tool.Properties.ExportPicture": "Eksporter bilde...",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivoppføringer",

@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",

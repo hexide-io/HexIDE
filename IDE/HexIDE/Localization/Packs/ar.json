@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
     "Str.Tool.Properties.ExportPicture": "تصدير الصورة...",
     "Str.Archive.ProjectFormat": "{0} (أرشيف للقراءة فقط)",
     "Str.Archive.Hidden": "إظهار عناصر الأرشيف المخفية",

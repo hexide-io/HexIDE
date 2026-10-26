@@ -3,6 +3,11 @@
   "description": "Dark colour scheme for the Modern shell (VS Code-inspired)",
   "themeVariant": "Dark",
   "colors": {
+    "BracketDepth1": "#D3B07C",
+    "BracketDepth2": "#7AA6F0",
+    "BracketDepth3": "#E58FE5",
+    "BracketUnmatched": "#FF8080",
+
     "AppWorkspace":              "#1E1E1E",
     "Window":                   "#252526",
     "WindowText":               "#D4D4D4",

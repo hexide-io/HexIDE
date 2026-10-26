@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
     "Str.Tool.Properties.ExportPicture": "Exporter l’image...",
     "Str.Archive.ProjectFormat": "{0} (archive en lecture seule)",
     "Str.Archive.Hidden": "Afficher les entrées masquées de l’archive",

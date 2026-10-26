@@ -57,6 +57,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras defaults ──────────────────────────────────
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
+    private bool _colorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
 
     // ── Editor properties ───────────────────────────────────────
 
@@ -208,6 +209,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set { if (SetProperty(ref _isMinimapVisible, value)) Save(); }
     }
 
+    public bool ColorBracketsByDepth
+    {
+        get => _colorBracketsByDepth;
+        set { if (SetProperty(ref _colorBracketsByDepth, value)) Save(); }
+    }
+
     // ── Constructor ─────────────────────────────────────────────
 
     public SettingsService() : this(DefaultFilePath()) { }
@@ -265,6 +272,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsDebugToolbarVisible = _isDebugToolbarVisible,
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 IsMinimapVisible = _isMinimapVisible,
+                ColorBracketsByDepth = _colorBracketsByDepth,
                 Window = new SettingsData.WindowDataJson
                 {
                     State = _window.State,
@@ -335,6 +343,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isDebugToolbarVisible = data.IsDebugToolbarVisible;
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             _isMinimapVisible = data.IsMinimapVisible;
+            _colorBracketsByDepth = data.ColorBracketsByDepth;
             if (data.Window is { } w)
                 _window = new WindowData(w.State, w.X, w.Y, w.Width, w.Height);
 
@@ -420,6 +429,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;
+
+        [JsonPropertyName("colorBracketsByDepth")]
+        public bool ColorBracketsByDepth { get; set; } = SettingsDefaults.ColorBracketsByDepth;
 
         [JsonPropertyName("window")]
         public WindowDataJson? Window { get; set; }

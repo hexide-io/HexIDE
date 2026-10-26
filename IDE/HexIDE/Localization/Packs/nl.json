@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",

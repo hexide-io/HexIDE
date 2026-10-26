@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
     "Str.Tool.Properties.ExportPicture": "导出图片...",
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",

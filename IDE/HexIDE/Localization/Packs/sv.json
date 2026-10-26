@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
     "Str.Tool.Properties.ExportPicture": "Exportera bild...",
     "Str.Archive.ProjectFormat": "{0} (skrivskyddat arkiv)",
     "Str.Archive.Hidden": "Visa dolda arkivposter",

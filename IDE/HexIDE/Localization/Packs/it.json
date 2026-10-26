@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
     "Str.Archive.ProjectFormat": "{0} (archivio di sola lettura)",
     "Str.Archive.Hidden": "Mostra le voci nascoste dell’archivio",

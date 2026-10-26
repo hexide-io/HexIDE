@@ -2,6 +2,7 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare",
     "Str.Tool.Properties.ExportPicture": "Imaginem exportare...",
     "Str.Archive.ProjectFormat": "{0} (archivum solum legendum)",
     "Str.Archive.Hidden": "Elementa archivi occulta ostendere",
