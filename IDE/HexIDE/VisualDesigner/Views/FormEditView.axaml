@@ -342,9 +342,13 @@
                                                         Background="{DynamicResource ActiveTitleBarBrush}"
                                                         BorderBrush="{DynamicResource SelectionAdornerBrush}"
                                                         BorderThickness="1" Padding="3,1">
-                                                    <TextBlock Text="{CompiledBinding TabIndex}"
-                                                               TextDecorations="{CompiledBinding TabIndexDecorations}"
-                                                               Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+                                                    <Grid>
+                                                        <TextBlock Text="{CompiledBinding TabIndex}"
+                                                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+                                                        <Path Data="M0,1 L1,0" Stretch="Fill" StrokeThickness="1.5"
+                                                              IsVisible="{CompiledBinding IsTabStopOff}"
+                                                              Stroke="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+                                                    </Grid>
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

@@ -1,4 +1,9 @@
+using System;
 using System.Linq;
+using System.Runtime.InteropServices;
+using Avalonia.Headless;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -80,7 +85,8 @@ public class DesignerTabOrderTests
             label.Text.Should().Be("4");
             label.TextDecorations.Should().BeNullOrEmpty();
             text.Text.Should().Be("7");
-            text.TextDecorations.Should().Contain(Avalonia.Media.TextDecorations.Strikethrough[0]);
+            badges.Single(b => b.DataContext is ComponentInstanceViewModel { Name: "Text1" })
+                .GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().IsVisible.Should().BeTrue();
             toggle.IsChecked = false;
             overlay.IsVisible.Should().BeFalse();
             vm.Components.Single(c => c.Name == "Text1").Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty)
@@ -112,10 +118,50 @@ public class DesignerTabOrderTests
             component.Top = 90;
             Dispatcher.UIThread.RunJobs();
             text.Text.Should().Be("12");
-            text.TextDecorations.Should().BeNullOrEmpty();
+            badge.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().IsVisible.Should().BeFalse();
             window.UpdateLayout();
             var position = badge.TranslatePoint(default, overlay);
             position.Should().Be(new Point(80, 90));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void TabStop_off_four_paints_a_mark_above_the_crossbar()
+    {
+        var (vm, view, window) = Designed();
+        try
+        {
+            view.FindControl<CheckBox>("ShowTabOrderToggle")!.IsChecked = true;
+            var component = vm.Components.Single(c => c.Name == "Text1");
+            component.Instance.SetProperty(VBProperties.TabIndexProperty, 4);
+            Dispatcher.UIThread.RunJobs();
+            var badge = view.FindControl<ItemsControl>("TabOrderOverlay")!
+                .GetVisualDescendants().OfType<Border>()
+                .Single(b => b.Classes.Contains("tabIndexBadge") && b.DataContext == component);
+            // Render the actual template badge with deterministic, contrasting brushes.
+            window.Resources[Classic.CommonControls.SystemColors.ActiveCaptionTextBrushKey] = Brushes.White;
+            badge.Background = Brushes.Black;
+            badge.GetVisualDescendants().OfType<TextBlock>().Single().Foreground = Brushes.White;
+            byte[] TopOfBadge()
+            {
+                window.UpdateLayout();
+                using var bitmap = new RenderTargetBitmap(new PixelSize((int)Math.Ceiling(badge.Bounds.Width),
+                    (int)Math.Ceiling(badge.Bounds.Height)));
+                bitmap.Render(badge);
+                var width = bitmap.PixelSize.Width;
+                var height = Math.Max(1, bitmap.PixelSize.Height / 3);
+                var pixels = new byte[width * height * 4];
+                var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+                try { bitmap.CopyPixels(new PixelRect(0, 0, width, height), handle.AddrOfPinnedObject(), pixels.Length, width * 4); }
+                finally { handle.Free(); }
+                return pixels;
+            }
+            var struck = TopOfBadge();
+            component.Instance.SetProperty(VBProperties.TabStopProperty, true);
+            Dispatcher.UIThread.RunJobs();
+            var unstruck = TopOfBadge();
+            struck.Should().NotEqual(unstruck, "the off mark must extend above 4's crossbar");
         }
         finally { window.Close(); }
     }

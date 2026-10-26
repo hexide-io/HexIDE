@@ -81,7 +81,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
         else if (propertyClass == VBProperties.TabIndexProperty)
             OnPropertyChanged(nameof(TabIndex));
         else if (propertyClass == VBProperties.TabStopProperty)
-            OnPropertyChanged(nameof(TabIndexDecorations));
+            OnPropertyChanged(nameof(IsTabStopOff));
         else if (propertyClass == VBProperties.CaptionProperty)
             OnPropertyChanged(nameof(Caption));
         else if (propertyClass == VBProperties.BackColorProperty)
@@ -339,9 +339,9 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     public int TabIndex => instance.GetPropertyOrDefault(VBProperties.TabIndexProperty);
 
-    public TextDecorationCollection? TabIndexDecorations =>
+    public bool IsTabStopOff =>
         instance.BaseClass.Properties.Contains(VBProperties.TabStopProperty)
-        && !instance.GetPropertyOrDefault(VBProperties.TabStopProperty) ? TextDecorations.Strikethrough : null;
+        && !instance.GetPropertyOrDefault(VBProperties.TabStopProperty);
 
     public string Name => instance.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
 

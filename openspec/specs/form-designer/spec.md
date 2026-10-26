@@ -284,8 +284,8 @@ write failure SHALL be reported to the user.
 
 ### Requirement: The designer SHALL offer a read-only tab-order overlay
 The designer SHALL offer a toggle, initially off, that draws each modelled control's existing `TabIndex` over its
-canvas position. Controls without that property SHALL have no badge. A badge SHALL be crossed out when the control
-has `TabStop` set to false. Badges SHALL follow property and position changes and SHALL NOT intercept pointer input
+canvas position. Controls without that property SHALL have no badge. A badge SHALL be crossed out with a diagonal slash when the control
+has `TabStop` set to false, so the mark remains distinct from every digit’s strokes. Badges SHALL follow property and position changes and SHALL NOT intercept pointer input
 or change the form's properties. This is a HexIDE presentation feature, not a VB6 designer gesture.
 
 #### Scenario: Inspecting tab order
