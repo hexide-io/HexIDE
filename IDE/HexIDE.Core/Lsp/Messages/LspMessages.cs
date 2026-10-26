@@ -991,7 +991,12 @@ public record WorkDoneProgressCreateParams(
 
 public record ProgressParams(
     [property: JsonPropertyName("token")] JsonElement Token,
-    [property: JsonPropertyName("value")] WorkDoneProgressValue Value);
+    [property: JsonPropertyName("value")] WorkDoneProgressValue Value)
+{
+    /// <summary>Local registration name, never part of the LSP wire message.</summary>
+    [JsonIgnore]
+    public string? ServerDisplayName { get; init; }
+}
 
 public record WorkDoneProgressValue(
     [property: JsonPropertyName("kind")] string Kind,
