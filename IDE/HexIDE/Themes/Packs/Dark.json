@@ -25,6 +25,7 @@
     "Desktop":                  "#000000",
     "GrayText":                 "#808080",
     "ReadOnlyText":             "#929292",
+    "InactiveCodeText":             "#929292",
     "WarningBannerBackground":  "#3B2E14",
     "WarningBannerBorder":      "#B58A32",
     "WarningBannerForeground":  "#FFE3A3",

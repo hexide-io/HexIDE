@@ -26,16 +26,18 @@ public class WindowsInstallerTests
     }
 
     [Fact]
-    public void WindowsX64BuildPublishesVersionedSelfContainedInstaller()
+    public void WindowsX64BuildPublishesSelfContainedInstallerUnderAFixedName()
     {
         var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "publish.yml"))
             .ReplaceLineEndings("\n");
         workflow.Should().Contain("- name: Build Windows installer\n        if: matrix.rid == 'win-x64'");
         workflow.Should().Contain("/DAppVersion=$version");
         workflow.Should().Contain("/DPublishDir=$((Resolve-Path 'bin/sc').Path)");
-        workflow.Should().Contain("./IDE/bin/HexIDE-Setup-*.exe");
+        workflow.Should().Contain("./IDE/bin/hexide-windows-amd64-setup.exe");
         Script.Should().Contain("AppVersion={#AppVersion}\n");
-        Script.Should().Contain("OutputBaseFilename=HexIDE-Setup-{#AppVersion}\n");
+        // Fixed, like every other asset: hexide.io links downloads through releases/latest/download/<name>,
+        // which cannot reach a name with the version in it.
+        Script.Should().Contain("OutputBaseFilename=hexide-windows-amd64-setup\n");
     }
 
     [Fact]

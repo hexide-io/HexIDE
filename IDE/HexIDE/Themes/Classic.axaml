@@ -108,6 +108,7 @@
     <SolidColorBrush x:Key="BracketDepth3Brush" Color="#800080" />
     <SolidColorBrush x:Key="BracketUnmatchedBrush" Color="#B00020" />
     <SolidColorBrush x:Key="ReadOnlyTextBrush" Color="#707070" />
+    <SolidColorBrush x:Key="InactiveCodeTextBrush" Color="#707070" />
 
     <!-- Warning triangle icon (amber, with exclamation) for the developer-mode banner -->
     <DrawingImage x:Key="WarningTriangleIcon">
