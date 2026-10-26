@@ -28,7 +28,8 @@ namespace HexIDE;
 public partial class DISetup
 {
     private static IWorkspaceArtifactProviderRegistry CreateArtifactProviders() =>
-        new WorkspaceArtifactProviderRegistry([new HexIDE.Lsp.Providers.ClangdCompilationDatabaseProvider()]);
+        new WorkspaceArtifactProviderRegistry([new HexIDE.Lsp.Providers.ClangdCompilationDatabaseProvider(),
+            new HexIDE.Lsp.Providers.RdcoreProjectProvider()]);
 
     private static WorkspaceArtifactService CreateArtifacts(ILspWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWindowManager windows,

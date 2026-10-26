@@ -354,6 +354,21 @@ or `.cxx` source or `.h`, `.hh`, `.hpp` or `.hxx` header. `settings.arguments` i
 command and its arguments; the filename is appended as a separate argument, and the command runs in that file's directory. The default is
 `["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
 
+The `rdcore` provider writes the `.rdproj` that RDCore's language server reads from the workspace root,
+without which it analyses nothing:
+
+```json
+"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }
+```
+
+It lists every form, module, class and user control the project carries by its path relative to the
+workspace root, including one in a subfolder or beside the project's folder, and carries the project's
+references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
+anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
+server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
+is left alone. RDCore reads the file only when it starts, so a module added while it runs is analysed
+from its next start.
+
 Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
 server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
 Either covers only that file and provider: if the entry later names a different `path` or
@@ -380,5 +395,4 @@ something already able to change the project's files.
 
 Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
 no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
-generated without a declaration, and core contains no backend schema. The `.rdproj` provider is
-reserved for phase 2.
+generated without a declaration, and core contains no backend schema.

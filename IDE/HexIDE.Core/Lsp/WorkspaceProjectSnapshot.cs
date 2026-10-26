@@ -17,11 +17,17 @@ namespace HexIDE.Lsp;
 /// </param>
 /// <param name="Files">Every file the project holds, in the order the project lists them.</param>
 /// <param name="References">The project's references, in declaration order, which is significant.</param>
+/// <param name="CompilationArguments">
+/// The project's Conditional Compilation Arguments, its <c>.vbp</c>'s <c>CondComp</c>, by name in any case. Null or empty
+/// when it has none, and empty too when vb6.exe would refuse the line, which leaves a backend analysing as though none
+/// were given.
+/// </param>
 public sealed record WorkspaceProjectSnapshot(
     string Name,
     string? DefinitionPath,
     IReadOnlyList<WorkspaceProjectFile> Files,
-    IReadOnlyList<WorkspaceProjectReference> References);
+    IReadOnlyList<WorkspaceProjectReference> References,
+    IReadOnlyDictionary<string, short>? CompilationArguments = null);
 
 /// <summary>
 /// One file in a project, carrying both spellings of where it is.

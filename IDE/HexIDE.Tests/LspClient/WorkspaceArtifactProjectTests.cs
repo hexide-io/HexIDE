@@ -79,4 +79,28 @@ public sealed class WorkspaceArtifactProjectTests
         changes.Should().Be(6);
         sut.Dispose();
     }
+
+    [Theory]
+    [InlineData("CondComp=\"DEBUG = 1 : Trace = -2\"", 2)]
+    [InlineData("CondComp=\"DEBUG = 70000\"", 0)]
+    [InlineData(null, 0)]
+    public void CompilationArgumentsAreProjectedAndARefusedLineGivesNone(string? line, int count)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1")
+        {
+            AbsolutePath = Path.Combine(Path.GetTempPath(), "artifact-arguments", "Project1.vbp")
+        };
+        if (line is not null) project.UnknownPreSectionLines.Add((0, line));
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { project });
+        var sut = new ProjectLspWorkspace(() => manager);
+        var arguments = sut.Projects[0].Project.CompilationArguments!;
+        arguments.Should().HaveCount(count);
+        if (count > 0)
+        {
+            arguments["debug"].Should().Be(1);
+            arguments["TRACE"].Should().Be(-2);
+        }
+        sut.Dispose();
+    }
 }
