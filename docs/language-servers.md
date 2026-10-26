@@ -328,6 +328,8 @@ command and its arguments; the filename is appended as a separate argument, and 
 
 Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
 server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
+Either covers only that file and provider: if the entry later names a different `path` or
+`provider`, HexIDE asks again.
 **Deny** starts the server without generating the file and records the reason in the log and on its
 connection in **Tools → Protocol Inspector**. Persistent
 grants are listed under **Tools → Options → Workspace files**, where **Reset** makes the next session
@@ -338,7 +340,13 @@ An existing file is left alone without prompting unless its bytes still match He
 write. This protects compilation databases produced by CMake and files edited by hand. Unchanged
 content is not rewritten; changed content replaces the owned file atomically. When the project gives a
 provider nothing to describe, such as clangd with no C or C++ files, HexIDE neither asks nor writes,
-and removes a file it wrote that nobody has changed since. Refused paths, provider
+and removes a file it wrote that nobody has changed since. A directory, an empty file or anything
+larger than 8 MB at the artefact's path is never treated as HexIDE's, and is left alone unread.
+
+**Known limit:** HexIDE checks the path again after you answer the prompt, then writes. A process
+writing into the workspace at that same moment could swap a parent folder for a link between the
+check and the write, and the write would follow it. Nothing in .NET closes that gap; it needs
+something already able to change the project's files. Refused paths, provider
 failures, failed writes and files left alone are also explained on the connection in the inspector.
 
 Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends

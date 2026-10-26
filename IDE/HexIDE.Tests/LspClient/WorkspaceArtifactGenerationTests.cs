@@ -19,7 +19,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     {
         Directory.CreateDirectory(_root);
         _workspace = new Workspace(_root);
-        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
         _service = new WorkspaceArtifactService(_workspace,
             new WorkspaceArtifactProviderRegistry([_provider]), _consent,
             NullLogger<WorkspaceArtifactService>.Instance);
@@ -75,9 +75,9 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
             new WorkspaceArtifactProviderRegistry([_provider]), _consent,
             NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
         if (reason == "denial")
-            _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+            _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(false);
         if (reason == "provider") _provider.Failure = new IOException("provider failed");
-        if (reason == "write") Directory.CreateDirectory(Path.Combine(_root, "generated.json"));
+        if (reason == "write") service.WriteContent = (_, _) => throw new IOException("write failed");
         if (reason == "foreign") File.WriteAllText(Path.Combine(_root, "generated.json"), "foreign");
         var launched = false;
         var server = Server(reason == "path" ? "../escape.json" : "generated.json") with
@@ -106,7 +106,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
             new WorkspaceArtifactProviderRegistry([_provider]), _consent,
             NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
         if (reason == "denial")
-            _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+            _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(false);
         if (reason == "provider") _provider.Failure = new IOException($"Provider failed at {_root}");
         if (reason == "write") service.WriteContent = (_, _) => throw new IOException($"Write failed at {_root}");
         if (reason == "foreign") File.WriteAllText(Path.Combine(_root, "generated.json"), "foreign");
@@ -137,7 +137,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         _provider.Content = "second";
         await _service.PrepareAsync(server, TestContext.Current.CancellationToken);
         File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("second");
-        await _consent.Received().AllowAsync("probe", "Probe server", _root, Path.Combine(_root, "generated.json"));
+        await _consent.Received().AllowAsync("probe", "Probe server", _root, Path.Combine(_root, "generated.json"), Arg.Any<WorkspaceArtifactSpec>());
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     {
         await _service.PrepareAsync(Server(path), TestContext.Current.CancellationToken);
         _provider.Calls.Should().Be(0);
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
             await _service.PrepareAsync(Server("link/generated.json"), TestContext.Current.CancellationToken);
             File.Exists(Path.Combine(outside, "generated.json")).Should().BeFalse();
             _provider.Calls.Should().Be(0);
-            await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+            await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
         }
         finally { Directory.Delete(outside, true); }
     }
@@ -193,7 +193,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         _workspace.Projects = [new(alias, new("project", null, [], []))];
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         File.ReadAllText(Path.Combine(real, "generated.json")).Should().Be("first");
-        await _consent.Received().AllowAsync("probe", "Probe server", real, Path.Combine(real, "generated.json"));
+        await _consent.Received().AllowAsync("probe", "Probe server", real, Path.Combine(real, "generated.json"), Arg.Any<WorkspaceArtifactSpec>());
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         File.WriteAllText(target, "CMake owns this");
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         File.ReadAllText(target).Should().Be("CMake owns this");
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
     }
 
     [Fact]
@@ -215,13 +215,13 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         _consent.ClearReceivedCalls();
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         File.ReadAllText(target).Should().Be("user edit");
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
     }
 
     [Fact]
     public async Task DenialStillLaunchesServerWithoutWriting()
     {
-        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(false);
         var launched = false;
         var server = Server() with { CreateClient = () => { launched = true; return Substitute.For<ILspClient>(); } };
         await using var registry = new LspClientRegistry([server], NullLogger<LspClientRegistry>.Instance,
@@ -229,7 +229,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", TestContext.Current.CancellationToken);
         launched.Should().BeTrue();
         File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
-        await _consent.Received().AllowAsync("probe", "Probe server", _root, Path.Combine(_root, "generated.json"));
+        await _consent.Received().AllowAsync("probe", "Probe server", _root, Path.Combine(_root, "generated.json"), Arg.Any<WorkspaceArtifactSpec>());
     }
 
     [Fact]
@@ -262,7 +262,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await service.PrepareAsync(Server("compile_commands.json") with { WorkspaceArtifact = new("compile_commands.json", "clangd") },
             TestContext.Current.CancellationToken);
         File.Exists(Path.Combine(_root, "compile_commands.json")).Should().BeFalse();
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         _consent.ClearReceivedCalls();
         await service.PrepareAsync(server, TestContext.Current.CancellationToken);
         File.Exists(Path.Combine(_root, "compile_commands.json")).Should().BeFalse();
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
         await capture.DrainAsync();
         capture.Snapshot("probe").Should().Contain(e => e.Kind == ConversationEntryKind.Note && !e.Fault
             && e.Detail!.Contains("Removed workspace artefact compile_commands.json"));
@@ -333,18 +333,97 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
         _provider.Calls.Should().Be(1);
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task DirectoryAtTheTargetIsLeftAloneAndTheServerStillLaunches()
+    {
+        await using var capture = new ConversationLog();
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
+        Directory.CreateDirectory(Path.Combine(_root, "generated.json"));
+        var launched = false;
+        var server = Server() with { CreateClient = () => { launched = true; return Substitute.For<ILspClient>(); } };
+        await using var registry = new LspClientRegistry([server], NullLogger<LspClientRegistry>.Instance,
+            _workspace, artifacts: service);
+        await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", TestContext.Current.CancellationToken);
+        await capture.DrainAsync();
+        launched.Should().BeTrue();
+        Directory.Exists(Path.Combine(_root, "generated.json")).Should().BeTrue();
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
+        capture.Snapshot("probe").Should().Contain(e => e.Kind == ConversationEntryKind.Note && e.Fault
+            && e.Detail!.Contains("Leaving existing workspace artefact generated.json alone"));
+    }
+
+    [Fact]
+    public async Task OversizedFileIsNeverOwnedEvenWhenItsHashIsRecorded()
+    {
+        var target = Path.Combine(_root, "generated.json");
+        using (var file = new FileStream(target, FileMode.CreateNew))
+            file.SetLength(WorkspaceArtifactService.MaxArtifactLength + 1);
+        string hash;
+        using (var file = File.OpenRead(target))
+            hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(file));
+        var state = Path.Combine(_root, "state.json");
+        File.WriteAllText(state, JsonSerializer.Serialize(new Dictionary<string, string> { [target] = hash }));
+        using var service = new WorkspaceArtifactService(_workspace, new WorkspaceArtifactProviderRegistry([_provider]),
+            _consent, NullLogger<WorkspaceArtifactService>.Instance, state);
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        new FileInfo(target).Length.Should().Be(WorkspaceArtifactService.MaxArtifactLength + 1);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task OversizedContentIsNotWritten()
+    {
+        await using var capture = new ConversationLog();
+        using var service = new WorkspaceArtifactService(_workspace,
+            new WorkspaceArtifactProviderRegistry([_provider]), _consent,
+            NullLogger<WorkspaceArtifactService>.Instance, capture: capture);
+        _provider.Content = new string('x', (int)WorkspaceArtifactService.MaxArtifactLength + 1);
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        await capture.DrainAsync();
+        File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
+        capture.Snapshot("probe").Should().Contain(e => e.Kind == ConversationEntryKind.Note && e.Fault
+            && e.Detail!.Contains("larger than any artefact"));
+    }
+
+    [Fact]
+    public async Task EmptyContentIsNothingToDescribe()
+    {
+        _provider.Content = "";
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        File.Exists(Path.Combine(_root, "generated.json")).Should().BeFalse();
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
+    }
+
+    public static bool OnUnix => !OperatingSystem.IsWindows();
+
+    [Fact(Skip = "FIFOs are a Unix filesystem object.", SkipUnless = nameof(OnUnix), Timeout = 10_000)]
+    public async Task FifoAtTheTargetIsLeftAloneWithoutBeingOpened()
+    {
+        var target = Path.Combine(_root, "generated.json");
+        using (var mkfifo = System.Diagnostics.Process.Start("mkfifo", [target])!)
+            await mkfifo.WaitForExitAsync(TestContext.Current.CancellationToken);
+        var state = Path.Combine(_root, "state.json");
+        File.WriteAllText(state, JsonSerializer.Serialize(new Dictionary<string, string> { [target] = "00" }));
+        using var service = new WorkspaceArtifactService(_workspace, new WorkspaceArtifactProviderRegistry([_provider]),
+            _consent, NullLogger<WorkspaceArtifactService>.Instance, state);
+        await service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
     }
 
     [Fact]
     public async Task FileCreatedDuringConsentIsNotClobbered()
     {
         var target = Path.Combine(_root, "generated.json");
-        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+        _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>())
             .Returns(_ => { File.WriteAllText(target, "another writer"); return true; });
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         File.ReadAllText(target).Should().Be("another writer");
-        await _consent.Received().AllowAsync("probe", "Probe server", _root, target);
+        await _consent.Received().AllowAsync("probe", "Probe server", _root, target, Arg.Any<WorkspaceArtifactSpec>());
     }
 
     [Fact]
@@ -367,7 +446,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     {
         await _service.PrepareAsync(Server() with { WorkspaceArtifact = null }, TestContext.Current.CancellationToken);
         _provider.Calls.Should().Be(0);
-        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!);
+        await _consent.DidNotReceiveWithAnyArgs().AllowAsync(default!, default!, default!, default!, default!);
     }
 
     public void Dispose()

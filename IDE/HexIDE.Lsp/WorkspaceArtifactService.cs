@@ -23,6 +23,9 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private readonly ConversationLog? _capture;
     internal Action<Stream, byte[]> WriteContent { get; set; } = (stream, bytes) => stream.Write(bytes);
 
+    /// <summary>Larger than any artefact a provider has reason to write, so a file over it is never HexIDE's.</summary>
+    internal const long MaxArtifactLength = 8 * 1024 * 1024;
+
     public WorkspaceArtifactService(IWorkspaceArtifactWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWorkspaceArtifactConsent consent,
         ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null)
@@ -84,13 +87,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         }
         if (_providers.Find(spec.ProviderName) is not { } provider) return;
         var content = provider.Produce(project with { Settings = spec.Settings });
-        if (content is null)
+        // Empty is nothing to describe too, so HexIDE never owns an empty file: see OwnsOrAbsent.
+        if (string.IsNullOrEmpty(content))
         {
             if (File.Exists(target)) Relinquish(server, spec, project, target);
             return;
         }
         var consentRoot = Resolve(Path.GetFullPath(project.WorkspaceRoot));
-        if (!await _consent.AllowAsync(server.Id, server.DisplayName, consentRoot, target))
+        if (!await _consent.AllowAsync(server.Id, server.DisplayName, consentRoot, target, spec))
         {
             _log.LogInformation("Workspace artefact {Path} denied for {Server}; launching without it.", target, server.Id);
             Note(server, $"Workspace artefact {spec.RelativePath} denied; launching without it.");
@@ -108,13 +112,18 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             return;
         }
         var bytes = Encoding.UTF8.GetBytes(content);
+        if (bytes.Length > MaxArtifactLength)
+        {
+            Note(server, $"Workspace artefact {spec.RelativePath} not written: larger than any artefact HexIDE writes.");
+            return;
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         // Deny other readers/writers while checking ownership; allow replacement on Windows.
         using var owned = File.Exists(target)
             ? new FileStream(target, FileMode.Open, FileAccess.ReadWrite, FileShare.Delete) : null;
         if (owned is not null)
         {
-            if (!_hashes.TryGetValue(target, out var previous)
+            if (!_hashes.TryGetValue(target, out var previous) || owned.Length is 0 or > MaxArtifactLength
                 || Convert.ToHexString(SHA256.HashData(owned)) != previous)
             {
                 Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
@@ -161,9 +170,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             Note(server, $"Refused workspace artefact path {spec.RelativePath}.");
             return;
         }
+        if (!OwnsOrAbsent(target))
+        {
+            Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
+            return;
+        }
         using (var owned = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Delete))
         {
-            if (!_hashes.TryGetValue(target, out var previous)
+            if (!_hashes.TryGetValue(target, out var previous) || owned.Length is 0 or > MaxArtifactLength
                 || Convert.ToHexString(SHA256.HashData(owned)) != previous)
             {
                 Note(server, $"Leaving existing workspace artefact {spec.RelativePath} alone: ownership changed.");
@@ -196,9 +210,21 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             null, null, 0, detail: reason, fault: fault);
     }
 
-    private bool OwnsOrAbsent(string target) => !File.Exists(target)
-        || (_hashes.TryGetValue(target, out var hash)
-            && Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(target))) == hash);
+    /// <summary>
+    /// Nothing there, or a file still holding HexIDE's last write, decided without reading anything HexIDE can't have
+    /// written. A directory is not owned. Nor is an empty file, which is also how a FIFO or a device presents and which
+    /// opening could block on, nor one larger than any artefact: either would otherwise stall every server's launch behind
+    /// the gate. A candidate is hashed through a stream, never read whole.
+    /// </summary>
+    private bool OwnsOrAbsent(string target)
+    {
+        if (Directory.Exists(target)) return false;
+        var file = new FileInfo(target);
+        if (!file.Exists) return true;
+        if (!_hashes.TryGetValue(target, out var hash) || file.Length is 0 or > MaxArtifactLength) return false;
+        using var stream = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        return Convert.ToHexString(SHA256.HashData(stream)) == hash;
+    }
 
     internal static string? SafePath(string root, string relative)
     {

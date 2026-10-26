@@ -31,7 +31,7 @@ public sealed class WorkspaceArtifactClangdTests
             async Task<PublishDiagnosticsParams> Diagnostics(bool generate)
             {
                 var consent = Substitute.For<IWorkspaceArtifactConsent>();
-                consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+                consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
                 using var service = new WorkspaceArtifactService(workspace,
                     new WorkspaceArtifactProviderRegistry([new ClangdCompilationDatabaseProvider()]), consent,
                     NullLogger<WorkspaceArtifactService>.Instance);

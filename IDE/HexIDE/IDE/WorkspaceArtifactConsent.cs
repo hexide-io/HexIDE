@@ -39,14 +39,24 @@ public sealed class WorkspaceArtifactConsent : IWorkspaceArtifactConsent
         _prompt = prompt;
     }
 
-    internal static string Key(string serverId, string workspace) => Convert.ToHexString(SHA256.HashData(
-        Encoding.UTF8.GetBytes(serverId + "\0" + (OperatingSystem.IsWindows()
-            ? Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspace)).ToUpperInvariant()
-            : Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspace))))));
-
-    public async Task<bool> AllowAsync(string serverId, string serverName, string workspace, string path)
+    internal static string Key(string serverId, string workspace, WorkspaceArtifactSpec spec)
     {
-        var key = Key(serverId, workspace);
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspace));
+        var relative = spec.RelativePath.Replace('\\', '/');
+        if (OperatingSystem.IsWindows())
+        {
+            root = root.ToUpperInvariant();
+            relative = relative.ToUpperInvariant();
+        }
+        // Providers resolve by name in any case, so the key does too.
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            string.Join("\0", serverId, root, relative, spec.ProviderName.ToUpperInvariant()))));
+    }
+
+    public async Task<bool> AllowAsync(string serverId, string serverName, string workspace, string path,
+        WorkspaceArtifactSpec spec)
+    {
+        var key = Key(serverId, workspace, spec);
         if (_store.GetDecision(key) == ConsentDecisions.Allow) return true;
         if (_session.TryGetValue(key, out var allowed)) return allowed;
         var decision = await _prompt(serverName, path);

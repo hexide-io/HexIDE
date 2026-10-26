@@ -10,7 +10,48 @@ namespace HexIDE.Tests.LspClient;
 public sealed class WorkspaceArtifactConsentTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "hexide-consent-" + Guid.NewGuid().ToString("N"));
+    private static readonly WorkspaceArtifactSpec Spec = new("local.json", "probe");
     public WorkspaceArtifactConsentTests() => Directory.CreateDirectory(_dir);
+
+    [Theory]
+    [InlineData("other.json", "probe")]
+    [InlineData("sub/local.json", "probe")]
+    [InlineData("local.json", "another")]
+    public async Task AllowAlwaysDoesNotCoverAChangedDeclaration(string path, string provider)
+    {
+        var calls = 0;
+        Task<WorkspaceArtifactDecision> Prompt(string name, string target)
+        {
+            calls++;
+            return Task.FromResult(WorkspaceArtifactDecision.AllowAlways);
+        }
+        var store = Path.Combine(_dir, "consent.json");
+        var workspace = Path.Combine(_dir, "one");
+        await new WorkspaceArtifactConsent(new ConsentStore(store), Prompt).AllowAsync("x", "Server X", workspace, "local.json", Spec);
+        var next = new WorkspaceArtifactConsent(new ConsentStore(store), Prompt);
+        await next.AllowAsync("x", "Server X", workspace, "local.json", Spec);
+        calls.Should().Be(1);
+        await next.AllowAsync("x", "Server X", workspace, path, new WorkspaceArtifactSpec(path, provider));
+        calls.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("local.json", "PROBE")]
+    [InlineData("./local.json", "probe")]
+    public async Task TheSameDeclarationSpelledAlikeIsCoveredOnce(string path, string provider)
+    {
+        var calls = 0;
+        Task<WorkspaceArtifactDecision> Prompt(string name, string target)
+        {
+            calls++;
+            return Task.FromResult(WorkspaceArtifactDecision.Allow);
+        }
+        var sut = new WorkspaceArtifactConsent(new ConsentStore(Path.Combine(_dir, "consent.json")), Prompt);
+        var workspace = Path.Combine(_dir, "one");
+        await sut.AllowAsync("x", "Server X", workspace, "local.json", Spec);
+        await sut.AllowAsync("x", "Server X", workspace, path, new WorkspaceArtifactSpec(path, provider));
+        calls.Should().Be(path == "local.json" ? 1 : 2);
+    }
 
     [Theory]
     [InlineData(WorkspaceArtifactDecision.Allow)]
@@ -30,23 +71,23 @@ public sealed class WorkspaceArtifactConsentTests : IDisposable
         var sut = new WorkspaceArtifactConsent(new ConsentStore(path), Prompt);
         var first = Path.Combine(_dir, "one");
         var second = Path.Combine(_dir, "two");
-        (await sut.AllowAsync("x", "Server X", first, "local.json")).Should().Be(decision != WorkspaceArtifactDecision.Deny);
-        await sut.AllowAsync("x", "Server X", first, "local.json");
-        await sut.AllowAsync("x", "Server X", first + Path.DirectorySeparatorChar, "local.json");
+        (await sut.AllowAsync("x", "Server X", first, "local.json", Spec)).Should().Be(decision != WorkspaceArtifactDecision.Deny);
+        await sut.AllowAsync("x", "Server X", first, "local.json", Spec);
+        await sut.AllowAsync("x", "Server X", first + Path.DirectorySeparatorChar, "local.json", Spec);
         calls.Should().Be(1);
-        await sut.AllowAsync("x", "Server X", second, "local.json");
-        await sut.AllowAsync("y", "Server X", first, "local.json");
+        await sut.AllowAsync("x", "Server X", second, "local.json", Spec);
+        await sut.AllowAsync("y", "Server X", first, "local.json", Spec);
         calls.Should().Be(3);
         var next = new WorkspaceArtifactConsent(new ConsentStore(path), Prompt);
-        await next.AllowAsync("x", "Server X", first, "local.json");
+        await next.AllowAsync("x", "Server X", first, "local.json", Spec);
         calls.Should().Be(decision == WorkspaceArtifactDecision.AllowAlways ? 3 : 4);
         if (decision == WorkspaceArtifactDecision.AllowAlways)
         {
             var store = new ConsentStore(path);
             store.Records.Should().HaveCount(3);
-            store.Revoke(WorkspaceArtifactConsent.Key("x", first));
+            store.Revoke(WorkspaceArtifactConsent.Key("x", first, Spec));
             var reset = new WorkspaceArtifactConsent(new ConsentStore(path), Prompt);
-            await reset.AllowAsync("x", "Server X", first, "local.json");
+            await reset.AllowAsync("x", "Server X", first, "local.json", Spec);
             calls.Should().Be(4);
         }
     }
