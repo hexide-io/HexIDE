@@ -149,6 +149,45 @@ public class UiAutomationDriverTests
     }
 
 
+    [AvaloniaTheory]
+    [InlineData("click", false)]
+    [InlineData("invoke", false)]
+    [InlineData("click", true)]
+    [InlineData("invoke", true)]
+    public void Disabled_targets_are_refused_before_click_or_invoke(string action, bool modal)
+    {
+        UiAutomationDriver.TrackWindows();
+        var clicks = 0;
+        var presses = 0;
+        var button = new Button { Name = "Ask", Content = "Ask", IsEnabled = modal };
+        button.Click += (_, _) => clicks++;
+        button.AddHandler(InputElement.PointerPressedEvent, (_, _) => presses++, handledEventsToo: true);
+        var window = new Window { Title = "Loop", Content = button, Width = 200, Height = 150 };
+        window.Show();
+        var dialog = new Window { Title = "Reset prompt", Content = new Button { Content = "OK" } };
+        if (modal)
+            _ = dialog.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(button, action, null);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("disabled").And.Contain("nothing was pressed");
+            if (modal)
+                outcome.Error.Should().Contain("modal dialog").And.Contain("Reset prompt").And.Contain("Answer")
+                    .And.Contain("dump_visual_tree");
+            else
+                outcome.Error.Should().Contain("enabled").And.NotContain("modal dialog");
+            clicks.Should().Be(0);
+            presses.Should().Be(0);
+        }
+        finally
+        {
+            dialog.Close();
+            window.Close();
+        }
+    }
+
     // The refusal quotes the verb in its canonical spelling, whatever the caller typed: "no person could set_value
     // it" is not a sentence, and "DoubleClick" is not the verb's name.
     [AvaloniaFact]
