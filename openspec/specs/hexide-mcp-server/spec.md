@@ -477,6 +477,19 @@ locations or .NET type names for that overflow. Nothing in the tool SHALL run fo
 - **WHEN** an argument for a long integer parameter is -9223372036854775809
 - **THEN** the refusal says it is too small and gives -9223372036854775808 to 9223372036854775807
 
+### Requirement: Visual-tree match replies SHALL explain unselected contents
+A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,
+and unselected Options pages when searching the Options dialog, and explain how to select them.
+This note SHALL accompany both empty and nonempty matches, alongside any depth-limit warning.
+
+#### Scenario: An editor is behind a designer
+- **WHEN** a match search runs with a code tab open but unselected
+- **THEN** the note names that tab, says its contents are not in the tree, and directs the caller to `activate_document_tab`
+
+#### Scenario: A setting is on another Options page
+- **WHEN** a match search runs in Options with other pages unselected
+- **THEN** the note names their category and page and directs the caller to expand the category and select the page with `interact`
+
 ### Requirement: Pointer drags through interact
 
 `interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and

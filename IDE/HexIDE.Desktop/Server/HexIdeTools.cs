@@ -9,6 +9,7 @@ using HexIDE.Conversations;
 using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
@@ -2246,7 +2247,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
                      + "on screen, the selected code tab's and the Immediate window's among them, and 'PropertiesTool' "
                      + "the Properties window. Only what is in the tree is found, so not a document in a tab that is not "
-                     + "selected. Every node is searched, interactive or not, to 'maxDepth' below 'root'; the reply's "
+                     + "selected, or a dialog page that is not selected. Every node is searched, interactive or not, to "
+                     + "'maxDepth' below 'root'; the reply's "
                      + "'note' says how many matched and what was not searched.")]
         string? match = null,
         CancellationToken ct = default)
@@ -2283,7 +2285,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
                 UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly: false), match, MatchLimit);
-            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched),
+            var options = active.GetVisualDescendants().OfType<Control>().Prepend(active)
+                .Select(c => c.DataContext).OfType<OptionsViewModel>().FirstOrDefault();
+            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched,
+                    label == "MainWindow" ? ctx.DocumentDockService : null, options?.RootNodes, options?.SelectedNode),
                 focus.FocusedPath, focus.FocusReason);
         });
         // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
@@ -2359,7 +2364,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
         : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
 
-    private static string MatchNote(string match, int total, int unsearched)
+    internal static string MatchNote(string match, int total, int unsearched,
+        IDocumentDockService? dock = null,
+        IEnumerable<OptionsNodeViewModel>? pages = null,
+        OptionsNodeViewModel? selectedPage = null)
     {
         var note = total switch
         {
@@ -2370,9 +2378,33 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                                          + "Narrow 'match', or scope with 'root'.",
             _ => $"{total} nodes match '{match}'.",
         };
-        return unsearched == 0 ? note
-            : note + $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
+        if (unsearched > 0)
+            note += $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
               + "not searched: raise maxDepth, or search again from a truncated node's path as 'root'.";
+        var tabs = dock?.AllTabs.Where(t => !ReferenceEquals(t, dock.ActiveTab)).Select(t => t.Title ?? "").ToArray() ?? [];
+        if (tabs.Length > 0)
+            note += $" {tabs.Length} open tab(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", tabs.Select(t => $"'{t}'")) + ". activate_document_tab brings one to the front.";
+
+        IEnumerable<string> UnselectedPages(IEnumerable<OptionsNodeViewModel> nodes,
+            string prefix = "")
+        {
+            foreach (var node in nodes)
+            {
+                var title = prefix + node.Title;
+                if (node.Page is not null && !ReferenceEquals(node, selectedPage))
+                    yield return title;
+                foreach (var child in UnselectedPages(node.Children, title + " > "))
+                    yield return child;
+            }
+        }
+        var omittedPages = UnselectedPages(pages ?? []).ToArray();
+        if (omittedPages.Length > 0)
+            note += $" {omittedPages.Length} page(s) are not selected, and what they hold is not in the tree: "
+                    + string.Join(", ", omittedPages.Select(p => $"'{p}'"))
+                    + ". Use dump_visual_tree to find the category tree, then interact 'expand' on its category "
+                    + "and 'select' on a page to search its contents.";
+        return note;
     }
 
     [McpServerTool(Name = "inspect_element")]
