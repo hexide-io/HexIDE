@@ -96,7 +96,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var log = new RecordingLogger();
-        var client = new VBLspClient(transport, logger ?? log, DocumentLanguage.Vb6);
+        var client = new VBLspClient(transport, logger ?? log, DocumentLanguage.Vb6, connectionId: "test-registration");
         _clients.Add(client);
         await client.StartAsync();
         return (client, server, log);
@@ -135,6 +135,36 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
             "the server's log message to reach the logger");
 
         (((LogLevel Level, string Message))entry).Level.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("window/showMessage")]
+    [InlineData("window/logMessage")]
+    public async Task ServerHistoryRetainsFullTextAndEvictsOldest(string method)
+    {
+        var (client, server, log) = await ConnectedAsync();
+        for (var i = 0; i < 102; i++)
+            await server.SayAsync(method, LspMessageType.Error, $"{i}: " + new string('x', 300) + "\nlast line");
+        await Eventually(() => client.Messages.LastOrDefault()?.StartsWith(method + " [Error]: 101:") == true
+            ? "received" : null, "last retained message");
+        client.Messages.Should().HaveCount(100);
+        client.Messages.First().Should().StartWith(method + " [Error]: 2:");
+        client.Messages.Last().Should().EndWith("\nlast line");
+        client.Messages.Last().Length.Should().BeGreaterThan(300);
+        log.Entries.Last(e => e.Message.Contains("101:")).Message.Should().Contain("test-registration");
+    }
+
+    [Fact]
+    public async Task StatusMessageNamesTheRegistration()
+    {
+        var (client, server, _) = await ConnectedAsync();
+        var status = Substitute.For<IStatusBarService>();
+        using var reporter = new LanguageServerMessageReporter(client, status,
+            Substitute.For<HexIDE.Localization.ILocalizationService>());
+        await server.SayAsync("window/showMessage", LspMessageType.Error, "failure");
+        await Eventually(() => status.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "SetTemporaryMessage")
+            ? "shown" : null, "status message");
+        status.Received().SetTemporaryMessage(Arg.Is<string>(text => text.Contains("[test-registration]")), Arg.Any<TimeSpan>());
     }
 
     private sealed class RecordingSink : ILogEventSink

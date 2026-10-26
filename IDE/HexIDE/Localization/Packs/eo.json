@@ -696,6 +696,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Konservi mesaĝajn korpojn",
     "Str.Tool.LanguageServers.ShowAllMessages": "Montri ĉiujn registritajn mesaĝojn",
     "Str.Tool.LanguageServers.ShowMessages": "Montri ĝiajn mesaĝojn",
+    "Str.Tool.LanguageServers.StandardError": "Norma erar-eligo",
+    "Str.Tool.LanguageServers.ServerMessages": "Servilaj mesaĝoj",
     "Str.Tool.LanguageServers.CopyReport": "Kopii raporton",
     "Str.Tool.LanguageServers.ReportRedacted": "La raporto anstataŭigas vojojn kaj adresojn per elpensitaj nomoj.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Ĉi tiu servilo anoncis neniujn kapablojn.",

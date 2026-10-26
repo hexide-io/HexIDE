@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "保留消息正文",
     "Str.Tool.LanguageServers.ShowAllMessages": "显示所有已记录的消息",
     "Str.Tool.LanguageServers.ShowMessages": "显示它的消息",
+    "Str.Tool.LanguageServers.StandardError": "标准错误输出",
+    "Str.Tool.LanguageServers.ServerMessages": "服务器消息",
     "Str.Tool.LanguageServers.CopyReport": "复制报告",
     "Str.Tool.LanguageServers.ReportRedacted": "报告会将路径和地址替换为虚构名称。",
     "Str.Tool.LanguageServers.AdvertisedNothing": "此服务器未声明任何能力。",

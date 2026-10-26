@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "İleti gövdelerini tut",
     "Str.Tool.LanguageServers.ShowAllMessages": "Kaydedilen tüm iletileri göster",
     "Str.Tool.LanguageServers.ShowMessages": "İletilerini göster",
+    "Str.Tool.LanguageServers.StandardError": "Standart hata",
+    "Str.Tool.LanguageServers.ServerMessages": "Sunucu iletileri",
     "Str.Tool.LanguageServers.CopyReport": "Raporu kopyala",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapor, yolları ve adresleri uydurma adlarla değiştirir.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Bu sunucu hiçbir yetenek bildirmedi.",

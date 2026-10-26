@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Berichtinhoud bewaren",
     "Str.Tool.LanguageServers.ShowAllMessages": "Alle vastgelegde berichten tonen",
     "Str.Tool.LanguageServers.ShowMessages": "Zijn berichten tonen",
+    "Str.Tool.LanguageServers.StandardError": "Standaardfoutuitvoer",
+    "Str.Tool.LanguageServers.ServerMessages": "Serverberichten",
     "Str.Tool.LanguageServers.CopyReport": "Rapport kopiëren",
     "Str.Tool.LanguageServers.ReportRedacted": "Het rapport vervangt paden en adressen door verzonnen namen.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Deze server heeft geen mogelijkheden aangekondigd.",

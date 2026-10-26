@@ -696,6 +696,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Keep message bodies",
     "Str.Tool.LanguageServers.ShowAllMessages": "Show all recorded messages",
     "Str.Tool.LanguageServers.ShowMessages": "Show its messages",
+    "Str.Tool.LanguageServers.StandardError": "Standard error",
+    "Str.Tool.LanguageServers.ServerMessages": "Server messages",
     "Str.Tool.LanguageServers.CopyReport": "Copy report",
     "Str.Tool.LanguageServers.ReportRedacted": "The report replaces paths and addresses with made-up names.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "This server advertised no capabilities.",

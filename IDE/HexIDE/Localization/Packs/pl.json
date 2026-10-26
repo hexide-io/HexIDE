@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Zachowuj treści komunikatów",
     "Str.Tool.LanguageServers.ShowAllMessages": "Pokaż wszystkie zarejestrowane komunikaty",
     "Str.Tool.LanguageServers.ShowMessages": "Pokaż jego komunikaty",
+    "Str.Tool.LanguageServers.StandardError": "Standardowe wyjście błędów",
+    "Str.Tool.LanguageServers.ServerMessages": "Komunikaty serwera",
     "Str.Tool.LanguageServers.CopyReport": "Kopiuj raport",
     "Str.Tool.LanguageServers.ReportRedacted": "Raport zastępuje ścieżki i adresy zmyślonymi nazwami.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Ten serwer nie zadeklarował żadnych możliwości.",

@@ -1200,7 +1200,7 @@ public class FindReplaceViewModelTests
         lsRegistry.ConfigurationProblems.Returns([]);
         var languageServers = new LanguageServersToolViewModel(
             lsRegistry, loc, new ConversationLog(), Substitute.For<IEventBus>(),
-            new HexIDE.Redaction.Pseudonymiser());
+            new HexIDE.Redaction.Pseudonymiser(), Substitute.For<HexIDE.IDE.IWindowManager>());
         var protocolInspector = new ProtocolInspectorToolViewModel(
             new ConversationLog(), loc, new HexIDE.Redaction.Pseudonymiser(), Substitute.For<IWindowManager>());
 

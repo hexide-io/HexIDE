@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Behåll meddelandekroppar",
     "Str.Tool.LanguageServers.ShowAllMessages": "Visa alla registrerade meddelanden",
     "Str.Tool.LanguageServers.ShowMessages": "Visa dess meddelanden",
+    "Str.Tool.LanguageServers.StandardError": "Standardfel",
+    "Str.Tool.LanguageServers.ServerMessages": "Servermeddelanden",
     "Str.Tool.LanguageServers.CopyReport": "Kopiera rapport",
     "Str.Tool.LanguageServers.ReportRedacted": "Rapporten ersätter sökvägar och adresser med påhittade namn.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Den här servern deklarerade inga funktioner.",

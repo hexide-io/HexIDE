@@ -52,6 +52,25 @@ public class LspClientRegistryTests
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ServerMessagesKeepTheirOrigin(bool shown)
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        await using var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        object? origin = null;
+        sut.MessageShown += (sender, _) => origin = sender;
+        sut.MessageLogged += (sender, _) => origin = sender;
+        if (shown) second.MessageShown += Raise.Event<EventHandler<ShowMessageParams>>(
+            second, new ShowMessageParams(LspMessageType.Error, "failure"));
+        else second.MessageLogged += Raise.Event<EventHandler<LogMessageParams>>(
+            second, new LogMessageParams(LspMessageType.Warning, "failure"));
+        origin.Should().BeSameAs(second);
+    }
+
+    [Theory]
     [InlineData("foldingRangeProvider")]
     [InlineData("documentSymbolProvider")]
     [InlineData("documentFormattingProvider")]

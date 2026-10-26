@@ -203,6 +203,23 @@ public sealed class VBLspClient : ILspClient
     /// </remarks>
     private readonly ConversationLog? _capture;
     private readonly string? _connectionId;
+    public string ConnectionId => _connectionId ?? _languageId;
+    private readonly object _historyGate = new();
+    private readonly Queue<string> _standardError = new();
+    private readonly Queue<string> _messages = new();
+    public IReadOnlyList<string> StandardError { get { lock (_historyGate) return _standardError.ToArray(); } }
+    public IReadOnlyList<string> Messages { get { lock (_historyGate) return _messages.ToArray(); } }
+
+    private void Retain(Queue<string> history, string text)
+    {
+        lock (_historyGate)
+        {
+            if (history.Count == 100) history.Dequeue();
+            history.Enqueue(text);
+        }
+        RaiseStateChanged();
+    }
+
 
     /// <summary>Records one thing, if anything is listening. Never throws into a caller.</summary>
     private void Note(
@@ -1797,6 +1814,7 @@ public sealed class VBLspClient : ILspClient
     /// </remarks>
     private void OnTransportNotice(object? sender, TransportNotice notice)
     {
+        if (notice.Kind == TransportNoticeKind.StandardError) Retain(_standardError, notice.Text);
         // The two directions are not interchangeable and ConversationDirection already says which is
         // which: Received is "a reply, a notification, a line of standard error", Local is "a process
         // starting". A stderr line arrived from the server; an exit code is something observed about it.
@@ -1841,8 +1859,16 @@ public sealed class VBLspClient : ILspClient
                 ProgressReceived?.Invoke(this, new ProgressParams(token, new WorkDoneProgressValue("end")));
     }
 
-    internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
-    internal void RaiseMessageLogged(LogMessageParams p) => MessageLogged?.Invoke(this, p);
+    internal void RaiseMessageShown(ShowMessageParams p)
+    {
+        Retain(_messages, $"window/showMessage [{p.Type}]: {p.Message}");
+        MessageShown?.Invoke(this, p);
+    }
+    internal void RaiseMessageLogged(LogMessageParams p)
+    {
+        Retain(_messages, $"window/logMessage [{p.Type}]: {p.Message}");
+        MessageLogged?.Invoke(this, p);
+    }
     internal void RaiseTraceReceived(LogTraceParams p) => TraceReceived?.Invoke(this, p);
 
     /// <summary>
@@ -1934,7 +1960,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnLogMessage(LogMessageParams p)
         {
-            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
+            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client.ConnectionId, p.Message);
             _client.RaiseMessageLogged(p);
         }
 
@@ -1955,7 +1981,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("$/logTrace", UseSingleObjectParameterDeserialization = true)]
         public void OnLogTrace(LogTraceParams p)
         {
-            _client._logger.LogDebug("[{Language} server trace] {Message}", _client._languageId, p.Message);
+            _client._logger.LogDebug("[{Language} server trace] {Message}", _client.ConnectionId, p.Message);
             _client.RaiseTraceReceived(p);
         }
 
@@ -1998,7 +2024,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("window/showMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnShowMessage(ShowMessageParams p)
         {
-            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
+            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client.ConnectionId, p.Message);
             _client.RaiseMessageShown(p);
         }
 

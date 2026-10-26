@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Зберігати тіла повідомлень",
     "Str.Tool.LanguageServers.ShowAllMessages": "Показати всі записані повідомлення",
     "Str.Tool.LanguageServers.ShowMessages": "Показати його повідомлення",
+    "Str.Tool.LanguageServers.StandardError": "Стандартний потік помилок",
+    "Str.Tool.LanguageServers.ServerMessages": "Повідомлення сервера",
     "Str.Tool.LanguageServers.CopyReport": "Копіювати звіт",
     "Str.Tool.LanguageServers.ReportRedacted": "У звіті шляхи й адреси замінено на вигадані імена.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Цей сервер не оголосив жодних можливостей.",

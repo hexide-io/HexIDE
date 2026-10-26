@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "संदेश सामग्री रखें",
     "Str.Tool.LanguageServers.ShowAllMessages": "सभी रिकॉर्ड किए गए संदेश दिखाएँ",
     "Str.Tool.LanguageServers.ShowMessages": "इसके संदेश दिखाएँ",
+    "Str.Tool.LanguageServers.StandardError": "मानक त्रुटि",
+    "Str.Tool.LanguageServers.ServerMessages": "सर्वर संदेश",
     "Str.Tool.LanguageServers.CopyReport": "रिपोर्ट कॉपी करें",
     "Str.Tool.LanguageServers.ReportRedacted": "रिपोर्ट में पथ और पते काल्पनिक नामों से बदल दिए जाते हैं।",
     "Str.Tool.LanguageServers.AdvertisedNothing": "इस सर्वर ने कोई क्षमता घोषित नहीं की।",

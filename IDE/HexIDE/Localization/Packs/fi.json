@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Säilytä viestien sisällöt",
     "Str.Tool.LanguageServers.ShowAllMessages": "Näytä kaikki tallennetut viestit",
     "Str.Tool.LanguageServers.ShowMessages": "Näytä sen viestit",
+    "Str.Tool.LanguageServers.StandardError": "Vakiovirhetuloste",
+    "Str.Tool.LanguageServers.ServerMessages": "Palvelimen viestit",
     "Str.Tool.LanguageServers.CopyReport": "Kopioi raportti",
     "Str.Tool.LanguageServers.ReportRedacted": "Raportti korvaa polut ja osoitteet keksityillä nimillä.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Tämä palvelin ei ilmoittanut mitään ominaisuuksia.",

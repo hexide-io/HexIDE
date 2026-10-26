@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Nachrichteninhalte aufbewahren",
     "Str.Tool.LanguageServers.ShowAllMessages": "Alle aufgezeichneten Nachrichten anzeigen",
     "Str.Tool.LanguageServers.ShowMessages": "Seine Nachrichten anzeigen",
+    "Str.Tool.LanguageServers.StandardError": "Standardfehlerausgabe",
+    "Str.Tool.LanguageServers.ServerMessages": "Servermeldungen",
     "Str.Tool.LanguageServers.CopyReport": "Bericht kopieren",
     "Str.Tool.LanguageServers.ReportRedacted": "Der Bericht ersetzt Pfade und Adressen durch erfundene Namen.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Dieser Server hat keine Fähigkeiten angekündigt.",

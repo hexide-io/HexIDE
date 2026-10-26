@@ -23,8 +23,15 @@ public partial class LanguageServersToolView : UserControl
     private async void CopyReport_OnClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not LanguageServersToolViewModel vm) return;
-        if (vm.ReportText is not { Length: > 0 } report) return;
+        var report = sender is Control { DataContext: LanguageServerRowViewModel row }
+            ? vm.RowReportText(row) : vm.ReportText;
+        if (report.Length == 0) return;
 
         await (TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(report) ?? Task.CompletedTask);
+    }
+    private async void SaveReport_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not LanguageServersToolViewModel vm) return;
+        await vm.SaveReportAsync((sender as Control)?.DataContext as LanguageServerRowViewModel);
     }
 }

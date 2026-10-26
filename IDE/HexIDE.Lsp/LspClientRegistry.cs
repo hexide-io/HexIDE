@@ -157,7 +157,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client?.LastAttempt ?? e.LastAttempt,
             e.Client?.DeclinedCapabilities,
             (e.Client as VBLspClient)?.OpenDocumentCount ?? 0,
-            (e.Client as VBLspClient)?.SentWorkspaceRootUri)).ToList();
+            (e.Client as VBLspClient)?.SentWorkspaceRootUri,
+            (e.Client as VBLspClient)?.StandardError,
+            (e.Client as VBLspClient)?.Messages)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -830,15 +832,14 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     /// <summary>
-    /// Forwarded as-is. Which server spoke is already in the message the client logged; a subscriber's job
-    /// is to put it in front of someone, not to work out who it came from.
+    /// Preserve the originating client, including when two servers claim the same language.
     /// </summary>
-    private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(this, e);
+    private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(sender, e);
     private void OnInnerTrace(object? sender, LogTraceParams e) => TraceReceived?.Invoke(this, e);
 
     private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender, p);
 
-    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
+    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(sender, p);
 
     /// <summary>
     /// A connection came up or went away on its own — a transport closing, or a reconnect loop getting

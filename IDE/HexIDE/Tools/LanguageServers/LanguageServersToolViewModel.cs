@@ -51,6 +51,7 @@ public partial class LanguageServersToolViewModel : Document
     private readonly ConversationLog _capture;
     private readonly IEventBus _events;
     private readonly Pseudonymiser _pseudonyms;
+    private readonly IWindowManager _windows;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -84,8 +85,9 @@ public partial class LanguageServersToolViewModel : Document
 
     public LanguageServersToolViewModel(
         ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
-        IEventBus events, Pseudonymiser pseudonyms)
+        IEventBus events, Pseudonymiser pseudonyms, IWindowManager windows)
     {
+        _windows = windows;
         _registry = registry;
         _localization = localization;
         _capture = capture;
@@ -195,6 +197,25 @@ public partial class LanguageServersToolViewModel : Document
     /// Recomposed on every read: the window rebuilds wholesale on any registry event, and a cached report
     /// would describe whichever state it was built in.
     /// </remarks>
+    public string RowReportText(LanguageServerRowViewModel row) =>
+        row.ToReportText(new ConversationRedactor(_pseudonyms));
+
+    public async System.Threading.Tasks.Task SaveReportAsync(LanguageServerRowViewModel? row = null)
+    {
+        var report = row is null ? ReportText : RowReportText(row);
+        var path = await _windows.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            DefaultExtension = "txt",
+            SuggestedFileName = "language-servers.txt",
+        });
+        if (path is null) return;
+        try { await System.IO.File.WriteAllTextAsync(path, report); }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            await _windows.MessageBox(ex.Message, icon: MessageBoxIcon.Error);
+        }
+    }
+
     public string ReportText => ToReportText(new ConversationRedactor(_pseudonyms));
 
     /// <param name="redactor">

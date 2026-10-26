@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "الاحتفاظ بمتون الرسائل",
     "Str.Tool.LanguageServers.ShowAllMessages": "عرض جميع الرسائل المسجّلة",
     "Str.Tool.LanguageServers.ShowMessages": "عرض رسائله",
+    "Str.Tool.LanguageServers.StandardError": "الخطأ القياسي",
+    "Str.Tool.LanguageServers.ServerMessages": "رسائل الخادم",
     "Str.Tool.LanguageServers.CopyReport": "نسخ التقرير",
     "Str.Tool.LanguageServers.ReportRedacted": "يستبدل التقرير المسارات والعناوين بأسماء مستعارة.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "لم يعلن هذا الخادم عن أي إمكانات.",

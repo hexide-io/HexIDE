@@ -697,6 +697,8 @@
     "Str.Tool.LanguageServers.KeepBodies": "Guardar corpos das mensagens",
     "Str.Tool.LanguageServers.ShowAllMessages": "Mostrar todas as mensagens registadas",
     "Str.Tool.LanguageServers.ShowMessages": "Mostrar as suas mensagens",
+    "Str.Tool.LanguageServers.StandardError": "Saída de erro padrão",
+    "Str.Tool.LanguageServers.ServerMessages": "Mensagens do servidor",
     "Str.Tool.LanguageServers.CopyReport": "Copiar relatório",
     "Str.Tool.LanguageServers.ReportRedacted": "O relatório substitui caminhos e endereços por nomes fictícios.",
     "Str.Tool.LanguageServers.AdvertisedNothing": "Este servidor não anunciou quaisquer capacidades.",

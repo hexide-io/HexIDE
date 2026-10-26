@@ -51,7 +51,58 @@ public class LanguageServersMarshallingTests
 
         var capture = new ConversationLog();
         return (new LanguageServersToolViewModel(
-            registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser()), capture);
+            registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser(), Substitute.For<HexIDE.IDE.IWindowManager>()), capture);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async System.Threading.Tasks.Task ReportButtonsCopyAndSaveTheirScope(bool singleRow)
+    {
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([Conn("one", "vb6"), Conn("two", "vb6")]);
+        registry.ConfigurationProblems.Returns([]);
+        await using var capture = new ConversationLog();
+        var windows = Substitute.For<IWindowManager>();
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + ".txt");
+        windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(path);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), capture,
+            Substitute.For<IEventBus>(), new Pseudonymiser(), windows);
+        var view = new LanguageServersToolView { DataContext = vm };
+        var window = new Avalonia.Controls.Window { Content = view, Width = 1000, Height = 800 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var buttons = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(view)
+                .OfType<Avalonia.Controls.Button>().Where(b => singleRow
+                    ? b.DataContext is LanguageServerRowViewModel { Id: "one" }
+                    : ReferenceEquals(b.DataContext, vm)).ToList();
+            buttons.Single(b => b.Name == "CopyReport").RaiseEvent(
+                new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            var clipboard = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!);
+            clipboard.Should().NotBeNull();
+            clipboard.Should().Contain("[one]");
+            if (singleRow) clipboard.Should().NotContain("[two]");
+            else clipboard.Should().Contain("[two]");
+            buttons.Single(b => b.Name == "SaveReport").RaiseEvent(
+                new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            // The picker is immediate; the asynchronous file write can finish on another thread.
+            string? saved = null;
+            for (var i = 0; i < 100; i++)
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    saved = await System.IO.File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+                    if (saved.Length > 0) break;
+                }
+                await System.Threading.Tasks.Task.Delay(20, TestContext.Current.CancellationToken);
+            }
+            saved.Should().Contain("[one]");
+            if (singleRow) saved.Should().NotContain("[two]");
+            else saved.Should().Contain("[two]");
+        }
+        finally { window.Close(); System.IO.File.Delete(path); }
     }
 
     [AvaloniaFact]
@@ -84,7 +135,7 @@ public class LanguageServersMarshallingTests
 
         var capture = new ConversationLog();
         var vm = new LanguageServersToolViewModel(
-            registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser());
+            registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser(), Substitute.For<HexIDE.IDE.IWindowManager>());
 
         var rows = vm.Groups.SelectMany(g => g.Rows).ToDictionary(r => r.Id);
         var other = 0;
@@ -119,7 +170,7 @@ public class LanguageServersMarshallingTests
         registry.ConfigurationProblems.Returns([]);
 
         var vm = new LanguageServersToolViewModel(
-            registry, Loc(), new ConversationLog(), Substitute.For<IEventBus>(), new Pseudonymiser());
+            registry, Loc(), new ConversationLog(), Substitute.For<IEventBus>(), new Pseudonymiser(), Substitute.For<HexIDE.IDE.IWindowManager>());
         vm.Groups.Single().Rows.Single().IsRunning.Should().BeFalse();
 
         registry.Connections.Returns([Conn("s", "vb6")]);
