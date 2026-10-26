@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "Tillåt alltid",
     "Str.LspArtifact.Grants": "Nedan visas servrar som får skapa arbetsytefiler. Återställ ett tillstånd för att få frågan igen nästa session.",
     "Str.LspArtifact.Reset": "Återställ",
+    "Str.LspArtifact.ResetGrant": "Återställ {0} för {1} i {2}",
     "Str.Archive.ProjectFormat": "{0} (skrivskyddat arkiv)",
     "Str.Archive.Hidden": "Visa dolda arkivposter",
     "Str.Archive.ReadOnly": "Skrivskyddad förhandsvisning av arkivet. Redigering, kompilering och körning är inte tillgängliga.",

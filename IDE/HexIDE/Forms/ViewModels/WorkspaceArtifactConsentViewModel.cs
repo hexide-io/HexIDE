@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HexIDE.IDE;
@@ -11,7 +12,9 @@ public partial class WorkspaceArtifactConsentViewModel(string server, string pat
     : ObservableObject, IDialog
 {
     public string Title => localization.GetString("Str.LspArtifact.Title");
-    public string Message => string.Format(localization.GetString("Str.LspArtifact.Prompt"), server, path);
+    public string Message => string.Format(localization.GetString("Str.LspArtifact.Prompt"), server, Path.GetFileName(path));
+    /// <summary>Where the file goes, shown beneath the sentence that names it.</summary>
+    public string Folder => Path.GetDirectoryName(path) ?? "";
     public bool CanResize => false;
     public WorkspaceArtifactDecision Decision { get; private set; } = WorkspaceArtifactDecision.Deny;
     public event Action<bool>? CloseRequested;

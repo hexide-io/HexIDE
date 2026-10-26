@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "السماح دائمًا",
     "Str.LspArtifact.Grants": "ترد أدناه الخوادم المسموح لها بإنشاء ملفات مساحة العمل. أعد تعيين الإذن للسؤال مجددًا في الجلسة التالية.",
     "Str.LspArtifact.Reset": "إعادة تعيين",
+    "Str.LspArtifact.ResetGrant": "إعادة تعيين {0} لـ {1} في {2}",
     "Str.Archive.ProjectFormat": "{0} (أرشيف للقراءة فقط)",
     "Str.Archive.Hidden": "إظهار عناصر الأرشيف المخفية",
     "Str.Archive.ReadOnly": "معاينة الأرشيف للقراءة فقط. التحرير والبناء والتشغيل غير متاحة.",

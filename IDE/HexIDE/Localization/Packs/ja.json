@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "常に許可",
     "Str.LspArtifact.Grants": "ワークスペースのファイルを生成できるサーバーの一覧です。権限をリセットすると次のセッションで再度確認します。",
     "Str.LspArtifact.Reset": "リセット",
+    "Str.LspArtifact.ResetGrant": "{2} の {1} に対する {0} をリセット",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",
     "Str.Archive.ReadOnly": "読み取り専用のアーカイブプレビューです。編集、ビルド、実行は利用できません。",

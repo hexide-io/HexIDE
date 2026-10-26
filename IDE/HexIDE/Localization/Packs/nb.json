@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "Tillat alltid",
     "Str.LspArtifact.Grants": "Nedenfor vises servere som kan opprette arbeidsområdefiler. Tilbakestill en tillatelse for å bli spurt igjen i neste økt.",
     "Str.LspArtifact.Reset": "Tilbakestill",
+    "Str.LspArtifact.ResetGrant": "Tilbakestill {0} for {1} i {2}",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivoppføringer",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning av arkivet. Redigering, bygging og kjøring er ikke tilgjengelig.",

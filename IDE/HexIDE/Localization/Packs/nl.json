@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "Altijd toestaan",
     "Str.LspArtifact.Grants": "Hieronder staan servers die werkruimtebestanden mogen genereren. Stel een toestemming opnieuw in om het bij de volgende sessie opnieuw te vragen.",
     "Str.LspArtifact.Reset": "Opnieuw instellen",
+    "Str.LspArtifact.ResetGrant": "{0} voor {1} in {2} opnieuw instellen",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",
     "Str.Archive.ReadOnly": "Alleen-lezenvoorbeeld van het archief. Bewerken, bouwen en uitvoeren zijn niet beschikbaar.",

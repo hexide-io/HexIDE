@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "一律允許",
     "Str.LspArtifact.Grants": "以下列出了獲准產生工作區檔案的伺服器。重設授權後，將在下次工作階段再次詢問。",
     "Str.LspArtifact.Reset": "重設",
+    "Str.LspArtifact.ResetGrant": "重設 {2} 中 {1} 的 {0}",
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",
     "Str.Archive.ReadOnly": "唯讀封存預覽。無法編輯、建置或執行。",

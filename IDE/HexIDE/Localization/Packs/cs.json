@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "Vždy povolit",
     "Str.LspArtifact.Grants": "Níže jsou servery oprávněné vytvářet soubory pracovního prostoru. Obnovte oprávnění pro nový dotaz v příští relaci.",
     "Str.LspArtifact.Reset": "Obnovit",
+    "Str.LspArtifact.ResetGrant": "Obnovit {0} pro {1} v {2}",
     "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",
     "Str.Archive.ReadOnly": "Náhled archivu jen pro čtení. Úpravy, sestavení a spuštění nejsou dostupné.",

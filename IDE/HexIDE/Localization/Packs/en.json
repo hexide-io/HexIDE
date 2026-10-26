@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "Allow Always",
     "Str.LspArtifact.Grants": "Servers allowed to generate workspace files are listed below. Reset a grant to ask again next session.",
     "Str.LspArtifact.Reset": "Reset",
+    "Str.LspArtifact.ResetGrant": "Reset {0} for {1} in {2}",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",
     "Str.Archive.ReadOnly": "Read-only archive preview. Editing, build and run are unavailable.",

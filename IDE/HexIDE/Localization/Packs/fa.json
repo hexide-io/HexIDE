@@ -10,6 +10,7 @@
     "Str.LspArtifact.Always": "همیشه اجازه بده",
     "Str.LspArtifact.Grants": "کارسازهای مجاز به ساخت پرونده‌های فضای کاری در زیر آمده‌اند. مجوز را بازنشانی کنید تا در نشست بعد دوباره پرسیده شود.",
     "Str.LspArtifact.Reset": "بازنشانی",
+    "Str.LspArtifact.ResetGrant": "بازنشانی {0} برای {1} در {2}",
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",
     "Str.Archive.ReadOnly": "پیش‌نمایش بایگانی فقط‌خواندنی است. ویرایش، ساخت و اجرا در دسترس نیستند.",
