@@ -490,6 +490,18 @@ This note SHALL accompany both empty and nonempty matches, alongside any depth-l
 - **WHEN** a match search runs in Options with other pages unselected
 - **THEN** the note names their category and page and directs the caller to expand the category and select the page with `interact`
 
+### Requirement: Program wait replies distinguish running and queued handlers
+
+Program wait replies SHALL name only events with handlers in the program and SHALL describe queued handlers
+as waiting to run separately from handlers already started.
+
+#### Scenario: Events arrive while a MsgBox holds a handler
+
+- **WHEN** a handler is suspended at a MsgBox and other control events arrive
+- **THEN** the reply names the suspended handler as still running
+- **AND** events with handlers queued behind it are named as waiting to run
+- **AND** events without handlers are omitted
+
 ### Requirement: Pointer drags through interact
 
 `interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and
