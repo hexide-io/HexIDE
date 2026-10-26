@@ -240,6 +240,36 @@ public class SerializationRoundTripTests
     }
 
     [Fact]
+    public void A_new_Timer_has_zero_Interval()
+    {
+        var timer = new ComponentInstance(TimerComponentClass.Instance, "Timer1");
+        timer.GetPropertyOrDefault(VBProperties.IntervalProperty).Should().Be(0);
+    }
+
+    [Fact]
+    public void A_Timer_writes_only_a_nonzero_Interval_and_round_trips()
+    {
+        foreach (var interval in new[] { 0, 1000 })
+        {
+            var form = new FormDefinition(MakeProject(), FormComponentClass.Instance, "Form1");
+            var timer = new ComponentInstance(TimerComponentClass.Instance, "Timer1")
+                .SetProperty(VBProperties.IntervalProperty, interval);
+            form.UpdateComponents([form.Components[0], timer]);
+
+            var (written, _) = new FormSerializer().Serialize(form, "Form1.frm");
+            if (interval == 0)
+                written.Should().NotContain("Interval");
+            else
+                written.Should().Contain("Interval        =   1000");
+            var loaded = new FormDeserializer().Deserialize(MakeProject(), written, NullSink.Instance)!;
+            loaded.Components.Single(c => c.BaseClass is TimerComponentClass)
+                .GetPropertyOrDefault(VBProperties.IntervalProperty).Should().Be(interval);
+            var (again, _) = new FormSerializer().Serialize(loaded, "Form1.frm");
+            again.Should().Be(written);
+        }
+    }
+
+    [Fact]
     public void FormSerializer_Timer_OmitsWidthHeightVisible()
     {
         // A VB6 Timer is invisible — emitting Width/Height/Visible makes vb6.exe reject the .frm
