@@ -48,7 +48,7 @@ public partial class VB6BuiltIns
             case "currency":       return new Vb6Value(FormatPlainNumeric(NumToDecimal(v),
                                         cc.NumberFormat.CurrencySymbol + "#,##0.00"));
             // Named date/time formats resolve through the current culture's patterns (locale-dependent).
-            case "general date":   return new Vb6Value(VbDisplay.ToText(new Vb6Value(AsDate(v))));
+            case "general date":   return new Vb6Value(VbDisplay.ToText(new Vb6Value(AsSerialDate(v))));
             case "long date":      return new Vb6Value(AsDate(v).ToString("D", cc));
             case "medium date":    return new Vb6Value(AsDate(v).ToString("dd-MMM-yy", cc));
             case "short date":     return new Vb6Value(AsDate(v).ToString("d", cc));
@@ -75,8 +75,8 @@ public partial class VB6BuiltIns
             return new Vb6Value(FormatString(AsStr(v), fmt));
 
         // A Date value, or any value under a date mask (a number is read as its OLE serial), formats as a date.
-        if (v.Value is DateTime dtv)
-            return new Vb6Value(FormatDate(dtv, fmt));
+        if (v.Value is VbDate dtv)
+            return new Vb6Value(FormatDate(dtv.Instant, fmt));
         if (IsDateMask(fmt))
             return new Vb6Value(FormatDate(AsDate(v), fmt));
 
@@ -96,7 +96,7 @@ public partial class VB6BuiltIns
         bool b => b ? "True" : "False",
         // With no mask, a Single, a Double and a Date come out exactly as CStr makes them (measured): 7 or 15
         // significant digits, E notation where CStr uses it, and a date without a midnight time (#772, #771).
-        float or double or DateTime => VbDisplay.ToText(v),
+        float or double or VbDate => VbDisplay.ToText(v),
         _ => GeneralNumber(v),
     };
 
@@ -161,7 +161,7 @@ public partial class VB6BuiltIns
                     sb.Append(((dt.Month - 1) / 3 + 1).ToString());
                     afterHour = false; break;
                 case 'c':
-                    sb.Append(VbDisplay.ToText(new Vb6Value(dt)));   // as General Date and CStr (measured)
+                    sb.Append(VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(dt))));   // as General Date and CStr (measured)
                     afterHour = false; break;
                 default:
                     sb.Append(c); i++; continue;   // literal char (separators etc.) — preserves afterHour

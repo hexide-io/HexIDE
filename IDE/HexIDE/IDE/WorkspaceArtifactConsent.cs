@@ -62,7 +62,7 @@ public sealed class WorkspaceArtifactConsent : IWorkspaceArtifactConsent
         var decision = await _prompt(serverName, path);
         _session[key] = decision != WorkspaceArtifactDecision.Deny;
         if (decision == WorkspaceArtifactDecision.AllowAlways)
-            _store.RecordWorkspace(serverId, workspace, key);
+            _store.RecordWorkspace(serverId, workspace, key, spec.RelativePath, spec.ProviderName);
         return _session[key];
     }
 }

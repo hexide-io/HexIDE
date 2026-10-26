@@ -1780,8 +1780,8 @@ public sealed class VBLspClient : ILspClient
         DisposeRpc();
 
         _transport.Closed -= OnTransportClosed;
-        _transport.Notice -= OnTransportNotice;
         await _transport.DisposeAsync();
+        _transport.Notice -= OnTransportNotice;
         _initialized = false;
         _capabilities = null;
         _identity = null;
@@ -1811,8 +1811,7 @@ public sealed class VBLspClient : ILspClient
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
-        // went. A kill cannot arrive here: StopAsync unhooks this before it disposes the transport, and each
-        // transport unhooks its own exit handler before it kills.
+        // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 

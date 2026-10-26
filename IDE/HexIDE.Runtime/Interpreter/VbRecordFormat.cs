@@ -127,7 +127,7 @@ internal static class VbRecordFormat
         else if (type == Vb6Value.ValueType.Currency)
             w.I64(decimal.ToInt64(Convert.ToDecimal(typed.Value, CultureInfo.InvariantCulture) * 10000m));
         else if (type == Vb6Value.ValueType.Date)
-            w.Double(((DateTime)typed.Value!).ToOADate());
+            w.Double(((VbDate)typed.Value!).Serial);
         else if (type == Vb6Value.ValueType.Boolean)
             w.U16((bool)typed.Value! ? 0xFFFF : 0);
         else if (type == Vb6Value.ValueType.Byte)
@@ -357,15 +357,10 @@ internal static class VbRecordFormat
     // a HexIDE Date can hold, it is refused rather than read as some other date.
     private static Vb6Value ToDate(double serial)
     {
-        try
-        {
-            return new Vb6Value(DateTime.FromOADate(serial));
-        }
-        catch (ArgumentException)
-        {
-            throw new NotImplementedException(
-                $"Get of a Date whose serial is {serial.ToString(CultureInfo.InvariantCulture)} is not implemented: it is outside the years 100 to 9999");
-        }
+        if (VbDate.InRange(serial))
+            return new Vb6Value(new VbDate(serial));
+        throw new NotImplementedException(
+            $"Get of a Date whose serial is {serial.ToString(CultureInfo.InvariantCulture)} is not implemented: it is outside the years 100 to 9999");
     }
 
     /// <summary>
