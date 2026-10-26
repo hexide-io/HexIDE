@@ -1894,7 +1894,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             "BreakWhenTrue or BreakWhenChanged.",
                 };
 
-            var context = ctx.DebugController.GetLocals()?.Context ?? "(All Procedures)";
+            var context = ctx.DebugController.GetLocals()?.Context ?? HexIDE.Debugging.WatchExpression.AllProceduresContext;
             ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });
