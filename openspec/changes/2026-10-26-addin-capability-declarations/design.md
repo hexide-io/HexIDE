@@ -1,4 +1,4 @@
-# Proposed design — awaiting Jen's decision
+# Design — the policy decisions were made by Jen on 2026-10-26 (#459)
 
 ## Context and limits
 
@@ -33,8 +33,8 @@ program launches; the host may start the contributed server and send its configu
 capability's stated consequence. A separate arbitrary launch needs `program.run`.
 
 The broad UI category includes template materialization and control execution as existing contribution
-consequences. It does not grant a general workspace writer. Jen should review whether template creation
-needs an additional write declaration. Network access and reads outside loaded projects are not assigned
+consequences. It does not grant a general workspace writer. Template creation also needs
+`project.write`, since it writes project files (decided 2026-10-26). Network access and reads outside loaded projects are not assigned
 new identifiers in this draft; the in-process limitation must remain visible, and extending the
 vocabulary requires a versioned review rather than implying that undeclared direct access is impossible.
 
@@ -70,13 +70,16 @@ still a declaration, not a promise that the feature is implemented.
 
 | Option | Missing field and older-schema behaviour | Consequences |
 |---|---|---|
-| A: deny all host capabilities (preferred for review) | Schema 2 without the field is incompatible. Schema 1 and older load only after existing trust/consent checks, with no capability grants. A stray capability field on an old schema does not grant anything. | Existing add-ins may initialize but their privileged host calls fail until repacked. No silent inherited full access. Direct in-process access remains possible. Publishers must migrate. |
+| A: deny all host capabilities (**decided**) | Schema 2 without the field is incompatible. Schema 1 and older load only after existing trust/consent checks, with no capability grants. A stray capability field on an old schema does not grant anything. | Existing add-ins may initialize but their privileged host calls fail until repacked. No silent inherited full access. Direct in-process access remains possible. Publishers must migrate. |
 | B: explicit legacy full trust | Schema 2 still requires the field. Older schemas without a declaration may load only after a separate, prominent legacy full-trust disclosure in the unified flow. | Preserves old add-ins but offers no declared limits. Show that capabilities are unknown, never an empty safe-looking list. Legacy is a compatibility state, not a new capability identifier. |
 
 Under B, a historical hash-only Allow cannot establish that the legacy disclosure was seen. A consent
 record migration/version marker must force that decision once while retaining manifest-hash keying;
 #460 would own the flow. No automatic legacy grant based on id, signature or an earlier generic Allow.
-Jen must choose A or B (or record another policy). The delta intentionally does not settle this branch.
+**Decided 2026-10-26: A.** Jen chose deny-by-default on #459. B is rejected: it would keep a full-trust path
+with no declared limits for as long as old add-ins exist, and with few third-party add-ins published, moving
+them costs least now. The consent-migration paragraph above applies only to B, and is kept as the record of
+what was rejected.
 An explicit schema-2 empty list differs from an omitted legacy declaration in either option.
 
 ## Host checks and attribution
@@ -87,14 +90,15 @@ side effects occur; denied calls must identify the capability and perform no ope
 exception/result shape remains a review decision so existing APIs cannot silently report success.
 Shared services must not accidentally reuse the last add-in's authority. Contribution cleanup remains
 available on failure or unload. First-party pre-consent must not automatically fabricate declarations;
-Jen must decide migration of bundled packages and unsigned developer packages explicitly.
+Decided 2026-10-26: first-party packages declare their own capabilities in their manifests, as any other
+package does, and unsigned developer packages are enforced the same way.
 
 ## Consumers: #460 and #462
 
 #460 can use one immutable verified request containing manifest hash, identity, declaration list and
 legacy state for every consent entry path. It displays host-owned localized descriptions, not publisher
 prose. Proposed consent is one decision for the exact build's complete declaration, not per-capability
-toggles; Jen must approve that granularity. Revocation and enablement remain separate existing controls.
+toggles, decided 2026-10-26. Revocation and enablement remain separate existing controls.
 
 #462 can display declared capabilities separately from observed host-mediated use, associated with that
 same build hash. A successful host operation or subscription delivery can report the capability used;

@@ -1,9 +1,10 @@
 ## 1. Security review before implementation
 
-- [ ] 1.1 Jen approves or revises the vocabulary, scopes and host API mapping in design.md.
-- [ ] 1.2 Jen selects the missing/older-manifest policy, including historical consent migration.
-- [ ] 1.3 Jen decides first-party/developer treatment, consent granularity and refusal contract.
-- [ ] 1.4 Record those decisions and resolve the conditional migration contract before coding.
+- [x] 1.1 Jen approves or revises the vocabulary, scopes and host API mapping in design.md.
+- [x] 1.2 Jen selects the missing/older-manifest policy, including historical consent migration.
+- [x] 1.3 Jen decides first-party/developer treatment and consent granularity.
+- [ ] 1.5 Settle the refusal shape (exception or result) in the implementation's security review.
+- [x] 1.4 Record those decisions and resolve the conditional migration contract before coding.
 
 ## 2. Signed declarations (only after review)
 

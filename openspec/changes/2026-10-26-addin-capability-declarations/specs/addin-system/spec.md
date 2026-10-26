@@ -19,6 +19,22 @@ fresh third-party consent keyed by manifest hash, never inherited by add-in iden
 - **WHEN** a capability-aware manifest contains an empty capabilities array
 - **THEN** it receives no declared host capabilities
 
+### Requirement: A manifest that declares nothing gets no host capabilities
+A manifest from before capability declarations, which has no `capabilities` field, SHALL still load after
+the existing trust and consent checks, and SHALL receive no host capabilities. Each host call that needs a
+capability SHALL be refused, naming the capability, until the package is repacked with a declaration. No
+consent, signature or add-in identifier SHALL grant such a manifest full trust.
+
+#### Scenario: An add-in written before declarations
+- **WHEN** a schema-1 add-in with no capabilities field is allowed and loads
+- **THEN** its request to read a project's source through the host is refused, naming `project.read`
+- **AND** it was not offered a legacy full-trust option
+
+#### Scenario: Template creation
+- **WHEN** an add-in that declares `ui.contribute` but not `project.write` registers a project template
+- **AND** the user creates a project from it
+- **THEN** the template's files are not written, and the refusal names `project.write`
+
 ### Requirement: Host capability checks reflect declared consequences
 The host SHALL gate project inspection, modification, execution, UI/navigation and language-server
 contribution with the independent declarations `project.read`, `project.write`, `program.run`,
