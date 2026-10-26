@@ -830,11 +830,11 @@ public static class UiAutomationDriver
     /// </summary>
     private static string NameWithoutRow(object? item, int index)
     {
-        if (item?.GetType().GetProperty("AccessibleName")?.GetValue(item) is string { Length: > 0 } accessible)
+        if (Safe(() => item?.GetType().GetProperty("AccessibleName")?.GetValue(item), null) is string { Length: > 0 } accessible)
             return accessible;
-        var text = item?.ToString();
+        var text = Safe(() => item?.ToString(), null);
         return text is null || IsDefaultText(text, item)
-            ? $"#{index}, whose row is not made until it is scrolled into view"
+            ? $"#{index}, which has no row to read a name from: a list makes rows only for what it shows"
             : text;
     }
 

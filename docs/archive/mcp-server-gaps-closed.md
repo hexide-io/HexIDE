@@ -18,8 +18,8 @@ list was 0 px tall, so no row was made. `inspect_element` on `…/List[Categoriz
 
 **Fixed (#2026).** A selected item with no row is named by its `AccessibleName`, the name the IDE's view models give
 their rows to bind, which is the name the dump shows. Failing that, it is named by its own text. With neither, the
-reply says `#25, whose row is not made until it is scrolled into view`, never a type's name. Guarded by
-`UnrealizedSelectionTests`.
+reply says `#25, which has no row to read a name from: a list makes rows only for what it shows`, never a
+type's name. Guarded by `UnrealizedSelectionTests`.
 
 ## A waiting dialog's buttons included its check boxes and radio buttons — **CLOSED** (#2079, 2026-10-26)
 

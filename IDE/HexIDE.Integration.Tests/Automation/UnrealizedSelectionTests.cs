@@ -62,7 +62,7 @@ public class UnrealizedSelectionTests
         {
             list.ContainerFromIndex(25).Should().BeNull("the selected item must have no row for this to test anything");
             UiAutomationDriver.Inspect(list, "List").SelectionItems.Should()
-                .Equal("#25, whose row is not made until it is scrolled into view");
+                .Equal("#25, which has no row to read a name from: a list makes rows only for what it shows");
         }
         finally { window.Close(); }
     }
