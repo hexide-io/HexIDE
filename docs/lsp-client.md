@@ -57,6 +57,25 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
+are normalized to a complete list (`isIncomplete: false`); list objects retain their supplied flag.
+The editor receives the items from either shape; it does not currently use `isIncomplete`.
+Malformed replies follow the request-failure warning path.
+
+The #2204 result-union audit used the pinned LSP metamodel. Among implemented requests,
+`definition` and `declaration` already normalize single locations, location arrays and location-link
+arrays; `documentSymbol` and `workspace/symbol` already normalize both symbol shapes. Hover's
+nested content union is handled by its converter. Diagnostic reports are read by `kind`, and
+`workspace/executeCommand` retains arbitrary JSON. Folding ranges, semantic tokens (full), signature
+help, highlights, rename, formatting and code lenses accept their single non-null result shape or
+`null`. Resolve requests have a single result shape.
+
+`textDocument/codeAction` (including its mixed Command/CodeAction array) and the other unimplemented
+request methods remain outside this fix. Nested signature-help unions also remain outstanding:
+signature/parameter documentation accepts only strings, and parameter labels only strings rather
+than offset pairs. These need separate changes and wire tests; this audit does not claim full
+coverage of unions inside every result member.
+
 Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's

@@ -1176,6 +1176,11 @@ earlier registration on a tie. Late answers SHALL be dropped, logged at debug le
 protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
 deadline and caller cancellation.
 
+#### Scenario: A server returns a bare completion array
+- **WHEN** a completion reply is a `CompletionItem[]` rather than a `CompletionList`
+- **THEN** the client SHALL normalize it to a list with `isIncomplete: false` and preserve its items
+- **AND** list replies and null replies SHALL continue to provide their items or no items respectively
+
 #### Scenario: Two servers offer the same completion
 - **WHEN** two timely answers contain the same label and kind
 - **THEN** the higher-priority claimant's item is shown once, with its detail and insertion text
