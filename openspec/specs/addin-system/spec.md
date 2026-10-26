@@ -48,7 +48,7 @@ need its own bespoke unregister call.
 - **THEN** every loaded add-in is disposed
 
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
-The host surface SHALL let an add-in add menu items at a named location, register a dockable tool window
+The host surface SHALL let an add-in add menu items under Tools or AddIns (case-insensitive), register a dockable tool window
 from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
 project template. A contributed control SHALL NOT be a container, and a form nesting a control under one
 SHALL be held read-only rather than saved.
@@ -68,6 +68,16 @@ such a form is recoverable; writing it is not.
 - **WHEN** an add-in adds a menu item at a named parent location
 - **THEN** it appears there, visually separated from the IDE's own items
 - **AND** it can supply a predicate that greys the item out when unavailable
+
+Unknown menu locations SHALL be logged with the contributing add-in's identity and requested path, and
+the placement SHALL be dropped without removing a separately registered command. AddIns SHALL also accept
+a submenu name after `/`; Tools SHALL retain its flat placement. A dropped placement SHALL return a
+harmless disposable handle.
+
+#### Scenario: Contributing to an unknown menu location
+- **WHEN** an add-in requests a menu location other than Tools or AddIns, including an empty path
+- **THEN** the host logs the add-in and requested path and adds no menu item
+- **AND** a separately registered command remains available
 
 #### Scenario: Contributing a tool window
 - **WHEN** an add-in registers a tool window with a factory

@@ -829,6 +829,10 @@ public partial class MainViewViewModel : ObservableObject
         Locals = locals;
         Watches = watches;
         CallStack = callStack;
+        callStack.FrameShown += () =>
+        {
+            if (callStack.ShownFrame?.Module is { } module) RevealBreak(module);
+        };
         ProjectExplorer = projectExplorer;
         ColorPalette = colorPalette;
         ObjectBrowser = objectBrowser;

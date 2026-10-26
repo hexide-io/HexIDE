@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
+using HexIDE.Processes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -96,6 +97,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private PipeStream? _pipe;
     private Process? _process;
+    private ChildProcessJob? _job;
 
     /// <summary>
     /// Set when a launch was configured, ran, and produced no handle to own.
@@ -413,14 +415,10 @@ public sealed class NamedPipeLspTransport : ILspTransport
             UseShellExecute = false,
             CreateNoWindow = true,
 
-            // Standard error only. The protocol rides the pipe, so this stream carries nothing but the
-            // server's own words — which for a pipe server is the only thing it has to say when it fails
-            // before the pipe exists.
-            //
-            // Standard OUTPUT is deliberately left alone. A pipe server is exactly the kind that writes a
-            // banner there, and redirecting a stream nobody reads fills its buffer and blocks the child —
-            // turning a diagnostic into a hang. Redirect what is read; read what is redirected.
+            // The protocol rides the pipe; both streams carry the server's own words.
+            // Redirect what is read; read what is redirected, so neither can block the child.
             RedirectStandardError = true,
+            RedirectStandardOutput = true,
         };
 
         if (argumentList is not null)
@@ -437,6 +435,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             startInfo.Arguments,
             string.IsNullOrEmpty(startInfo.WorkingDirectory) ? "<inherited>" : startInfo.WorkingDirectory);
 
+        _job = new ChildProcessJob();
         var process = Process.Start(startInfo);
         if (process is null)
         {
@@ -449,6 +448,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         _process = process;
+        _job.Assign(process);
         process.EnableRaisingEvents = true;
 
         process.ErrorDataReceived += (_, e) =>
@@ -459,8 +459,17 @@ public sealed class NamedPipeLspTransport : ILspTransport
             Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardError, e.Data));
         };
 
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not { Length: > 0 }) return;
+
+            _logger.LogDebug("[lsp stdout] {Data}", e.Data);
+            Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardOutput, e.Data));
+        };
+
         process.Exited += OnServerExited;
         process.BeginErrorReadLine();
+        process.BeginOutputReadLine();
     }
 
     private void OnServerExited(object? sender, EventArgs e)
@@ -507,7 +516,11 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         if (process is null)
+        {
+            _job?.Dispose();
+            _job = null;
             return;
+        }
 
         // Killing the child is required, not tidy-up. A real third-party server was measured taking a
         // client PID on its command line, silently ignoring it, logging that it "will not be able to
@@ -535,5 +548,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         catch { /* already gone */ }
 
         process.Dispose();
+        _job?.Dispose();
+        _job = null;
     }
 }

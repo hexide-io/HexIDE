@@ -30,6 +30,7 @@ public class PrePass : VB6BaseVisitor<object?>
     // Module-level variables declared Public, for the same classification: another module's Public variable in a bound
     // is VB6's "Constant expression required", where a name it cannot see is "Variable not defined" (measured).
     public HashSet<string> PublicVariables = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> PrivateVariables = new(StringComparer.OrdinalIgnoreCase);
     // Module-level arrays whose bounds are not plain integers. They are sized only when the module's declarations
     // run, which a form's run does not do yet (#256), so that run refuses them rather than leave them unallocated.
     public List<string> DeferredArrays = new();
@@ -383,6 +384,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 // "Constant expression required", as `Public n` is).
                 if (context.visibility()?.PUBLIC() != null || context.visibility()?.GLOBAL() != null)
                     PublicVariables.Add(subStmt.ambiguousIdentifier().GetText());
+                else if (context.visibility()?.PRIVATE() != null)
+                    PrivateVariables.Add(subStmt.ambiguousIdentifier().GetText());
             }
         }
         else
