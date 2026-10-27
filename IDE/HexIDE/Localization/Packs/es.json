@@ -367,6 +367,7 @@
     "Str.Designer.Context.Properties": "Propiedades",
     "Str.CodeEditor.FileNotSaved.Banner": "Este archivo no se guardará — HexIDE todavía no puede reproducirlo con fidelidad, así que guardarlo lo alteraría. Su código forma parte del archivo, por eso se rechaza la escritura en esta ventana.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "No se cambió el nombre porque modificaría el encabezado de este archivo o las líneas Attribute de un miembro, que mantiene el IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "No se realizó el cambio de nombre porque también modifica otros documentos: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La línea {0} forma parte del encabezado de este archivo o de las líneas Attribute de un miembro, que nunca se ejecutan, así que no admite un punto de interrupción ni un marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insertar archivo",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nuevo nombre:",

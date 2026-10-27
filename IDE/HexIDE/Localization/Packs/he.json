@@ -367,6 +367,7 @@
     "Str.Designer.Context.Properties": "מאפיינים",
     "Str.CodeEditor.FileNotSaved.Banner": "קובץ זה לא יישמר — HexIDE עדיין אינו יכול לשחזר אותו נאמנה, ולכן שמירתו תשנה אותו. הקוד שלו הוא חלק מהקובץ, ומשום כך הקלדה בחלון זה נדחית.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "שינוי השם לא בוצע, כי הוא היה משנה את כותרת הקובץ הזה או את שורות ה-Attribute של אחד האיברים, שסביבת הפיתוח מנהלת.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "שינוי השם לא בוצע משום שהוא עורך גם מסמכים אחרים: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "שורה {0} היא חלק מכותרת הקובץ הזה או משורות ה-Attribute של אחד האיברים, שלעולם אינן מורצות, ולכן אי אפשר להציב בה נקודת עצירה או סימנייה.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "הוסף קובץ",
     "Str.CodeEditor.Dialog.RenamePrompt": "שם חדש:",

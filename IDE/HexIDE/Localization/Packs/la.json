@@ -328,6 +328,7 @@
     "Str.Designer.Context.Properties": "Proprietates",
     "Str.CodeEditor.FileNotSaved.Banner": "Hic fasciculus non servabitur — HexIDE eum nondum fideliter exprimere potest, itaque, si servaretur, mutaretur. Codex eius pars fasciculi est, quare scriptio in hac fenestra recusatur.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Nomen non mutatum est, quia caput huius fasciculi aut versus Attribute alicuius membri mutaret, quos IDE curat.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Nomen non mutatum est quia etiam alia documenta mutat: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Versus {0} pars est capitis huius fasciculi aut versuum Attribute alicuius membri, qui numquam currunt; itaque nec punctum interruptionis nec signaculum ibi poni potest.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insere Plicam",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nomen novum:",

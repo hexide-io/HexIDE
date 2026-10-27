@@ -367,6 +367,7 @@
     "Str.Designer.Context.Properties": "Eigenschappen",
     "Str.CodeEditor.FileNotSaved.Banner": "Dit bestand wordt niet opgeslagen — HexIDE kan het nog niet getrouw reproduceren, dus opslaan zou het wijzigen. De code maakt deel uit van het bestand, daarom wordt typen in dit venster geweigerd.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "De naamswijziging is niet doorgevoerd, omdat die de header van dit bestand of de Attribute-regels van een lid zou wijzigen, die door de IDE worden beheerd.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "De naam is niet gewijzigd omdat dit ook andere documenten wijzigt: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Regel {0} hoort bij de header van dit bestand of bij de Attribute-regels van een lid, die nooit worden uitgevoerd; daar kan dus geen onderbrekingspunt of bladwijzer worden geplaatst.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Bestand invoegen",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nieuwe naam:",

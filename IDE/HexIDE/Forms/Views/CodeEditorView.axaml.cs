@@ -2525,17 +2525,7 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // A plain dictionary lookup compares ordinally, and `Changes` is keyed by whatever URI the
-                // SERVER chose to write. A normalised drive letter therefore matches nothing and rename
-                // applies NOTHING — silently, and indistinguishably from a rename the server declined.
-                // Worse than the definition case above, because there is no second branch to fall into.
-                var docUri = vm.GetDocumentUriPublic();
-                var textEdits = edit.Changes
-                    .FirstOrDefault(c => HexIDE.Lsp.LspDocumentUri.AreSame(c.Key, docUri)).Value;
-                if (textEdits is null) return;
-
-                // Through the guarded path, which refuses a rename reaching the header as a whole (#273 3.9).
-                if (vm.ApplyRename(textEdits, oldName) is { } refusal)
+                if (vm.ApplyRename(edit, oldName) is { } refusal)
                     _ = vm.ShowRefusalAsync(refusal);
             });
         }
