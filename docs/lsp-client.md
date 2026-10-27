@@ -732,6 +732,15 @@ Body redaction remains textual, including for a body the client cannot decode. I
 structural JSON pass nor a sweep for occurrences of the project name. **A name a server echoes back in
 its own fields is outside this fix** and may survive export; review the preview before sharing it.
 
+The shared body rule also replaces plain absolute drive-letter, UNC and Unix paths in prose (#2205),
+using the same segment mapping as `LocalPath`. Before that pass, the user profile and temp roots are
+replaced literally with `<home>` and `<temp>`; Language Servers reports also register every open project
+and connection workspace root as `<workspace>`. Longest roots win, including slash, backslash, Windows
+case variants and percent-encoded URI spellings, so spaces in these roots cannot disclose an account name.
+Quoted paths can contain spaces; remaining unquoted paths stop at whitespace and prose punctuation. Language Servers reports apply this rule to failure details and
+configuration problems as well as capabilities. Relative paths and unquoted paths containing spaces outside the known roots are
+ambiguous in prose and are outside this guarantee; review reports before sharing.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline

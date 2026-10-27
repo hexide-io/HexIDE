@@ -51,6 +51,7 @@ public partial class LanguageServersToolViewModel : Document
     private readonly ConversationLog _capture;
     private readonly IEventBus _events;
     private readonly Pseudonymiser _pseudonyms;
+    private readonly IProjectManager? _projects;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -84,13 +85,14 @@ public partial class LanguageServersToolViewModel : Document
 
     public LanguageServersToolViewModel(
         ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
-        IEventBus events, Pseudonymiser pseudonyms)
+        IEventBus events, Pseudonymiser pseudonyms, IProjectManager? projects = null)
     {
         _registry = registry;
         _localization = localization;
         _capture = capture;
         _events = events;
         _pseudonyms = pseudonyms;
+        _projects = projects;
 
         ShowAllMessagesCommand = new HexIDE.Utils.DelegateCommand(
             () => _events.Publish(new OpenProtocolInspectorEvent()));
@@ -204,6 +206,15 @@ public partial class LanguageServersToolViewModel : Document
     /// </param>
     public string ToReportText(ConversationRedactor redactor)
     {
+        foreach (var project in _projects?.LoadedProjects ?? [])
+        {
+            if (project.WorkingDirectory is { Length: > 0 } directory) redactor.AddWorkspaceRoot(directory);
+            if (project.AbsolutePath is { Length: > 0 } file && System.IO.Path.GetDirectoryName(file) is { } folder)
+                redactor.AddWorkspaceRoot(folder);
+        }
+        foreach (var connection in _registry.Connections)
+            if (connection.WorkspaceRootUri is { Length: > 0 } root) redactor.AddWorkspaceRoot(root);
+
         var lines = new List<string>();
         foreach (var group in Groups)
         {
