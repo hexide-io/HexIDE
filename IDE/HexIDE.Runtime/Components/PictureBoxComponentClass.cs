@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Generic;
 using HexIDE.Runtime.BuiltinTypes;
 using Avalonia;
 using Avalonia.Controls;
@@ -6,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.Serialization;
 using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
@@ -82,6 +84,27 @@ public class PictureBoxComponentClass : ComponentBaseClass
     public override Thickness ClientInset(ComponentInstance instance) =>
         ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
                      instance.GetPropertyOrDefault(AppearanceProperty)).Inset;
+
+    public override IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property)
+    {
+        if (property != PictureProperty || !instance.GetPropertyOrDefault(AutoSizeProperty))
+            return [];
+        var border = instance.GetPropertyOrDefault(BorderStyleProperty);
+        // #922 measured the default 3D border and no border; leave the flat bordered case alone.
+        if (border != VBBorder.None && instance.GetPropertyOrDefault(AppearanceProperty) != VBAppearance._3D)
+            return [];
+        using var picture = FrxImageHelper.TryDecodeToAvaloniaBitmap(instance.GetPropertyOrDefault(PictureProperty));
+        if (picture is null)
+            return [];
+        var inset = ClientInset(instance);
+        var width = (double)picture.PixelSize.Width + inset.Left + inset.Right;
+        var height = (double)picture.PixelSize.Height + inset.Top + inset.Bottom;
+        var beforeWidth = instance.GetPropertyOrDefault(WidthProperty);
+        var beforeHeight = instance.GetPropertyOrDefault(HeightProperty);
+        instance.SetProperty(WidthProperty, width);
+        instance.SetProperty(HeightProperty, height);
+        return [new PropertyChange(WidthProperty, beforeWidth, width), new PropertyChange(HeightProperty, beforeHeight, height)];
+    }
 
     static PictureBoxComponentClass()
     {

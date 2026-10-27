@@ -332,3 +332,26 @@ command. A form the runtime loader cannot create SHALL report its existing unsup
 - **WHEN** the developer edits a text box, resizes the preview and closes it
 - **THEN** those edits are discarded and the designer remains unchanged
 - **AND** no Load, Resize, Click, QueryUnload or other VB event procedure runs
+
+### Requirement: PictureBox AutoSize on designer picture edits
+
+An AutoSize PictureBox SHALL resize when its Picture is changed in the designer. For a default
+3D Fixed Single border its outer dimensions SHALL be the picture's pixel dimensions plus four pixels;
+with no border they SHALL equal the picture's pixel dimensions. Picture and size changes SHALL form
+one undo step. Loading saved properties SHALL retain the saved dimensions. Clearing the picture SHALL
+retain the current size, and an explicit Width edit SHALL hold until the next picture change.
+
+This is the designer slice of #922. Label sizing and runtime PictureBox sizing remain outstanding.
+Flat bordered sizing and picture formats the existing decoder cannot read retain existing behavior.
+
+#### Scenario: Assigning a picture and undoing
+- **GIVEN** an AutoSize PictureBox with the default border
+- **WHEN** a 40 by 30 pixel bitmap is assigned in the designer
+- **THEN** its outer size is 44 by 34 pixels (660 by 510 twips)
+- **AND** undo restores both its previous picture and its previous dimensions
+- **AND** redo restores the assigned picture and fitted dimensions
+
+#### Scenario: Assigning without a border
+- **GIVEN** an AutoSize PictureBox with BorderStyle None
+- **WHEN** a 40 by 30 pixel bitmap is assigned
+- **THEN** its outer size is 40 by 30 pixels (600 by 450 twips)
