@@ -36,6 +36,7 @@ public partial class CodeEditorView : UserControl
     private IDisposable? sub;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
+    private BracketDepthColorizer? _bracketDepthColorizer;
     private ReadOnlyRegionColorizer? _readOnlyColorizer;
     private ReadOnlyRegionLinks? _readOnlyLinks;
     private ReadOnlyRegionRedraw? _readOnlyRedraw;
@@ -44,7 +45,10 @@ public partial class CodeEditorView : UserControl
     private BookmarkMargin? _bookmarkMargin;
     private Point _lastHoverPoint;
     private FoldingManager? _foldingManager;
+    private StickyScrollController? _stickyScroll;
     private CancellationTokenSource? _foldCts;
+    private SemanticTokensColorizer? _semanticColorizer;
+    private int _semanticVersion;
     private CompletionWindow? _completionWindow;
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
@@ -80,6 +84,9 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private IndentGuideRenderer? _indentGuideRenderer;
+    private HexIDE.Tools.CallStackToolViewModel? _callStack;
+    private Action? _onFrameShown;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
     private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
     private Action? _onExternalDebugChanged;
@@ -99,6 +106,7 @@ public partial class CodeEditorView : UserControl
     public DelegateCommand Cut { get; }
     public DelegateCommand Delete { get; }
     public DelegateCommand Paste { get; }
+    public DelegateCommand PasteAsComment { get; }
     public DelegateCommand Find { get; }
     public DelegateCommand Replace { get; }
     public DelegateCommand SelectAll { get; }
@@ -155,6 +163,7 @@ public partial class CodeEditorView : UserControl
             else
                 TextEditor.Paste();
         }, () => true);
+        PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
         {
@@ -296,6 +305,9 @@ public partial class CodeEditorView : UserControl
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
 
+            _bracketDepthColorizer = new BracketDepthColorizer(TextEditor, this, vm.Settings);
+            TextEditor.TextArea.TextView.LineTransformers.Add(_bracketDepthColorizer);
+
             // The header and each member's Attribute lines in the theme's read-only colour (#273 task 3.15).
             // Added before the diagnostics colorizer, so an error inside one still shows red; AvaloniaEdit
             // keeps its own syntax colorizer ahead of both, so the grey replaces the syntax colours there.
@@ -324,6 +336,9 @@ public partial class CodeEditorView : UserControl
             // rebuild. (#270)
             OnMarkersChanged(vm.Markers);
 
+            _indentGuideRenderer = new IndentGuideRenderer(TextEditor, vm.Settings);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_indentGuideRenderer);
+
             // Document highlights (background renderer, behind squiggles)
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
@@ -333,7 +348,14 @@ public partial class CodeEditorView : UserControl
             // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
             _foldingManager = FoldingManager.Install(TextEditor.TextArea);
             TextEditor.TextArea.Caret.PositionChanged += KeepCaretOffFoldedRunsEnd;
+            _stickyScroll = new StickyScrollController(StickyHeaders, TextEditor, vm.Settings,
+                () => _foldingManager?.AllFoldings.Where(f =>
+                    !ReferenceEquals(f.Tag, HeaderFoldTag) && !ReferenceEquals(f.Tag, RunFoldTag)) ?? []);
             ApplyFolds(vm, []);
+            _semanticColorizer = new SemanticTokensColorizer();
+            TextEditor.TextArea.TextView.LineTransformers.Insert(
+                TextEditor.TextArea.TextView.LineTransformers.IndexOf(_readOnlyColorizer), _semanticColorizer);
+            _ = RequestSemanticTokensAsync(vm, CancellationToken.None);
             _ = RequestFoldingsAsync(vm, CancellationToken.None);
 
             // Bookmark gutter margin
@@ -383,6 +405,25 @@ public partial class CodeEditorView : UserControl
             // show the current statement immediately rather than waiting for the next event.
             if (_debugController.CurrentStop is { } stop)
                 ShowCurrentStatement(vm, stop.Module, stop.Line);
+
+            _callStack = vm.CallStack;
+            if (_callStack is not null)
+            {
+                _onFrameShown = () =>
+                {
+                    var frame = _callStack.ShownFrame;
+                    var here = frame?.Module is { } module && vm.RunningProject is { } running
+                        && vm.Identity.IsIn(running) && vm.Identity.IsNamed(module);
+                    _breakpointMargin?.SetCallSite(here && frame!.IsCaller ? frame.Line : null);
+                    if (here && frame!.Line > 0 && frame.Line <= TextEditor.Document.LineCount)
+                    {
+                        vm.CaretOffset = TextEditor.Document.GetLineByNumber(frame.Line).Offset;
+                        TextEditor.ScrollToLine(frame.Line);
+                    }
+                };
+                _callStack.FrameShown += _onFrameShown;
+                _onFrameShown();
+            }
 
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
@@ -485,6 +526,10 @@ public partial class CodeEditorView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Minimap.Detach();
+        _indentGuideRenderer?.Dispose();
+        _indentGuideRenderer = null;
+        _stickyScroll?.Dispose();
+        _stickyScroll = null;
 
         // PaletteChanged is a static event: a Dock document-move re-materialises this view, so an
         // unremoved handler leaks it for the process lifetime and fires a stale redraw per theme
@@ -534,6 +579,13 @@ public partial class CodeEditorView : UserControl
 
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;
+        if (_bracketDepthColorizer is not null)
+        {
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_bracketDepthColorizer);
+            _bracketDepthColorizer.Dispose();
+            _bracketDepthColorizer = null;
+        }
+
         if (_readOnlyColorizer is not null)
         {
             TextEditor.TextArea.TextView.LineTransformers.Remove(_readOnlyColorizer);
@@ -576,6 +628,10 @@ public partial class CodeEditorView : UserControl
             _currentLineRenderer = null;
         }
 
+        if (_callStack is not null && _onFrameShown is not null) _callStack.FrameShown -= _onFrameShown;
+        _callStack = null;
+        _onFrameShown = null;
+
         if (_debugController is not null)
         {
             if (_externalDebugger is not null && _onExternalDebugChanged is not null)
@@ -592,6 +648,10 @@ public partial class CodeEditorView : UserControl
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = null;
+        _semanticVersion++;
+        if (_semanticColorizer is not null)
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_semanticColorizer);
+        _semanticColorizer = null;
 
         TextEditor.PointerMoved -= OnPointerMoved;
         TextEditor.PointerExited -= OnPointerExited;
@@ -648,6 +708,12 @@ public partial class CodeEditorView : UserControl
         // an edit turns into an orphan has to lose its fold now rather than when a server next answers (task 4.3).
         if (!OwnFoldsAreCurrent(vm))
             ApplyFolds(vm, null);
+        _semanticVersion++;
+        if (_semanticColorizer is { } semantic)
+        {
+            semantic.Tokens = [];
+            TextEditor.TextArea.TextView.Redraw();
+        }
         ScheduleFolding(vm);
     }
 
@@ -700,7 +766,7 @@ public partial class CodeEditorView : UserControl
     /// </para>
     /// <para>
     /// <b>A run's section the manager paired keeps its live state</b>; only one it made new takes the state
-    /// remembered for the run's key. Pairing is by start alone (MidLineFoldBehaviourTests), and a section paired is
+    /// remembered for the run's key. A section still paired with a run is
     /// the very fold the developer is looking at, whose key an edit to the declaration may just have changed. A new
     /// section is also made expanded when the caret is inside it or at its end, as it is when a developer types a
     /// run in under its declaration: folded, the line being typed would vanish under the caret.
@@ -717,24 +783,32 @@ public partial class CodeEditorView : UserControl
         ObserveOwnFolds(vm);
 
         var shown = new List<NewFolding>();
-        var runSections = new HashSet<FoldingSection>();
+        var runSections = new Dictionary<FoldingSection, bool>();
         foreach (var section in manager.AllFoldings)
         {
             if (ReferenceEquals(section.Tag, RunFoldTag))
-                runSections.Add(section);
+                runSections[section] = section.IsFolded;
             else if (server is null && !ReferenceEquals(section.Tag, HeaderFoldTag))
                 shown.Add(new NewFolding(section.StartOffset, section.EndOffset) { Name = section.Title });
         }
 
+        var previousHeader = HeaderSection();
         var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
+        var freshHeader = previousHeader is null || header is null
+                          || previousHeader.StartOffset != header.StartOffset || previousHeader.EndOffset != header.EndOffset;
         var runs = vm.MemberRunsNow;
         var own = Vb6FoldingAdapter.MemberRuns(runs);
         if (header is not null)
             own.Insert(0, header);
-        manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
+        Vb6FoldingAdapter.Update(manager, Vb6FoldingAdapter.Merge(own, server ?? shown));
+        foreach (var section in manager.AllFoldings)
+        {
+            if (ReferenceEquals(section.Tag, RunFoldTag) || ReferenceEquals(section.Tag, HeaderFoldTag))
+                section.Tag = null;
+        }
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
-        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there. A new
+        // top of the file; other folds can share its start, so the end must match too. A new
         // one is left open over a caret inside it, as navigating to a header line in a document not yet open puts it
         // there before the folds exist, which would fold it away under the caret (#700 review).
         var caret = TextEditor.TextArea.Caret.Offset;
@@ -743,17 +817,18 @@ public partial class CodeEditorView : UserControl
             foreach (var section in manager.GetFoldingsAt(header.StartOffset))
             {
                 if (section.EndOffset != header.EndOffset) continue;
-                var fresh = !ReferenceEquals(section.Tag, HeaderFoldTag);
                 section.Tag = HeaderFoldTag;
                 section.IsFolded = !vm.HeaderFoldExpanded
-                                   && !(fresh && section.StartOffset < caret && caret <= section.EndOffset);
+                                   && !(freshHeader && section.StartOffset < caret && caret <= section.EndOffset);
             }
         }
 
         foreach (var run in runs)
         {
             if (run.Key is not { } key || RunSection(run) is not { } section) continue;
-            if (!runSections.Contains(section))
+            if (runSections.TryGetValue(section, out var folded))
+                section.IsFolded = folded;
+            else
             {
                 var caretInside = section.StartOffset < caret && caret <= section.EndOffset;
                 section.IsFolded = !caretInside && !vm.ExpandedMemberRuns.Contains(key);
@@ -1045,6 +1120,7 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        _semanticVersion++;
         if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
     }
 
@@ -1061,7 +1137,26 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
-            await RequestFoldingsAsync(vm, token);
+            await Task.WhenAll(RequestFoldingsAsync(vm, token), RequestSemanticTokensAsync(vm, token));
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task RequestSemanticTokensAsync(CodeEditorViewModel vm, CancellationToken token)
+    {
+        var version = _semanticVersion;
+        var colorizer = _semanticColorizer;
+        if (colorizer is null) return;
+        try
+        {
+            var result = await vm.RequestSemanticTokensAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested || version != _semanticVersion
+                    || !ReferenceEquals(colorizer, _semanticColorizer) || !ReferenceEquals(DataContext, vm)) return;
+                colorizer.Tokens = SemanticTokensColorizer.Decode(vm.Document, result);
+                TextEditor.TextArea.TextView.Redraw();
+            });
         }
         catch (OperationCanceledException) { }
     }
@@ -1078,6 +1173,7 @@ public partial class CodeEditorView : UserControl
             {
                 if (token.IsCancellationRequested || _foldingManager is null) return;
                 ApplyFolds(vm, Vb6FoldingAdapter.FromServer(doc, ranges));
+                _stickyScroll?.Refresh();
             });
         }
         catch (OperationCanceledException) { }
@@ -1556,7 +1652,7 @@ public partial class CodeEditorView : UserControl
             TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
-            TriggerSignatureHelpAsync();
+            TriggerSignatureHelpAsync(ch.ToString());
         // Close signature help when all parens are closed
         if (ch == ')')
             CloseInsightWindowIfBalanced();
@@ -2030,6 +2126,47 @@ public partial class CodeEditorView : UserControl
         area.Caret.BringCaretToView();
     }
 
+    private async Task PasteAsCommentAsync()
+    {
+        var text = await ClipboardTextAsync();
+        if (string.IsNullOrEmpty(text))
+            return;
+        AskBeforeClipboardEdit(paste: true);
+        InsertAsComment(text);
+    }
+
+    internal void InsertAsComment(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+        var area = TextEditor.TextArea;
+        var line = area.Document.GetLineByOffset(TextEditor.SelectionStart);
+        var prefix = area.Document.GetText(line.Offset, TextEditor.SelectionStart - line.Offset);
+        var indentation = new string(prefix.TakeWhile(c => c is ' ' or '\t').ToArray());
+        var newline = TextUtilities.GetNewLineFromDocument(area.Document, line.LineNumber);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var continuationIndent = area.Selection is RectangleSelection { IsEmpty: false } ? "" : indentation;
+        var commented = "'" + string.Join(newline + continuationIndent + "'", lines);
+        if (EditedSpan() is var (selectionOffset, selectionLength)
+            && selectionOffset + selectionLength < area.Document.GetLineByOffset(selectionOffset + selectionLength).EndOffset)
+            commented += newline + indentation;
+        using (area.Document.RunUpdate())
+        {
+            if (area.Selection is RectangleSelection { IsEmpty: false } box)
+                WriteOverBox(area, box, commented);
+            else if (DataContext is CodeEditorViewModel vm
+                && EditedSpan() is var (offset, length)
+                && vm.InsertLineBreakPastRun(offset, length, commented) is { } placed)
+            {
+                area.ClearSelection();
+                area.Caret.Offset = placed.End;
+            }
+            else
+                area.Selection.ReplaceSelectionWithText(commented);
+        }
+        area.Caret.BringCaretToView();
+    }
+
     /// <summary>The clipboard's text, or null when there is none or it cannot be read.</summary>
     private async Task<string?> ClipboardTextAsync()
     {
@@ -2127,7 +2264,7 @@ public partial class CodeEditorView : UserControl
 
     // ── Signature help ───────────────────────────────────────────────────────
 
-    private void TriggerSignatureHelpAsync()
+    private void TriggerSignatureHelpAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
 
@@ -2138,7 +2275,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token);
+        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token, triggerCharacter);
     }
 
     private void CloseInsightWindowIfBalanced()
@@ -2158,7 +2295,7 @@ public partial class CodeEditorView : UserControl
             _insightWindow?.Close();
     }
 
-    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token, string? triggerCharacter)
     {
         try
         {
@@ -2167,7 +2304,7 @@ public partial class CodeEditorView : UserControl
             await vm.FlushDocumentAsync(token);
             if (token.IsCancellationRequested) return;
 
-            var help = await vm.RequestSignatureHelpAsync(position, token);
+            var help = await vm.RequestSignatureHelpAsync(position, token, triggerCharacter);
             if (token.IsCancellationRequested) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
@@ -2361,7 +2498,7 @@ public partial class CodeEditorView : UserControl
         static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
     }
 
-    private async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+    internal async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
     {
         try
         {
@@ -2376,23 +2513,19 @@ public partial class CodeEditorView : UserControl
             }
 
             await vm.FlushDocumentAsync();
-            var edit = await vm.RequestRenameAsync(position, newName);
+            var result = await vm.RequestRenameAsync(position, newName);
+            if (result?.Refusal is { } serverRefusal)
+            {
+                await vm.ShowRefusalAsync(serverRefusal);
+                return;
+            }
+            var edit = result?.Edit;
 
             if (edit?.Changes is null) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // A plain dictionary lookup compares ordinally, and `Changes` is keyed by whatever URI the
-                // SERVER chose to write. A normalised drive letter therefore matches nothing and rename
-                // applies NOTHING — silently, and indistinguishably from a rename the server declined.
-                // Worse than the definition case above, because there is no second branch to fall into.
-                var docUri = vm.GetDocumentUriPublic();
-                var textEdits = edit.Changes
-                    .FirstOrDefault(c => HexIDE.Lsp.LspDocumentUri.AreSame(c.Key, docUri)).Value;
-                if (textEdits is null) return;
-
-                // Through the guarded path, which refuses a rename reaching the header as a whole (#273 3.9).
-                if (vm.ApplyRename(textEdits, oldName) is { } refusal)
+                if (vm.ApplyRename(edit, oldName) is { } refusal)
                     _ = vm.ShowRefusalAsync(refusal);
             });
         }
@@ -2503,14 +2636,10 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             if (sig.Parameters is null || sig.Parameters.Length == 0 || activeParam >= sig.Parameters.Length)
                 return sig.Label;
 
-            // Highlight the active parameter in the label by surrounding it with brackets
-            var paramLabel = sig.Parameters[activeParam].Label;
             var label = sig.Label;
-            var idx = label.IndexOf(paramLabel, StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) return label;
-
-            // Build a TextBlock-like string; AvaloniaEdit accepts plain strings here
-            return label[..idx] + "[" + label.Substring(idx, paramLabel.Length) + "]" + label[(idx + paramLabel.Length)..];
+            if (sig.Parameters[activeParam].Label.RangeIn(label) is not { } range) return label;
+            return label[..range.Start] + "[" + label.Substring(range.Start, range.Length)
+                + "]" + label[(range.Start + range.Length)..];
         }
     }
 
@@ -2524,8 +2653,8 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             {
                 var p = sig.Parameters[activeParam];
                 if (p.Documentation is not null)
-                    return $"{p.Label}: {p.Documentation}";
-                return p.Label;
+                    return $"{p.Label.TextIn(sig.Label)}: {p.Documentation}";
+                return p.Label.TextIn(sig.Label);
             }
             return sig.Documentation;
         }

@@ -148,13 +148,16 @@ public sealed class EventPump
     /// </summary>
     public IReadOnlyList<string> BusySince(IReadOnlyCollection<object> before)
     {
-        List<string> since = [.. live.Where(w => !before.Contains(w)).Select(w => w.Name), .. queue.Select(w => w.Name)];
+        List<string> since = [.. live.Where(w => !before.Contains(w)).Select(w => w.Name)];
         return since.Count > 0 ? since : Busy;
     }
 
-    /// <summary>The handlers part way through, then those waiting, by name: what a reply names when it cannot wait.</summary>
+    /// <summary>The handlers part way through, by name: what a reply names when it cannot wait.</summary>
     public IReadOnlyList<string> Busy =>
-        [.. running.Where(r => r.Value > 0).Select(r => r.Key), .. queue.Select(w => w.Name)];
+        [.. running.Where(r => r.Value > 0).Select(r => r.Key)];
+
+    /// <summary>The handlers waiting to start, by name.</summary>
+    public IReadOnlyList<string> WaitingHandlers => [.. queue.Select(w => w.Name)];
 
     /// <summary>
     /// Raise an event, whose handler is <paramref name="work"/>: nested in the running walk if one is, else at once if

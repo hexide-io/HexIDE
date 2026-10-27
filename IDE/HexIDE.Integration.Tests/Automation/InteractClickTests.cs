@@ -352,7 +352,8 @@ public class InteractClickTests
             outcome.Success.Should().BeTrue(outcome.Error);
             vm.Components.Should().ContainSingle();
             var drawn = vm.Components[0];
-            new Rect(drawn.Left, drawn.Top, drawn.Width, drawn.Height).Should().Be(new Rect(20, 20, 80, 40));
+            // One pixel past the release, as vb6.exe's designer draws it (#2058).
+            new Rect(drawn.Left, drawn.Top, drawn.Width, drawn.Height).Should().Be(new Rect(20, 20, 81, 41));
             outcome.Detail.Should().Contain("dragged").And.Contain("Canvas[NewControlSpawner]")
                 .And.Contain("(20, 20)").And.Contain("(100, 60)").And.Contain("pointer capturer");
         }

@@ -23,13 +23,12 @@ public static class LspServerHost
     /// </summary>
     public static LanguageServer Create(Stream input, Stream output)
     {
-        var ls = LanguageServer.From(input, output);
+        var store = new DocumentStore();
+        var ls = new RenameLanguageServer(input, output, store);
 
         // Sequential dispatch is the framework default, pinned explicitly: the IDE client relies on
         // didChange-before-next-request ordering (FlushDocumentAsync + format-on-save).
         ls.SetScheduler(new SingleThreadScheduler());
-
-        var store = new DocumentStore();
 
         // The server's own trace channel. Off until a client asks for it, at which point it carries what
         // only this process knows about an analysis — never a restatement of the frames the client sent.
@@ -123,7 +122,6 @@ public static class LspServerHost
         Request(ls, "textDocument/signatureHelp",     (s, p) => LspRequestHandlers.SignatureHelp(s, p));
         Request(ls, "textDocument/definition",        (s, p) => LspRequestHandlers.Definition(s, p));
         Request(ls, "textDocument/documentHighlight", (s, p) => LspRequestHandlers.DocumentHighlight(s, p));
-        Request(ls, "textDocument/rename",            (s, p) => LspRequestHandlers.Rename(s, p));
         Request(ls, "textDocument/formatting",        (s, p) => LspRequestHandlers.Formatting(s, p));
         Request(ls, "vb/builtinSymbols",              (_, _) => LspRequestHandlers.BuiltinSymbols());
 

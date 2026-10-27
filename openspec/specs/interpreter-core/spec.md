@@ -62,6 +62,25 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Measured compile refusals SHALL stop execution
+The interpreter SHALL raise its compile-error exception when execution reaches `Continue Do` or `With Debug`,
+with "Syntax error". A scalar assignment through explicit `Me.` to an explicitly Private class field SHALL
+raise "Method or data member not found". These refusals are measured on vb6.exe SP6, native and p-code (#2121);
+the walk does not check paths it never executes.
+
+#### Scenario: Continue in a post-tested Do loop
+- **WHEN** execution reaches `Continue Do` inside `Do ... Loop Until`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Debug used as a With target
+- **WHEN** execution reaches `With Debug`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Private field assigned through Me
+- **WHEN** a class declares `Private mN As Integer` and its method executes `Me.mN = 5`
+- **THEN** execution stops with the compile error "Method or data member not found"
+- **AND** `On Error Resume Next` cannot trap that compile error
+
 ### Requirement: Cross-module constants SHALL initialise their module on demand
 A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
 declarations first, once, regardless of project list order or startup entry point. Re-entering a module still
@@ -147,11 +166,18 @@ different result rather than reporting a problem.
 
 ### Requirement: Procedure calls SHALL bind parameters as VB6 does
 User-defined procedures SHALL be callable, SHALL pass parameters by reference unless declared otherwise, and
-SHALL support by-value, optional and named arguments.
+SHALL support by-value, optional and named arguments. Each call SHALL keep only its own bindings
+(parameters, locals, return name and `Me`), falling back to the module or instance environment before
+project-wide names, without copying the module's bindings.
 
 By-reference-by-default is the single most consequential difference between VB6 and the languages most
 implementers reach for. A procedure that modifies its parameter is idiomatic VB6, and an engine that passes
 by value will run such a program to completion while producing the wrong answer.
+
+#### Scenario: A procedure without a local binding for a module variable
+- **WHEN** a procedure reads or writes a module variable it does not shadow
+- **THEN** the lookup reaches the module's existing slot through the enclosing environment
+- **AND** that binding is not copied into the procedure's own names
 
 #### Scenario: A procedure modifying its parameter
 - **WHEN** a procedure assigns to a parameter that was not declared by value
@@ -320,6 +346,32 @@ This is a host safety bound, not a claim about VB6's acceptance of long physical
 - **WHEN** a module-level `Const` holds a 10,000-term addition chain on a 1 MiB thread stack
 - **THEN** its constant-expression validation raises error 28 without terminating the host
 - **AND** the IDE-side project runner reports the failure and stops the run
+
+### Requirement: Managed referenced libraries
+
+The interpreter SHALL share one library model for controls and managed classes, carrying a GUID, version,
+enums and ICSharpProxy factories. Only known project references SHALL activate class libraries, in project
+reference order; unknown libraries SHALL retain existing behaviour. New and CreateObject SHALL call the
+class factories for separate instances.
+
+#### Scenario: Lazy shared GlobalMultiUse instance
+- **GIVEN** a referenced managed library with two GlobalMultiUse classes
+- **WHEN** a member of one class is first called
+- **THEN** only that class's implicit instance is created
+- **AND** subsequent bare and library-qualified calls share its state until Sub Main returns
+- **AND** normal return releases implicit instances in reverse creation order within that library
+- **AND** End suppresses termination
+
+#### Scenario: Bare member precedence
+- **WHEN** a project procedure and referenced GlobalMultiUse classes expose the same bare name
+- **THEN** the project procedure wins without creating an implicit library instance
+- **AND** otherwise the first reference exposing that member wins ahead of VBA
+- **AND** explicit VBA qualification still reaches VBA
+
+#### Scenario: Managed instance lifetime
+- **WHEN** an explicit managed instance loses its last runtime reference
+- **THEN** its IDisposable host, when supplied, is disposed unless End has ended the run
+- **AND** the implicit instance remains held until Sub Main returns
 
 ### Requirement: Interpreter parsing uses SLL with an LL fallback
 Module, standalone expression and standalone statement parsing SHALL first try SLL prediction with a

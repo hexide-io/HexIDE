@@ -9,6 +9,127 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## Every designer drag's reply said "nothing was docked" — **CLOSED** (#2232, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's and #2217's live checks).** All 18 drags on the form designer, moving, resizing
+and drawing controls, ended their replies with a sentence about Dock, though none of them involved it:
+`interact {"target":"…/List[ControlsContainer]/ListItem[Command1]","action":"click","value":"5,8 to 5,56","window":"ide"}`
+→ `dragged the left button at (5, 8) on 'ControlItem', … (pointer capturer); Dock's layout is unchanged, so nothing was
+docked: …`. Each drag did what it should. A first-time caller reads "nothing was docked" as the drag having failed.
+
+**Cause.** #2175 added the clause for every drag pressed inside a `DockControl`, and the designer is inside one.
+
+**Fixed (#2232).** The reply says what Dock moved whenever it moved something. It says the layout is unchanged only for a
+drag pressed on one of Dock's drag areas (`DockProperties.IsDragArea`: a tab, a tool window's title strip), which is
+where Dock itself starts a drag. Any other drag says nothing about Dock. Guarded by `DragDockTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Moving Command1 by `5,8 to 45,58`, and drawing a TextBox with the toolbox's Text tool, replied without the clause.
+- Properties dragged along its own title strip still said the layout was unchanged, and dragged onto the Project dock
+  said `Dock moved 'Properties' from a dock of its own to the dock with 'Project Group - Group1'`.
+
+## `press_key` refused a chord written as one key as an unknown key — **CLOSED** (#2189, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2030's live check, Sonnet).**
+`press_key {"target":"…/Custom[Root]/None[TextEditor]","key":"Ctrl+H","window":"ide"}` answered
+`unknown key 'Ctrl+H' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)`. `H` was never the problem:
+modifiers go in their own parameter, and the refusal didn't say so. The caller gave up on the keyboard and opened
+Replace from the Edit menu.
+
+**Fixed (#2189).** A `key` with a `+` between two parts is read as its last part, with the parts before it as
+modifiers added to any `modifiers` given, and the reply says so: `pressed Control+H …; 'Ctrl+H' was read as key 'H'
+with modifiers 'Ctrl'`. A leading part that is not a modifier is refused naming it, and an unknown last part is named
+in the chord. Combined modifiers now read `Control+Shift+End`, not `Control, Shift+End`. Guarded by
+`UiAutomationDriverTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** `Ctrl+H` in
+the code window opened Replace, as `H` with `Ctrl` does. `A+B` and `Ctrl+Nope` were refused naming the wrong part, and
+`Shift+End` with `Ctrl` replied `pressed Control+Shift+End …, added to 'Ctrl'`.
+
+## Keyboard `type_text` counted a prompt-raising key as typed — **CLOSED** (#2035, 2026-10-26)
+
+**Symptom (2026-10-26, Windows, #1975's live check).** Keyboard `type_text` of `xyz` into the code window
+while running replied `typed 1 of 3 key(s)` and told the caller to answer the reset prompt, then send the
+rest. After Cancel, `get_file_content` showed the line unchanged and `hasUnsavedChanges: false`: the `x`
+had not landed. The brief does not record the full call's target arguments.
+
+**Workaround (before the fix).** Answer the prompt, then read the text before choosing what to resend.
+
+**Fixed (#2035).** The stop reply identifies the key sent and the dialog it raised, warns that the key
+may not have landed, says nothing after it was sent, and directs the caller to answer and check the text
+before deciding what to send next. It makes no claim about what each answer does to an arbitrary edit.
+`TypeKeysTests` covers dialogs over the typing window, another window, and in a window of their own.
+Live verification of the revised reply remains for the supervising session.
+
+## A drag couldn't dock a tool window, and its reply read as a drag that worked — **CLOSED** (#2175, 2026-10-26)
+
+**Symptom (2026-10-26, #1877's live check, Windows).** Dragging AI Chat's title strip onto the Immediate dock's centre,
+or the Toolbox dock's, did nothing. The reply was the same as for a drag that docked:
+`interact {"target":"…/List[#1]/TitleBar[AI Chat]","action":"click","value":"120,15 to …/List[#0]/TitleBar[Immediate]:460,63","window":"ide"}`
+→ `dragged the left button at (120, 15) on 'ToolChromeControl' … release received by 'Grid[PART_Grid]' … (pointer
+capturer)`. The same verb drove Dock's column splitters.
+
+**Workaround (before the fix).** None through the surface.
+
+**Cause.** The eight held moves were raised in one synchronous loop, with no layout between them. Dock adds its drop
+target on the first move past its drag threshold and finds the drop from that target's layout, so the release came
+over a target with no size. A layout pass between the moves was enough to make a headless drag dock, which confirmed
+it. A splitter adds nothing mid-drag, which is why it worked.
+
+**Fixed (#2175).** Each held move is input of its own. `FinishAsync` raises them one at a time and lets the
+dispatcher run everything above Background between them, layout included. A drag pressed in Dock's layout now ends
+its reply with what Dock moved, as `Dock moved 'Properties' from a dock of its own to the dock with 'Immediate'`, or
+with `Dock's layout is unchanged, so nothing was docked: …`. Guarded by `DragDockTests`.
+
+**Live (2026-10-26, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Properties dragged by its title strip onto the Immediate dock became a tab beside Immediate, and the reply said so.
+- A drag back onto its own title strip said the layout was unchanged.
+- A drop on the Toolbox dock's upper half split it, with Properties in a new dock above the Toolbox. The reply said
+  Properties moved "to a dock of its own".
+
+## A path not starting with `Window` was refused without saying where paths come from — **CLOSED** (#2080, 2026-10-26)
+
+**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
+snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
+and was refused with `path must start with 'Window' (got 'Editor')`. The refusal was accurate, but it didn't say
+where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
+
+**Fixed (#2080).** An empty target, and one not starting with `Window`, now end with the next step: `a path comes
+from dump_visual_tree, whose every node carries its 'path', and its 'match' finds a control by name`. A guessed
+path also gets a call to send as it stands, matching its last segment in the window it was looked for in:
+`as dump_visual_tree {"window":"Options","match":"General"}`. Guarded by `PathRefusalTests`.
+
+## `inspect_element`'s `selectionItems` named a selection with no row by its view model's type — **CLOSED** (#2026, 2026-10-26)
+
+**Symptom (2026-10-26, #1981's live check, Windows).** At the IDE's default size the Properties window's categorized
+list was 0 px tall, so no row was made. `inspect_element` on `…/List[CategorizedProperties]` answered
+`"selectionItems":["HexIDE.VisualDesigner.PropertyViewModel"]`. Once the window was maximized, it answered
+`["Caption"]`.
+
+**Fixed (#2026).** A selected item with no row is named by its `AccessibleName`, the name the IDE's view models give
+their rows to bind, which is the name the dump shows. Failing that, it is named by its own text. With neither, the
+reply says `#25, which has no row to read a name from: a list makes rows only for what it shows`, never a
+type's name. Guarded by `UnrealizedSelectionTests`.
+
+## Focus in a flyout read as no focus, and `press_key` moved it out before pressing — **CLOSED** (#2030, 2026-10-26)
+
+**Symptom (2026-10-26, #1960's live check, Windows).** With Replace's Cut/Copy/Paste flyout open,
+`dump_visual_tree {"window":"auto","match":"Paste"}` gave `"focusedPath":null`, and
+`press_key {"target":"Window","key":"Escape","window":"Replace"}` replied `moved focus from
+Window/List/Pane/MenuItem[Paste] to Window/Custom/Edit[#0]; pressed Escape on TextBox …`. That one Escape closed the
+whole dialog, where a person's closes only the flyout.
+
+**Cause.** On the desktop a flyout's items sit in a popup root of their own, and the focus checks walked visual
+ancestors, which never reached the dialog. The popup root has no logical parent leading back either: a first fix that
+followed it was measured live and changed nothing.
+
+**Fixed (#2030).** Focus is placed in the control view as the dump places popups. The walk goes from a popup's
+content to the control the popup is placed at, so focus in a flyout counts as in its owner's window. `focusedPath` now
+names `Window/Custom/Edit[#0]/Pane[#0]/MenuItem[Paste]`, `press_key` presses Escape on the flyout's item without moving
+focus, and its reply names that item by the same path. Guarded by `FocusInPopupTests`.
+
 ## A waiting dialog's buttons included its check boxes and radio buttons — **CLOSED** (#2079, 2026-10-26)
 
 **Symptom (2026-10-26, #534's first-contact baseline, Windows).** Opening Tools > Options gave
@@ -118,8 +239,19 @@ code and designer open:
 - A dump rooted at a truncated node, the designer's `Custom[Root]`, listed its children, with no note.
 - `maxDepth: 3` came back whole, with no note.
 
-The cut is one depth everywhere, so hidden toolbars came back whole while the open document was cut:
-[#2033](https://github.com/hexide-io/HexIDE/issues/2033).
+The cut was one depth everywhere, so hidden toolbars came back whole while the open document was cut
+([#2033](https://github.com/hexide-io/HexIDE/issues/2033)). The #2033 fix first omits children below hidden
+nodes when a tree exceeds the budget, retaining their paths, `isHidden` and `truncated` markers. Only if
+that still exceeds the budget does it cut levels in other branches, preserving the active document
+subtree and its ancestors. The requested root keeps its children
+so dumping from a hidden node makes progress. This applies with either `interactiveOnly` setting; trees
+that already fit and `match` searches are unchanged. The note explains what was omitted and how to see it.
+PR #2169's live check failed: `dump_visual_tree {}` still cut the designer at `Custom[Root]/Pane`,
+eight levels down, with both 3 and 26 controls (supervisor, 2026-10-26). Hidden pruning alone was insufficient.
+The follow-up preserves the active tab's content while cutting other branches; if that content alone
+exceeds the budget the note says it is still over and advises `root`.
+Covered headlessly by `DumpFitsReplyTests` and `ActiveDocumentDumpTests`; live verification of this
+follow-up remains for supervisor review.
 
 ## `dump_visual_tree` kept a row a list had scrolled away from, with `isOffscreen: true` — **CLOSED** (#1981, 2026-10-26)
 
@@ -1926,7 +2058,8 @@ is defensive at these four sites. It was exercised end to end on the backstop in
 > `x` and `y` now apply independently. A left-out coordinate keeps the window's current value, read after
 > restoring from Maximized, so it is the restored position, not the maximised frame's -11. The reply carries
 > the resulting `window` (state, position, size) as `get_window_state` reports it, read after layout, so a new
-> size is not reported as the old one.
+> size is not reported as the old one on synchronous backends. This layout-only wait did not cover X11
+> window-manager round trips (#946).
 
 **Symptom.** On a window at (190,190) 945×447:
 - `set_window_state {"state":"Normal","width":-50,"x":-99999}` answered only `An error occurred invoking 'set_window_state'.`
@@ -4073,7 +4206,10 @@ deliberately. Cross-platform by code reading.
 > - **`take_snapshot`** drew the row in full: its time, `•` and `broken-txt` in normal text, and the failure in bold
 >   red in the Method column.
 > - **The filtered dump** also lists a recycled grid row holding the same failure, marked `isHidden`:
->   [#1977](https://github.com/hexide-io/HexIDE/issues/1977).
+>   [#1977](https://github.com/hexide-io/HexIDE/issues/1977). Fixed by excluding recycled rows in the
+>   DataGrid rows presenter, including their stale cells. A headless regression filters two rows to one
+>   and checks that the remaining row appears once and its path resolves. Live recheck: repeat the
+>   filter and dump above; the one shown failure should have one DataItem, with no recycled duplicate.
 >
 > **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
 > A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
@@ -4233,8 +4369,10 @@ The reply said the opposite of what happened and asked for a bug report, for eve
 >    System.Int32. Path: $ | LineNumber: 0 | BytePositionInLine: 10. …
 > ```
 >
-> - **The third falls short of the fix above.** It names the argument but not that it is out of range, and the
->   serializer's raw message is still there: [#1965](https://github.com/hexide-io/HexIDE/issues/1965).
+> - **The third fell short of the fix above (#1965), now corrected.** Integral overflow names the value,
+>   whether it is too large or too small, and the whole-number range; parameter guidance adds the tool
+>   limit where declared (hover: 0 to 10000 ms). Linux SDK-client tests cover int, long and array items;
+>   a direct binding test checks hover guidance. A live repeat of the call above remains to be checked.
 > - **`take_snapshot {"inline":"true"}` never reached the server as a string.** Claude Code converted it to the
 >   boolean the schema asks for, and the call succeeded. That refusal is checked only by the SDK-client tests in
 >   `McpRestartTests`.
@@ -4903,6 +5041,10 @@ second copy of an item or a row for one out of view, and a path to it resolved.
 > - **The dump that followed** (`interactiveOnly` false, `maxDepth` 6) listed the four rows in view, Width, Top,
 >   StartUpPosition and Left. Each appeared once, and nothing out of view was listed.
 > - **The dump's order is the reverse of the screen's:** [#1966](https://github.com/hexide-io/HexIDE/issues/1966).
+>   Fixed in #1966: the shared collector orders items-panel containers by their owning list's item index,
+>   with non-container children afterwards. Two Linux headless regressions reproduce the reversed end-jump
+>   and selected-third-row-first cases before the fix, and check item order, uniqueness and path resolution
+>   afterwards (`SelectScrolledOutRowTests`). Live verification of the Properties list remains for review.
 > - **Not met: a row out of view is listed.** After `scroll` `home` and a collapse of Appearance, the next dump
 >   listed Width, the selected row, with `isOffscreen: true`, and so did the one after Appearance was expanded. The
 >   fix says rows out of view are left out: [#1981](https://github.com/hexide-io/HexIDE/issues/1981).
@@ -5297,6 +5439,53 @@ and remaining selection. `type_text` uses that replacement API too, placing text
 segment as a person's typing does. Wholly protected spans still refuse with #1042's region wording.
 Verified by headless code-window integration tests, including unchanged protected text and post-edit selection.
 
+
+## `set_window_state` replies with the window's state from before the change on Linux — **IMPLEMENTED, live verification pending** (#946)
+
+**Symptom.** Each call followed by `get_window_state {}` (Linux, openSUSE Leap 16 under XWayland, Debug build of
+main at b15c7cf, 2026-10-13):
+
+```
+set_window_state {"state":"Normal"}
+→ {"window":{"state":"Maximized","x":0,"y":32,"width":1920,"height":1011}}
+get_window_state {}
+→ {"state":"Normal","x":240,"y":171,"width":1440,"height":733}
+
+set_window_state {"state":"Normal","x":100,"y":100,"width":1280,"height":720}
+→ position updated, width and height still 1440x733
+get_window_state {}
+→ 1280x720
+
+set_window_state {"state":"Maximized"}
+→ {"window":{"state":"Normal", ...}}
+get_window_state {}
+→ Maximized, 0,32 1920x1011
+```
+
+The reply says `success: true` and carries the old value in the field described as the resulting state. #602's
+re-read waits only for HexIDE's own layout, and on Avalonia 12.0.4's X11 backend, which every Linux session uses,
+XWayland included, state and geometry change only when the window manager answers. Linux-specific by code
+reading: the other backends, Headless included, take the requested value at once, so tests cannot reproduce it.
+Read in code and not run, from Maximized: a restore with a size writes the maximised origin back as the position,
+and a refused off-screen position cannot undo a restore already sent while the reply says "Nothing was changed."
+The archived #602 entry's "read after layout, so a new size is not reported as the old one" holds only where the
+platform applies a change at once.
+
+**Workaround.** Ignore the reply's `window` and re-read with `get_window_state {}`.
+
+**Suggested fix.** Wait, bounded at about a second, until the window reports the target state and, when geometry
+was passed, a move or resize has arrived; on timeout, reply with what the window reports and a note to re-read.
+Check the frame against the screens before any state change, so a refusal never has to undo a restore.
+[#946](https://github.com/hexide-io/HexIDE/issues/946).
+
+
+**Implementation.** State confirmation is bounded at 1 s; geometry follows a confirmed restore and waits up to
+a further second for move/resize notifications (no exact-size requirement, since a window manager may clamp).
+Unconfirmed requests return `success: false`, observed `window`, and a `note` directing the caller to
+`get_window_state`. Geometry is validated before restoring; omitted coordinates are not written back. The no-
+window-manager case is reported as unconfirmed too. Headless tests cover delayed confirmation and timeout;
+X11/XWayland verification remains for the supervising session.
+
 ## `get_document_tabs` doesn't say whether a tab has unsaved changes — **CLOSED** (#1945, 2026-10-25)
 
 **Symptom (2026-10-25, Debug build with #1797).** With #1797's unsaved-changes marker live, a designer tab draws
@@ -5348,6 +5537,28 @@ On a second new project, with the project view opened by `interact {"action":"do
 `TreeItem[Project1 (Project1.vbp)]`, `get_document_tabs` listed `{"title":"Project1.vbp","type":"code","isActive":true}`,
 with no `isModified`, beside Form1's designer with one. It still had none after `add_file` added a module.
 
+## `take_snapshot` of a running form leaves out its title bar without saying so
+
+**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
+the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
+- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
+- The image is the form's client area, grey and empty, with no title bar.
+- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
+  captured, and took `activeDialog` as the confirmation.
+
+Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
+comes back in a field named `activeDialog`.
+
+**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
+"maxDepth":1}`.
+
+**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
+what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
+
+**Fixed (#2078).** The description and reply now identify the capture as the client area, without its title bar
+or frame. Read `title` for the captured window's actual title, including the IDE's or an empty caption;
+`activeDialog` remains as a compatibility field with its previous meaning. Open popups are still included
+unless `note` says otherwise. Native-frame capture remains the separate part 2 gap in `docs/mcp-server-gaps.md` (#1595).
 
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
@@ -5376,3 +5587,32 @@ follow the press's work, routed to the pointer capturer or the hit-tested contro
 landing, release point and recipient, marking capture explicitly. Headless tests cover capture routing,
 running-form release on/off, ListBox selection and drawing a toolbox control in the designer.
 Live verification remains the supervisor's check.
+## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
+
+**Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
+2026-10-13):
+
+```
+interact {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/Pane/None[FormContainer]/List[ControlsContainer]/ListItem[Command1]","action":"select"}
+invoke_format_command {"command":"AlignLefts"}
+→ "Nothing changed, and no undo step was added: the selection is Command1. The spacing commands need two or
+   more selected controls, the others at least one, and a selection that already satisfies the command is
+   left as it is."
+```
+
+The spec makes the nine alignment and sizing commands unavailable below two selected controls, and with one they
+can never change anything, so "at least one" sends a caller back with the same single selection. The text is
+hard-coded and the command table has no per-command minimum. Cross-platform by code reading.
+
+**Workaround.** Before any Align* or MakeSame* command, select two or more controls with `interact` `select` and
+then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterHorizontally and CenterVertically.
+
+**Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
+names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
+cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
+
+**Fixed (#930).** The command table now supplies each minimum to the refusal and no-op note. Below the
+minimum, the tool returns `success:false`, names the command and current selection, and directs the caller to
+`interact` `select` and `add_to_selection`. Alignment and sizing predicates and execution guards require two
+controls; changing selection invalidates command enablement. Headless regression coverage checks all twenty
+command rules and the nine predicates. Live menu/toolbar verification remains for the supervising session.

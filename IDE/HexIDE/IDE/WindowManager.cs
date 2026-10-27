@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
@@ -19,6 +20,11 @@ namespace HexIDE.IDE;
 public class WindowManager : IWindowManager
 {
     private readonly ILocalizationService _localization;
+
+    // Avalonia's modal windows use this native API, but its reference assembly hides it. Keep the bridge local
+    // rather than opting the whole project into unstable APIs; desktop regression tests exercise it (#1366).
+    private static readonly Action<IWindowImpl, bool> SetNativeEnabled = typeof(IWindowImpl)
+        .GetMethod("SetEnabled")!.CreateDelegate<Action<IWindowImpl, bool>>();
 
     public WindowManager(ILocalizationService localization)
     {
@@ -112,13 +118,14 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
-    public async Task<string?> InputBox(string prompt, string? caption, string defaultText)
+    public async Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false)
     {
         caption ??= "HexIDE";
         if (Static.SingleView)
         {
             var inputBox = new InputBox
             {
+                IsProgramDialog = isProgramDialog,
                 Prompt = prompt,
                 Text = defaultText
             };
@@ -143,7 +150,7 @@ public class WindowManager : IWindowManager
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             string? result = null;
-            var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
+            var inputBox = new InputBox { IsProgramDialog = isProgramDialog, Prompt = prompt, Text = defaultText };
             var window = MakeDialogWindow(caption, inputBox);
             inputBox.TextRequest += r => { result = r; window.Close(); };
             await window.ShowDialog(GetTopWindow(desktop));
@@ -153,13 +160,52 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
-    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
+    public Task<MessageBoxResult> TaskModalMessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null)
+        => !Static.SingleView && Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            ? TaskModalMessageBox(desktop, text, caption, buttons, icon, owner)
+            : MessageBox(text, caption, buttons, icon, owner);
+
+    internal async Task<MessageBoxResult> TaskModalMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
+    {
+        owner ??= GetTopWindow(desktop);
+        var held = desktop.Windows.Select(window => (Window: window, WasEnabled: window.IsEnabled)).ToArray();
+        try
+        {
+            foreach (var (window, _) in held)
+            {
+                window.SetCurrentValue(Window.IsEnabledProperty, false);
+                // IsEnabled holds Avalonia input; the native window must also refuse activation and clicks (#1366).
+                if (window.PlatformImpl is { } platform) SetNativeEnabled(platform, false);
+            }
+            return await ShowDesktopMessageBox(desktop, text, caption ?? "HexIDE", buttons, icon, owner);
+        }
+        finally
+        {
+            foreach (var (window, wasEnabled) in held)
+            {
+                window.SetCurrentValue(Window.IsEnabledProperty, wasEnabled);
+                // An existing modal child still holds its owner after this question has finished.
+                if (window.PlatformImpl is { } platform)
+                    SetNativeEnabled(platform, wasEnabled && !window.OwnedWindows.Any(child => child.IsDialog));
+            }
+        }
+    }
+
+    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
+    {
+        var messageBox = new MessageBox { IsProgramDialog = isProgramDialog, Text = text, Buttons = buttons, Icon = icon };
+        var window = MakeDialogWindow(caption, messageBox);
+        return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
+    }
+
+    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
     {
         caption ??= "HexIDE";
         if (Static.SingleView)
         {
             var messageBox = new MessageBox
             {
+                IsProgramDialog = isProgramDialog,
                 Text = text,
                 Buttons = buttons,
                 Icon = icon
@@ -186,9 +232,7 @@ public class WindowManager : IWindowManager
         {
             // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
             // its owner keeps waiting (see ShowAndWait).
-            var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
-            var window = MakeDialogWindow(caption, messageBox);
-            return await messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
+            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner, isProgramDialog);
         }
         else
             throw new NotImplementedException();

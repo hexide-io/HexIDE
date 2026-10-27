@@ -69,7 +69,7 @@ public sealed class ProjectLoader
                 var moduleAbsolutePath = Path.Join(projectDir, SerializedProject.ToHostPath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
-                var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
                 module.TextEncoding = moduleEncoding;
                 var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
                 var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, ctxBlobs);
@@ -97,7 +97,7 @@ public sealed class ProjectLoader
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
-                errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
+                errorSink.LogError("Str.ProjectLoad.ModuleFailed", "Failed to load module {0}: {1}", modulePath, ex.Message);
                 // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
                 // line would have the next Save Project remove the member from the project instead.
                 project.PreserveItemLine(ItemLineFor(moduleKind, moduleName, modulePath), serializedProject.ModuleLineSlots[index]);
@@ -116,7 +116,7 @@ public sealed class ProjectLoader
             {
                 if (!File.Exists(formAbsolutePath))
                 {
-                    errorSink.LogError($"Form file not found: {formPath}");
+                    errorSink.LogError("Str.ProjectLoad.FormNotFound", "Form file not found: {0}", formPath);
                     // Preserve the Form= line so the missing node survives an open->save round-trip
                     // (mirrors modules, whose lines are kept when their files are absent). Not loaded into
                     // the model — Project Explorer shows the preserved entry with a missing-file marker.
@@ -125,7 +125,7 @@ public sealed class ProjectLoader
                 }
 
                 // Form text before companion: the .frm's cited offsets partition the .frx.
-                var (formSource, _, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath);
+                var (formSource, _, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, formPath));
 
                 var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
                 var form = formDeserializer.Deserialize(project, formSource, errorSink, frxBlobs, userControlRegistry);
@@ -139,14 +139,14 @@ public sealed class ProjectLoader
                 }
                 else
                 {
-                    errorSink.LogError($"Failed to load form {formPath}");
+                    errorSink.LogError("Str.ProjectLoad.FormFailed", "Failed to load form {0}", formPath);
                     project.PreserveItemLine($"{SerializedProject.FormKey}={formPath}", serializedProject.FormLineSlots[index]);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load form {FormPath}", formPath);
-                errorSink.LogError($"Failed to load form {formPath}: {ex.Message}");
+                errorSink.LogError("Str.ProjectLoad.FormFailedWithReason", "Failed to load form {0}: {1}", formPath, ex.Message);
                 // Kept, as a missing form's line is: see the module passes.
                 project.PreserveItemLine($"{SerializedProject.FormKey}={formPath}", serializedProject.FormLineSlots[index]);
             }
@@ -189,7 +189,7 @@ public sealed class ProjectLoader
                 var moduleAbsolutePath = Path.Join(projectDir, SerializedProject.ToHostPath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
-                var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
                 module.TextEncoding = moduleEncoding;
                 // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
                 var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind);
@@ -220,7 +220,7 @@ public sealed class ProjectLoader
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
-                errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
+                errorSink.LogError("Str.ProjectLoad.ModuleFailed", "Failed to load module {0}: {1}", modulePath, ex.Message);
                 // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
                 // line would have the next Save Project remove the member from the project instead.
                 project.PreserveItemLine(ItemLineFor(moduleKind, moduleName, modulePath), serializedProject.ModuleLineSlots[index]);
@@ -251,9 +251,9 @@ public sealed class ProjectLoader
         return new Result(project, serializedProject, readByteForByte);
     }
 
-    private async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(string path)
+    private async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(string path, Vb6TextEncoding? recorded)
     {
-        var read = await Vb6TextFile.ReadDocumentAsync(path, null, HostAnsi);
+        var read = await Vb6TextFile.ReadDocumentAsync(path, null, HostAnsi, recorded);
         FileRead?.Invoke(path, read.Bytes);
         return read;
     }

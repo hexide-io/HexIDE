@@ -276,8 +276,6 @@ public class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
-        await UnloadAllProjects();
-
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",
@@ -294,6 +292,10 @@ public class ProjectService : IProjectService
         if (files == null || files.Count != 1)
             throw new OperationCanceledException();
 
+        // Archive projects coexist with the current workspace, as on the direct/recent open path.
+        if (!string.Equals(Path.GetExtension(files[0]), ".twinproj", StringComparison.OrdinalIgnoreCase))
+            await UnloadAllProjects();
+
         await OpenProject(files[0]);
     }
 
@@ -302,7 +304,17 @@ public class ProjectService : IProjectService
         if (string.Equals(Path.GetExtension(projectPath), ".twinproj", StringComparison.OrdinalIgnoreCase))
         {
             if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
-            await archives.Open(projectPath);
+            try
+            {
+                await archives.Open(projectPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Error(ex, "Error opening archive project {ProjectPath}", projectPath);
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Archive.OpenErrorFormat"), Path.GetFileName(projectPath), ex.Message),
+                    icon: MessageBoxIcon.Error);
+            }
             return;
         }
         if (string.Equals(Path.GetExtension(projectPath), ".vbg", StringComparison.OrdinalIgnoreCase))

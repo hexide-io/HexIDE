@@ -14,6 +14,27 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Click and invoke SHALL refuse disabled targets with the reason
+`interact` SHALL refuse `click` and `invoke` before sending input to a disabled target or a target in a
+disabled window. When a modal dialog blocks that window, the refusal SHALL identify the dialog and tell
+the caller how to find and answer it first. Otherwise it SHALL say the target must be enabled first.
+
+#### Scenario: A reset prompt disables the running form
+- **WHEN** a caller clicks or invokes a button in the form while a modal reset prompt disables it
+- **THEN** nothing is pressed or invoked
+- **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
+
+### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
+When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
+and target, describe the dialog and where it opened, warn that the key may not have landed, and state
+that no later keys were sent. It SHALL tell the caller to answer the dialog and check the text before
+deciding what to send next.
+
+#### Scenario: A key opens the reset prompt
+- **WHEN** the first key of `xyz` opens a dialog
+- **THEN** the reply identifies key 1 of 3 as sent and possibly unapplied
+- **AND** it directs the caller to answer and check the text rather than blindly send `yz`
+
 ### Requirement: Shutdown SHALL preserve the reply and a cancelled IDE's server
 `shutdown_ide` SHALL close the main window only after its HTTP response completes. Server cancellation
 and context disposal SHALL wait for desktop exit, so a refused or cancelled close leaves automation
@@ -108,6 +129,17 @@ day it lands, with nothing to add.
 #### Scenario: Driving a newly added dialog
 - **WHEN** a dialog is added to the IDE
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
+
+#### Scenario: Selecting a property hidden by a collapsed category
+- **WHEN** `interact` selects a property by text in the categorized Properties list or by its row path and its category is collapsed
+- **AND** the category row and its toggle are showing
+- **THEN** the refusal SHALL name the category as displayed and tell the caller to `toggle` the Button in that row
+- **AND** the selection and category expansion remain unchanged
+
+#### Scenario: A grid recycles a row after filtering
+- **WHEN** filtering a DataGrid leaves recycled rows in its rows presenter
+- **THEN** interface discovery SHALL omit those rows and their stale cells
+- **AND** the remaining current rows SHALL each appear once with paths that resolve to them
 
 ### Requirement: Icon-only controls SHALL expose localized action names
 The IDE SHALL give the dock pane's Menu, Pin, Maximize/Restore and Close buttons and tab scroll arrows
@@ -394,6 +426,35 @@ SHALL report none for an IDE started without one.
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
 
+
+### Requirement: Snapshots identify the title and capture area
+
+The snapshot description and reply SHALL explain that the image captures the window's client area,
+without its title bar or frame, with open popups included unless the reply's note says otherwise.
+The reply SHALL report the captured window's actual title in `title`, including for the IDE's own
+window and an empty caption. It SHALL retain `activeDialog` with its previous meaning for compatibility.
+
+#### Scenario: Confirming a running form's caption
+
+- **WHEN** a caller captures a running form titled Hello
+- **THEN** the reply reports `title: "Hello"`
+- **AND** `captureArea` explains that the image omits the title bar and frame
+- **AND** the compatibility field `activeDialog` still reports Hello
+
+### Requirement: Window mutations await platform confirmation
+`set_window_state` SHALL wait at most one second per phase for the requested state and for requested geometry
+notifications, return observed window values, and report an unconfirmed request with `success: false` and a
+note directing the caller to `get_window_state`. Geometry SHALL follow a confirmed restore, and off-screen
+validation SHALL precede any mutation. Omitted coordinates SHALL retain the restored position.
+
+#### Scenario: A window manager applies changes asynchronously
+- **WHEN** the platform confirms a state or geometry change after a dispatcher layout pass
+- **THEN** the reply waits for confirmation within the bound and reports observed values
+
+#### Scenario: No window manager applies the request
+- **WHEN** the requested state remains unconfirmed at the deadline
+- **THEN** the reply reports failure, the observed window, and how to re-read its state
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
@@ -439,6 +500,13 @@ time slice, breakpoint or asynchronous control call. Starting a window wait SHAL
 DoEvents loop mark, so a loop resumed by answering the window is waited for as work the action sets going.
 A window already open before the action SHALL be considered by the program wait only when the program was
 waiting on a window before the action.
+Only a running form or a box marked by the program's own MsgBox or InputBox call SHALL opt into the
+program wait. An IDE dialog SHALL use the IDE settling path even when a running form owns it.
+
+#### Scenario: An IDE dialog over a running form
+- **WHEN** interact toggles a checkbox in an IDE dialog owned by a running form
+- **THEN** it reads the dialog's settled state through the IDE path
+- **AND** it does not attribute that dialog's state to the program continuing
 
 #### Scenario: Answer a window after an earlier DoEvents
 - **WHEN** a handler calls DoEvents, waits at a MsgBox or modal form, then runs a finite DoEvents loop
@@ -462,14 +530,96 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
 
+### Requirement: Integral argument overflow explains the accepted range
+The server SHALL refuse an integral argument outside its parameter's storage range with the argument
+name, supplied value, whether it is too large or too small, and the accepted whole-number range.
+It SHALL include the parameter's declared guidance where available, and SHALL NOT expose serializer
+locations or .NET type names for that overflow. Nothing in the tool SHALL run for the refused call.
+
+#### Scenario: Hover dwell exceeds the integer range
+- **WHEN** hover receives dwellMs 3000000000
+- **THEN** the refusal names dwellMs and the whole-number range -2147483648 to 2147483647
+- **AND** includes the declared 0 to 10000 ms dwell guidance
+
+#### Scenario: A long integer is below its minimum
+- **WHEN** an argument for a long integer parameter is -9223372036854775809
+- **THEN** the refusal says it is too small and gives -9223372036854775808 to 9223372036854775807
+
+### Requirement: Visual-tree match replies SHALL explain unselected contents
+A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,
+and unselected Options pages when searching the Options dialog, and explain how to select them.
+This note SHALL accompany both empty and nonempty matches, alongside any depth-limit warning.
+
+#### Scenario: An editor is behind a designer
+- **WHEN** a match search runs with a code tab open but unselected
+- **THEN** the note names that tab, says its contents are not in the tree, and directs the caller to `activate_document_tab`
+
+#### Scenario: A setting is on another Options page
+- **WHEN** a match search runs in Options with other pages unselected
+- **THEN** the note names their category and page and directs the caller to expand the category and select the page with `interact`
+
+### Requirement: Program wait replies distinguish running and queued handlers
+
+Program wait replies SHALL name only events with handlers in the program and SHALL describe queued handlers
+as waiting to run separately from handlers already started.
+
+#### Scenario: Events arrive while a MsgBox holds a handler
+
+- **WHEN** a handler is suspended at a MsgBox and other control events arrive
+- **THEN** the reply names the suspended handler as still running
+- **AND** events with handlers queued behind it are named as waiting to run
+- **AND** events without handlers are omitted
+
+### Requirement: Realized items SHALL be listed in item order
+The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items
+panel's own containers by their owning `ItemsControl` index. Children without an item index SHALL
+follow those containers, retaining their relative visual-child order.
+
+#### Scenario: Selection scrolls a virtualized list
+- **WHEN** `interact` selects a row out of view and the list realizes rows around it
+- **THEN** the dump lists those rows in item order, each once, and their paths resolve to those containers
+
+#### Scenario: A selected row is visible near the top
+- **WHEN** a selected row is the third row on screen
+- **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
+
+### Requirement: Large discovery trees prioritize showing controls
+
+A `dump_visual_tree` tree exceeding the 40,000-character tree budget SHALL first omit children below
+hidden nodes, retaining the hidden nodes and marking omitted children with `truncated`. The requested
+root SHALL retain its immediate children so a caller can retrieve more by rooting a subsequent dump at
+an omitted branch. If necessary, the server SHALL then cut other branches to the greatest depth
+that fits, retaining at least one level and preserving the active document subtree (to the requested
+maxDepth) and its ancestors. If the active document alone prevents fitting, the note SHALL explain
+that it remains over budget and advise scoping with `root`. The reply note SHALL explain each kind of omission and how to
+retrieve the rest. A tree that fits SHALL remain unchanged; `match` searches SHALL search the unpruned
+tree to the requested depth.
+
+#### Scenario: Hidden toolbars compete with an open document
+- **WHEN** a dump exceeds the budget and omitting hidden toolbar children brings it within budget
+- **THEN** the visible document retains its full requested depth
+- **AND** hidden toolbars retain addressable paths and `truncated` markers
+- **AND** the note explains that hidden children were omitted and can be retrieved using `root`
+
+#### Scenario: Visible chrome still competes with the designer
+- **WHEN** a whole-IDE dump with a designer open remains over budget after hidden children are omitted
+- **THEN** the active designer's subtree retains its controls to the requested depth
+- **AND** other visible branches lose depth before the designer
+- **AND** the note identifies the preserved active document and explains how to retrieve omitted branches
+
 ### Requirement: Pointer drags through interact
 
 `interact` SHALL accept `to x,y` or `to <path>:x,y` after a `click` value's press point, button and
 modifier keys. Release coordinates SHALL be relative to the target, or to the control at the pasted
 `dump_visual_tree` path. The press SHALL establish implicit capture, allow press work to run, then send
 several moves with the button held before releasing to the pointer capturer or the hit-tested control.
-The reply SHALL name the press landing, release point and recipient, and whether capture routed the release.
-Combining `double` with `to` SHALL be refused before pressing.
+Each held move SHALL be input of its own, with the dispatcher's layout run before the next, as a real
+pointer's moves are. The reply SHALL name the press landing, release point and recipient, and whether
+capture routed the release. A drag that moves a tool or document SHALL also say what Dock moved, and
+where. A drag pressed on one of Dock's drag areas, a tab or a tool window's title strip, that moves nothing
+SHALL say the layout is unchanged; any other drag, such as one in the form designer, SHALL say nothing about
+Dock, since it could not have docked anything. Combining `double` with `to` SHALL be refused before
+pressing.
 
 #### Scenario: Draw a toolbox control
 
@@ -480,3 +630,45 @@ Combining `double` with `to` SHALL be refused before pressing.
 
 - **WHEN** a drag names another control's path as its release destination
 - **THEN** the destination coordinates are translated into window coordinates and release follows pointer capture
+
+#### Scenario: Dock a tool window by dragging its title strip
+
+- **WHEN** a drag presses a tool window's title strip and releases over the centre of another dock
+- **THEN** Dock's drop target, added on the first held move, has been laid out by the release, and the tool joins that dock
+- **AND** the reply says Dock moved it, from where to where
+
+#### Scenario: A drag that docks nothing
+
+- **WHEN** a drag pressed on a tool window's title strip releases where no drop target is
+- **THEN** the reply says the layout is unchanged, so nothing was docked
+
+#### Scenario: A drag that could not have docked
+
+- **WHEN** a drag in Dock's layout is pressed off Dock's drag areas, as a form designer drag is
+- **THEN** the reply says nothing about Dock
+
+### Requirement: Properties category expansion
+
+Categorized Properties rows SHALL expose an expand/collapse provider driven by the category's open state. Their toggle SHALL use the localized category header as its accessible name. `inspect_element` SHALL report `expandCollapseState` from an available expand/collapse provider.
+
+#### Scenario: Opening and closing a category row
+- **WHEN** `interact` expands or collapses a showing category row
+- **THEN** its open state and property visibility follow the requested state
+- **AND** repeating the action succeeds without toggling the state
+- **AND** inspection reports the current expansion state, including after using the category toggle
+
+### Requirement: press_key reads a chord written as one key
+`press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
+as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
+parts are not all modifiers SHALL be refused before anything is pressed, naming the part that is not one.
+
+#### Scenario: A chord written as one key
+
+- **WHEN** `press_key` is called with `key` `Ctrl+H` and no `modifiers`
+- **THEN** it presses H with Control
+- **AND** the reply says `'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'`
+
+#### Scenario: A chord with a part that is not a modifier
+
+- **WHEN** `press_key` is called with `key` `A+B`
+- **THEN** nothing is pressed, and the refusal says `A` is not a modifier
