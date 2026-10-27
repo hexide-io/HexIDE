@@ -527,6 +527,15 @@ text has not appeared yet SHALL be read again until it does or the dwell ends.
 - **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
 - **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
 
+### Requirement: Hiding a tool window SHALL close that window alone
+`set_tool_window_visible` with `visible: false` SHALL close the named tool window alone, as its tab's close button does,
+leaving open any other tool window tabbed in the same dock. Its reply SHALL say what the window is now, and SHALL name
+any other tool window that opened or closed with it.
+
+#### Scenario: Two tools tabbed in one dock
+- **WHEN** the Toolbox and the Properties window are tabs of one dock and a caller hides Properties
+- **THEN** only Properties closes, the Toolbox stays open, and the reply is "Properties is now hidden."
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,

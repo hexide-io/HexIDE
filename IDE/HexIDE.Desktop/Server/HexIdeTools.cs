@@ -1105,15 +1105,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_tool_window_visible")]
-    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case. The reply's 'note' says whether the window is now shown or hidden.")]
+    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case. Hiding a window closes it alone, as its tab's close button does, not the other windows tabbed with it. The reply's 'note' says whether the window is now shown or hidden, by the name get_tool_windows gives it, and names any other window that opened or closed with it.")]
     public async Task<MutateResult> SetToolWindowVisibleAsync(string name, bool visible, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var error = ctx.RootViewModel.SetToolWindowVisible(name, visible);
-            return error is null
-                ? new MutateResult(true, null, $"{name} is now {(visible ? "shown" : "hidden")}.")
-                : new MutateResult(false, error);
+            var (error, note) = ctx.RootViewModel.SetToolWindowVisible(name, visible);
+            return error is null ? new MutateResult(true, null, note) : new MutateResult(false, error);
         });
     }
 
