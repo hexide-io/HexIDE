@@ -42,7 +42,7 @@ public class VBLoader
         IBasicStandardLibrary? standardLibrary = null,
         VbObject? form = null)
     {
-        RefuseUnsupportedControls(element, standardLibrary is not null);
+        RefuseUnsupportedControls(element);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -82,10 +82,11 @@ public class VBLoader
 
         // What each block of the form became, for its Controls collection (#1060).
         var placed = new Dictionary<ComponentInstance, Control>();
-        var dialogs = new Dictionary<string, Control>(StringComparer.Ordinal);
 
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
+            if (control is VBCommonDialog dialog)
+                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#1084)");
             placed[component] = control;
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
@@ -113,22 +114,6 @@ public class VBLoader
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
 
-        // A CommonDialog is read from the block the form keeps for it, and only to run: nothing in the designer or the
-        // file changes (#1084). It is invisible, and has a name in code as any control has.
-        if (standardLibrary is not null)
-            foreach (var block in element.UnknownChildSubtreeTexts)
-                if (CommonDialogBlock(block) is { } dialogBlock)
-                {
-                    var dialog = new VBCommonDialog(standardLibrary);
-                    foreach (var (property, value) in dialogBlock.Properties)
-                        dialog.SetDesignTime(property, value);
-                    VBProps.SetName(dialog, dialogBlock.Name);
-                    VBProps.SetRunTimeId(dialog);
-                    canvas.Children.Add(dialog);
-                    executionContext.AllocVariable(environment, dialogBlock.Name, new Vb6Value(dialog));
-                    dialogs[block] = dialog;
-                }
-
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
         foreach (var (component, control, parent) in menus)
@@ -152,7 +137,7 @@ public class VBLoader
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
-        var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
+        var controls = new FormControls(InFileOrder(element, placed), arrayGroups);
         controls.Maker = (componentClass, name, container) => MakeAtRunTime(componentClass, name, container, canvas, element);
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
@@ -448,54 +433,25 @@ public class VBLoader
     /// </summary>
     /// <summary>
     /// The form's controls in the order its file holds their blocks, which is the order of its Controls collection
-    /// (measured, #1060): a container before what it holds, a menu before its submenus, and a block HexIDE keeps as text
-    /// at the place it was read, among its container's children by its ordinal, as the writer puts it back.
+    /// (measured, #1060): a container before what it holds, and a menu before its submenus.
     /// </summary>
-    private static IEnumerable<Control> InFileOrder(FormDefinition element, Dictionary<ComponentInstance, Control> placed,
-        Dictionary<string, Control> dialogs)
+    private static IEnumerable<Control> InFileOrder(FormDefinition element, Dictionary<ComponentInstance, Control> placed)
     {
         var root = element.Components.FirstOrDefault(c => c.BaseClass is FormComponentClass);
         if (root is null)
             yield break;
-        var claimed = new HashSet<ComponentInstance>();
-        foreach (var component in element.Components)
-            if (component != root)
-                foreach (var child in ChildrenOf(component))
-                    claimed.Add(child);
-
-        var order = new List<Control>();
-        void Walk(ComponentInstance container, IReadOnlyList<ComponentInstance> children)
+        var claimed = element.Components.Where(c => c != root).SelectMany(ChildrenOf).ToHashSet();
+        IEnumerable<Control> Walk(IEnumerable<ComponentInstance> children)
         {
-            var blocks = container.PreservedChildSubtrees;
-            var child = 0;
-            var block = 0;
-            for (var position = 0; position < children.Count + blocks.Count; position++)
+            foreach (var component in children)
             {
-                if (block < blocks.Count && blocks[block].Ordinal <= position)
-                {
-                    if (dialogs.TryGetValue(blocks[block++].Text, out var dialog))
-                        order.Add(dialog);
-                }
-                else if (child < children.Count)
-                {
-                    var component = children[child++];
-                    if (placed.TryGetValue(component, out var control))
-                        order.Add(control);
-                    Walk(component, ChildrenOf(component));
-                }
-            }
-            for (; block < blocks.Count; block++)
-                if (dialogs.TryGetValue(blocks[block].Text, out var dialog))
-                    order.Add(dialog);
-            for (; child < children.Count; child++)
-            {
-                if (placed.TryGetValue(children[child], out var control))
-                    order.Add(control);
-                Walk(children[child], ChildrenOf(children[child]));
+                if (placed.TryGetValue(component, out var control))
+                    yield return control;
+                foreach (var child in Walk(ChildrenOf(component)))
+                    yield return child;
             }
         }
-        Walk(root, element.Components.Where(c => c != root && !claimed.Contains(c)).ToList());
-        foreach (var control in order)
+        foreach (var control in Walk(element.Components.Where(c => c != root && !claimed.Contains(c))))
             yield return control;
     }
 
@@ -718,12 +674,11 @@ public class VBLoader
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUnsupportedControls(FormDefinition element, bool canShowDialogs)
+    private static void RefuseUnsupportedControls(FormDefinition element)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!(canShowDialogs && CommonDialogBlock(block) is not null))
-                DescribeUncreatable(block, lines);
+            DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
                 if (property.Name.Equals("DataSource", StringComparison.OrdinalIgnoreCase))
@@ -737,45 +692,9 @@ public class VBLoader
             throw new NotImplementedException(string.Join("\n", lines.Distinct()));
     }
 
-    /// <summary>
-    /// A CommonDialog's block (#1084): its name, and the properties it sets, as code would set them. Null for any other
-    /// block, and for a CommonDialog this can't create: one holding a control, or an element of a control array.
-    /// </summary>
-    /// <remarks>
-    /// The OCX's own properties, <c>_ExtentX</c>, <c>_ExtentY</c> and <c>_Version</c>, and its designer position, are
-    /// the designer's and mean nothing to a running program.
-    /// </remarks>
-    private static (string Name, List<(string Property, Vb6Value Value)> Properties)? CommonDialogBlock(string block)
-    {
-        var lines = block.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
-        if (lines.Count < 2)
-            return null;
-        var begin = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (begin.Length < 3 || !begin[0].Equals("Begin", StringComparison.OrdinalIgnoreCase)
-            || !begin[1].Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
-            return null;
-        var properties = new List<(string, Vb6Value)>();
-        foreach (var line in lines.Skip(1).SkipLast(1))
-        {
-            if (line.StartsWith("Begin", StringComparison.OrdinalIgnoreCase))
-                return null;
-            var equals = line.IndexOf('=');
-            if (equals < 0)
-                continue;
-            var name = line[..equals].Trim();
-            var text = line[(equals + 1)..].Trim();
-            if (name.Equals("Index", StringComparison.OrdinalIgnoreCase))
-                return null;
-            if (name.StartsWith('_') || name is "Left" or "Top")
-                continue;
-            properties.Add((name, DesignTimeValue(text)));
-        }
-        return (begin[2], properties);
-    }
-
     // A value as the .frm writes it: a quoted string, -1 or 0 for a Boolean, or a number, with any trailing comment
     // dropped. The control's own setter converts it to the property's type, as an assignment would.
-    private static Vb6Value DesignTimeValue(string text)
+    internal static Vb6Value DesignTimeValue(string text)
     {
         if (text.StartsWith('"'))
         {

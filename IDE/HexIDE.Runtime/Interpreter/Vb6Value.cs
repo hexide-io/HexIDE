@@ -57,6 +57,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     {
         switch (v.Value)
         {
+            case uint:
+                throw new NotImplementedException("Numeric use of an unsigned Automation Long is not implemented (#1084)");
             case byte b: d = b; return true;
             case int i: d = i; return true;
             case long l: d = l; return true;
@@ -173,6 +175,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         }
     }
     public Vb6Value(long value) : this(ValueType.Long, value) {}
+    internal static Vb6Value NewAutomationUnsignedLong(uint value) => new(ValueType.AutomationUnsignedLong, value);
     public Vb6Value(byte value) : this(ValueType.Byte, value) {}
     public Vb6Value(VbDate value) : this(ValueType.Date, value) {}
 
@@ -293,6 +296,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         public static readonly ValueType CSharpProxyObject = new ValueType(ValueTypePrimitive.CSharpProxyObject, false);
         public static readonly ValueType Null = new ValueType(ValueTypePrimitive.Null, false);
         public static readonly ValueType Long = new ValueType(ValueTypePrimitive.Long, false);
+        public static readonly ValueType AutomationUnsignedLong = new(ValueTypePrimitive.AutomationUnsignedLong, false);
         public static readonly ValueType Byte = new ValueType(ValueTypePrimitive.Byte, false);
         public static readonly ValueType Currency = new ValueType(ValueTypePrimitive.Currency, false);
         public static readonly ValueType Decimal = new ValueType(ValueTypePrimitive.Decimal, false);
@@ -361,7 +365,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         ///
         /// It should never escape into general value flow: argument binding consumes it.
         /// </summary>
-        Missing
+        Missing,
+
+        AutomationUnsignedLong
     }
 
     public static implicit operator Vb6Value(int value) =>
