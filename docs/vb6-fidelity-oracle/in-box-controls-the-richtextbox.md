@@ -1,7 +1,7 @@
 ## In-box controls: the RichTextBox (2026-10-27, #1100)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with RICHTX32.OCX 6.01.9782, on Windows 10.
+- **The software:** VB6 SP6 (6.00.9782), with RICHTX32.OCX 6.01.9782, on Windows 10.
   - The form line is `Object = "{3B7C8863-D78F-101B-B9B5-04021C009402}#1.2#0"; "RICHTX32.OCX"`.
   - The block is `Begin RichTextLib.RichTextBox`, `_Version` 393217.
 - **The form:** written by hand, holding RichTextBox1 5000 × 3000 with only its position, extents and `_Version`.

@@ -196,6 +196,10 @@ public sealed class DebugController : IDebugController
     public async Task<DebugEvalResult?> EvaluateWatchAsync(string expression)
         => _state == DebugState.Paused && _currentFrame is { } f ? await f.EvaluateTypedAsync(expression) : null;
 
+    public async Task<DebugEvalResult?> EvaluateScopedWatchAsync(string expression, string context)
+        => _state == DebugState.Paused && _currentFrame is { } f
+            ? await f.EvaluateScopedWatchAsync(expression, context) : null;
+
     /// <summary>The Call Stack (deepest/current frame first), or empty when not in Break mode.</summary>
     public IReadOnlyList<CallStackFrame> GetCallStack()
         => _state == DebugState.Paused && _currentFrame is { } f ? f.GetCallStack() : System.Array.Empty<CallStackFrame>();

@@ -3,7 +3,7 @@
 This extends "The CommonDialog control" (2026-10-17), which measured the dialogs the Notepad demo uses, as p-code.
 The two agree where they overlap.
 
-**The probes.** VB6 6.00.8176 SP6, with COMDLG32.OCX 6.01.9782.
+**The probes.** VB6 SP6 (6.00.9782), with COMDLG32.OCX 6.01.9782.
 - **The control:** its form line is
   `Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "COMDLG32.OCX"`, and its block is
   `Begin MSComDlg.CommonDialog`.

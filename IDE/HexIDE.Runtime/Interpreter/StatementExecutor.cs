@@ -195,6 +195,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         catch (Debugging.ImmediateEvalException ex) { return EvalErr(expr, ex.Message); }
         catch (VBRunTimeException ex) { return EvalErr(expr, FlattenError(ex.Message)); }
+        catch (VBVariableNotDefinedException) { return EvalErr(expr, "Syntax error") with { UndefinedName = true }; }
         catch (VBCompileErrorException) { return EvalErr(expr, "Syntax error"); }
         catch (Exception ex) { return EvalErr(expr, FlattenError(ex.Message)); }
         finally
@@ -207,6 +208,46 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         static Debugging.DebugEvalResult EvalErr(string name, string message)
             => new(false, message, string.Empty, false, new Debugging.DebugNode(name, message, string.Empty));
     }
+
+    async Task<Debugging.DebugEvalResult> Debugging.IDebugFrame.EvaluateScopedWatchAsync(string expression, string context)
+    {
+        var dot = context.LastIndexOf('.');
+        var module = dot < 0 ? context : context[..dot];
+        var procedure = dot < 0 ? null : context[(dot + 1)..];
+        // Cross-module contexts and recursive-frame selection have not been measured (#2290).
+        if (module != "(All Procedures)" && !string.Equals(module, currentModule.Name, StringComparison.OrdinalIgnoreCase))
+            return await ((Debugging.IDebugFrame)this).EvaluateTypedAsync(expression);
+        StatementExecutor target = this;
+        if (procedure is null)
+            target = new StatementExecutor(interpreter, currentEnv.ModuleScope, currentModule);
+        else
+        {
+            var stack = interpreter.ActivationStack;
+            var index = -1;
+            for (var i = stack.Count - 1; i >= 0; i--)
+                if (ReferenceEquals(stack[i], this)) { index = i; break; }
+            var matches = new List<StatementExecutor>();
+            for (var i = index; i >= 0; i--)
+                if (string.Equals(stack[i].currentModule.Name, module, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(stack[i].procName, procedure, StringComparison.OrdinalIgnoreCase))
+                    matches.Add(stack[i]);
+            if (matches.Count == 0)
+                return ContextError("<Out of context>");
+            if (matches.Count > 1)
+                return await ((Debugging.IDebugFrame)this).EvaluateTypedAsync(expression);
+            target = matches[0];
+        }
+        return await target.EvaluateStoredWatch(expression);
+    }
+
+    private async Task<Debugging.DebugEvalResult> EvaluateStoredWatch(string expression)
+    {
+        var result = await ((Debugging.IDebugFrame)this).EvaluateTypedAsync(expression);
+        return result.UndefinedName ? ContextError("<Expression not defined in context>") : result;
+    }
+
+    private static Debugging.DebugEvalResult ContextError(string message)
+        => new(false, message, "Empty", false, new Debugging.DebugNode(string.Empty, message, "Empty"));
 
     // The 1-based source line this activation is currently at (set at each pause-gate) — its line in the Call Stack.
     private int currentLine;
