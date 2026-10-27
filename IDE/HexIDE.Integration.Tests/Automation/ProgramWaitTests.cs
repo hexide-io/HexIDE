@@ -565,7 +565,7 @@ public class ProgramWaitTests
             """);
         var earlier = new Window { Title = "HexIDE" };
         _ = earlier.ShowDialog(run.Window);
-        UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
+        ClickForWait(run.Named("Command1"));
         await Task.Delay(100);
         try
         {
@@ -739,6 +739,14 @@ public class ProgramWaitTests
         }
     }
 
+    // These wait fixtures deliberately start a handler behind an existing dialog. interact now refuses that (#2184);
+    // raise the event directly to keep testing the wait and its note independently of the input guard.
+    private static InteractOutcome ClickForWait(Control control)
+    {
+        control.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        return new InteractOutcome(true, "test-event", "Raised Click", null);
+    }
+
     // An error dialog an earlier call left open over the form, and a MsgBox this click raised: the wait names the MsgBox,
     // which holds the handler, and the note the dialog; each once (#1253).
     [AvaloniaFact]
@@ -757,7 +765,7 @@ public class ProgramWaitTests
             var dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
             OpenDialogs.During(dialogs);
             var watch = run.Watch();
-            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            var outcome = ClickForWait(run.Named("Command1"));
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
             Pump();
 
@@ -770,7 +778,7 @@ public class ProgramWaitTests
             dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
             OpenDialogs.During(dialogs);
             watch = run.Watch();
-            outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = ClickForWait(run.Named("Command1"));
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
             Pump();
 

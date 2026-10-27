@@ -4,6 +4,7 @@
                       ReferenceOutputAssembly="false" OutputItemType="Content"
                       CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="HexIDE.Tests" />
+    <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
   </ItemGroup>
 
   <PropertyGroup>

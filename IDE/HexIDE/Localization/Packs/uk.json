@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Показати порядок табуляції (закреслено: TabStop вимкнено)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Вирізати",
     "Str.Menu.Edit.Copy": "Копіювати",
     "Str.Menu.Edit.Paste": "Вставити",
+    "Str.Menu.Edit.PasteAsComment": "Вставити як коментар",
     "Str.Menu.Edit.PasteLink": "Вставити посилання",
     "Str.Menu.Edit.Remove": "Вилучити",
     "Str.Menu.Edit.Delete": "Видалити",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "Визначення",
     "Str.Menu.View.Declaration": "Оголошення",
     "Str.Menu.View.LastPosition": "Остання позиція",
+    "Str.Tool.RecentEdits.Title": "Останні зміни",
     "Str.Menu.View.ObjectBrowser": "Браузер об'єктів",
     "Str.Menu.View.ImmediateWindow": "Вікно негайного виконання",
     "Str.Menu.View.LocalsWindow": "Вікно локальних змінних",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Інспектор протоколу...",
     "Str.Menu.AddIns": "Надбудови",
     "Str.Menu.Window": "Вікно",
+    "Str.Menu.Window.ReopenClosed": "Відкрити закрите вікно",
+    "Str.Menu.Window.RecentlyClosed": "Нещодавно закриті вікна",
     "Str.Menu.Window.Split": "Розділити",
     "Str.Menu.Window.ResetLayout": "Скинути розташування вікон",
     "Str.Menu.Help": "Довідка",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "Видалити",
     "Str.Designer.Context.BringToFront": "На передній план",
     "Str.Designer.Context.SendToBack": "На задній план",
+    "Str.Designer.PreviewForm": "Попередній перегляд форми",
     "Str.Designer.Context.ViewCode": "Переглянути код",
     "Str.Designer.Context.AlignToGrid": "Вирівняти за сіткою",
     "Str.Designer.Context.Properties": "Властивості",
     "Str.CodeEditor.FileNotSaved.Banner": "Цей файл не буде збережено — HexIDE поки що не може точно відтворити його, тому збереження змінило б його. Його код є частиною файлу, тож введення в цьому вікні відхиляється.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Перейменування не виконано, оскільки воно змінило б заголовок цього файлу або рядки Attribute одного з членів, якими керує IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Перейменування не виконано, оскільки воно також змінює інші документи: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Рядок {0} належить до заголовка цього файлу або до рядків Attribute одного з членів, які ніколи не виконуються, тому на ньому не можна встановити точку зупину чи закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставити файл",
     "Str.CodeEditor.Dialog.RenamePrompt": "Нове ім’я:",
@@ -893,6 +900,8 @@
     "Str.Dock.MaximizeRestore": "Розгорнути або відновити панель",
     "Str.Dock.Close": "Закрити панель",
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
-    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч"
+    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показувати напрямні відступів",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення"
   }
 }

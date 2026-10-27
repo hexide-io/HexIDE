@@ -2196,7 +2196,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, is cut at the most levels down that fit, and the 'note', written first, says where.")]
+    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, keeps the active document, cutting hidden children then other branches; the 'note', written first, explains cuts.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -2237,6 +2237,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (match is not null && string.IsNullOrWhiteSpace(match))
             return new VisualTreeResult("'match' is empty, which every node would match; omit it for the whole tree.", null, null);
 
+        string? activeDocumentPath = null;
         var result = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, label, error) = ResolveActiveWindow(window);
@@ -2256,8 +2257,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             var focus = UiAutomationDriver.FocusIn(active);
             if (match is null)
+            {
+                activeDocumentPath = ActiveDocumentPath(start, basePath, ctx.DocumentDockService.ActiveTab);
                 return new VisualTreeResult(null, label, UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly),
                     FocusedPath: focus.FocusedPath, FocusReason: focus.FocusReason);
+            }
 
             // Every node, interactive or not: a Label or a pane is as much an answer as a button.
             var (matches, total, unsearched) = UiAutomationDriver.Find(
@@ -2271,7 +2275,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // Off the UI thread: the tree is plain data by now, and sizing a large one takes a few serializations.
         if (result is { Root: { } tree, Matches: null })
         {
-            var (fitted, fitNote) = FitToReply(tree);
+            var (fitted, fitNote) = FitToReply(tree, activeDocumentPath);
             result = result with { Root = fitted, Note = fitNote };
         }
         return result;
@@ -2289,31 +2293,44 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     internal const int TreeCharacterBudget = 40_000;
 
     /// <summary>
-    /// The tree as it is when it fits <see cref="TreeCharacterBudget"/>; otherwise cut at the most levels down that fit, or
-    /// at one, with a note that says how large it was, where it was cut and how to see the rest.
+    /// The tree as it is when it fits <see cref="TreeCharacterBudget"/>; otherwise omit hidden nodes' children first,
+    /// then cut other branches at the most levels down that fit, or at one, keeping the active document.
+    /// The note says what was cut and how to see the rest.
     /// </summary>
-    internal static (UiNode Tree, string? Note) FitToReply(UiNode tree)
+    internal static (UiNode Tree, string? Note) FitToReply(UiNode tree, string? activeDocumentPath = null)
     {
         var full = SizeOf(tree);
         if (full <= TreeCharacterBudget)
             return (tree, null);
 
         static string N(int n) => n.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+        // Keep the requested root's children so dumping again from a hidden node still makes progress.
+        var showing = tree with { Children = [.. tree.Children.Select(c => CutHidden(c, activeDocumentPath))] };
+        var hiddenCut = SizeOf(showing) != full;
+        var hiddenNote = hiddenCut ? "First, children below hidden nodes were omitted. " : "";
+        if (hiddenCut)
+            tree = showing;
+        if (SizeOf(tree) <= TreeCharacterBudget)
+            return (tree, $"This tree is about {N(full)} characters, more than some clients take inline in a reply. "
+                          + hiddenNote + "A node marked \"truncated\" holds more: dump again with its path as 'root' to see below it, "
+                          + "or use 'match' to find a control by its name or type.");
+
+        var documentNote = activeDocumentPath is null ? "" : "The active document subtree was kept to the requested depth. ";
         var deepest = DepthOf(tree);
         // Only one level below it, so there is no level to cut: it is its children that are many.
         if (deepest <= 1)
-            return (tree, $"The tree is about {N(full)} characters, more than some clients take inline in a reply, though it "
+            return (tree, hiddenNote + $"The tree is about {N(full)} characters, more than some clients take inline in a reply, though it "
                           + "goes only one level down, since this node has many children: scope it with 'root', or use "
                           + "'match' to find a control by its name or type.");
 
         // A tree's size grows with every level kept, so the most levels that fit are found by halving.
         var (low, high) = (1, deepest - 1);
-        var (cut, size) = (CutAt(tree, 1), 0);
+        var (cut, size) = (CutAt(tree, 1, activeDocumentPath), 0);
         size = SizeOf(cut);
         while (low < high)
         {
             var mid = (low + high + 1) / 2;
-            var candidate = CutAt(tree, mid);
+            var candidate = CutAt(tree, mid, activeDocumentPath);
             var candidateSize = SizeOf(candidate);
             if (candidateSize <= TreeCharacterBudget)
                 (low, cut, size) = (mid, candidate, candidateSize);
@@ -2321,14 +2338,31 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 high = mid - 1;
         }
 
-        var note = $"This tree is about {N(full)} characters, more than some clients take inline in a reply, so it was "
-                   + $"cut {low} level{(low == 1 ? "" : "s")} down, about {N(size)} characters. A node marked \"truncated\" "
+        var note = hiddenNote + documentNote + $"This tree is about {N(full)} characters, more than some clients take inline in a reply, so "
+                   + (activeDocumentPath is null ? "it was cut " : "other branches were cut ") + $"{low} level{(low == 1 ? "" : "s")} down, about {N(size)} characters. A node marked \"truncated\" "
                    + "holds more: dump again with its path as 'root' to see below it, or use 'match' to find a control by "
                    + "its name or type.";
         if (size > TreeCharacterBudget)
-            note += " It is still over the limit one level down, since this node has many children: scope it with 'root'.";
+            note += activeDocumentPath is null
+                ? " It is still over the limit one level down, since this node has many children: scope it with 'root'."
+                : " It is still over the limit with other branches cut one level down and the active document kept: scope it with 'root'.";
         return (cut, note);
     }
+
+    internal static string? ActiveDocumentPath(Control start, string basePath, object? document)
+    {
+        if (document is null)
+            return null;
+        var view = start.GetVisualDescendants().OfType<UserControl>().FirstOrDefault(c =>
+            c.IsEffectivelyVisible && ReferenceEquals(c.DataContext, document));
+        return view is null ? null : UiAutomationDriver.PathWithin(start, basePath, view);
+    }
+
+    private static UiNode CutHidden(UiNode node, string? documentPath) => node.Path == documentPath
+        ? node
+        : node.IsHidden == true
+            ? CutAt(node, 0)
+            : node with { Children = [.. node.Children.Select(c => CutHidden(c, documentPath))] };
 
     private static int SizeOf(UiNode tree) => System.Text.Json.JsonSerializer.Serialize(tree, ReplyJson.Options).Length;
 
@@ -2337,9 +2371,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // Keeps 'levels' levels below the node, and marks a node whose children are cut away truncated. Not the same as a
     // dump with that maxDepth under interactiveOnly, which also keeps a node at the cut-off whose children it never
     // looked at: here they were looked at, so a branch with nothing interactive is already gone (#1982 review).
-    private static UiNode CutAt(UiNode node, int levels) => levels == 0
-        ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
-        : node with { Children = [.. node.Children.Select(c => CutAt(c, levels - 1))] };
+    private static UiNode CutAt(UiNode node, int levels, string? documentPath = null)
+    {
+        if (node.Path == documentPath)
+            return node;
+        var ancestor = documentPath?.StartsWith(node.Path + "/", StringComparison.Ordinal) == true;
+        return levels <= 0 && !ancestor
+            ? node with { Children = [], Truncated = node.Children.Length > 0 || node.Truncated == true ? true : null }
+            : node with { Children = [.. node.Children.Select(c => CutAt(c, Math.Max(0, levels - 1), documentPath))] };
+    }
 
     internal static string MatchNote(string match, int total, int unsearched,
         IDocumentDockService? dock = null,
@@ -2385,9 +2425,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "inspect_element")]
+    [DescribesEnum(typeof(Avalonia.Automation.ExpandCollapseState))]
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (true/false when a value provider exists), toggle state, 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (true/false when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -2406,7 +2447,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click/invoke refuse disabled targets, naming a blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
@@ -2642,7 +2683,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers'; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — and focuses it first; falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, for reuse. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's own keys do, and is not refused for it. Navigation keys are never refused. Refused while a modal dialog is open over the window, as a person's keys would go to it. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         [Description("A control's path, as dump_visual_tree prints it.")] string target,
-        [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ...")] string key,
+        [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ... A chord written as one, such as 'Ctrl+H', is read as key 'H' with modifiers 'Ctrl', and the reply says so.")] string key,
         [Description("Optional: 'Ctrl', 'Shift', 'Alt', or a combination such as 'Ctrl+Shift'.")] string? modifiers = null,
         [Description(WindowParameter)] string? window = null,
         CancellationToken ct = default)

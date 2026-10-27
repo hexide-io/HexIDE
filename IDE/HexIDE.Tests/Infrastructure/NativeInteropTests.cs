@@ -11,7 +11,7 @@ public class NativeInteropTests
     [InlineData("HexIDE", "Controls/MDI/MDIWindow.axaml.cs", 2)]
     [InlineData("HexIDE.Desktop", "ConsoleOutput.cs", 5)]
     [InlineData("HexIDE.Desktop", "Server/ToolFailures.cs", 1)]
-    [InlineData("HexIDE.Runtime", "TypeLibrary/TypeLibReader.cs", 3)]
+    [InlineData("HexIDE.Runtime", "TypeLibrary/TypeLibReader.cs", 2)]
     [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
     [InlineData("HexIDE.LspGuard", "Program.cs", 3)]
     public void NativeDeclarationsUseSourceGeneration(string project, string file, int count)
