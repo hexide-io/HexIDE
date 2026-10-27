@@ -33,4 +33,35 @@ public class ControlLocalsTests
         props.Should().NotBeEmpty();
         props.Select(p => p.Name).Should().BeInAscendingOrder();
     }
+
+    // A Timer's Left and Top raise 393 when read, as VB6's do (#2069). Expanding the Timer threw that out of the whole
+    // expansion, so get_locals failed on any form holding one and the Locals window gave Timer1 no expander (#2289).
+    [AvaloniaFact]
+    public void A_property_whose_read_raises_shows_the_error_and_the_rest_are_still_listed()
+    {
+        var timer = new VBTimer { Interval = 250 };
+        var node = DebugInspector.NodeFor("Timer1", new Vb6Value(timer), new ModuleExecutionContext());
+
+        var props = node.Expand();
+
+        props.Select(p => p.Name).Should().BeInAscendingOrder().And.Contain(new[] { "Enabled", "Interval", "Left", "Top" });
+        foreach (var name in new[] { "Left", "Top" })
+        {
+            var raised = props.Single(p => p.Name == name);
+            raised.Value.Should().Be("<Get not supported at runtime>");
+            raised.TypeName.Should().BeEmpty();
+            raised.HasChildren.Should().BeFalse();
+        }
+        props.Single(p => p.Name == "Interval").Value.Should().Be("250");
+    }
+
+    [AvaloniaFact]
+    public void ReadProperties_reports_a_raising_read_as_its_error_with_no_value()
+    {
+        var props = AvaloniaInteroperability.ReadProperties(new VBTimer());
+
+        var left = props.Single(p => p.Name == "Left");
+        left.Error.Should().Be("Get not supported at runtime");
+        props.Where(p => p.Name is not ("Left" or "Top")).Should().OnlyContain(p => p.Error == null);
+    }
 }

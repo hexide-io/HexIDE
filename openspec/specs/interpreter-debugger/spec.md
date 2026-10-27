@@ -157,6 +157,11 @@ Locals is the primary inspection surface, showing what is in scope where executi
 - **WHEN** the developer expands an array, a user-defined type, or an object instance
 - **THEN** its elements or fields are shown, guarded against cycles and bounded in depth
 
+#### Scenario: Expanding a control whose property cannot be read
+- **WHEN** the developer expands a control one of whose properties raises when read, such as a Timer's `Left`
+- **THEN** that property is listed with the raised error's own description in angle brackets, and no type
+- **AND** the control's other properties are still listed, and the expansion does not fail
+
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.
 
