@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -6,6 +7,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
+using Serilog;
 using ComponentInstanceViewModel = HexIDE.VisualDesigner.ComponentInstanceViewModel;
 
 namespace HexIDE.Controls;
@@ -64,14 +66,45 @@ public class ControlRenderer : Decorator
         Detach();
     }
 
+    private void ShowFailure()
+    {
+        var text = $"{Component!.AddressedName}: {Component.PreviewFailure}\n{Component.Owner.Localization.GetString("Str.Designer.Unmodelled.ViewOnly")}";
+        Child = new Border
+        {
+            BorderThickness = new Thickness(1),
+            BorderBrush = Component.ForeColor,
+            Background = Component.BackColor,
+            Child = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Component.ForeColor }
+        };
+        ToolTip.SetTip(this, text);
+        ToolTip.SetShowOnDisabled(this, true);
+    }
+
     private void UpdateContent()
     {
         Child = null;
+        ToolTip.SetTip(this, null);
         if (Component != null && Bounds.Width >= 1 && Bounds.Width >= 1)
         {
+            if (Component.PreviewFailure is not null)
+            {
+                ShowFailure();
+                return;
+            }
+            Control visual;
+            try
+            {
+                visual = ((ComponentBaseClass)Component.Instance.BaseClass).InstantiateForDesigner(Component.Instance);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Designer preview failed for {Control}", Component.AddressedName);
+                Component.PreviewFailure = ex.Message;
+                ShowFailure();
+                return;
+            }
             RenderTargetBitmap target = new RenderTargetBitmap(new PixelSize((int)Bounds.Width, (int)Bounds.Height),
                 new Vector(96, 96));
-            var visual = ((ComponentBaseClass)Component.Instance.BaseClass).InstantiateForDesigner(Component.Instance);
             // A Line draws itself from its endpoints in its container's scale, which only the form knows (#163).
             if (visual is VBLine line)
                 line.Resolve(Component.LineTwipsPerUnit);
