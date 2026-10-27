@@ -409,7 +409,9 @@ The interpreter SHALL resolve an unqualified scalar assignment target with `$`, 
 by its bare name. It SHALL check the character against the slot's declared type, raising
 "Type-declaration character does not match declared data type" when they disagree, including a Variant.
 Without Option Explicit, a first assignment through a character SHALL create a variable of that type.
-These behaviours are measured in the oracle's 2026-10-11 assignment probes (#739).
+A For counter, and the name on its Next, written with `%`, `&`, `!`, `#` or `@` SHALL name the variable of the
+bare name in the same way, at any scope. These behaviours are measured in the oracle's 2026-10-11 assignment
+probes and its 2026-10-27 entry "A For counter written with a type character" (#739).
 
 #### Scenario: A suffixed assignment reaches a declared variable
 
@@ -421,7 +423,13 @@ These behaviours are measured in the oracle's 2026-10-11 assignment probes (#739
 - **WHEN** an undeclared name is first assigned as `k% = 3` without Option Explicit
 - **THEN** a bare read of `k` returns Integer 3
 
-#### Scenario: A declared local Integer counter uses its bare slot
+#### Scenario: A counter through its character uses the declared variable
 
-- **WHEN** a local `Dim i As Integer` is followed by `For i% = 1 To 2: Next`
-- **THEN** a bare read of `i` returns Integer 3, with or without Option Explicit
+- **WHEN** a variable `c` declared As Long, locally, in the module or as another module's Public, is the counter of
+  `For c& = 1 To 2` closed by `Next` or `Next c&`
+- **THEN** the body reads 1 and 2 through the bare `c`, and a bare read after the loop returns Long 3
+
+#### Scenario: A counter character the declared type contradicts
+
+- **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
+- **THEN** the statement raises "Type-declaration character does not match declared data type"

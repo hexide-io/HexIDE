@@ -346,9 +346,9 @@ Four kinds of divergence came out, each filed:
   left a declared `n` at 0 with no error. With it, the same line raised `Variable not defined (n%)`,
   which VB6 does not. A `For i%` loop ran on a counter nobody reads either way (#739).
   #739 now resolves scalar assignment targets to the bare slot, checks the declared type and creates a typed slot
-  on first suffixed assignment. It also fixes the measured declared local Integer counter. No new VB6 measurement
-  was needed: the assignment tables above supply the values and types. Other counter characters, module counters
-  and suffixed `Next` were not measured there and retain their previous behaviour.
+  on first suffixed assignment. No new VB6 measurement was needed for those: the assignment tables above supply the
+  values and types. The For counter was measured at every scope, with `Next` too, in "A For counter written with a
+  type character" (2026-10-27), and follows it.
 - A `Function` declared with a type character does not parse, so its module does not load (#740).
 - Surplus arguments are dropped, so `H(5, 6)`, `G(5, 6)` and `F(5, 6)` above run and answer, and a
   `String` variable that shares a library function's name (`Left`, `Trim`) is passed over to the library

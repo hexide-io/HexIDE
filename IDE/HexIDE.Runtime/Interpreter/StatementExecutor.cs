@@ -1133,15 +1133,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         var counter = context.iCS_S_VariableOrProcedureCall();
         var variable = counter.GetText();
-        // Only a declared local Integer counter was measured through a character (#739).
-        if (counter.typeHint()?.PERCENT() != null
-            && currentEnv.TryGetVariableLocation(counter.ambiguousIdentifier().GetText(), out var hintedCounter)
-            && ownedSlots?.Contains(hintedCounter) == true
-            && interpreter.ExecutionContext.State.DeclaredTypeOf(hintedCounter) == Vb6Value.ValueType.Integer)
-            variable = counter.ambiguousIdentifier().GetText();
+        // `For i% = …` and `Next i%` name the variable `i`, a local, a module's or another module's Public, checked against
+        // its declared type; an undeclared one is declared with the character's type (measured for % & ! # @, #739).
+        if (counter.typeHint() is { } counterHint)
+            variable = TypedCounter(counter.ambiguousIdentifier().GetText(), counterHint, declare: true);
         RefuseConstantTarget(variable, VariableRequired);
-        if (context.typeHint().Length != 0)
-            throw new NotImplementedException("TypeHints not implemented");
+        foreach (var hint in context.typeHint())
+        {
+            if (context.NEXT().Symbol.TokenIndex > hint.Start.TokenIndex || context.ambiguousIdentifier() is not { } next)
+                throw new NotImplementedException("TypeHints not implemented");
+            TypedCounter(next.GetText(), hint, declare: false);
+        }
         if (context.asTypeClause() != null)
             throw new NotImplementedException("asTypeClause not implemented");
         // Start, limit and step, in that order, each converted into the counter's type as soon as it is evaluated, so one
@@ -1203,6 +1205,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             i = AdvanceForCounter(context, variable, stepL, i);
         }
         return default;
+    }
+
+    /// <summary>
+    /// A For counter, or the name on its Next, written with a type character: the variable of the bare name, measured on
+    /// vb6.exe for #739, native and p-code. A character its declared type does not match, a Variant's included, is VB6's
+    /// compile error, as is a String counter's `$` ("Type mismatch"). An undeclared name is "Variable not defined" under
+    /// Option Explicit, and otherwise the counter declares it with the character's type.
+    /// </summary>
+    private string TypedCounter(string name, VB6Parser.TypeHintContext hint, bool declare)
+    {
+        var type = BaseTypeMapper.Map(hint);
+        if (currentEnv.TryGetVariableLocation(name, out var location))
+        {
+            if (interpreter.ExecutionContext.State.DeclaredTypeOf(location) != type)
+                throw new VBCompileErrorException("Type-declaration character does not match declared data type");
+            if (type == Vb6Value.ValueType.String)
+                throw new VBCompileErrorException("Type mismatch");
+            return name;
+        }
+        if (currentModule.PrePass.RequireVariableDefinitions)
+            throw new VBVariableNotDefinedException(name);
+        // An undeclared `$` counter, and a Next naming an undeclared variable, were not measured.
+        if (!declare || type == Vb6Value.ValueType.String)
+            throw new NotImplementedException($"`{name}{hint.GetText()}` on a For or Next it does not declare is not implemented (#739)");
+        interpreter.ExecutionContext.AllocVariable(currentEnv, name, new Vb6Value(type), type);
+        return name;
     }
 
     // A Single, Double, Currency or Date counter steps in its own type, and so may take a fraction (#983).
