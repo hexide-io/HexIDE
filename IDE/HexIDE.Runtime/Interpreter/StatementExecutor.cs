@@ -2452,6 +2452,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return default;
                 }
             }
+            if (variable.Value is ICSharpAsyncPropertyBag asyncPropertyBag
+                && await asyncPropertyBag.TrySetPropertyAsync(memberIdentifier, value))
+                return default;
 
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))

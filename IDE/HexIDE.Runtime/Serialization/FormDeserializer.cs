@@ -94,6 +94,7 @@ public class FormDeserializer
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
+        Components.InBox.CommonDialogComponentClass.Instance,
     ];
 
     /// <summary>

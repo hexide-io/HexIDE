@@ -174,3 +174,75 @@ took the key itself.
 - a UserControl's own key events;
 - holding a key down for auto-repeat;
 - the key events of a modal form shown from a key handler.
+
+### The whole keyboard on a TextBox (2026-10-27)
+
+**The probe.** A form holding Text1 (TabIndex 0) and Command1 (1), with no Default or Cancel button and KeyPreview
+False. Both log every KeyDown and KeyUp with KeyCode and Shift, and every KeyPress with KeyAscii. The program presses
+the keys itself with `SendInput` and `KEYEVENTF_SCANCODE`, so Windows maps each physical key through the guest's
+keyboard layout, 00000809 (United Kingdom), as it maps a real one. The modifier goes down, then the key down and up,
+then the modifier up. It ran in the guest's console session, 372 steps, and native and p-code logged the same lines.
+
+**The order is the same for every key:** the modifier's KeyDown, the key's KeyDown, KeyPress if there is one, the key's
+KeyUp, then the modifier's KeyUp. KeyCode is the same with every modifier. Shift is 1 with Shift, 2 with Ctrl and 4 with
+Alt. KeyPress is "none" where a cell says so, or where there is no cell.
+
+| Key | KeyCode | KeyAscii plain | Shift | Ctrl | Alt |
+|---|---|---|---|---|---|
+| A to Z | 65 to 90 | 97 to 122 | 65 to 90 | 1 to 26 | none |
+| 1 to 9, 0 | 49 to 57, 48 | 49 to 57, 48 | 33 34 163 36 37 94 38 42 40 41 (`!"£$%^&*()`) | none | none |
+| `-` and `=` | 189, 187 | 45, 61 | 95, 43 | none | none |
+| `[` and `]` | 219, 221 | 91, 93 | 123, 125 | **27**, **29** | none |
+| `;` | 186 | 59 | 58 | none | none |
+| `'`, the UK key beside `;` | **192** | 39 | 64 (`@`) | none | none |
+| `` ` `` | **223** | 96 | 172 (`¬`) | none | none |
+| `#`, the UK key beside Enter | **222** | 35 | 126 (`~`) | 28 | none |
+| `,` `.` `/` | 188, 190, 191 | 44, 46, 47 | 60, 62, 63 | none | none |
+| `\`, the UK key beside left Shift | 220 | 92 | 124 | 28 | none |
+| Space | 32 | 32 | 32 | 32 | not run: the window menu |
+| Backspace | 8 | 8 | 8 | **127** | none |
+| Enter | 13 | 13 | 13 | **10** | none |
+| Esc | 27 | 27 | 27 | not run | not run |
+| Insert, Delete, Home, End, PgUp, PgDn | 45, 46, 36, 35, 33, 34 | none | none | none | none |
+| Left, Up, Right, Down | 37, 38, 39, 40 | none | none | none | none |
+| F1 to F9, F11, F12 | 112 to 120, 122, 123 | none | none | none | none; Alt+F4 not run |
+
+**The numeric keypad:**
+
+| Key | NumLock on | NumLock on, with Shift | NumLock off, with or without Shift |
+|---|---|---|---|
+| 0 to 9 | KeyCode 96 to 105, KeyAscii 48 to 57 | the navigation key, with Shift **0**, no KeyPress | the navigation key, no KeyPress |
+| `.` | 110, KeyAscii 46 | Delete, 46, Shift 0 | Delete, 46 |
+| `+` `-` `*` `/` | 107, 109, 106, 111, KeyAscii 43, 45, 42, 47 | the same, Shift 1 | the same |
+| Enter | 13, KeyAscii 13 | the same, Shift 1 | the same |
+
+- **The navigation keys** for 0 to 9 are Insert 45, End 35, Down 40, PgDn 34, Left 37, **12** (Clear) for 5, Right 39,
+  Home 36, Up 38 and PgUp 33.
+- **With Shift held and NumLock on,** Windows releases Shift around the key and presses it again: KeyDown 16/1, KeyUp
+  16/0, the key's KeyDown and KeyUp with Shift 0, KeyDown 16/1, then the real KeyUp 16/0.
+- **NumLock itself** raises KeyDown and KeyUp 144.
+
+**Tab, and the modifiers alone:**
+
+| Input | VB6 |
+|---|---|
+| Tab, with Command1 next | **no key event at all**; the focus moves |
+| Shift+Tab | Text1 KeyDown 16/1; the focus moves; then **Command1** KeyUp 16/0 |
+| Ctrl+Tab | KeyDown 9/2, KeyUp 9/2, no KeyPress; the focus stays |
+| left or right Shift | KeyDown 16/1, KeyUp 16/0: the right is 16 too |
+| left or right Ctrl | KeyDown 17/2, KeyUp 17/0 |
+| Alt, with each key above | KeyDown 18/4 before it, KeyUp 18/0 after it |
+| Shift down, Ctrl down, Shift up, Ctrl up | KeyDown 16/1, KeyDown 17/3, KeyUp 16/2, KeyUp 17/0 |
+| Ctrl, Alt and Shift down, then up in that order | KeyDown 17/2, 18/6, 16/7; KeyUp 17/5, 18/1, 16/0 |
+| Shift down, A down, Shift up, A up | KeyDown 16/1, KeyDown 65/1, KeyPress 65, KeyUp 16/0, KeyUp 65/0 |
+
+So Shift is the mask of the modifiers held after the event. A modifier's KeyDown includes its own bit, its KeyUp
+leaves it out, and a key's KeyUp reports what is held when it is released.
+
+**Not run.** Each of these enters the window's menu loop, opens a menu or leaves the form, and the probe's own code
+cannot get past that:
+- F10, with or without a modifier;
+- Alt pressed and released alone;
+- Alt+Space, Alt+F4, Alt+Tab, Alt+Esc, Ctrl+Esc and Shift+F10.
+
+Ctrl+Alt and AltGr chords and Alt with the numeric keypad were not run either.

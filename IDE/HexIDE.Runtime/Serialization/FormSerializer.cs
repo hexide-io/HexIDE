@@ -437,7 +437,8 @@ public class FormSerializer
         || (inBox is TabStripComponentClass && TabStripPersistence.OwnLine(name))
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
-        || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+        || inBox.CarriedPropertyOrder.Contains(name, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// An in-box control's second run (#1082), written after its extender's as VB6 writes it (measured): <c>_ExtentX</c>,
@@ -498,6 +499,9 @@ public class FormSerializer
             WriteSSTabProperties(vb, instance, citations);
             return;
         }
+        foreach (var name in inBox.CarriedPropertyOrder)
+            if (Carried(name) is { } raw && inBox.WriteCarriedProperty(raw))
+                WriteCarried(raw);
 
         foreach (var property in inBox.OwnProperties)
         {
