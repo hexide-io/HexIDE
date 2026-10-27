@@ -32,6 +32,44 @@ Guarded by `WindowStateUnconfirmedTests`.
 - On WSLg's `:0`, whose root window carries `_NET_SUPPORTING_WM_CHECK`, the same build kept the old text for an
   unconfirmed Minimized, and confirmed Maximized and the same Normal.
 
+## Every designer drag's reply said "nothing was docked" — **CLOSED** (#2232, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's and #2217's live checks).** All 18 drags on the form designer, moving, resizing
+and drawing controls, ended their replies with a sentence about Dock, though none of them involved it:
+`interact {"target":"…/List[ControlsContainer]/ListItem[Command1]","action":"click","value":"5,8 to 5,56","window":"ide"}`
+→ `dragged the left button at (5, 8) on 'ControlItem', … (pointer capturer); Dock's layout is unchanged, so nothing was
+docked: …`. Each drag did what it should. A first-time caller reads "nothing was docked" as the drag having failed.
+
+**Cause.** #2175 added the clause for every drag pressed inside a `DockControl`, and the designer is inside one.
+
+**Fixed (#2232).** The reply says what Dock moved whenever it moved something. It says the layout is unchanged only for a
+drag pressed on one of Dock's drag areas (`DockProperties.IsDragArea`: a tab, a tool window's title strip), which is
+where Dock itself starts a drag. Any other drag says nothing about Dock. Guarded by `DragDockTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Moving Command1 by `5,8 to 45,58`, and drawing a TextBox with the toolbox's Text tool, replied without the clause.
+- Properties dragged along its own title strip still said the layout was unchanged, and dragged onto the Project dock
+  said `Dock moved 'Properties' from a dock of its own to the dock with 'Project Group - Group1'`.
+
+## `press_key` refused a chord written as one key as an unknown key — **CLOSED** (#2189, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2030's live check, Sonnet).**
+`press_key {"target":"…/Custom[Root]/None[TextEditor]","key":"Ctrl+H","window":"ide"}` answered
+`unknown key 'Ctrl+H' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)`. `H` was never the problem:
+modifiers go in their own parameter, and the refusal didn't say so. The caller gave up on the keyboard and opened
+Replace from the Edit menu.
+
+**Fixed (#2189).** A `key` with a `+` between two parts is read as its last part, with the parts before it as
+modifiers added to any `modifiers` given, and the reply says so: `pressed Control+H …; 'Ctrl+H' was read as key 'H'
+with modifiers 'Ctrl'`. A leading part that is not a modifier is refused naming it, and an unknown last part is named
+in the chord. Combined modifiers now read `Control+Shift+End`, not `Control, Shift+End`. Guarded by
+`UiAutomationDriverTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** `Ctrl+H` in
+the code window opened Replace, as `H` with `Ctrl` does. `A+B` and `Ctrl+Nope` were refused naming the wrong part, and
+`Shift+End` with `Ctrl` replied `pressed Control+Shift+End …, added to 'Ctrl'`.
+
 ## Keyboard `type_text` counted a prompt-raising key as typed — **CLOSED** (#2035, 2026-10-26)
 
 **Symptom (2026-10-26, Windows, #1975's live check).** Keyboard `type_text` of `xyz` into the code window
