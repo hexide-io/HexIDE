@@ -24,9 +24,10 @@ showed no expander.
 **Workaround.** `maxDepth` 1, which loses everything under `Me`.
 
 **Fixed (#2289).** `ReadProperties` catches a raising read one property at a time. The Locals tree lists that property
-with the raised error's own description in angle brackets and no type, and lists the rest as before. What VB6's own
-Locals window shows for such a property is not yet measured. Guarded by `ControlLocalsTests`, whose two new tests fail
-with the catch removed.
+with the raised error's own description in angle brackets and no type, and lists the rest as before. The angle brackets
+are VB6's own convention for a listed member whose read raises (measured on #2289), though VB6 lists no Left or Top for a
+Timer at all: which members Locals lists is #2329. Guarded by `ControlLocalsTests`, whose two new tests fail with the
+catch removed.
 
 **Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).** The project
 was a form holding Timer1, paused by a `Stop` in Form_Load.
@@ -34,8 +35,8 @@ was a form holding Timer1, paused by a `Stop` in Form_Load.
 - `get_locals {}` succeeded. Under `Me`, Timer1 listed 13 rows, Left and Top among them as
   `<Get not supported at runtime>` with an empty type, and Interval as `250`.
 - In the Locals window, Timer1 had an expandCollapse provider, and expanding it showed the same rows.
-- The same rows showed properties a VB6 Timer doesn't have, two of them reading `NaN`. That belongs to #801 and is
-  recorded there.
+- The same rows showed properties a VB6 Timer doesn't have, two of them reading `NaN`. That belongs to #801 and #2329, and
+  is recorded on #801.
 
 ---
 

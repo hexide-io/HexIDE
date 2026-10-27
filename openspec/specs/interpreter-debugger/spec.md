@@ -158,7 +158,7 @@ Locals is the primary inspection surface, showing what is in scope where executi
 - **THEN** its elements or fields are shown, guarded against cycles and bounded in depth
 
 #### Scenario: Expanding a control whose property cannot be read
-- **WHEN** the developer expands a control one of whose properties raises when read, such as a Timer's `Left`
+- **WHEN** the developer expands a control one of whose listed properties raises when read
 - **THEN** that property is listed with the raised error's own description in angle brackets, and no type
 - **AND** the control's other properties are still listed, and the expansion does not fail
 

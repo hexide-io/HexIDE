@@ -387,8 +387,8 @@ public static class DebugInspector
     }
 
     // A live control's or form's properties, name-sorted. One whose read raises shows the raised error's own description
-    // in angle brackets, with no type, and the rest are still listed (#2289). What VB6's Locals window shows for such a
-    // property is unmeasured.
+    // in angle brackets, with no type, and the rest are still listed (#2289). The angle brackets are VB6's own, for a member
+    // its Locals lists whose read raises (measured on #2289). Which members are listed, and an error row's type, are #2329.
     private static IEnumerable<DebugNode> PropertyNodes(Control control) =>
         AvaloniaInteroperability.ReadProperties(control).Select(p => p.Error is { } error
             ? new DebugNode(p.Name, $"<{error}>", string.Empty)

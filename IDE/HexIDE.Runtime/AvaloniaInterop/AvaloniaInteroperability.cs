@@ -561,6 +561,11 @@ public static class AvaloniaInteroperability
             {
                 byName[property.Name] = (default, ex.Error.Description);
             }
+            // Not a raise VB6 would make, but a fault in one getter shouldn't hide the rest, as a watch shows its message.
+            catch (Exception ex)
+            {
+                byName[property.Name] = (default, ex.Message.ReplaceLineEndings(" ").Trim());
+            }
         }
         var list = new List<(string, Vb6Value, string?)>(byName.Count);
         foreach (var kv in byName)

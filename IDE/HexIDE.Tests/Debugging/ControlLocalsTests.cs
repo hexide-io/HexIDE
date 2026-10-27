@@ -64,4 +64,12 @@ public class ControlLocalsTests
         left.Error.Should().Be("Get not supported at runtime");
         props.Where(p => p.Name is not ("Left" or "Top")).Should().OnlyContain(p => p.Error == null);
     }
+
+    // A program's read of a scroll bar's colour is refused (#801), but that refusal is the interpreter's, not the read
+    // Locals makes, so its properties all read.
+    [AvaloniaFact]
+    public void A_scroll_bar_reads_every_property_without_an_error()
+    {
+        AvaloniaInteroperability.ReadProperties(new VBScrollBar()).Should().NotBeEmpty().And.OnlyContain(p => p.Error == null);
+    }
 }
