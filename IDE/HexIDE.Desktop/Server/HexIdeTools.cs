@@ -2122,7 +2122,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         bool inline = false,
         CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             // Through the shared resolver, so 'window' means the same thing here as in every other tool.
             // Any other window, a dialog, Find or a running form, is captured in preference to the IDE's own (#1264),
@@ -2136,9 +2136,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset, out var leftOut);
-            if (bitmap is null)
+            // Drawn by the compositor, as the screen is: a render target above 100% scaling left out text drawn after a
+            // popped clip (#2293).
+            using var snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
+            if (snapshot is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title);
+            var (bitmap, windowOffset, leftOut) = (snapshot.Image, snapshot.WindowOffset, snapshot.LeftOut);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
@@ -2147,7 +2150,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
-                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y, Note: LeftOutNote(leftOut), Title: active.Title);
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y,
+                Note: string.Join(" ", new[] { LeftOutNote(leftOut), snapshot.Fallback }.OfType<string>()) is { Length: > 0 } note ? note : null,
+                Title: active.Title);
             if (!inline)
                 return result;
 
