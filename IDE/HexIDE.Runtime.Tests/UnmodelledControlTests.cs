@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// every block shares, so no knowledge of the control is needed.
 /// </summary>
 /// <remarks>
-/// VB6's answers are from its IDE (docs/vb6-fidelity-oracle.md, "Its size when the file records none, and what the
+/// VB6's answers are from its IDE (docs/vb6-fidelity-oracle/a-control-vb6-cannot-load-renders-as-an-empty-box.md, "Its size when the file records none, and what the
 /// box is"): <c>Width</c> and <c>Height</c> size the box, and with neither it is 1200 × 480 twips. <c>_ExtentX</c> and
 /// <c>_ExtentY</c> play no part.
 /// </remarks>
@@ -113,5 +113,18 @@ public class UnmodelledControlTests
     {
         UnmodelledControl.Read("   Left            =   0\r\n").Should().BeNull();
         UnmodelledControl.Read("").Should().BeNull();
+    }
+
+    // #2327: HexIDE runs a CommonDialog and a top-level Toolbar though the designer only carries their blocks, so the box
+    // says they are view-only there. A Toolbar holding controls, or in a control array, is still refused at run time.
+    [Theory]
+    [InlineData("   Begin MSComDlg.CommonDialog CommonDialog1 \r\n      Left            =   600\r\n   End", true)]
+    [InlineData("   Begin MSComctlLib.Toolbar Bars \r\n      Index           =   0\r\n   End", false)]
+    [InlineData("   Begin MSComctlLib.Toolbar Bar \r\n      Begin VB.CommandButton Command1 \r\n      End\r\n   End", false)]
+    [InlineData("   Begin MSComctlLib.ListView lvwItems \r\n      Left            =   0\r\n   End", false)]
+    public void A_control_HexIDE_runs_is_view_only_and_any_other_is_not(string block, bool viewOnly)
+    {
+        UnmodelledControl.Read(block)!.ViewOnly.Should().Be(viewOnly);
+        UnmodelledControl.Read(Toolbar)!.ViewOnly.Should().BeTrue("Web Browser.frm's toolbar is a top-level bar");
     }
 }

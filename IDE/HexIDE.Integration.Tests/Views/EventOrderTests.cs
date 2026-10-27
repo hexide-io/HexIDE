@@ -1,7 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -24,7 +29,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// used to let another event start inside a handler, deterministically rather than on a loaded machine.
 /// </summary>
 /// <remarks>
-/// What VB6 does is measured (vb6-fidelity-oracle.md, <em>One handler at a time</em>): a handler a statement raises runs to
+/// What VB6 does is measured (vb6-fidelity-oracle/one-handler-at-a-time.md, <em>One handler at a time</em>): a handler a statement raises runs to
 /// its end inside that statement; nothing else runs inside a handler unless it calls <c>DoEvents</c>; and a Timer is never
 /// delivered inside its own handler, and delivers one tick, not several, once the handler keeping it waiting ends.
 /// </remarks>
@@ -94,10 +99,10 @@ public class EventOrderTests
     }
 
     /// <param name="timeSliceMs">The debugger's time slice: null for none, -1 to yield at every statement.</param>
-    private static Run Start(string code, long? timeSliceMs)
+    private static Run Start(string code, long? timeSliceMs, string? formSource = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, Form, new NullSink())!;
+        var form = new FormDeserializer().Deserialize(project, formSource ?? Form, new NullSink())!;
         form.UpdateCode(code.ReplaceLineEndings("\r\n"));
         project.AddForm(form);
 
@@ -141,8 +146,102 @@ public class EventOrderTests
 
     private static void Pump()
     {
-        for (var i = 0; i < 20; i++)
-            Dispatcher.UIThread.RunJobs();
+        // Jobs restore their captured context onto this thread, including an earlier test's TestContext (#2194, #883).
+        var context = ExecutionContext.Capture();
+        try
+        {
+            for (var i = 0; i < 20; i++)
+                Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SSTab_MouseDown_reads_the_old_tab_before_Click_and_MouseUp()
+    {
+        var source = Form.Replace("   Begin VB.CommandButton Command1", """
+               Begin TabDlg.SSTab SSTab1
+                  Width = 4000
+                  Height = 1500
+               End
+               Begin VB.CommandButton Command1
+            """);
+        using var run = Start("""
+            Private Sub SSTab1_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+                Debug.Print "down " & SSTab1.Tab
+                Debug.Print "down ends " & SSTab1.Tab
+            End Sub
+            Private Sub SSTab1_Click(PreviousTab As Integer)
+                Debug.Print "click " & PreviousTab & " to " & SSTab1.Tab
+            End Sub
+            Private Sub SSTab1_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+                Debug.Print "up " & SSTab1.Tab
+            End Sub
+            """, -1, source);
+        var tab = run.Window.GetLogicalDescendants().OfType<VBSSTab>().Single();
+        var caption = tab.GetVisualDescendants().OfType<TextBlock>().ElementAt(1);
+        var point = caption.TranslatePoint(new Point(5, 5), run.Window)!.Value;
+
+        run.Window.MouseDown(point, MouseButton.Left);
+        run.Window.MouseUp(point, MouseButton.Left);
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("down 0", "down ends 0", "click 0 to 1", "up 1");
+        tab.Tab.Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public void Pump_preserves_the_callers_execution_context()
+    {
+        var marker = new AsyncLocal<string?> { Value = "caller" };
+        var context = ExecutionContext.Capture()!;
+        ExecutionContext.Run(context, _ =>
+        {
+            marker.Value = "queued job";
+            Dispatcher.UIThread.Post(() => marker.Value.Should().Be("queued job"));
+        }, null);
+
+        Pump();
+
+        marker.Value.Should().Be("caller");
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task A_Timer_without_Interval_stays_quiet_while_a_nonzero_Timer_ticks()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var form = Form.Replace("      Enabled         =   0   'False\r\n", "")
+            .Replace("      Interval        =   1000\r\n", "")
+            .Replace("End\r\nAttribute VB_Name", "   Begin VB.Timer Timer2 \r\n      Interval        =   100\r\n   End\r\nEnd\r\nAttribute VB_Name");
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print Timer1.Interval
+                Debug.Print Timer1.Enabled
+            End Sub
+            Private Sub Timer1_Timer()
+                Debug.Print "unexpected tick"
+            End Sub
+            Private Sub Timer2_Timer()
+                Debug.Print "tick"
+            End Sub
+            """, null, form);
+
+        var wait = System.Diagnostics.Stopwatch.StartNew();
+        while (wait.Elapsed < TimeSpan.FromSeconds(1.5))
+        {
+            await System.Threading.Tasks.Task.Delay(10, cancellationToken);
+            Pump();
+        }
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().NotContain("unexpected tick");
+        run.Printed.Should().Contain("tick");
+        run.Printed.Take(2).Select(line => line.Trim()).Should().Equal("0", "True");
     }
 
     [AvaloniaTheory]

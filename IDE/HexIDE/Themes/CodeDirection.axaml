@@ -1,0 +1,16 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit">
+    <!-- Code reads left to right whatever the IDE's language (#1944). VB6 has no right-to-left syntax, and an Arabic
+         string inside a line is bidirectional text within a left-to-right line. Every TextEditor here holds code or
+         JSON: the code window, the Immediate window, the archive viewer, the export preview and the protocol inspector. -->
+    <Style Selector="avaloniaEdit|TextEditor">
+        <Setter Property="FlowDirection" Value="LeftToRight" />
+    </Style>
+    <!-- A menu is chrome, so it follows the IDE's language even when the control it opens from reads left to right; a
+         popup otherwise takes its direction from that control. LocalizationService sets the resource. No running
+         program's menu is either type today: a form's PopupMenu, when built, follows the form, not the IDE. -->
+    <Style Selector="MenuFlyoutPresenter, ContextMenu">
+        <Setter Property="FlowDirection" Value="{DynamicResource Ide.FlowDirection}" />
+    </Style>
+</Styles>

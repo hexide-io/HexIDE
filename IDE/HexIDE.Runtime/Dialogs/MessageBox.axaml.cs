@@ -12,6 +12,8 @@ namespace HexIDE.Runtime.Dialogs;
 
 public partial class MessageBox : UserControl
 {
+    public bool IsProgramDialog { get; init; }
+
     public string Text { get; set; } = "";
     public MessageBoxButtons Buttons { get; set; } = MessageBoxButtons.Ok;
     public MessageBoxIcon Icon { get; set; } = MessageBoxIcon.None;
@@ -154,7 +156,10 @@ public partial class MessageBox : UserControl
         foreach (var (label, result) in GetButtonDefs())
         {
             var captured = result;
-            var btn = new Button { Content = label, MinWidth = 75 };
+            // The IDE installs Str.* resources; the standalone runner keeps the English fallback.
+            var caption = this.TryFindResource($"Str.Dialog.MessageBox.Button.{result}", out var value)
+                && value is string translated ? translated : label;
+            var btn = new Button { Content = caption, MinWidth = 75 };
             btn.Click += (_, _) => AcceptRequest?.Invoke(captured);
             PART_Buttons.Children.Add(btn);
         }

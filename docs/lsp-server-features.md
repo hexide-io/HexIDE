@@ -12,6 +12,11 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
+**Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
+`VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
+[probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;
+expression interiors beyond the bound are skipped. The interpreter's expression-walk overflow remains.
+
 ---
 
 ## Two limits, and only one of them is a backlog
@@ -49,6 +54,10 @@ The philosophy behind that last rating has not changed and is worth restating:
 ---
 
 ## What the server is sent, and the lines it keeps off
+
+All server positions count CR, LF and CRLF as line ends, including mixed endings in a file edited outside
+VB6 (#1052). Diagnostics, symbols, folds, rename, highlight, signature help, protected regions and formatting
+use those same physical lines. Formatting and protected-region blanking preserve each line's terminator.
 
 The client sends each form, module and class as **the whole VB6 file**: a class's `VERSION` and
 `BEGIN … END` block, a form's `VERSION` line, object references and designer block, the run of `Attribute`
@@ -125,12 +134,35 @@ published nothing at all for that form, with no reason given. So when an error l
 the file is parsed again with the protected lines emptied and their line breaks kept, and that parse
 answers. A header the grammar can read stays in the tree, and no file in the corpus pays for a second parse.
 
+Option lines directly before a malformed first procedure no longer make the module-level prediction
+fail with an empty procedure tree (#939). That procedure and its symbol survive, with the same syntax
+diagnostics as without the Option lines. Recovery inside the procedure can still hide later procedures
+and errors (#938).
+
 The grammar had to learn whole files first. When both grammars were first given every corpus file whole,
 30 of 46 failed inside the header, all for one reason: VB6 writes an enumerated property value with a
 comment after it (`MultiUse = -1  'True`), and the whitespace before that comment reached rules that went
 straight from the value to the end of the line. Every `.cls` VB6 ever wrote failed at line 3. Fix 7 in
 [`vb6-grammar-fixes.md`](./vb6-grammar-fixes.md) is the repair, and `WholeFileGrammarTests` in each half now
 parses the corpus whole.
+
+Statement-level LL recovery stops before the next newline, colon or end of file, and the listener reports
+at most one syntax diagnostic per offending token (#938). A broken assignment such as `x = = 1` therefore
+leaves the next line's error visible and later procedures in the tree. The SLL fast path is unchanged.
+Recovery is still partial: an extraneous token that ends the block loop early (such as `List0.` before
+more statements), an error between procedures, or an Option line directly before a broken procedure can
+still mask later errors and procedures. `Sync` retains ANTLR's default behaviour; overriding it introduced
+a false error in VB6's Tip of the Day template.
+
+`Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
+their conversion functions remain follow-up work; this adds no external API execution.
+
+An empty `If True Then:` line is accepted without requiring `End If` (#223); the following line is
+an independent statement. Both grammars also accept leading empty colon statements and labels before
+`End If`, using the measured label-name list.
+
+Whitespace-only offending tokens are named `end of line` in unexpected-input and syntax-error-near
+messages, rather than shown as empty quotes (#665). Null, empty and EOF tokens still read `end of file`.
 
 ### Conditional compilation
 
@@ -179,9 +211,18 @@ out, not merely disabled at runtime. The analyzer and its tests exist and work; 
 (The document these replaced listed this under *what works*, describing the severity and the node kinds it
 covers. It has never shipped switched on.)
 
-That is the boundary doing its job rather than an oversight: the check needs a symbol table, and a symbol
-table is the thing being declined. Turning it on would mean either accepting false positives on every
-identifier declared elsewhere, or building the binding pass that is out of scope.
+The retained analyzer has a fixed baseline (#54): designer names collected from the form header,
+class/module names explicitly listed before the semicolon in the document's `.vbp`, and the existing
+built-in list with `vbPixels` added. `RGB`, `Sin` and `Cos` calls already bypass its simple-variable
+visitor. Project names use the same disk lookup and cache as conditional-compilation arguments; they
+are supplied only when exactly one project lists the document and its arguments are valid. Unsaved
+documents still get their own designer names, but no disk-project names. A header the grammar blanks
+for recovery still supplies its names from the original text in the provider path.
+
+This is collection, not binding: it does not inspect other modules' code, check accessibility, or
+resolve a reference to a declaration. The remaining runtime-library names have not been added without
+measurements. Cross-module variables remain invisible, so enabling the check would still produce false
+positives. The baseline does not justify switching it on.
 
 - ◐ Scope analysis is skipped when syntax errors are present, avoiding cascading false positives from an
   incomplete parse tree. Its diagnostics are filtered off the protected lines too, although the check cannot
@@ -255,9 +296,12 @@ the procedure's fold ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 
 **`textDocument/completion`**
 
-Returns a static list of 88 keywords and 42 common built-ins, plus every procedure, variable, constant,
-parameter, enum member and UDT name declared in the current file. Case-insensitive; filtered client-side as
-you type.
+Returns a static list of 87 keywords and 42 common built-ins, plus every procedure, variable, constant,
+parameter, enum and UDT name, and enum member declared in the current file. Labels are unique
+case-insensitively, with declared names taking precedence over static entries; `Date` is a Function.
+Declared names carry their syntactic completion kind: Sub → Method, Function → Function, Property →
+Property, Const → Constant, Enum → Enum, enum member → EnumMember, Type → Struct, and variables and
+parameters → Variable. Filtered client-side as you type.
 
 - ◐ No position awareness — the full list comes back regardless of cursor context.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each
@@ -330,7 +374,7 @@ qualifier edit. The IDE rewrites a member's qualifiers itself when it saves a do
 changes, at the document's own Save or Save As, and when it writes the document to another file. VB6 was
 measured doing the same. A project save leaves an unchanged member's file as it was read, and so did VB6's.
 
-**It answers with nothing** for:
+**It refuses with `-32803 RequestFailed` and a reason** for:
 
 - a caret on a protected line;
 - a name the designer block declares — the form's, a control's or a menu's — wherever the caret is. Its
@@ -343,8 +387,7 @@ measured doing the same. A project save leaves an unchanged member's file as it 
   and `Attribute` (refused as a parameter) were found in the oracle by the review of this document;
 - a caret on a keyword (`VbKeywords.ReservedWords`), a rule older than the rest.
 
-The code window asks the first three questions itself and says why it refuses, because an answer of nothing
-shows the developer nothing at all. It asks the first two before it prompts for a name, and the third after
+The code window asks the first three questions itself and says why it refuses, and also shows the server's refusal message when a request is declined. It asks the first two before it prompts for a name, and the third after
 the prompt and before it sends the request. A local that shares only a property
 name the layout sets, such as `Caption`, or the `Index` parameter of a control array's event handler, is
 renamed as usual: its uses in the code change, and the designer lines that set `Caption` do not.
@@ -353,16 +396,13 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   workspace model. **Semantic rename is explicitly outside the limit**, so this will not grow into it. For
   the same reason a local that shares a control's name is declined along with the control: telling a
   reference to the control from the local is binding.
-- ◐ No `prepareRename`, so the server cannot say before the prompt that a position cannot be renamed. The
-  code window covers a protected line and a declared name itself. On a keyword the prompt still appears,
-  takes a name, and then nothing happens.
-- ◐ Every refusal above is answered with `null`, which the protocol reads as "no change was required" rather
-  than "could not be done". A client that does not ask the same questions first shows nothing, and the
-  keyword refusal reaches HexIDE's own code window that way
-  ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
+- ◐ No `prepareRename`, so the server cannot say before the prompt that a position cannot be renamed. On a
+  keyword the prompt still appears, then the refusal explains why no edit was made (#1015).
+- A caret with no word, or no editable occurrences, still returns `null` (no change required). Rename is
+  scheduled behind prior document changes, including its refusal checks.
 - ◐ Only those six words are refused as a new name, and any other keyword is let through. VB6 refuses
   more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
-  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle.md`](./vb6-fidelity-oracle.md),
+  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle/enums.md`](./vb6-fidelity-oracle/enums.md),
   *Which keywords may name a label*). Whether it refuses each of them as a variable or procedure name has not
   been measured, and the IDE and this server refuse only the words measured in one of those positions.
 
@@ -451,7 +491,7 @@ reference implementation the client half is proved against.
 | Signature help | `textDocument/signatureHelp` | 🔧 Wired | ■ user-defined signatures |
 | Go to definition | `textDocument/definition` | 🔧 Wired | ■ cross-file |
 | Document highlights | `textDocument/documentHighlight` | 🔧 Wired | ■ semantic resolution |
-| Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ refusals answered `null` |
+| Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ no prepareRename |
 | Formatting | `textDocument/formatting` | 🔶 Partial | ◐ spacing, range |
 
 Legend: ◐ depth (outstanding work) · ■ boundary (belongs to a language engine).

@@ -7,7 +7,7 @@ is found — during implementation, review, or live verification — so it's tra
 **Scope / sibling docs.** This doc is about *debugger and IDE-during-debug* behaviour. Two neighbours own other
 lanes: runtime *language* feature gaps (missing statements/intrinsics) live in [`interpreter-gaps.md`](interpreter-gaps.md);
 verified runtime *semantics* (numeric types, errors, coercions — checked against `vb6.exe`) live in
-[`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md); MCP dev-server tooling gaps live in
+[`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md); MCP dev-server tooling gaps live in
 [`mcp-server-gaps.md`](mcp-server-gaps.md). The debugger's design + phase status is in
 [`../openspec/specs/interpreter-debugger/spec.md`](../openspec/specs/interpreter-debugger/spec.md).
 
@@ -37,34 +37,39 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   - **"This edit requires a Reset"** (OK, Help), which can't be declined, for a duplicate declaration.
   - In run mode the code window takes no typing at all, so neither prompt arises there.
   - This bullet used to quote the prompt as "…Do you want to continue?" with Yes and No. That was never measured, and
-    it is HexIDE's wording, not VB6's. The wording and buttons are #1360.
+    it was HexIDE's wording, not VB6's. Since #1360 HexIDE uses the measured wording and OK/Cancel, without Help
+    because it has no help topic.
 - **Which windows the prompt holds (measured, #1329):**
   - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
     and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
-  - **HexIDE:** the code window's own window owns it (#1298), and only that window is disabled. With the code window
-    docked, that is the IDE's main window, while the running form keeps running and taking clicks. With the IDE
-    minimized, the fallback owner is the running form, and the IDE stays enabled. Linux, docked, agrees: the prompt is
-    over the IDE's main window and the running form takes clicks. Minimized was not reachable there under Xvfb with
-    no window manager, and macOS is unchecked.
-  - **The difference:** HexIDE can't hold the whole IDE and program together while it asks in run mode. A modal over
-    one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
-    IDE's windows further, currently hides it instead (#1361).
+  - **HexIDE (#1366):** the code window's own window owns it when visible and not minimized (#1298), with the
+    running form as the fallback. `WindowManager` now disables all desktop windows for the prompt's lifetime and
+    restores their enabled states afterwards. Headless tests cover both owners and Yes/No; native enabled-state
+    verification on the running IDE remains required.
+  - **Remaining differences:** ownership still differs from VB6, and the program isn't paused for the prompt in
+    run mode, so Timers keep firing. Floating a code window currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
-  prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
+  prompt (OK = reset + keep the edit; Cancel = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
 - **Why:** honest + muscle-memory-recognisable — VB6's own dialog, surfaced for the whole edit set the interpreter
   can't hot-patch. Reframes the wall as a familiar behaviour.
 - **Status:** **shipped** (commit 1e52d8f, 2026-08-09), live-verified. A genuine live-apply subset (edits to
-  procedures NOT on the current call stack) is a possible later refinement — constrained today because a live run
-  loads only the startup form's code.
+  procedures NOT on the current call stack) is a possible later refinement. A form's run loads the project's
+  standard and class modules too (#258); stored breakpoints in both stop through `ProjectRunnerService`
+  (`DebuggerLinesAreFileLinesTests`, #10). `.ctl` and `.pag` are not loaded as free-standing modules by that path.
 - **Since #273 task 3.13 (2026-10-02):** the prompt asks only about an edit that lands. A keystroke in the
   file's header or a member's `Attribute` lines writes nothing, and no longer asks to reset the run for it; nor
   does a designer change or a save, each of which rewrites the header as the IDE's own edit (a designer change
   has a cost of its own during a run: D26), nor a reload, which the file watcher holds back until the run ends
   (`FileWatcherService`). Paste, cut and Delete with a selection now ask: their keys are
   bound to code-window commands that took them before the old handler saw them, so until then a paste while
-  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering No restores the
+  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering Cancel restores the
   code only, under whatever header the window shows by then.
+- **Since #1025:** keystroke arming follows AvaloniaEdit's editing bindings and its Delete Line and Indent
+  Selection gestures. Delete Line and word deletion previously landed without asking; headless regression
+  tests now cover all three, No restoring the deletion, and Delete Line refusing the header without asking.
+  This fixes HexIDE's reset affordance; it does not establish new VB6 behaviour. Undo and Redo remain
+  unmeasured and unchanged (#710, #513).
 - **"Every edit" is unmeasured for the routes that are not keystrokes.** Replace All, formatting, Insert File,
   rename, an add-in's `ApplyEdits`/`SetContent` and automation's `set_file_content` while paused have not been
   checked against the prompt. Paste, cut and Delete were assumed covered until they were tested, and were not.
@@ -278,11 +283,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **HexIDE:** the Call Stack is a **dockable tool window** (a `Document`/tool pane, not a modal dialog), and each
   frame carries a right-aligned **Line** column (the 1-based statement line of that activation, counted from the
   top of the file: D25). Current frame is marked with an arrow; there are no Show/Close buttons (the dock owns
-  close; double-click-to-navigate is a later nice-to-have).
+  close; selection or double-click navigates to the calling statement).
 - **Why:** a non-modal, always-available pane fits the dock-based IDE better than a modal dialog, and the interpreter
   *does* track a per-frame current line, so surfacing it is a cheap, useful modern-additive (muscle-memory:
   recognisable list, plus more info). Project name is omitted (single-project interpreter).
 - **Status:** **by design** (additive evolution). User-recognisable; strictly more information than VB6's list.
+
+Caller navigation (#1866): selecting or double-clicking a built-in caller now opens its calling statement and
+marks it with a green gutter triangle, leaving the current statement unchanged. This matches the behaviour
+recorded in #1866; the dockable pane uses selection/double-click rather than VB6's modal **Show** button.
 
 ### D17. The Call Stack is anchored at the paused frame; a frozen re-entrant event's frames are excluded
 - **VB6:** its own break-mode call-stack presentation for re-entrant (event-during-event) situations.
@@ -338,21 +347,43 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
   is not re-measured.
 
-### D20. A step from a function's last statement skips `End Function` — UNMEASURED
-- **VB6:** not measured. Whether F8 stops on `End Function` / `End Sub` before returning to the caller needs the
-  oracle.
-- **HexIDE:** paused on `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to
-  the caller's next line without stopping on `End Function` (2026-09-22).
-- **Why:** unknown until VB6's behaviour is measured; if VB6 stops there, the walk has no statement to stop on
-  for the `End` line.
-- **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
-  divergence until the oracle says VB6 stops there.
+### D20. A step from a function's last statement skips `End Function` — FIXED
+- **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its
+  header](vb6-fidelity-oracle/a-breakpoint-on-a-procedures-end-line-or-its-header.md)). From `F = 1`, a Function's
+  last statement, Step Over stopped on `End Function`, and the next step stopped on the caller's next line, not on
+  the calling line `x = F()` again. A Sub's `End Sub` behaved the same. Measured with Step Over (Shift+F8); `F = 1`
+  calls nothing, so Step Into has nothing different to do there.
+- **HexIDE:** a called procedure's natural end now passes through the debugger gate before returning (#2172).
+  Entry procedures retain breakpoint-only End positions: startup stepping advances from Initialize's last
+  statement into Load's first statement, as required by #2172's supervisor review. Before that, paused on
+  `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to the caller's next line
+  without stopping on `End Function` (2026-09-22).
+- **Why it happened:** the walk's gate ran before each statement of a body, and the `End` line isn't one, so there
+  was nothing to stop on.
+- **Status:** **fixed** by [#2172](https://github.com/hexide-io/HexIDE/issues/2172); headless breakpoint and step
+  regression tests cover the boundary. It is the stepping side of D29. First recorded on
+  [#656](https://github.com/hexide-io/HexIDE/issues/656).
+
+### D29. A breakpoint on a procedure's `End` line or its declaration line never pauses — FIXED
+- **VB6:** a breakpoint on `End Sub`, `End Function` or `End Property` pauses after the procedure's last statement,
+  before it returns, with the `End` line highlighted. One on the declaration line, `Private Sub Helper2()`, pauses on
+  entry, before the first statement of the body. F9 on a `Dim` line is refused with "Breakpoint not allowed on this
+  line" (measured 2026-10-26, the same oracle section as D20).
+- **HexIDE:** Sub declarations and Sub/Function/Property Get natural ends now use the debugger gate,
+  retaining the callee's frame until continued (#2172). Before that, HexIDE accepted a breakpoint on either line
+  and the run never paused there: `set_breakpoints` on Helper's `End Sub`, then `run_project`, ran Helper to its
+  end (found on a live run).
+- **Why it happened:** as D20. Neither line is a statement of the body.
+- **Status:** **fixed** for these measured boundaries by [#2172](https://github.com/hexide-io/HexIDE/issues/2172).
+  Function/Property declaration stepping and breakpoints, Property Get end stepping, early Exit and Property
+  Let/Set boundaries remain unchanged pending measurement. The measured refusal of F9 on Dim is separate from
+  this fix, and whether HexIDE pauses on a `Dim` line isn't checked.
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
   procedure. An event that a statement raises (`Text1.Text = "x"` raising `Text1_Change`) runs to completion
   before that statement finishes, and no other event procedure runs inside one that has not finished. Measured
-  since, native and p-code (vb6-fidelity-oracle.md, *One handler at a time*).
+  since, native and p-code (vb6-fidelity-oracle/one-handler-at-a-time.md, *One handler at a time*).
 - **HexIDE:** `DebugController` yields the UI thread whenever 15 ms have passed since the last yield, so that
   Ctrl+Break can land. That yield is effectively a `DoEvents`. If it lands at the first statement of a raised
   event's handler, the setter returns and the raiser runs on before the handler has finished. While any walk is
@@ -385,7 +416,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 ### D23. An unhandled run-time error in an event procedure left the run going — FIXED
 - **VB6:** in the IDE, an unhandled run-time error stops the program at the statement and enters break mode, offering
   End, Debug and Help, and nothing else runs until the developer chooses. A compiled exe shows the message and ends.
-  Measured on the oracle (2026-10-14): `docs/vb6-fidelity-oracle.md`, "An unhandled run-time error".
+  Measured on the oracle (2026-10-14): `docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error".
 - **HexIDE, until #1011:** the error was recorded, so `get_last_runtime_error` returned it, and shown in the run-time
   error dialog, where End ended the run. The event procedure that met it was abandoned, and the run carried on: a Timer
   tick or a click still raised its handler, on whatever state the abandoned procedure left. That included a form's start (#1010): a
@@ -426,7 +457,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **VB6:** under the IDE's default Error Trapping, *Break in Class Module*, a class method with no handler of its own
   that raises an error stops in the class, even when its caller has an active `On Error`. The caller's handler never
   runs. Under *Break on Unhandled Errors*, and in every compiled program, native and p-code, the caller's handler
-  catches it (measured, `docs/vb6-fidelity-oracle.md`, c1). A form counts as a class module here.
+  catches it (measured, `docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, c1). A form counts as a class module here.
 - **HexIDE:** the caller's handler catches it, as a compiled program does. An error that nothing handles still breaks
   at the innermost faulting line, a class's included, as the default does (#1011).
 - **Why:** a deliberate exception to the rule that HexIDE matches the IDE where the two differ (decided 2026-10-15,
@@ -445,7 +476,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **VB6:** the case could not arise for a line VB6 loaded: it hid the header and every `Attribute` line at load,
   an orphan's included, where HexIDE shows an orphan as editable text that takes a mark, which is never hit.
   One exception is measured: an `Attribute` line pasted into the code window stays code, shown in red, until
-  the module is reloaded (V4 in [the measurement](vb6-fidelity-oracle.md)), where HexIDE reads one pasted
+  the module is reloaded (V4 in [the measurement](vb6-fidelity-oracle/member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md)), where HexIDE reads one pasted
   directly under a declaration as a run at once and refuses a mark on it. Whether VB6 lets a breakpoint be set
   on such a red line is **unmeasured**.
 - **HexIDE:** F9, Debug ▸ Toggle Breakpoint, Ctrl+F2 and a click in either gutter set no mark on such a line,
@@ -457,7 +488,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   something else stops it. Set Next Statement from the menu already refuses any line that is not a statement.
 - **A mark can still be on such a line, and can still be removed.** This row used to say that only an older
   sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
-  read-only line, from either format, and logs it (`UserSidecarService.OffReadOnlyLines`). What can still put
+  read-only line, and logs it (`UserSidecarService.OffReadOnlyLines`). Since #884, file-relative header
+  marks from versions 2 and 3 are retained at their file lines; member Attribute marks are still dropped. What can still put
   one there is an edit or a reload, because a breakpoint or a bookmark is a bare line number and does not
   follow its line. Once a project is open, only `HeaderRefresher.ShiftMarks` moves marks, by the header's
   change in length, at a designer change, a save or a reload. A designer change and a save add or remove no
@@ -492,7 +524,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   folded header is one row that starts at the top of the file. Unfolded, F9, Ctrl+F2 or a click in the gutter
   beside the line removes it, as do Clear All Breakpoints, Clear All Bookmarks, and `set_breakpoints` or
   `set_bookmarks` with it left out; a set that keeps it is accepted, so a read-then-write round trip is never
-  refused. Left alone, it lasts until the project is next opened, when the sidecar's load drops it.
+  refused. Left alone, a member Attribute mark lasts until the project is next opened, when the sidecar's load
+  drops it; a header mark saved in version 3 remains counted from the file's top (#884).
 - **Why:** those lines never execute, so a breakpoint there is never hit and Run To Cursor would run to the end;
   and folded, the header is one visible line standing for many, so a mark set there would land on a line the
   developer cannot see.
@@ -506,7 +539,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   where that is 0-based, so neither the header nor any `Attribute` line VB6 hid is counted: C1's caret on
   `Total = mSum`, below a hidden run, read `Ln 7`, and V1's read `Ln 4` on the blank line under a described
   variable. A pasted `Attribute` line, which VB6 holds as code until a reload, is counted (V4). All three are
-  in [the measurement](vb6-fidelity-oracle.md), *What `Line N` counts, refined*. When task 3.16 recorded this
+  in [the measurement](vb6-fidelity-oracle/member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md), *What `Line N` counts, refined*. When task 3.16 recorded this
   row it called the status bar **unmeasured**, because `/make` cannot answer it; phase 4's IDE sessions on the
   oracle have measured it since.
 - **HexIDE:** the code window holds the whole file: the header read-only, greyed and, when longer than one
@@ -519,15 +552,16 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   would put back exactly the translation the change removed, and two places disagreeing by the header's length
   is the bug class that motivated it (hexide-io/HexIDE#273). VB6's compiler is the one exception: `/make`
   reports a line in its own code view, every `Attribute` line excluded, and that number is converted where the
-  log is parsed and nowhere else ([the measurement](vb6-fidelity-oracle.md)). That conversion is one line off
+  log is parsed and nowhere else ([the measurement](vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md)). That conversion is one line off
   below a continued `Attribute` line ([#968](https://github.com/hexide-io/HexIDE/issues/968)).
 - **Status:** **by design** (#273 tasks 3.6 and 3.16). A sidecar written before the change counts from the
   first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
-  on (task 3.17). Two ways a sidecar can still restore marks in another numbering are open: a conflicted
-  external change, whose header change never reaches the stores
-  ([#884](https://github.com/hexide-io/HexIDE/issues/884)), and a form HexIDE has just created, whose header
-  first appears at its first designer change, save or reload, so the sidecar cannot tell whether its marks
-  already count it ([#885](https://github.com/hexide-io/HexIDE/issues/885)).
+  on (task 3.17). Sidecar version 3 anchors code marks after the full header, so a conflicted external header
+  change that never reaches the stores no longer moves those marks on reopen (#884). Its stored offsets are
+  converted at the persistence boundary; the stores and every public surface still use file lines. A newly
+  created form's header still first appears at its first designer change, save or reload
+  ([#885](https://github.com/hexide-io/HexIDE/issues/885)); version 3 can now distinguish its code marks from
+  marks already in a header.
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 

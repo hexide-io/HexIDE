@@ -31,14 +31,26 @@ public class MainViewViewModelTests
     private readonly IFindReplaceService _findReplace = Substitute.For<IFindReplaceService>();
     private readonly ISettingsService _settingsService = Substitute.For<ISettingsService>();
     private readonly IStatusBarService _statusBarService = Substitute.For<IStatusBarService>();
+    private readonly HexIDE.Runtime.Debugging.IDebugController _debugController = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+    private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private readonly MainViewViewModel _sut;
 
     public MainViewViewModelTests()
     {
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
+        _settingsService.ActiveLanguage.Returns("en");
 
         _sut = Build(_runnerService);
+    }
+
+    [AvaloniaFact]
+    public void OpenAddInManager_OpensOptionsAtAddIns()
+    {
+        _sut.OpenAddInManager();
+
+        _windowManager.Received(1).ShowDialog(Arg.Is<HexIDE.Forms.ViewModels.OptionsViewModel>(
+            vm => vm.SelectedNode != null && vm.SelectedNode.Key == "Str.Options.Node.AddIns"));
     }
 
     /// <summary>
@@ -49,7 +61,12 @@ public class MainViewViewModelTests
         HexIDE.Debugging.IBreakpointService? breakpoints = null)
     {
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
-        var loc = Substitute.For<ILocalizationService>();
+        var loc = _localization;
+        loc.GetString("Str.MainWindow.NoProjectTitle").Returns("HexIDE [design]");
+        loc.GetString("Str.MainWindow.DesignTag").Returns("[design]");
+        loc.GetString("Str.MainWindow.RunTag").Returns("[run]");
+        loc.GetString("Str.MainWindow.BreakTag").Returns("[break]");
+        loc.GetString("Str.StatusBar.Running").Returns("Running…");
         loc.ActiveLanguage.Returns("en");
 
         // ToolBoxToolViewModel loads Avalonia bitmaps in its constructor;
@@ -86,7 +103,12 @@ public class MainViewViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService);
+            windowStateService, new DockFactoryReference());
+
+        var languageSwitch = Substitute.For<ILanguageSwitchService>();
+        languageSwitch.ActiveLanguage.Returns("en");
+        languageSwitch.AvailableLanguages.Returns([new LanguageInfo("en", "English", "ltr")]);
+        languageSwitch.RegionsFor(Arg.Any<string>()).Returns([]);
 
         return new MainViewViewModel(
             _windowManager,
@@ -117,7 +139,7 @@ public class MainViewViewModelTests
             _settingsService,
             Substitute.For<IThemeService>(),
             Substitute.For<IKeymapService>(),
-            Substitute.For<ILanguageSwitchService>(),
+            languageSwitch,
             loc,
             Substitute.For<IAddinRegistry>(),
             new AddinOptionsService(),
@@ -129,7 +151,8 @@ public class MainViewViewModelTests
             new AddinToolWindowService(),
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+            _debugController,
+            new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc));
     }
 
     // --- Add File: a file that joined read byte for byte ---
@@ -199,6 +222,63 @@ public class MainViewViewModelTests
         _runnerService.IsRunning.Returns(true);
 
         _sut.Title.Should().Be("MyApp - HexIDE [run]");
+    }
+
+    [AvaloniaFact]
+    public void Title_Paused_ShowsBreak()
+    {
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject("MyApp"));
+        _runnerService.IsRunning.Returns(true);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+
+        _sut.Title.Should().Be("MyApp - HexIDE [break]");
+        _sut.WindowTitle.Should().Be(_sut.Title);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Debugger_events_refresh_titles_and_status(bool paused)
+    {
+        _runnerService.IsRunning.Returns(true);
+        _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        _statusBarService.ClearReceivedCalls();
+
+        if (paused)
+            _debugController.Stopped += Raise.Event<System.Action<HexIDE.Runtime.Debugging.StoppedInfo>>(
+                new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Breakpoint, "Form1", 6));
+        else
+            _debugController.Continued += Raise.Event<System.Action>();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        changed.Should().Contain(nameof(_sut.Title)).And.Contain(nameof(_sut.WindowTitle));
+        if (paused)
+            _statusBarService.Received().ClearMessage();
+        else
+            _statusBarService.Received().SetMessage("Running…");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, false, false, "NoProjectTitle", "translated")]
+    [InlineData("P", false, false, "DesignTag", "P - HexIDE translated")]
+    [InlineData("P", true, false, "RunTag", "P - HexIDE translated")]
+    [InlineData("P", true, true, "BreakTag", "P - HexIDE translated")]
+    public void Language_change_refreshes_localized_titles(string? project, bool running, bool paused, string key, string expected)
+    {
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project == null ? null : TestHelpers.CreateProject(project));
+        _runnerService.IsRunning.Returns(running);
+        _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+        _localization.GetString("Str.MainWindow." + key).Returns("translated");
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        _localization.LanguageChanged += Raise.Event<System.Action>();
+
+        _sut.Title.Should().Be(expected);
+        _sut.WindowTitle.Should().Be(expected);
+        changed.Should().Contain(nameof(_sut.Title)).And.Contain(nameof(_sut.WindowTitle));
     }
 
     // --- StartDefaultProjectCommand ---
@@ -667,6 +747,32 @@ public class MainViewViewModelTests
         runner.IsRunning.Should().BeFalse();
     }
 
+    [AvaloniaTheory]
+    [InlineData("#If {0} Then\n#End If\n")]
+    [InlineData("Const X = {0}\n")]
+    public void F5_on_a_long_chain_reports_failure_and_survives(string declaration)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode(string.Format(declaration, string.Join(" + ", System.Linq.Enumerable.Repeat("1", 10000)))
+            + "Sub Main()\nEnd Sub\n");
+        project.AddModule(module);
+        project.StartsAtSubMain = true;
+        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+            Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
+            new HexIDE.Debugging.RunScope());
+        var failures = new List<string>();
+        runner.StartFailed += failures.Add;
+        runner.RunFailed += failures.Add;
+
+        runner.RunProject(project);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        failures.Should().ContainSingle();
+        runner.IsRunning.Should().BeFalse();
+    }
+
     // --- Breakpoints from the main window (the interpreter-debugger delta's restated scenarios) ---
 
     /// <summary>A code window on a module of the given project, keeping its marks in <paramref name="breakpoints"/>.</summary>
@@ -733,5 +839,45 @@ public class MainViewViewModelTests
         breakpoints.GetBreakpoints(first.Identity).Should().BeEmpty();
         breakpoints.GetBreakpoints(second.Identity).Should().BeEmpty();
         breakpoints.GetBreakpoints(elsewhere.Identity).Should().BeEmpty();
+    }
+
+    // --- Tool windows tabbed in one dock: hiding one leaves the rest (#2362) ---
+
+    // The Properties window dragged into the Toolbox's dock, as a person can since #2239, so the two are tabs of one dock.
+    private (Dock.Model.Core.IDock Shared, Dock.Model.Core.IDockable Toolbox, Dock.Model.Core.IDockable Properties) TabPropertiesWithToolbox()
+    {
+        var factory = _sut.Layout.Factory!;
+        var toolbox = (Dock.Model.Core.IDockable)_sut.ToolBox;
+        var properties = (Dock.Model.Core.IDockable)_sut.Properties;
+        var shared = (Dock.Model.Core.IDock)toolbox.Owner!;
+        factory.MoveDockable((Dock.Model.Core.IDock)properties.Owner!, shared, properties, toolbox);
+        shared.VisibleDockables.Should().Contain([toolbox, properties]);
+        return (shared, toolbox, properties);
+    }
+
+    [AvaloniaFact]
+    public void Hiding_a_tool_tabbed_with_another_closes_it_alone()
+    {
+        var (shared, toolbox, _) = TabPropertiesWithToolbox();
+
+        var (error, note) = _sut.SetToolWindowVisible("Properties", false);
+
+        error.Should().BeNull();
+        note.Should().Be("Properties is now hidden.");
+        var windows = _sut.GetToolWindows();
+        windows.Single(t => t.Name == "Properties").Visible.Should().BeFalse();
+        windows.Single(t => t.Name == "Toolbox").Visible.Should().BeTrue();
+        shared.VisibleDockables.Should().ContainSingle().Which.Should().BeSameAs(toolbox);
+    }
+
+    [AvaloniaFact]
+    public void A_hidden_tool_shows_again_and_the_reply_says_when_nothing_changed()
+    {
+        TabPropertiesWithToolbox();
+        _sut.SetToolWindowVisible("Properties", false);
+
+        _sut.SetToolWindowVisible("properties", true).Should().Be(((string?)null, "Properties is now shown."));
+        _sut.GetToolWindows().Where(t => t.Name is "Properties" or "Toolbox").Should().OnlyContain(t => t.Visible);
+        _sut.SetToolWindowVisible("Properties", true).Note.Should().Be("Properties is now shown, as it was already.");
     }
 }

@@ -151,6 +151,18 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
     // the transport reports lands on the record, as the right kind, attributed to the right connection.
 
     [Fact]
+    public async Task StandardOutputKeepsItsOwnKindAndConnectionOnTheRecord()
+    {
+        await using var connection = await Connected("pipe");
+        connection.Transport.Say(TransportNoticeKind.StandardOutput, "No project was found");
+        var entry = await connection.WaitForAsync(ConversationEntryKind.StandardOutput);
+        entry.Detail.Should().Be("No project was found");
+        entry.Direction.Should().Be(ConversationDirection.Received);
+        entry.ConnectionId.Should().Be("pipe");
+        entry.Method.Should().BeNull();
+    }
+
+    [Fact]
     public async Task AStandardErrorLineLandsOnTheRecordAsSomethingThatArrived()
     {
         // The spec's scenario is "A server crashes": its dying words are on standard error, and the record
@@ -253,8 +265,8 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
     public async Task The_code_a_server_exits_with_while_this_client_stops_it_says_whether_the_stop_failed(int code, bool fault)
     {
         // LSP has a server exit 0 when a shutdown preceded exit and non-zero otherwise, so the code it stops with is
-        // its account of how the stop went. The stop's non-zero exit was excused as a kill's, but every transport
-        // unhooks before it kills, so the excuse hid only the server's own exit (#1314).
+        // its account of how the stop went. The stop's non-zero exit was excused as a kill's, but at the time
+        // every transport unhooked before killing, so the excuse hid the server's own exit (#1314).
         var transport = new NoticingFakeTransport { HoldShutdown = true };
         var connection = await Connected("vb6", transport);
         var stopping = connection.Client.StopAsync();

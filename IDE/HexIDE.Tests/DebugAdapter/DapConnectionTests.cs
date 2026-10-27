@@ -32,8 +32,8 @@ public class DapConnectionTests
             Client = new(_toClient.Reader.AsStream(), slowClientWrites ? new YieldingOutput(outgoing) : outgoing, options, capture);
         }
 
-        public Task<DapResponse> Request(string command, JsonElement? arguments = null, CancellationToken? cancellationToken = null)
-            => Client.RequestAsync(command, arguments, cancellationToken ?? TestContext.Current.CancellationToken);
+        public Task<DapResponse> Request(string command, JsonElement? arguments = null, CancellationToken? cancellationToken = null, TimeSpan? requestTimeout = null)
+            => Client.RequestAsync(command, arguments, cancellationToken ?? TestContext.Current.CancellationToken, requestTimeout);
 
         public async Task Send(string json, bool fragmented = false)
         {
@@ -242,9 +242,48 @@ public class DapConnectionTests
         await peer.Receive();
         await ((Func<Task>)(() => pending.WaitAsync(Patience, TestContext.Current.CancellationToken))).Should().ThrowExactlyAsync<TimeoutException>();
         (peer.Client.Completion.IsCompleted).Should().BeFalse();
-        var next = peer.Request("threads");
+        var next = peer.Request("threads", requestTimeout: Patience);
         var request = await peer.Receive();
         request.GetProperty("seq").GetInt32().Should().Be(2);
+        await peer.Reply(request);
+        await next.WaitAsync(Patience, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_request_can_override_the_connection_timeout()
+    {
+        await using var peer = new Peer();
+        var timeout = TimeSpan.FromSeconds(1);
+        var pending = peer.Request("threads", requestTimeout: timeout);
+        await peer.Receive();
+        var error = (await ((Func<Task>)(() => pending.WaitAsync(Patience, TestContext.Current.CancellationToken)))
+            .Should().ThrowExactlyAsync<TimeoutException>()).Which;
+        error.Message.Should().Be($"Debug adapter did not complete 'threads' within {timeout}.");
+    }
+
+    [Fact]
+    public async Task A_request_override_can_outlast_the_connection_timeout()
+    {
+        await using var peer = new Peer(new() { RequestTimeout = TimeSpan.FromSeconds(1) });
+        var pending = peer.Request("threads", requestTimeout: Patience);
+        var request = await peer.Receive();
+        await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        await peer.Reply(request);
+        await pending.WaitAsync(Patience, TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(4294967295)]
+    public async Task Invalid_request_timeout_overrides_are_refused_before_sending(long milliseconds)
+    {
+        await using var peer = new Peer();
+        await ((Func<Task>)(() => peer.Request("threads", requestTimeout: TimeSpan.FromMilliseconds(milliseconds))))
+            .Should().ThrowExactlyAsync<ArgumentOutOfRangeException>();
+        var next = peer.Request("threads");
+        var request = await peer.Receive();
+        request.GetProperty("seq").GetInt32().Should().Be(1);
         await peer.Reply(request);
         await next.WaitAsync(Patience, TestContext.Current.CancellationToken);
     }
@@ -299,9 +338,10 @@ public class DapConnectionTests
         failure.Message.Should().Contain("event queue");
     }
 
-    private sealed class BlockingOutput : Stream
+    private sealed class BlockingOutput(bool failOnDisposal = false) : Stream
     {
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Writes { get; private set; }
         public bool Disposed { get; private set; }
         public override bool CanRead => false;
@@ -313,6 +353,12 @@ public class DapConnectionTests
         {
             Writes++;
             Entered.TrySetResult();
+            if (failOnDisposal)
+            {
+                // Model a process pipe whose in-flight write resumes after its handle is disposed.
+                await _disposed.Task;
+                throw new ObjectDisposedException("SafeFileHandle");
+            }
             // A stream may already have written part of the header when cancellation is observed.
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
         }
@@ -321,7 +367,25 @@ public class DapConnectionTests
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
+        protected override void Dispose(bool disposing) { Disposed = true; _disposed.TrySetResult(); base.Dispose(disposing); }
+    }
+
+    [Fact]
+    public async Task Disposal_during_an_in_flight_write_reports_a_connection_failure()
+    {
+        var input = new Pipe();
+        var output = new BlockingOutput(failOnDisposal: true);
+        await using var client = new DapConnection(input.Reader.AsStream(), output);
+        var pending = client.RequestAsync("launch", cancellationToken: TestContext.Current.CancellationToken);
+        await output.Entered.Task.WaitAsync(Patience, TestContext.Current.CancellationToken);
+        var queued = client.RequestAsync("threads", cancellationToken: TestContext.Current.CancellationToken);
+        await client.DisposeAsync().AsTask().WaitAsync(Patience, TestContext.Current.CancellationToken);
+        await ((Func<Task>)(() => pending.WaitAsync(Patience, TestContext.Current.CancellationToken))).Should().ThrowExactlyAsync<IOException>();
+        await ((Func<Task>)(() => queued.WaitAsync(Patience, TestContext.Current.CancellationToken))).Should().ThrowExactlyAsync<IOException>();
+        (await client.Completion).Should().BeNull();
+        output.Disposed.Should().BeTrue();
+        output.Writes.Should().Be(1);
+        await input.Writer.CompleteAsync();
     }
 
     [Fact]

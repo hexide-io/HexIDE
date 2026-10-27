@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media.Imaging;
+using Avalonia.Rendering.Composition;
 using Avalonia.VisualTree;
 
 namespace HexIDE.Automation;
@@ -41,10 +44,20 @@ public static class SnapshotComposer
     }
 
     /// <summary>
-    /// Renders <paramref name="window"/> with every open popup drawn in its real position.
-    /// Returns null when the window has no area to capture.
+    /// A capture: the image, where the window's origin lies in it, the popups it left out, each with why, and, when the
+    /// compositor drew nothing in time, a note on the fallback that drew it instead.
     /// </summary>
-    public static RenderTargetBitmap? Capture(Window window)
+    public sealed record Snapshot(Bitmap Image, PixelPoint WindowOffset, IReadOnlyList<LeftOutPopup> LeftOut, string? Fallback)
+        : IDisposable
+    {
+        public void Dispose() => Image.Dispose();
+    }
+
+    /// <summary>
+    /// Draws <paramref name="window"/> with every open popup drawn in its real position, as the compositor draws them on
+    /// screen. Null when the window has no area to capture.
+    /// </summary>
+    public static async Task<Snapshot?> CaptureAsync(Window window)
     {
         var scaling = window.DesktopScaling;
         var windowRect = ScreenRect(window, window.ClientSize, scaling);
@@ -54,52 +67,192 @@ public static class SnapshotComposer
         var popups = new List<TopLevel>();
         CollectOpenPopupRoots(window, window, popups);
 
-        // Union first, so a menu hanging off the window's edge widens the canvas rather than being cut.
-        var canvas = windowRect;
         var placements = new List<(Visual Visual, PixelRect Rect)>();
+        var noArea = new List<LeftOutPopup>();
         foreach (var popup in popups)
         {
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
-            if (rect.Width <= 0 || rect.Height <= 0) continue;
-            placements.Add((popup, rect));
-            canvas = canvas.Union(rect);
-        }
-
-        var bitmap = new RenderTargetBitmap(canvas.Size, new Vector(96 * scaling, 96 * scaling));
-
-        // The window goes down through Render, not through the drawing context. That path was already
-        // correct and stays pixel-for-pixel what a snapshot used to be; routing it through DrawImage
-        // instead came out `scaling` times too large on a 150% display, which reads as a rendering fault
-        // and is really a units one — the context works in device-independent pixels while every rect here
-        // is a device pixel.
-        bitmap.Render(window);
-        if (placements.Count == 0)
-            return bitmap;
-
-        using (var ctx = bitmap.CreateDrawingContext(false))
-        {
-            // In list order, which is visual-tree order: a submenu's popup is realised inside its parent
-            // menu's popup, so children arrive after their parents and land on top, as on screen.
-            foreach (var (visual, rect) in placements)
+            if (rect.Width <= 0 || rect.Height <= 0)
             {
-                using var piece = new RenderTargetBitmap(rect.Size, new Vector(96 * scaling, 96 * scaling));
-                piece.Render(visual);
-
-                // Source rect in the piece's PIXELS, destination in the context's device-independent
-                // pixels. Both are needed explicitly: the one-rect overload takes the source's DIP extent
-                // as the region to sample, so on a 150% display it read the top-left two-thirds of the
-                // piece and stretched that to fill — a correctly placed, correctly sized menu box with
-                // magnified, clipped contents inside it.
-                ctx.DrawImage(piece,
-                    new Rect(0, 0, rect.Width, rect.Height),
-                    new Rect(
-                        (rect.X - canvas.X) / scaling, (rect.Y - canvas.Y) / scaling,
-                        rect.Width / scaling, rect.Height / scaling));
+                noArea.Add(new LeftOutPopup(KindOf(popup), rect, "which has no area to draw"));
+                continue;
             }
+            placements.Add((popup, rect));
         }
 
+        // Where the platform reports no screens, or only ones with no area, none rules a popup out.
+        var screens = window.Screens?.All.Select(s => s.Bounds).Where(b => b.Width > 0 && b.Height > 0).ToList();
+        var snapshot = await ComposeAsync(window, windowRect, placements, scaling, screens is { Count: > 0 } ? screens : null);
+        return noArea.Count > 0 ? snapshot with { LeftOut = [.. noArea, .. snapshot.LeftOut] } : snapshot;
+    }
+
+    /// <summary>
+    /// A popup the snapshot does not show: what it holds, where it was reported in screen pixels, and why it was left out.
+    /// </summary>
+    public sealed record LeftOutPopup(string Kind, PixelRect Rect, string Reason);
+
+    /// <summary>
+    /// The most bytes one render target is given: 16,384 × 16,384 pixels' worth, 1 GiB. A render target's size in bytes is
+    /// an Int32, so a canvas past 2 GiB overflowed it, and a negative size threw "Positive number required" (#1960). A
+    /// popup reported far from the window would do it, for example at (-32000, -32000), since the canvas is the union of
+    /// the window and its popups. Where the popup in #1960 was really reported is not established.
+    /// </summary>
+    private const long MaxCanvasBytes = 16384L * 16384 * 4;
+
+    // What a popup holds, a MenuFlyoutPresenter or a ComboBox's list, which is how a reply can tell popups apart.
+    private static string KindOf(Visual popup) =>
+        popup is ContentControl { Content: Control content } ? content.GetType().Name : popup.GetType().Name;
+
+    // Explicit screen rectangles let headless tests exercise desktop composition without overlay popups.
+    internal static async Task<Snapshot> ComposeAsync(Visual window, PixelRect windowRect,
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, IReadOnlyList<PixelRect>? screens = null)
+    {
+        // A popup on no screen is not on screen, so a picture of what is on screen leaves it out. One that would make
+        // the image too big to allocate is left out too, rather than costing the whole snapshot. Either is named. The
+        // extent is reckoned in longs: a rectangle's right edge is an Int32, and a popup's own size can be the largest
+        // one, which is what a cast from an infinite size gives.
+        var canvas = windowRect;
+        var dropped = new List<LeftOutPopup>();
+        placements = placements.Where(p =>
+        {
+            if (screens is not null && !screens.Any(screen => screen.Intersects(p.Rect)))
+            {
+                dropped.Add(new LeftOutPopup(KindOf(p.Visual), p.Rect, "which is on none of the screens"));
+                return false;
+            }
+            var width = Math.Max((long)canvas.X + canvas.Width, (long)p.Rect.X + p.Rect.Width) - Math.Min(canvas.X, p.Rect.X);
+            var height = Math.Max((long)canvas.Y + canvas.Height, (long)p.Rect.Y + p.Rect.Height) - Math.Min(canvas.Y, p.Rect.Y);
+            if (width * height * 4 > MaxCanvasBytes)
+            {
+                dropped.Add(new LeftOutPopup(KindOf(p.Visual), p.Rect,
+                    $"which would make the image {width} × {height} pixels with what is drawn before it, more than "
+                    + "16,384 × 16,384 pixels' worth"));
+                return false;
+            }
+            canvas = canvas.Union(p.Rect);
+            return true;
+        }).ToList();
+        var windowOffset = new PixelPoint(windowRect.X - canvas.X, windowRect.Y - canvas.Y);
+        var fellBack = new List<string>();
+
+        // The window as it is drawn, when nothing is composed around it.
+        if (windowOffset == default && placements.Count == 0)
+            return new Snapshot(await DrawnAsync(window, windowRect.Size, scaling, fellBack), windowOffset, dropped,
+                FallbackNote(fellBack));
+
+        placements.Insert(0, (window, windowRect));
+        var pieces = new List<(Bitmap Piece, PixelRect Rect)>();
+        try
+        {
+            foreach (var (visual, rect) in placements)
+                pieces.Add((await DrawnAsync(visual, rect.Size, scaling, fellBack), rect));
+
+            // Only images are drawn into the canvas, so its own scale meets none of the trouble DrawnAsync avoids.
+            var bitmap = new RenderTargetBitmap(canvas.Size, new Vector(96 * scaling, 96 * scaling));
+            using (var ctx = bitmap.CreateDrawingContext(false))
+            {
+                // In list order, which is visual-tree order: a submenu's popup is realised inside its parent
+                // menu's popup, so children arrive after their parents and land on top, as on screen.
+                foreach (var (piece, rect) in pieces)
+                {
+                    // Source rect in the piece's PIXELS, destination in the context's device-independent
+                    // pixels. Both are needed explicitly: the one-rect overload takes the source's DIP extent
+                    // as the region to sample, so on a 150% display it read the top-left two-thirds of the
+                    // piece and stretched that to fill — a correctly placed, correctly sized menu box with
+                    // magnified, clipped contents inside it. The piece's own size, which the compositor may
+                    // round differently from the rect, is what it holds.
+                    var size = piece.PixelSize;
+                    ctx.DrawImage(piece,
+                        new Rect(0, 0, size.Width, size.Height),
+                        new Rect(
+                            (rect.X - canvas.X) / scaling, (rect.Y - canvas.Y) / scaling,
+                            size.Width / scaling, size.Height / scaling));
+                }
+            }
+            return new Snapshot(bitmap, windowOffset, dropped, FallbackNote(fellBack));
+        }
+        finally
+        {
+            foreach (var (piece, _) in pieces)
+                piece.Dispose();
+        }
+    }
+
+    /// <summary>How long a piece waits for the compositor to draw it before it is drawn another way.</summary>
+    internal static TimeSpan CompositorWait = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// <paramref name="visual"/>, a window or a popup's root, as the compositor draws it on screen, at
+    /// <paramref name="scaling"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not a <see cref="RenderTargetBitmap"/>, which this used to be. One at a DPI other than 96 keeps its scale apart
+    /// and multiplies it into each transform set. Avalonia.Skia's <c>PopClip</c> then rebuilds the current transform from
+    /// the canvas matrix, which already holds that scale, so the first transform pushed after a clip is popped gets it
+    /// twice. Drawing text pushes one for the text's origin, so above 100% text a control draws after popping a clip
+    /// landed outside the bitmap. A running StatusBar's later panels came out blank while the screen showed them, and a
+    /// live check reported a fault that was not there (#2293). The compositor applies scaling another way, and what it
+    /// draws is what the screen shows.
+    /// </para>
+    /// <para>
+    /// Its snapshot is a job on the next commit, after what the UI thread has changed so far, so it shows the state the
+    /// caller just left. Should the compositor draw nothing within <see cref="CompositorWait"/>, the piece is drawn by a
+    /// render target after all, and <paramref name="fellBack"/> says so, since that picture may lack such text.
+    /// </para>
+    /// </remarks>
+    private static async Task<Bitmap> DrawnAsync(Visual visual, PixelSize size, double scaling, List<string> fellBack)
+    {
+        var waited = Task.Delay(CompositorWait);
+        while (!waited.IsCompleted)
+        {
+            var drawing = ElementComposition.GetElementVisual(visual) is { } composition
+                ? composition.Compositor.CreateCompositionVisualSnapshot(composition, scaling)
+                : null;
+            if (drawing is not null)
+                await Task.WhenAny(drawing, waited);
+            if (drawing is { IsCompletedSuccessfully: true })
+                return drawing.Result;
+            // In no frame the compositor has drawn yet, as a window shown a moment ago is not, so it has no visual or one
+            // with no root, which the snapshot refuses: try again after the next frame.
+            if (drawing is null || drawing.Exception?.GetBaseException() is InvalidOperationException)
+            {
+                if (TopLevel.GetTopLevel(visual) is not { } top)
+                    break;
+                var frame = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                top.RequestAnimationFrame(_ => frame.TrySetResult());
+                await Task.WhenAny(frame.Task, waited);
+                continue;
+            }
+            if (drawing.Exception?.GetBaseException() is { } failed)
+            {
+                fellBack.Add($"{KindOf(visual)}, whose snapshot failed: {failed.Message}");
+                return Rendered(visual, size, scaling);
+            }
+            // A late image is let go when it comes, rather than kept by nobody.
+            _ = drawing.ContinueWith(late =>
+            {
+                if (late.IsCompletedSuccessfully)
+                    late.Result.Dispose();
+            }, TaskScheduler.Default);
+            break;
+        }
+        fellBack.Add(KindOf(visual));
+        return Rendered(visual, size, scaling);
+    }
+
+    private static RenderTargetBitmap Rendered(Visual visual, PixelSize size, double scaling)
+    {
+        var bitmap = new RenderTargetBitmap(size, new Vector(96 * scaling, 96 * scaling));
+        bitmap.Render(visual);
         return bitmap;
     }
+
+    private static string? FallbackNote(List<string> fellBack) => fellBack.Count == 0 ? null
+        : $"The compositor gave no picture of {string.Join(" and ", fellBack.Distinct().Select(k => $"'{k}'"))} within "
+          + $"{CompositorWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s, so a render target drew it instead. "
+          + "Above 100% scaling that can leave out text a control draws after popping a clip, so check missing text against "
+          + "the screen.";
 
     private static PixelRect ScreenRect(Visual visual, Size size, double scaling)
     {

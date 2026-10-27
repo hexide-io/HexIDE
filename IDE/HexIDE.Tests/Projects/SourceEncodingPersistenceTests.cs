@@ -1,13 +1,16 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Events;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 
 namespace HexIDE.Tests.Projects;
@@ -51,6 +54,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        localization.GetString("Str.ProjectLoad.FormNotFound").Returns("Form file not found: {0}");
         localization.GetString("Str.Dialog.SourceEncoding.NothingWritten")
             .Returns("Nothing was written: {0}, in code page {1}, cannot hold {2} ({3}), in {4}.");
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte").Returns(ReadByteForByteText);
@@ -76,6 +80,154 @@ public class SourceEncodingPersistenceTests : IDisposable
         var vbp = Path.Join(dir, "Test.vbp");
         File.WriteAllText(vbp, "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
         return vbp;
+    }
+
+    [Theory]
+    [InlineData("Module", "bas", "Attribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("Class", "cls", "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("Form", "frm", "VERSION 5.00\r\nBegin VB.Form Member1\r\nEnd\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("UserControl", "ctl", "VERSION 5.00\r\nBegin VB.UserControl Member1\r\nEnd\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    [InlineData("PropertyPage", "pag", "VERSION 5.00\r\nBegin VB.PropertyPage Member1\r\nEnd\r\nAttribute VB_Name = \"Member1\"\r\n")]
+    public async Task Removing_the_last_UTF8_signature_character_survives_a_fresh_open(string key, string extension, string header)
+    {
+        var memberPath = Path.Join(dir, "Member1." + extension);
+        File.WriteAllBytes(memberPath, Vb6TextFile.Encode(header + "' café 日本\r\n", Vb6TextEncoding.Utf8));
+        var vbp = Path.Join(dir, "Test.vbp");
+        var item = key is "Module" or "Class" ? "Member1; Member1." + extension : "Member1." + extension;
+        File.WriteAllText(vbp, $"Type=Exe\r\n{key}={item}\r\nName=\"Test\"\r\n[Other]\r\nKeep=unchanged\r\n[HexIDE]\r\nFuture=kept\r\n");
+        var (svc, project) = await OpenInWestern(vbp);
+        if (key == "Form")
+            project.Forms.Single().UpdateCode("' café\r\n");
+        else
+            project.Modules.Single().UpdateCode("' café\r\n");
+
+        await svc.SaveProject(project, false);
+
+        var saved = File.ReadAllText(vbp).ReplaceLineEndings("\n");
+        saved.Should().Contain($"[HexIDE]\nFuture=kept\nMember1.{extension}=utf-8\n");
+        saved.Should().Contain("[Other]\nKeep=unchanged\n");
+        saved.IndexOf("[HexIDE]", StringComparison.Ordinal).Should().BeGreaterThan(saved.IndexOf("Name=", StringComparison.Ordinal));
+        File.ReadAllBytes(memberPath).Take(3).Should().NotEqual(new byte[] { 0xEF, 0xBB, 0xBF });
+        var reopened = await new ProjectLoader { HostAnsi = new Vb6TextEncoding(1252) }
+            .LoadAsync(vbp, Substitute.For<IDeserializeErrorSink>());
+        var code = key == "Form" ? reopened.Project.Forms.Single().Code : reopened.Project.Modules.Single().Code;
+        code.Should().Contain("' café").And.NotContain("Ã");
+    }
+
+    [Fact]
+    public async Task The_project_being_opened_decides_the_encoding_of_a_shared_module()
+    {
+        var member = Path.Join(dir, "Module1.bas");
+        File.WriteAllBytes(member, Vb6TextFile.Encode("Attribute VB_Name = \"Module1\"\r\n' café\r\n", Vb6TextEncoding.Utf8));
+        var withRecord = Path.Join(dir, "Recorded.vbp");
+        var withoutRecord = Path.Join(dir, "Unrecorded.vbp");
+        const string project = "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n";
+        File.WriteAllText(withRecord, project + "[HexIDE]\r\nModule1.bas=utf-8\r\n");
+        File.WriteAllText(withoutRecord, project);
+        var loader = new ProjectLoader { HostAnsi = new Vb6TextEncoding(1252) };
+        var sink = Substitute.For<IDeserializeErrorSink>();
+
+        (await loader.LoadAsync(withRecord, sink)).Project.Modules.Single().Code.Should().Contain("' café");
+        (await loader.LoadAsync(withoutRecord, sink)).Project.Modules.Single().Code.Should().Contain("' cafÃ©");
+        File.WriteAllBytes(member, Vb6TextFile.Encode("Attribute VB_Name = \"Module1\"\r\n' café\r\n", new Vb6TextEncoding(1252)));
+        var replaced = (await loader.LoadAsync(withRecord, sink)).Project.Modules.Single();
+        replaced.Code.Should().Contain("' café");
+        replaced.TextEncoding.Should().Be(new Vb6TextEncoding(1252), "a stale record must decode strictly before it applies");
+    }
+
+    [Fact]
+    public async Task Encoding_records_follow_Save_As_and_disappear_when_detection_can_infer_UTF8_again()
+    {
+        var vbp = WriteProject();
+        var memberPath = Path.Join(dir, "Module1.bas");
+        File.WriteAllBytes(memberPath, Vb6TextFile.Encode("Attribute VB_Name = \"Module1\"\r\n' café 日本\r\n", Vb6TextEncoding.Utf8));
+        var (svc, project) = await OpenInWestern(vbp);
+        project.Modules.Single().UpdateCode("' café\r\n");
+        var elsewhere = Path.Join(dir, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        var savedPath = Path.Join(elsewhere, "Moved.vbp");
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(savedPath);
+
+        await svc.SaveProject(project, true);
+
+        File.ReadAllText(savedPath).ReplaceLineEndings("\n").Should().Contain("[HexIDE]\n..\\Module1.bas=utf-8\n");
+        var loader = new ProjectLoader { HostAnsi = new Vb6TextEncoding(1252) };
+        var reopened = (await loader.LoadAsync(savedPath, Substitute.For<IDeserializeErrorSink>())).Project;
+        reopened.Modules.Single().Code.Should().Contain("' café");
+        project.Modules.Single().UpdateCode("' café 日本\r\n");
+        await svc.SaveProject(project, false);
+        File.ReadAllText(savedPath).Should().NotContain("[HexIDE]");
+    }
+
+    [Fact]
+    public async Task Making_twice_to_the_same_path_replaces_the_archive_with_the_second_build()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(WriteProject());
+        var project = loaded.Single();
+        var module = project.Modules.Single();
+        var exePath = Path.Join(dir, "Program.exe");
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
+        var standalone = Path.Join(dir, "standalone");
+        Directory.CreateDirectory(standalone);
+        // Copied, never executed: MadeProgramTests is the one that runs a real runner.
+        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
+
+        svc.RuntimeDirectory = dir;
+        await svc.MakeProject(project);
+        using (var archive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll")))
+        using (var reader = new StreamReader(archive.GetEntry("Module1.bas")!.Open()))
+            reader.ReadToEnd().Should().Contain("Public Sub Original()");
+
+        module.UpdateCode(module.Code.Replace("Original", "SecondBuild"));
+        await svc.MakeProject(project);
+
+        using var secondArchive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll"));
+        using var secondReader = new StreamReader(secondArchive.GetEntry("Module1.bas")!.Open());
+        var code = secondReader.ReadToEnd();
+        code.Should().Contain("Public Sub SecondBuild()");
+        code.Should().NotContain("Public Sub Original()");
+        File.ReadAllText(exePath).Should().Be("runtime fixture");
+        Directory.GetFiles(dir, "*.tmp").Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("RelatedDoc=Notes.md")]
+    [InlineData("Module=Notes; Notes.md")]
+    [InlineData("Class=Notes; Notes.md")]
+    public async Task Make_omits_carried_files_and_keeps_the_other_lines_in_order(string itemLine)
+    {
+        var svc = MakeService();
+        var vbp = WriteProject();
+        File.WriteAllText(Path.Join(dir, "Notes.md"), "private notes");
+        File.WriteAllText(vbp, "Type=Exe\r\nBefore=one\r\n" + itemLine
+            + "\r\nBetween=two\r\nModule=Module1; Module1.bas\r\nAfter=three\r\nName=\"Test\"\r\n");
+        await svc.OpenProject(vbp);
+        var project = loaded.Single();
+        var carried = project.RelatedDocuments.Single();
+        var original = File.ReadAllBytes(vbp);
+        var exePath = Path.Join(dir, "Program.exe");
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
+        var standalone = Path.Join(dir, "standalone");
+        Directory.CreateDirectory(standalone);
+        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
+        svc.RuntimeDirectory = dir;
+
+        await svc.MakeProject(project);
+
+        using var archive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll"));
+        archive.Entries.Select(e => e.FullName).Should().BeEquivalentTo("Program.vbp", "Module1.bas");
+        using var reader = new StreamReader(archive.GetEntry("Program.vbp")!.Open());
+        var text = reader.ReadToEnd().ReplaceLineEndings("\n");
+        text.Should().NotContain("Notes").And.NotContain("RelatedDoc=").And.NotContain("..");
+        text.Split('\n').Where(line => line.StartsWith("Before=") || line.StartsWith("Between=")
+            || line.StartsWith("Module=") || line.StartsWith("After=") || line.StartsWith("Name="))
+            .Should().Equal("Before=one", "Between=two", "Module=Module1; Module1.bas", "After=three", "Name=\"Test\"");
+        project.RelatedDocuments.Should().ContainSingle().Which.Should().BeSameAs(carried);
+        carried.AbsolutePath.Should().Be(Path.Join(dir, "Notes.md"));
+        File.ReadAllBytes(vbp).Should().Equal(original);
+        await svc.SaveProject(project, false);
+        File.ReadAllText(vbp).Should().Contain(itemLine);
     }
 
     [Fact]

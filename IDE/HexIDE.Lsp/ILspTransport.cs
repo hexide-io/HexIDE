@@ -10,11 +10,14 @@ public enum TransportNoticeKind
 
     /// <summary>The process starting, stopping, or reporting an exit code.</summary>
     Lifecycle,
+
+    /// <summary>A line a named-pipe server wrote to standard output.</summary>
+    StandardOutput,
 }
 
 /// <summary>Something the server's process said or did that is not a protocol message.</summary>
-/// <param name="Kind">Which of the two channels this came from.</param>
-/// <param name="Text">Verbatim. A stderr line as written, or a lifecycle fact in plain words.</param>
+/// <param name="Kind">Which channel this came from.</param>
+/// <param name="Text">Verbatim. A stdout or stderr line as written, or a lifecycle fact in plain words.</param>
 /// <param name="Fault">A lifecycle fact that is a failure: the process exiting with a non-zero code (#945).</param>
 public sealed record TransportNotice(TransportNoticeKind Kind, string Text, bool Fault = false);
 
@@ -30,6 +33,9 @@ public interface ILspTransport : IAsyncDisposable
 {
     /// <summary>True while the underlying channel is connected and usable.</summary>
     bool IsAlive { get; }
+
+    /// <summary>True when teardown owns only the connection, not the server lifetime.</summary>
+    bool LeaveServerRunning => false;
 
     /// <summary>
     /// True if the client should auto-reconnect this transport after an unexpected drop (network

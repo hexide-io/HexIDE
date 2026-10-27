@@ -12,9 +12,9 @@
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
-# merge-conflict markers, and xUnit assertions in test sources. Warns (exit 0) on TWO things, both
-# expected and neither blocking: key material .gitignore already covers, and the
-# upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
+# merge-conflict markers, xUnit assertions in test sources, and C1 control characters.
+# Warns (exit 0) on: key material .gitignore already covers, clone roots under a Windows
+# Repos directory, and the upstream-attribution mention. Exits 2 when git cannot read the tree or the link scan cannot create its temp file.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
 # listings see only TRACKED files, so a brand-new file is invisible until it is staged --
@@ -51,7 +51,10 @@ cd "$(dirname "$0")/.." || exit 2
 # the *content* scans is what stops them flagging themselves. They stay inside the
 # *filename* scans below, so a stray key or binary dropped in scripts/ is still caught.
 EXCLUDE=( ':!scripts/check-tree-hygiene.sh' ':!scripts/check-licences.sh' )
+PATH_EXCLUDE=( "${EXCLUDE[@]}" ':!scripts/fixtures/tree-hygiene/**' )
 #
+# Path fixture data under scripts/fixtures/tree-hygiene/ is excluded only from path scans:
+# the selftest copies each into an isolated repository under a scanned name.
 # `check-tree-hygiene.selftest.sh` is deliberately ABSENT from that list, though it plants every
 # kind of material scanned for below. It assembles each forbidden literal at run time
 # (`printf 'twin%s' BASIC` and friends) precisely so it need not be excluded: excusing it would
@@ -148,7 +151,14 @@ done < <(tree_files | grep -zEi '\.(exe|dll|pdb|bak)$')
 #    to a reader and a small identity leak.
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
-done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
+done < <(git grep --untracked -nIiE '[c-z]:[\\/]+users[\\/]+|[c-z]%3a/users/' -- . "${PATH_EXCLUDE[@]}")
+
+# Clone roots are a portability problem rather than necessarily an identity leak. Warn for
+# the conventional Windows Repos directory; do not flag all absolute paths, since installed
+# tool paths (notably Program Files) are useful documentation. Other clone locations are not inferred.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && warned "machine-specific clone root: $hit"
+done < <(git grep --untracked -nIiE '[c-z]:[\\/]+repos[\\/]+' -- . "${PATH_EXCLUDE[@]}")
 
 # 3b. C# code that writes to a fixed absolute path. A test once wrote its debug output to a folder that
 #     existed on one developer's disk, and CI caught it only because that folder was missing on the runners. A
@@ -201,56 +211,66 @@ fi
 
 # 5. Dangling relative links in Markdown. Resolve each link target for real, rather than
 #    assuming a prefix is broken — most of them resolve, and the few that do not are
-#    exactly what this is for.
+#    exactly what this is for. Titles and angle brackets are Markdown syntax, not part of the path.
+links="$(mktemp)" || { echo "check-tree-hygiene: cannot create a temp file; refusing to report a pass." >&2; exit 2; }
+trap 'rm -f "$links"' EXIT
 while IFS= read -r -d '' md; do
   dir="$(dirname "$md")"
-  grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' | while IFS= read -r target; do
+  grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' |
+    sed 's/^<\([^>]*\)>.*$/\1/;t;s/[[:space:]]\{1,\}"[^"]*"[[:space:]]*$//' | while IFS= read -r target; do
     case "$target" in http://*|https://*|\#*|mailto:*|"") continue;; esac
     target="${target%%#*}"
     [ -z "$target" ] && continue
+    # Decode once, after removing the fragment: %23 belongs to a filename, not an anchor.
+    encoded="$target"
+    target=""
+    while [[ "$encoded" =~ ^([^%]*)%([[:xdigit:]]{2})(.*)$ ]]; do
+      printf -v byte '%b' "\\x${BASH_REMATCH[2]}"
+      target+="${BASH_REMATCH[1]}$byte"
+      encoded="${BASH_REMATCH[3]}"
+    done
+    target+="$encoded"
     if [ ! -e "$dir/$target" ] && [ ! -e "$target" ]; then
       printf '%s->%s\n' "$md" "$target"
     fi
   done
-done < <(tree_files '*.md') > /tmp/hexide-linkcheck.$$ 2>/dev/null
+done < <(tree_files '*.md') > "$links"
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "dangling relative link: $hit"
-done < /tmp/hexide-linkcheck.$$
-rm -f /tmp/hexide-linkcheck.$$
+done < "$links"
 
 # 6. Third-party naming. The rule: this repository never asserts anything about another
 #    project's PLANS — no "X will be the backend", no "X's lane". Describing the
 #    replaceable-backend seam generically is the default, because filling that blank in
-#    is theirs to agree to, not ours to assume. A record MAY name a project where the
-#    decision was genuinely about that project and has already happened. Three classes
-#    are allowed, a file at a time:
+#    is theirs to agree to, not ours to assume. No grep can check that rule; a reviewer does.
+#
+#    twinBASIC and RDCore may be named anywhere, with attribution (Jen, 2026-10-26, #2071).
+#    HexIDE integrates with both, and a per-file list of where each might appear produced a
+#    decision card for every new file that configures or documents an integration. The
+#    attribution is the README's, beside Microsoft's, and this check fails if it goes missing,
+#    since it is the condition the names are allowed on.
+#
+#    Every other project is still named a file at a time, where the decision was genuinely
+#    about that project and has already happened:
 #      * attribution — the Battleship demo derives from an MIT project and credits its
 #        author; the LSP test README records why GPL-derived test inputs were not carried
 #        over. Removing either would be a licence and honesty problem.
 #      * licence provenance — vb6-grammar-fixes records which GPLv3 grammar is quarantined
 #        and why; lsp-parity-matrix is the record of replacing the server built on it.
 #        Naming the grammar is what makes the clean-room claim checkable.
-#      * the routed wall — the interpreter README names twinBASIC to route users *to* it.
-#        That is a deferral, not a comparison, and it needs the name to be actionable.
-#      * an interop fixture — the spring-tide demo attaches RDCore's language server as a foreign
-#        server and says how. It records a connection that has been made and measured, at the
-#        request of that project's maintainer, and cannot be followed without the name. It must
-#        not describe that project's plans; see the rule above.
-#        dap-adapter-smoke records another measured interop fixture, including the tested revision,
-#        workspace format and component setup needed to reproduce the DAP session acceptance.
+#      * interop fixtures — spring-tide and dap-adapter-smoke record connections that have
+#        been made and measured.
 #    Anything else is a mention nobody decided on, so this fails closed and asks for a
 #    decision. Adding a file here is a decision; a new mention inside a listed file still
 #    deserves a read.
 ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
-# The maintainer requested this integration with its author's blessing (#1178). These exact files
-# implement or validate its reader; this exception permits that name only, not other project names.
-TWIN_ALLOWED='^(IDE/HexIDE/HexIDE\.csproj|IDE/HexIDE/(Projects/ArchiveProjectService|Forms/ViewModels/ArchiveDocumentViewModel|Tools/Projects/(ArchiveTreeNode|ProjectToolViewModel))\.cs|IDE/HexIDE\.Integration\.Tests/Views/ArchiveProjectBrowsingTests\.cs|HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/HexIDE\.TwinBasic\.csproj|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace|ArchiveSourceFolder|CompilerWireCodec|CompilerRecording|CompilerWebSocketTransport|CompilerRootSession|CompilerChannelSession|CompilerPackageProvider|CompilerProjectPreparation|CompilerSessionMessages|CompilerWireCodec\.Session)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(CompilerRecordingTests\.cs|Recordings/synthetic/(preparation\.jsonl|README\.md)|ContainerReaderTests\.cs|ArchiveProjectTests\.cs|ArchiveSourceFolderTests\.cs|CompilerWireCodecTests\.cs|CompilerWebSocketTransportTests\.cs|CompilerRootSessionTests\.cs|CompilerChannelSessionTests\.cs|CompilerProjectPreparationTests\.cs|CompilerWireCodecTests\.(CompilerProjectPreparationTests|CompilerRootSessionTests|SessionMessages)\.cs|InMemoryCompilerSessionCodec\.cs|SocketTrackingTest\.cs|SocketTrackingTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|archive/2026-10-19-model-archive-project-documents|archive/2026-10-19-browse-archive-projects|archive/2026-10-19-synchronize-archive-source-folder|archive/2026-10-19-decode-compiler-wire|archive/2026-10-19-connect-compiler-websocket|archive/2026-10-19-initialize-compiler-root|archive/2026-10-19-own-compiler-channels|prepare-compiler-project)/design\.md)$'
 while IFS= read -r f; do
-  if [[ "$f" =~ $TWIN_ALLOWED ]] && ! git grep --untracked -qiE 'rdcore|rubberduck' -- "$f"; then
-    continue
-  fi
   [ -n "$f" ] && note "third-party project named outside the agreed places: $f"
-done < <(git grep --untracked -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
+done < <(git grep --untracked -lIiE 'rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
+if git grep --untracked -qIiE 'twinbasic|rdcore' -- . "${EXCLUDE[@]}" ':!README.md' \
+   && ! grep -qF 'twinBASIC and RDCore are independent projects' README.md 2>/dev/null; then
+  note "README.md has lost the twinBASIC and RDCore attribution that naming them anywhere depends on"
+fi
 
 # 7. Upstream attribution — expected, never a failure. Flagged only so a stale code
 #    reference cannot hide among the legitimate licence mentions.
@@ -274,6 +294,14 @@ done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "xUnit Assert API in test source (use AwesomeAssertions): $hit"
 done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnum:]_]*' -- ':(glob)**/*.Tests/**/*.cs')
+
+# 10. C1 controls (U+0080–U+009F) in UTF-8 text indicate an encoding accident (#1312).
+# Scan even the scripts excluded above; tests needing a control must spell it as an escape.
+# Explicit UTF mode matches code points on Linux and Git for Windows alike (#1881).
+# Windows git already uses UTF mode under C locale, where a byte pattern misses controls.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "C1 control character: $hit"
+done < <(LC_ALL=C git grep --untracked -nIP '(*UTF)[\x{80}-\x{9F}]' -- .)
 
 echo
 if [ "$fails" -eq 0 ]; then

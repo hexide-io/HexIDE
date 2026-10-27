@@ -34,6 +34,14 @@ public class DesignerRenameTests
         Attribute VB_Name = "Form1"
         """;
 
+    // The refusal is a localization key now (#629); answer it with the English pack's text.
+    private static ILocalizationService Naming()
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString("Str.Naming.Msg.NameNotUniqueInForm").Returns("Name must be unique in form");
+        return loc;
+    }
+
     private static FormEditViewModel Designer(out FormDefinition form)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
@@ -41,7 +49,7 @@ public class DesignerRenameTests
         project.AddForm(form);
         var vm = new FormEditViewModel(
             null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!, null!,
-            Substitute.For<ILocalizationService>());
+            Naming());
         return vm.Initialize(form);
     }
 

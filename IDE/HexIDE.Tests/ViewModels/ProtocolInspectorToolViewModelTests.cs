@@ -20,6 +20,17 @@ namespace HexIDE.Tests.ViewModels;
 /// </remarks>
 public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 {
+    [Fact]
+    public async Task TimedOutRequestsShowTheirOutcomeAndCountAsFailures()
+    {
+        _capture.Record("probe", ConversationDirection.Sent, ConversationEntryKind.Request, "textDocument/hover", "1", 0);
+        _capture.EndRequests("probe", ConversationDirection.Sent, "1", ConversationOutcome.TimedOut);
+        await _capture.DrainAsync();
+        var envelope = _capture.Snapshot("probe").Single();
+        envelope.IsFailure().Should().BeTrue();
+        new ProtocolInspectorRowViewModel(envelope, false, Loc()).Outcome.Should().Be("Str.Tool.ProtocolInspector.Outcome.TimedOut");
+    }
+
     private readonly ConversationLog _capture = new();
 
     public async ValueTask DisposeAsync()
@@ -305,6 +316,41 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         vm.HasPending.Should().BeFalse();
     }
 
+    [Fact]
+    public void PendingCountsArrivalsSinceRefreshRatherThanHiddenRows()
+    {
+        Frame("vb6", "first");
+        Frame("other", "hidden");
+        var vm = Sut();
+        vm.ShowOnly("vb6");
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(0);
+
+        Frame("other", "new");
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(1);
+        vm.Rows.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task PendingSurvivesEvictionAndClear()
+    {
+        await using var capture = new ConversationLog(new CaptureLimits(EnvelopeEntries: 100, PrologueEntries: 0));
+        for (var i = 0; i < 100; i++)
+            capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "old", null, 1);
+        var vm = Over(capture);
+        capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "new", null, 1);
+        await capture.DrainAsync();
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(1);
+
+        await capture.ClearAsync();
+        capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "afterClear", null, 1);
+        await capture.DrainAsync();
+        vm.NoteTraffic();
+        vm.PendingCount.Should().Be(2);
+    }
+
     // ── Losses ───────────────────────────────────────────────────────────────
 
     [Fact]
@@ -431,6 +477,20 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         vm.HasSelectedBody.Should().BeFalse();
         vm.SelectedBodyUnavailable.Should().Be("Str.Tool.ProtocolInspector.NoteHasNoBody");
+    }
+
+    [Fact]
+    public void StandardOutputIsShownAsANonMessageWithItsVerbatimDetail()
+    {
+        _capture.Record("pipe", ConversationDirection.Received, ConversationEntryKind.StandardOutput,
+            null, null, 0, null, "No project was found");
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+        vm.SelectedRow.Kind.Should().Be("StandardOutput");
+        vm.SelectedRow.Method.Should().Be("No project was found");
+        vm.SelectedRow.IsNotAMessage.Should().BeTrue();
+        vm.HasSelectedBody.Should().BeFalse();
+        vm.SelectedBodyUnavailable.Should().Be("Str.Tool.ProtocolInspector.StandardOutputHasNoBody");
     }
 
     [Fact]

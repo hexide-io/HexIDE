@@ -30,6 +30,8 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
+        <ProjectReference Include="..\HexIDE.Desktop\HexIDE.Desktop.csproj" />
         <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />

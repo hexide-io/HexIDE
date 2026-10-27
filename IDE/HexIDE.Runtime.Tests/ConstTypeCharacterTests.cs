@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A Const declared with a type character, <c>Const K% = 2.5</c>, takes the character as the As clause it stands for:
 /// the same conversions and the same compile errors (#1614). Measured on vb6.exe, native and p-code alike, with the probe
-/// projects in docs/vb6-fidelity-oracle.md, "A Const declared with a type character". Each expected line is what
+/// projects in docs/vb6-fidelity-oracle/a-const-declared-with-a-type-character.md, "A Const declared with a type character". Each expected line is what
 /// vb6.exe logged. HexIDE stopped the program as the module loaded, with "Const type hints not supported".
 /// </summary>
 public class ConstTypeCharacterTests : BaseVBTestFixture

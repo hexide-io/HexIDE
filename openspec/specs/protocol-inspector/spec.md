@@ -110,6 +110,10 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 - **WHEN** a request was not sent because the server advertised no such capability
 - **THEN** the record says so and names the capability, marked as never sent
 
+#### Scenario: Another server has priority
+- **WHEN** a server advertises a one-answer capability but another claimant wins selection
+- **THEN** its record SHALL explain which claimant has priority for that capability, marked as never sent, once per capability per connection
+
 #### Scenario: A request that failed inside this client
 - **WHEN** a message cannot be serialized and so never reaches the transport
 - **THEN** the record says so, naming the method, marked as never sent
@@ -125,9 +129,12 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 ### Requirement: The record SHALL carry the process, not only its messages
 For a connection whose process the IDE started, the record SHALL include its start, its termination, its
 exit code, and everything it wrote to standard error, attributed to that connection and interleaved with its
-messages in one timeline.
+messages in one timeline. For a named-pipe server it launches, the IDE SHALL also redirect and drain
+standard output, recording its lines verbatim as Received entries of kind StandardOutput, distinct from
+StandardError. The inspector and automation vocabulary SHALL distinguish both streams, and neither kind
+SHALL imply a missing protocol body.
 
-A server that fails badly does not explain itself in the protocol. Standard error is its only channel for a
+A stdio server that fails badly may not explain itself in the protocol. Standard error is its only channel for a
 crash, because a server speaking over standard output may write nothing else there, and measurement bears
 this out: when servers in this project's own fixture genuinely failed, the human-readable cause appeared
 only on standard error and in a protocol error reply, and nothing at all appeared in the protocol's
@@ -139,6 +146,10 @@ it.
 #### Scenario: A server crashes
 - **WHEN** a language server terminates unexpectedly
 - **THEN** its exit code and its final standard-error output appear in the timeline at the point it died
+
+#### Scenario: A pipe server explains a startup failure only on stdout
+- **WHEN** a launched named-pipe server writes to stdout and exits before creating its pipe
+- **THEN** its output appears on that connection’s timeline as StandardOutput, even though connecting fails
 
 #### Scenario: Several servers attached
 - **WHEN** more than one server is running and one writes to standard error
@@ -178,6 +189,22 @@ weigh, because a message count tells them nothing about how much of their source
 #### Scenario: A normalisation defect surviving redaction
 - **WHEN** a client and a server referred to one document by two spellings
 - **THEN** the two spellings remain distinguishable in the exported capture
+
+#### Scenario: Absolute paths in diagnostic prose
+- **WHEN** an exported body or Language Servers report detail or configuration problem contains a plain absolute drive-letter, UNC or Unix path
+- **THEN** redaction SHALL apply the local-path segment mapping, preserving separators
+- **AND** quoted paths SHALL support spaces, while unquoted paths end at whitespace or prose punctuation
+- **AND** before matching prose paths, redaction SHALL replace the user profile and temp roots literally with fixed tokens; Language Servers reports SHALL also register each open project and connection workspace root
+- **AND** longest roots SHALL win, supporting either separator, Windows case variants, trailing separators and percent-encoded URI spellings
+- **AND** relative paths and ambiguous unquoted paths containing spaces outside these roots remain outside this guarantee
+
+#### Scenario: A client-supplied workspace folder name
+- **WHEN** HexIDE initializes a language server with pseudonymisation enabled
+- **THEN** it SHALL send each workspace folder's name as the same session pseudonym used for that folder's URI segment in an export
+- **AND** the URI sent to the server SHALL remain the real workspace URI
+- **AND** body redaction SHALL remain textual, without a structural pass or a project-name sweep
+
+A name a server echoes back in its own fields is outside this guarantee and may survive export.
 
 #### Scenario: Reading your own conversation
 - **WHEN** a developer views a captured message in the IDE
@@ -244,3 +271,15 @@ evicts the quiet one's history and a single count reports a loss nobody can attr
 #### Scenario: A shared ceiling written against one server
 - **WHEN** an entry for a single server sets a limit that governs every connection together
 - **THEN** it is not applied, and the developer is told it was not
+
+### Requirement: The inspector SHALL report new entries without moving the grid
+The visible inspector SHALL poll a cheap monotonic entry counter every half second and show how many
+entries were appended since Refresh. It SHALL keep the grid unchanged until explicitly refreshed. The
+counter SHALL cover all connections independently of filters and SHALL NOT reset on eviction or clearing.
+Replies completing existing requests SHALL NOT count as appended entries. Polling SHALL stop while the
+view is hidden or detached.
+
+#### Scenario: Traffic arrives while the grid is being read
+- **WHEN** an entry is recorded while the inspector is visible
+- **THEN** its pending indicator appears without adding or moving grid rows
+- **AND** Refresh fills the grid again and resets the pending indicator

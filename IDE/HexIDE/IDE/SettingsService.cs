@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog;
 
@@ -14,6 +16,8 @@ namespace HexIDE.IDE;
 public partial class SettingsService : ObservableObject, ISettingsService
 {
     private readonly string _filePath;
+    private readonly HashSet<string> _changedProperties = new();
+    private bool _loading;
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
     // Defaults derive from SettingsDefaults (the single source of truth).
@@ -52,7 +56,11 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
+    private bool _colorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
+    private bool _isStickyScrollEnabled = SettingsDefaults.IsStickyScrollEnabled;
+    private int _stickyScrollDepth = SettingsDefaults.StickyScrollDepth;
 
     // ── Editor properties ───────────────────────────────────────
 
@@ -198,10 +206,34 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras properties ────────────────────────────────
 
+    public bool ShowIndentGuides
+    {
+        get => _showIndentGuides;
+        set => SetProperty(ref _showIndentGuides, value);
+    }
+
     public bool IsMinimapVisible
     {
         get => _isMinimapVisible;
         set { if (SetProperty(ref _isMinimapVisible, value)) Save(); }
+    }
+
+    public bool ColorBracketsByDepth
+    {
+        get => _colorBracketsByDepth;
+        set { if (SetProperty(ref _colorBracketsByDepth, value)) Save(); }
+    }
+
+    public bool IsStickyScrollEnabled
+    {
+        get => _isStickyScrollEnabled;
+        set => SetProperty(ref _isStickyScrollEnabled, value);
+    }
+
+    public int StickyScrollDepth
+    {
+        get => _stickyScrollDepth;
+        set => SetProperty(ref _stickyScrollDepth, Math.Clamp(value, 1, 10));
     }
 
     // ── Constructor ─────────────────────────────────────────────
@@ -223,8 +255,18 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Persistence ─────────────────────────────────────────────
 
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!_loading && e.PropertyName is { } name)
+            _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
+        base.OnPropertyChanged(e);
+    }
+
     public void Save()
     {
+        if (_loading || _changedProperties.Count == 0)
+            return;
+
         try
         {
             var data = new SettingsData
@@ -250,7 +292,11 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsEditToolbarVisible = _isEditToolbarVisible,
                 IsDebugToolbarVisible = _isDebugToolbarVisible,
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
+                ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
+                ColorBracketsByDepth = _colorBracketsByDepth,
+                IsStickyScrollEnabled = _isStickyScrollEnabled,
+                StickyScrollDepth = _stickyScrollDepth,
                 Window = new SettingsData.WindowDataJson
                 {
                     State = _window.State,
@@ -260,8 +306,18 @@ public partial class SettingsService : ObservableObject, ISettingsService
                     Height = _window.Height
                 }
             };
-            var json = JsonSerializer.Serialize(data, s_jsonOptions);
-            File.WriteAllText(_filePath, json);
+            // Preserve fields changed outside this instance, including settings from newer versions.
+            var latest = File.Exists(_filePath)
+                ? JsonNode.Parse(File.ReadAllText(_filePath))!.AsObject()
+                : new JsonObject();
+            var current = JsonSerializer.SerializeToNode(data)!.AsObject();
+            // Only keys the file actually holds: a property that raises a change but isn't persisted must not
+            // write a null over whatever the file says under that name.
+            foreach (var name in _changedProperties)
+                if (current.ContainsKey(name))
+                    latest[name] = current[name]?.DeepClone();
+            AtomicFileWriter.WriteAllText(_filePath, latest.ToJsonString(s_jsonOptions));
+            _changedProperties.Clear();
             Log.Debug("SettingsService: Saved to {Path}", _filePath);
         }
         catch (Exception ex)
@@ -272,6 +328,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     public void Load()
     {
+        _loading = true;
         try
         {
             if (!File.Exists(_filePath))
@@ -309,7 +366,11 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isEditToolbarVisible = data.IsEditToolbarVisible;
             _isDebugToolbarVisible = data.IsDebugToolbarVisible;
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
+            ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
+            _colorBracketsByDepth = data.ColorBracketsByDepth;
+            IsStickyScrollEnabled = data.IsStickyScrollEnabled;
+            StickyScrollDepth = data.StickyScrollDepth;
             if (data.Window is { } w)
                 _window = new WindowData(w.State, w.X, w.Y, w.Width, w.Height);
 
@@ -318,6 +379,11 @@ public partial class SettingsService : ObservableObject, ISettingsService
         catch (Exception ex)
         {
             Log.Warning(ex, "SettingsService: Failed to load from {Path}, using defaults", _filePath);
+        }
+        finally
+        {
+            _loading = false;
+            _changedProperties.Clear();
         }
     }
 
@@ -388,8 +454,19 @@ public partial class SettingsService : ObservableObject, ISettingsService
         [JsonPropertyName("isFormEditorToolbarVisible")]
         public bool IsFormEditorToolbarVisible { get; set; } = SettingsDefaults.IsFormEditorToolbarVisible;
 
+        [JsonPropertyName("showIndentGuides")]
+        public bool ShowIndentGuides { get; set; } = SettingsDefaults.ShowIndentGuides;
+
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;
+
+        [JsonPropertyName("colorBracketsByDepth")]
+        public bool ColorBracketsByDepth { get; set; } = SettingsDefaults.ColorBracketsByDepth;
+        [JsonPropertyName("isStickyScrollEnabled")]
+        public bool IsStickyScrollEnabled { get; set; } = SettingsDefaults.IsStickyScrollEnabled;
+
+        [JsonPropertyName("stickyScrollDepth")]
+        public int StickyScrollDepth { get; set; } = SettingsDefaults.StickyScrollDepth;
 
         [JsonPropertyName("window")]
         public WindowDataJson? Window { get; set; }

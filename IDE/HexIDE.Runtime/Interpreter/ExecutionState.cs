@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -51,7 +54,16 @@ public class ExecutionState
 
     public int Alloc(Vb6Value value, Vb6Value.ValueType? declaredType, string? declaredClass = null)
     {
-        var loc = nextFreeLocation++;
+        int loc;
+        try
+        {
+            loc = nextFreeLocation;
+            nextFreeLocation = checked(nextFreeLocation + 1);
+        }
+        catch (OverflowException)
+        {
+            throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        }
         memory[loc] = value;
         if (declaredType != null)
             declaredTypes[loc] = declaredType;
@@ -66,6 +78,10 @@ public class ExecutionState
 
     /// <summary>The declared class/interface name of a slot, or null when the slot isn't class-typed.</summary>
     public string? DeclaredClassOf(int location) =>
+        DeclaredViewOf(location) is { } name && name != "Object" ? name : null;
+
+    // Object selects late binding on a read, but imposes no class constraint on a store (#1435).
+    public string? DeclaredViewOf(int location) =>
         declaredClasses.TryGetValue(location, out var c) ? c : null;
 
     /// <summary>Mark a slot as never-writable. Used for Enum members, which VB6 treats as constants.</summary>
@@ -176,9 +192,10 @@ public class ExecutionState
     /// as the target is, so a read through it is typed or a Variant's as a read of the target is (#987), and a store converts
     /// there. An element's array is locked until <see cref="ReleaseRef"/>.
     /// </summary>
-    public int AllocRef(IByRefTarget target)
+    public int AllocRef(IByRefTarget target, ExecutionEnvironment env)
     {
         var loc = Alloc(target.Read(), target.DeclaredType);
+        env.AllocatedSlots?.Add(loc);
         if (target.IsVariant)
             MarkVariant(loc);
         refSlots[loc] = target;
@@ -193,6 +210,31 @@ public class ExecutionState
             target.Unlock();
     }
 
+    internal void Free(int location)
+    {
+        ReleaseRef(location);
+        memory.Remove(location);
+        declaredTypes.Remove(location);
+        declaredClasses.Remove(location);
+        variantLocations.Remove(location);
+        declaredArrayLocations.Remove(location);
+        fixedArrayLocations.Remove(location);
+        constantLocations.Remove(location);
+        readOnlyLocations.Remove(location);
+        autoNews.Remove(location);
+        pendingControls.Remove(location);
+        defaultForms.Remove(location);
+    }
+
+    public bool TryRead(int location, out Vb6Value value)
+    {
+        if (!memory.TryGetValue(location, out value))
+            return false;
+        if (refSlots.Count > 0 && refSlots.TryGetValue(location, out var target))
+            value = target.Read();
+        return true;
+    }
+
     public Vb6Value this[int location]
     {
         get => refSlots.Count > 0 && refSlots.TryGetValue(location, out var target) ? target.Read() : memory[location];
@@ -201,7 +243,12 @@ public class ExecutionState
             if (refSlots.Count > 0 && refSlots.TryGetValue(location, out var target))
                 target.Write(value);
             else
-                memory[location] = value;
+            {
+                ref var stored = ref CollectionsMarshal.GetValueRefOrNullRef(memory, location);
+                if (Unsafe.IsNullRef(ref stored))
+                    throw new InvalidOperationException($"Execution slot {location} is out of scope.");
+                stored = value;
+            }
         }
     }
 }

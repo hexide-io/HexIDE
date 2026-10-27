@@ -57,7 +57,7 @@ project as the root while still telling the truth about the file.
 - **THEN** it appears at the tree's root, with its relative location shown in the caption
 
 ### Requirement: Opening a member from the tree SHALL open it appropriately
-Activating a member in the tree SHALL open it — code-only members in the code editor, and members with a
+Activating a loaded member in the tree SHALL open it — code-only members in the code editor, and members with a
 visual definition on the design surface.
 
 The tree is the primary way into a project's files, so the gesture has to land somewhere useful. Choosing
@@ -102,9 +102,29 @@ Routing a carried file to the VB6 code editor is the failure this forbids: that 
 module model and a VB6 language server, and a document rendered with VB6 colouring looks broken in a way a
 reader attributes to the file.
 
+The carried-file editor SHALL decode strictly as UTF-8, falling back to Latin-1 when UTF-8 cannot read
+its bytes, and SHALL save in the encoding used to read it, preserving any UTF-8 byte-order mark.
+It SHALL skip writing when the buffer matches the text last read or saved. An edit the selected encoding
+cannot represent SHALL fail before replacing the original file, log a warning, and show the localized
+source-encoding warning naming the document, code page, character, code point and offending line.
+The buffer SHALL remain unsaved.
+
 #### Scenario: A carried file is opened from the tree
 - **WHEN** a carried file is opened from the tree
 - **THEN** it opens in a plain text editor, with highlighting chosen from its extension
+
+#### Scenario: A carried file contains invalid UTF-8
+- **WHEN** a carried file contains a byte that is not valid UTF-8 and is saved after an edit elsewhere
+- **THEN** that byte survives unchanged in the saved file
+
+#### Scenario: A carried file is saved without a change
+- **WHEN** the buffer matches the text last read or saved
+- **THEN** saving does not write the file
+
+#### Scenario: An edit cannot be saved in the carried file's encoding
+- **WHEN** a carried Latin-1 file is edited to contain ✓ and saved
+- **THEN** a warning notice names the file, code page 28591, ✓, U+2713 and the offending line
+- **AND** the original bytes remain unchanged and the buffer remains unsaved
 
 #### Scenario: A carried file that cannot be read
 - **WHEN** a carried file cannot be read from disk
@@ -201,3 +221,56 @@ open into yet.
 #### Scenario: Expansion survives activation
 - **WHEN** the developer activates an expanded project in the tree
 - **THEN** the project opens and remains expanded
+
+### Requirement: Preserved items SHALL remain visible
+The tree SHALL include the project's preserved item lines alongside loaded members, using the directory
+in which those lines were read to resolve their paths. Missing files SHALL have a missing-file overlay
+and localized label; unsupported UserDocuments SHALL have a distinct unsupported overlay and localized
+label. Both markers SHALL appear when an unsupported item's file is also missing. The original line
+SHALL remain visible, and showing or activating it SHALL NOT load, edit or discard the preserved item.
+
+#### Scenario: A missing form or module
+- **WHEN** a declared form, standard module, class, UserControl or PropertyPage has no file on disk
+- **THEN** its line is preserved without creating a live member, and its entry appears in the tree with the missing-file marker
+- **AND** saving the project SHALL NOT create an empty member file
+
+#### Scenario: An unsupported UserDocument
+- **WHEN** a UserDocument entry is preserved rather than loaded
+- **THEN** its entry appears with the unsupported marker, and also the missing-file marker if absent
+
+#### Scenario: Save As leaves a preserved member at its original location
+- **WHEN** a project is saved in a different directory
+- **THEN** the preserved node still resolves against its original directory and is placed relative to the new project anchor
+
+### Requirement: Selecting a module SHALL offer its name in the Properties window
+Selecting a standard module, class module, UserControl or PropertyPage SHALL show a single `(Name)` row.
+A rename SHALL apply the existing VB6 identifier and per-project document-name checks, excluding the document
+itself. A refused edit SHALL report the reason and restore the row. A successful rename SHALL update the
+module name and its `VB_Name`, including an open code window, without changing its file path. For a UserControl
+or PropertyPage, the designer root SHALL follow the module name, and a committed designer root rename or undo
+SHALL keep the module name in step.
+
+#### Scenario: Rename a module selected in the tree
+- **WHEN** the developer selects a module and commits a free valid name in Properties
+- **THEN** the module and its code header use that name and its file path stays unchanged
+
+#### Scenario: Refuse a name another document holds
+- **WHEN** a module is renamed to a name another document in its project holds
+- **THEN** the rename is refused with the existing naming message and the row shows its original name
+
+#### Scenario: Rename a designer root
+- **WHEN** a UserControl or PropertyPage root is renamed in its designer
+- **THEN** its module name and `VB_Name` follow the root, including on designer undo
+
+### Requirement: The form context menu SHALL save the selected form
+The Project Explorer's Save and Save As commands SHALL call the same form-save service as the designer,
+with Save As requesting a new path. The service flushes open buffers and applies its existing save gates.
+These commands SHALL be available only for a selected form and SHALL NOT format its code on save.
+
+#### Scenario: Save a selected form
+- **WHEN** Save is chosen on a form in the Project Explorer
+- **THEN** that form is passed to the form-save service with Save As disabled
+
+#### Scenario: Save a selected form at a new path
+- **WHEN** Save As is chosen on a form in the Project Explorer
+- **THEN** that form is passed to the form-save service with Save As enabled

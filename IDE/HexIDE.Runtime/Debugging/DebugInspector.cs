@@ -176,8 +176,7 @@ public static class DebugInspector
             nodes.Add(new DebugNode("Me", formObj.ClassName, formObj.ClassName, () =>
             {
                 var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(instanceWindow))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                kids.AddRange(PropertyNodes(instanceWindow));
                 var ancestors = NewAncestorSet();
                 ancestors.Add(formObj);
                 kids.AddRange(EnvChildren(baseEnv, ctx, ancestors, 1, selfName));
@@ -203,12 +202,8 @@ public static class DebugInspector
                 () => EnvChildren(baseEnv, ctx, NewAncestorSet(), 1, selfName)));
         }
 
-        // 2) The procedure's own params + locals — a currentEnv entry whose SLOT differs from the base scope's slot
-        //    for that name, or that has no base counterpart. Comparing by SLOT (not name) is what keeps a local /
-        //    ByVal param that SHADOWS a module var or instance field visible: AllocVariable overwrote the cloned
-        //    base entry with a fresh slot, while the base env keeps the outer slot (shown under the root). A
-        //    name-only subtraction dropped the shadowing local entirely. The env dictionaries ignore case (#811), so
-        //    a local differing from a module var only in case is looked up as that name, and its slot decides.
+        // 2) The procedure's own params + locals. Procedure scopes no longer copy base bindings (#2120).
+        // Keep the slot comparison for module-level execution, where env itself is the base scope.
         foreach (var (name, slot) in env.variableToLocation)
         {
             if (Hidden.Contains(name) || IsFormName(ctx, env, name))
@@ -312,8 +307,7 @@ public static class DebugInspector
             return new DebugNode(name, FormatValue(value), type, () =>
             {
                 var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(control))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                kids.AddRange(PropertyNodes(control));
                 return kids;
             });
 
@@ -392,6 +386,14 @@ public static class DebugInspector
         return list;
     }
 
+    // A live control's or form's properties, name-sorted. One whose read raises shows the raised error's own description
+    // in angle brackets, with no type, and the rest are still listed (#2289). The angle brackets are VB6's own, for a member
+    // its Locals lists whose read raises (measured on #2289). Which members are listed, and an error row's type, are #2329.
+    private static IEnumerable<DebugNode> PropertyNodes(Control control) =>
+        AvaloniaInteroperability.ReadProperties(control).Select(p => p.Error is { } error
+            ? new DebugNode(p.Name, $"<{error}>", string.Empty)
+            : new DebugNode(p.Name, FormatValue(p.Value), VB6BuiltIns.DebugTypeName(p.Value)));
+
     // The Value-column text for a leaf value, following VB6 Locals conventions (approximation — see D9).
     private static string FormatValue(Vb6Value v)
     {
@@ -402,7 +404,7 @@ public static class DebugInspector
             case null: return "Nothing";
             case string s: return "\"" + s + "\"";
             case bool b: return b ? "True" : "False";
-            case DateTime dt: return "#" + dt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "#";
+            case VbDate dt: return "#" + dt.Instant.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "#";
             case Control: return VB6BuiltIns.DebugTypeName(v);
             case ICSharpProxy: return VB6BuiltIns.DebugTypeName(v);
             case IFormattable f: return f.ToString(null, CultureInfo.InvariantCulture);
@@ -422,7 +424,8 @@ public static class DebugInspector
     // as a module's variable, and it is not one.
     private static bool IsFormName(ModuleExecutionContext ctx, ExecutionEnvironment env, string name)
         => env.TryGetVariableLocation(name, out var location)
-           && ctx.State[location].Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
+           && ctx.State.TryRead(location, out var value)
+           && value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
            && string.Equals(form.ClassName, name, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSelfRef(string name, string? selfName)

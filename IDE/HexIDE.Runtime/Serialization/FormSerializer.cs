@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;
@@ -116,10 +118,13 @@ public class FormSerializer
                   + "more than once while writing the form — the containment tree is cyclic or has a "
                   + "component claimed by two parents. Refusing to write a corrupted .frm.");
 
-            vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
+            var inBox = component.BaseClass as InBoxComponentClass;
+            vb.Begin(inBox?.TypeNameOf(component) ?? component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
             vb.BeginSortedProperties();
             WriteAllProperties(vb, component, citations);
             vb.EndSortedProperties();
+            if (inBox is not null)
+                WriteOwnProperties(vb, component, inBox, citations);
             WriteChildren(component, ChildrenOf(component));
             vb.End();
         }
@@ -270,9 +275,14 @@ public class FormSerializer
 
     private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
     {
+        var inBox = instance.BaseClass as InBoxComponentClass;
         foreach (var prop in instance.BaseClass.Properties)
         {
             if (prop == VBProperties.NameProperty)
+                continue;
+
+            // An in-box control's own properties go in the run after its extender's (#1082).
+            if (inBox is not null && inBox.OwnProperties.Contains(prop))
                 continue;
 
             // Invisible controls (e.g. Timer) have no Width/Height/Visible in VB6 — emitting them makes
@@ -281,6 +291,10 @@ public class FormSerializer
                 (prop == VBProperties.WidthProperty
                  || prop == VBProperties.HeightProperty
                  || prop == VBProperties.VisibleProperty))
+                continue;
+
+            if (prop == VBProperties.IntervalProperty && instance.BaseClass is TimerComponentClass
+                && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;
 
             // VB6's designer never writes a Dropdown Combo's Style, even once it was set to another and back: #926's saved
@@ -336,10 +350,182 @@ public class FormSerializer
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)
         {
+            if (inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
+                || inBox is not null && IsOwnRunLine(inBox, raw.Name))
+                continue;
             if (instance.BaseClass.Properties.Any(p =>
                     string.Equals(p.Name, raw.Name, StringComparison.OrdinalIgnoreCase) && instance.TryGetBoxedProperty(p, out _)))
                 continue;
             vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        }
+    }
+
+    private static readonly string[] SSTabOwnOrder =
+        ["TabOrientation", "Style", "MousePointer", "Tabs", "Tab", "TabsPerRow", "TabHeight", "TabMaxWidth",
+         "WordWrap", "ShowFocusRect", "BackColor", "ForeColor", "OLEDropMode", "Font"];
+
+    private static bool IsSSTabOwnLine(string name) =>
+        SSTabOwnOrder.Contains(name, StringComparer.OrdinalIgnoreCase)
+        || SSTabPageOrder(name) is not null
+        || name.StartsWith("TabEnabled(", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("TabVisible(", StringComparison.OrdinalIgnoreCase);
+
+    // Page lists and their flags remain as read, including the tab-zero load trap. The designer
+    // stays read-only until it can maintain membership when controls are added, removed or renamed.
+    private static void WriteSSTabProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
+        CompanionCitations citations)
+    {
+        void Write(ComponentInstance.UnknownRawProperty raw) =>
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        foreach (var name in SSTabOwnOrder)
+        {
+            var found = false;
+            foreach (var raw in instance.UnknownRawProperties.Where(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                Write(raw);
+                found = true;
+            }
+            if (!found && name == "TabHeight")
+                vb.WriteProperty(name, typeof(int), 520);
+        }
+
+        foreach (var raw in instance.UnknownRawProperties.Where(r => SSTabPageOrder(r.Name) is not null)
+                     .OrderBy(r => SSTabPageOrder(r.Name)))
+            Write(raw);
+    }
+
+    // Indexed names sort numerically, with each control immediately followed by its Enabled line.
+    // Unrecognised names keep the existing unknown-property preservation path.
+    private static (int Page, int Kind, int Control, int Suffix)? SSTabPageOrder(string name)
+    {
+        var open = name.IndexOf('(');
+        var close = name.IndexOf(')');
+        if (open < 0 || close <= open
+            || !int.TryParse(name[(open + 1)..close], NumberStyles.None, CultureInfo.InvariantCulture, out var page))
+            return null;
+        var prefix = name[..open];
+        var tail = name[(close + 1)..];
+        if (prefix.Equals("TabCaption", StringComparison.OrdinalIgnoreCase) && tail.Length == 0)
+            return (page, 0, 0, 0);
+        if (prefix.Equals("TabPicture", StringComparison.OrdinalIgnoreCase) && tail.Length == 0)
+            return (page, 1, 0, 0);
+        if (!prefix.Equals("Tab", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (tail.Equals(".ControlEnabled", StringComparison.OrdinalIgnoreCase))
+            return (page, 2, 0, 0);
+        if (tail.Equals(".ControlCount", StringComparison.OrdinalIgnoreCase))
+            return (page, 4, 0, 0);
+        if (!tail.StartsWith(".Control(", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var controlClose = tail.IndexOf(')');
+        if (controlClose < 9
+            || !int.TryParse(tail[9..controlClose], NumberStyles.None, CultureInfo.InvariantCulture, out var control))
+            return null;
+        var suffix = tail[(controlClose + 1)..];
+        return suffix.Length == 0 ? (page, 3, control, 0)
+            : suffix.Equals(".Enabled", StringComparison.OrdinalIgnoreCase) ? (page, 3, control, 1) : null;
+    }
+
+    // The lines of an in-box control's second run that HexIDE carries rather than models (#1082).
+    private static bool IsOwnRunLine(InBoxComponentClass inBox, string name) =>
+        name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
+        || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
+        || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
+        || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// An in-box control's second run (#1082), written after its extender's as VB6 writes it (measured): <c>_ExtentX</c>,
+    /// <c>_ExtentY</c> and <c>_Version</c>, then the control's own properties in the control's order, each only where it
+    /// differs from the control's default but for the one it always writes, a Boolean with its comment and an enum without.
+    /// </summary>
+    private static void WriteOwnProperties(VbFrmFormatSerializer vb, ComponentInstance instance, InBoxComponentClass inBox,
+        CompanionCitations citations)
+    {
+        ComponentInstance.UnknownRawProperty? Carried(string name) =>
+            instance.UnknownRawProperties.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is
+                { Name: not null } raw ? raw : null;
+        void WriteCarried(ComponentInstance.UnknownRawProperty raw) =>
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        static int? ValueOf(ComponentInstance.UnknownRawProperty? raw)
+        {
+            if (raw is not { Lines.Count: 1 } line)
+                return null;
+            var text = line.Lines[0];
+            return int.TryParse(text[(text.IndexOf('=') + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                ? value : null;
+        }
+
+        var readX = Carried("_ExtentX");
+        var readY = Carried("_ExtentY");
+        var extents = inBox.ExtentsToWrite(instance, ValueOf(readX), ValueOf(readY));
+        if (ValueOf(readX) == extents.X && ValueOf(readY) == extents.Y)
+        {
+            WriteCarried(readX!.Value);
+            WriteCarried(readY!.Value);
+        }
+        else
+        {
+            vb.WriteProperty("_ExtentX", typeof(int), extents.X);
+            vb.WriteProperty("_ExtentY", typeof(int), extents.Y);
+        }
+        // The StatusBar writes these before _Version (VB6 SP6, #1087 issuecomment-6427372779).
+        if (inBox is StatusBarComponentClass)
+            foreach (var property in new PropertyClass[] { StatusBarComponentClass.StyleProperty,
+                         StatusBarComponentClass.SimpleTextProperty, StatusBarComponentClass.ShowTipsProperty })
+            {
+                var value = instance.GetBoxedPropertyOrDefault(property);
+                if (value is not null && !Equals(value, property.BoxedDefaultValue(inBox)))
+                    vb.WriteProperty(property.Name, property.PropertyType, value);
+            }
+        if (inBox is not ImageListComponentClass && Carried("_Version") is { } version)
+            WriteCarried(version);
+        else if (inBox is not ImageListComponentClass)
+            vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+
+        if (inBox is SSTabComponentClass)
+        {
+            WriteSSTabProperties(vb, instance, citations);
+            return;
+        }
+
+        foreach (var property in inBox.OwnProperties)
+        {
+            if (inBox is StatusBarComponentClass && (property == StatusBarComponentClass.StyleProperty
+                || property == StatusBarComponentClass.SimpleTextProperty || property == StatusBarComponentClass.ShowTipsProperty))
+                continue;
+            var value = instance.GetBoxedPropertyOrDefault(property);
+            if (value is not null && (inBox.IsAlwaysWritten(property) || !Equals(value, property.BoxedDefaultValue(inBox))))
+                vb.WriteProperty(property.Name, property.PropertyType, value);
+            foreach (var (name, after) in inBox.CarriedOwnProperties)
+                if (ReferenceEquals(after, property) && Carried(name) is { } carried)
+                    WriteCarried(carried);
+        }
+        // Keep the saved panel block, including TextSave and its picture records, verbatim. Runtime
+        // panel edits do not mutate the designer instance, just as with other control properties.
+        if (inBox is StatusBarComponentClass && Carried("Panels") is { } panels)
+            WriteCarried(panels);
+        if (inBox is ImageListComponentClass)
+        {
+            if (Carried("_Version") is { } imageVersion) WriteCarried(imageVersion);
+            else vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+            if (instance.GetPropertyOrDefault(ImageListComponentClass.PicturesProperty) is { Count: > 0 } pictures)
+            {
+                vb.BeginProperty("Images", "{2C247F25-8591-11D1-B16A-00C0F0283628}");
+                vb.WriteProperty("NumListImages", typeof(int), pictures.Count);
+                for (var i = 0; i < pictures.Count; i++)
+                {
+                    var picture = pictures[i];
+                    vb.BeginProperty($"ListImage{i + 1}", "{2C247F27-8591-11D1-B16A-00C0F0283628}");
+                    vb.WriteRawProperty("Picture", citations.Cite(picture.Record));
+                    vb.WriteProperty("Key", typeof(string), picture.Key);
+                    // Object.Tag is padded as Tag, seven columns farther right (measured, #1083).
+                    if (picture.Tag.Length > 0) vb.WriteProperty("Object.Tag             ", typeof(string), picture.Tag);
+                    vb.EndProperty();
+                }
+                vb.EndProperty();
+            }
+            else if (Carried("Images") is { } images) WriteCarried(images);
         }
     }
 }

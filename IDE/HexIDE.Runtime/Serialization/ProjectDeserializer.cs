@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Text;
 using HexIDE.Runtime.ProjectElements;
 using Serilog;
@@ -193,7 +194,7 @@ public class ProjectDeserializer
                 if (refStr.StartsWith("*\\G", StringComparison.OrdinalIgnoreCase))
                     refStr = refStr[3..];
                 var refParts = refStr.Split('#', 5);
-                if (refParts.Length >= 3 && int.TryParse(refParts[2], out var lcid))
+                if (refParts.Length >= 3 && int.TryParse(refParts[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lcid))
                 {
                     var path = refParts.Length >= 4 && !string.IsNullOrEmpty(refParts[3]) ? refParts[3] : null;
                     var name = refParts.Length >= 5 && !string.IsNullOrEmpty(refParts[4]) ? refParts[4] : null;
@@ -213,6 +214,19 @@ public class ProjectDeserializer
             {
                 // Unknown key — preserve verbatim for round-trip
                 project.UnknownPreSectionLines.Add((knownKeyCount, trimmed));
+            }
+            if (knownKeyCount > project.KnownLineKeys.Count)
+            {
+                var slot = project.KnownLineKeys.Count;
+                project.KnownLineKeys.Add(key);
+                if (project.RelativeFormPaths.Count > project.FormLineSlots.Count)
+                    project.FormLineSlots.Add(slot);
+                if (project.RelativeModulePaths.Count > project.ModuleLineSlots.Count)
+                    project.ModuleLineSlots.Add(slot);
+                if (project.RelativeRelatedDocPaths.Count > project.RelatedDocumentLineSlots.Count)
+                    project.RelatedDocumentLineSlots.Add(slot);
+                if (project.PreservedItemLines.Count > project.PreservedItemLineSlots.Count)
+                    project.PreservedItemLineSlots.Add(slot);
             }
         }
 
@@ -249,6 +263,13 @@ public class ProjectDeserializer
 
 public class SerializedProject
 {
+    // Recognised keys in read order; item lists retain their source slot even if loading reclassifies them.
+    public List<string> KnownLineKeys { get; } = new();
+    public List<int> FormLineSlots { get; } = new();
+    public List<int> ModuleLineSlots { get; } = new();
+    public List<int> RelatedDocumentLineSlots { get; } = new();
+    public List<int> PreservedItemLineSlots { get; } = new();
+
     public VBProjectType ProjectType { get; set; }
     public string? Name { get; set; }
     public string? Description { get; set; }

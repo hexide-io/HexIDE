@@ -29,7 +29,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// These need real headless Avalonia — layout, visual parents, effective enabled-ness — so they live here
 /// rather than in the runtime unit suite.
 /// </summary>
-public class FrameContainerRuntimeTests
+public class FrameContainerRuntimeTests : WindowTestFixture
 {
     // Twips divided by 15 give pixels, so the Frame lands at (20, 10) and is 200x100; Text1 is at (10, 30)
     // INSIDE it, which is (30, 40) on the form. Those are the two numbers this whole phase is about.
@@ -271,6 +271,58 @@ public class FrameContainerRuntimeTests
         Dispatcher.UIThread.RunJobs();
 
         text.IsEffectivelyEnabled.Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Frame")]
+    [InlineData("PictureBox")]
+    public async Task EnabledReadsThroughContainers_AndKeepsTheChildsOwnValue(string container)
+    {
+        // vb6.exe SP6, native and p-code: a-controls-enabled-inside-a-disabled-container.md.
+        var frm = FrameWithChildren.Replace("VB.Frame", "VB." + container);
+        var (canvas, _, ctx, env) = Laid(frm);
+        var text = Child(ContainerRuntimeHarness.HostOf(canvas, "Frame1"), "Text1");
+
+        var debug = await Run(ctx, env, """
+            Frame1.Enabled = False
+            Debug.Print Text1.Enabled
+            Text1.Enabled = True
+            Debug.Print Text1.Enabled
+            Frame1.Enabled = True
+            Debug.Print Text1.Enabled
+            Frame1.Enabled = False
+            Debug.Print Text1.Enabled
+            Text1.Enabled = False
+            Frame1.Enabled = True
+            Debug.Print Text1.Enabled
+            Text1.Enabled = True
+            Debug.Print Text1.Enabled
+            Debug.Print Command1.Enabled
+            """);
+
+        debug.Select(v => v.Value).Should().Equal(false, false, true, false, false, true, true);
+        text.IsEnabled.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task EnabledReadsThroughNestedFrames()
+    {
+        var frm = FrameWithChildren.ReplaceLineEndings("\n")
+            .Replace("Begin VB.TextBox Text1", "Begin VB.Frame Frame2\nBegin VB.TextBox Text1")
+            .Replace("           End\n           Begin VB.CommandButton", "              End\n           End\n           Begin VB.CommandButton");
+        var (_, _, ctx, env) = Laid(frm);
+        var debug = await Run(ctx, env, """
+            Frame1.Enabled = False
+            Debug.Print Frame2.Enabled
+            Debug.Print Text1.Enabled
+            Frame1.Enabled = True
+            Frame2.Enabled = False
+            Debug.Print Text1.Enabled
+            Frame2.Enabled = True
+            Debug.Print Text1.Enabled
+            """);
+
+        debug.Select(v => v.Value).Should().Equal(false, false, false, true);
     }
 
     // ── option-button grouping ───────────────────────────────────────────────────────────────────

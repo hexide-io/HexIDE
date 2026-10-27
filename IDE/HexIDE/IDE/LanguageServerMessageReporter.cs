@@ -1,3 +1,4 @@
+using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 
@@ -26,6 +27,10 @@ public sealed class LanguageServerMessageReporter : IDisposable
 {
     private readonly ILspClient _client;
     private readonly IStatusBarService _statusBar;
+    private readonly ILocalizationService _localization;
+    private readonly Dictionary<(object? Server, string Token), ProgressParams> _progress = [];
+    private readonly object _progressGate = new();
+    private string? _displayedProgress;
 
     /// <summary>
     /// How long each severity lingers. An error is worth reading twice; running commentary is not worth
@@ -38,10 +43,12 @@ public sealed class LanguageServerMessageReporter : IDisposable
         _ => TimeSpan.FromSeconds(5),
     };
 
-    public LanguageServerMessageReporter(ILspClient client, IStatusBarService statusBar)
+    public LanguageServerMessageReporter(ILspClient client, IStatusBarService statusBar, ILocalizationService localization)
     {
         _client = client;
         _statusBar = statusBar;
+        _localization = localization;
+        _client.ProgressReceived += OnProgress;
         _client.MessageShown += OnMessageShown;
     }
 
@@ -55,6 +62,49 @@ public sealed class LanguageServerMessageReporter : IDisposable
         if (text.Length == 0) return;
 
         _statusBar.SetTemporaryMessage(Prefixed(p.Type, text), DwellFor(p.Type));
+    }
+
+    private void OnProgress(object? sender, ProgressParams p)
+    {
+        lock (_progressGate)
+        {
+            var key = (sender, p.Token.ValueKind + ":" + p.Token.ToString());
+            if (p.Value.Kind == "end")
+            {
+                if (!_progress.Remove(key)) return;
+                // Do not erase a later status message from another IDE operation.
+                if (_statusBar.Message != _displayedProgress) return;
+                if (_progress.Count == 0)
+                {
+                    _statusBar.ClearMessage();
+                    _displayedProgress = null;
+                    return;
+                }
+            }
+            else if (p.Value.Kind == "begin")
+                _progress[key] = p;
+            else if (p.Value.Kind == "report" && _progress.TryGetValue(key, out var previous))
+                _progress[key] = previous with
+                {
+                    Value = p.Value with
+                    {
+                        Title = previous.Value.Title,
+                        Message = p.Value.Message ?? previous.Value.Message,
+                        Percentage = p.Value.Percentage ?? previous.Value.Percentage,
+                    },
+                };
+            else return;
+
+            var progress = _progress.TryGetValue(key, out var current) ? current : _progress.Last().Value;
+            var value = progress.Value;
+            var text = Flatten(string.Join(": ", new[] { value.Title, value.Message }
+                .Where(part => !string.IsNullOrWhiteSpace(part))));
+            var name = Flatten(progress.ServerDisplayName ?? _localization.GetString("Str.StatusBar.LanguageServer"));
+            var percentageText = value.Percentage is { } percentage ? $" ({percentage}%)" : "";
+            _displayedProgress = text.Length == 0 ? name + percentageText
+                : string.Format(_localization.GetString("Str.StatusBar.LanguageServerProgress"), name, text, percentageText);
+            _statusBar.SetMessage(_displayedProgress);
+        }
     }
 
     private static string Prefixed(LspMessageType type, string text) => type switch
@@ -76,5 +126,9 @@ public sealed class LanguageServerMessageReporter : IDisposable
         return collapsed.Length <= MaxLength ? collapsed : collapsed[..MaxLength] + "…";
     }
 
-    public void Dispose() => _client.MessageShown -= OnMessageShown;
+    public void Dispose()
+    {
+        _client.MessageShown -= OnMessageShown;
+        _client.ProgressReceived -= OnProgress;
+    }
 }

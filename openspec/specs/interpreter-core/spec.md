@@ -62,6 +62,40 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Measured compile refusals SHALL stop execution
+The interpreter SHALL raise its compile-error exception when execution reaches `Continue Do` or `With Debug`,
+with "Syntax error". A scalar assignment through explicit `Me.` to an explicitly Private class field SHALL
+raise "Method or data member not found". These refusals are measured on vb6.exe SP6, native and p-code (#2121);
+the walk does not check paths it never executes.
+
+#### Scenario: Continue in a post-tested Do loop
+- **WHEN** execution reaches `Continue Do` inside `Do ... Loop Until`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Debug used as a With target
+- **WHEN** execution reaches `With Debug`
+- **THEN** execution stops with the compile error "Syntax error"
+
+#### Scenario: Private field assigned through Me
+- **WHEN** a class declares `Private mN As Integer` and its method executes `Me.mN = 5`
+- **THEN** execution stops with the compile error "Method or data member not found"
+- **AND** `On Error Resume Next` cannot trap that compile error
+
+### Requirement: Cross-module constants SHALL initialise their module on demand
+A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
+declarations first, once, regardless of project list order or startup entry point. Re-entering a module still
+running its declarations SHALL raise "Circular dependencies between modules" as a compile error during execution.
+The dependency check SHALL operate per module, including array bounds, and SHALL NOT treat procedure bodies as
+module declaration dependencies. Within one module, constant expressions SHALL retain source order.
+
+#### Scenario: A declaration reads a later module's constant
+- **WHEN** Module1 declares `Public Const A = Module2.B + 1` and Module2 declares `Public Const B = 2`
+- **THEN** A is 3 in either module list order
+
+#### Scenario: A module cycle without a constant cycle
+- **WHEN** Module1 declares `Public Const A = 1` and `Public Const C = B + 1`, and Module2 declares `Public Const B = A + 1`
+- **THEN** execution refuses the declarations with "Circular dependencies between modules"
+
 ### Requirement: Behaviour SHALL be verified against the real product before it is pinned
 Where the correct behaviour of a language rule is uncertain, it SHALL be established by running the original
 VB6 and observing what it does, and SHALL NOT be settled from documentation or recollection. The verified
@@ -102,6 +136,11 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: A For body changes its integral numeric counter
+- **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
+- **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
+- **AND** resetting the counter to 0 at 3 in `For i = 1 To 3` repeats 1, 2, 3 until execution exits
+
 ### Requirement: The value model SHALL implement VB6's scalar types with their real ranges
 The runtime SHALL provide VB6's distinct numeric types with their documented ranges and a working date type,
 SHALL type literals as VB6 types them, and SHALL raise a trappable overflow when a result or a store falls
@@ -127,11 +166,18 @@ different result rather than reporting a problem.
 
 ### Requirement: Procedure calls SHALL bind parameters as VB6 does
 User-defined procedures SHALL be callable, SHALL pass parameters by reference unless declared otherwise, and
-SHALL support by-value, optional and named arguments.
+SHALL support by-value, optional and named arguments. Each call SHALL keep only its own bindings
+(parameters, locals, return name and `Me`), falling back to the module or instance environment before
+project-wide names, without copying the module's bindings.
 
 By-reference-by-default is the single most consequential difference between VB6 and the languages most
 implementers reach for. A procedure that modifies its parameter is idiomatic VB6, and an engine that passes
 by value will run such a program to completion while producing the wrong answer.
+
+#### Scenario: A procedure without a local binding for a module variable
+- **WHEN** a procedure reads or writes a module variable it does not shadow
+- **THEN** the lookup reaches the module's existing slot through the enclosing environment
+- **AND** that binding is not copied into the procedure's own names
 
 #### Scenario: A procedure modifying its parameter
 - **WHEN** a procedure assigns to a parameter that was not declared by value
@@ -140,6 +186,10 @@ by value will run such a program to completion while producing the wrong answer.
 #### Scenario: A parameter declared by value
 - **WHEN** a parameter is declared by value and the procedure assigns to it
 - **THEN** the caller's variable is unchanged
+
+#### Scenario: An unspaced parenthesised member-call argument
+- **WHEN** a member call statement puts its parenthesised argument directly after the member name
+- **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
 
 ### Requirement: Name resolution SHALL let user code shadow built-in functions
 A name SHALL be resolved as a local variable or array first, then as a procedure defined in the project, and
@@ -152,6 +202,10 @@ program that compiles and runs.
 #### Scenario: A user function named like an intrinsic
 - **WHEN** a project defines a procedure whose name matches a built-in function
 - **THEN** calls resolve to the project's procedure
+
+#### Scenario: A private sibling Sub named Reset
+- **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
+- **THEN** the interpreter SHALL call that Sub on the current instance
 
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
@@ -184,6 +238,7 @@ Where the engine does not implement part of the language, it SHALL fail in a way
 missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an
 error handler in the program SHALL NOT be able to trap it. A form holding a control the engine cannot create
 SHALL be refused the same way, before any of its controls is placed, naming each control it cannot create.
+A control carrying DataSource SHALL likewise refuse the form before placement, naming the control and data source and stating that data binding is not implemented (#859).
 
 The engine is deliberately incomplete, so meeting its edge is a normal outcome rather than an exceptional
 one. A clear stop tells the developer they have found the boundary and lets them decide what to do; a silent
@@ -205,11 +260,17 @@ because nothing inside an uncreatable control is read.
 #### Scenario: Using a feature the engine does not implement
 - **WHEN** a program uses a language feature the engine does not implement
 - **THEN** it stops with an error identifying the unimplemented feature
+- **AND** when reached through a statement, the error text SHALL append `at <statement>`, naming the
+  innermost failing statement from its own source rather than its caller (#758)
 
 #### Scenario: Under an error handler
 - **WHEN** a program that has asked to continue at the next statement on error, or that has a handler active,
   uses a language feature the engine does not implement
 - **THEN** it stops just the same, neither skipping the statement nor entering the handler
+
+#### Scenario: Reference cleanup during an unimplemented fault
+- **WHEN** an unimplemented feature fails while statement temporaries or procedure-owned references exist
+- **THEN** cleanup skips Class_Terminate, preserving the original failure even if that hook would raise a trappable error
 
 #### Scenario: In a running IDE
 - **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
@@ -224,6 +285,123 @@ because nothing inside an uncreatable control is read.
   program loads it, under an error handler or not
 - **THEN** it is refused before any of its controls is placed, naming every control it cannot create, nested ones
   included
+
+#### Scenario: A form holding a data-bound control
+- **WHEN** a form containing a control carrying DataSource is built to run, including a control nested in a Frame
+- **THEN** it is refused before any control is placed, naming the control and source and explaining that data
+  binding is not implemented
+- **THEN** F5 reports the refusal to the developer, and a made program shows it in its error box
+
+### Requirement: Measured empty statements and labelled End If SHALL run
+
+The interpreter SHALL execute the measured leading-colon and spaced-empty-statement forms from issue #223.
+It SHALL treat `If True Then:` with no statement on that line as an empty single-line If, allowing the next
+line to execute independently. Falling through a label immediately before `End If` SHALL close the block
+without calling the label as a procedure. Jumps to labels sharing a construct terminator remain deferred
+by the tree-walking execution limit.
+
+#### Scenario: Leading empty statements
+- **WHEN** `:  :  : Debug.Print "A"` executes
+- **THEN** it prints `A`
+
+#### Scenario: Empty single-line If
+- **WHEN** `If True Then:` is followed by `Debug.Print "A"` on the next line without an `End If`
+- **THEN** it prints `A`
+
+#### Scenario: Fall through a labelled End If
+- **WHEN** a true If prints `T` and closes with `Fin: End If`, followed by a print of `AFTER`
+- **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`
+
+### Requirement: Line continuations preserve name boundaries
+A single line continuation between identifier fragments SHALL preserve their name boundary rather than
+concatenate them. Multi-word keywords
+SHALL continue to accept a continuation between their words.
+
+#### Scenario: A split assignment leaves the declared Long untouched
+- **WHEN** `Dim value As Long` is followed by `val _` and `ue = 5` on successive physical lines
+- **THEN** `Debug.Print value` prints Long 0, as recorded for `continuation-illegal/split-identifier`
+
+#### Scenario: A multi-word keyword spans physical lines
+- **WHEN** `Select _` is followed by `Case n` on the next physical line
+- **THEN** the interpreter executes a Select Case statement
+
+### Requirement: Expression execution SHALL guard available stack space
+The interpreter SHALL probe available host stack space during expression execution and raise trappable
+run-time error 28 (Out of stack space) before a long operator chain overflows the process stack.
+Module-level constant-expression validation SHALL also probe available stack space and raise error 28
+before its recursive walk overflows.
+Declaration collection SHALL skip expression subtrees, which contain no declarations or attributes.
+This is a host safety bound, not a claim about VB6's acceptance of long physical or continued lines.
+
+#### Scenario: Resuming after a long operator chain exhausts stack space
+- **WHEN** a 10,000-term addition chain executes under `On Error Resume Next`, plain or continued
+- **THEN** stack exhaustion raises error 28 and execution continues at the next statement without terminating the host
+
+#### Scenario: A long chain on a conditional-compilation line
+- **WHEN** an `#If`, `#ElseIf` or `#Const` expression produces a tree deeper than 300 nodes
+- **THEN** an iterative check SHALL refuse it through the existing not-an-expression path before recursive evaluation
+- **AND** the IDE-side project runner SHALL report the load failure without terminating the host
+
+#### Scenario: A long chain in a module constant on a small stack
+- **WHEN** a module-level `Const` holds a 10,000-term addition chain on a 1 MiB thread stack
+- **THEN** its constant-expression validation raises error 28 without terminating the host
+- **AND** the IDE-side project runner reports the failure and stops the run
+
+### Requirement: Managed referenced libraries
+
+The interpreter SHALL share one library model for controls and managed classes, carrying a GUID, version,
+enums and ICSharpProxy factories. Only known project references SHALL activate class libraries, in project
+reference order; unknown libraries SHALL retain existing behaviour. New and CreateObject SHALL call the
+class factories for separate instances.
+
+#### Scenario: Lazy shared GlobalMultiUse instance
+- **GIVEN** a referenced managed library with two GlobalMultiUse classes
+- **WHEN** a member of one class is first called
+- **THEN** only that class's implicit instance is created
+- **AND** subsequent bare and library-qualified calls share its state until Sub Main returns
+- **AND** normal return releases implicit instances in reverse creation order within that library
+- **AND** End suppresses termination
+
+#### Scenario: Bare member precedence
+- **WHEN** a project procedure and referenced GlobalMultiUse classes expose the same bare name
+- **THEN** the project procedure wins without creating an implicit library instance
+- **AND** otherwise the first reference exposing that member wins ahead of VBA
+- **AND** explicit VBA qualification still reaches VBA
+
+#### Scenario: Managed instance lifetime
+- **WHEN** an explicit managed instance loses its last runtime reference
+- **THEN** its IDisposable host, when supplied, is disposed unless End has ended the run
+- **AND** the implicit instance remains held until Sub Main returns
+
+### Requirement: Interpreter parsing uses SLL with an LL fallback
+Module, standalone expression and standalone statement parsing SHALL first try SLL prediction with a
+bailing error strategy, then retry from the beginning with LL on a cancelled parse or an incomplete standalone entry. Each pass SHALL use
+a fresh nesting guard. The LL pass SHALL preserve the entry point's existing error policy: throwing
+syntax errors for modules and expressions, and returning null for unparseable standalone statements.
+
+#### Scenario: Long concatenations take the fast path
+- **WHEN** a module contains repeated long string concatenations that parse successfully under SLL
+- **THEN** the interpreter uses that tree without performing an LL pass
+
+#### Scenario: SLL cannot parse an entry
+- **WHEN** SLL cancels parsing a module or Immediate-window entry
+- **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
+
+### Requirement: Procedure activation storage is reclaimed on exit
+The interpreter SHALL reclaim storage allocated by a procedure activation after its scope-exit reference
+releases, on normal return, early exit, error unwind and parameter-binding failure. Caller storage aliased
+ByRef and persistent Static storage SHALL survive the callee's exit. Freed slot numbers SHALL NOT be reused;
+exhausting the slot counter SHALL raise error 7 rather than overwrite live storage. Debugger inspection of
+freed storage SHALL report it as out of scope without throwing into the UI.
+
+#### Scenario: Repeated calls
+- **WHEN** a procedure with parameters and locals is called repeatedly
+- **THEN** completed activations leave no allocated slots of their own behind
+- **AND** recursive activations retain their slots until each returns
+
+#### Scenario: A retained debugger frame
+- **WHEN** the debugger inspects a frame after its procedure returns
+- **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
 ### Requirement: Assignment targets with type characters
 

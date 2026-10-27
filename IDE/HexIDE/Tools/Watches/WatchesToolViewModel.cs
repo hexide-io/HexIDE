@@ -39,7 +39,8 @@ public partial class WatchesToolViewModel : Tool
     private WatchService ActiveService => showingExternal ? ExternalService : _watchService;
 
     [Notify] private ObservableCollection<WatchRowViewModel> _rows = new();
-    [Notify] private WatchRowViewModel? _selectedRow;
+    [Notify] [AlsoNotify(nameof(SelectedRow))] private object? _selectedItem;
+    public WatchRowViewModel? SelectedRow => SelectedItem as WatchRowViewModel;
 
     public ICommand EditWatchCommand { get; }
     public ICommand DeleteWatchCommand { get; }
@@ -64,6 +65,14 @@ public partial class WatchesToolViewModel : Tool
         DeleteWatchCommand = new RelayCommand(DeleteSelected);
 
         RebuildRows();
+        localization.LanguageChanged += () =>
+        {
+            foreach (var row in Rows)
+            {
+                row.RefreshContext();
+                row.RefreshLocalization();
+            }
+        };
         // The controller raises Stopped/Continued on the interpreter's own (UI-thread) execution, so we are on the UI
         // thread and the walk is frozen — the async watch eval completes synchronously against the paused frame.
         watchService.Watches.CollectionChanged += (_, _) =>
@@ -86,7 +95,7 @@ public partial class WatchesToolViewModel : Tool
 
     private void RebuildRows()
     {
-        SelectedRow = null;
+        SelectedItem = null;
         Rows = new ObservableCollection<WatchRowViewModel>(
             ActiveService.Watches.Select(w => new WatchRowViewModel(w, _localization)));
     }
@@ -151,7 +160,7 @@ public partial class WatchesToolViewModel : Tool
     // The context a new watch records: the paused Module.Procedure, else the "(All Procedures)" placeholder.
     private string CurrentContext()
         => (showingExternal ? externalDebugger?.SelectedFrame?.GetProperty("name").GetString() : _debug.GetLocals()?.Context)
-            ?? _localization.GetString("Str.Dialog.AddWatch.AllContext");
+            ?? WatchExpression.AllProceduresContext;
 
     /// <summary>Open the Add Watch dialog (optionally pre-filled — QuickWatch passes the caret/selected expression).</summary>
     public Task OpenAddWatchDialog(string? presetExpression = null)

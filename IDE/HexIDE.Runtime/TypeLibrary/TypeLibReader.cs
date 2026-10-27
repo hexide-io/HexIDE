@@ -10,14 +10,27 @@ namespace HexIDE.Runtime.TypeLibrary;
 
 // Reads a COM type library (.tlb / .olb / .dll / .ocx) and returns a TypeLibInfo record.
 // All COM work is Windows-only and guarded by OperatingSystem.IsWindows().
-public static class TypeLibReader
+public static partial class TypeLibReader
 {
-    [DllImport("oleaut32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, PreserveSig = true)]
-    private static extern int LoadTypeLib(string szFile, out ITypeLib? ppTLib);
+    [LibraryImport("oleaut32.dll", EntryPoint = "LoadTypeLibEx", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int LoadTypeLibEx(string szFile, int regkind, out IntPtr ppTLib);
 
-    [DllImport("oleaut32.dll", ExactSpelling = true, PreserveSig = true)]
-    private static extern int LoadRegTypeLib(ref Guid rguid, ushort wVerMajor, ushort wVerMinor,
-        int lcid, out ITypeLib? ppTLib);
+    /// <summary><c>REGKIND_NONE</c>: load without registering, which <c>LoadTypeLib</c>'s default can do.</summary>
+    private const int RegKindNone = 2;
+
+    [LibraryImport("oleaut32.dll", EntryPoint = "LoadRegTypeLib")]
+    private static partial int LoadRegTypeLib(ref Guid rguid, ushort wVerMajor, ushort wVerMinor,
+        int lcid, out IntPtr ppTLib);
+
+    // The generator cannot marshal the built-in COM ITypeLib interface. Transfer the native
+    // reference to an RCW explicitly, balancing the reference returned by oleaut32 even on failure.
+    [SupportedOSPlatform("windows")]
+    private static ITypeLib? TakeTypeLib(int hr, IntPtr pointer)
+    {
+        if (pointer == IntPtr.Zero) return null;
+        try { return hr == 0 ? (ITypeLib)Marshal.GetObjectForIUnknown(pointer) : null; }
+        finally { Marshal.Release(pointer); }
+    }
 
     private const short FuncFlagRestricted = 0x01;
     private const short FuncFlagHidden     = 0x40;
@@ -49,6 +62,85 @@ public static class TypeLibReader
         }
     }
 
+    /// <summary>
+    /// Whether a library can be loaded from this path without reaching another machine: fully qualified on a drive, so not a
+    /// UNC path (<c>\\host\share</c> or <c>//host/share</c>), which contacts that host as it loads and hands it the user's
+    /// credentials, nor a device path (<c>\\?\</c>, <c>\\.\</c>), which can name one. A link on the way is followed only
+    /// as text, never opened, and must lead somewhere local too. Asked before anything touches the path, since even
+    /// checking that a UNC path exists contacts its host.
+    /// </summary>
+    public static bool IsLocalPath(string? path) => IsLocalPath(path, 0);
+
+    private static bool IsLocalPath(string? path, int depth)
+    {
+        if (string.IsNullOrEmpty(path) || depth > 40 || !Path.IsPathFullyQualified(path)
+            || path.Length >= 2 && path[0] is '\\' or '/' && path[1] is '\\' or '/') return false;
+        try
+        {
+            var current = Path.GetPathRoot(path)!;
+            foreach (var part in path[current.Length..].Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, part);
+                // A component's own attributes, which don't follow a link, and nor does reading its target: nothing past
+                // a link is touched until its target is known to be local. Exists would follow it.
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(current); }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { return true; }
+                if ((attributes & FileAttributes.ReparsePoint) == 0) continue;
+                FileSystemInfo link = (attributes & FileAttributes.Directory) != 0
+                    ? new DirectoryInfo(current) : new FileInfo(current);
+                if (link.LinkTarget is not { } target) continue;
+                var full = Path.GetFullPath(target, Path.GetDirectoryName(current)!);
+                if (!IsLocalPath(full, depth + 1)) return false;
+                current = full;
+            }
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// Only the library's own name, the identifier code qualifies its members with (<c>stdole</c> for the library a project
+    /// file describes as "OLE Automation"), without walking its types: by registry GUID and version, else from the file
+    /// when <see cref="IsLocalPath"/> allows it. Reading never registers anything. Null off Windows, or when neither loads.
+    /// </summary>
+    public static string? ReadName(string guidString, string version, string? path)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try { return ReadNameCore(guidString, version, path); }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "TypeLibReader: failed to read the name of {Guid} v{Version}", guidString, version);
+            return null;
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static string? ReadNameCore(string guidString, string version, string? path)
+    {
+        ITypeLib? typeLib = null;
+        if (Guid.TryParse(guidString, out var guid))
+        {
+            var parts = version.Split('.');
+            ushort major = parts.Length > 0 && ushort.TryParse(parts[0], out var maj) ? maj : (ushort)0;
+            ushort minor = parts.Length > 1 && ushort.TryParse(parts[1], out var min) ? min : (ushort)0;
+            int hr = LoadRegTypeLib(ref guid, major, minor, 0, out IntPtr pointer);
+            typeLib = TakeTypeLib(hr, pointer);
+        }
+        if (typeLib == null && IsLocalPath(path) && File.Exists(path))
+        {
+            int hr = LoadTypeLibEx(path!, RegKindNone, out IntPtr pointer);
+            typeLib = TakeTypeLib(hr, pointer);
+        }
+        if (typeLib == null) return null;
+        try
+        {
+            GetLibDocumentation(typeLib, out string? name, out _);
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+        finally { Marshal.ReleaseComObject(typeLib); }
+    }
+
     [SupportedOSPlatform("windows")]
     private static TypeLibInfo? ReadByGuidCore(string guidString, string version)
     {
@@ -58,7 +150,8 @@ public static class TypeLibReader
         ushort major = parts.Length > 0 && ushort.TryParse(parts[0], out var maj) ? maj : (ushort)0;
         ushort minor = parts.Length > 1 && ushort.TryParse(parts[1], out var min) ? min : (ushort)0;
 
-        int hr = LoadRegTypeLib(ref guid, major, minor, 0, out ITypeLib? typeLib);
+        int hr = LoadRegTypeLib(ref guid, major, minor, 0, out IntPtr pointer);
+        var typeLib = TakeTypeLib(hr, pointer);
         if (hr != 0 || typeLib == null) return null;
         try { return WalkTypeLib(typeLib, guidString); }
         finally { Marshal.ReleaseComObject(typeLib); }
@@ -67,7 +160,8 @@ public static class TypeLibReader
     [SupportedOSPlatform("windows")]
     private static TypeLibInfo? ReadCore(string path)
     {
-        int hr = LoadTypeLib(path, out ITypeLib? typeLib);
+        int hr = LoadTypeLibEx(path, RegKindNone, out IntPtr pointer);
+        var typeLib = TakeTypeLib(hr, pointer);
         if (hr != 0 || typeLib == null) return null;
         try { return WalkTypeLib(typeLib, Path.GetFileNameWithoutExtension(path)); }
         finally { Marshal.ReleaseComObject(typeLib); }

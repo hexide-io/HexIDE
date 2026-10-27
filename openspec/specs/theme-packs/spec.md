@@ -76,6 +76,47 @@ one panel that did not change rather than as an error.
 - **WHEN** new chrome is added
 - **THEN** its colours reference theme keys
 
+#### Scenario: Form Layout thumbnail follows the theme
+- **WHEN** the theme changes while Form Layout is open
+- **THEN** the thumbnail face uses `WindowBrushKey`, its label uses `WindowTextBrushKey`, and its title strip uses `ControlDarkBrushKey`
+
 #### Scenario: A colour that has no key
 - **WHEN** chrome needs a colour the theme does not define
 - **THEN** a key is added to the definition layer and every theme inherits a default for it
+
+#### Scenario: A form designer without an MDI ancestor
+- **WHEN** a form designer is opened as a Dock document
+- **THEN** its caption bar uses the `ActiveTitleBarBrush` resource resolved at the bar, without an MDI ancestor binding
+
+### Requirement: Shipped dark packs SHALL declare all mapped colours
+Dark and Abyss SHALL carry every colour key supported by the theme-pack mapping. Their warning banners
+SHALL use dark backgrounds, with foreground contrast of at least 4.5:1 and border contrast of at least 3:1
+against both the banner and Window backgrounds. Validation error text SHALL have at least 4.5:1 contrast
+against the pack's Window background.
+
+#### Scenario: Warning and validation surfaces in a dark pack
+- **WHEN** Dark or Abyss is selected
+- **THEN** warning banners and validation text use that pack's explicit colours rather than Classic's defaults
+
+### Requirement: Hidden controls SHALL be dimmed in the designer
+The designer SHALL dim a modelled control whose own Visible property or a containing control's Visible
+property is False using the theme's `DesignerHiddenControlMask` colour (the `DesignerHiddenControlMaskBrush` resource). Only the preview SHALL
+be dimmed; the control SHALL remain selectable and editable. This is a HexIDE addition.
+
+#### Scenario: Changing visibility while designing
+- **WHEN** a control's Visible property becomes False
+- **THEN** its preview uses the theme's dimming mask immediately
+- **AND** its selection and editing remain available
+- **WHEN** Visible becomes True and all containing controls are visible
+- **THEN** the preview has no dimming mask
+
+#### Scenario: A hidden container
+- **WHEN** a Frame containing a CommandButton has Visible=False, on load or after editing
+- **THEN** both previews use the theme's dimming mask
+- **AND** the button remains selectable, movable and resizable
+- **WHEN** the Frame becomes visible
+- **THEN** the button's preview is dimmed only if its own Visible property is False
+
+#### Scenario: Changing the dimming colour
+- **WHEN** the theme's DesignerHiddenControlMask colour changes
+- **THEN** hidden controls already on the designer use the new mask

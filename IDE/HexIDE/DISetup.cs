@@ -27,6 +27,18 @@ namespace HexIDE;
 
 public partial class DISetup
 {
+    private static IWorkspaceArtifactProviderRegistry CreateArtifactProviders() =>
+        new WorkspaceArtifactProviderRegistry([new HexIDE.Lsp.Providers.ClangdCompilationDatabaseProvider(),
+            new HexIDE.Lsp.Providers.RdcoreProjectProvider()]);
+
+    private static WorkspaceArtifactService CreateArtifacts(ILspWorkspace workspace,
+        IWorkspaceArtifactProviderRegistry providers, IWindowManager windows,
+        ILocalizationService localization, ILoggerFactory loggerFactory, ConversationLog capture) =>
+        new((IWorkspaceArtifactWorkspace)workspace, providers, new WorkspaceArtifactConsent(windows, localization),
+            loggerFactory.CreateLogger<WorkspaceArtifactService>(),
+            System.IO.Path.Combine(UserDataPath.Directory, "lsp-artifact-ownership.json"), capture,
+            new HexIDE.IDE.TypeLibraryNames());
+
     [Conditional("DI")]
     static void Setup() =>
         DI.Setup()
@@ -56,6 +68,29 @@ public partial class DISetup
                 return new WatchesToolViewModel(localization, watches, debugger, windows, external);
             })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
+            .Bind().As(Singleton).To<RecentEditHistory>()
+            .Bind().As(Singleton).To<RecentEditsToolViewModel>()
+            .Bind<CodeEditorViewModel>().To(ctx =>
+            {
+                // Keep optional debugger dependencies explicit, as for the Watches pane above.
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<IEditorService>(out var editors);
+                ctx.Inject<IProjectService>(out var projects);
+                ctx.Inject<IEventBus>(out var events);
+                ctx.Inject<ILspClient>(out var lsp);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IStatusBarService>(out var status);
+                ctx.Inject<HexIDE.Bookmarks.IBookmarkService>(out var bookmarks);
+                ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<HexIDE.Debugging.IRunScope>(out var run);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                ctx.Inject<CallStackToolViewModel>(out var stack);
+                ctx.Inject<RecentEditHistory>(out var recentEdits);
+                return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits);
+            })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
@@ -64,6 +99,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
+            .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
@@ -141,13 +177,14 @@ public partial class DISetup
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
 
                 var log = loggerFactory.CreateLogger<DISetup>();
                 var defaults = LanguageServerDefaults.For(locator, log);
 
                 return new LanguageServerConfigLoader(
                         loggerFactory.CreateLogger<LanguageServerConfigLoader>())
-                    .Load(defaults, new LanguageServerCommandStore());
+                    .Load(defaults, new LanguageServerCommandStore(), providers);
             })
             // One record for the session, shared by every connection and outliving each of them. A server
             // that dies and is respawned gets a new client and keeps its history, because the history
@@ -172,6 +209,8 @@ public partial class DISetup
             })
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
             .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
+            .Bind<IWorkspaceArtifactProviderRegistry>().As(Singleton).To(_ =>
+                CreateArtifactProviders())
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
             // server does — that interface already takes a URI and hides which server answered — so the
             // editor and view-models gained plurality without changing a line. The connection registry above
@@ -181,6 +220,11 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
                 ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                var artifacts = CreateArtifacts(workspace, providers, windows, localization, loggerFactory, capture);
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
 
                 // The whole of #255 meets here. Defaults are contributed in code, the user's file is
@@ -191,7 +235,9 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
-                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture)
+                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
+                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    locale: () => localization.ResolvedLanguage)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
@@ -211,7 +257,7 @@ public partial class DISetup
                 }
 
                 return new LspClientRegistry(
-                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems);
+                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems, artifacts);
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
@@ -220,7 +266,7 @@ public partial class DISetup
             // Theming
             .Bind<IThemeService>().As(Singleton).To<ThemeService>()
             // Keymaps
-            .Bind<IKeymapService>().As(Singleton).To<KeymapService>()
+            .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
             .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
             .Bind<ILocalizationService>().As(Singleton).To<LocalizationService>()
@@ -239,7 +285,16 @@ public partial class DISetup
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
-            .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To<AddinRegistry>()
+            .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
+            {
+                // Use the production constructor rather than searching the test-only path overloads.
+                ctx.Inject<IPackageVerifier>(out var verifier);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<IDeveloperModeService>(out var developerMode);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new AddinRegistry(verifier, settings, developerMode, windows, localization);
+            })
             .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")

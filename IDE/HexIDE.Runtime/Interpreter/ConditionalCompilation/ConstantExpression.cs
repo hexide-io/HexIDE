@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
 
 namespace HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
@@ -46,7 +47,19 @@ internal static class ConstantExpression
         try
         {
             var expression = parser.valueStmt();
-            return parser.CurrentToken.Type == TokenConstants.EOF ? expression : null;
+            if (parser.CurrentToken.Type != TokenConstants.EOF)
+                return null;
+            // A flat chain passes the parser's rule-depth guard but builds a deep, left-associated tree.
+            var pending = new Stack<(IParseTree Node, int Depth)>();
+            pending.Push((expression, 1));
+            while (pending.TryPop(out var item))
+            {
+                if (item.Depth > ParseDepthGuard.DefaultMaxDepth)
+                    return null;
+                for (var i = 0; i < item.Node.ChildCount; i++)
+                    pending.Push((item.Node.GetChild(i), item.Depth + 1));
+            }
+            return expression;
         }
         catch (Exception)   // the bail, the lexer's refusal, or the depth guard: not an expression
         {
@@ -58,11 +71,12 @@ internal static class ConstantExpression
     /// The expression's value. <paramref name="lookup"/> gives a name's value, which is never missing: a name nothing defines
     /// is a Variant holding 0.
     /// </summary>
-    internal static Vb6Value Evaluate(VB6Parser.ValueStmtContext expression, Func<string, Vb6Value> lookup)
+    internal static Vb6Value Evaluate(VB6Parser.ValueStmtContext expression, Func<string, Vb6Value> lookup,
+        bool callsReadZero = false)
     {
         try
         {
-            return Value(expression, lookup);
+            return Value(expression, lookup, callsReadZero);
         }
         catch (VBRunTimeException e)
         {
@@ -90,9 +104,9 @@ internal static class ConstantExpression
         }
     }
 
-    private static Vb6Value Value(VB6Parser.ValueStmtContext node, Func<string, Vb6Value> lookup)
+    private static Vb6Value Value(VB6Parser.ValueStmtContext node, Func<string, Vb6Value> lookup, bool callsReadZero)
     {
-        Vb6Value Of(VB6Parser.ValueStmtContext operand) => Value(operand, lookup);
+        Vb6Value Of(VB6Parser.ValueStmtContext operand) => Value(operand, lookup, callsReadZero);
         return node switch
         {
             VB6Parser.VsLiteralContext literal => ExpressionExecutor.LiteralValue(literal.literal()).AsFixedType(),
@@ -113,12 +127,13 @@ internal static class ConstantExpression
             VB6Parser.VsXorContext xor => ExpressionExecutor.Xor(Of(xor.valueStmt(0)), Of(xor.valueStmt(1)), xor),
             VB6Parser.VsEqvContext eqv => ExpressionExecutor.Eqv(Of(eqv.valueStmt(0)), Of(eqv.valueStmt(1)), eqv),
             VB6Parser.VsImpContext imp => ExpressionExecutor.Imp(Of(imp.valueStmt(0)), Of(imp.valueStmt(1)), imp),
-            VB6Parser.VsICSContext name => NameOrCall(name.implicitCallStmt_InStmt(), lookup),
+            VB6Parser.VsICSContext name => NameOrCall(name.implicitCallStmt_InStmt(), lookup, callsReadZero),
             _ => throw Unsupported(node),
         };
     }
 
-    private static Vb6Value NameOrCall(VB6Parser.ImplicitCallStmt_InStmtContext call, Func<string, Vb6Value> lookup)
+    private static Vb6Value NameOrCall(VB6Parser.ImplicitCallStmt_InStmtContext call, Func<string, Vb6Value> lookup,
+        bool callsReadZero)
     {
         if (call.iCS_S_VariableOrProcedureCall() is { } bare && bare.typeHint() is null && bare.dictionaryCallStmt() is null)
             return lookup(bare.ambiguousIdentifier().GetText());
@@ -126,6 +141,10 @@ internal static class ConstantExpression
             && called.iCS_S_NestedProcedureCall() is null && called.argsCall().Length <= 1)
         {
             var name = called.ambiguousIdentifier()?.GetText() ?? called.baseType().GetText();
+            // Measured for CBool, Len and VarType (#1691), so a call to any of VB's functions reads 0 there; a call to any
+            // other name is Null, which that compiler's constants leave undetermined.
+            if (callsReadZero)
+                return Functions.Contains(name) || VB6BuiltIns.TryGetBuiltIn(name, out _) ? new Vb6Value(0).AsVariant() : Vb6Value.Null;
             if (!Functions.Contains(name))
                 throw new VBCompileErrorException("Variable not defined");
             return Call(name, Argument(called, lookup), called);
@@ -141,7 +160,7 @@ internal static class ConstantExpression
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
         if (only.BYVAL() != null || only.BYREF() != null || only.PARAMARRAY() != null)
             throw Unsupported(only);
-        return Value(only.valueStmt(), lookup);
+        return Value(only.valueStmt(), lookup, callsReadZero: false);
     }
 
     private static Vb6Value Call(string name, Vb6Value argument, VB6Parser.ICS_S_ProcedureOrArrayCallContext call)

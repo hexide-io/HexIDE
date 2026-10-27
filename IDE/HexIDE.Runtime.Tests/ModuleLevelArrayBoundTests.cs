@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A module-level array whose bounds are not plain integers is sized where it is allocated, as its module's
 /// declarations run. VB6 sizes it from a constant expression before the program starts, and every answer here was
-/// measured with <c>vb6.exe /make</c>; the probes are in docs/vb6-fidelity-oracle.md, "What a module-level array's
+/// measured with <c>vb6.exe /make</c>; the probes are in docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md, "What a module-level array's
 /// bound may name". Nothing may size one from Empty: a bound HexIDE cannot read yet is refused, loudly.
 /// </summary>
 public class ModuleLevelArrayBoundTests : BaseVBTestFixture
@@ -134,15 +134,15 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Ambiguous name detected: M*");
     }
 
-    [Fact]
-    public async Task A_bound_reading_a_bare_Const_of_a_module_whose_declarations_have_not_run_is_refused()
+    [Theory]
+    [InlineData("M")]
+    [InlineData("Module1.M")]
+    public async Task A_bound_initialises_the_module_it_reads(string bound)
     {
-        // VB6 reads it in either list order (measured, qualified). HexIDE initialises the primary module last, so Module2's
-        // bound would read Empty there (#893).
-        var run = () => RunModules("Public Const M = 3\n", ("Module2", "Public d(M) As Long\n"));
+        await RunModules("Public Const M = 3\nDebug.Print UBound(Module2.d)\n",
+            ("Module2", $"Public d({bound}) As Long\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>())
-            .WithMessage("*d's bounds read M, a Public Const of Module1, whose declarations have not run yet*#893*");
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 3);
     }
 
     [Theory]
@@ -178,15 +178,38 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == expected);
     }
 
-    [Fact]
-    public async Task A_Const_reading_a_module_whose_declarations_have_not_run_is_refused()
+    [Theory]
+    [InlineData("M")]
+    [InlineData("Module1.M")]
+    public async Task A_Const_initialises_the_module_it_reads(string name)
     {
-        // Measured: Module2's `Public d(C)`, with `Const C = Module1.M + 1`, is 0 To 4, in either list order. HexIDE
-        // initialises the primary module last, so M would still be Empty there.
-        var run = () => RunModules("Public Const M = 3\n", ("Module2", "Const C = Module1.M + 1\nPublic d(C) As Long\n"));
+        await RunModules("Public Const M = 3\nDebug.Print UBound(Module2.d)\n",
+            ("Module2", $"Const C = {name} + 1\nPublic d(C) As Long\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>())
-            .WithMessage("*Const C's value reads Module1.M, a Public Const of Module1, whose declarations have not run yet*#893*");
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
+    }
+
+    [Theory]
+    [InlineData("Public Const A = B + 1", "Public Const B = A + 1")]
+    [InlineData("Public Const A = 1\nPublic Const C = B + 1", "Public Const B = A + 1")]
+    [InlineData("Public Const A = 1\nPublic arr(B) As Long", "Public Const B = A + 1")]
+    public async Task Circular_dependencies_are_checked_per_module(string primary, string other)
+    {
+        var run = () => RunModules(primary + "\n", ("Module2", other + "\n"));
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Circular dependencies between modules*");
+    }
+
+    [Fact]
+    public async Task A_class_created_in_top_level_code_reads_completed_startup_declarations()
+    {
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+            "Public Const M = 3\nDim h As Holder\nSet h = New Holder\nDebug.Print h.GetC\n",
+            "Module1", null, [("Holder", "Private Const C = Module1.M + 1\nPublic Function GetC()\nGetC = C\nEnd Function\n")]);
+
+        await vb.Execute();
+
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
     }
 
     [Theory]

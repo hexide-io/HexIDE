@@ -50,6 +50,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     public const string AllConnections = "(all)";
 
     private readonly ConversationLog _capture;
+    private long _recordedAtRefresh;
     private readonly ILocalizationService _localization;
     private readonly Pseudonymiser _pseudonyms;
     private readonly IWindowManager _windows;
@@ -204,7 +205,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// The alternative to refreshing underneath the reader. A count rather than a dot, because "there are
     /// four more" and "there are four thousand more" are different situations.
     /// </remarks>
-    [Notify] private int pendingCount;
+    [Notify] private long pendingCount;
 
     [Notify] private bool nothingToShow = true;
 
@@ -290,6 +291,7 @@ public partial class ProtocolInspectorToolViewModel : Document
 
         ShownCount = Rows.Count;
         FailureCount = Rows.Count(r => r.IsFailure);
+        _recordedAtRefresh = _capture.Recorded;
         PendingCount = 0;
         NothingToShow = Rows.Count == 0;
         _emptyReasonKind = page.Reason;
@@ -309,9 +311,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// </remarks>
     public void NoteTraffic()
     {
-        var total = _capture.Snapshot().Count;
-        var shown = Rows.Count;
-        if (total > shown) PendingCount = total - shown;
+        PendingCount = _capture.Recorded - _recordedAtRefresh;
 
         RefreshCounters();
     }
@@ -343,7 +343,7 @@ public partial class ProtocolInspectorToolViewModel : Document
         _ => "",
     };
 
-    private string Text(string key, int count) =>
+    private string Text(string key, long count) =>
         _localization.GetString(key) is { Length: > 0 } format
             ? string.Format(format, count)
             : count.ToString();
@@ -455,6 +455,8 @@ public partial class ProtocolInspectorToolViewModel : Document
             {
                 { IsStandardError: true } =>
                     _localization.GetString("Str.Tool.ProtocolInspector.StandardErrorHasNoBody"),
+                { IsStandardOutput: true } =>
+                    _localization.GetString("Str.Tool.ProtocolInspector.StandardOutputHasNoBody"),
                 { IsNotAMessage: true } =>
                     _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody"),
                 _ => NoBody(row),

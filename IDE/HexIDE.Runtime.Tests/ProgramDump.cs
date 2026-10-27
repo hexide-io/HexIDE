@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Text.Json.Serialization;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
@@ -14,7 +14,7 @@ namespace HexIDE.Runtime.Tests;
 /// <c>artifacts/program-dump/&lt;name&gt;.jsonl</c> under the repository root, a gitignored folder, so nothing lands beside
 /// tracked files.
 /// </summary>
-internal sealed class ProgramDump
+internal sealed partial class ProgramDump
 {
     public const string Variable = "HEXIDE_DUMP_PROGRAMS";
 
@@ -23,7 +23,6 @@ internal sealed class ProgramDump
     public const string Entry = "HexDumpMain";
 
     private static readonly object Gate = new();
-    private static readonly CultureInfo Display = CultureInfo.GetCultureInfo("en-US");
     private static readonly JsonSerializerOptions Json = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly Lazy<ProgramDump?> Configured = new(() => ForName(Environment.GetEnvironmentVariable(Variable)));
 
@@ -53,7 +52,7 @@ internal sealed class ProgramDump
 
     /// <summary>Appends one program and what it did. <paramref name="thrown"/> is whatever the run threw, if anything.</summary>
     public void Record(string test, int sequence, IReadOnlyList<(string Name, bool IsClass, string Source)> modules,
-        IEnumerable<Vb6Value> log, Exception? thrown)
+        IEnumerable<Vb6Value> log, string output, Exception? thrown)
     {
         var record = new Program(
             test,
@@ -61,12 +60,14 @@ internal sealed class ProgramDump
             modules.Select((m, i) =>
             {
                 if (m.IsClass)
-                    return new Module(m.Name, "class", m.Source, null, null);
-                var (wrapped, bare) = Wrap(m.Source);
-                return new Module(m.Name, i == 0 ? "startup" : "module", m.Source, wrapped, bare);
+                    return new Module(m.Name, "class", m.Source, null, null, null);
+                var (wrapped, bare, refused) = Wrap(m.Source);
+                return new Module(m.Name, i == 0 ? "startup" : "module", m.Source, wrapped, refused is null ? bare : null, refused);
             }).ToList(),
             // TypeName's answer, which a comparison's type pass reads.
-            log.Select(v => new Printed(VB6BuiltIns.DebugTypeName(v), VbDisplay.ToText(v, Display))).ToList(),
+            log.Select(v => new Printed(VB6BuiltIns.DebugTypeName(v), VbPrint.ItemText(v))).ToList(),
+            OutputLines(output),
+            VbLocale.Current.Name,
             thrown switch
             {
                 null => null,
@@ -88,17 +89,30 @@ internal sealed class ProgramDump
     /// the first column, where the source had it and where an engine may require it. A module-level <c>Dim</c>, <c>Const</c>, <c>Def</c>type, <c>Implements</c> or <c>Attribute</c> stays a
     /// declaration, so a procedure that reads it still can; anything nested inside a statement goes with that
     /// statement. Purely syntactic: the parse tree is read, never bound.
+    /// <para>
+    /// The interpreter parses a module only after its conditional compilation is applied, so the grammar's own directive
+    /// rules are narrower than VB6's: <c>#ElseIf</c> without <c>Then</c> does not parse. Directive lines are therefore
+    /// masked as remarks for this parse, which keeps every offset, and the text is cut from the source itself, so a
+    /// directive inside a procedure goes with it. The wrapped module must hold the source's tokens, and where the parse
+    /// failed, which a program vb6.exe refuses may well do, in the source's order too: a recovered parse can leave code out
+    /// or misplace it without saying so. Otherwise the module is refused with the reason rather than written out in part
+    /// (#2211). A directive at module level is refused this way, since it can't be moved into the entry procedure apart
+    /// from the statements it governs.
+    /// </para>
     /// </summary>
-    internal static (string Wrapped, bool Bare) Wrap(string source)
+    internal static (string? Wrapped, bool Bare, string? Refused) Wrap(string source)
     {
-        var input = new AntlrInputStream(new StringReader(source));
+        var errors = new FirstError();
+        var input = new AntlrInputStream(new StringReader(Directive().Replace(source, m => m.Groups[1].Value + "'")));
         var lexer = new VB6Lexer(input);
         var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
         parser.RemoveErrorListeners();
+        lexer.AddErrorListener(errors);
+        parser.AddErrorListener(errors);
         var module = parser.startRule().module();
 
-        string Text(ParserRuleContext c) => input.GetText(Interval.Of(c.Start.StartIndex, c.Stop.StopIndex));
+        string Text(ParserRuleContext c) => source[c.Start.StartIndex..(c.Stop.StopIndex + 1)];
 
         var head = new StringBuilder();
         var declarations = new StringBuilder();
@@ -106,7 +120,7 @@ internal sealed class ProgramDump
         var entry = new StringBuilder();
         var body = module.moduleBody();
         if (body is null)
-            return (source, false);
+            return Checked(source, source + "\n", "", errors.Message);
         if (body.Start.StartIndex > 0)
             head.Append(source[..body.Start.StartIndex].TrimEnd()).Append('\n');
 
@@ -139,10 +153,65 @@ internal sealed class ProgramDump
             }
         }
 
-        var wrapped = new StringBuilder().Append(head).Append(declarations).Append(procedures);
-        if (entry.Length > 0)
-            wrapped.Append($"Public Sub {Entry}()\n").Append(entry).Append("End Sub\n");
-        return (wrapped.ToString(), entry.Length > 0);
+        var front = new StringBuilder().Append(head).Append(declarations).Append(procedures).ToString();
+        return Checked(source, front, entry.ToString(), errors.Message);
+    }
+
+    /// <summary>
+    /// <paramref name="front"/>, then the entry procedure holding <paramref name="entry"/>, if together they hold exactly the
+    /// source's tokens: in any order where the source parsed, and in the source's own order where it did not
+    /// (<paramref name="unparsed"/> says why not).
+    /// </summary>
+    private static (string? Wrapped, bool Bare, string? Refused) Checked(string source, string front, string entry, string? unparsed)
+    {
+        var expected = Tokens(source).ToList();
+        var actual = Tokens(front).Concat(Tokens(entry)).ToList();
+        var kept = unparsed is null
+            ? expected.Order(StringComparer.Ordinal).SequenceEqual(actual.Order(StringComparer.Ordinal), StringComparer.Ordinal)
+            : expected.SequenceEqual(actual, StringComparer.Ordinal);
+        if (kept)
+            return (front + $"Public Sub {Entry}()\n" + entry + "End Sub\n", entry.Length > 0, null);
+        if (unparsed is not null)
+            return (null, false, $"the source does not parse here, and wrapping it would change it: {unparsed}");
+        var lost = expected.Except(actual, StringComparer.Ordinal).Take(3).ToList();
+        var gained = actual.Except(expected, StringComparer.Ordinal).Take(3).ToList();
+        return (null, false, "the wrapped module would not hold the source's code" +
+            (lost.Count > 0 ? "; it would lose " + string.Join(" ", lost) : "") +
+            (gained.Count > 0 ? "; it would gain " + string.Join(" ", gained) : ""));
+    }
+
+    /// <summary>The text of each token a statement is made of. Line breaks, spaces, colons and remarks are left out, since
+    /// the wrapper is free to change those.</summary>
+    private static IEnumerable<string> Tokens(string text)
+    {
+        var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(text)));
+        lexer.RemoveErrorListeners();
+        for (var token = lexer.NextToken(); token.Type != TokenConstants.EOF; token = lexer.NextToken())
+            if (token.Channel == TokenConstants.DefaultChannel && token.Type is not (VB6Lexer.NEWLINE or VB6Lexer.WS or VB6Lexer.COLON))
+                yield return token.Text;
+    }
+
+    /// <summary>The start of a conditional-compilation directive's line, up to its <c>#</c>.</summary>
+    [GeneratedRegex(@"^([ \t]*)#(?=[ \t]*(?:If|ElseIf|Else|End[ \t]*If|Const)\b)", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
+    private static partial Regex Directive();
+
+    private sealed class FirstError : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
+    {
+        public string? Message { get; private set; }
+
+        public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol,
+            int line, int charPositionInLine, string msg, RecognitionException e) => Message ??= $"line {line}, {msg}";
+
+        public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
+            int line, int charPositionInLine, string msg, RecognitionException e) => Message ??= $"line {line}, {msg}";
+    }
+
+    private static IReadOnlyList<string> OutputLines(string output)
+    {
+        var lines = output.ReplaceLineEndings("\n").Split('\n').ToList();
+        if (lines[^1].Length == 0)
+            lines.RemoveAt(lines.Count - 1);
+        return lines;
     }
 
     private static bool IsDeclaration(VB6Parser.BlockStmtContext statement) => statement.GetChild(0) switch
@@ -169,6 +238,8 @@ internal sealed class ProgramDump
         [property: JsonPropertyName("sequence")] int Sequence,
         [property: JsonPropertyName("modules")] IReadOnlyList<Module> Modules,
         [property: JsonPropertyName("printed")] IReadOnlyList<Printed> Printed,
+        [property: JsonPropertyName("lines")] IReadOnlyList<string> Lines,
+        [property: JsonPropertyName("locale")] string Locale,
         [property: JsonPropertyName("error")] Failure? Error);
 
     private sealed record Module(
@@ -176,7 +247,8 @@ internal sealed class ProgramDump
         [property: JsonPropertyName("kind")] string Kind,
         [property: JsonPropertyName("source")] string Source,
         [property: JsonPropertyName("wrapped")] string? Wrapped,
-        [property: JsonPropertyName("bare")] bool? Bare);
+        [property: JsonPropertyName("bare")] bool? Bare,
+        [property: JsonPropertyName("notWrapped")] string? NotWrapped);
 
     private sealed record Printed(
         [property: JsonPropertyName("type")] string Type,

@@ -15,7 +15,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// inside it, and code that sets it again or only empties the list does not. The pointer and the keyboard are pinned in
 /// <c>MouseEventTests</c>.
 /// </summary>
-public class ListBoxClickTests
+public class ListBoxClickTests : WindowTestFixture
 {
     private const string FormWithList = """
         VERSION 5.00

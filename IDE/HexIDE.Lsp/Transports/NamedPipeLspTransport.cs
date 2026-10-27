@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Pipes;
+using HexIDE.Processes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -27,9 +29,10 @@ public enum NamedPipeRole
 /// How to start a server that needs launching before the pipe can be used.
 /// </summary>
 /// <remarks>
-/// <paramref name="Arguments"/> may contain three placeholders:
+/// <paramref name="Arguments"/> may contain four placeholders:
 /// <list type="bullet">
 ///   <item><c>{pipe}</c> — the agreed pipe name.</item>
+///   <item><c>{pid}</c> — HexIDE's process ID, for a server that watches its owner.</item>
 ///   <item><c>{workspaceUri}</c> — the open workspace as a <c>file:</c> URI, spelled exactly as the
 ///     client's <c>rootUri</c> spells it.</item>
 ///   <item><c>{workspaceDir}</c> — the same directory as a plain path, for a server that wants one.</item>
@@ -49,7 +52,8 @@ public enum NamedPipeRole
 /// relative to the process CWD, in which case launching from the wrong directory fails in a way that
 /// looks like a transport problem.
 /// </param>
-public sealed record NamedPipeLaunch(string FileName, string Arguments, string? WorkingDirectory = null);
+public sealed record NamedPipeLaunch(string FileName, string Arguments, string? WorkingDirectory = null,
+    string[]? ArgumentList = null, IReadOnlyDictionary<string, string>? Environment = null);
 
 /// <summary>
 /// Desktop/IPC transport: speaks LSP as JSON-RPC over a named pipe with Content-Length framing —
@@ -93,6 +97,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private PipeStream? _pipe;
     private Process? _process;
+    private ChildProcessJob? _job;
 
     /// <summary>
     /// Set when a launch was configured, ran, and produced no handle to own.
@@ -178,6 +183,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     public bool CanReconnect => _launch is null;
 
+    public bool LeaveServerRunning => _process is null;
+
     public event EventHandler? Closed;
 
     /// <summary>
@@ -208,7 +215,18 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // cannot be filled is a knowable precondition rather than a connect failure — and reporting it as
         // a timeout thirty seconds later would describe the wrong problem.
         string? arguments = null;
-        if (_launch is not null && (arguments = ResolveArguments()) is null)
+        string[]? argumentList = null;
+        if (_launch?.ArgumentList is { } list)
+        {
+            var resolved = new List<string>();
+            foreach (var argument in list)
+            {
+                if (ResolveArguments(argument) is not { } value) return null;
+                resolved.Add(value);
+            }
+            argumentList = resolved.ToArray();
+        }
+        else if (_launch is not null && (arguments = ResolveArguments(_launch.Arguments)) is null)
             return null;
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -221,7 +239,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             PipeStream pipe = _role == NamedPipeRole.Listen ? CreateListener() : CreateDialler();
             _pipe = pipe;
 
-            StartServerIfConfigured(arguments);
+            StartServerIfConfigured(arguments, argumentList);
 
             _logger.LogInformation(
                 "Connecting to VB LSP server over named pipe '{Pipe}' ({Role}).", _pipeName, _role);
@@ -301,9 +319,11 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// own vocabulary — a startup error the reader has to decode back into "no project was open". Saying
     /// so here costs one line and names the actual cause.
     /// </remarks>
-    private string? ResolveArguments()
+    private string? ResolveArguments(string configured)
     {
-        var arguments = _launch!.Arguments.Replace("{pipe}", _pipeName, StringComparison.Ordinal);
+        var arguments = configured
+            .Replace("{pipe}", _pipeName, StringComparison.Ordinal)
+            .Replace("{pid}", Environment.ProcessId.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
         var wantsUri = arguments.Contains("{workspaceUri}", StringComparison.Ordinal);
         var wantsDir = arguments.Contains("{workspaceDir}", StringComparison.Ordinal);
@@ -313,7 +333,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         if (string.IsNullOrWhiteSpace(directory))
         {
             LastFailure =
-                $"'{_launch.FileName}' is configured with a workspace placeholder and no project is open, "
+                $"'{_launch!.FileName}' is configured with a workspace placeholder and no project is open, "
                 + "so there is no workspace to give it";
             _logger.LogWarning("{Failure}.", LastFailure);
             return null;
@@ -328,7 +348,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             {
                 LastFailure =
                     $"the workspace directory '{directory}' cannot be expressed as a URI, "
-                    + $"which '{_launch.FileName}' was configured to require";
+                    + $"which '{_launch!.FileName}' was configured to require";
                 _logger.LogWarning("{Failure}.", LastFailure);
                 return null;
             }
@@ -382,7 +402,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
     private string? WorkspaceDirectory() =>
         _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : null;
 
-    private void StartServerIfConfigured(string? arguments)
+    private void StartServerIfConfigured(string? arguments, string[]? argumentList)
     {
         if (_launch is null)
             return;
@@ -390,20 +410,21 @@ public sealed class NamedPipeLspTransport : ILspTransport
         var startInfo = new ProcessStartInfo
         {
             FileName = _launch.FileName,
-            Arguments = arguments ?? _launch.Arguments,
+            Arguments = argumentList is null ? arguments ?? _launch.Arguments : "",
             WorkingDirectory = WorkingDirectory(),
             UseShellExecute = false,
             CreateNoWindow = true,
 
-            // Standard error only. The protocol rides the pipe, so this stream carries nothing but the
-            // server's own words — which for a pipe server is the only thing it has to say when it fails
-            // before the pipe exists.
-            //
-            // Standard OUTPUT is deliberately left alone. A pipe server is exactly the kind that writes a
-            // banner there, and redirecting a stream nobody reads fills its buffer and blocks the child —
-            // turning a diagnostic into a hang. Redirect what is read; read what is redirected.
+            // The protocol rides the pipe; both streams carry the server's own words.
+            // Redirect what is read; read what is redirected, so neither can block the child.
             RedirectStandardError = true,
+            RedirectStandardOutput = true,
         };
+
+        if (argumentList is not null)
+            foreach (var argument in argumentList) startInfo.ArgumentList.Add(argument);
+        if (_launch.Environment is not null)
+            foreach (var (key, value) in _launch.Environment) startInfo.Environment[key] = value;
 
         // Kept so a failure reported from the connect catch can name it without re-resolving.
         _launchCwd = startInfo.WorkingDirectory;
@@ -414,6 +435,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
             startInfo.Arguments,
             string.IsNullOrEmpty(startInfo.WorkingDirectory) ? "<inherited>" : startInfo.WorkingDirectory);
 
+        _job = new ChildProcessJob();
+        LaunchedServerGuard.Wrap(startInfo);
         var process = Process.Start(startInfo);
         if (process is null)
         {
@@ -426,6 +449,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         _process = process;
+        _job.Assign(process);
         process.EnableRaisingEvents = true;
 
         process.ErrorDataReceived += (_, e) =>
@@ -436,8 +460,17 @@ public sealed class NamedPipeLspTransport : ILspTransport
             Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardError, e.Data));
         };
 
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not { Length: > 0 }) return;
+
+            _logger.LogDebug("[lsp stdout] {Data}", e.Data);
+            Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardOutput, e.Data));
+        };
+
         process.Exited += OnServerExited;
         process.BeginErrorReadLine();
+        process.BeginOutputReadLine();
     }
 
     private void OnServerExited(object? sender, EventArgs e)
@@ -484,7 +517,11 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         if (process is null)
+        {
+            _job?.Dispose();
+            _job = null;
             return;
+        }
 
         // Killing the child is required, not tidy-up. A real third-party server was measured taking a
         // client PID on its command line, silently ignoring it, logging that it "will not be able to
@@ -496,11 +533,23 @@ public sealed class NamedPipeLspTransport : ILspTransport
         process.Exited -= OnServerExited;
         try
         {
+            // A server may still be starting children after initialize answers (#313).
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch { /* grace period elapsed, or already gone */ }
+
+        try
+        {
             if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
+            {
+                LaunchedServerGuard.Kill(process);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            }
         }
         catch { /* already gone */ }
 
         process.Dispose();
+        _job?.Dispose();
+        _job = null;
     }
 }

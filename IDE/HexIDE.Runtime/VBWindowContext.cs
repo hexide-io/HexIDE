@@ -118,6 +118,10 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     internal BasicInterpreter? Interpreter => interpreter;
 
+    /// <summary>Whether this context belongs to the named run, for hosts listening to static runtime events.</summary>
+    public bool IsInDebugSession(Debugging.IDebugController controller, int session)
+        => interpreter?.IsInDebugSession(controller, session) == true;
+
     /// <summary>The running form, an instance of the form module (#822), or null before <see cref="SetCode"/>.</summary>
     public VbObject? FormInstance => interpreter is null ? null : EnsureInstance();
 
@@ -216,11 +220,12 @@ public class VBWindowContext : IModuleExecutionRoot
     /// The window's size or state may have changed (#994): Resize, once the window has been shown since the form loaded,
     /// when its client size or state is not what it was when Resize was last raised. The window system reports a size more
     /// often than it changes one: showing a window reported it two or three times, each a Resize, where VB6 raises one.
+    /// A size setter also reports while hidden (#1570), inside the assignment; Show still raises its own Resize.
     /// And a Move to the size the form has raises none in VB6 (measured).
     /// </summary>
-    public void WindowResized()
+    public void WindowResized(bool sizeSet = false)
     {
-        if (!shownSinceLoad || Window is not IFormView view)
+        if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
         var now = view.Extent;
         if (now == resizedAt)
@@ -490,6 +495,8 @@ public class VBWindowContext : IModuleExecutionRoot
         if (interpreter is null)
             return;
         var form = EnsureInstance();
+        if (!form.ClassDef.PrePass.Procedures.ContainsKey(name))
+            return;
         // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
         // started, as a test's is, runs the declarations first; a started one ran them in StartAsync. The arguments are
         // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).

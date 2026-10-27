@@ -20,6 +20,7 @@ public partial class FormEditView : UserControl
     public FormEditView()
     {
         InitializeComponent();
+        ControlsContainer.ReferenceChanged += OnControlsContainerReferenceChanged;
         NewControlSpawner.AddHandler(PointerPressedEvent, OnNewControlStarted);
         NewControlSpawner.AddHandler(PointerMovedEvent, OnNewControlMoving);
         NewControlSpawner.AddHandler(PointerReleasedEvent, OnNewPointerReleased);
@@ -32,11 +33,6 @@ public partial class FormEditView : UserControl
 
         FormContainer.AddHandler(PointerMovedEvent, OnFormPointerMoved);
         FormContainer.AddHandler(PointerReleasedEvent, OnFormPointerReleased);
-    }
-
-    private double SnapToGrid(double x)
-    {
-        return SnapGridUtils.SnapToGrid(this, x);
     }
 
     private Point newControlInitialPress;
@@ -60,9 +56,7 @@ public partial class FormEditView : UserControl
                 Log.Debug("FormEditView: Spawning control at ({Left},{Top} {Width}x{Height})",
                     Canvas.GetLeft(NewControlSpawnerPhantom), Canvas.GetTop(NewControlSpawnerPhantom),
                     NewControlSpawnerPhantom.Width, NewControlSpawnerPhantom.Height);
-                vm.SpawnControl(new Rect(Canvas.GetLeft(NewControlSpawnerPhantom),
-                    Canvas.GetTop(NewControlSpawnerPhantom), NewControlSpawnerPhantom.Width,
-                    NewControlSpawnerPhantom.Height));
+                vm.SpawnControlDrawn(newControlInitialPress, e.GetPosition(NewControlSpawner));
                 if (ControlsContainer.ContainerFromIndex(ControlsContainer.SelectedIndex) is { } control)
                 {
                     control.Focus();
@@ -75,17 +69,14 @@ public partial class FormEditView : UserControl
 
     private void OnNewControlMoving(object? sender, PointerEventArgs e)
     {
-        if (isSpawningNewControl)
+        if (isSpawningNewControl && DataContext is FormEditViewModel vm)
         {
             var point = e.GetCurrentPoint(NewControlSpawner).Position;
-            double left = SnapToGrid(Math.Min(point.X, newControlInitialPress.X));
-            double top = SnapToGrid(Math.Min(point.Y, newControlInitialPress.Y));
-            double right = SnapToGrid(Math.Max(point.X, newControlInitialPress.X));
-            double bottom = SnapToGrid(Math.Max(point.Y, newControlInitialPress.Y));
-            Canvas.SetLeft(NewControlSpawnerPhantom, left);
-            Canvas.SetTop(NewControlSpawnerPhantom, top);
-            NewControlSpawnerPhantom.Width = Math.Max(1, right - left);
-            NewControlSpawnerPhantom.Height = Math.Max(1, bottom - top);
+            var (rect, _) = vm.DrawnControlRectangle(newControlInitialPress, point);
+            Canvas.SetLeft(NewControlSpawnerPhantom, rect.Left);
+            Canvas.SetTop(NewControlSpawnerPhantom, rect.Top);
+            NewControlSpawnerPhantom.Width = rect.Width;
+            NewControlSpawnerPhantom.Height = rect.Height;
             NewControlSpawnerPhantom.IsVisible = true;
         }
     }
@@ -227,6 +218,7 @@ public partial class FormEditView : UserControl
                 ControlsContainer.Selection.Clear();
             foreach (var i in matched)
                 ControlsContainer.Selection.Select(i);
+            ControlsContainer.Selection.Select(matched[0]);
             ControlsContainer.Selection.EndBatchUpdate();
         }
         finally
@@ -235,7 +227,7 @@ public partial class FormEditView : UserControl
         }
 
         // Update VM primary to first matched item.
-        if (ControlsContainer.SelectedItem is ComponentInstanceViewModel primary)
+        if (ControlsContainer.ReferenceItem is ComponentInstanceViewModel primary)
         {
             _syncingSelection = true;
             try { vm.SelectedComponent = primary; }
@@ -245,7 +237,7 @@ public partial class FormEditView : UserControl
     }
 
     // Fired by ControlsContainer when the user changes selection interactively.
-    private void OnControlsContainerSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnControlsContainerReferenceChanged(object? sender, EventArgs e)
     {
         if (_syncingSelection) return;
         if (DataContext is not FormEditViewModel vm) return;
@@ -253,7 +245,7 @@ public partial class FormEditView : UserControl
         _syncingSelection = true;
         try
         {
-            vm.SelectedComponent = ControlsContainer.SelectedItem as ComponentInstanceViewModel ?? vm.Form;
+            vm.SelectedComponent = ControlsContainer.ReferenceItem as ComponentInstanceViewModel ?? vm.Form;
             vm.SetSelectedComponents(ControlsContainer.SelectedItems?.OfType<ComponentInstanceViewModel>() ?? []);
         }
         finally

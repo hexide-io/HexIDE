@@ -67,12 +67,14 @@ undoing.
 
 ## Why it is set up the way it is
 
-**`.rdproj`.** RDCore analyses only modules listed in a `.rdproj` at the workspace root, and HexIDE hands it
-the directory holding the `.vbp`. Without this file every request is answered — successfully, and with
-nothing in it — which looks exactly like clean code. It is the output of `rdc new`, trimmed: the scaffolder
-records an absolute path to the local Office install's `VBE7.DLL`, and an empty `References` list gives the
-same folds and diagnostics without tying the file to one machine. Keys are PascalCase; a camelCase file loads
-without complaint and lists no modules.
+**`.rdproj`, which HexIDE writes.** RDCore analyses only modules listed in a `.rdproj` at the workspace root,
+and HexIDE hands it the directory holding the `.vbp`. The profile's entry declares
+`"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }`, so on the first open HexIDE asks
+whether the server may write that file, then writes it from the project: `TideTable.bas` as a module, the
+project's references, and its Conditional Compilation Arguments. Choose **Allow**. Choose **Deny**, and the
+server starts without it and analyses nothing, which looks exactly like clean code. The file is ignored by
+git; delete it with the profile when you are done. It used to be committed here by hand, from `rdc new`'s
+output, trimmed.
 
 Since RDCore began accepting opened documents, a missing `.rdproj` does leave a trace in the protocol
 inspector: an error-level `window/logMessage` saying that `textDocument/didOpen` failed with
@@ -89,8 +91,9 @@ Module=TideTable; TideTable.bas
 `Module=` requires `Name; File` and a bare path is rejected — `Module=TideTable.bas` makes `vb6.exe` report
 that *the project file is corrupt*, naming no line. That is measured, along with the other four item keys,
 which do **not** all agree: see *A `.vbp` item line has two shapes* in
-[`docs/vb6-fidelity-oracle.md`](../../docs/vb6-fidelity-oracle.md). Keep `TideTable.bas` listed in `.rdproj`
-too: a file opened but not listed still gets folds and syntax errors, but not RDCore's semantic checks.
+[`docs/vb6-fidelity-oracle/README.md`](../../docs/vb6-fidelity-oracle/README.md). HexIDE lists every module the `.vbp`
+carries in the `.rdproj` it writes, which matters: a file opened but not listed still gets folds and syntax
+errors, but not RDCore's semantic checks.
 
 **It used to be `RelatedDoc=`, as a workaround, and that is worth recording because it was the demo's own
 acceptance test.** Two things made a real module unusable here, and both are now closed:

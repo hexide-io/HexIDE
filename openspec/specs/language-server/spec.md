@@ -48,6 +48,14 @@ intention.
 - **WHEN** a different language backend is placed behind the seam
 - **THEN** it serves the IDE without any change to the IDE, provided it honours the contract below
 
+### Requirement: Syntax diagnostics SHALL name whitespace-only offending tokens
+The server SHALL describe a whitespace-only offending token as `end of line` in mismatched-input,
+extraneous-input and no-viable-alternative diagnostics.
+
+#### Scenario: An expression is unfinished at the end of a line
+- **WHEN** a newline is the offending token in an unfinished expression
+- **THEN** the diagnostic names `end of line` rather than displaying empty quotes
+
 ### Requirement: The server SHALL publish an empty diagnostic set when a document closes
 On being notified that a document closed, the server SHALL publish diagnostics for that document with an
 empty set, rather than publishing nothing.
@@ -85,7 +93,8 @@ was before the edit, producing a result that is wrong in a way that looks interm
 - **THEN** the request is answered against the changed text
 
 ### Requirement: The server SHALL answer "nothing found" with an empty result
-Where a request has no answer, the server SHALL return an empty result rather than a protocol-level error.
+Where a request finds nothing, the server SHALL return an empty result rather than a protocol-level error.
+A refused rename SHALL instead return `-32803 RequestFailed` with a message explaining the refusal.
 
 The two are not interchangeable to the caller: an empty result is an ordinary outcome that the editor
 absorbs silently, whereas an error is surfaced. Reporting "no definition at this position" as an error
@@ -107,6 +116,20 @@ producing symbols that do not match the diagnostics beside them.
 - **WHEN** a document changes and both diagnostics and symbols are produced
 - **THEN** both are derived from a single parse of that text
 
+### Requirement: Option prefixes preserve procedure parsing on syntax errors
+The server SHALL retain the same procedure tree and syntax diagnostics for a malformed procedure preceded
+by Option lines as for the same source without those lines, with diagnostic positions shifted accordingly.
+It SHALL continue to accept an options-only module with a trailing colon separator.
+
+#### Scenario: Option Explicit before a broken first procedure
+- **WHEN** Option Explicit directly precedes a Sub containing `x = = 1` and `List0.`
+- **THEN** that Sub remains in the parse tree and document symbols
+- **AND** diagnostics match those without the Option line, shifted down one line
+
+#### Scenario: Options only with a trailing separator
+- **WHEN** a module contains only `Option Explicit:` or `Option Explicit: Option Base 1:`
+- **THEN** no syntax diagnostics are produced
+
 ### Requirement: The server SHALL confine itself to syntactic analysis
 The server SHALL operate on the syntax tree only, and SHALL NOT build a bound semantic model, resolve names
 across documents, or perform project-wide analysis.
@@ -122,6 +145,16 @@ nobody committed to maintaining, and it would make the seam harder to hand over 
 #### Scenario: Checking for undeclared variables
 - **WHEN** the undeclared-variable check runs without a symbol table covering intrinsics, controls and project types
 - **THEN** it is disabled by default, because it cannot distinguish an undeclared variable from a name it simply cannot see
+
+The retained scope analyzer SHALL exclude the names collected from the current form's designer header,
+the class and module names explicitly listed by its single owning `.vbp`, and its fixed built-in list
+(including `vbPixels`, #54). This baseline SHALL NOT bind references across files or enable the live
+check. Project names are supplied only when the project lookup is unambiguous and its compilation
+arguments are valid; a document with no owning project has no project baseline.
+
+#### Scenario: A control beside a real undeclared name
+- **WHEN** a form's header declares `Timer0` and `Label2`, and its code uses them alongside an undeclared name
+- **THEN** the directly invoked analyzer excludes those controls and still reports the undeclared name
 
 ### Requirement: The server SHALL advertise exactly the capabilities it implements
 The bundled server's `initialize` result SHALL declare every feature it has a live handler for, and SHALL
@@ -233,9 +266,10 @@ block, a form's `VERSION` line, object references and designer block, the run of
 the code, and `Attribute` lines describing a member further down. It SHALL report no diagnostic inside any of
 those, and no formatting, rename or highlight answer it gives SHALL change or point inside them, with one
 exception: renaming a member SHALL change that member's own name where it qualifies one of its attribute lines
-(`Attribute Total.VB_Description`), and nothing else on that line. A rename or highlight asked for from a
-position inside any of those lines SHALL have no answer, and so SHALL a rename of a name the designer block
-declares: the form's own, a control's or a menu's, wherever it is asked for. So SHALL a rename to a new name that
+(`Attribute Total.VB_Description`), and nothing else on that line. A highlight asked for from a
+position inside any of those lines SHALL have no answer. A rename there, of a reserved keyword, or of a name
+the designer block declares (the form's own, a control's or a menu's) SHALL be refused with
+`-32803 RequestFailed` and an explanation. So SHALL a rename to a new name that
 is not a VB6 name. A header the server cannot parse SHALL NOT stop it analysing the code after the header.
 
 The client now sends the file rather than the code, because that is the only way a position means the same
@@ -297,7 +331,7 @@ whole file, the code's real errors included, and give no reason why.
 #### Scenario: Renaming a control from its code
 - **GIVEN** a form with a control, and code that refers to it by name
 - **WHEN** a rename is asked for on that name in the code
-- **THEN** there is no answer
+- **THEN** the rename returns `-32803 RequestFailed` with a reason
 
 #### Scenario: Renaming a member that has a description
 - **GIVEN** a property followed by an `Attribute <Name>.VB_Description` line
@@ -307,4 +341,46 @@ whole file, the code's real errors included, and give no reason why.
 #### Scenario: Renaming to a name VB6 does not accept
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
-- **THEN** there is no answer
+- **THEN** the rename returns `-32803 RequestFailed` with a reason
+
+### Requirement: Physical line endings
+
+The server SHALL count CR, LF and CRLF as line ends in every position it reads or sends, including files
+with mixed endings. Formatting and protected-region blanking SHALL preserve the original terminators.
+
+#### Scenario: A diagnostic below a lone CR
+- **WHEN** an opened document contains a syntax error after a lone CR
+- **THEN** the published diagnostic uses the same zero-based physical line and character as the editor
+
+#### Scenario: Protected regions in a file with lone CR endings
+- **WHEN** a whole file uses lone CR line endings
+- **THEN** formatting, rename, highlight and diagnostics respect the same header and member-attribute lines as the IDE
+
+### Requirement: Completion SHALL preserve declaration kinds and unique labels
+The server SHALL return completion labels unique under ordinal case-insensitive comparison, preferring a
+name declared in the document over a static keyword or built-in. The static `Date` entry SHALL be a
+Function. Declared names SHALL carry their syntactic completion kind: Sub as Method, Function as Function,
+Property as Property, Const as Constant, Enum as Enum, enum member as EnumMember, Type as Struct, and
+variables and parameters as Variable.
+
+#### Scenario: Completing a procedure and a variable
+- **WHEN** completion is requested for a document declaring a Sub and a variable
+- **THEN** the Sub has completion kind Method (2) and the variable has kind Variable (6)
+
+#### Scenario: A declaration shadows a static entry
+- **WHEN** a declared name matches a static entry ignoring case
+- **THEN** one item is returned with the declaration's spelling and kind
+
+#### Scenario: Completing Date without a declaration
+- **WHEN** completion is requested for a document without a Date declaration
+- **THEN** Date appears once, with completion kind Function (3)
+
+### Requirement: Symbol and scope visitors SHALL bound parse-tree recursion
+The symbol, declaration and Option Explicit visitors SHALL stop descending at 500 active
+`VisitChildren` calls, so a left-associated expression cannot overflow their call stacks.
+Traversal SHALL continue with subsequent statements after a bounded subtree is skipped.
+
+#### Scenario: A long addition chain below the source-size gate
+- **WHEN** a parsed module contains 100,000 additions followed by declarations and another procedure
+- **THEN** symbol and declaration collection completes and retains the later declarations and procedure
+- **AND** Option Explicit checking can still report an undeclared reference in a later statement

@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using HexIDE.Addins;
 #if DEBUG
 using System.Threading;
+using System.Runtime.InteropServices;
 using HexIDE.Desktop.Server;   // MCP server — DEBUG-only (compiled out of Release)
 #endif
 using HexIDE.Bookmarks;
@@ -36,7 +37,9 @@ internal static class DesktopStartup
             Vb6TextEncoding.SimulateHostCodePage(codePage);
 #endif
 
-        if (ServerOptions.NewProject)
+        if (ServerOptions.NewProjectUnsaved)
+            HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);
+        else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);
@@ -75,8 +78,18 @@ internal static class DesktopStartup
             if (ServerOptions.Port is not { } port)
                 return;
 
-            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService);
+            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService, setup.SettingsService);
             var cts = new CancellationTokenSource();
+            var termination = OperatingSystem.IsWindows() ? null :
+                PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
+                {
+                    signal.Cancel = true;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        IdeShutdown.Prepare(ctx, force: true);
+                        IdeShutdown.CloseMainWindow();
+                    });
+                });
 
             desktop.MainWindow!.Opened += (_, _) =>
                 _ = Task.Run(async () =>
@@ -105,23 +118,8 @@ internal static class DesktopStartup
                         // unconditional, because exit code 3 is what the rebuild cycle relies on (#53, #525).
                         // A launch that failed still writes to the profile it shares: hexide-io/HexIDE#557.
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                        {
-                            try
-                            {
-                                loader.Dispose();
-                                cts.Cancel();
-                                ctx.Dispose();
-                            }
-                            catch (Exception cleanup)
-                            {
-                                Serilog.Log.Warning(cleanup, "Cleanup before exiting with {ExitCode} failed; exiting anyway", exitCode);
-                            }
-                            finally
-                            {
-                                desktop.Shutdown(exitCode);
-                                HexIDE.Infrastructure.LoggingSetup.Shutdown();
-                            }
-                        });
+                            HexIDE.Infrastructure.ForcedExitCleanup.Run(loader, cts, ctx, exitCode,
+                                code => desktop.Shutdown(code), HexIDE.Infrastructure.LoggingSetup.Shutdown));
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
@@ -129,8 +127,10 @@ internal static class DesktopStartup
                     }
                 });
 
-            desktop.ShutdownRequested += (_, _) =>
+            // ShutdownRequested can be cancelled. Keep automation available while any window survives.
+            desktop.Exit += (_, _) =>
             {
+                termination?.Dispose();
                 ctx.Dispose();
                 cts.Cancel();
             };

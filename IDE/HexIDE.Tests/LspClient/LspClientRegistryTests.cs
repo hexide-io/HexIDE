@@ -31,6 +31,14 @@ public class LspClientRegistryTests
         c.IsRunning.Returns(running);
         c.AdvertisedCapabilities.Returns(
             capabilitiesJson is null ? null : JsonDocument.Parse(capabilitiesJson).RootElement.Clone());
+        c.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<Action>())
+            .Returns(async call =>
+            {
+                var items = await c.RequestCompletionAsync(call.ArgAt<string>(0), call.ArgAt<Position>(1),
+                    call.ArgAt<CancellationToken>(2));
+                call.ArgAt<Action>(3)();
+                return items;
+            });
         c.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns([]);
         c.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns([]);
         c.RequestBuiltinSymbolsAsync(Arg.Any<CancellationToken>()).Returns([]);
@@ -50,6 +58,172 @@ public class LspClientRegistryTests
         new(registrations, Substitute.For<ILogger<LspClientRegistry>>());
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
+
+    [Fact]
+    public async Task SignatureHelpSkipsEmptyAnswers()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        first.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new SignatureHelp([]));
+        var answer = new SignatureHelp([new SignatureInformation("Second()")]);
+        second.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(answer);
+        var sut = Registry(Registration("first", first, priority: 10), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+            TestContext.Current.CancellationToken)).Should().BeSameAs(answer);
+    }
+
+    [Theory]
+    [InlineData("(")]
+    [InlineData(",")]
+    public async Task SignatureHelpRoutesTypedTriggers(string trigger)
+    {
+        var first = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":["("]}}""");
+        var second = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":[","]}}""");
+        var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+            TestContext.Current.CancellationToken, trigger);
+
+        await (trigger == "(" ? first : second).Received(1).RequestSignatureHelpAsync(
+            Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await (trigger == "(" ? second : first).DidNotReceive().RequestSignatureHelpAsync(
+            Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SignatureHelpAsksConcurrentlyAndKeepsPriorityForExplicitInvocation()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var secondAsked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var answer = new SignatureHelp([new SignatureInformation("First()")]);
+        first.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(async _ => { await secondAsked.Task; return (SignatureHelp?)answer; });
+        second.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { secondAsked.TrySetResult(); return new SignatureHelp([new SignatureInformation("Second()")]); });
+        var sut = Registry(Registration("second", second), Registration("first", first, priority: 10));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        try
+        {
+            (await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+                TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken)).Should().BeSameAs(answer);
+        }
+        finally { secondAsked.TrySetResult(); }
+    }
+
+    [Fact]
+    public async Task SignatureHelpIgnoresServerExceedingSharedBudget()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var gate = new TaskCompletionSource<SignatureHelp?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        first.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(_ => gate.Task);
+        var answer = new SignatureHelp([new SignatureInformation("Second()")]);
+        second.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(answer);
+        var sut = Registry(Registration("first", first, priority: 10), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        try
+        {
+            (await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+                TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken)).Should().BeSameAs(answer);
+        }
+        finally { gate.TrySetResult(null); }
+    }
+
+    [Theory]
+    [InlineData("foldingRangeProvider")]
+    [InlineData("documentSymbolProvider")]
+    [InlineData("documentFormattingProvider")]
+    [InlineData("renameProvider")]
+    public async Task PickOneFeaturesExplainWhichAdvertiserWon(string capability)
+    {
+        var winner = FakeServer();
+        var loser = FakeServer();
+        var unavailable = FakeServer(capabilitiesJson: "{}");
+        var unrelated = FakeServer();
+        var sut = Registry(Registration("unavailable", unavailable, priority: 20),
+            Registration("winner", winner, priority: 10), Registration("loser", loser),
+            Registration("unrelated", unrelated, language: "markdown"));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        switch (capability)
+        {
+            case "foldingRangeProvider":
+                await sut.RequestFoldingRangesAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                break;
+            case "documentSymbolProvider":
+                await sut.RequestDocumentSymbolsAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                break;
+            case "documentFormattingProvider":
+                await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                break;
+            case "renameProvider":
+                await sut.RequestRenameAsync(Vb6Doc, new Position(0, 0), "renamed", TestContext.Current.CancellationToken);
+                break;
+        }
+
+        loser.Received(1).NotePrioritySkip(capability, "winner");
+        winner.DidNotReceiveWithAnyArgs().NotePrioritySkip(default!, default!);
+        unavailable.DidNotReceiveWithAnyArgs().NotePrioritySkip(default!, default!);
+        unrelated.DidNotReceiveWithAnyArgs().NotePrioritySkip(default!, default!);
+    }
+
+    [Fact]
+    public async Task PrioritySkipsAreRecordedOncePerCapabilityPerConnection()
+    {
+        await using var log = new HexIDE.Conversations.ConversationLog();
+        await using var client = new VBLspClient(Substitute.For<ILspTransport>(),
+            Substitute.For<ILogger<VBLspClient>>(), "vb6", capture: log, connectionId: "loser");
+        ((ILspClient)client).NotePrioritySkip("foldingRangeProvider", "winner");
+        ((ILspClient)client).NotePrioritySkip("foldingRangeProvider", "winner");
+        ((ILspClient)client).NotePrioritySkip("renameProvider", "winner");
+        await log.DrainAsync();
+        var entries = log.Snapshot("loser");
+        entries.Should().HaveCount(2);
+        entries.Should().OnlyContain(e => e.Kind == HexIDE.Conversations.ConversationEntryKind.NeverSent
+            && e.Direction == HexIDE.Conversations.ConversationDirection.Sent && !e.Fault);
+        entries.Select(e => e.Detail).Should().BeEquivalentTo(
+            "not asked: 'winner' has priority for 'foldingRangeProvider'",
+            "not asked: 'winner' has priority for 'renameProvider'");
+        await client.StopAsync();
+        ((ILspClient)client).NotePrioritySkip("foldingRangeProvider", "new-winner");
+        await log.DrainAsync();
+        log.Snapshot("loser").Should().ContainSingle(e =>
+            e.Detail == "not asked: 'new-winner' has priority for 'foldingRangeProvider'");
+
+    }
+
+    [Fact]
+    public async Task ProgressRetainsItsServerIdentityAndStopForwardsItsEnd()
+    {
+        var server = FakeServer();
+        await using var sut = Registry(Registration("vb6", server) with { DisplayName = "VB tools" });
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
+        var received = new List<(object? Sender, string Kind, string? Name)>();
+        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind, p.ServerDisplayName));
+        var token = JsonSerializer.SerializeToElement("index");
+        server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
+            new ProgressParams(token, new WorkDoneProgressValue("begin", "indexing")));
+        server.StopAsync().Returns(_ =>
+        {
+            server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
+                new ProgressParams(token, new WorkDoneProgressValue("end")));
+            return Task.CompletedTask;
+        });
+        await sut.StopAsync();
+        received.Select(p => p.Kind).Should().Equal("begin", "end");
+        received.Should().OnlyContain(p => p.Name == "VB tools");
+        received.Should().OnlyContain(p => ReferenceEquals(p.Sender, server));
+    }
 
     [Fact]
     public async Task OnlyServersClaimingTheDocumentsLanguageAreStarted()
@@ -103,6 +277,142 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task LateCompletionIsRecordedInTheProtocolInspector()
+    {
+        await using var log = new HexIDE.Conversations.ConversationLog();
+        await using var client = new VBLspClient(Substitute.For<ILspTransport>(),
+            Substitute.For<ILogger<VBLspClient>>(), "vb6", capture: log, connectionId: "slow");
+
+        ((ILspClient)client).NoteLateCompletion();
+        await log.DrainAsync();
+
+        log.Snapshot("slow").Should().ContainSingle(e =>
+            e.Kind == HexIDE.Conversations.ConversationEntryKind.Note
+            && e.Method == "textDocument/completion"
+            && e.Detail == "answered after the popup opened; completion discarded");
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(0)]
+    public async Task CompletionDuplicatesKeepPriorityThenRegistrationOrder(int priority)
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var winner = new CompletionItem("Name", CompletionItemKind.Variable, "winner", "winnerEdit");
+        first.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([winner, new CompletionItem("Name", CompletionItemKind.Function)]);
+        second.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([new CompletionItem("Name", CompletionItemKind.Variable, "loser", "loserEdit"),
+                new CompletionItem("name", CompletionItemKind.Variable)]);
+        var sut = priority == 0
+            ? Registry(Registration("first", first), Registration("second", second))
+            : Registry(Registration("second", second), Registration("first", first, priority: priority));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        var items = await sut.RequestCompletionAsync(Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
+
+        items.Should().Equal(winner, new CompletionItem("Name", CompletionItemKind.Function),
+            new CompletionItem("name", CompletionItemKind.Variable));
+        items[0].Should().BeSameAs(winner);
+    }
+
+    [Fact]
+    public async Task CompletionBudgetReturnsFastAnswersAndDropsLateOnes()
+    {
+        var fast = FakeServer();
+        var slow = FakeServer();
+        var late = new TaskCompletionSource<CompletionItem[]>();
+        var recorded = new TaskCompletionSource();
+        slow.When(c => c.NoteLateCompletion()).Do(_ => recorded.SetResult());
+        fast.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([new CompletionItem("fast", CompletionItemKind.Function)]);
+        slow.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(late.Task);
+        var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        var clock = new CompletionClock();
+        var sut = new LspClientRegistry(
+            [Registration("slow", slow, priority: 10), Registration("fast", fast)], logger, timeProvider: clock);
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        var pending = sut.RequestCompletionAsync(Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
+        try
+        {
+            clock.HasTimer.Should().BeTrue();
+            clock.Advance(TimeSpan.FromMilliseconds(999));
+            pending.IsCompleted.Should().BeFalse();
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            var items = await pending;
+            items.Select(i => i.Label).Should().Equal("fast");
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            late.SetResult([new CompletionItem("late", CompletionItemKind.Function)]);
+            await recorded.Task;
+            slow.Received(1).NoteLateCompletion();
+            fast.DidNotReceive().NoteLateCompletion();
+            logger.ReceivedCalls().Should().Contain(call => call.GetMethodInfo().Name == "Log"
+                && Equals(call.GetArguments()[0], LogLevel.Debug)
+                && call.GetArguments()[2]!.ToString()!.Contains("answered after the popup opened"));
+            items.Select(i => i.Label).Should().Equal("fast");
+        }
+        finally { late.TrySetResult([]); }
+    }
+
+    // Only the one-shot timer used by this completion request is needed.
+    private sealed class CompletionClock : TimeProvider
+    {
+        private long _ticks;
+        private long _due;
+        private Action? _fire;
+        public bool HasTimer => _fire is not null;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => _ticks;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state,
+            TimeSpan dueTime, TimeSpan period)
+        {
+            period.Should().Be(Timeout.InfiniteTimeSpan);
+            _due = _ticks + dueTime.Ticks;
+            _fire = () => callback(state);
+            var timer = Substitute.For<ITimer>();
+            timer.When(t => t.Dispose()).Do(_ => _fire = null);
+            return timer;
+        }
+
+        public void Advance(TimeSpan elapsed)
+        {
+            _ticks += elapsed.Ticks;
+            if (_ticks < _due) return;
+            var fire = _fire;
+            _fire = null;
+            fire?.Invoke();
+        }
+    }
+
+    [Fact]
+    public async Task CompletionTriggersAreUnionedAndRouteOnlyToAdvertisers()
+    {
+        var dot = FakeServer(capabilitiesJson: """{"completionProvider":{"triggerCharacters":["."]}}""");
+        var bang = FakeServer(capabilitiesJson: """{"completionProvider":{"triggerCharacters":[".","!"]}}""");
+        dot.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns([]);
+        bang.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns([]);
+        var unavailable = FakeServer(capabilitiesJson: "{}");
+        unavailable.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns([]);
+        var sut = Registry(Registration("dot", dot), Registration("bang", bang),
+            Registration("unavailable", unavailable));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        sut.CompletionTriggerCharacters(Vb6Doc).Should().Equal(".", "!");
+        await sut.RequestCompletionForTriggerAsync(Vb6Doc, new Position(0, 0), "!", TestContext.Current.CancellationToken);
+        await bang.Received(1).RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await dot.DidNotReceive().RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await unavailable.DidNotReceive().RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await sut.RequestCompletionAsync(Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
+        await dot.Received(1).RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await bang.Received(2).RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await unavailable.Received(1).RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task DocumentSymbolsComeFromOneServer_NotEveryClaimant()
     {
         // THIS REPLACES A MERGE. The rule used to be that symbols from every claimant were concatenated,
@@ -129,6 +439,23 @@ public class LspClientRegistryTests
         symbols.Select(s => s.Name).Should().BeEquivalentTo(["A"],
             "both servers describe the same document, so merging duplicates rather than adds");
         await second.DidNotReceive().RequestDocumentSymbolsAsync(Vb6Doc, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SemanticTokensUseTheHighestPriorityFullProviderAndKeepItsLegend()
+    {
+        var unsupported = FakeServer();
+        var first = FakeServer(capabilitiesJson: """{"semanticTokensProvider":{"full":true,"legend":{"tokenTypes":["class"]}}}""");
+        var second = FakeServer(capabilitiesJson: """{"semanticTokensProvider":{"full":true,"legend":{"tokenTypes":["keyword"]}}}""");
+        var expected = new SemanticTokenResult([0, 0, 1, 0, 0], ["class"]);
+        first.RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>()).Returns(expected);
+        var sut = Registry(Registration("unsupported", unsupported, priority: 10),
+            Registration("first", first, priority: 5), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "x", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSemanticTokensAsync(Vb6Doc, TestContext.Current.CancellationToken)).Should().BeSameAs(expected);
+        await unsupported.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
+        await second.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
     }
 
     [Fact]

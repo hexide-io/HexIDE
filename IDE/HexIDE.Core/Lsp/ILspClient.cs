@@ -4,6 +4,9 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>Rechecks the workspace root and reopens held documents if it moved.</summary>
+    Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
@@ -34,6 +37,9 @@ public interface ILspClient : IAsyncDisposable
     /// </summary>
     event EventHandler<ShowMessageParams>? MessageShown;
 
+    /// <summary>Work-done progress; sender identifies the originating server through a registry.</summary>
+    event EventHandler<ProgressParams>? ProgressReceived;
+
     /// <summary>
     /// The server's running commentary about itself — <c>window/logMessage</c>.
     /// </summary>
@@ -43,7 +49,8 @@ public interface ILspClient : IAsyncDisposable
     /// a server that starts, connects and then serves nothing has only these to explain itself with.
     ///
     /// <para>
-    /// Still logged as well as raised. A message nobody sees is one bug and a message with no trace
+    /// Still logged as well as raised: Log maps to Information, Debug to Trace.
+    /// A message nobody sees is one bug and a message with no trace
     /// afterwards is the next one, which is the argument that already applies to its louder sibling.
     /// </para>
     /// </remarks>
@@ -109,6 +116,9 @@ public interface ILspClient : IAsyncDisposable
     /// </para>
     /// </summary>
     IReadOnlyList<string> DeclinedCapabilities { get; }
+
+    /// <summary>Records that another claimant has priority for this capability, once per connection.</summary>
+    void NotePrioritySkip(string capabilityName, string winnerId) { }
 
     /// <summary>
     /// What the server advertised during initialize, exactly as it sent it — or null if nothing is
@@ -205,13 +215,36 @@ public interface ILspClient : IAsyncDisposable
     Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/foldingRange and returns the list of fold ranges, or empty.</summary>
+    Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default);
+
     Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>
     Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.</summary>
-    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default);
+    /// <summary>Calls onAnswer only when completion was answered, including a valid empty answer.</summary>
+    async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
+        CancellationToken cancellationToken, Action onAnswer)
+    {
+        var items = await RequestCompletionAsync(uri, position, cancellationToken);
+        onAnswer();
+        return items;
+    }
+
+    /// <summary>The completion triggers advertised for this document.</summary>
+    IReadOnlyList<string> CompletionTriggerCharacters(string uri) => [];
+
+    /// <summary>Requests completion only from claimants advertising this trigger.</summary>
+    Task<CompletionItem[]> RequestCompletionForTriggerAsync(string uri, Position position,
+        string triggerCharacter, CancellationToken cancellationToken = default) =>
+        RequestCompletionAsync(uri, position, cancellationToken);
+
+    /// <summary>Records a completion answer discarded after the popup's result was returned.</summary>
+    void NoteLateCompletion() { }
+
+    /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.
+    /// A typed trigger selects advertising servers in the registry; null means explicit invocation.</summary>
+    Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null);
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -227,8 +260,8 @@ public interface ILspClient : IAsyncDisposable
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends textDocument/rename and returns the workspace edits, or null.</summary>
-    Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
+    /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
+    Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);

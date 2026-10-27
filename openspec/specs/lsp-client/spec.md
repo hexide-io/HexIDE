@@ -10,11 +10,6 @@ contract rather than direct calls into a parser is that the backend is expected 
 own syntactic server today, and the seam exists so an external backend with deeper analysis can take over
 later without the editor noticing.
 
-> **Known divergences.** The requirements below state intended behaviour. One is not always met: full
-> synchronization requires a document's versions to rise from its open, and one path can still send one that
-> does not: a debounced change crossing the flush that superseded it. Tracked in
-> [#720](https://github.com/hexide-io/HexIDE/issues/720).
-
 ## Requirements
 
 ### Requirement: The IDE SHALL depend only on the language-service contract
@@ -47,7 +42,9 @@ is, and a fold that disappeared with the server would expose the text it exists 
 ### Requirement: Language features SHALL degrade rather than fail
 Every language operation SHALL be best-effort: when no server is present, when the handshake failed, or when
 a request errors, the operation SHALL return an empty or absent result and SHALL NOT throw to the caller or
-tear down the connection.
+tear down the connection. Rename error replies other than cancellations SHALL instead return the server's
+message as a refusal, which the code window SHALL show. `-32803 RequestFailed` SHALL be logged at debug
+without consuming the method's failure warning; other errors retain that warning.
 
 Language intelligence is an enhancement, not a precondition for editing. A developer with no server
 installed must still get a working editor, and a single malformed request must not take out the session.
@@ -61,8 +58,26 @@ running.
 
 #### Scenario: A request fails
 - **WHEN** a language request fails or times out
-- **THEN** the caller receives the empty or absent result for that request
+- **THEN** the caller receives the empty or absent result, or a refusal message for a rename error
 - **AND** the connection remains usable for subsequent requests
+
+#### Scenario: The server never answers one request
+- **WHEN** a language request reaches its 30-second local deadline
+- **THEN** the client SHALL stop waiting locally, send cancellation best effort, and record `TimedOut`
+- **AND** a language operation SHALL return its empty or absent result and warn once per method per connection
+- **AND** subsequent requests on the same connection SHALL remain usable
+- **AND** a shorter caller cancellation SHALL stop waiting sooner without spending the failure warning
+
+#### Scenario: The server cancels a superseded request
+- **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
+- **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed
+- **AND** a later genuine failure SHALL still receive the method's once-per-connection warning
+- **AND** a superseded rename SHALL show no refusal dialog either
+
+#### Scenario: A server refuses a rename
+- **WHEN** a server returns `-32803 RequestFailed` to a rename
+- **THEN** the code window displays the server's message and applies no edits
+- **AND** a later unexpected failure of rename can still produce its first warning
 
 #### Scenario: The server exits unexpectedly
 - **WHEN** the language server process exits while the IDE is running
@@ -85,6 +100,36 @@ break callers silently, so the convention is part of the contract rather than an
 - **WHEN** hover is requested at a position with nothing to describe
 - **THEN** an absent result is returned rather than an empty one
 
+### Requirement: Hover content unions
+
+The client SHALL accept hover contents as `MarkupContent`, a `MarkedString`, or `MarkedString[]`.
+It SHALL preserve markup content's kind and value, normalize marked strings to Markdown (language-tagged
+values as fenced code blocks), and join array parts with blank lines. Any supplied hover range SHALL
+be preserved.
+
+#### Scenario: A server replies with a legacy Markdown string
+- **WHEN** a hover reply contains `{"contents":"answered"}`
+- **THEN** the client returns Markdown content with value `answered` for the editor's tooltip
+
+#### Scenario: A server replies with mixed marked strings
+- **WHEN** hover contents is an array of Markdown strings and language-tagged values
+- **THEN** the client returns their Markdown text and fenced code blocks separated by blank lines
+
+### Requirement: Diagnostic hover messages
+
+The editor SHALL show the messages of all diagnostic markers covering the hovered offset, including
+sources when supplied, combined with any quick info for that position. Diagnostic tips SHALL be available
+in every personality, including Classic, even when Auto Quick Info is disabled. Marker ranges SHALL
+include their start and exclude their end, including ranges widened for zero-width diagnostics.
+
+#### Scenario: Overlapping diagnostics and quick info
+- **WHEN** the pointer dwells over overlapping diagnostic markers and quick info is available
+- **THEN** the tooltip shows every matching message, its source when supplied, and the quick info
+
+#### Scenario: Diagnostic without quick info
+- **WHEN** the pointer dwells over a diagnostic with no quick info or with Auto Quick Info disabled
+- **THEN** the tooltip still shows the diagnostic message
+
 ### Requirement: Documents SHALL be synchronized in full
 The client SHALL send the entire document text on open and on every change, rather than a delta, and SHALL
 notify the server when a document closes. Each change SHALL carry a version later than the last message about
@@ -93,6 +138,11 @@ that document, the open included.
 Full synchronization removes an entire class of desynchronization bug — a dropped or misapplied delta
 leaving the server's copy silently diverged from the editor's — at a cost that is negligible for source
 files of the size VB6 projects contain.
+
+This is deliberate for servers declaring either Full or Incremental synchronization: each change SHALL
+contain one event with the whole new text and no range. A server declaring None SHALL receive no changes.
+LSP permits full-document changes whatever sync kind the server advertises. Incremental sync is deferred
+until a server needs it to justify the desynchronization risk (hexide-io/HexIDE#282).
 
 The version is the server's only way to order what it receives, and a server may discard a change that is not
 later than what it holds. The open counts: a first change that repeated the open's version was lost to such a
@@ -127,6 +177,11 @@ document for both (hexide-io/HexIDE#721).
 - **THEN** the server has been opened on the document once, and every change carries a later version than the one
   before, whichever editor it came from
 - **AND** closing one editor leaves the document open for the other, and closing the last closes it
+
+#### Scenario: A debounced change overtaken by a flush
+- **WHEN** a change arrives with a version no later than the one the client already tracks
+- **THEN** it is not sent to the server
+- **AND** the newer tracked text and version are kept for reconnect replay
 
 #### Scenario: Closing a document
 - **WHEN** a document is closed
@@ -203,16 +258,63 @@ backend under any licence can sit behind the seam without affecting the IDE's ow
 
 ### Requirement: The language client SHALL start and stop with the desktop session
 The client SHALL be started when the desktop IDE starts and stopped when it shuts down, requesting an
-orderly server shutdown before terminating the process.
+orderly server shutdown before terminating the process. The shutdown request SHALL have a two-second
+deadline, and the client SHALL attempt `exit` whether shutdown answers, fails or times out, but only
+after `initialize` has been answered. An externally owned pipe server SHALL receive neither message;
+teardown SHALL close only its connection. A launched pipe server SHALL get two seconds to exit before
+its remaining process tree is killed, including during bring-up. Both messages
+SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
+kill the remaining process tree and wait up to two seconds for termination before disposing the process
+handle. The process exit code SHALL remain observable in the conversation during client stop.
+
+On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
+`ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
+assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
+the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
+assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
+start suspended.
+
+On Linux and macOS, stdio and launched pipe servers SHALL run under `HexIDE.LspGuard`, which
+SHALL create its own process group before starting the server with inherited stdin, stdout and stderr.
+Every 500 ms the guard SHALL check whether its parent has changed. On reparenting it SHALL send
+SIGTERM to its group and, after two seconds, SIGKILL. It SHALL preserve the server's exit code when
+the server exits on its own. After the normal transport grace period, a remaining guard SHALL be
+terminated with its group. Externally owned servers SHALL NOT be guarded. Descendants that leave
+the group are outside this guarantee.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
 
+#### Scenario: The Windows IDE is killed without shutdown
+- **GIVEN** a launched stdio or pipe server has been assigned to the job and then spawned a child
+- **WHEN** the IDE process is killed without disposing the transport
+- **THEN** the OS ends both the server and its child by closing the IDE's job handle
+
+#### Scenario: The Unix IDE is killed without shutdown
+- **GIVEN** a launched stdio or pipe server and its child remain in the guard's process group
+- **WHEN** the IDE is killed without disposing the transport
+- **THEN** the guard detects reparenting and terminates the group, escalating after two seconds
+
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
-- **THEN** the server is asked to shut down and its process is ended
-- **AND** no server process outlives the IDE
+- **THEN** an initialized server owned by HexIDE is asked to shut down and its process is ended
+- **AND** an externally owned pipe server is left running
+
+#### Scenario: A server never answers shutdown
+- **WHEN** the server receives `shutdown` but never answers it
+- **THEN** the client stops waiting after two seconds and attempts `exit`
+- **AND** it disposes the connection and transport, killing any remaining child with a bounded exit wait
+
+#### Scenario: A stdio server handles exit cleanly
+- **WHEN** the server exits within two seconds of receiving `exit` after `shutdown`
+- **THEN** it is allowed to terminate without being killed
+- **AND** its exit code is recorded in the conversation
+
+#### Scenario: A stdio wrapper ignores exit
+- **WHEN** a launched stdio server remains alive after the exit grace period
+- **THEN** its process tree is killed, including its server child
+- **AND** the observed exit code is recorded before transport disposal finishes
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
@@ -323,6 +425,30 @@ to have it honoured.
 - **WHEN** a feature requires exactly one server
 - **THEN** the user's entry is chosen over the default
 
+#### Scenario: Another advertiser loses a one-answer feature
+- **WHEN** folding ranges, document symbols, formatting or rename selects the highest-priority advertising claimant
+- **THEN** each other advertising claimant SHALL record a never-sent explanation naming the winner's registration id and capability, once per capability per connection
+
+### Requirement: Signature help SHALL select a non-empty answer within a shared budget
+The registry SHALL ask eligible document claimants concurrently within a shared one-second budget.
+Typed trigger characters SHALL select only claimants advertising that character in
+`signatureHelpProvider.triggerCharacters`; explicit invocation SHALL ask all document claimants.
+The highest-priority answer with at least one signature SHALL win, with registration order breaking ties.
+Empty answers and answers exceeding the budget SHALL be ignored, and different servers' signatures SHALL
+NOT be merged.
+
+#### Scenario: The preferred server has no signatures
+- **WHEN** the highest-priority server returns an empty signatures array and another returns signatures
+- **THEN** the other server's answer is shown
+
+#### Scenario: A typed trigger belongs to one server
+- **WHEN** a character triggers signature help
+- **THEN** only claimants advertising that character are asked
+
+#### Scenario: A preferred server exceeds the budget
+- **WHEN** one server has not answered after one second and another has returned signatures
+- **THEN** the available answer is used without waiting for the slow server
+
 ### Requirement: A server SHALL be given the project's working directory
 Each server SHALL be started with the current project's working directory as its working directory, and told
 that directory as its workspace root, unless its entry states otherwise.
@@ -376,8 +502,9 @@ without it points at the executable for a fault that has nothing to do with it.
 
 #### Scenario: The root moves while documents are open
 - **GIVEN** two documents open in editors
-- **WHEN** the project's directory changes and the running servers are restarted
-- **THEN** each restarted server is told both documents are open before it is sent a change to either
+- **WHEN** a project save or startup-project change moves the workspace root
+- **THEN** the running servers SHALL restart at the new root without waiting for another document to open
+- **AND** each restarted server is told both documents are open with their latest text before it is sent a change to either
 
 ### Requirement: A malformed entry SHALL fail alone, and visibly
 An entry that cannot be used SHALL NOT prevent other entries from being used, and SHALL NOT prevent the IDE
@@ -403,6 +530,10 @@ be indistinguishable from a defect.
 #### Scenario: A field name is misspelled
 - **WHEN** an entry carries a field the IDE does not recognise
 - **THEN** the entry is kept and the unrecognised field is reported
+
+#### Scenario: A pipe role is misspelled
+- **WHEN** a pipe entry carries an unrecognised nonblank `pipeRole`
+- **THEN** the entry is kept, the value is reported, and the role falls back to `connect`
 
 ### Requirement: A newly named command SHALL be shown before it is run
 Where configuration names an executable to launch, and that command has not previously been seen for that
@@ -569,7 +700,8 @@ The IDE SHALL route a document by its language identity, derived from the docume
 offer it to **every** registered server claiming that language, subject to the ambiguity rule below, rather
 than selecting one. Where more than one
 server answers, the IDE SHALL combine their results: diagnostics from all sources SHALL be shown together,
-and list-shaped results SHALL be concatenated.
+and list-shaped results SHALL be concatenated except where a feature defines its own selection or merge
+rule. Completion SHALL follow the bounded, deduplicated merge below.
 
 Routing to a single server is the simpler design and the wrong one. The arrangement it forecloses — a
 language server and a separate linter or checker on the same file — is ordinary rather than exotic, and it is
@@ -587,7 +719,9 @@ ambiguous it SHALL be offered only to servers whose claim establishes VB6: one t
 no other language uses — every VB6 source extension but `.cls` — or that declares the identifier `vb6`.
 Stated as "an extension no other language uses", the rule would be met by any server claiming any extension
 of its own, which is the opposite of its purpose. A file the project carries is not
-known to be VB6, and SHALL be routed by its extension alone. The alternative costs a started process and the
+known to be VB6, and SHALL be routed by its extension, except that a VB6 entry SHALL receive a carried
+`.cls` only when its first non-blank line equals `VERSION 1.0 CLASS` case-insensitively. This content
+claim SHALL be recorded on open or reload and retained through edits until the next open. The alternative costs a started process and the
 developer's source sent to a server with nothing to say about it, for every class module in the project.
 
 #### Scenario: Two servers claim the same language
@@ -607,6 +741,11 @@ developer's source sent to a server with nothing to say about it, for every clas
 - **GIVEN** the same server entry
 - **WHEN** a `.cls` file the project carries is opened
 - **THEN** that server receives it
+
+#### Scenario: A carried LaTeX class does not reach VB6
+- **WHEN** a carried `.cls` opens without `VERSION 1.0 CLASS` as its first non-blank line
+- **THEN** VB6 entries do not receive it, while other extension claimants still do
+- **AND** editing the signature does not change routing until it is reopened
 
 ### Requirement: Features that cannot combine SHALL select one server by stable identity
 Where combining answers is meaningless — formatting a document, or renaming a symbol — the IDE SHALL select
@@ -733,6 +872,11 @@ upward is worse than one that does not recognise the value at all.
 - **WHEN** a server reports a problem with its own setup
 - **THEN** that report reaches a surface the developer can read, rather than only a discarded log level
 
+#### Scenario: Running commentary reaches the default log
+- **WHEN** a server sends `window/logMessage` with type 4 (Log)
+- **THEN** the client SHALL write it at Information so the default log retains it
+- **AND** type 5 (Debug) SHALL remain at Trace
+
 #### Scenario: A severity this client does not know
 - **WHEN** a server sends a severity introduced after the version this client targets
 - **THEN** it is not ranked above severities the client does know
@@ -752,9 +896,14 @@ A server that does not advertise the capability SHALL NOT be reported as deficie
 complete and correct answer — it publishes instead — and treating the absence as a missing feature would
 blame every conformant publishing server for the way it conforms.
 
-The client SHALL ask when a document is opened, after it changes, and when it is saved. It SHALL NOT
-introduce pacing of its own for this: the edit stream is already coalesced before it reaches the client, and
+The client SHALL ask when a document is opened, after it changes, and when it is saved. For these triggers
+it SHALL NOT introduce pacing of its own: the edit stream is already coalesced before it reaches the client, and
 a second authority over the same question would answer it differently.
+
+A document pull answered ContentModified (`-32801`) or ServerCancelled (`-32802`) SHALL be retried,
+unless ServerCancelled carries `data.retriggerRequest: false`. Retries SHALL wait 250 ms initially,
+doubling to a 4-second cap, and SHALL stop when the document closes, changes, a newer pull supersedes them,
+or the connection is replaced. Each retry SHALL be recorded as its own protocol request.
 
 A server MAY additionally ask to be asked again, and the client SHALL honour that by re-requesting every
 open document. It is the only means such a server has of reporting a change that is not a document — its
@@ -774,6 +923,18 @@ derived from a configuration that no longer exists, with no event that would eve
 #### Scenario: The document changes
 - **WHEN** an open document is edited
 - **THEN** the client asks again, and the answer replaces what that server last said about the document
+
+#### Scenario: A diagnostic pull is temporarily unavailable
+- **WHEN** a document pull is answered ContentModified and the document remains open and unchanged
+- **THEN** the client asks again after back-off and publishes the successful report
+
+#### Scenario: The server refuses a diagnostic retry
+- **WHEN** a document pull is answered ServerCancelled with `data.retriggerRequest: false`
+- **THEN** the client does not retry that request
+
+#### Scenario: The document closes during diagnostic back-off
+- **WHEN** the document closes before a retry is sent
+- **THEN** that retry is not sent
 
 #### Scenario: The server says its answers are stale
 - **WHEN** such a server asks for diagnostics to be refreshed
@@ -865,13 +1026,280 @@ says so. Servers that send the richer shape regardless hide the omission (hexide
 - **THEN** it answers with the tree, and the symbols arrive nested as the document declares them
 
 ### Requirement: The client SHALL declare whole-line folding while it reads folds by line
-While the client reads a server's fold by its lines alone, it SHALL declare `lineFoldingOnly`. The change that
-makes it read a fold's characters SHALL remove the declaration.
+The client SHALL read a server fold's start and end characters, defaulting each absent character to the
+length of its line, and SHALL NOT declare `lineFoldingOnly`. A collapsed server fold SHALL leave the text
+before its start visible, without repeating that text as a title.
 
-A server told nothing may end a fold part-way along its closing line, and a fold read by whole lines then hides
-that line (hexide-io/HexIDE#1363).
+Nested folds sharing a start SHALL both survive updates. Each surviving range SHALL retain its folded state
+after edits and server answers, independently of list order or another range disappearing. A returning server range
+absent from the preceding update SHALL take its default folded state.
 
-#### Scenario: A block's fold from a server that honours the declaration
-- **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
-  alone
-- **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed
+#### Scenario: A fold ends before an indented closing delimiter
+- **WHEN** an external backend sends a fold ending at the character before a closing delimiter
+- **THEN** the delimiter stays visible when the fold is collapsed
+
+#### Scenario: A procedure fold disappears while its attribute run remains
+- **WHEN** a procedure and its attribute run share a fold start and the next answer omits the procedure fold
+- **THEN** the attribute run keeps its own folded state
+
+### Requirement: Server work-done progress
+The client SHALL advertise `window.workDoneProgress`, accept string and integer tokens through
+`window/workDoneProgress/create` with a null result, and surface `$/progress` work-done begin/report/end
+in the status bar. Progress SHALL name the originating registration’s display name and separate title
+and message with a colon, omitting absent parts. Server titles and messages SHALL be flattened and capped at 200 characters together.
+Tokens SHALL be scoped to their connection. End and disconnect SHALL finish progress immediately without
+erasing a later status message from another operation. Cancellation and partial-result progress are not supported.
+
+#### Scenario: An attached server indexes a workspace
+- **WHEN** a server creates a token and sends begin followed by report
+- **THEN** the status bar shows its title, latest message and optional percentage with its registration’s display name in a localized format
+- **AND** omitted report fields retain their prior values
+- **WHEN** the server sends end or disconnects
+- **THEN** its progress is removed immediately and any remaining task can be shown
+
+#### Scenario: A server begins without creating a token
+- **WHEN** a server sends work-done begin without a prior create request
+- **THEN** its progress is accepted and displayed
+
+### Requirement: Subprocess launch SHALL accept argument lists and environment overrides
+For stdio and launched pipe servers, the IDE SHALL accept nullable `arguments` as either a legacy
+command-line string or an array of strings. Arrays SHALL be forwarded through `ProcessStartInfo.ArgumentList`
+without trimming their elements. Pipe placeholders SHALL expand within each element. A nullable
+`environment` map SHALL override only the named inherited environment variables. Processes SHALL be launched
+without a shell or tty.
+
+#### Scenario: Arguments needing embedded quoting
+- **WHEN** an entry supplies an argument array containing spaces, quotes or empty strings
+- **THEN** the child receives each element as one argument with its contents preserved
+
+#### Scenario: One environment override
+- **WHEN** an entry supplies an environment variable value
+- **THEN** the child receives that value and inherits variables not named in the map
+
+### Requirement: A launched pipe server can be told its owner's process ID
+For a launched pipe server, the client SHALL replace every `{pid}` in the configured arguments with
+HexIDE's process ID as invariant decimal digits. This substitution SHALL work without an open workspace.
+The server is responsible for watching that process; the placeholder does not enforce process-tree cleanup
+after an unclean IDE shutdown.
+
+#### Scenario: A server accepts an owner-process argument
+- **WHEN** a pipe entry launches a command with `--owner {pid}` in its arguments
+- **THEN** the launched process receives `--owner` followed by HexIDE's process ID
+- **AND** no open project is required for that substitution
+
+### Requirement: WebSocket transport direction
+
+The client SHALL support `websocketRole` values `connect` (the default) and `listen` in server
+configuration, without changing the transport establishment interface. Listening SHALL accept an
+incoming WebSocket at the configured endpoint, use the same JSON-RPC Text-message framing as connecting,
+and release the listener on failure, cancellation or disposal.
+
+#### Scenario: Server dials the editor
+- **GIVEN** a WebSocket entry with `websocketRole` set to `listen`
+- **WHEN** the server opens a WebSocket to its endpoint while the client establishes the transport
+- **THEN** the client exchanges JSON-RPC messages over that incoming connection
+
+### Requirement: A listening WebSocket accepts only a local, non-browser dial
+
+Because whatever dials a listening endpoint is taken as the language server, the client SHALL listen only
+on a loopback endpoint (`localhost`, `127.0.0.1` or `[::1]`) and SHALL refuse any other host before binding.
+It SHALL refuse a dial from a non-loopback address, and a dial carrying an `Origin` header, which every
+browser sends on a WebSocket handshake and no language server process does, and SHALL go on listening for
+the server after a refusal.
+
+#### Scenario: An endpoint off this machine
+- **GIVEN** a WebSocket entry with `websocketRole` set to `listen` and an endpoint on `0.0.0.0` or a host name
+- **WHEN** the client establishes the transport
+- **THEN** nothing is bound and the connection's failure says the endpoint must be on this machine
+
+#### Scenario: A web page dials first
+- **GIVEN** a client listening on a loopback endpoint
+- **WHEN** a handshake carrying an `Origin` header arrives, and then one without
+- **THEN** the first is refused with 403 and the second is accepted as the server
+
+### Requirement: An entry's arguments SHALL be adjustable without replacing it
+The configuration SHALL let a user add arguments to an entry by its identifier, apart from the entry, so that an entry whose command the user cannot write can still be adjusted. The arguments SHALL be added to the entry's own, never replace them, and SHALL apply to whichever entry holds the identifier after layering. They SHALL be added in the entry's own form, and a different form SHALL be reported and left out.
+
+#### Scenario: An argument for the bundled server
+- **WHEN** the configuration adds arguments for the bundled server's identifier
+- **THEN** the bundled server is started with its found command and those arguments
+
+#### Scenario: Arguments in a different form
+- **WHEN** an entry's arguments are a command line and the added ones are a list, or the reverse
+- **THEN** the entry is left as it was and the problem is reported
+
+#### Scenario: Arguments for no server
+- **WHEN** added arguments name an identifier no entry has, or an entry the IDE starts no process for
+- **THEN** they are reported and change nothing
+
+### Requirement: Consented workspace artefacts
+
+A server registration MAY declare a workspace-relative artefact path, provider id and provider settings.
+The client SHALL resolve providers through an interface and DI registration, and SHALL materialise the
+artefact before launching the server. Providers SHALL return content without writing; backend schemas
+SHALL remain outside the core artefact service.
+
+**Known limit.** Between the recheck after consent and the replace, a process that can write into the workspace at that moment could
+swap a parent folder for a link, and the temporary file and the replace would follow it. .NET offers no handle-relative
+file API to close this. It needs a concurrent local writer inside the workspace, which could edit the project's sources
+anyway, so it is recorded rather than defended.
+
+#### Scenario: Scoped consent
+- **WHEN** an absent or still-owned artefact needs writing
+- **THEN** the prompt names the server and local file and offers Allow, Deny and Allow Always
+- **AND** Allow covers the server/workspace for the session, Allow Always persists that pair, and Deny launches without writing and logs why
+- **AND** a decision covers only the declaration it was asked for: a changed artefact path or provider asks again
+- **AND** persistent grants are listed and resettable in Options
+
+#### Scenario: Path and ownership protection
+- **WHEN** a declaration is absolute, drive-qualified, escapes via parent segments, or resolves outside the root through links
+- **THEN** the client refuses the write
+- **WHEN** a file exists whose bytes differ from the client's last recorded write
+- **THEN** the client leaves it alone without prompting and launches the server anyway
+- **WHEN** the target is a directory, an empty file (as a FIFO or a device presents), or larger than any artefact the client writes
+- **THEN** the client treats it as not owned without opening or reading it, leaves it alone, and launches the server anyway
+- **AND** a candidate for ownership is hashed through a stream, never read whole
+
+#### Scenario: Atomic and unchanged writes
+- **WHEN** generated bytes match the owned target
+- **THEN** the client skips the write and preserves its write time
+- **WHEN** generated bytes differ
+- **THEN** the client writes a temporary file in the same directory and atomically replaces the target, checking ownership under a lock
+- **AND** a failure while writing leaves the previous target intact
+
+#### Scenario: Nothing to describe
+- **WHEN** a provider returns nothing for a project, such as clangd for a project carrying no C/C++ files
+- **THEN** the client neither prompts nor writes
+- **AND** it deletes the target only if the target still holds the client's last recorded write, within the same path confinement and ownership lock as a replace
+- **AND** it leaves a file whose bytes differ alone, recording why on the server's connection
+
+#### Scenario: A failed or refused write remains visible
+- **WHEN** a path is refused, consent denied, a provider throws, a write fails, or an existing foreign file is left alone
+- **THEN** the reason is recorded as a local failure note on the server's connection in the protocol inspector
+- **AND** the server still launches
+- **AND** notes name the configured workspace-relative path and exception type, never the resolved absolute target or exception message, so exports do not expose workspace locations
+
+#### Scenario: Material project changes
+- **WHEN** forms, modules or carried files are added, removed or renamed, or references change
+- **THEN** the artefact is regenerated after debouncing, subject to the same consent and ownership checks
+- **AND** regeneration sends no watched-file notification in this phase (#456)
+
+#### Scenario: Clangd compilation database
+- **WHEN** the clangd provider is configured
+- **THEN** it emits one compilation command per carried C/C++ file, using configured compiler arguments followed by that file, with its containing directory as working directory
+- **AND** it emits nothing for a project carrying no C/C++ files
+- **AND** a real clangd test observes diagnostics changing when the generated arguments define HEXIDE_PROBE
+
+#### Scenario: RDCore project descriptor
+- **WHEN** the rdcore provider is configured
+- **THEN** it emits a `.rdproj` with PascalCase keys, listing every form, module, class and user control as a module by its host path relative to the workspace root
+- **AND** it carries the project's references, and its Conditional Compilation Arguments as precompiler constants, none for a line vb6.exe refuses
+- **AND** it lists no other files, since RDCore parses every listed file as code
+- **AND** it emits nothing for a project with no code files
+
+#### Scenario: Capability boundaries
+- **WHEN** a server declares no artefact
+- **THEN** no artefact is generated for it
+- **AND** the capability grants neither writes outside the workspace nor writes without consent
+- **AND** the public add-in provider contract remains outside this change
+
+### Requirement: Completion SHALL merge within a bounded popup budget
+The editor SHALL flush pending document changes before requesting completion, including requests triggered
+by letters and advertised trigger characters.
+
+The registry SHALL ask every document claimant concurrently and return when all answer or one
+second from the request elapses. It SHALL include only answers received within that budget and SHALL
+deduplicate by ordinal label and kind, retaining the complete item from the higher-priority server or the
+earlier registration on a tie. Late answers SHALL be dropped, logged at debug level, and recorded in the
+protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
+deadline and caller cancellation.
+
+#### Scenario: Typing requests completion before the debounce expires
+- **WHEN** a letter or advertised trigger character is typed with a pending document change
+- **THEN** the `didChange` carrying that character precedes `textDocument/completion` on the wire
+
+#### Scenario: A server returns a bare completion array
+- **WHEN** a completion reply is a `CompletionItem[]` rather than a `CompletionList`
+- **THEN** the client SHALL normalize it to a list with `isIncomplete: false` and preserve its items
+- **AND** list replies and null replies SHALL continue to provide their items or no items respectively
+
+#### Scenario: Two servers offer the same completion
+- **WHEN** two timely answers contain the same label and kind
+- **THEN** the higher-priority claimant's item is shown once, with its detail and insertion text
+- **AND** registration order breaks equal-priority ties
+
+#### Scenario: One server answers late
+- **WHEN** one claimant answers within a second and another answers after it
+- **THEN** the timely items are returned at the budget boundary
+- **AND** the late answer is recorded and dropped without changing the open list
+- **AND** cancellation or timeout without a reply retains its own outcome and is not recorded as a late answer
+
+#### Scenario: Claimants advertise different trigger characters
+- **WHEN** the editor receives a character in the union of the document claimants' completion triggers
+- **THEN** it requests completion only from claimants advertising that character
+- **AND** letters continue to use the ordinary completion route
+### Requirement: Refuse multi-document rename answers
+
+The code window SHALL inspect the whole rename WorkspaceEdit before applying any edits. If any URI
+other than its own has a non-empty edit list, it SHALL refuse the whole answer and name those documents
+using loaded member names resolved by the navigation URI rule, falling back to the URI when unresolved.
+Empty lists for other documents SHALL NOT prevent applying edits to the current document.
+
+#### Scenario: Rename reaches another document
+- **WHEN** a rename answer edits another document, whether or not it also edits the current document
+- **THEN** the current buffer remains unchanged and the refusal identifies the other documents
+
+#### Scenario: Another document has no edits
+- **WHEN** the answer edits the current document and has only empty lists for other documents
+- **THEN** the current document's edits follow the usual single-document rename checks
+
+
+### Requirement: Signature parameter label unions
+
+The client SHALL accept signature-help parameter labels as strings or UTF-16 offset pairs into the
+signature label. The popup SHALL use the exact offset range for highlighting and parameter text.
+String labels SHALL retain first-match highlighting; an out-of-bounds offset SHALL produce no highlight.
+A reply that fails deferred result deserialization SHALL be recorded as Failed with an answer-dropped
+explanation, retaining any captured reply body.
+
+#### Scenario: Offset parameter label
+- **WHEN** a server answers signature help with a parameter label `[start, end]`
+- **THEN** the popup highlights that range of the signature and displays its text with the parameter documentation
+
+#### Scenario: Unreadable result
+- **WHEN** a received reply fails deferred result deserialization
+- **THEN** the connection record marks the exchange Failed with an answer-dropped explanation
+- **AND** any captured reply body remains available
+
+### Requirement: Semantic tokens SHALL overlay lexical colours
+The client SHALL declare relative, full semantic token requests with the standard token types and modifiers,
+and without overlapping or multiline tokens. It SHALL ask only the highest-priority document claimant that
+advertises full semantic tokens, decoding against that claimant's legend. Editors SHALL ask on attachment,
+500 ms after changes, and when the server state changes. Tokens SHALL override lexical foreground colours
+only on their ranges; read-only region and diagnostic colours SHALL retain their precedence.
+
+An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
+permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
+version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+
+#### Scenario: A server colours a name differently from the lexical rules
+- **WHEN** a full response classifies a range as a class
+- **THEN** that range uses the theme's type colour
+- **AND** uncovered text keeps its lexical colour
+
+#### Scenario: Analysis is not ready
+- **WHEN** a full request fails
+- **THEN** the editor keeps lexical colouring
+- **AND** a later edit schedules another full request
+
+### Requirement: Initialize UI locale
+
+The client SHALL send `initialize.locale` as the resolved Options Language setting's BCP 47 tag,
+using the same system-language resolution as the IDE and `en` for either pseudo-locale.
+The client SHALL read the locale at each handshake and SHALL NOT restart servers automatically
+when the UI language changes.
+
+#### Scenario: Language changes between connections
+- **WHEN** the UI language changes while a server is connected
+- **THEN** the existing connection stays open
+- **AND** the next connection's initialize request carries the newly resolved locale

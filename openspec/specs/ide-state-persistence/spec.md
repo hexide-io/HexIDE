@@ -34,9 +34,20 @@ someone who closed the toolbox because they work in code did so deliberately. Si
 visibility: a properties panel restored to a default width is one the developer has to widen again before
 they can read it.
 
+#### Scenario: Toolbox home
+- **WHEN** the IDE starts without recorded state or resets its window layout
+- **THEN** the Toolbox is open in the left region
+- **AND** closing and reopening it returns it to that region and records it as open for restart
+- **AND** the recreated left dock is nonempty and receives visible layout space
+
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted
 - **THEN** the same arrangement is restored
+
+#### Scenario: A live tool in an unrecognized dock arrangement
+- **WHEN** a tool is still in the live layout tree but its dock cannot be mapped to a persisted region
+- **THEN** it SHALL be recorded as open in its home region
+- **AND** a tool absent from the live tree is still recorded as closed, even if its owner reference remains
 
 ### Requirement: Restoration SHALL degrade to a usable layout
 Where recorded state cannot be applied — because it is missing, unreadable, or describes an arrangement that
@@ -53,6 +64,7 @@ developer locked out of the IDE by its own remembered layout has no way to reset
 #### Scenario: A layout referring to something that no longer exists
 - **WHEN** recorded state describes a tool window the IDE no longer has
 - **THEN** the rest of the layout is applied and the unknown entry is ignored
+- **AND** each unknown tool key is logged once per restore, even if it appears more than once
 
 #### Scenario: A window positioned off-screen
 - **WHEN** the recorded position is not visible on any attached display

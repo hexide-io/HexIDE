@@ -167,9 +167,10 @@ public class MultiModuleTests : BaseVBTestFixture
     {
         // A `With` in the caller must NOT be visible inside a called Sub — a leading `.Print` there is Error 91.
         // (This is the per-activation With fix folded into Phase 1.)
-        Func<Task> act = () => Run(
+        Func<Task> act = () => RunClasses(
             "Sub UsesLeadingDot()\n.Print 1\nEnd Sub\n" +
-            "With Debug\nUsesLeadingDot\nEnd With\n");
+            "Dim c As Box\nSet c = New Box\nWith c\nUsesLeadingDot\nEnd With\n",
+            ("Box", "Public N As Integer\n"));
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(91);
     }
 
@@ -184,13 +185,17 @@ public class MultiModuleTests : BaseVBTestFixture
         await act.Should().ThrowAsync<VBCompileErrorException>();
     }
 
-    [Fact]
-    public async Task LibraryQualified_UnknownMember_Statement_Errors()
+    [Theory]
+    [InlineData("VBA.Frobnicate 1")]
+    [InlineData("Call VBA.Frobnicate(1)")]
+    [InlineData("VBA.CallByName o, \"Foo\", VbMethod")]
+    [InlineData("Call VBA.CallByName(o, \"Foo\", VbMethod)")]
+    public async Task LibraryQualified_UnknownMember_Statement_IsNotTrappable(string statement)
     {
-        // A library-qualified unknown member invoked as a STATEMENT must error (as the expression form does),
-        // not silently no-op.
-        Func<Task> act = () => Run("VBA.NoSuchThing 5\n");
-        await act.Should().ThrowAsync<VBRunTimeException>();
+        Func<Task> act = () => Run("On Error Resume Next\nDim o As Object\n" + statement + "\nDebug.Print \"continued\"\n");
+
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Sub or Function not defined*");
+        AssertDebugLog([]);
     }
 
     [Fact]

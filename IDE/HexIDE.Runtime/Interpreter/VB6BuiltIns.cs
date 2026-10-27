@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
@@ -117,6 +117,8 @@ public partial class VB6BuiltIns
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
+        // LoadPicture accepts only the measured file-path shape; its other conversions refuse there.
+        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)) return arg;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
@@ -169,6 +171,7 @@ public partial class VB6BuiltIns
         RegisterMath(d);
         RegisterArray(d);
         RegisterInspection(d);
+        d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);
@@ -183,7 +186,8 @@ public partial class VB6BuiltIns
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));
         d["FileLen"] = (self, a, _) => new Vb6Value((long)self.Files.FileLength(AsStr(a[0])));
-        d["FileDateTime"] = (self, a, _) => new Vb6Value(self.Files.FileDateTime(AsStr(a[0])));
+        // Whole seconds, as Now is (measured, #783), and as the file time showed when a fraction was still cut off.
+        d["FileDateTime"] = (self, a, _) => new Vb6Value(VbDate.FromDateTime(WholeSeconds(self.Files.FileDateTime(AsStr(a[0])))));
         d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
         d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
@@ -368,8 +372,26 @@ public partial class VB6BuiltIns
     /// <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
         => VB6InBoxLibraries.TryBare(name, out constant)
-           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant));
+           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant))
+           || TryControlLibraryConstant(name, out constant);
 
     /// <summary>Whether the project references the CommonDialog control, whose constants then resolve (#1084).</summary>
     internal bool CommonDialogReferenced { get; set; }
+
+    /// <summary>
+    /// The in-box control libraries the project references, in its order (#1082). Their constants resolve as the
+    /// CommonDialog's do, after the four in-box libraries, and only while the project references the library: a bare
+    /// <c>ccScrollingSmooth</c> without MSCOMCTL.OCX is an undeclared variable, as in VB6. The 5.0 and 6.0 libraries
+    /// declare their 152 shared names with the same values in the same enums (measured), so their order never changes a value.
+    /// </summary>
+    internal IReadOnlyList<Components.InBox.RuntimeLibrary> ControlLibraries { get; set; } = [];
+
+    private bool TryControlLibraryConstant(string name, out Vb6Value constant)
+    {
+        foreach (var library in ControlLibraries)
+            if (library.TryBare(name, out constant))
+                return true;
+        constant = default;
+        return false;
+    }
 }

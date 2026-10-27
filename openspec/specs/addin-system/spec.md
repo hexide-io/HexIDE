@@ -48,7 +48,7 @@ need its own bespoke unregister call.
 - **THEN** every loaded add-in is disposed
 
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
-The host surface SHALL let an add-in add menu items at a named location, register a dockable tool window
+The host surface SHALL let an add-in add menu items under Tools or AddIns (case-insensitive), register a dockable tool window
 from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
 project template. A contributed control SHALL NOT be a container, and a form nesting a control under one
 SHALL be held read-only rather than saved.
@@ -69,10 +69,20 @@ such a form is recoverable; writing it is not.
 - **THEN** it appears there, visually separated from the IDE's own items
 - **AND** it can supply a predicate that greys the item out when unavailable
 
+Unknown menu locations SHALL be logged with the contributing add-in's identity and requested path, and
+the placement SHALL be dropped without removing a separately registered command. AddIns SHALL also accept
+a submenu name after `/`; Tools SHALL retain its flat placement. A dropped placement SHALL return a
+harmless disposable handle.
+
+#### Scenario: Contributing to an unknown menu location
+- **WHEN** an add-in requests a menu location other than Tools or AddIns, including an empty path
+- **THEN** the host logs the add-in and requested path and adds no menu item
+- **AND** a separately registered command remains available
+
 #### Scenario: Contributing a tool window
 - **WHEN** an add-in registers a tool window with a factory
 - **THEN** the window docks, floats and hides like a built-in one
-- **AND** its content is constructed on first display rather than at registration
+- **AND** its content is constructed eagerly at registration
 
 #### Scenario: Contributing a control
 - **WHEN** an add-in registers a custom VB6 control
@@ -118,7 +128,9 @@ back must be able to wait for the edit to land rather than guess.
 
 ### Requirement: A failing add-in SHALL NOT affect the IDE or other add-ins
 Loading and initializing each add-in SHALL be isolated so that a failure is recorded against that add-in
-alone, and the IDE and every other add-in SHALL continue to load.
+alone, and the IDE and every other add-in SHALL continue to load. If initialization fails, the IDE SHALL
+remove registrations and lifecycle subscriptions made during that initialization, dispose the failed
+instance, and retain the original failure even if cleanup throws.
 
 Third-party code fails, and it fails at startup where the damage is greatest. If one add-in throwing
 prevented the IDE from starting, the user's only recovery would be to find and delete files by hand — from
@@ -127,7 +139,14 @@ an IDE they cannot open.
 #### Scenario: An add-in throws during initialization
 - **WHEN** an add-in throws while initializing
 - **THEN** it is recorded as failed with the reason
+- **AND** its earlier contributions and lifecycle subscriptions are removed
 - **AND** the IDE and the remaining add-ins load normally
+
+#### Scenario: A tool-window factory throws during initialization
+- **WHEN** an add-in registers contributions and then a tool-window factory throws
+- **THEN** the factory failure is recorded against the add-in
+- **AND** no contribution from that initialization remains
+- **AND** cleanup continues even when a removal observer or the failed instance's disposal throws
 
 ### Requirement: Each add-in SHALL load in its own isolated context
 Each add-in SHALL be loaded into its own unloadable context, and its private dependencies SHALL resolve
@@ -169,7 +188,8 @@ header included, and every position it reads or writes SHALL be counted from the
 document's content SHALL accept either the whole file with its header unchanged or the code alone, keeping the
 header, and SHALL be refused if it would change the header, or a member's attribute lines other than by moving or
 renaming them with that member or deleting them with its declaration. An edit to a range of a document SHALL be
-refused if it would change the header or any other read-only region. Either refusal SHALL tell the add-in why, and
+refused if its requested span would change the header or any other read-only region. An empty range edit
+removing a declaration's whole text SHALL also remove its Attribute run, as a key deletion does. Either refusal SHALL tell the add-in why, and
 a refusal for a member's attribute lines SHALL name the member.
 
 An add-in SHALL be able to name a document by its project as well as its name, and SHALL be able to reach a
@@ -197,3 +217,24 @@ write did not land.
 #### Scenario: Two projects with a document of the same name
 - **WHEN** an add-in names such a document without naming a project
 - **THEN** the call is refused and the add-in is told the name is ambiguous
+
+### Requirement: Add-in tool window placement SHALL survive delayed registration
+The IDE SHALL save contributed tool windows by their registration ID in a separate add-in key namespace,
+including their open state, left/right/bottom dock region, stack order and proportion. It SHALL retain saved entries
+before the matching add-in registers, including across eager saves, and apply them when registration arrives.
+Reset Window Layout SHALL discard saved add-in placements, return open registered add-in tools to the right
+column and keep closed tools closed. A new tool SHALL use the right column by default.
+
+#### Scenario: An add-in registers after the layout is loaded
+- **WHEN** a saved add-in tool registers after startup
+- **THEN** an open tool returns to its saved region, order and proportion
+- **AND** a saved closed tool remains closed until explicitly shown
+
+#### Scenario: Saving before registration
+- **WHEN** the IDE saves its layout before a saved add-in tool registers
+- **THEN** its saved entry is preserved for later registration
+
+#### Scenario: Resetting with registered add-in tools
+- **WHEN** the developer resets the window layout with add-in tools registered
+- **THEN** open add-in tools return to the default right column
+- **AND** closed add-in tools remain closed

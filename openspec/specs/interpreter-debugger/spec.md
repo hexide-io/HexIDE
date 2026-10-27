@@ -43,12 +43,17 @@ VB6 discarded breakpoints when the project closed. HexIDE keeps them, stored per
 ### Requirement: Breakpoints SHALL only take effect in code loaded for the run
 A breakpoint SHALL cause a break only when it sits in code loaded into the interpreter for the current run.
 
-A run loads the startup form's code into the interpreter. Breakpoints in other modules are stored, shown and persisted, but the code they sit in is not executing, so they cannot be reached.
+A form's run loads its code and the project's standard (`.bas`) and class (`.cls`) modules into the interpreter. UserControl (`.ctl`) and PropertyPage (`.pag`) modules are not loaded as free-standing modules by this path.
 
 #### Scenario: A breakpoint in a standard or class module
-- **WHEN** the developer sets a breakpoint in a `.bas` or `.cls` module and runs the project
+- **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
+- **THEN** execution breaks at that line under the module's name
+- **AND** the stop reason is `Breakpoint`, with the line counted from the top of the module's file
+
+#### Scenario: A breakpoint in a UserControl or PropertyPage module
+- **WHEN** the developer sets a breakpoint in a `.ctl` or `.pag` module and runs the startup form
 - **THEN** the breakpoint is retained and displayed
-- **AND** execution does not break there, because that module's code is not loaded for the run
+- **AND** the form's module-loading path does not load that module as a free-standing module
 
 ### Requirement: The developer SHALL be able to suspend and resume a running program
 The IDE SHALL let the developer break into a running program, continue from break mode, and end the run from either state.
@@ -59,6 +64,12 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
 - **THEN** the program suspends at the next executed statement and enters break mode
 
+#### Scenario: Breaking a DoEvents loop from the IDE
+- **WHEN** a running form has focus and its event handler loops with `DoEvents`
+- **THEN** the Standard and Debug toolbar Break buttons remain enabled
+- **AND** invoking Break suspends execution at the next statement
+- **AND** those controls disable while paused and enable again on Continue
+
 #### Scenario: Continuing from break mode
 - **WHEN** the developer presses F5 while paused
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
@@ -67,6 +78,19 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **WHEN** the developer chooses End while paused
 - **THEN** the suspended execution is unwound and the project is reset
 - **AND** no `Class_Terminate` handlers run, matching VB6's `End`
+
+### Requirement: A fresh run SHALL be isolated from prior execution
+A walk suspended at a time-slice yield SHALL abort before executing its statement if the run ended or the debug
+session changed. The runner SHALL accept static fault and `End` notifications only from interpreters tagged with
+its controller and session when attached to the run.
+
+#### Scenario: Restart while a running walk has yielded
+- **WHEN** End and a fresh run's Reset happen before the old time-slice continuation resumes
+- **THEN** the old walk unwinds without executing its parked statement
+
+#### Scenario: An old or unrelated interpreter reports a fault or End
+- **WHEN** a startup-form or Sub Main run is active and another run's interpreter reports a fault or `End`
+- **THEN** the current run stays active and reports no error from that interpreter
 
 ### Requirement: A `Stop` statement SHALL enter break mode under the debugger
 A `Stop` statement SHALL enter break mode when the debugger is attached, and SHALL terminate the program when it is not.
@@ -139,6 +163,11 @@ Locals is the primary inspection surface, showing what is in scope where executi
 - **WHEN** the developer expands an array, a user-defined type, or an object instance
 - **THEN** its elements or fields are shown, guarded against cycles and bounded in depth
 
+#### Scenario: Expanding a control whose property cannot be read
+- **WHEN** the developer expands a control one of whose listed properties raises when read
+- **THEN** that property is listed with the raised error's own description in angle brackets, and no type
+- **AND** the control's other properties are still listed, and the expansion does not fail
+
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.
 
@@ -161,21 +190,22 @@ The Immediate window is VB6's primary interactive debugging surface. It is a sin
 - **THEN** a message explains that evaluation is only available in break mode
 
 ### Requirement: Editing code during a run SHALL offer VB6's reset prompt
-The IDE SHALL prompt to reset the project when code is edited during a run, because edits cannot be applied to a suspended execution.
+The IDE SHALL prompt to reset the project when code is edited during a run, because edits cannot be applied to a suspended execution. While the prompt waits, the IDE SHALL disable every other desktop window and restore each window's previous enabled state when the prompt finishes.
 
 The interpreter cannot hot-patch a running program: the execution position is a live host call stack, not a re-pointable program counter. Rather than silently diverging, HexIDE surfaces the same prompt VB6 showed whenever it could not apply an edit live — which is both honest and familiar.
 
 #### Scenario: Editing while the project is running or paused
 - **WHEN** the developer edits code while the project is running or in break mode
-- **THEN** a prompt asks whether to reset the project
-- **AND** choosing yes ends the run and keeps the edit, while choosing no reverts the edit and lets the program continue
+- **THEN** a localized prompt asks "This action will reset your project, proceed anyway?" with OK and Cancel
+- **AND** choosing OK ends the run and keeps the edit, while choosing Cancel reverts the edit and lets the program continue
 
 #### Scenario: The window the reset prompt is shown over
 - **WHEN** the reset prompt is asked while the code window's own window is visible and not minimized
 - **THEN** the prompt is modal over that window, which it disables until answered
 - **AND** when that window is minimized, the prompt is modal over the top window instead, which may be the running form
-- **AND** in VB6 the running form owns the prompt and every window of the IDE and the program is disabled; the
-  difference is recorded as D2 in `docs/debugger-vb6-divergences.md`
+- **AND** all other desktop windows, including the IDE and running forms, are disabled until the prompt finishes
+- **AND** a window that was already disabled remains disabled afterwards
+- **AND** ownership still differs from VB6, as recorded in D2 in `docs/debugger-vb6-divergences.md`
 
 ### Requirement: The debugger SHALL expose the VB6 default keyboard gestures
 The default keymap SHALL bind the VB6 debugging gestures without requiring an opt-in keymap pack.
@@ -221,9 +251,19 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** the developer chooses Debug ▸ Add Watch, or presses Shift+F9 with the caret on an identifier
 - **THEN** the Add Watch dialog opens, pre-filled with that identifier where one was under the caret
 
+#### Scenario: Localizing a watch context
+- **WHEN** the IDE language changes
+- **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog
+- **AND** named module/procedure contexts SHALL remain unchanged
+
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
+
+#### Scenario: Selecting an expanded watch child
+- **WHEN** the developer selects a child of an expanded watch after selecting another watch
+- **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key
+- **AND** rebuilding the watch rows SHALL clear selection
 
 #### Scenario: Breaking when a watch condition is met
 - **WHEN** a watch is configured to break when its expression becomes true, or when its value changes
@@ -237,6 +277,12 @@ The call stack answers "how did execution get here", which Locals alone cannot.
 #### Scenario: Viewing the call stack while paused
 - **WHEN** the developer presses Ctrl+L while paused
 - **THEN** the Call Stack window lists the active procedure activations, deepest first, each with its name and current line
+
+#### Scenario: Showing a caller
+- **WHEN** the developer selects or double-clicks a caller in the built-in Call Stack window
+- **THEN** the code window opens that module at the calling statement with a green call-site triangle
+- **AND** the current execution statement stays unchanged
+- **AND** the call-site marker clears on continuing or the next break
 
 #### Scenario: A concurrent event frozen above the paused frame
 - **WHEN** an event handler was frozen by break mode after the paused frame began
@@ -283,7 +329,7 @@ default Error Trapping setting.
 
 VB6's IDE halts this way, and leaving the procedure abandoned while the program carried on let timers and clicks run
 on whatever state it had left half-updated. Measured on vb6.exe: the dialog, what runs behind it, the break's location,
-the retry, and the event boundary (`docs/vb6-fidelity-oracle.md`, "An unhandled run-time error"). The exception for a
+the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error"). The exception for a
 class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 
 #### Scenario: An event procedure divides by zero
@@ -313,3 +359,38 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 - **WHEN** a procedure with no handler of its own, in a standard module or a class, raises an error, and a caller with an
   active handler called it from the same event
 - **THEN** the caller's handler runs and the program does not halt
+
+### Requirement: Run state in the IDE chrome
+The IDE SHALL show localized design, run and break title tags, with break selected while the interpreter debugger is paused. The no-project title SHALL be localized. Title and OS window title SHALL refresh on debugger stop, continue and language changes. The running status message SHALL be cleared while paused and restored on continuing a running program.
+
+#### Scenario: Pausing and continuing
+- **WHEN** a running program pauses at a breakpoint, a Stop statement, a step or a requested break
+- **THEN** the title shows the break tag and the running status message is cleared
+- **WHEN** execution continues
+- **THEN** the title shows the run tag and the running status message returns
+
+### Requirement: Procedure boundary stop positions
+
+The interpreter debugger SHALL honour breakpoints on Sub declarations before
+executing their bodies, and on Sub, Function and Property Get natural End lines after the last statement and before returning.
+A step from the last statement of a called Sub or Function SHALL stop on its End line; the following step
+SHALL reach the caller's next line. These positions retain the callee's frame until return (#2172).
+Entry procedures SHALL retain breakpoint-only End positions, so startup stepping advances from
+Initialize's last statement into Load's first statement.
+
+#### Scenario: Break on a procedure's natural End line
+- **WHEN** a procedure finishes its last statement with a breakpoint on its End line
+- **THEN** execution pauses on that line before the caller continues
+- **AND** the call stack still contains the callee
+
+#### Scenario: Step from a Function's last statement
+- **WHEN** Step Over runs the Function's last statement
+- **THEN** execution pauses on End Function
+- **AND** the next Step Over pauses on the caller's next line
+
+#### Scenario: Step through form startup
+- **WHEN** Step Into from design mode starts a form with Form_Initialize
+- **THEN** execution pauses on Initialize's first statement
+- **AND** a step from its last statement pauses on Load's first statement
+- **WHEN** the form has no Form_Initialize
+- **THEN** the initial step pauses on Load's first statement

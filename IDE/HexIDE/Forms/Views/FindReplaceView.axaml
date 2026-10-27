@@ -21,25 +21,25 @@
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel DockPanel.Dock="Left" Spacing="6" Width="260">
+        <StackPanel DockPanel.Dock="Left" Spacing="6" MinWidth="320" MaxWidth="520">
 
-            <!-- Find What -->
+            <!-- Find What. Both boxes hold code, so they read left to right whatever the IDE's language (#1944). -->
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" Width="75" />
-                <TextBox Text="{CompiledBinding SearchText, Mode=TwoWay}" />
+                <TextBox Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight" />
             </DockPanel>
 
             <!-- Replace With (conditional) -->
             <DockPanel IsVisible="{CompiledBinding ShowReplace}">
                 <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" Width="75" />
-                <TextBox Text="{CompiledBinding ReplaceText, Mode=TwoWay}" />
+                <TextBox Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight" />
             </DockPanel>
 
             <!-- Search scope -->
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" Width="75" />
                 <ComboBox ItemsSource="{CompiledBinding ScopeItems}"
-                          SelectedIndex="{CompiledBinding SelectedScopeIndex}"
+                          SelectedIndex="{CompiledBinding SelectedScopeIndex, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
             </DockPanel>
 

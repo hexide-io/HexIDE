@@ -273,6 +273,20 @@ public class FormControlsTests
         printed.Should().Equal("cleared cleared");
     }
 
+    [AvaloniaFact]
+    public void ControlsEnumeration_ReadsDisabledContainers()
+    {
+        var printed = Printed("""
+            Frame1.Enabled = False
+            Dim c As Control
+            For Each c In Me.Controls
+                If c.Name = "Check1" Then Debug.Print c.Enabled
+            Next
+            """);
+
+        printed.Should().Equal("False");
+    }
+
     // ── Item ─────────────────────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
@@ -292,6 +306,23 @@ public class FormControlsTests
             "Timer1 Command1 Text1 Frame1 Check1 Text1 Label1 Line1 mnuFile mnuOpen ",
             "Timer1 Command1 Check1 mnuOpen",
             "Label1 Command1 True");
+    }
+
+    [AvaloniaFact]
+    public void Bang_on_Me_reads_a_controls_name()
+    {
+        Printed("Debug.Print Me!Command1.Name").Should().Equal("Command1");
+    }
+
+    [AvaloniaFact]
+    public void Bang_on_Me_returns_the_same_control_as_Controls()
+    {
+        Printed("""
+            Dim c As Object
+            Set c = Me!Command1
+            Debug.Print c Is Controls!Command1
+            Debug.Print c Is Controls("Command1")
+            """).Should().Equal("True", "True");
     }
 
     // A number is an index as CInt makes one, so 2.5 is 2. A String is an index only when it starts with a digit: VB6 reads

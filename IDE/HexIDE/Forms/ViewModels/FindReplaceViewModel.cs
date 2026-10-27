@@ -1,6 +1,9 @@
 using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Linq;
+using System.Threading.Tasks;
+using HexIDE.Lsp.Messages;
 using Avalonia.Data.Converters;
 using AvaloniaEdit.Document;
 using HexIDE.Utils;
@@ -34,28 +37,14 @@ public static class FindDirectionConverters
 /// <summary>
 /// How far a search reaches.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>There used to be a third member, <c>CurrentProject</c>, and it was removed rather than implemented.</b>
-/// Every one of the three was offered by the dialog and read by nothing — a control that takes a choice and
-/// ignores it, documented as a gap twice over and drawn for another year each time (hexide-io/HexIDE#363).
-/// So each was made to mean something or taken away, and they did not come out the same.
-/// </para>
-/// <para>
-/// <see cref="AllOpenDocuments"/> is answerable from what the dock already holds: every open document, each
-/// with a live buffer. <c>CurrentProject</c> is not. A project's modules are mostly <em>not</em> open, and
-/// their text lives in <c>ModuleDefinition.Code</c> / <c>FormDefinition.Code</c> — which the editor writes
-/// back only on save and on close. Searching that would read the last-saved text of every module the user
-/// currently has open and edited, and report a hit at an offset that no longer exists: a wrong answer
-/// delivered confidently, which this project ranks below a clean refusal. Doing it properly needs either a
-/// project-wide index or a flush of every editor before every keystroke of a search, and that is a
-/// capability, not a bug fix — hexide-io/HexIDE#372.
-/// </para>
-/// </remarks>
 public enum FindScope
 {
     CurrentModule,
-    AllOpenDocuments
+    AllOpenDocuments,
+    CurrentProcedure,
+    CurrentProject,
+    SelectedText,
+    AllProjects
 }
 
 public enum FindDirection
@@ -69,6 +58,14 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     private readonly IWindowManager _windowManager;
     private readonly IDocumentDockService _documentDockService;
     private readonly ILocalizationService _localization;
+    private readonly FindProjectDocuments? _projects;
+    private ISearchableDocument? _boundedDocument;
+    private (int start, int end)? _bounds;
+    private ISearchableDocument? _selectionDocument;
+    private TextAnchor? _selectionStart;
+    private TextAnchor? _selectionEnd;
+    private bool _busy;
+    private List<ISearchableDocument>? _scopeDocuments;
 
     public string Title => ShowReplace
         ? _localization.GetString("Str.FindReplace.Msg.TitleReplace")
@@ -82,7 +79,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     [Notify] private bool matchCase;
     [Notify] private bool wholeWordOnly;
     [Notify] private bool usePatternMatching;
-    [Notify] private FindScope scope = FindScope.CurrentModule;
+    [Notify] private FindScope scope = FindScope.CurrentProject;
     [Notify] private FindDirection direction = FindDirection.Down;
 
     public DelegateCommand FindNextCommand { get; }
@@ -90,31 +87,120 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     public DelegateCommand ReplaceAllCommand { get; }
     public DelegateCommand CancelCommand { get; }
 
-    // Scope items for the combo box
-    public string[] ScopeItems { get; }
+    private FindScope[] AvailableScopes => _projects?.HasGroup == true
+        ? [FindScope.CurrentProcedure, FindScope.CurrentModule, FindScope.CurrentProject,
+            FindScope.SelectedText, FindScope.AllOpenDocuments, FindScope.AllProjects]
+        : [FindScope.CurrentProcedure, FindScope.CurrentModule, FindScope.CurrentProject,
+            FindScope.SelectedText, FindScope.AllOpenDocuments];
+
+    public string[] ScopeItems => AvailableScopes.Select(item => item switch
+    {
+        FindScope.CurrentProject when _projects?.CurrentProject is { } project =>
+            string.Format(_localization.GetString("Str.FindReplace.Msg.ScopeCurrentProject"), project.Name),
+        FindScope.CurrentProject => _localization.GetString("Str.FindReplace.Msg.ScopeCurrentProjectUnnamed"),
+        _ => _localization.GetString("Str.FindReplace.Msg.Scope" + item)
+    }).ToArray();
 
     public int SelectedScopeIndex
     {
-        get => (int)Scope;
-        set => Scope = (FindScope)value;
+        get => Array.IndexOf(AvailableScopes, Scope);
+        set { if (value >= 0 && value < AvailableScopes.Length) Scope = AvailableScopes[value]; }
     }
 
-    public FindReplaceViewModel(IWindowManager windowManager, IDocumentDockService documentDockService, ILocalizationService localization)
+    public FindReplaceViewModel(IWindowManager windowManager, IDocumentDockService documentDockService,
+        ILocalizationService localization) : this(windowManager, documentDockService, localization, null) { }
+
+    internal FindReplaceViewModel(IWindowManager windowManager, IDocumentDockService documentDockService,
+        ILocalizationService localization, FindProjectDocuments? projects)
     {
         _windowManager = windowManager;
         _documentDockService = documentDockService;
         _localization = localization;
+        _projects = projects;
 
-        ScopeItems =
-        [
-            _localization.GetString("Str.FindReplace.Msg.ScopeCurrentModule"),
-            _localization.GetString("Str.FindReplace.Msg.ScopeAllOpenDocuments")
-        ];
-
-        FindNextCommand = new DelegateCommand(ExecuteFindNext, () => SearchText.Length > 0);
-        ReplaceOneCommand = new DelegateCommand(ExecuteReplaceOne, () => SearchText.Length > 0);
-        ReplaceAllCommand = new DelegateCommand(ExecuteReplaceAll, () => SearchText.Length > 0);
+        FindNextCommand = new DelegateCommand(() => RunAsync(ExecuteFindNext).ListenErrors(), () => SearchText.Length > 0);
+        ReplaceOneCommand = new DelegateCommand(() => RunAsync(ExecuteReplaceOne).ListenErrors(), () => SearchText.Length > 0);
+        ReplaceAllCommand = new DelegateCommand(() => RunAsync(ExecuteReplaceAllAsync).ListenErrors(), () => SearchText.Length > 0);
         CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false), () => true);
+    }
+
+    internal void RefreshScopes()
+    {
+        if (Scope == FindScope.AllProjects && _projects?.HasGroup != true) Scope = FindScope.CurrentProject;
+        OnPropertyChanged(nameof(ScopeItems));
+        OnPropertyChanged(nameof(SelectedScopeIndex));
+    }
+
+    private void OnScopeChanged()
+    {
+        _selectionDocument = null;
+        OnPropertyChanged(nameof(SelectedScopeIndex));
+    }
+
+    internal Task FindNextAsync() => RunAsync(ExecuteFindNext);
+    internal Task ReplaceAllAsync() => RunAsync(ExecuteReplaceAllAsync);
+    internal Task ReplaceOneAsync() => RunAsync(ExecuteReplaceOne);
+
+    private async Task RunAsync(Action action)
+    {
+        await RunAsync(() => { action(); return Task.CompletedTask; });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            _scopeDocuments = Scope is FindScope.CurrentProject or FindScope.AllProjects
+                ? _projects?.GetDocuments(Scope == FindScope.AllProjects) : null;
+            _boundedDocument = GetActiveEditor();
+            _bounds = null;
+            if (_boundedDocument is { } active)
+            {
+                if (Scope == FindScope.SelectedText)
+                {
+                    if (!ReferenceEquals(_selectionDocument, active))
+                    {
+                        _selectionDocument = active;
+                        _selectionStart = active.Document.CreateAnchor(active.SelectionStart);
+                        _selectionEnd = active.Document.CreateAnchor(active.SelectionStart + active.SelectionLength);
+                        _selectionStart.SurviveDeletion = _selectionEnd.SurviveDeletion = true;
+                        _selectionStart.MovementType = AnchorMovementType.BeforeInsertion;
+                        _selectionEnd.MovementType = AnchorMovementType.AfterInsertion;
+                    }
+                    _bounds = (_selectionStart!.Offset, _selectionEnd!.Offset);
+                }
+                else if (Scope is FindScope.CurrentProcedure or FindScope.CurrentModule)
+                {
+                    var version = active.Document.Version;
+                    var symbols = await active.RequestSearchSymbolsAsync();
+                    if (!ReferenceEquals(version, active.Document.Version)
+                        || !ReferenceEquals(active, _documentDockService.ActiveDocument)) return;
+                    var kinds = Scope == FindScope.CurrentProcedure
+                        ? new[] { SymbolKind.Method, SymbolKind.Function, SymbolKind.Property, SymbolKind.Constructor }
+                        : new[] { SymbolKind.Module, SymbolKind.Namespace };
+                    _bounds = symbols.SelectMany(symbol => symbol.Flatten())
+                        .Where(symbol => kinds.Contains(symbol.Kind))
+                        .Select(symbol => SearchBounds(active.Document, symbol))
+                        .Where(range => range is { } span && span.start <= active.CaretOffset && active.CaretOffset <= span.end)
+                        .OrderBy(range => range!.Value.end - range.Value.start).FirstOrDefault();
+                }
+            }
+            await action();
+        }
+        finally { _busy = false; }
+    }
+
+    private static (int start, int end)? SearchBounds(TextDocument document, DocumentSymbol symbol)
+    {
+        var start = symbol.Range.Start;
+        var end = symbol.Range.End;
+        if (start.Line < 0 || end.Line < start.Line || end.Line >= document.LineCount) return null;
+        var first = document.GetLineByNumber(start.Line + 1);
+        var last = document.GetLineByNumber(end.Line + 1);
+        if (start.Character < 0 || start.Character > first.Length || end.Character < 0 || end.Character > last.Length) return null;
+        return (first.Offset + start.Character, last.Offset + end.Character);
     }
 
     private void OnSearchTextChanged()
@@ -139,7 +225,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// </remarks>
     private ISearchableDocument? GetActiveEditor()
     {
-        return _documentDockService.ActiveDocument as ISearchableDocument;
+        var active = _documentDockService.ActiveDocument as ISearchableDocument;
+        return _scopeDocuments is { } documents
+            ? active is not null && documents.Contains(active) ? active : documents.FirstOrDefault()
+            : active;
     }
 
     /// <summary>
@@ -176,14 +265,12 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// </summary>
     private List<ISearchableDocument> OtherDocumentsInScope(ISearchableDocument active)
     {
-        if (Scope == FindScope.CurrentModule) return [];
+        if (Scope is FindScope.CurrentModule or FindScope.CurrentProcedure or FindScope.SelectedText) return [];
 
-        var all = new List<ISearchableDocument>();
-        foreach (var open in _documentDockService.OpenDocuments)
-        {
-            if (open is ISearchableDocument searchable)
-                all.Add(searchable);
-        }
+        var all = Scope is FindScope.CurrentProject or FindScope.AllProjects
+            ? _scopeDocuments ?? []
+            : _documentDockService.OpenDocuments.OfType<ISearchableDocument>().ToList();
+        if (!all.Contains(active)) all.Insert(0, active);
 
         var index = all.IndexOf(active);
         if (index < 0) return [];
@@ -211,7 +298,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// </remarks>
     private (ISearchableDocument document, int offset, int length)? FindInScope(ISearchableDocument active)
     {
-        var single = Scope == FindScope.CurrentModule;
+        var single = Scope is FindScope.CurrentModule or FindScope.CurrentProcedure or FindScope.SelectedText;
 
         var here = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: single,
             active.IsReadOnlyRegion);
@@ -235,6 +322,11 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// <summary>Shows the match, bringing its document to the front first when it is not the active one.</summary>
     private void SelectMatch(ISearchableDocument target, int offset, int length)
     {
+        if (target is FindProjectDocuments.UnopenedDocument unopened)
+        {
+            target = unopened.Open()!;
+            if (target is null) return;
+        }
         if (!ReferenceEquals(target, _documentDockService.ActiveDocument)
             && target is BaseEditorWindowViewModel window)
         {
@@ -261,7 +353,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         if (result is null)
         {
             _windowManager.MessageBox(
-                string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText),
+                string.Format(_localization.GetString(ProtectedMatchesInScope(editor) > 0
+                    ? "Str.FindReplace.Msg.ProtectedOnly" : "Str.FindReplace.Msg.NotFound"), SearchText),
                 _localization.GetString("Str.FindReplace.Msg.TitleFind"),
                 MessageBoxButtons.Ok,
                 MessageBoxIcon.Information);
@@ -286,9 +379,16 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             var selectedText = editor.Document.GetText(editor.SelectionStart, editor.SelectionLength);
             // Never inside the header or a member's attribute lines (#273 task 3.9): VB6 never searched the
             // header, because it was not in the code window, and a match there is text only the IDE changes.
-            if (!editor.IsReadOnlyDocument && IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
+            if (!editor.IsReadOnlyDocument && InBounds(editor.Document, editor.SelectionStart, editor.SelectionLength) && IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
             {
-                editor.Document.Replace(editor.SelectionStart, editor.SelectionLength, ReplaceText);
+                var span = ReplaceText.Length == 0
+                    ? editor.WidenDeletion(editor.SelectionStart, editor.SelectionLength)
+                    : (editor.SelectionStart, editor.SelectionLength);
+                editor.Document.Replace(span.Item1, span.Item2, ReplaceText);
+                if (Scope == FindScope.SelectedText)
+                    _bounds = (_selectionStart!.Offset, _selectionEnd!.Offset);
+                else if (_bounds is { } bounds)
+                    _bounds = (bounds.start, bounds.end + ReplaceText.Length - span.Item2);
                 editor.CaretOffset = editor.SelectionStart + ReplaceText.Length;
                 editor.SelectionLength = 0;
             }
@@ -298,7 +398,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         ExecuteFindNext();
     }
 
-    private void ExecuteReplaceAll()
+    private async Task ExecuteReplaceAllAsync()
     {
         var editor = GetActiveEditor();
         if (editor is null)
@@ -307,20 +407,57 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             return;
         }
 
-        // Scope means the same thing to Replace All as it does to Find. Honouring it in one and not the
-        // other would leave the combo telling the truth in Find mode and lying in Replace mode, which is
-        // the defect this change exists to end rather than to halve.
-        var count = ReplaceAllIn(editor);
-        foreach (var other in OtherDocumentsInScope(editor))
-            count += ReplaceAllIn(other);
+        var documents = new List<ISearchableDocument> { editor };
+        documents.AddRange(OtherDocumentsInScope(editor));
+        var matching = documents.Where(document => FindPrevious(document.Document, document.Document.TextLength,
+            document.IsReadOnlyRegion) is not null).ToList();
+        if (matching.Count > 1 && await _windowManager.MessageBox(
+                _localization.GetString("Str.FindReplace.Msg.ConfirmAcrossFiles"), Title,
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != MessageBoxResult.Yes) return;
 
-        _windowManager.MessageBox(
-            count > 0
+        var skipped = documents.Sum(ProtectedMatchesIn);
+        var count = 0;
+        foreach (var document in matching)
+        {
+            var target = document is FindProjectDocuments.UnopenedDocument unopened ? unopened.Open() : document;
+            if (target is not null) count += ReplaceAllIn(target);
+        }
+
+        await _windowManager.MessageBox(
+            skipped > 0
+                ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped"), count, skipped)
+                : count > 0
                 ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsMade"), count)
                 : string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText),
             _localization.GetString("Str.FindReplace.Msg.TitleReplace"),
             MessageBoxButtons.Ok,
             MessageBoxIcon.Information);
+    }
+
+    private int ProtectedMatchesInScope(ISearchableDocument active)
+    {
+        var count = ProtectedMatchesIn(active);
+        foreach (var other in OtherDocumentsInScope(active))
+            count += ProtectedMatchesIn(other);
+        return count;
+    }
+
+    private int ProtectedMatchesIn(ISearchableDocument target)
+    {
+        // Count before any replacement can move the regions or introduce new matches.
+        Func<int, int, bool> isReadOnly = target.IsReadOnlyDocument
+            ? target.IsReadOnlyRegion
+            : target.SnapshotReadOnlyRegions();
+        var count = 0;
+        var pos = target.Document.TextLength;
+        while (pos > 0)
+        {
+            var match = FindPrevious(target.Document, pos, (offset, length) => !isReadOnly(offset, length));
+            if (match is null) break;
+            count++;
+            pos = match.Value.offset;
+        }
+        return count;
     }
 
     private int ReplaceAllIn(ISearchableDocument target)
@@ -344,7 +481,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
                 if (result is null) break;
 
                 pos = result.Value.offset;
-                doc.Replace(result.Value.offset, result.Value.length, ReplaceText);
+                var span = ReplaceText.Length == 0
+                    ? target.WidenDeletion(result.Value.offset, result.Value.length)
+                    : (result.Value.offset, result.Value.length);
+                doc.Replace(span.Item1, span.Item2, ReplaceText);
                 count++;
             }
         }
@@ -406,7 +546,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         }
         else
         {
-            searchStart = startOffset > 0 ? startOffset - 1 : doc.TextLength - 1;
+            searchStart = startOffset - 1;
             var text = doc.Text;
             for (int i = searchStart; i >= 0; i--)
             {
@@ -594,7 +734,11 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// A form held read-only as a whole is not a region, so Find still searches all of it.
     /// </remarks>
     private bool Accepts(TextDocument doc, int offset, int length, Func<int, int, bool> isReadOnly) =>
-        CheckWholeWord(doc, offset, length) && !isReadOnly(offset, length);
+        InBounds(doc, offset, length) && CheckWholeWord(doc, offset, length) && !isReadOnly(offset, length);
+
+    private bool InBounds(TextDocument doc, int offset, int length) =>
+        _bounds is not { } bounds || !ReferenceEquals(doc, _boundedDocument?.Document)
+        || (offset >= bounds.start && offset + length <= bounds.end);
 
     private bool CheckWholeWord(TextDocument doc, int offset, int length)
     {

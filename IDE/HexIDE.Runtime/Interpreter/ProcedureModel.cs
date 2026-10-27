@@ -36,6 +36,8 @@ public sealed record ProcedureInfo(
     // Object` one is read late all the same, as ReturnsVariant says.
     bool ReturnsObject = false)
 {
+    public Antlr4.Runtime.ParserRuleContext? Declaration { get; init; }
+
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 
     /// <summary>
@@ -73,6 +75,8 @@ public sealed record ProcedureInfo(
 
         void Walk(Antlr4.Runtime.Tree.IParseTree node)
         {
+            if (node is VB6Parser.ValueStmtContext)
+                return;   // expressions contain no declarations; long operator chains need no walk
             if (node is VB6Parser.ConstStmtContext c)
             {
                 found.AddRange(c.constSubStmt());
@@ -91,6 +95,8 @@ public sealed record ProcedureInfo(
 
         void Walk(Antlr4.Runtime.Tree.IParseTree node)
         {
+            if (node is VB6Parser.ValueStmtContext)
+                return;   // expressions contain no declarations; long operator chains need no walk
             if (node is VB6Parser.VariableStmtContext v
                 && (v.DIM() != null || v.STATIC() != null || v.visibility() != null)
                 && v.variableListStmt() is { } list)

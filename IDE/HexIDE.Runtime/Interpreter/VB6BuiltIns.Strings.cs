@@ -16,8 +16,15 @@ public partial class VB6BuiltIns
         d["Left"]       = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
         d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
-        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value((long)AsStr(a[0]).Length);   // Long — see InStr
+        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(a is IntrinsicArgumentValues { LenVariableSize: { } size } ? size : (long)AsStr(a[0]).Length);   // Long — see InStr
         d["InStr"]      = (_, a, text) => InStr(a, text);
+        d["LenB"]       = (_, a, _) => LenB(a);
+        d["AscB"]       = (_, a, _) => AscB(a[0]);
+        d["InStrB"]     = (_, a, _) => InStrB(a);
+        d["MidB"]       = (_, a, _) => NullOrStr(a[0], s => MidB(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : null));
+        d["LeftB"]      = (_, a, _) => NullOrStr(a[0], s => LeftB(s, AsInt(a[1])));
+        d["RightB"]     = (_, a, _) => NullOrStr(a[0], s => RightB(s, AsInt(a[1])));
+        d["ChrB"]       = (_, _, _) => throw OddByteString("ChrB");
         d["InStrRev"]   = (_, a, text) => InStrRev(a, text);
         d["Replace"]    = (_, a, text) => new Vb6Value(Replace(a, text));
         d["Trim"]       = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));
@@ -125,6 +132,91 @@ public partial class VB6BuiltIns
         v.IsNull ? Vb6Value.Null : new Vb6Value(fn(AsStr(v)));
 
     private static VBRunTimeException InvalidCall() => new(VBStandardError.InvalidProcedureCall);
+
+    // The byte-string functions (#1510), measured on vb6.exe, native and p-code alike. A String is a run of bytes, two to a
+    // character with the low byte first, and each of these counts bytes where its plain form counts characters: LenB("abc")
+    // is 6, LeftB("abc", 4) is "ab", and InStrB("abc", "b") is 3.
+
+    // LenB: a declared scalar's size, as Len gives it, and otherwise twice the length of the text, a Variant's included
+    // (LenB of a Variant holding 12345 is 10). A Type's size in memory is padded, LenB of an Integer and a Long being 8
+    // where Len is 6, and isn't built.
+    private static Vb6Value LenB(IReadOnlyList<Vb6Value> a)
+    {
+        if (a[0].IsNull) return Vb6Value.Null;
+        if (a is IntrinsicArgumentValues { LenVariableSize: { } size }) return new Vb6Value(size);
+        if (a[0].Type == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("LenB of a user-defined type is not implemented: it is the Type's size in memory, "
+                + "padded, which HexIDE does not lay out (#1510).");
+        return new Vb6Value(2L * AsStr(a[0]).Length);
+    }
+
+    // AscB: the string's first byte, a Byte. An empty string is 5, and Null 94.
+    private static Vb6Value AscB(Vb6Value v)
+    {
+        if (v.IsNull) throw InvalidUseOfNull();
+        var s = AsStr(v);
+        return s.Length > 0 ? new Vb6Value((byte)s[0]) : throw InvalidCall();
+    }
+
+    // InStrB([start,] string1, string2[, compare]): the byte at which string2 first starts, at or after the byte start, or 0. A
+    // match may start inside a character. The compare is read and ignored: the search is always by byte, so "b" is not in
+    // "ABC" even with vbTextCompare. Unlike InStr, an empty string2 is found at start only within string1.
+    private static Vb6Value InStrB(IReadOnlyList<Vb6Value> a)
+    {
+        int start = 1, i = 0;
+        if (a.Count >= 3) { start = AsInt(a[0]); i = 1; }
+        if (Supplied(a, 3)) AsInt(a[3]);
+        if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
+        if (start < 1) throw InvalidCall();
+        string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
+        int bytes = 2 * s1.Length, findBytes = 2 * s2.Length;
+        if (bytes == 0 || start > bytes) return new Vb6Value(0L);
+        for (var at = start - 1; at + findBytes <= bytes; at++)
+        {
+            var k = 0;
+            while (k < findBytes && ByteAt(s1, at + k) == ByteAt(s2, k))
+                k++;
+            if (k == findBytes)
+                return new Vb6Value((long)at + 1);
+        }
+        return new Vb6Value(0L);
+    }
+
+    // MidB, LeftB and RightB: a start below 1 or a negative length is 5, and a length past the end takes what there is.
+    private static string MidB(string s, int start, int? length)
+    {
+        if (start < 1 || length < 0) throw InvalidCall();
+        var bytes = 2 * s.Length;
+        if (start > bytes) return "";
+        return ByteSlice(s, start - 1, Math.Min(length ?? bytes, bytes - (start - 1)), "MidB");
+    }
+
+    private static string LeftB(string s, int length) =>
+        length < 0 ? throw InvalidCall() : ByteSlice(s, 0, Math.Min(length, 2 * s.Length), "LeftB");
+
+    private static string RightB(string s, int length)
+    {
+        if (length < 0) throw InvalidCall();
+        var take = Math.Min(length, 2 * s.Length);
+        return ByteSlice(s, 2 * s.Length - take, take, "RightB");
+    }
+
+    private static byte ByteAt(string s, int i) => (byte)(i % 2 == 0 ? s[i / 2] : s[i / 2] >> 8);
+
+    // The bytes from the 0-based start, as a String. Bytes that pair up make characters, wherever they start: MidB("abc", 2, 2)
+    // is the character &H6200. An odd number of them is a String HexIDE cannot hold, its strings being whole characters.
+    private static string ByteSlice(string s, int start, int length, string function)
+    {
+        if (length % 2 != 0) throw OddByteString(function);
+        var chars = new char[length / 2];
+        for (var k = 0; k < chars.Length; k++)
+            chars[k] = (char)(ByteAt(s, start + 2 * k) | ByteAt(s, start + 2 * k + 1) << 8);
+        return new string(chars);
+    }
+
+    private static NotImplementedException OddByteString(string function) =>
+        new($"{function} gave a String of an odd number of bytes, which HexIDE cannot hold yet: its strings are whole "
+            + "characters (#1510). ChrB is always one byte.");
 
     private static string Left(string s, int n)
     {
@@ -334,7 +426,7 @@ public partial class VB6BuiltIns
         // CStr's, without the zero before the point: Str(0.5) is " .5" and Str(-0.5) is "-.5" (measured). The point
         // is always a period, which is documented rather than measured: the oracle's locale already uses one.
         double d = AsDouble(v);
-        string s = v.Value is DateTime ? AsStr(v) : VbDisplay.ToText(v, CultureInfo.InvariantCulture);
+        string s = v.Value is VbDate ? AsStr(v) : VbDisplay.ToText(v, CultureInfo.InvariantCulture);
         if (s.StartsWith("0.", StringComparison.Ordinal))
             s = s.Substring(1);
         else if (s.StartsWith("-0.", StringComparison.Ordinal))

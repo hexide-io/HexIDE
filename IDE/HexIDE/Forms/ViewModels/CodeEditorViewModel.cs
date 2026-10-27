@@ -58,6 +58,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public TextDocument Document => document;
 
+    // Per code window, deliberately absent from project and settings serialization (#1113).
+    [Notify] private int conditionalTargetIndex;
+
     [Notify] private int caretOffset;
     [Notify] private int selectionStart;
     [Notify] private int selectionLength;
@@ -111,6 +114,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public IBookmarkService BookmarkService => bookmarkService;
     public HexIDE.Debugging.IBreakpointService BreakpointService => breakpointService;
     public HexIDE.Runtime.Debugging.IDebugController DebugController => debugController;
+    public HexIDE.Tools.CallStackToolViewModel? CallStack { get; }
 
     /// <summary>True while the project is running OR paused in the debugger — the window in which a code edit
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
@@ -119,20 +123,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public bool IsProjectRunning => debugController.IsSessionActive || ExternalDebugger?.IsActive == true;
 
     /// <summary>VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program
-    /// live, so editing while running/paused pops VB6's own reset prompt. Yes → request a project reset (the edit
-    /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
+    /// live, so editing while running/paused pops VB6's own reset prompt. OK → request a project reset (the edit
+    /// then stands); Cancel → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
-    /// <param name="over">The window of the editor that asks, which the prompt holds. Shown over the active window, often the
-    /// running form, the prompt left the code window usable under it, and an automated key went in (#1290). VB6's prompt
-    /// holds the IDE and the running program together, its owner being the running form (measured, #1329); a modal here
-    /// holds one window, so it is the code window's.</param>
+    /// <param name="over">The visible editor window to show the prompt over. The prompt holds all desktop windows.</param>
     public async Task<bool> ConfirmResetWhileRunningAsync(Avalonia.Controls.Window? over = null)
     {
-        var result = await windowManager.MessageBox(
+        var result = await windowManager.TaskModalMessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
-            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning, owner: over);
-        if (result != MessageBoxResult.Yes)
+            buttons: MessageBoxButtons.OkCancel, icon: MessageBoxIcon.Warning, owner: over);
+        if (result != MessageBoxResult.Ok)
             return false;
         eventBus.Publish(new EndProjectRequestedEvent());
         return true;
@@ -196,6 +197,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </summary>
     private LspDocumentSession? session;
+    private readonly HexIDE.Tools.RecentEditHistory? recentEditHistory;
 
     /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
     public bool AwaitingDiagnostics => session?.AwaitingDiagnostics ?? false;
@@ -212,8 +214,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Tools.CallStackToolViewModel? callStack = null,
+        HexIDE.Tools.RecentEditHistory? recentEditHistory = null)
     {
+        this.recentEditHistory = recentEditHistory;
+        CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
         this.projectService = projectService;
@@ -224,9 +230,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.breakpointService = breakpointService;
         this.debugController = debugController;
         ExternalDebugger = externalDebugger;
+        CallStack = callStack;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.TextChanged += (_, _) => RefreshBufferModified();
 
         // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
         // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
@@ -241,7 +249,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 Log.Debug("CodeEditorViewModel: Handling CreateOrNavigateToSubEvent({SubName}) in {FormName}",
                     e.Sub, formDefinition?.Name);
-                var sub = Document.IndexOf($"Sub {e.Sub}", 0, Document.TextLength, StringComparison.OrdinalIgnoreCase);
+                var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+                var sub = Document.IndexOf($"Sub {e.Sub}", headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
                 if (sub != -1)
                 {
                     Log.Debug("CodeEditorViewModel: Found 'Sub {SubName}' at offset {Offset}, navigating", e.Sub, sub);
@@ -287,6 +296,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 formDefinition?.UpdateCode(body);
                 if (moduleDefinition is not null)
                     moduleDefinition.UpdateCode(body);
+                RefreshModelModified();
             }
         }));
         AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
@@ -302,6 +312,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
             var mine = (e.Module is not null && ReferenceEquals(e.Module, moduleDefinition))
                     || (e.Form is not null && ReferenceEquals(e.Form, formDefinition));
+
+            if (mine) RefreshModelModified();
 
             // A save is also the commonest way a document's NAME changes: a first save gives it a file,
             // and saving a project into another directory repoints every one of them. So reconcile the
@@ -326,6 +338,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // document BEFORE the buffer above was written back to the definition.
             session?.Dispose();
         }));
+    }
+
+    private bool modelIsModified;
+
+    private void RefreshBufferModified() => IsModified = modelIsModified ||
+        !string.Equals(BufferBody, moduleDefinition?.Code ?? formDefinition?.Code ?? "", StringComparison.Ordinal);
+
+    private void RefreshModelModified()
+    {
+        modelIsModified = moduleDefinition is { } module ? projectService.HasUnsavedChanges(module)
+            : formDefinition is { } form && projectService.HasUnsavedChanges(form);
+        RefreshBufferModified();
     }
 
     /// <summary>
@@ -518,7 +542,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Puts the code back to <paramref name="body"/>, under whatever header the buffer carries now: what
-    /// answering No to Edit-and-Continue's reset prompt does (hexide-io/HexIDE#273 task 3.13).
+    /// answering Cancel to Edit-and-Continue's reset prompt does (hexide-io/HexIDE#273 task 3.13).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -871,6 +895,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;
@@ -913,6 +938,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;
@@ -1058,7 +1084,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (formDefinition is null) return;
         foreach (var component in formDefinition.Components)
         {
-            var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+            var name = ReferenceEquals(component, formDefinition.Components[0]) && RootEventPrefix is { } prefix
+                ? prefix
+                : component.GetPropertyOrDefault(VBProperties.NameProperty);
             if (name is { Length: > 0 })
                 ObjectNames.Add(name);
         }
@@ -1094,13 +1122,25 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Task FlushDocumentAsync(CancellationToken ct = default)
         => session?.FlushAsync(ct) ?? Task.CompletedTask;
 
+    public async Task<DocumentSymbol[]> RequestSearchSymbolsAsync()
+    {
+        await FlushDocumentAsync();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestDocumentSymbolsAsync(uri) : [];
+    }
+
     private async Task RefreshSymbolsAsync()
     {
         if (!lspClient.IsRunning) return;
         if (LiveDocumentUri is not { } uri) return;
         var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
         _symbols = symbols;
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshProcedureNames());
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Event names come from the component, not symbols. Rebuilding that bound list reselects the
+            // handler and moves a new stub's caret from its body to its declaration (#1865).
+            if (SelectedObject == GeneralObject || SelectedObject is null)
+                RefreshProcedureNames();
+        });
     }
 
     private void RefreshProcedureNames()
@@ -1127,9 +1167,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         SelectedProcedure = (current is not null && ProcedureNames.IndexOf(current) >= 0) ? current : null;
     }
 
+    private string? RootEventPrefix => formDefinition?.RootVBTypeName switch
+    {
+        "VB.Form" => "Form",
+        "VB.UserControl" => "UserControl",
+        _ => null,
+    };
+
     private ComponentInstance? FindComponent(string name)
     {
         if (formDefinition is null) return null;
+        if (name == RootEventPrefix)
+            return formDefinition.Components[0];
         foreach (var c in formDefinition.Components)
             if (c.GetPropertyOrDefault(VBProperties.NameProperty) == name)
                 return c;
@@ -1222,7 +1271,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// whole attribute block and sixteen lines below it. Since task 3.10 the bundled server sends one edit per
     /// run of changed lines and leaves protected lines out, but another server need not. So the answer is
     /// applied to a copy, reduced to the lines it actually changes, and anything touching the header or a
-    /// member's attribute run is dropped.
+    /// member's attribute run is dropped. A kept whole-line deletion of a complete logical declaration then
+    /// takes its run with it (#1890).
     /// </para>
     /// <para>
     /// Lines are compared without their terminators, so a server answering in <c>\n</c> for a
@@ -1234,7 +1284,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Reduction ApplyFormatting(IReadOnlyList<TextEdit> edits)
     {
         var before = Document.Text;
-        var reduction = LineEdits.Reduce(before, Rewrite(before, edits), ReadOnlyRegions.Of(before, bufferPrefix.Length));
+        var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
+            ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
 
         if (reduction.Changes.Count > 0)
         {
@@ -1405,6 +1456,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         IsReadOnly || IsReadOnlyRegion(offset, length);
 
     /// <inheritdoc/>
+    public (int Offset, int Length) WidenDeletion(int offset, int length) =>
+        ReadOnlySections.WidenDeletion(offset, length);
+
+    /// <inheritdoc/>
     public Func<int, int, bool> SnapshotReadOnlyRegions()
     {
         var regions = ReadOnlyRegionsNow;
@@ -1445,13 +1500,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (files is not { Count: > 0 })
             return;
 
-        var content = await System.IO.File.ReadAllTextAsync(files[0]);
+        var content = DocumentNewLines.Normalize(await System.IO.File.ReadAllTextAsync(files[0]), Document.Text);
         if (InsertPastReadOnlyRegion(selectionStart, selectionLength, content) is { } caret)
         {
             CaretOffset = caret;
             return;
         }
-        // At the end of a described line, the file from its first line break on goes after the run (task 4.5).
+        // Keep the described declaration before its run and place the remaining file text after it (task 4.5).
         if (InsertLineBreakPastRun(selectionStart, selectionLength, content) is { } placed)
         {
             CaretOffset = placed.End;
@@ -1478,11 +1533,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (at == selectionStart)
             at = PastReadOnlyRegion(selectionStart + selectionLength);
 
-        var newline = Document.Text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        if (!content.EndsWith('\n'))
+        var newline = DocumentNewLines.Of(Document.Text);
+        content = TextUtilities.NormalizeNewLines(content, newline);
+        if (!content.EndsWith('\n') && !content.EndsWith('\r'))
             content += newline;
         // A region that runs to the end of a file with no final line break ends mid-line.
-        if (at > 0 && Document.GetCharAt(at - 1) != '\n')
+        if (at > 0 && Document.GetCharAt(at - 1) is not ('\n' or '\r'))
             content = newline + content;
 
         Document.Insert(at, content);
@@ -1491,7 +1547,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Writes text holding a line break that would replace <c>[offset, offset + length)</c> at the end of a line a
-    /// member's run describes, with everything from its first line break on after the run, as one undo step
+    /// member's run describes, keeping its declaration before the run and the remaining text after it, as one undo step
     /// (#273 task 4.5). The section provider decides where (<see cref="CodeWindowReadOnlySections.PlaceLineBreak"/>).
     /// </summary>
     /// <returns>Where the two parts went; or null when the rule does not apply, and nothing was written.</returns>
@@ -1518,6 +1574,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             Document.EndUpdate();
         }
         return placed;
+    }
+
+    /// <summary>Refuses answers reaching other documents before applying any of this document's edits.</summary>
+    internal string? ApplyRename(WorkspaceEdit edit, string oldName)
+    {
+        if (edit.Changes is null) return null;
+        var uri = GetDocumentUriPublic();
+        var others = edit.Changes
+            .Where(c => c.Value.Length > 0 && !LspDocumentUri.AreSame(c.Key, uri))
+            .Select(c => editorService.DocumentNameForUri(c.Key) ?? c.Key)
+            .ToArray();
+        if (others.Length > 0)
+            return string.Format(localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments"),
+                string.Join(", ", others));
+
+        var edits = edit.Changes.FirstOrDefault(c => LspDocumentUri.AreSame(c.Key, uri)).Value;
+        return edits is null ? null : ApplyRename(edits, oldName);
     }
 
     /// <summary>
@@ -1714,7 +1787,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     public ContentReplacement ReplaceContent(string incoming)
     {
-        var result = GuardedContent.Replace(Document.Text, bufferPrefix.Length, incoming);
+        var result = GuardedContent.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text));
         if (result.NewText is { } text)
             ReplaceBody(text[bufferPrefix.Length..]);
         return result;
@@ -1729,7 +1802,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// How the refusal names the edit at an index, in the caller's own terms. Without it the edit is named by the
     /// 1-based line and column its offset falls at, counted from the top of the file.
     /// </param>
-    /// <returns>Null when applied; otherwise why not, naming the refused edit.</returns>
+    /// <returns>Null when applied; otherwise why not, naming the refused edit or the members the result would change.</returns>
     internal string? ApplyEdits(IReadOnlyList<TextChange> edits, Func<int, string>? describe = null)
     {
         var regions = ReadOnlyRegionsNow;
@@ -1761,8 +1834,30 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             }
         }
 
-        var lastFirst = new List<TextChange>(edits);
+        var lastFirst = new List<TextChange>();
+        foreach (var edit in edits)
+        {
+            var span = edit.Text.Length == 0 ? WidenDeletion(edit.Offset, edit.Length) : (edit.Offset, edit.Length);
+            lastFirst.Add(new TextChange(span.Item1, span.Item2, edit.Text));
+        }
         lastFirst.Sort((a, b) => b.Offset.CompareTo(a.Offset));
+        for (var i = 1; i < lastFirst.Count; i++)
+        {
+            var edit = lastFirst[i];
+            if (edit.Offset + edit.Length > lastFirst[i - 1].Offset
+                && ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"The edit at line {at.Line}, column {at.Column} would change "
+                       + WhatAnEditChanges(regions, edit) + ", which only the IDE changes. Nothing was changed.";
+            }
+        }
+        var after = Document.Text;
+        foreach (var edit in lastFirst)
+            after = after.Remove(edit.Offset, edit.Length).Insert(edit.Offset, edit.Text);
+        if (GuardedContent.RangeEditRefusal(Document.Text, after, bufferPrefix.Length) is { } refusal)
+            return string.Format(localization.GetString("Str.CodeEditor.RangeEditRefused"), refusal);
+
         ApplyAsOneStep(lastFirst);
         return null;
     }
@@ -1803,14 +1898,26 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestHoverAsync(uri, position, ct) : Task.FromResult<HoverResult?>(null);
 
+    public Task<SemanticTokenResult?> RequestSemanticTokensAsync(CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestSemanticTokensAsync(uri, ct) : Task.FromResult<SemanticTokenResult?>(null);
+
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
+
+    public IReadOnlyList<string> CompletionTriggerCharacters => LiveDocumentUri is { } uri
+        ? lspClient.CompletionTriggerCharacters(uri) : [];
+
+    public Task<CompletionItem[]> RequestCompletionForTriggerAsync(
+        Position position, string triggerCharacter, CancellationToken ct = default) =>
+        LiveDocumentUri is { } uri
+            ? lspClient.RequestCompletionForTriggerAsync(uri, position, triggerCharacter, ct)
+            : Task.FromResult<CompletionItem[]>([]);
 
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 
-    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct) : Task.FromResult<SignatureHelp?>(null);
+    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
+        => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
@@ -1821,11 +1928,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 
-    public Task<WorkspaceEdit?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+    public Task<RenameResult?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
-    public Task<string?> ShowInputBoxAsync(string prompt, string title, string defaultText)
-        => windowManager.InputBox(prompt, title, defaultText);
+    public Task<string?> ShowRenameInputBoxAsync(string defaultText)
+        => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),
+            localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
     public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
@@ -1879,7 +1987,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // Event handler: find or generate Sub ObjectName_EventName(...)
             var handlerName = $"{SelectedObject}_{newValue}";
             var searchText  = $"Sub {handlerName}";
-            var idx = Document.IndexOf(searchText, 0, Document.TextLength, StringComparison.OrdinalIgnoreCase);
+            var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+            var idx = Document.IndexOf(searchText, headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
             if (idx >= 0)
             {
                 var line = Document.GetLineByOffset(idx);
@@ -1946,7 +2055,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     private void InsertAtEnd(string beginCode, string endCode)
     {
-        var lineBreak = TextUtilities.GetNewLineFromDocument(Document, Document.LineCount);
+        var lineBreak = DocumentNewLines.Of(Document.Text);
         beginCode = TextUtilities.NormalizeNewLines(beginCode, lineBreak);
         endCode = TextUtilities.NormalizeNewLines(endCode, lineBreak);
 

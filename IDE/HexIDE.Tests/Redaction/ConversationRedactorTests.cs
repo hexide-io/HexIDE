@@ -16,6 +16,40 @@ public class ConversationRedactorTests
     private static ConversationRedactor Redactor(int seed = 11, bool pseudonymise = true) =>
         new(new Pseudonymiser(new Random(seed)), pseudonymise);
 
+    [Theory]
+    [InlineData("<home>", @"C:\Fixtures\Jane Doe")]
+    [InlineData("<temp>", @"C:\Fixtures\Temp Space")]
+    [InlineData("<workspace>", @"C:\Fixtures\Jane Doe\My Project")]
+    [InlineData("<home>", "/fixtures/Jane Doe")]
+    [InlineData("<workspace>", @"\\fixture-host\Jane Doe")]
+    public void SensitiveRootsAreRemovedBeforeProsePathsAreMatched(string token, string root)
+    {
+        var redactor = new ConversationRedactor(new Pseudonymiser(), sensitiveRoots: [(root, token)]);
+        foreach (var spelling in new[] { root, root.Replace('\\', '/'), root.Contains(':') || root.StartsWith(@"\\") ? root.ToUpperInvariant() : root,
+                     root.Replace('\\', '/').Replace(" ", "%20"), root.Replace("\\", "\\\\") })
+        {
+            foreach (var suffix in new[] { "", "/", @"\runtime\fake.dll" })
+            {
+                var input = $"fatal: runtime not found at {spelling}{suffix}";
+                redactor.Body(input).Should().StartWith($"fatal: runtime not found at {token}");
+                redactor.LocalPath(spelling + suffix).Should().StartWith(token);
+            }
+        }
+    }
+
+    [Fact]
+    public void NestedWorkspaceWinsAndIsRemovedInsideAUri()
+    {
+        var redactor = new ConversationRedactor(new Pseudonymiser(), sensitiveRoots:
+            [(@"C:\Fixtures\Jane Doe", "<home>"), (@"C:\Fixtures\Jane Doe\Temp", "<temp>")]);
+        redactor.AddWorkspaceRoot("file:///C:/Fixtures/Jane%20Doe/Temp/My%20Project/");
+
+        redactor.Body("fatal: C:/Fixtures/Jane Doe/Temp/My Project/runtime.dll")
+            .Should().StartWith("fatal: <workspace>/").And.NotContain("Jane").And.NotContain("Project");
+        redactor.Body("file:///C:/Fixtures/Jane%20Doe/Temp/My%20Project/runtime.dll")
+            .Should().StartWith("file:///<workspace>/");
+    }
+
     // ── That nothing real survives ───────────────────────────────────────────
 
     [Fact]
@@ -26,7 +60,7 @@ public class ConversationRedactorTests
         // the field this test happened to think of.
         const string Body = """
             {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":
-            {"uri":"file:///C:/Users/quintana/Projects/InvoiceLedger/Form1.frm","languageId":"vb6",
+            {"uri":"file:///C:/Fixtures/quintana/Projects/InvoiceLedger/Form1.frm","languageId":"vb6",
             "version":1,"text":"Option Explicit"}}}
             """;
 
@@ -35,7 +69,7 @@ public class ConversationRedactorTests
         redacted.Should().NotContain("quintana");
         redacted.Should().NotContain("Projects");
         redacted.Should().NotContain("InvoiceLedger");
-        redacted.Should().NotContain("Users");
+        redacted.Should().NotContain("Fixtures");
     }
 
     [Fact]
@@ -46,8 +80,8 @@ public class ConversationRedactorTests
         // which is the failure mode that gets a redactor switched off.
         var redactor = Redactor();
 
-        var root = redactor.Uri("file:///C:/Users/quintana/Projects/InvoiceLedger");
-        var document = redactor.Uri("file:///C:/Users/quintana/Projects/InvoiceLedger/Form1.frm");
+        var root = redactor.Uri("file:///C:/Fixtures/quintana/Projects/InvoiceLedger");
+        var document = redactor.Uri("file:///C:/Fixtures/quintana/Projects/InvoiceLedger/Form1.frm");
 
         document.Should().StartWith(root + "/");
     }
@@ -88,8 +122,8 @@ public class ConversationRedactorTests
         // still differ, and differ in the same place they differed before.
         var redactor = Redactor();
 
-        var sent = redactor.Uri("file:///C:/Users/quintana/Form1.frm");
-        var echoed = redactor.Uri("file:///c:/Users/quintana/Form1.frm");
+        var sent = redactor.Uri("file:///C:/Fixtures/quintana/Form1.frm");
+        var echoed = redactor.Uri("file:///c:/Fixtures/quintana/Form1.frm");
 
         sent.Should().NotBe(echoed, "folding these together is what made the original bug invisible");
         sent.Should().Contain("/C:/");
@@ -380,6 +414,25 @@ public class ConversationRedactorTests
         inBody.Should().Contain(alone);
     }
 
+    [Theory]
+    [InlineData(@"C:\Fixtures\private-work\runtime\fake.dll")]
+    [InlineData("C:/Fixtures/private-work/runtime/fake.dll")]
+    [InlineData(@"\\build-host\private-work\runtime\fake.dll")]
+    [InlineData("/srv/private-work/runtime/fake.dll")]
+    [InlineData("C:/Fixtures/private work/runtime/fake.dll")]
+    public void PlainPathsInServerProseUseTheLocalPathMapping(string path)
+    {
+        var redactor = Redactor();
+        var expected = redactor.LocalPath(path);
+
+        redactor.Body($"fatal: runtime not found at '{path}'").Should()
+            .Be($"fatal: runtime not found at '{expected}'");
+        if (!path.Contains(' '))
+            redactor.Body($"fatal: runtime not found at {path}").Should()
+                .Be($"fatal: runtime not found at {expected}");
+        expected.Should().NotContain("private");
+    }
+
     // ── The opt-out ──────────────────────────────────────────────────────────
 
     [Fact]
@@ -390,7 +443,7 @@ public class ConversationRedactorTests
         // half-redacted export is the one nobody can reason about.
         var redactor = Redactor(pseudonymise: false);
 
-        const string Uri = "file:///C:/Users/quintana/Form1.frm";
+        const string Uri = "file:///C:/Fixtures/quintana/Form1.frm";
         redactor.Uri(Uri).Should().Be(Uri);
         redactor.Body($"{{\"uri\":\"{Uri}\"}}").Should().Be($"{{\"uri\":\"{Uri}\"}}");
         redactor.LocalPath(@"D:\work\quintana").Should().Be(@"D:\work\quintana");

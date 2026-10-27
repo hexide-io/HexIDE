@@ -26,6 +26,10 @@ public class ResizeAdorner : TemplatedControl
     {
         IsPrimaryProperty.Changed.AddClassHandler<ResizeAdorner>((adorner, _) =>
             adorner.PseudoClasses.Set(":secondary", !adorner.IsPrimary));
+        // Its id puts it in dump_visual_tree, grafted under the control it adorns, with its handles' ids from the
+        // template, so a resize drag can address a handle by its path (#2231). Set here, not in the theme, so it holds
+        // wherever the adorner is made.
+        Avalonia.Automation.AutomationProperties.AutomationIdProperty.OverrideDefaultValue<ResizeAdorner>("ResizeAdorner");
     }
 
     public static readonly AttachedProperty<ResizeXDirection> ResizeXDirectionProperty = AvaloniaProperty.RegisterAttached<ResizeAdorner, Control, ResizeXDirection>("ResizeXDirection");
@@ -296,6 +300,13 @@ public class ResizeAdorner : TemplatedControl
     {
         base.OnPointerMoved(e);
         OnHandlePointerMoved(null, e);
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        // StartDrag captures the adorner itself, so the release need not pass through a handle.
+        OnHandlePointerReleased(null, e);
     }
 }
 

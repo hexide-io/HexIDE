@@ -55,6 +55,12 @@ public class ModuleExecutionContext
     internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
     {
         if (declaredClass is not null
+            && Components.InBox.ControlLibraries.ForTypeName(declaredClass) is { } library
+            && declaredClass.Equals(library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase)
+            && value.Value is not null
+            && (value.Value is not BuiltinControls.VBProgressBar bar || !ReferenceEquals(bar.Library, library)))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        if (declaredClass is not null
             && value.Value is VbObject incoming
             && !VbInterface.IsAssignableTo(incoming, declaredClass))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
@@ -82,7 +88,13 @@ public class ModuleExecutionContext
         {
             if (!inspecting && state.PendingControlOf(loc) is { } form)
                 throw new FormLoadNeeded(form, name);
-            value = state[loc];
+            if (inspecting)
+            {
+                if (!state.TryRead(loc, out value))
+                    return false;
+            }
+            else
+                value = state[loc];
             // A form's name holding no instance makes one where it's read, as VB6's predeclared name does (#822). Only
             // through the name: a ByRef parameter aliasing the slot reads the Nothing it holds.
             if (!inspecting && value.Type == Vb6Value.ValueType.Object && value.Value is null
@@ -116,9 +128,9 @@ public class ModuleExecutionContext
                 : state.IsVariant(loc) ? value.AsVariant()
                 : state.IsConstant(loc) || state.IsReadOnly(loc) ? value.AsFixedType()
                 : value.AsVariantSubtype();
-            // And the NAME the slot was declared with, for a class-typed slot — set and cleared by the same
+            // And the NAME the slot was declared with, for a class-typed or Object slot — set and cleared by the same
             // rule and for the same reason. This is what an `As IFoo` read carries into member dispatch.
-            value = value.ViewedAs(state.DeclaredClassOf(loc));
+            value = value.ViewedAs(state.DeclaredViewOf(loc));
             return true;
         }
         value = default;
@@ -132,6 +144,7 @@ public class ModuleExecutionContext
         Vb6Value.ValueType? declaredType = null, string? declaredClass = null)
     {
         var loc = state.Alloc(value, declaredType, declaredClass);
+        env.AllocatedSlots?.Add(loc);
         env.DefineVariable(name, loc);
     }
 }

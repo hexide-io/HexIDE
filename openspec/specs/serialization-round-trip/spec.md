@@ -67,6 +67,16 @@ subset — and the developer discovers which parts by finding out what stopped w
 - **WHEN** a file contains a component of a type the IDE has no model for
 - **THEN** the component is written back in place rather than dropped
 
+#### Scenario: VB6's saved Toolbar form (#1088)
+- **WHEN** the form in `corpus/inbox-controls/saved/toolbar` is saved, including after a form-caption edit
+- **THEN** its carried Toolbar blocks retain `ToolTips`, BorderStyle after `_Version`, HIMETRIC ButtonWidth/ButtonHeight,
+  twips placeholder widths and nested ButtonMenus verbatim, and its ImageList companion retains every byte
+- **AND** the separate runtime loader reads designed top-level Toolbar button/menu bags under their measured names,
+  retaining numeric image indexes without ImageList binding; designer editing/rewriting of these bags remains unsupported
+- **AND** carried Toolbars SHALL remain view-only, excluded from the Properties component list, including their own
+  scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
+  SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
+
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
@@ -181,15 +191,16 @@ file that looks correct and is not.
 ### Requirement: A file the IDE will not save SHALL be presented as read-only
 Where the IDE would refuse to save a file, its editing surfaces SHALL be read-only and SHALL state the
 reason, while remaining open for viewing. It SHALL remain runnable unless it holds a control the engine
-cannot create, which is refused when it is run (see `interpreter-core`).
+cannot create or a data-bound control, which is refused when it is run (see `interpreter-core`).
 
 Discovering the refusal at save time means discovering it after the work is done. A developer who has spent
 an hour on a form and is then told it cannot be written has lost the hour — and the refusal, which exists to
 protect them, is what took it. Saying so up front turns the same limitation into something they can plan
 around, and keeping the file viewable and runnable preserves the reason they opened the IDE at all.
 
-The exception is a control the engine cannot create. Running a form without one is running a different program:
-code naming it finds nothing, and a form whose code never names it behaves as if it had never held it. That is a
+The exception is a control the engine cannot create or a data-bound control (#859). Leaving out a control or
+its binding runs a different program: an absent control is not found by code, and an unbound control shows
+its design-time value instead of the current record. That is a
 wrong result rather than a late error, so such a form is refused when it is run, and stays viewable
 (hexide-io/HexIDE#857).
 
@@ -198,11 +209,12 @@ wrong result rather than a late error, so such a form is refused when it is run,
 - **THEN** its editors are read-only and state why
 
 #### Scenario: Running a project containing one
-- **WHEN** a project containing such a file is run, and the file holds no control the engine cannot create
+- **WHEN** a project containing such a file is run, and the file holds neither a control the engine cannot create
+  nor a data-bound control
 - **THEN** it runs
 
 #### Scenario: Running a form holding a control the engine cannot create
-- **WHEN** a project is run whose form holds a control the engine cannot create
+- **WHEN** a project is run whose form holds a control the engine cannot create or a data-bound control
 - **THEN** that form is refused when it is built to run, naming the control, and it can still be opened and viewed
 
 ### Requirement: Round-trip fidelity SHALL be measured against real projects
@@ -609,6 +621,36 @@ bytes are valid UTF-8.
 - **WHEN** its project is opened on a Windows-1252 host
 - **THEN** the module reads `Ã©`, not `é`
 
+### Requirement: A project SHALL record UTF-8 that detection cannot infer
+
+When saving a project, a source member retained as UTF-8 without a byte-order mark whose text has no
+character above U+00FF SHALL have a `path=utf-8` entry in a trailing `[HexIDE]` section of the `.vbp`.
+The path SHALL be the path used by the member's project item line, including after Save As. No entry
+SHALL be written for a member with a BOM, a character above U+00FF, or another encoding. Other tools'
+trailing sections SHALL be preserved, and the section SHALL follow every standard project key.
+
+A fresh open SHALL try that project's record after the encoding last read in and before the host's code
+page. The record SHALL apply only if strict decoding and encoding reproduce the bytes. A shared member
+SHALL follow the record of the project being opened. Source bytes SHALL NOT gain a BOM for this purpose.
+Whether VB6's File → Save Project retains the section is unmeasured; `/make` accepting trailing sections
+does not establish save behaviour.
+
+#### Scenario: An edit removes the UTF-8 signature
+- **GIVEN** a BOM-less UTF-8 module holding `' café 日本`
+- **WHEN** its code becomes `' café` and the project is saved and freshly opened
+- **THEN** its `.vbp` records its member path as `utf-8` and the module reads as `' café`
+- **AND** its file remains UTF-8 without a BOM
+
+#### Scenario: Detection becomes sufficient again
+- **GIVEN** a member with an encoding record
+- **WHEN** a character above U+00FF is added and the project is saved
+- **THEN** the redundant record is removed
+
+#### Scenario: An external editor replaces the recorded file with ANSI
+- **GIVEN** a member recorded as UTF-8 whose bytes no longer decode strictly as UTF-8
+- **WHEN** the project is freshly opened
+- **THEN** decoding continues to the host's code page and the byte-for-byte fallback as before
+
 ### Requirement: An edit the file's encoding cannot hold SHALL be refused the same way on every save path
 
 When a document holds a character its encoding cannot represent, the IDE SHALL refuse to save it rather than
@@ -630,6 +672,54 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **WHEN** an automation caller sets its content to text containing `→` and saves
 - **THEN** the reply says the save was refused, naming the module, code page 1252 and `→`, and no dialog is shown
 
+### Requirement: Recognised project lines SHALL retain their read order
+
+The writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
+retain its source slot even when its path is rebased. Other lines SHALL take the next unclaimed slot of
+their key, so a renamed form stays in its slot. A line with no remaining slot SHALL follow its predecessor
+in the default writer sequence; unused slots SHALL be omitted. A project with no recorded slots SHALL use
+the default writer sequence. Unknown lines SHALL retain their recognised-line count hints, rather than
+being anchored to slots; adding or removing an item may therefore shift them.
+
+#### Scenario: A form before a reference is renamed
+
+- **GIVEN** a project whose `Form=` line precedes `Reference=`, with an unknown line between them
+- **WHEN** the form is renamed and the project is saved
+- **THEN** the renamed `Form=` line retains its slot before the unknown line and the reference
+
+#### Scenario: A missing form precedes a loaded form
+
+- **GIVEN** two `Form=` lines, the first naming a missing file and the second a loaded form
+- **WHEN** the project is saved, including to another folder
+- **THEN** the missing form's line remains first and both paths name the same files from the destination
+
+#### Scenario: A middle kept member joins the live project
+
+- **GIVEN** three kept member lines with recorded source slots
+- **WHEN** the middle member's file is restored, added to the project and the project is saved
+- **THEN** the other kept lines retain their own source slots and the restored member is named once
+
+### Requirement: Missing control Font blocks inherit a load-time copy of the form font
+
+When loading a `VB.Form` with a declared Font, the deserializer SHALL give each font-bearing
+control without its own Font block a value copy of that form font, regardless of container depth.
+An explicit control Font block SHALL remain authoritative. Subsequent changes to the form font
+SHALL leave those control copies unchanged (measured for #2062; see
+[the oracle](../../../docs/vb6-fidelity-oracle/form-font-inheritance.md)).
+
+#### Scenario: A nested control omits its Font block
+
+- **GIVEN** a form declaring Arial 12, a PictureBox declaring Courier New 9.75, and a Frame inside it without a Font block
+- **WHEN** the form is loaded
+- **THEN** the Frame and its CommandButton without a Font block have Arial 12
+- **AND** the PictureBox retains Courier New 9.75
+
+#### Scenario: The form font changes after loading
+
+- **GIVEN** Command1 and Command2 inherited Arial from Form1 on load
+- **WHEN** Form1's font name becomes Tahoma
+- **THEN** both controls still read Arial
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.
@@ -638,6 +728,77 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
   the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
   reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
   original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
-  IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
-  and giving up the model that makes the IDE an editor rather than a text editor.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
+
+### Requirement: Made programs SHALL carry source text independently of the host code page
+
+Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without
+changing the source documents' encodings. The source-encoding refusal before Make SHALL still apply.
+Standalone `--check` SHALL read project and form files with the IDE's source decoder.
+
+#### Scenario: A package made from ANSI sources runs on another code page
+- **WHEN** Make packages source text held in an ANSI document
+- **THEN** each packaged source file declares UTF-8 with a BOM and preserves that text
+- **AND** the original document retains its encoding
+
+#### Scenario: Check reads an ANSI project from disk
+- **WHEN** Standalone checks a project whose project or form files contain ANSI text
+- **THEN** it decodes those files as the IDE does, including UTF-8 BOM declarations
+
+### Requirement: Form save commands follow the active document
+The shell SHALL enable Save Form and Save Form As when the active document supplies a focused form,
+independent of keyboard focus. It SHALL delegate to that active designer's or form code editor's own save
+method, including format-on-save for code. A focused-form change SHALL requery the routed commands without
+requiring a keyboard-focus change. Documents without a focused form SHALL retain their own command routing.
+
+#### Scenario: Saving while a tool window has focus
+- **GIVEN** a form designer is the active document and a tool window has keyboard focus
+- **WHEN** Save Form or Save Form As is invoked
+- **THEN** the active designer saves through its own save method
+
+#### Scenario: Saving from form code
+- **GIVEN** a form code editor is active and format-on-save is enabled
+- **WHEN** the Save keyboard gesture is pressed in the editor
+- **THEN** the editor's formatting path runs before saving the form
+
+#### Scenario: Saving a carried file
+- **GIVEN** a carried-file editor is active and has keyboard focus
+- **WHEN** the Save keyboard gesture is pressed
+- **THEN** its own save binding handles the key
+
+### Requirement: Made programs SHALL omit carried files
+
+Make SHALL omit carried files and their item lines from the packaged project, including carried files
+reclassified from another item key. The other project lines SHALL retain their relative order. Ordinary
+project saves SHALL continue to include carried files; Make SHALL leave source membership unchanged.
+
+#### Scenario: A project carries private notes
+- **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
+- **THEN** the archive contains neither the carried file nor its project item line
+- **AND** the other project lines retain their relative order and the source project retains the carried file
+
+### Requirement: MSComctlLib ImageList picture persistence
+
+The serializer SHALL preserve the measured MSComctlLib.ImageList format: extender properties, extents, BackColor,
+ImageWidth, ImageHeight, MaskColor, UseMaskColor, _Version, then Images. BackColor and MaskColor SHALL be written even
+at their defaults; the other own properties SHALL be omitted at their defaults. Each ListImage SHALL write Picture,
+then Key (including an empty Key), then a nonempty Object.Tag padded as Tag. Picture records SHALL retain the
+StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
+
+#### Scenario: VB6's ImageList saves round-trip
+
+- **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
+- **THEN** the form text and companion bytes match VB6's saved files
+- **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
+
+### Requirement: Reference locales SHALL use hexadecimal
+
+The project reader SHALL interpret a reference's LCID as hexadecimal, accepting either case. The writer
+SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273).
+
+#### Scenario: Reading and saving reference locales
+
+- **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
+- **THEN** their model values are 0, 9, 1033, 3082 and 3081
+- **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively

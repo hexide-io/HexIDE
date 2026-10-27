@@ -26,6 +26,8 @@
                               ExecutingCommand="{CompiledBinding #Root.Redo}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CopyCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Copy}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteAsCommentCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.PasteAsComment}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Paste}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CutCommand}"
@@ -53,6 +55,8 @@
                               ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
                               ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ToggleFold}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ToggleBookmark}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}"
@@ -94,7 +98,7 @@
                        Foreground="{DynamicResource WarningBannerForegroundBrush}"
                        TextWrapping="Wrap" />
         </Border>
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,10" Margin="0,0,0,2">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,Auto,10" Margin="0,0,0,2">
             <ComboBox FontWeight="Bold" Grid.Column="1"
                       x:Name="ObjectCombo"
                       ItemsSource="{CompiledBinding ObjectNames}"
@@ -103,13 +107,28 @@
                       x:Name="ProcedureCombo"
                       ItemsSource="{CompiledBinding ProcedureNames}"
                       SelectedItem="{CompiledBinding SelectedProcedure}" />
+            <ComboBox Grid.Column="4" Margin="10,0,0,0"
+                      x:Name="ConditionalTargetCombo"
+                      IsVisible="False"
+                      SelectedIndex="{CompiledBinding ConditionalTargetIndex}"
+                      ToolTip.Tip="{DynamicResource Str.CodeEditor.ViewAs.Tooltip}">
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vb6}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vba32}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vba64}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.TwinBasic32}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.TwinBasic64}" />
+            </ComboBox>
         </Grid>
+        <!-- The code and its minimap read left to right whatever the IDE's language, so the minimap stays beside the
+             code's right edge, where its lines end (#1944). The boxes above are chrome, and follow the language. -->
+        <DockPanel FlowDirection="LeftToRight">
         <controls:MinimapControl x:Name="Minimap"
                                  DockPanel.Dock="Right"
                                  Width="110"
                                  Margin="2,0,0,0"
                                  IsVisible="{CompiledBinding Settings.IsMinimapVisible}" />
         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
+            <Grid ClipToBounds="True">
             <avaloniaEdit:TextEditor Name="TextEditor"
                                      FontFamily="Courier New,Monospace"
                                      FontSize="13"
@@ -137,12 +156,13 @@
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
                         <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NextBookmark}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  />
                             <Separator />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" />
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
@@ -152,6 +172,9 @@
                     </MenuFlyout>
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>
+            <StackPanel x:Name="StickyHeaders" VerticalAlignment="Top" ClipToBounds="True" />
+            </Grid>
         </ClassicBorderDecorator>
+        </DockPanel>
     </DockPanel>
 </UserControl>

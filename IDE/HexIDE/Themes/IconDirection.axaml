@@ -1,0 +1,14 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Paths inherit Avalonia's mirror. Text glyphs bypass it and need their own flip. -->
+    <Style Selector="TextBlock.directional[FlowDirection=RightToLeft]">
+        <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+        <Setter Property="RenderTransform">
+            <ScaleTransform ScaleX="-1" ScaleY="1" />
+        </Setter>
+    </Style>
+    <!-- Media-style play keeps its direction, in both toolbars and menus. -->
+    <Style Selector="Path.play, MenuItem.play Path">
+        <Setter Property="FlowDirection" Value="LeftToRight" />
+    </Style>
+</Styles>

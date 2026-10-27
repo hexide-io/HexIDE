@@ -25,7 +25,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 public class CarriedBoxStackingTests
 {
-    // imlIcons is 280, 155 and 80 x 32 pixels. Command2 sits inside it, and is written after it, so it is under it.
+    // An unregistered ImageList stand-in (#1083 models the real one) is 280, 155 and 80 x 32 pixels. Command2 sits inside it, and is written after it, so it is under it.
     // In the frame, Command3 is written before Gauge1, so it is over it, and both are over the frame.
     private const string Form =
         "VERSION 5.00\r\n" +
@@ -62,7 +62,7 @@ public class CarriedBoxStackingTests
         "         _Version        =   393216\r\n" +
         "      End\r\n" +
         "   End\r\n" +
-        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "   Begin NoSuchLib.ImageList imlIcons \r\n" +
         "      Left            =   4200\r\n" +
         "      Top             =   2325\r\n" +
         "      _ExtentX        =   1005\r\n" +
@@ -91,7 +91,7 @@ public class CarriedBoxStackingTests
         "   ClientLeft      =   60\r\n" +
         "   ClientTop       =   345\r\n" +
         "   ClientWidth     =   6000\r\n" +
-        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "   Begin NoSuchLib.ImageList imlIcons \r\n" +
         "      Left            =   4200\r\n" +
         "      Top             =   2325\r\n" +
         "      _ExtentX        =   1005\r\n" +

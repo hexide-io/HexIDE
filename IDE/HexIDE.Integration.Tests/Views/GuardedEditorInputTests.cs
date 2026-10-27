@@ -68,7 +68,8 @@ public class GuardedEditorInputTests : IDisposable
         "    Unload Me\r\n" +
         "End Sub\r\n";
 
-    private CodeEditorViewModel OpenForm(bool heldReadOnly = false)
+    private CodeEditorViewModel OpenForm(bool heldReadOnly = false, IWindowManager? windowManager = null,
+        ILspClient? client = null, ILocalizationService? localization = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -78,15 +79,15 @@ public class GuardedEditorInputTests : IDisposable
 
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
-        var lsp = Substitute.For<ILspClient>();
+        var lsp = client ?? Substitute.For<ILspClient>();
         lsp.IsRunning.Returns(false);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
 
         var vm = new CodeEditorViewModel(
-            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
+            windowManager ?? Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
             Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(), new RunScope(),
-            Substitute.For<ILocalizationService>());
+            localization ?? Substitute.For<ILocalizationService>());
         made.Add(vm);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!;
@@ -133,6 +134,29 @@ public class GuardedEditorInputTests : IDisposable
 
     private static int InCode(CodeEditorViewModel vm) =>
         vm.Document.Text.IndexOf("Unload Me", StringComparison.Ordinal) + "Unload Me".Length;
+
+    [AvaloniaFact]
+    public void RenameUsesLocalizedPromptAndRefusesAReservedNameBeforeAskingTheServer()
+    {
+        var windows = Substitute.For<IWindowManager>();
+        windows.InputBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns("Rem");
+        var lsp = Substitute.For<ILspClient>();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => "translated:" + call.Arg<string>());
+        var vm = OpenForm(windowManager: windows, client: lsp, localization: localization);
+        var (window, editor) = Show(vm);
+        editor.TextArea.Caret.Offset = vm.Document.Text.IndexOf("cmdOK_Click", StringComparison.Ordinal) + 2;
+
+        ((CodeEditorView)window.Content!).RenameSymbol();
+        Dispatcher.UIThread.RunJobs();
+
+        windows.Received(1).InputBox("translated:Str.CodeEditor.Dialog.RenamePrompt",
+            "translated:Str.CodeEditor.Dialog.RenameTitle", "cmdOK_Click");
+        lsp.DidNotReceive().RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        windows.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
+    }
 
     // ── Enter, taken ahead of AvaloniaEdit by a tunnel handler ──────────────────────────────────────────
 

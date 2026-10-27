@@ -1,0 +1,4 @@
+# Keep every upstream rule. The current tree needs no fixture exceptions; add only
+# measured false positives here, with an exact value/path and a reason for each.
+[extend]
+useDefault = true

@@ -136,6 +136,9 @@ public sealed class DebugController : IDebugController
         _anyWatchBreaks = merged.Count > 0;
     }
 
+    public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
+        => MatchesBreakpoint(line, module) ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
+
     public ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame)
     {
         if (_isAborting)
@@ -240,7 +243,10 @@ public sealed class DebugController : IDebugController
         if (YieldDue())
         {
             _lastYieldTick = Environment.TickCount64;
+            var session = _session;
             await Task.Yield();
+            if (_isAborting || _session != session)
+                throw new StopExecutionSignal();
         }
     }
 

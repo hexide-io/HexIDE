@@ -54,16 +54,20 @@ public class ShippedPackParityTests
     /// <summary>The canonical pack every other one is measured against.</summary>
     private const string Canonical = "en";
 
-    /// <summary>
-    /// Packs that exist to be exercised by tests and are not translations of anything.
-    /// </summary>
-    /// <remarks>
-    /// Named rather than pattern-matched, so a real pack cannot fall through the exemption by accident.
-    /// That these ship at all is a separate defect
-    /// ([#423](https://github.com/hexide-io/HexIDE/issues/423)); it is not this test's business, and
-    /// excluding them here does not bless it.
-    /// </remarks>
-    private static readonly string[] Fixtures = ["zz", "zz-ZZ"];
+    [Fact]
+    public void EveryShippedProgressFormatIncludesServerTaskAndPercentage()
+    {
+        foreach (var id in LanguageManifest.Packs.Select(p => p.Id))
+        {
+            var pack = JsonSerializer.Deserialize(
+                File.ReadAllText(Path.Combine(PacksDirectory(), $"{id}.json")),
+                LocalizationJsonContext.Default.LanguagePackRecord)!;
+            if (!IsFullTranslation(id)) continue;
+            var format = pack.Strings!["Str.StatusBar.LanguageServerProgress"];
+            string.Format(format, "SERVER", "TASK", "PERCENTAGE").Should()
+                .Contain("SERVER").And.Contain("TASK").And.Contain("PERCENTAGE", $"pack {id}");
+        }
+    }
 
     [Fact]
     public void EveryShippedTranslationHasEveryCanonicalKey()
@@ -128,7 +132,6 @@ public class ShippedPackParityTests
             .Select(Path.GetFileNameWithoutExtension)
             .Where(id => id is not null)
             .Select(id => id!)
-            .Where(id => !Fixtures.Contains(id, StringComparer.Ordinal))
             .Where(IsFullTranslation)
             .Where(id => !declared.Contains(id))
             .Order(StringComparer.Ordinal)

@@ -1,6 +1,7 @@
 # Shell scripts must stay LF even when checked out on Windows (autocrlf) — a CR after
 # the shebang breaks `#!/usr/bin/env bash` on Linux/CI (build_cloudflare.sh, copy-in script).
 *.sh text eol=lf
+scripts/hooks/pre-commit text eol=lf
 
 # VB6 source is CRLF by format convention: VB6 wrote it that way, HexIDE writes it that way, and
 # SerializationCorpusTests compares bytes. Without these rules a Linux/macOS checkout normalizes the
@@ -34,3 +35,9 @@
 
 # ANSI art embedded by the IDE is compared and shipped byte-for-byte; keep it LF on every checkout.
 *.ans text eol=lf
+
+# The oracle index gains one line per measured subject, appended at its foot, and most days several PRs each add
+# one. Two of them always conflict on that last line, though keeping both is the only right answer: three batches on
+# 2026-10-26 lost a PR to exactly that. union keeps both sides. It is built into git, so the local batch merge honours
+# it, though GitHub's own mergeability check does not. Only for a file whose edits are pure appends.
+docs/vb6-fidelity-oracle/README.md merge=union

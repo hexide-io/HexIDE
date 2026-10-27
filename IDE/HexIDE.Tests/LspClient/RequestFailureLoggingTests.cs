@@ -29,6 +29,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
     private readonly RecordingLogger _log = new();
+    private readonly List<int> _renames = [];
 
     public async ValueTask DisposeAsync()
     {
@@ -39,13 +40,13 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private async Task<VBLspClient> ConnectedToThrowingServerAsync()
+    private async Task<VBLspClient> ConnectedToThrowingServerAsync(ThrowingServer? server = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
         var serverRpc = new JsonRpc(
             new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
-            new ThrowingServer());
+            server ?? new ThrowingServer(renames: _renames));
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
@@ -122,6 +123,37 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         _log.Debugs.Should().Contain(m => m.Contains("superseded"));
     }
 
+    [Theory]
+    [InlineData(-32801)]
+    [InlineData(-32800)]
+    public async Task AServerSupersededRequestKeepsTheFailureWarningAvailable(int errorCode)
+    {
+        var server = new ThrowingServer(errorCode);
+        var sut = await ConnectedToThrowingServerAsync(server);
+
+        await sut.RequestDocumentSymbolsAsync("vb6://module/M", TestContext.Current.CancellationToken);
+
+        server.DocumentSymbolCalls.Should().Be(1);
+        _log.Warnings.Should().BeEmpty("a server cancellation is not a broken feature");
+        _log.Debugs.Should().Contain(m => m.Contains("textDocument/documentSymbol") && m.Contains("superseded"));
+
+        // StreamJsonRpc currently maps a -32800 wire reply to OperationCanceledException. Also pin
+        // the remote-exception form at the logging boundary, without depending on that translation.
+        typeof(VBLspClient).GetMethod("WarnRequestFailedOnce",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(sut, ["textDocument/documentSymbol",
+                new RemoteInvocationException("superseded", errorCode, (object?)null), CancellationToken.None]);
+        _log.Warnings.Should().BeEmpty("the remote-exception form is superseded too");
+
+        await sut.RequestDocumentSymbolsAsync("vb6://module/M", TestContext.Current.CancellationToken);
+
+        server.DocumentSymbolCalls.Should().Be(2);
+        _log.Warnings.Should().ContainSingle()
+            .Which.Should().Contain("textDocument/documentSymbol");
+        _log.Debugs.Should().NotContain(m => m.Contains("failed again"),
+            "the cancellation must not spend the method's warning");
+    }
+
     [Fact]
     public async Task ADeclinedCapabilityIsStillNotAFailure()
     {
@@ -176,6 +208,46 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         hover!.Contents.Value.Should().Be("still here");
     }
 
+    [Theory]
+    [InlineData(-32803)]
+    [InlineData(-32603)]
+    public async Task RenameReturnsTheServersRefusal(int code)
+    {
+        var sut = await ConnectedToThrowingServerAsync();
+        var result = await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0),
+            code.ToString(System.Globalization.CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+
+        _renames.Should().Equal(code);
+        result!.Refusal.Should().Be("This name cannot be renamed");
+        result.Edit.Should().BeNull();
+        sut.IsRunning.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RenameRefusalDoesNotConsumeTheFailureWarning()
+    {
+        var sut = await ConnectedToThrowingServerAsync();
+        await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0), "-32803", TestContext.Current.CancellationToken);
+        _log.Warnings.Should().BeEmpty();
+        _log.Debugs.Should().Contain(m => m.Contains("textDocument/rename"));
+
+        await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0), "-32603", TestContext.Current.CancellationToken);
+        _log.Warnings.Should().ContainSingle().Which.Should().Contain("textDocument/rename");
+    }
+
+    [Theory]
+    [InlineData(-32800)]
+    [InlineData(-32801)]
+    public async Task RenameCancellationIsNotARefusal(int code)
+    {
+        var sut = await ConnectedToThrowingServerAsync();
+        var result = await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0),
+            code.ToString(System.Globalization.CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+        _renames.Should().Equal(code);
+        result.Should().BeNull();
+        _log.Warnings.Should().BeEmpty();
+    }
+
     /// <summary>
     /// A server that initializes normally, throws on two language requests, and answers a third.
     /// </summary>
@@ -183,23 +255,39 @@ public class RequestFailureLoggingTests : IAsyncDisposable
     /// The working method is not decoration: it is what distinguishes "that request failed" from "the
     /// connection is gone", and those were indistinguishable until the error-reply defect above was fixed.
     /// </remarks>
-    private sealed class ThrowingServer
+    private sealed class ThrowingServer(int? supersededErrorCode = null, List<int>? renames = null)
     {
+        public int DocumentSymbolCalls { get; private set; }
+
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) =>
             JsonDocument.Parse("""
                 {"capabilities":{"documentSymbolProvider":true,"foldingRangeProvider":true,
-                                 "hoverProvider":true}}
+                                 "hoverProvider":true,"renameProvider":true}}
                 """).RootElement.Clone();
 
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }
 
         [JsonRpcMethod("textDocument/documentSymbol", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement DocumentSymbol(JsonElement _) => throw new InvalidOperationException("no");
+        public JsonElement DocumentSymbol(JsonElement _)
+        {
+            DocumentSymbolCalls++;
+            if (DocumentSymbolCalls == 1 && supersededErrorCode is { } code)
+                throw new LocalRpcException("superseded") { ErrorCode = code };
+            throw new InvalidOperationException("no");
+        }
 
         [JsonRpcMethod("textDocument/foldingRange", UseSingleObjectParameterDeserialization = true)]
         public JsonElement FoldingRange(JsonElement _) => throw new InvalidOperationException("no");
+
+        [JsonRpcMethod("textDocument/rename", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Rename(JsonElement p)
+        {
+            var code = int.Parse(p.GetProperty("newName").GetString()!, System.Globalization.CultureInfo.InvariantCulture);
+            renames?.Add(code);
+            throw new LocalRpcException("This name cannot be renamed") { ErrorCode = code };
+        }
 
         [JsonRpcMethod("textDocument/hover", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Hover(JsonElement _) =>

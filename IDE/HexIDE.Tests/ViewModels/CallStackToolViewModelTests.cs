@@ -17,6 +17,42 @@ public class CallStackToolViewModelTests
 
     private CallStackToolViewModel CreateSut() => new(_localization, _debugController);
 
+    [AvaloniaTheory]
+    [InlineData("{0}, Zeile {1}", "Module1.A, Zeile 3")]
+    [InlineData("第{1}行、{0}", "第3行、Module1.A")]
+    public void Stopped_UsesLocalizedRowNameIncludingPlaceholderOrder(string format, string expected)
+    {
+        _localization.GetString("Str.Tool.CallStack.RowName").Returns(format);
+        _debugController.GetCallStack().Returns(new[] { new CallStackFrame("A", "Module1", 3) });
+        var sut = CreateSut();
+
+        _debugController.Stopped += Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.Breakpoint, "Module1", 3));
+
+        sut.Frames.Single().ToString().Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public void SelectingBuiltInCallerShowsItsModuleAndLineWithoutChangingExecution()
+    {
+        _debugController.GetCallStack().Returns(new[]
+        {
+            new CallStackFrame("C", "Worker", 12),
+            new CallStackFrame("B", "Module1", 7)
+        });
+        var sut = CreateSut();
+        _debugController.Stopped += Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.StopStatement, "Worker", 12));
+        sut.SelectedFrame = sut.Frames[1];
+        sut.ShownFrame.Should().BeSameAs(sut.Frames[1]);
+        sut.ShownFrame!.Module.Should().Be("Module1");
+        sut.ShownFrame.Line.Should().Be(7);
+        sut.ShownFrame.IsCaller.Should().BeTrue();
+        _debugController.DidNotReceive().SetNextStatement(Arg.Any<string>(), Arg.Any<int>());
+        _debugController.Continued += Raise.Event<Action>();
+        sut.ShownFrame.Should().BeNull();
+        sut.ShowSelectedFrame();
+        sut.ShownFrame.Should().BeNull("a row from the previous break is stale");
+    }
+
     [AvaloniaFact]
     public void Stopped_PopulatesFramesFromGetCallStack_CurrentFirstWithArrow()
     {

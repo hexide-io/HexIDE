@@ -308,6 +308,10 @@ node_modules/
 # found the first time it did; untracked, CI would scan one project fewer and say nothing.
 !corpus/designer/*.vbp
 
+# ...and the in-box control corpus's, which open its hand-written forms in the IDE and in vb6.exe; its README
+# names them, and without this exception they were silently left out of #1082's commits.
+!corpus/inbox-controls/**/*.vbp
+
 # ...and so are the member-attribute corpus's, which VB6's IDE wrote: the round-trip half's and the evidence's
 # saved ones are what the code window and content lanes open each project through, and the evidence's inputs came
 # back byte-identical from VB6's save, which is part of what that evidence records (hexide-io/HexIDE#273 task 4.6).
@@ -321,6 +325,10 @@ node_modules/
 # `--others` only, never `--cached`, so a force-added demo binary is still reported and still
 # fails, which is what demo/README.md promises.
 demo/**/*.exe
+
+# The spring-tide demo's .rdproj: HexIDE writes it, with consent, the first time RDCore starts for the demo
+# (hexide-io/HexIDE#455), so it is a generated file like the binaries above, not source.
+demo/spring-tide/.rdproj
 
 # Visual Studio 6 workspace and project file (working project files containing files to include in project)
 *.dsw

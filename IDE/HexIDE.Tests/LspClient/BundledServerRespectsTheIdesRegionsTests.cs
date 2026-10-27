@@ -144,7 +144,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     var rename = await client.RequestRenameAsync(uri, at, "Renamed", TestContext.Current.CancellationToken);
                     var highlight = await client.RequestDocumentHighlightAsync(uri, at, TestContext.Current.CancellationToken);
 
-                    if (rename?.Changes is { Count: > 0 })
+                    if (rename?.Edit?.Changes is { Count: > 0 })
                         failures.Add($"{name}: rename from {line}:{character} answered with edits");
                     if (highlight is { Length: > 0 })
                         failures.Add($"{name}: highlight from {line}:{character} answered with {highlight.Length} ranges");
@@ -198,11 +198,11 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                 if (declared.Contains(word))
                 {
                     declinedDeclared++;
-                    if (rename?.Changes is { Count: > 0 })
+                    if (rename?.Edit?.Changes is { Count: > 0 })
                         failures.Add($"{name}: renaming {word}, which the designer block declares, answered with edits");
                     continue;
                 }
-                if (rename?.Changes is not { } changes || !changes.TryGetValue(uri, out var edits))
+                if (rename?.Edit?.Changes is not { } changes || !changes.TryGetValue(uri, out var edits))
                     continue; // a keyword, or nothing the server will rename
                 renamed++;
 
@@ -243,7 +243,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
         var rename = await client.RequestRenameAsync(uri, new Position(15, 21), "Amount", TestContext.Current.CancellationToken);
 
-        rename!.Changes![uri].Select(e => (e.Range.Start.Line, e.Range.Start.Character))
+        rename!.Edit!.Changes![uri].Select(e => (e.Range.Start.Line, e.Range.Start.Character))
             .Should().Equal((15, 20), (16, 10), (17, 10), (18, 0));
     }
 
@@ -268,7 +268,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         {
             var ideRefuses = !ProjectNaming.IsValidName(name) || ProjectNaming.IsReservedWord(name);
             var rename = await client.RequestRenameAsync(uri, new Position(15, 21), name, TestContext.Current.CancellationToken);
-            var serverRefuses = rename is null;
+            var serverRefuses = rename?.Refusal is not null;
             if (ideRefuses != serverRefuses)
                 disagreements.Add($"'{name}': the IDE {(ideRefuses ? "refuses" : "accepts")} it, the server {(serverRefuses ? "refuses" : "accepts")} it");
         }
@@ -345,27 +345,33 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
     /// That folder is read whole, its evidence half included: this compares the two copies of the rule and is no
     /// round trip, and the evidence's inputs are the misplaced runs VB6 itself loaded (#273 task 4.6).
     /// </remarks>
-    private static IEnumerable<(string Name, string Text)> Inputs()
+    private static IEnumerable<(string Name, string Text)> Inputs(Func<string, string?>? findRoot = null)
     {
+        findRoot ??= FindUpwards;
         yield return ("inline form", Form);
+        yield return ("inline form with lone CR", Form.ReplaceLineEndings("\r"));
         yield return ("inline class", Class);
         yield return ("inline class with orphans", ClassWithOrphans);
         yield return ("inline form with the reader's shapes", FormWithReaderShapes);
 
-        // The member-attribute corpus is required, where the other roots are taken if found: it is the only whole-file
+        // The member-attribute corpus is required too: it is the only whole-file
         // source of runs VB6 wrote and of the misplaced ones it loaded, and without it the comparison would go on
         // passing over the inline files and the demos alone.
-        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
+        var memberAttributes = findRoot(Path.Join("corpus", "member-attributes"));
         memberAttributes.Should().NotBeNull("corpus/member-attributes ships with the repository");
         new[] { "round-trip", "evidence" }.Where(half => !Directory.Exists(Path.Join(memberAttributes!, half)))
             .Should().BeEmpty("both halves are read: the runs VB6 wrote, and the misplaced ones it loaded");
-        var roots = new List<string?> { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), memberAttributes };
+        var demo = findRoot("demo");
+        demo.Should().NotBeNull("demo/ ships with the repository");
+        var designer = findRoot(Path.Join("corpus", "designer"));
+        designer.Should().NotBeNull("corpus/designer ships with the repository");
+        var roots = new List<string> { demo!, designer!, memberAttributes! };
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
             roots.AddRange(env.Split(';', StringSplitOptions.RemoveEmptyEntries).Where(Directory.Exists));
 
         string[] extensions = [".frm", ".cls", ".bas", ".ctl", ".pag", ".dob", ".dsr"];
-        foreach (var root in roots.OfType<string>())
+        foreach (var root in roots)
         {
             foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
             {
@@ -373,6 +379,17 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     yield return (Path.GetRelativePath(root, file), File.ReadAllText(file));
             }
         }
+    }
+
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("corpus/designer")]
+    public void MissingRepositoryRootFailsTheLane(string missing)
+    {
+        string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
+        Action enumerate = () => Inputs(FindRoot).ToList();
+
+        enumerate.Should().Throw<Exception>().WithMessage("*" + missing + "*ships with the repository*");
     }
 
     private static string? FindUpwards(string relative)
@@ -404,22 +421,37 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         var starts = new List<int> { 0 };
         for (var i = 0; i < text.Length; i++)
         {
-            if (text[i] == '\n')
+            if (text[i] is '\r' or '\n')
+            {
+                if (text[i] == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+                    i++;
                 starts.Add(i + 1);
+            }
         }
         return starts;
     }
 
-    private static string[] Lines(string text) => text.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+    private static string[] Lines(string text) => text.ReplaceLineEndings("\n").Split('\n');
 
     /// <summary><paramref name="text"/> with two spaces after every line that has anything on it.</summary>
-    private static string WithTrailingSpaces(string text) =>
-        string.Join('\n', text.Split('\n').Select(line =>
+    private static string WithTrailingSpaces(string text)
+    {
+        var result = new System.Text.StringBuilder();
+        var starts = LineStarts(text);
+        for (var i = 0; i < starts.Count; i++)
         {
-            var cr = line.EndsWith('\r') ? "\r" : "";
-            var content = line.TrimEnd('\r');
-            return content.Trim().Length > 0 ? content + "  " + cr : line;
-        }));
+            var next = i + 1 < starts.Count ? starts[i + 1] : text.Length;
+            var end = next;
+            while (end > starts[i] && text[end - 1] is '\r' or '\n')
+                end--;
+            var content = text[starts[i]..end];
+            result.Append(content);
+            if (content.Trim().Length > 0)
+                result.Append("  ");
+            result.Append(text, end, next - end);
+        }
+        return result.ToString();
+    }
 
     /// <summary>The words of <paramref name="line"/> outside string literals and comments, with where each starts.</summary>
     private static IEnumerable<(string Word, int Character)> Words(string line)

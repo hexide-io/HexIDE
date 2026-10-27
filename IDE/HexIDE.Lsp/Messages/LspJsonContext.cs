@@ -33,6 +33,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(HoverResult))]
 [JsonSerializable(typeof(DocumentSymbolParams))]
 [JsonSerializable(typeof(DocumentSymbol[]))]
+[JsonSerializable(typeof(SemanticTokensParams))]
+[JsonSerializable(typeof(SemanticTokens))]
 [JsonSerializable(typeof(FoldingRangeParams))]
 [JsonSerializable(typeof(FoldingRange[]))]
 [JsonSerializable(typeof(CodeLensParams))]
@@ -58,6 +60,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
 [JsonSerializable(typeof(WorkspaceSymbolParams))]
 [JsonSerializable(typeof(SymbolInformation[]))]
+[JsonSerializable(typeof(ProgressParams))]
+[JsonSerializable(typeof(WorkDoneProgressCreateParams))]
 [JsonSerializable(typeof(SetTraceParams))]
 [JsonSerializable(typeof(LogTraceParams))]
 // NOT an LSP type, and load-bearing for exactly that reason. StreamJsonRpc deserializes the `data` member

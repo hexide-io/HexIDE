@@ -1,10 +1,14 @@
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Primitives.PopupPositioning;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using HexIDE.Automation;
 
 namespace HexIDE.Integration.Tests.Automation;
@@ -27,7 +31,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// instead. They render for real under Skia (<c>UseHeadlessDrawing = false</c> in <c>TestApp</c>), as
 /// <c>ClassicRenderTests</c> does.</para>
 /// </summary>
-public class SnapshotComposerTests
+public class SnapshotComposerTests : WindowTestFixture
 {
     // A colour no chrome uses, so finding it proves the popup's own content was drawn rather than
     // something underneath happening to be that shade.
@@ -55,8 +59,9 @@ public class SnapshotComposerTests
     /// Pixels come back via <c>CopyPixels</c> into managed memory — no unsafe block, and no assumption
     /// about what the bitmap is backed by. BGRA byte order, so red is at +2.
     /// </remarks>
-    private static bool Contains(Avalonia.Media.Imaging.RenderTargetBitmap bitmap, Color colour)
+    private static bool Contains(Bitmap image, Color colour)
     {
+        using var bitmap = Readable(image);
         var size = bitmap.PixelSize;
         var stride = size.Width * 4;
         var pixels = new byte[stride * size.Height];
@@ -79,56 +84,246 @@ public class SnapshotComposerTests
         return false;
     }
 
-    [AvaloniaFact]
-    public void A_window_with_nothing_open_still_captures()
+    /// <summary>
+    /// A capture, once drawn. The compositor draws on a render tick, which the headless platform has only when asked.
+    /// </summary>
+    internal static async Task<T> Drawn<T>(Task<T> capture)
     {
-        var (window, _) = WindowWithPopup(open: false);
+        for (var i = 0; i < 400 && !capture.IsCompleted; i++)
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(5);
+        }
+        return await capture;
+    }
 
-        using var bitmap = SnapshotComposer.Capture(window);
+    /// <summary>
+    /// <paramref name="image"/> as a bitmap whose pixels can be copied out. The compositor's own image cannot give them up,
+    /// so it goes through a PNG, as take_snapshot's file does.
+    /// </summary>
+    internal static Bitmap Readable(Bitmap image)
+    {
+        using var png = new System.IO.MemoryStream();
+        image.Save(png);
+        png.Position = 0;
+        return new Bitmap(png);
+    }
 
-        bitmap.Should().NotBeNull();
-        bitmap!.PixelSize.Width.Should().BeGreaterThan(0);
-        bitmap.PixelSize.Height.Should().BeGreaterThan(0);
+    [AvaloniaTheory]
+    [InlineData(80, 100, 20, 0, 1.0)]
+    [InlineData(100, 80, 0, 20, 1.0)]
+    [InlineData(80, 80, 20, 20, 1.5)]
+    public async Task Overhanging_popup_shifts_the_window(int popupX, int popupY, int offsetX, int offsetY,
+        double scaling)
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            using var snapshot = await Drawn(SnapshotComposer.ComposeAsync(window,
+                new PixelRect(100, 100, (int)(100 * scaling), (int)(100 * scaling)),
+                new() { (popup, new PixelRect(popupX, popupY, (int)(10 * scaling), (int)(10 * scaling))) },
+                scaling));
+            using var bitmap = Readable(snapshot.Image);
+            var offset = snapshot.WindowOffset;
+
+            offset.Should().Be(new PixelPoint(offsetX, offsetY));
+            // A strip before the shifted window must stay transparent, beyond the popup's own edge.
+            var x = offsetX > 0 ? 0 : 50;
+            var y = offsetY > 0 && offsetX == 0 ? 0 : 50;
+            var pixel = new byte[4];
+            var handle = System.Runtime.InteropServices.GCHandle.Alloc(pixel,
+                System.Runtime.InteropServices.GCHandleType.Pinned);
+            try
+            {
+                bitmap.CopyPixels(new PixelRect(x, y, 1, 1), handle.AddrOfPinnedObject(), 4, 4);
+                pixel[3].Should().Be(0, "the window must leave room for the popup overhang");
+                bitmap.CopyPixels(new PixelRect(offsetX + 50, offsetY + 50, 1, 1),
+                    handle.AddrOfPinnedObject(), 4, 4);
+                // Blue, in the bitmap's own byte order: BGRA on Windows and Linux, RGBA on macOS. (Magenta, below,
+                // reads the same either way.)
+                var blue = bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888
+                    ? new byte[] { 0, 0, 255, 255 }
+                    : new byte[] { 255, 0, 0, 255 };
+                pixel.Should().Equal(blue, "the shifted window must still be rendered");
+                bitmap.CopyPixels(new PixelRect(popupX - 100 + offsetX + 5, popupY - 100 + offsetY + 5, 1, 1),
+                    handle.AddrOfPinnedObject(), 4, 4);
+                pixel.Should().Equal(new byte[] { 255, 0, 255, 255 }, "the popup must retain its relative position");
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
     }
 
     [AvaloniaFact]
-    public void A_closed_popup_does_not_appear()
+    public async Task A_window_with_nothing_open_still_captures()
     {
         var (window, _) = WindowWithPopup(open: false);
 
-        using var bitmap = SnapshotComposer.Capture(window);
+        using var snapshot = await Drawn(SnapshotComposer.CaptureAsync(window));
 
-        Contains(bitmap!, PopupMarker).Should().BeFalse("nothing is open, so nothing should be drawn over the window");
+        snapshot.Should().NotBeNull();
+        snapshot!.Image.PixelSize.Width.Should().BeGreaterThan(0);
+        snapshot.Image.PixelSize.Height.Should().BeGreaterThan(0);
+        snapshot.Fallback.Should().BeNull("the compositor drew it");
     }
 
     [AvaloniaFact]
-    public void An_overlay_popup_is_already_in_the_window_and_still_appears()
+    public async Task A_closed_popup_does_not_appear()
+    {
+        var (window, _) = WindowWithPopup(open: false);
+
+        using var snapshot = await Drawn(SnapshotComposer.CaptureAsync(window));
+
+        Contains(snapshot!.Image, PopupMarker).Should().BeFalse("nothing is open, so nothing should be drawn over the window");
+    }
+
+    [AvaloniaFact]
+    public async Task An_overlay_popup_is_already_in_the_window_and_still_appears()
     {
         // Headless hosts popups as overlays, so this passes with or without the composer. Kept as a
         // statement of the invariant that matters on such platforms — the picture must show the popup —
         // and NOT as evidence the composer works; that is the live check's job.
         var (window, _) = WindowWithPopup(open: true);
 
-        using var bitmap = SnapshotComposer.Capture(window);
+        using var snapshot = await Drawn(SnapshotComposer.CaptureAsync(window));
 
-        Contains(bitmap!, PopupMarker).Should().BeTrue("an open popup is on screen and belongs in the picture");
+        Contains(snapshot!.Image, PopupMarker).Should().BeTrue("an open popup is on screen and belongs in the picture");
     }
 
     [AvaloniaFact]
-    public void An_overlay_popup_does_not_widen_the_canvas()
+    public async Task An_overlay_popup_does_not_widen_the_canvas()
     {
         // The discriminating one on this platform. An overlay popup is already inside the window's own
         // render; composing it again would draw it twice and grow the canvas for content that never left
         // the window. Remove the "skip anything whose top-level is this window" guard and this fails.
         var (window, _) = WindowWithPopup(open: false);
-        using var windowOnly = SnapshotComposer.Capture(window);
+        using var windowOnly = await Drawn(SnapshotComposer.CaptureAsync(window));
 
         var (window2, popup2) = WindowWithPopup(open: false);
         popup2.Child = new Border { Width = 400, Height = 600, Background = new SolidColorBrush(PopupMarker) };
         popup2.IsOpen = true;
-        using var withPopup = SnapshotComposer.Capture(window2);
+        using var withPopup = await Drawn(SnapshotComposer.CaptureAsync(window2));
 
-        withPopup!.PixelSize.Should().Be(windowOnly!.PixelSize,
+        withPopup!.Image.PixelSize.Should().Be(windowOnly!.Image.PixelSize,
             "an overlay popup is part of the window already, however big it is");
+    }
+
+    // A popup reported far from the window, at (-32000, -32000) for example, made the canvas the union of it and the
+    // window, 32,000 pixels square, whose bytes overflow an Int32: "Positive number required" (#1960).
+    [AvaloniaFact]
+    public async Task A_popup_too_far_away_to_compose_is_left_out_and_named()
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            var far = new PixelRect(-32000, -32000, 10, 10);
+            using var snapshot = await Drawn(SnapshotComposer.ComposeAsync(window, new PixelRect(100, 100, 100, 100),
+                new() { (popup, far) }, 1.0, screens: null));
+            var (bitmap, offset, leftOut) = (snapshot.Image, snapshot.WindowOffset, snapshot.LeftOut);
+
+            bitmap.PixelSize.Should().Be(new PixelSize(100, 100), "the window is captured on its own");
+            offset.Should().Be(default(PixelPoint));
+            var only = leftOut.Should().ContainSingle().Which;
+            only.Rect.Should().Be(far);
+            only.Reason.Should().StartWith("which would make the image 32200 × 32200 pixels");
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task A_popup_on_no_screen_is_left_out_and_one_on_a_screen_is_drawn()
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            var screens = new[] { new PixelRect(0, 0, 400, 300) };
+            var offScreen = new PixelRect(500, 100, 10, 10);
+            var overhang = new PixelRect(80, 100, 10, 10);
+            using var snapshot = await Drawn(SnapshotComposer.ComposeAsync(window, new PixelRect(100, 100, 100, 100),
+                new() { (popup, offScreen), (popup, overhang) }, 1.0, screens));
+            var (bitmap, offset, leftOut) = (snapshot.Image, snapshot.WindowOffset, snapshot.LeftOut);
+
+            var only = leftOut.Should().ContainSingle().Which;
+            only.Rect.Should().Be(offScreen);
+            only.Reason.Should().Be("which is on none of the screens");
+            bitmap.PixelSize.Should().Be(new PixelSize(120, 100), "the overhanging popup still widens the canvas");
+            offset.Should().Be(new PixelPoint(20, 0));
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
+    }
+
+    // A menu hanging off one screen's edge, and a popup on a second screen, are on screen: only one on none is left out.
+    [AvaloniaFact]
+    public async Task A_popup_across_a_screen_edge_or_on_another_screen_is_drawn()
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            var screens = new[] { new PixelRect(0, 0, 400, 300), new PixelRect(400, 0, 400, 300) };
+            using var snapshot = await Drawn(SnapshotComposer.ComposeAsync(window, new PixelRect(100, 100, 100, 100),
+                new() { (popup, new PixelRect(390, 100, 20, 10)), (popup, new PixelRect(500, 100, 10, 10)) }, 1.0, screens));
+            var (bitmap, leftOut) = (snapshot.Image, snapshot.LeftOut);
+
+            leftOut.Should().BeEmpty();
+            bitmap.PixelSize.Should().Be(new PixelSize(410, 100));
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
+    }
+
+    // A size cast from infinity is the largest Int32, and its right edge wrapped negative, so the union looked small and
+    // the piece's own render target threw the same exception. Reckoned in longs, it is too large and left out.
+    [AvaloniaFact]
+    public async Task A_popup_of_the_largest_size_is_left_out_rather_than_wrapping()
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            using var snapshot = await Drawn(SnapshotComposer.ComposeAsync(window, new PixelRect(100, 100, 100, 100),
+                new() { (popup, new PixelRect(100, 100, int.MaxValue, 10)) }, 1.0, screens: null));
+            var (bitmap, leftOut) = (snapshot.Image, snapshot.LeftOut);
+
+            leftOut.Should().ContainSingle().Which.Reason.Should().StartWith("which would make the image");
+            bitmap.PixelSize.Should().Be(new PixelSize(100, 100));
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
     }
 }

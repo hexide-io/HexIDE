@@ -71,6 +71,11 @@ at a time.
 - **WHEN** a program uses a construct on the boundary map
 - **THEN** it fails clearly, and the boundary map already says so
 
+#### Scenario: Unsupported bang access in an array-result assignment
+- **WHEN** an assignment target uses bang access on an indexed or called result
+- **THEN** the interpreter refuses it with a message naming bang access and the target
+- **AND** the host reports the limitation without a trappable VB6 error number
+
 #### Scenario: Recording a new boundary
 - **WHEN** a construct is found to be out of reach
 - **THEN** it is added to the boundary map with what it is, rather than minimised
@@ -105,6 +110,27 @@ code.
 #### Scenario: Assigning a user-defined type
 - **WHEN** one user-defined-type value is assigned to another
 - **THEN** the target is an independent copy, and later changes to it do not affect the source
+
+#### Scenario: Arrays of user-defined types
+- **WHEN** a module or procedure declares an array of a user-defined type
+- **THEN** each element owns a fresh record, including its nested records and array fields
+- **AND** whole-element stores and reads used in assignments copy every field independently
+- **AND** ReDim Preserve retains surviving records and initializes new ones, while plain ReDim resets them
+- **AND** Erase resets fixed-array elements and deallocates a dynamic array
+
+#### Scenario: A record element passed ByRef
+- **WHEN** an array element is passed to a UDT parameter ByRef
+- **THEN** writes to its fields reach the element during and after the call
+- **AND** ReDim, ReDim Preserve and Erase of its containing array raise error 10 during the call
+
+#### Scenario: Array fields in a record
+- **WHEN** a Type contains a fixed array with literal bounds or a dynamic array field
+- **THEN** indexed reads and writes use the subscripts, and whole-array field assignments use the array-variable store rules
+- **AND** nonliteral or inverted Type-field bounds and array fields As New remain explicitly refused
+
+#### Scenario: For Each over a UDT array
+- **WHEN** execution reaches For Each over an array of a user-defined type
+- **THEN** it raises the measured VB6 compile refusal rather than enumerating records
 
 ### Requirement: Classes SHALL support creation, lifetime callbacks, properties and events
 The engine SHALL support declaring class modules, creating instances, running initialization and termination

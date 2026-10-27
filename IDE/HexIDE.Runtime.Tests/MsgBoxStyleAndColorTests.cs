@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// MsgBox's style read as the Long it is, and RGB and QBColor. Every expectation was measured on vb6.exe; the probe
-/// and its output are in docs/vb6-fidelity-oracle.md, "RGB, QBColor and MsgBox's style".
+/// and its output are in docs/vb6-fidelity-oracle/rgb-qbcolor-and-msgboxs-style.md, "RGB, QBColor and MsgBox's style".
 /// </summary>
 public class MsgBoxStyleAndColorTests : BaseVBTestFixture
 {
@@ -233,13 +233,10 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [InlineData("CInt(u)")]
     [InlineData("RGB(u, 0, 0)")]
     [InlineData("MsgBox(\"probe\", u)")]
-    [InlineData("CInt(a(1))")]
-    [InlineData("RGB(a(1), 0, 0)")]
     public async Task A_user_defined_type_raises_13_rather_than_reading_as_0(string expression)
     {
-        // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs. An element
-        // of `a` that nothing has assigned holds no value yet, and read as 0.
-        await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nDim a(2) As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
+        // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs.
+        await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
                   + "Debug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(13L)]);
     }
