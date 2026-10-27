@@ -554,30 +554,6 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
-## The code window's completion description: desktop snapshot composition still needs a live check
-
-**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
-The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
-`interact` `double_click` selected an item without committing it.
-[#1334](https://github.com/hexide-io/HexIDE/issues/1334).
-
-**Fixed in code, with headless regression tests.** The dump now reaches the open description popup through
-`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
-selects the target and requests insertion through the completion list's own commit path. The current list
-appends to the typed prefix rather than replacing it (#941); the test checks the resulting document text.
-
-**Still open.** The snapshot composer uses that same attached-popup route to discover the description's
-top-level root and compose it after the list. This has not been checked live. Headless popups render in the
-window's own overlay, so headless rendering cannot prove the desktop composition works. A running IDE
-`take_snapshot(window: "ide")` with a described completion selected remains required.
-
-**Workaround.** Read the description with `dump_visual_tree(window: "ide", interactiveOnly: false)`.
-For snapshot visibility, no verified workaround.
-
-**Suggested check.** In a running IDE select a completion with a description, then call
-`take_snapshot(window: "ide")` and confirm the tooltip's text, position and unclipped extent. Keep this
-entry open until that check passes.
-
 ## A document save reached through a menu, key or click can reply before its picker opens
 
 **Symptom.** Narrowed by headless measurements for [#1335](https://github.com/hexide-io/HexIDE/issues/1335),
@@ -738,3 +714,29 @@ window as stale.
 **Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
 `set_window_state`; or render it fresh and say so. Never present the last frame as current.
 [#2416](https://github.com/hexide-io/HexIDE/issues/2416).
+
+## `open_file` can't put the caret in a carried file
+
+**Symptom (2026-10-27, Windows, #1334's live check).** `open_file {"name":"twice.c","line":3,"column":27}`, on a
+project carrying `twice.c`, answered `{"success":false,"error":"'twice.c' is a carried file, which opens in the
+plain-text editor, where this does not put the caret; nothing was opened"}`. The refusal is deliberate: #700 placed the
+caret in the code window only.
+
+**Workaround.** `open_file` with no `line`, then walk the caret there with `press_key`: Ctrl+Home, Down per line, End or
+Right. That is a call per keystroke, and a wrapped line or a refused key misplaces it.
+
+**Suggested fix.** Place the caret in the carried-file editor, an AvaloniaEdit `TextEditor` like the code window's, with
+`CaretPlacement.Place` and the same rules, and read it back in the note. If a carried file must be treated differently,
+open it and say so, rather than refuse and open nothing. [#2403](https://github.com/hexide-io/HexIDE/issues/2403).
+
+## `press_key` with a character key types nothing
+
+**Symptom (2026-10-27, Windows, #2422's live check).** `press_key {"target":"Window/Edit[Text1]","key":"K",
+"modifiers":"Shift","window":"Form1"}` on a running TextBox logged `D16/1 D75/1 U75/1 U16/0`: no KeyPress, and no
+text. The oracle puts KeyPress 75 between the KeyDown and KeyUp, and a person's press types K. The reply, `pressed
+Shift+K`, does not say nothing was typed. The raw key events carry no text, which a platform sends separately.
+
+**Workaround.** `type_text` with `mode: "keyboard"`, which logged `D16/1 D75/1 P75 U75/1 U16/0`.
+
+**Suggested fix.** Type the key's character between its KeyDown and KeyUp when it types one, as `type_text` does; or
+say in the reply that nothing was typed and name `type_text`. [#2428](https://github.com/hexide-io/HexIDE/issues/2428).

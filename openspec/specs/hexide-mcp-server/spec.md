@@ -367,6 +367,20 @@ unrelated save, and that damage surfaces somewhere other than where it was cause
 - **WHEN** a build excludes the automation server
 - **THEN** it contains no way to bypass a file dialog
 
+### Requirement: One armed answer SHALL be able to name several files, for an Open that allows them
+The server SHALL let a client arm one answer that names several files, in order, as a person selects them in an
+Open dialog that allows several. Only such a dialog SHALL take all of them. A save dialog, or an Open that takes one
+file, SHALL answer it as cancelled rather than with its first file, which no person could have chosen there, and
+a reply SHALL say so: the reply of the save that took it, or else the next reply that arms or discards an answer.
+
+#### Scenario: Adding two files at once
+- **WHEN** a client arms two module paths as one answer and invokes Add File
+- **THEN** both modules join the project
+
+#### Scenario: Several files reach a save
+- **WHEN** a client arms two paths as one answer and a document without a file is saved
+- **THEN** nothing is written, and the save's reply fails, saying its picker answered as cancelled and why
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
@@ -868,6 +882,19 @@ actions `invoke_command` and `set_property` SHALL continue to act on the view mo
 - **THEN** the refusal names the blocking dialog and directs the caller to answer it
 - **AND** nothing is done
 
+### Requirement: A click SHALL move the pointer there before it presses
+`interact`'s `click` SHALL raise a pointer move at the point on the element it presses before the press, as a person's
+pointer arrives first, so a running form's MouseMove comes before its MouseDown. A click where the last click left the
+pointer, in the same window, SHALL move nothing first, as a still pointer sends no move. The reply SHALL say which.
+
+#### Scenario: A click on a running form's button
+- **WHEN** `click` presses Command1, which logs its mouse events
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+
+#### Scenario: A second click at the same point
+- **WHEN** `click` presses again where the last click left the pointer
+- **THEN** no move comes before the press, and the reply says the pointer was already there
+
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is
 sent, with a click count of 2, even when the first click replaced what it landed on or the addressed control. It SHALL be
@@ -935,6 +962,19 @@ Categorized Properties rows SHALL expose an expand/collapse provider driven by t
 - **THEN** its open state and property visibility follow the requested state
 - **AND** repeating the action succeeds without toggling the state
 - **AND** inspection reports the current expansion state, including after using the category toggle
+
+### Requirement: A key pressed with modifiers SHALL press each modifier's own key around it
+`press_key` with modifiers, and `type_text` in keyboard mode typing a capital, SHALL send each modifier's own key
+down before the key and up after it, in reverse, as a person's chord does. Each event SHALL carry the modifiers held
+at that moment, so a modifier key's own down reports itself held and its up does not. The reply SHALL name them.
+
+#### Scenario: Shift+K on a running TextBox
+- **WHEN** `press_key` presses K with Shift on a TextBox that logs its key events
+- **THEN** they run KeyDown 16 with mask 1, KeyDown 75 with mask 1, KeyUp 75 with mask 1, KeyUp 16 with mask 0
+
+#### Scenario: A capital typed as keys
+- **WHEN** `type_text` types K in keyboard mode
+- **THEN** Shift's own KeyDown comes before K's and its KeyUp after K's, and the reply says so
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

@@ -103,6 +103,103 @@ headless `claude -p` through the hexide tools).**
 **Found on the way.** The default capture of a minimized window returned the last frame it drew before minimizing,
 with the reply of a fresh capture: #2416, in the live document.
 
+## `interact`'s `click` pressed without moving the pointer there, so a program's MouseMove never ran from one — **CLOSED** (#2407, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's TreeView recheck, on #2353).** `click` raised a press and a release at the point,
+and no move first, so a running form's MouseMove never fired from a click. A person's click always arrives with the
+pointer having moved onto the control. A live check of a control's event order, MouseMove, MouseDown, MouseUp,
+Click, couldn't be made with `click` alone, and the recheck had to `hover` at the same points to get MouseMove at all.
+
+**Fixed (#2407).** `click` raises a `PointerMoved` on the element it presses, at the point, before the press, on its own
+pointer. That is the route a running form's MouseMove is raised from. A click where the last click left the pointer in
+that window moves nothing first, as a still pointer sends no move; a hover's end takes the pointer out of the window,
+so the next click arrives again. A double click's second press already moved nothing. The reply ends `the pointer moved
+there first, as a person's does` or `the pointer was already there from the last click, so it did not move first`.
+Guarded by `InteractClickTests` and `MouseEventTests`. The oracle's mouse probes logged no MouseMove, so whether VB6
+raises others around a click is unmeasured: #2412.
+
+**Live, against a real pointer (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+A twips form logged each mouse event into a label: `cMM`, `cMD`, `cMU` and `cC` for Command1's MouseMove, MouseDown,
+MouseUp and Click, and `fMM`, `fMD`, `fMU` and `fC` for the form's.
+
+| Input | Windows, through `click` | Linux under WSLg, through `click` | Linux, real X input from `xdotool` |
+|---|---|---|---|
+| click on Command1 | `cMM cMD cC cMU` | `cMM cMD cC cMU` | `cMM cMD cC cMU` |
+| click on the form at (333, 200) | `fMM fMD fMU fC` | `fMM fMD fMU fC` | `fMM fMD fMU fC` |
+| the same click again | `fMD fMU fC` | `fMD fMU fC` | `fMD fMU fC` (and `cMD cC cMU` on Command1) |
+
+- **The real pointer.** `xdotool mousemove` then `click 1`, so the X server's own input reached Avalonia's X11
+  backend. With the form not yet active, the first real click on Command1 gave `cMM` alone, as the window manager took
+  the press to activate the form; with it active, it gave the row above.
+- **Windows.** The real-pointer column couldn't be measured there: the session was locked, and posted mouse messages
+  don't reliably reach Avalonia's input on this host, as an earlier entry found. Three posted clicks left one
+  `fMM fMD fMU fC`, which says nothing either way.
+
+## `answer_next_file_dialog` armed one path, so a multi-select Open could not be answered with several files — **CLOSED** (#2408, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's live check of #2395, the CommonDialog).** A ShowOpen with AllowMultiselect and
+Explorer (`Flags = &H80200`) had to return two files, as in the oracle's row where `"a.txt" "b.txt"` is typed and
+FileName comes back as the folder, Chr(0), `a.txt`, Chr(0), `b.txt`. No call could give that answer.
+`answer_next_file_dialog(path: "<folder>\a.txt")` armed one path, which the Open picker returned as a one-element
+list. Calling it twice armed two answers, each spent by its own dialog, so the second went to the next picker rather
+than to the same pick. Only a person or the headless tests could reach a program's multi-file result. The IDE's own
+Add File, which allows several, had the same limit.
+
+**Fixed (#2408).** `answer_next_file_dialog` takes `paths`, every file of one answer in order, beside `path`; the reply
+lists them in `paths`. Only an Open that allows several takes them all. A save, or an Open that takes one file, answers
+the answer as cancelled, not with its first file, which no person could have chosen there; the answer is spent all the
+same, so it cannot redirect a later dialog. The save's own reply fails and says so. Where nothing replies for the
+dialog, as with a single-select Open from a menu or a running program, the next `answer_next_file_dialog` or
+`clear_file_dialog_answers` reply does, once. Both `path` and `paths`, an empty `paths` or a blank entry is refused, with
+nothing armed. Guarded by `ScriptedFileDialogsTests` and `AnswerNextFileDialogPathsTests`. A program's multi-file
+FileName is #2395's to format; this gives it the files.
+
+**Live (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools, a new Standard EXE).**
+
+- **Add File with two files.** `answer_next_file_dialog {"paths":["…\\Alpha.bas","…\\Beta.bas"]}`, then
+  `invoke_menu_item {"path":"Project/Add File"}`: `get_project_info` listed `"modules":["Alpha","Beta"]`, and
+  `clear_file_dialog_answers` then said `Nothing was armed.`
+- **A save.** `add_file` a module Gamma, arm two paths, then `set_file_content` Gamma: `{"success":false,"error":"The
+  new code is in the IDE. Module 'Gamma' still has no file: the save picker answered as cancelled, because the armed
+  answer named several files and it takes one (answer_next_file_dialog's paths is for an Open that allows several), so
+  nothing was written. …"}`, re-checked against the final build. The `clear_file_dialog_answers` after it said
+  `Nothing was armed.`: the save took the answer, and its reply had already reported the refusal.
+- **An Open that takes one file, from a menu.** Arm two paths, then `invoke_menu_item {"path":"Run/Start External
+  Debug Session"}`, which replied only `Invoked`. The next `answer_next_file_dialog {}` said `The next file dialog will
+  answer as cancelled. Earlier, an Open picker that takes one file took an answer of 2 paths, which it cannot take, so
+  it answered as cancelled.`
+- **Refused at arming.** `path` and `paths` together: `Pass path for one file or paths for several, not both.`; `paths`
+  empty: `paths must name at least one file, and none of them blank. …`; both with `Nothing was armed.`
+
+## `press_key` and `type_text` pressed a modified key without the modifier's own KeyDown and KeyUp — **CLOSED** (#2422, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's live check of #2418, the TextBox key events).** `press_key` with `modifiers`, and
+`type_text` in keyboard mode, sent the key with its modifiers as flags and never the modifier's own key. A person's
+Shift+K is Shift down, K down, K up, Shift up. The oracle's TextBox key table measures that pair, Shift 16, Ctrl 17
+and Alt 18 with mask 1, 2 or 4 while held and mask 0 on their own release, and none of it could be driven:
+`press_key(key: "A", modifiers: "Ctrl")`, `press_key(key: "X", modifiers: "Alt")` and
+`type_text(text: "K", mode: "keyboard")` each raised the main key's events alone. The keyboard twin of #2407.
+
+**Fixed (#2422).** Each modifier's own key goes down before the key, in the order Ctrl, Shift, Alt, Meta, holding
+what is down so far, and up after it in reverse, holding what is still down. The window input, the routed fallback
+and `type_text`'s keyboard mode all send the same chord. A modifier pressed alone reports itself held going down and
+not coming up, as Windows reports it. The replies name the keys: `pressed Shift+K; LeftShift went down before K and
+up after it, as a person holds it`, and `type_text`'s `LeftShift went down before the capital and up after it`.
+Guarded by `ModifierKeyChordTests`. A press of a key with nothing typed, such as Shift+K through `press_key`, is
+#2428.
+
+**Live (2026-10-27, Windows, a Debug build of this branch merged locally with #2418, headless `claude -p` through the
+hexide tools).** Text1's KeyDown, KeyPress and KeyUp each logged a token: `D<KeyCode>/<Shift>`, `P<KeyAscii>`,
+`U<KeyCode>/<Shift>`.
+
+| Call | Logged | The oracle |
+|---|---|---|
+| `press_key` K, `modifiers` Shift | `D16/1 D75/1 U75/1 U16/0` | the same, with KeyPress 75 before the KeyUp: #2428 |
+| `press_key` A, `modifiers` Ctrl | `D17/2 D65/2 P1 U65/2 U17/0` | KeyCode 65, KeyAscii 1 |
+| `press_key` X, `modifiers` Alt | `D18/4 D88/4 U88/4 U18/0` | KeyCode 88, no KeyPress |
+| `press_key` LeftShift | `D16/1 U16/0` | Shift 16, mask 1 held and 0 on release |
+| `type_text` "Kk", keyboard mode | `D16/1 D75/1 P75 U75/1 U16/0 D75/0 P107 U75/0` | K and k both 75, KeyAscii 75 and 107 |
+
 ---
 
 ## `set_window_state` reached only the IDE's own window — **CLOSED** (#2357, 2026-10-27)
@@ -156,6 +253,40 @@ Guarded by `WindowStateOtherWindowTests` and `ForegroundWindowTests`.
   - minimize and restore from minimized, one each, with one Activate on the restore.
 
   Three for a maximize is the runtime's own behaviour whichever route it comes by: #2389.
+
+## The code window's completion description: desktop snapshot composition needed a live check — **CLOSED** (#1334, 2026-10-27)
+
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+
+**Fixed in code, with headless regression tests (#1678).** The dump reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and commits it through the list's own commit path. The snapshot composer discovers the
+description's top-level root by the same route and composes it after the list, which headless rendering can't prove:
+a headless popup renders in the window's own overlay.
+
+**Why the check took a foreign server.** The bundled VB6 server sends no `detail` on any completion item, so with it
+alone no item has a description, and the tooltip never shows. The carried-file editor asks no server for completion
+(#266), so a C file carried by the project couldn't stand in either. clangd attached to `.bas` beside the bundled server
+can, once it parses the module: its first attempt answered `twice` as `"kind":1,"deprecated":true` with no `detail`,
+clangd's fallback for a file it can't parse, because `Attribute VB_Name = "Module1"` isn't C. A `.clangd` beside the
+probe adding `-xc` and `-DAttribute=char*` made that line a declaration missing its semicolon, which clang recovers from.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of main at 8ae02d39 plus #2401, which touches neither path; clangd
+22.1.6 from the foreign-server cache, attached for `.bas` in the session's own profile; headless `claude -p` through
+the hexide tools, with `--capture-lsp`).** Module1 read `int twice(int x);` and `int main(void) { return tw; }`.
+
+- `open_file {"name":"Module1","line":3,"column":27}` put the caret after `tw`, and `press_key` Ctrl+Space on the
+  editor opened the list: clangd's item first, then the bundled server's keywords.
+- `get_lsp_message` on clangd's completion response gave `{"detail":"int",…,"kind":3,"label":" twice(int x)",…}`.
+- `interact` `select` on `…/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[twice(int x)]` answered
+  `selected ' twice(int x)'`. `dump_visual_tree` rooted at the list then listed `…/List[PART_ListBox]/Text[int]`, a
+  `TextBlock` named `int`, beside the list's scroll viewer.
+- `take_snapshot {"window":"ide"}` drew the tooltip: a bordered box reading `int`, just right of the list, level with
+  the selected row, whole, with the list unclipped beside it. Checked by eye on the image as well as by the caller.
+
+**Found on the way.** `open_file` with a `line` refuses a carried file and opens nothing: #2403, in the live document.
 
 ---
 

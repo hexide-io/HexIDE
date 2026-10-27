@@ -334,13 +334,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
-        catch (OperationCanceledException) when (cancel.Cancelled)
+        catch (OperationCanceledException) when (cancel.Cancelled || cancel.Refused)
         {
             var kind = form is not null ? "Form" : "Module";
-            return Naming(new MutateResult(true, null,
-                $"The new code is in the IDE. {kind} '{form?.Name ?? module!.Name}' still has no file: the armed answer "
-                + "cancelled the save picker, so nothing was written. To write it, arm answer_next_file_dialog with a "
-                + "path and call set_file_content again."), target);
+            var kept = $"The new code is in the IDE. {kind} '{form?.Name ?? module!.Name}' still has no file: "
+                       + $"{cancel.HowAnswered}, so nothing was written. To write it, arm answer_next_file_dialog with a "
+                       + "path and call set_file_content again.";
+            // An armed cancel was asked for; several paths for a save were not, so that one did not do what was asked.
+            return Naming(cancel.Refused ? new MutateResult(false, cancel.After(kept)) : new MutateResult(true, null, kept), target);
         }
         catch (Exception ex)
         {
@@ -726,12 +727,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
-        catch (OperationCanceledException) when (cancel.Cancelled)
+        catch (OperationCanceledException) when (cancel.Cancelled || cancel.Refused)
         {
-            return Naming(new MutateResult(true, null,
-                $"'{property}' is set in the IDE. {(ownerModule is not null ? "UserControl" : "Form")} '{target!.Name}' still "
-                + "has no file: the armed answer cancelled the save picker, so nothing was written. To write it, arm "
-                + "answer_next_file_dialog with a path and set a property again."), target);
+            var kept = $"'{property}' is set in the IDE. {(ownerModule is not null ? "UserControl" : "Form")} '{target!.Name}' "
+                       + $"still has no file: {cancel.HowAnswered}, so nothing was written. To write it, arm "
+                       + "answer_next_file_dialog with a path and set a property again.";
+            return Naming(cancel.Refused ? new MutateResult(false, cancel.After(kept)) : new MutateResult(true, null, kept), target);
         }
         catch (Exception ex)
         {
@@ -1455,12 +1456,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             + $"and the file will stay out of step."),
                 };
         }
-        catch (OperationCanceledException) when (cancel.Cancelled)
+        catch (OperationCanceledException) when (cancel.Cancelled || cancel.Refused)
         {
-            var kept = $"{spawned.Form.Name} still has no file: the armed answer cancelled the save picker, so nothing "
+            var kept = $"{spawned.Form.Name} still has no file: {cancel.HowAnswered}, so nothing "
                        + "was written. To write it, arm answer_next_file_dialog with a path and save the form, or make "
                        + "any other change that saves it, such as set_control_property.";
-            return spawned with { Form = null, Note = spawned.Note is null ? kept : spawned.Note + " " + kept };
+            return cancel.Refused
+                ? spawned with { Success = false, Form = null, Note = null, Error = cancel.After($"'{spawned.ControlName}' was added to the designer, but {kept}") }
+                : spawned with { Form = null, Note = spawned.Note is null ? kept : spawned.Note + " " + kept };
         }
         catch (Exception ex)
         {
@@ -1999,7 +2002,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var rows = new List<WatchRow>();
         foreach (var w in ctx.RootViewModel.Watches.Service.Watches)
         {
-            var result = await ctx.DebugController.EvaluateWatchAsync(w.Expression);
+            var result = await ctx.DebugController.EvaluateScopedWatchAsync(w.Expression, w.Context);
             rows.Add(new WatchRow(
                 w.Expression, w.Type.ToString(), w.Context,
                 result?.Display ?? "<Out of context>", result?.TypeName ?? "", result?.Ok ?? false));
@@ -2536,7 +2539,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation, but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
@@ -2588,7 +2591,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types, Shift's own key around a capital); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
         [Description("A path from dump_visual_tree. A target that is not showing is refused. If the target is not itself a text surface, a descendant editor/textbox is used (AvaloniaEdit is preferred over incidental textboxes); the reply gives the path of the surface that took the text. A target holding more than one showing surface of the chosen kind is refused, with their paths listed. A dropdown that is not editable is refused with a pointer to select.")]
         string target, string text, [Description(WindowParameter)] string? window = null,
@@ -2821,7 +2824,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static string? TipOn(Control c) =>
         ToolTip.GetIsOpen(c) && UiAutomationDriver.TipText(ToolTip.GetTip(c)) is { } text ? text : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers'; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' (in the code editor, AvaloniaEdit's TextArea, where its keys are handled) and focuses it first; falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, for reuse. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation keys are never refused. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
+    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers', whose own keys go down before it and up after, as a person's chord; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' (in the code editor, its TextArea) and focuses it first; falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation keys are never refused. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         [Description("A control's path, as dump_visual_tree prints it.")] string target,
         [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ... A chord written as one, such as 'Ctrl+H', is read as key 'H' with modifiers 'Ctrl', and the reply says so.")] string key,
@@ -3281,10 +3284,34 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
 
     [McpServerTool(Name = "answer_next_file_dialog")]
-    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. Omit `path` (or pass an empty one) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. A document save reached through invoke_menu_item, press_key or interact can still be waiting on formatting when they reply: check with clear_file_dialog_answers, but a pending count then can mean the picker has not opened yet.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. For an Open that lets a person select several files, pass them all as `paths` instead, one answer; a save, or an Open that takes one file, answers that as cancelled and a reply says so. Omit both to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. A document save reached through invoke_menu_item, press_key or interact can still be waiting on formatting when they reply: check with clear_file_dialog_answers, but a pending count then can mean the picker has not opened yet.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
     public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
-        string? path = null, CancellationToken ct = default)
+        string? path = null, string[]? paths = null, CancellationToken ct = default)
     {
+        // A refusal reached outside a save tool has no reply of its own, and the caller arms again next (#2408).
+        var earlier = HexIDE.IDE.ScriptedFileDialogs.TakeUnreportedRefusal();
+        FileDialogAnsweredResult Refuse(string error) => new(false, null, HexIDE.IDE.ScriptedFileDialogs.Pending,
+            "Nothing was armed." + earlier, Error: error);
+
+        if (paths is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(path))
+                return Task.FromResult(Refuse("Pass path for one file or paths for several, not both."));
+            if (paths.Length == 0 || paths.Any(string.IsNullOrWhiteSpace))
+                return Task.FromResult(Refuse("paths must name at least one file, and none of them blank. To answer "
+                                              + "as cancelled, omit both path and paths."));
+            HexIDE.IDE.ScriptedFileDialogs.AnswerNextWithMany(paths);
+            return Task.FromResult(new FileDialogAnsweredResult(
+                true, paths.Length == 1 ? paths[0] : null, HexIDE.IDE.ScriptedFileDialogs.Pending,
+                (paths.Length == 1
+                    ? $"The next file dialog will return '{paths[0]}'."
+                    : $"The next file dialog will return these {paths.Length} files, in this order, as a person selecting "
+                      + "them in an Open that allows several would. A save, or an Open that takes one file, cannot take "
+                      + "them: it answers as cancelled, and a reply says so.")
+                + " Nothing has been created there." + earlier,
+                Paths: paths));
+        }
+
         HexIDE.IDE.ScriptedFileDialogs.AnswerNextWith(path);
 
         var cancels = string.IsNullOrWhiteSpace(path);
@@ -3292,9 +3319,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             true,
             cancels ? null : path,
             HexIDE.IDE.ScriptedFileDialogs.Pending,
-            cancels
+            (cancels
                 ? "The next file dialog will answer as cancelled."
-                : $"The next file dialog will return '{path}'. Nothing has been created there."));
+                : $"The next file dialog will return '{path}'. Nothing has been created there.") + earlier,
+            Paths: cancels ? null : [path!]));
     }
 
     [McpServerTool(Name = "clear_file_dialog_answers")]
@@ -3305,9 +3333,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         return Task.FromResult(new FileDialogAnsweredResult(
             true, null, 0,
-            discarded == 0
+            (discarded == 0
                 ? "Nothing was armed."
-                : $"Discarded {discarded} armed answer(s); the next file dialog will be shown for real."));
+                : $"Discarded {discarded} armed answer(s); the next file dialog will be shown for real.")
+            + HexIDE.IDE.ScriptedFileDialogs.TakeUnreportedRefusal()));
     }
 
     [McpServerTool(Name = "set_lock_key")]
@@ -3700,9 +3729,12 @@ internal record NewProjectTemplatesResult(TemplateInfo[] Templates);
 
 internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int Sequence, string? Module = null, int? Line = null);
 
-/// <param name="Path">What the next dialog will return, or null when it will answer as cancelled.</param>
+/// <param name="Path">What the next dialog will return, or null when it will answer as cancelled or return several.</param>
 /// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>
-internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note);
+/// <param name="Paths">Every file the answer armed holds, in order: one for a path, several for an Open that allows
+/// them (#2408). Null for a cancel.</param>
+internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note, string[]? Paths = null,
+    string? Error = null);
 
 /// <param name="Keys">All four lock keys after the call, whether or not it changed one.</param>
 internal record LockKeysResult(bool Success, string? Error, LockKeyRow[] Keys, string Note);
