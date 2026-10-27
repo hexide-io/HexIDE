@@ -27,6 +27,34 @@
         </Style>
     </UserControl.Styles>
     <UserControl.Resources>
+        <!-- The box beside each category: '-' while it is open and '+' while it is closed, as VB6's categorized view draws it.
+             The toggle used to name a theme key nothing defined, so it drew as a plain button, a grey square with no sign (#2228). -->
+        <ControlTheme x:Key="PropertyCategoryToggle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlDarkBrushKey}}" />
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- Transparent, so the whole toggle takes the click and not only the box drawn in it. -->
+                    <Panel Background="Transparent">
+                        <Border Width="9" Height="9" BorderThickness="1"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}">
+                            <Panel>
+                                <Rectangle Width="5" Height="1" Fill="{TemplateBinding Foreground}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Rectangle Name="PART_PlusStroke" Width="1" Height="5" Fill="{TemplateBinding Foreground}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Panel>
+                        </Border>
+                    </Panel>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:checked /template/ Rectangle#PART_PlusStroke">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ControlTheme>
         <DataTemplate x:Key="PropertyTemplate" x:DataType="visualDesigner:PropertyViewModel">
             <Border Height="16"
                 Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
@@ -116,7 +144,7 @@
                         </DataTemplate>
                         <DataTemplate x:DataType="visualDesigner:PropertyCategoryViewModel">
                             <DockPanel>
-                                <ToggleButton Theme="{DynamicResource &#303;}"
+                                <ToggleButton Theme="{StaticResource PropertyCategoryToggle}"
                                               IsChecked="{CompiledBinding IsExpanded}"
                                               Width="15"
                                               Height="15">
