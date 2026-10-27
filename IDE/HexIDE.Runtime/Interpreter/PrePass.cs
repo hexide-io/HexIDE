@@ -695,7 +695,7 @@ public class PrePass : VB6BaseVisitor<object?>
         GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject));
+            returnsVariant, returnsObject) { Declaration = context });
         NoteDefaultMember(context.block());
         return default;
     }
@@ -809,7 +809,7 @@ public class PrePass : VB6BaseVisitor<object?>
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, true, ParseParams(context.argList()),
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject));
+            returnsVariant, returnsObject) { Declaration = context });
         NoteDefaultMember(context.block());
         return default;
     }
@@ -819,7 +819,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name);
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
-            Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())));
+            Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });
         NoteDefaultMember(context.block());
         return default;
     }

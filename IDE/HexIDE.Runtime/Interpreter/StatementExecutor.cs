@@ -4356,6 +4356,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitImplicitCallStmt_InBlock(VB6Parser.ImplicitCallStmt_InBlockContext context) => await base.VisitImplicitCallStmt_InBlock(context);
 
+    internal bool ReachedProcedureEnd { get; private set; }
+
+    internal async ValueTask ProcedureBoundary(int line, bool breakpointOnly = false)
+    {
+        if (interpreter.Ending)
+            throw new Debugging.StopExecutionSignal();
+        if (interpreter.DebugController is not { } dbg || interpreter.RunningDeclarations)
+            return;
+        currentLine = line;
+        _suspendedAtTopLevel = false;
+        var gate = breakpointOnly ? dbg.OnBreakpointPositionAsync(line, currentModule.Name, this) : DebugGate(dbg);
+        if (breakpointOnly && interpreter.Events is { } events)
+            await events.WhileSuspended(gate);
+        else
+            await gate;
+    }
+
     public async Task Execute(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
         await ExecuteProcedureBody(block, moduleDeclarations);
@@ -4593,6 +4610,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 retry = true;
             }
         }
+        ReachedProcedureEnd = true;
         LeaveHandler();
     }
 
