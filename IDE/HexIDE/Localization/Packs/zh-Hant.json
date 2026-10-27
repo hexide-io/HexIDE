@@ -2,7 +2,9 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色",
+    "Str.Designer.ShowTabOrder": "顯示 Tab 順序（刪除線：TabStop 關閉）",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定標題的最大數量",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位元",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位元",
@@ -103,6 +105,7 @@
     "Str.Menu.Edit.Cut": "剪下",
     "Str.Menu.Edit.Copy": "複製",
     "Str.Menu.Edit.Paste": "貼上",
+    "Str.Menu.Edit.PasteAsComment": "貼上為註解",
     "Str.Menu.Edit.PasteLink": "貼上連結",
     "Str.Menu.Edit.Remove": "移除",
     "Str.Menu.Edit.Delete": "刪除",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "通訊協定檢查器...",
     "Str.Menu.AddIns": "增益集",
     "Str.Menu.Window": "視窗",
+    "Str.Menu.Window.ReopenClosed": "重新開啟已關閉的視窗",
+    "Str.Menu.Window.RecentlyClosed": "最近關閉的視窗",
     "Str.Menu.Window.Split": "分割",
     "Str.Menu.Window.ResetLayout": "重設視窗版面配置",
     "Str.Menu.Help": "說明",
@@ -363,6 +368,7 @@
     "Str.Designer.Context.Properties": "屬性",
     "Str.CodeEditor.FileNotSaved.Banner": "此檔案不會被儲存 — HexIDE 目前尚無法忠實地重現它，儲存將會改變它。其程式碼是檔案的一部分，因此在此視窗中的輸入會被拒絕。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未執行重新命名，因為這會變更此檔案的標頭或某個成員的 Attribute 行，而這些內容由 IDE 維護。",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重新命名，因為此操作還會編輯其他文件：{0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行屬於此檔案的標頭或某個成員的 Attribute 行，這些行永遠不會執行，因此無法在此設定中斷點或書籤。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入檔案",
     "Str.CodeEditor.Dialog.RenamePrompt": "新名稱：",
@@ -895,7 +901,6 @@
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
     "Str.Dock.ScrollRight": "向右捲動索引標籤",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定標題的最大數量"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色"
   }
 }

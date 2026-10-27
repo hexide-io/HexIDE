@@ -78,6 +78,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(AddressedName));
         }
+        else if (propertyClass == VBProperties.TabIndexProperty)
+            OnPropertyChanged(nameof(TabIndex));
+        else if (propertyClass == VBProperties.TabStopProperty)
+            OnPropertyChanged(nameof(IsTabStopOff));
         else if (propertyClass == VBProperties.VisibleProperty)
             NotifyVisibility();
         else if (propertyClass == VBProperties.CaptionProperty)
@@ -342,6 +346,14 @@ public partial class ComponentInstanceViewModel : ObservableObject
             instance.SetProperty(VBProperties.Y2Property, instance.GetPropertyOrDefault(VBProperties.Y2Property) + dy);
         }
     }
+
+    public bool HasTabIndex => instance.BaseClass.Properties.Contains(VBProperties.TabIndexProperty);
+
+    public int TabIndex => instance.GetPropertyOrDefault(VBProperties.TabIndexProperty);
+
+    public bool IsTabStopOff =>
+        instance.BaseClass.Properties.Contains(VBProperties.TabStopProperty)
+        && !instance.GetPropertyOrDefault(VBProperties.TabStopProperty);
 
     public string Name => instance.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
 

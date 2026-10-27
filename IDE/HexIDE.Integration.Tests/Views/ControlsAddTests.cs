@@ -185,6 +185,36 @@ public class ControlsAddTests
         return printed;
     }
 
+    [AvaloniaFact]
+    public void Command_value_reads_false()
+    {
+        Printed("Debug.Print Command1.Value", "").Should().Equal("False");
+    }
+
+    [AvaloniaFact]
+    public void Command_value_clicks_synchronously_with_its_own_handler_before_sinks()
+    {
+        Printed("""
+            Set b = Command1
+            Set b2 = Command1
+            Debug.Print "before"
+            Command1.Value = True
+            Debug.Print "after"
+            """, """
+            Private WithEvents b As VB.CommandButton
+            Private WithEvents b2 As VB.CommandButton
+            Private Sub Command1_Click()
+                Debug.Print "own"
+            End Sub
+            Private Sub b_Click()
+                Debug.Print "b"
+            End Sub
+            Private Sub b2_Click()
+                Debug.Print "b2"
+            End Sub
+            """).Should().Equal("before", "own", "b2", "b", "after");
+    }
+
     // Two design-time controls, then each class HexIDE implements. pos is the position in Controls, of the count.
     [AvaloniaFact]
     public void Add_makes_each_class_at_0_0_its_own_size_with_nothing_in_it_in_the_forms_font_and_last()

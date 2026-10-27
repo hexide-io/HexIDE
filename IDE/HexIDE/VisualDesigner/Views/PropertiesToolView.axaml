@@ -122,7 +122,7 @@
                 </ListBox>
             </TabItem>
             <TabItem Header="{DynamicResource Str.Tool.Properties.Tab.Categorized}" x:Name="CategorizedPropertiesTab">
-                <ListBox SelectedItem="{CompiledBinding SelectedProperty}"
+                <controls:PropertyCategoryListBox SelectedItem="{CompiledBinding SelectedProperty}"
                          ItemsSource="{CompiledBinding CategorizedProperties}"
                          x:Name="CategorizedProperties">
                     <ListBox.Styles>
@@ -144,7 +144,7 @@
                         </DataTemplate>
                         <DataTemplate x:DataType="visualDesigner:PropertyCategoryViewModel">
                             <DockPanel>
-                                <ToggleButton Theme="{StaticResource PropertyCategoryToggle}"
+                                <ToggleButton AutomationProperties.Name="{CompiledBinding Header}" Theme="{StaticResource PropertyCategoryToggle}"
                                               IsChecked="{CompiledBinding IsExpanded}"
                                               Width="15"
                                               Height="15">
@@ -160,7 +160,7 @@
                             </DockPanel>
                         </DataTemplate>
                     </ListBox.DataTemplates>
-                </ListBox>
+                </controls:PropertyCategoryListBox>
             </TabItem>
         </TabControl>
         <GridSplitter Grid.Row="2" Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}" />

@@ -2,7 +2,9 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
+    "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位",
@@ -103,6 +105,7 @@
     "Str.Menu.Edit.Cut": "剪切",
     "Str.Menu.Edit.Copy": "复制",
     "Str.Menu.Edit.Paste": "粘贴",
+    "Str.Menu.Edit.PasteAsComment": "粘贴为注释",
     "Str.Menu.Edit.PasteLink": "粘贴链接",
     "Str.Menu.Edit.Remove": "移除",
     "Str.Menu.Edit.Delete": "删除",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "协议检查器...",
     "Str.Menu.AddIns": "外接程序",
     "Str.Menu.Window": "窗口",
+    "Str.Menu.Window.ReopenClosed": "重新打开已关闭的窗口",
+    "Str.Menu.Window.RecentlyClosed": "最近关闭的窗口",
     "Str.Menu.Window.Split": "拆分",
     "Str.Menu.Window.ResetLayout": "重置窗口布局",
     "Str.Menu.Help": "帮助",
@@ -363,6 +368,7 @@
     "Str.Designer.Context.Properties": "属性",
     "Str.CodeEditor.FileNotSaved.Banner": "此文件不会被保存 — HexIDE 目前还无法忠实地重现它，保存会改变它。其代码是文件的一部分，因此在此窗口中的输入会被拒绝。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未执行重命名，因为这会更改此文件的标头或某个成员的 Attribute 行，而这些内容由 IDE 维护。",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重命名，因为此操作还会编辑其他文档：{0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行属于此文件的标头或某个成员的 Attribute 行，这些行永远不会执行，因此无法在此设置断点或书签。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入文件",
     "Str.CodeEditor.Dialog.RenamePrompt": "新名称：",
@@ -895,7 +901,6 @@
     "Str.Dock.Close": "关闭窗格",
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
     "Str.Dock.ScrollRight": "向右滚动选项卡",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
   }
 }

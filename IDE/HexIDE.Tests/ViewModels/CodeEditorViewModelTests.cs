@@ -116,7 +116,7 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_OK_RequestsProjectEnd()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Ok);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
@@ -128,12 +128,12 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_Cancel_KeepsRunning()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Cancel);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
-        await _windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
+        await _windowManager.Received(1).TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
         reset.Should().BeFalse();
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }
@@ -776,6 +776,51 @@ public class CodeEditorViewModelTests : IDisposable
 
         await _lspClient.Received(1).RequestRenameAsync(
             "untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task RenameAcrossDocuments_RefusesWholeAnswer(bool includesOwnDocument, bool loaded)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var before = vm.Document.Text;
+        var other = "file:///unloaded/Module1.bas";
+        _editorService.DocumentNameForUri(other).Returns(loaded ? "Module1" : null);
+        var changes = new Dictionary<string, TextEdit[]>
+        {
+            [other] = [new(new(new(0, 0), new(0, 0)), "NewName")],
+        };
+        if (includesOwnDocument)
+            changes[vm.GetDocumentUriPublic()] = [new(new(new(0, 0), new(0, 0)), "NewName")];
+        _localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments").Returns("Rename refused: {0}");
+        _lspClient.RequestRenameAsync(vm.GetDocumentUriPublic(), Arg.Any<Position>(), "NewName", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(new WorkspaceEdit(changes), null));
+
+        var answer = await vm.RequestRenameAsync(new(0, 0), "NewName");
+        var refusal = vm.ApplyRename(answer!.Edit!, "OldName");
+
+        refusal.Should().Be("Rename refused: " + (loaded ? "Module1" : other));
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void RenameWithEmptyOtherEdits_AppliesOwnEditsAsOneUndoStep()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var before = vm.Document.Text;
+        var line = vm.Document.LineCount - 1;
+        var edit = new WorkspaceEdit(new()
+        {
+            [vm.GetDocumentUriPublic()] = [new(new(new(line, 0), new(line, 0)), "Renamed")],
+            ["file:///unloaded/Module1.bas"] = [],
+        });
+
+        vm.ApplyRename(edit, "OldName").Should().BeNull();
+        vm.Document.Text.Should().Contain("Renamed");
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
     }
 
     [AvaloniaFact]
