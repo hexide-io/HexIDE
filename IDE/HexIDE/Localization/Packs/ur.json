@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "عمومی",
     "Str.Tool.Properties.Tab.Alphabetic": "حروفِ تہجی کے لحاظ سے",
     "Str.Tool.Properties.Tab.Categorized": "زمرہ بندی شدہ",
+    "Str.Tool.Project.MissingFile": "فائل موجود نہیں",
+    "Str.Tool.Project.Unsupported": "غیر معاون",
     "Str.Tool.Project.Toolbar.ViewCode": "کوڈ دیکھیں",
     "Str.Tool.Project.Toolbar.ViewObject": "آبجیکٹ دیکھیں",
     "Str.Tool.Project.Menu.SetAsStartUp": "بطور اسٹارٹ اپ مقرر کریں",

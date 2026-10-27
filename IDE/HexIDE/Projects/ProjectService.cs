@@ -94,8 +94,23 @@ public class ProjectService : IProjectService
     /// A file joining the project that a kept line already names, because it failed to load, takes that
     /// line's place: kept as well, the project file would name it twice.
     /// </summary>
-    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath) =>
-        project.PreservedItemLines.RemoveAll(line => KeptLineNames(project, line, absolutePath));
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
+    {
+        var keptIndex = 0;
+        for (var index = 0; index < project.PreservedItemLines.Count; index++)
+        {
+            var line = project.PreservedItemLines[index];
+            var hasSlot = project.PreservedItemLineSlots.Remove(index, out var slot);
+            if (KeptLineNames(project, line, absolutePath))
+                continue;
+
+            project.PreservedItemLines[keptIndex] = line;
+            if (hasSlot)
+                project.PreservedItemLineSlots[keptIndex] = slot;
+            keptIndex++;
+        }
+        project.PreservedItemLines.RemoveRange(keptIndex, project.PreservedItemLines.Count - keptIndex);
+    }
 
     /// <summary>
     /// Whether a line the project file keeps for a member names the file at <paramref name="absolutePath"/>, as the

@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Umum",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabetis",
     "Str.Tool.Properties.Tab.Categorized": "Berkategori",
+    "Str.Tool.Project.MissingFile": "Berkas hilang",
+    "Str.Tool.Project.Unsupported": "Tidak didukung",
     "Str.Tool.Project.Toolbar.ViewCode": "Lihat Kode",
     "Str.Tool.Project.Toolbar.ViewObject": "Lihat Objek",
     "Str.Tool.Project.Menu.SetAsStartUp": "Jadikan Awalan",

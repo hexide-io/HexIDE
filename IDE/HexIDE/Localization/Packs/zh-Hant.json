@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "一般",
     "Str.Tool.Properties.Tab.Alphabetic": "字母順序",
     "Str.Tool.Properties.Tab.Categorized": "依分類",
+    "Str.Tool.Project.MissingFile": "檔案遺失",
+    "Str.Tool.Project.Unsupported": "不支援",
     "Str.Tool.Project.Toolbar.ViewCode": "檢視程式碼",
     "Str.Tool.Project.Toolbar.ViewObject": "檢視物件",
     "Str.Tool.Project.Menu.SetAsStartUp": "設為啟動",

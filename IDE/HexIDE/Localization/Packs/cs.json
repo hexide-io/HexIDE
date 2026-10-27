@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Obecné",
     "Str.Tool.Properties.Tab.Alphabetic": "Abecedně",
     "Str.Tool.Properties.Tab.Categorized": "Podle kategorií",
+    "Str.Tool.Project.MissingFile": "Chybějící soubor",
+    "Str.Tool.Project.Unsupported": "Nepodporováno",
     "Str.Tool.Project.Toolbar.ViewCode": "Zobrazit kód",
     "Str.Tool.Project.Toolbar.ViewObject": "Zobrazit objekt",
     "Str.Tool.Project.Menu.SetAsStartUp": "Nastavit jako spouštěcí",

@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Chung",
     "Str.Tool.Properties.Tab.Alphabetic": "Theo bảng chữ cái",
     "Str.Tool.Properties.Tab.Categorized": "Theo danh mục",
+    "Str.Tool.Project.MissingFile": "Thiếu tệp",
+    "Str.Tool.Project.Unsupported": "Không được hỗ trợ",
     "Str.Tool.Project.Toolbar.ViewCode": "Xem Mã",
     "Str.Tool.Project.Toolbar.ViewObject": "Xem Đối tượng",
     "Str.Tool.Project.Menu.SetAsStartUp": "Đặt làm Khởi động",

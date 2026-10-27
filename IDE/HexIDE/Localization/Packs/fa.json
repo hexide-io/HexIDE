@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "عمومی",
     "Str.Tool.Properties.Tab.Alphabetic": "الفبایی",
     "Str.Tool.Properties.Tab.Categorized": "دسته‌بندی‌شده",
+    "Str.Tool.Project.MissingFile": "پرونده موجود نیست",
+    "Str.Tool.Project.Unsupported": "پشتیبانی نمی‌شود",
     "Str.Tool.Project.Toolbar.ViewCode": "نمایش کد",
     "Str.Tool.Project.Toolbar.ViewObject": "نمایش شیء",
     "Str.Tool.Project.Menu.SetAsStartUp": "تنظیم به‌عنوان شروع",

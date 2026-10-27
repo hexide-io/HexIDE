@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Загальні",
     "Str.Tool.Properties.Tab.Alphabetic": "За алфавітом",
     "Str.Tool.Properties.Tab.Categorized": "За категоріями",
+    "Str.Tool.Project.MissingFile": "Файл відсутній",
+    "Str.Tool.Project.Unsupported": "Не підтримується",
     "Str.Tool.Project.Toolbar.ViewCode": "Переглянути код",
     "Str.Tool.Project.Toolbar.ViewObject": "Переглянути об'єкт",
     "Str.Tool.Project.Menu.SetAsStartUp": "Зробити стартовим",

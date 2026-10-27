@@ -93,6 +93,36 @@ public class UserControlSaveRoundTripTests : IDisposable
         return n;
     }
 
+    [Theory]
+    [InlineData("Module=Gone; Gone.bas", "Gone.bas")]
+    [InlineData("Class=Gone; Gone.cls", "Gone.cls")]
+    [InlineData("Form=Gone.frm", "Gone.frm")]
+    [InlineData("UserControl=Gone.ctl", "Gone.ctl")]
+    [InlineData("PropertyPage=Gone.pag", "Gone.pag")]
+    public async Task A_missing_member_is_marked_and_save_never_creates_its_file(string line, string file)
+    {
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, $"Type=Exe\r\n{line}\r\nName=\"Test\"\r\n");
+        var svc = MakeService(out var loaded);
+
+        await svc.OpenProject(vbp);
+        var project = loaded();
+        project.Forms.Should().BeEmpty();
+        project.Modules.Should().BeEmpty();
+        project.PreservedItemLines.Should().Equal(line);
+        var tool = new HexIDE.Tools.ProjectToolViewModel(Substitute.For<IProjectManager>(),
+            Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), Substitute.For<IEditorService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>());
+        using var tree = new HexIDE.Tools.ProjectViewModel(tool, project);
+        tree.Elements.OfType<HexIDE.Tools.PreservedItemViewModel>().Should().ContainSingle()
+            .Which.IsMissing.Should().BeTrue();
+
+        await svc.SaveProject(project, saveAs: false);
+
+        File.Exists(Path.Join(dir, file)).Should().BeFalse();
+        File.ReadAllText(vbp).ReplaceLineEndings("\n").Should().Contain(line + "\n");
+    }
+
     [Fact]
     public async Task A_UserControl_after_a_module_keeps_its_project_line_in_place()
     {

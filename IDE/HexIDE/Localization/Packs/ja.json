@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "全般",
     "Str.Tool.Properties.Tab.Alphabetic": "アルファベット順",
     "Str.Tool.Properties.Tab.Categorized": "カテゴリ別",
+    "Str.Tool.Project.MissingFile": "ファイルがありません",
+    "Str.Tool.Project.Unsupported": "未対応",
     "Str.Tool.Project.Toolbar.ViewCode": "コードの表示",
     "Str.Tool.Project.Toolbar.ViewObject": "オブジェクトの表示",
     "Str.Tool.Project.Menu.SetAsStartUp": "スタートアップに設定",

@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Allmänt",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabetisk",
     "Str.Tool.Properties.Tab.Categorized": "Kategoriserad",
+    "Str.Tool.Project.MissingFile": "Fil saknas",
+    "Str.Tool.Project.Unsupported": "Stöds inte",
     "Str.Tool.Project.Toolbar.ViewCode": "Visa kod",
     "Str.Tool.Project.Toolbar.ViewObject": "Visa objekt",
     "Str.Tool.Project.Menu.SetAsStartUp": "Ange som start",

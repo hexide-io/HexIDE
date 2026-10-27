@@ -242,6 +242,8 @@
     "Str.Toolbox.Tab.General": "Generalia",
     "Str.Tool.Properties.Tab.Alphabetic": "Alphabetica",
     "Str.Tool.Properties.Tab.Categorized": "Per Categorias",
+    "Str.Tool.Project.MissingFile": "Fasciculus deest",
+    "Str.Tool.Project.Unsupported": "Non sustinetur",
     "Str.Tool.Project.Toolbar.ViewCode": "Vide Codicem",
     "Str.Tool.Project.Toolbar.ViewObject": "Vide Obiectum",
     "Str.Tool.Project.Menu.SetAsStartUp": "Statue ut Initiale",

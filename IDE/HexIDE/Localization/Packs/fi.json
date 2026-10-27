@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Yleiset",
     "Str.Tool.Properties.Tab.Alphabetic": "Aakkosellinen",
     "Str.Tool.Properties.Tab.Categorized": "Luokiteltu",
+    "Str.Tool.Project.MissingFile": "Puuttuva tiedosto",
+    "Str.Tool.Project.Unsupported": "Ei tuettu",
     "Str.Tool.Project.Toolbar.ViewCode": "Näytä koodi",
     "Str.Tool.Project.Toolbar.ViewObject": "Näytä objekti",
     "Str.Tool.Project.Menu.SetAsStartUp": "Aseta käynnistyskohteeksi",

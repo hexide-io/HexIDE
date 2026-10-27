@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Γενικά",
     "Str.Tool.Properties.Tab.Alphabetic": "Αλφαβητικά",
     "Str.Tool.Properties.Tab.Categorized": "Κατά κατηγορία",
+    "Str.Tool.Project.MissingFile": "Το αρχείο λείπει",
+    "Str.Tool.Project.Unsupported": "Δεν υποστηρίζεται",
     "Str.Tool.Project.Toolbar.ViewCode": "Προβολή κώδικα",
     "Str.Tool.Project.Toolbar.ViewObject": "Προβολή αντικειμένου",
     "Str.Tool.Project.Menu.SetAsStartUp": "Ορισμός ως εκκίνησης",

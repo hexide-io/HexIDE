@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "सामान्य",
     "Str.Tool.Properties.Tab.Alphabetic": "वर्णानुक्रम",
     "Str.Tool.Properties.Tab.Categorized": "श्रेणीबद्ध",
+    "Str.Tool.Project.MissingFile": "फ़ाइल अनुपलब्ध",
+    "Str.Tool.Project.Unsupported": "असमर्थित",
     "Str.Tool.Project.Toolbar.ViewCode": "कोड देखें",
     "Str.Tool.Project.Toolbar.ViewObject": "ऑब्जेक्ट देखें",
     "Str.Tool.Project.Menu.SetAsStartUp": "स्टार्ट अप के रूप में सेट करें",

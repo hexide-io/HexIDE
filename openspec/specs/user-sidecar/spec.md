@@ -181,8 +181,8 @@ form it already began at that file's leading attribute lines, so shifting by the
 by their number. It is whatever is now shown above the old first line.
 
 A shift cannot be determined when the project has no such document, or when the document's file is missing or
-unreadable — and a module whose file is missing is still one of the project's documents, so the rule turns on
-whether the shift is known rather than on whether the document exists. Guessing would misplace a mark, and
+unreadable. A preserved missing module's name SHALL also make a shared-name entry unplaceable for a loaded
+document: the entry cannot be half applied. Guessing would misplace a mark, and
 dropping the entry would lose it; keeping it untouched does neither, and a later opening can still migrate
 it.
 

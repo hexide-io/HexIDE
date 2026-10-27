@@ -281,6 +281,8 @@
     "Str.Toolbox.Tab.General": "Общие",
     "Str.Tool.Properties.Tab.Alphabetic": "По алфавиту",
     "Str.Tool.Properties.Tab.Categorized": "По категориям",
+    "Str.Tool.Project.MissingFile": "Файл отсутствует",
+    "Str.Tool.Project.Unsupported": "Не поддерживается",
     "Str.Tool.Project.Toolbar.ViewCode": "Показать код",
     "Str.Tool.Project.Toolbar.ViewObject": "Показать объект",
     "Str.Tool.Project.Menu.SetAsStartUp": "Назначить запускаемым",
