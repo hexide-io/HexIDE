@@ -260,6 +260,13 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
 
+#### Scenario: Evaluating a stored watch context while paused
+- **WHEN** an expression watch names the paused module or one of its procedures
+- **THEN** a module-scoped watch SHALL exclude procedure locals
+- **AND** a procedure-scoped watch SHALL read that procedure's frame anywhere on the call stack
+- **AND** an undefined module-scoped name SHALL display `<Expression not defined in context>` with type `Empty`
+- **AND** a procedure that has returned SHALL display `<Out of context>` with type `Empty`
+
 #### Scenario: Selecting an expanded watch child
 - **WHEN** the developer selects a child of an expanded watch after selecting another watch
 - **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key

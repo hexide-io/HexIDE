@@ -177,6 +177,50 @@ public sealed class FaultServerTests : IAsyncDisposable
             "a server falling over is reported, not silent");
     }
 
+    [Theory]
+    [InlineData("disconnected", "no RPC connection")]
+    [InlineData("initializing", "initialization is incomplete")]
+    [InlineData("unsupported", "hoverProvider is unavailable")]
+    [InlineData("empty", "server returned null")]
+    public async Task An_absent_hover_explains_why(string state, string reason)
+    {
+        var initializing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (client, server, log) = Connect(s => s.Script = async (message, srv) =>
+        {
+            if ((string?)message["method"] != "initialize") return false;
+            if (state == "initializing")
+            {
+                initializing.TrySetResult();
+                await release.Task.WaitAsync(Token);
+            }
+            if (state != "unsupported") return false;
+            await srv.ReplyAsync(message["id"], new JsonObject { ["capabilities"] = new JsonObject() });
+            return true;
+        });
+        Task? starting = null;
+        try
+        {
+            if (state == "initializing")
+            {
+                starting = client.StartAsync(Token);
+                await initializing.Task.WaitAsync(TimeSpan.FromSeconds(5), Token);
+            }
+            else if (state != "disconnected") await client.StartAsync(Token);
+
+            (await client.RequestHoverAsync(Uri, new Position(0, 0), Token)).Should().BeNull();
+
+            server.Saw("textDocument/hover").Should().Be(state == "empty",
+                "only the server-null case sends a hover request");
+            log.Has(LogLevel.Debug, reason).Should().BeTrue("the absent hover must explain its origin");
+        }
+        finally
+        {
+            release.TrySetResult();
+            if (starting is not null) await starting;
+        }
+    }
+
     // ---- Malformed frames ----
 
     [Theory]
@@ -202,7 +246,7 @@ public sealed class FaultServerTests : IAsyncDisposable
     [Fact]
     public async Task A_flood_of_notifications_does_not_starve_a_request()
     {
-        var (client, server, _) = Connect(s => s.Script = async (message, srv) =>
+        var (client, server, log) = Connect(s => s.Script = async (message, srv) =>
         {
             if ((string?)message["method"] != "textDocument/hover") return false;
             await srv.ReplyAsync(message["id"], new JsonObject
@@ -222,7 +266,10 @@ public sealed class FaultServerTests : IAsyncDisposable
 
         var hover = client.RequestHoverAsync(Uri, new Position(0, 0), Token);
         await Within(hover, TimeSpan.FromSeconds(20), "five thousand notifications in the way do not stop a reply arriving");
-        (await hover).Should().NotBeNull("the reply behind the flood is read, not dropped");
+        (await hover).Should().NotBeNull("the reply behind the flood is read, not dropped; server saw hover: {0}; client log: {1}",
+            server.Saw("textDocument/hover"), log.ToString());
+        server.Saw("textDocument/hover").Should().BeTrue();
+        (await hover)!.Contents.Value.Should().Be("answered");
         client.IsRunning.Should().BeTrue();
     }
 
@@ -361,11 +408,12 @@ public sealed class FaultServerTests : IAsyncDisposable
     {
         private readonly List<(LogLevel Level, string Message)> _entries = [];
         public bool Has(LogLevel level, string text) { lock (_entries) return _entries.Any(e => e.Level == level && e.Message.Contains(text, StringComparison.OrdinalIgnoreCase)); }
+        public override string ToString() { lock (_entries) return string.Join(Environment.NewLine, _entries); }
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            lock (_entries) _entries.Add((logLevel, formatter(state, exception)));
+            lock (_entries) _entries.Add((logLevel, formatter(state, exception) + (exception is null ? "" : $" {exception}")));
         }
     }
 }

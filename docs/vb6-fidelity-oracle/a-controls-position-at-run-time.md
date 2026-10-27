@@ -75,6 +75,44 @@ What these show:
   TextBox and a CommandButton have floors of their own, 150 wide and 285 high for the TextBox and 75 wide for the
   button, which look like the Win32 controls' minimum sizes. No rule is defended for those.
 
+### The smallest size each control keeps (2026-10-27, #1029)
+
+**The probe.** A twips form at 15 twips a pixel with one of each intrinsic control, and some variants:
+- a TextBox and a CommandButton in Arial 14.25;
+- a TextBox with BorderStyle 0, and a MultiLine one;
+- a ListBox with IntegralHeight False;
+- a PictureBox with BorderStyle 0, and a Label with BorderStyle 1.
+
+Each control was set back to 1500 x 495, then given a Width or Height of 7, 0 or 100, and read back. Built native and
+p-code, and run in the guest's console session and in the probe runner's session. All four logs agreed, except for the
+form's own row.
+
+| Control | Smallest Width | Smallest Height |
+|---|---|---|
+| TextBox, MS Sans Serif 8.25, and MultiLine | 150 | 285 |
+| TextBox, Arial 14.25 | 240 | 450 |
+| TextBox, BorderStyle 0 | 75 | 195 |
+| CommandButton, CheckBox, OptionButton | 75 | 195 |
+| CommandButton, Arial 14.25 | 120 | 330 |
+| ComboBox, either font | 390 | read-only: setting it is **383**. It stays 315, or 450 in Arial |
+| DriveListBox | 270 | read-only, **383**. It stays 315 |
+| ListBox, IntegralHeight True or False | 135 | 255 |
+| DirListBox | 135 | 315 |
+| FileListBox | 105 | 90 |
+| Data | 105 | 300 |
+| HScrollBar, VScrollBar | 30 | 30 |
+| Frame, PictureBox with or without a border, Image, Shape, Label with or without a border | 15 | 15 |
+
+- **A floor, not a snap.** Above it the value is kept: 100 stays 100 wherever the floor is lower.
+- **The TextBox's and CommandButton's height floor follows the font.** A TextBox's floor also follows its border.
+- **`Text1.Move` with 7 and 7** gives 150 x 285, and a TextBox holding text has the same floor.
+- **IntegralHeight snaps a ListBox's height to whole items** as it resizes: 495 read back as 450 after a change of
+  Width. So does a FileListBox's: 495 became 480.
+
+**The form.** `Me.Width = 7: Me.Height = 7` gave 2040 x 585, with a ScaleHeight of 0, on the console, with Windows 10's
+frame. In the probe runner's session, with the classic frame, it gave 1680 x 405. So a form's floor is the window
+manager's, and differs by desktop.
+
 ### HexIDE
 
 Before #933, a running program read a control's position in pixels, as a Double: `Text1.Left` from a .frm Left of

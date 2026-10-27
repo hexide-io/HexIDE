@@ -1,9 +1,9 @@
 # In-box control corpus
 
 The saved fixtures cover ProgressBars from MSCOMCTL.OCX (`MSComctlLib`, 6.0) and COMCTL32.OCX (`ComctlLib`, 5.0),
-and StatusBars, ImageLists and Toolbars from MSCOMCTL.OCX. An in-box control's native persistence differs from an intrinsic's: the extender's
+StatusBars, ImageLists, Toolbars and TreeViews from MSCOMCTL.OCX, and CommonDialogs from COMDLG32.OCX (`MSComDlg`). An in-box control's native persistence differs from an intrinsic's: the extender's
 properties sort by name, followed by the control's own run, whose ordering and nested property bags are measured
-rather than inferred (hexide-io/HexIDE#1082, #1083, #1087, #1088).
+rather than inferred (hexide-io/HexIDE#1082, #1083, #1084, #1086, #1087, #1088).
 
 ## Two halves
 
@@ -36,6 +36,10 @@ of every Style, an ImageList and nested ButtonMenus; ShowTips was set False in t
 `pending/` after `ToolbarSerializationTests` verified both files byte for byte, including after a form-caption edit.
 The Toolbar's blocks are carried verbatim, and the ImageList's is modelled (#1083); ImageList binding is not implemented yet.
 
+**`saved/treeview/`: written by VB6's IDE on 2026-10-26**, on the same oracle VM console, from a hand-written form (#1086).
+Its companion belongs to the bound ImageList; its project is hand-written. Moved from `pending/` once
+`TreeViewSerializationTests` verified both files byte for byte.
+
 **`input/`: authored here.** Each control's property lines are named as its type library names the property, so a line
 VB6 didn't recognise comes back missing and a value it changed comes back changed. Their `.vbp` files are hand-written
 too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
@@ -51,6 +55,10 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 | `statusbar/` | Two StatusBars: one with four configured panels (a Spring with Key, Tag and ToolTipText, a Date panel, a disabled Caps panel, an invisible Contents panel), and one in Simple style with ShowTips off. The panels' `Object.Width` and `MinWidth` are HIMETRIC (#1087) |
 | `statusbar-picture/` | A StatusBar whose first panel holds a bitmap and second an icon, written by hand and saved again by VB6, which kept the `.frx` byte for byte and put each `Picture` line first in its panel (#1087) |
 | `toolbar/` | Two configured Toolbars and an ImageList companion, preserved verbatim (#1088); provenance above |
+| `treeview/` | Three TreeViews written by hand and saved by VB6: one with every property off its default, its lines scrambled and Indentation written as 529, which is HIMETRIC; one with only its size and `_Version`, which VB6 saved with `Appearance` alone, its Style being 0; and one with its defaults written out, which VB6 cut to `Style` and `Appearance` (#1086). The `.frx` is the ImageList's |
+| `commondialog/` | Four CommonDialogs saved by VB6. Three were written by hand: one with every property off its default and its lines reversed, one with only its position and `_Version`, and one with its defaults written out, which VB6 cut back to the minimal block. The fourth, `CommonDialog4`, was double-clicked from the toolbox, and VB6 wrote it ahead of the other three (#1084). There is no `.frx` |
+
+The CommonDialog save was written on 2026-10-27 with COMDLG32.OCX 6.01.9782; its project is hand-written.
 
 ## ImageList saves
 
@@ -69,7 +77,7 @@ preserved verbatim when the form is edited. The `.vbp` is hand-written, as in `i
 ## `pending/`
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
-controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088) and "In-box controls: the ListView" (#1085) and "In-box controls: the TreeView" (#1086) and "In-box controls: the CommonDialog" (#1084) and "In-box controls: the SSTab" (#1090) and "In-box controls: the MSFlexGrid" (#1099) and "In-box controls: the RichTextBox" (#1100) and "In-box controls: the TabStrip" (#1089), and on 2026-10-27 for "In-box controls: the Slider" (#1091) and "In-box controls: the DTPicker" (#1094) "In-box controls: the MonthView" (#1095), "In-box controls: the ImageCombo" (#1092) and "In-box controls: the FlatScrollBar" (#1097). The `.vbp` files beside them are hand-written, as in `input/`.
+controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088) and "In-box controls: the ListView" (#1085) and "In-box controls: the TreeView" (#1086) and "In-box controls: the CommonDialog" (#1084) and "In-box controls: the SSTab" (#1090) and "In-box controls: the MSFlexGrid" (#1099) and "In-box controls: the RichTextBox" (#1100) and "In-box controls: the TabStrip" (#1089), and on 2026-10-27 for "In-box controls: the Slider" (#1091) and "In-box controls: the UpDown" (#1093) and "In-box controls: the DTPicker" (#1094) "In-box controls: the MonthView" (#1095), "In-box controls: the ImageCombo" (#1092), "In-box controls: the FlatScrollBar" (#1097) and "In-box controls: the Animation" (#1096). The `.vbp` files beside them are hand-written, as in `input/`.
 
 | Folder | What it is |
 |---|---|
@@ -79,8 +87,6 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
 | `listview/` | Three ListViews written by hand and saved by VB6. The first has every property off its default, its lines scrambled, and two columns with Key, Tag, Width and ImageIndex: VB6 put the lines in its own order, wrote SortOrder 1 and TextBackground 1 as `-1  'True`, and OLEDragMode and OLEDropMode twice. The second was written with only its size and `_Version`, and the third flat with a border (#1085). The `.frx` is the ImageList's |
 | `listview-columns/` | A form like `listview/`, whose first ListView has HideColumnHeaders, AllowReorder and ColHdrIcons set and three plain columns, saved after a column's Icon Index was set and a column inserted in that ListView's Column Headers property page: VB6 wrote the icon as `ImageIndex` and the new column's 1440 twips as `Object.Width = 2540`, which is HIMETRIC, and moved the later columns' SubItemIndex up (#1085) |
-| `treeview/` | Three TreeViews written by hand and saved by VB6: one with every property off its default, its lines scrambled and Indentation written as 529, which is HIMETRIC; one with only its size and `_Version`, which VB6 saved with `Appearance` alone, its Style being 0; and one with its defaults written out, which VB6 cut to `Style` and `Appearance` (#1086). The `.frx` is the ImageList's |
-| `commondialog/` | Four CommonDialogs saved by VB6. Three were written by hand: one with every property off its default and its lines reversed, one with only its position and `_Version`, and one with its defaults written out, which VB6 cut back to the minimal block. The fourth, `CommonDialog4`, was double-clicked from the toolbox, and VB6 wrote it ahead of the other three (#1084). There is no `.frx` |
 | `sstab/` | An SSTab drawn in VB6's IDE: three tabs, with a CommandButton drawn on tab 0, a TextBox on tab 1 and a CheckBox on tab 2, tab 1 left showing. The hidden tabs' controls are 75000 twips left, and each tab has a `TabPicture` record in the `.frx` (#1090) |
 | `sstab-resaved/` | Three SSTabs written by hand and saved by VB6, with a fourth double-clicked from the toolbox: one with every property off its default and its lines reversed, a minimal block, and one whose `ControlEnabled` flags and lists did not match its controls, which VB6 rewrote. See the oracle entry before taking it as a model (#1090) |
 | `msflexgrid/` | Three MSFlexGrids saved by VB6: one written by hand with every property off its default and its lines reversed, a minimal block, and one double-clicked from the toolbox. There is no `.frx`: cell text is not saved, only FormatString (#1099) |
@@ -93,3 +99,4 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `monthview/` | Nine MonthViews from MSCOMCT2.OCX saved by VB6: a minimal block; six written by hand with their lines reversed, for the dates and selection, the appearance and switches, two months by two, the six colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. Every block gains `Appearance`, a `StartOfWeek` whose high 16 bits differ between IDE sessions, and a `CurrentDate`; the toolbox one has StartOfWeek 2, the locale's Monday. The ones that size themselves were rewritten at their new size. There is no `.frx` (#1095) |
 | `imagecombo/` | Eight ImageCombos from MSCOMCTL.OCX and an ImageList, saved by VB6: a minimal block; five written by hand with their lines reversed, for `Text`, the `ImageList` binding with `Indentation` and `Locked`, the switches, the two colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. A minimal block gains nothing. The toolbox one gets the window colours and a `Text` of its name. The `Font` block was rewritten at its new height. There is no `.frx` (#1092) |
 | `flatscrollbar/` | Seven FlatScrollBars from MSCOMCT2.OCX saved by VB6: a minimal block; four written by hand with their lines reversed, for the range and change sizes, `Orientation` 0, and the appearance and switches; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. `Arrows`, `Orientation` and `Appearance` are written with a high word, which a second IDE session wrote identically. The vertical block has no `Arrows` line. There is no `.frx` (#1097) |
+| `animation/` | Six Animations from MSCOMCT2.OCX saved by VB6: a minimal block; one written by hand with every candidate line reversed, for VB6's order; one with only `FullWidth` and `FullHeight`; one with an explicit `Enabled = True`, which VB6 dropped; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first, with `Enabled`, `FullWidth` and `FullHeight`. VB6 writes `OleDropMode`, not `OLEDropMode`. There is no `.frx` (#1096) |

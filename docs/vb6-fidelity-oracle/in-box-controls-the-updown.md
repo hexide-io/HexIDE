@@ -218,6 +218,46 @@ Increment 1, Min 0, Max 10, Value 4, up, unless the row says otherwise:
 
 The written text is Value's own: `3.7` became `5`, `&H5` became `6`.
 
+### Increment 0, Acceleration, and a buddy property other than Text (2026-10-27)
+
+The same probe: clicks and holds on the guest's console, with the program logging each event and the time since the
+case was set. Native and p-code logged the same events. One 8-second hold gave 70 steps natively and 69 as p-code, by
+timing.
+
+**Increment 0: a click does nothing but the click event.** With Min 0, Max 10 and Value 4:
+- the top half raised **UpClick alone, with no Change**, and Value stayed 4;
+- the bottom half raised DownClick alone.
+
+That differs from a click at the end of the range, which does raise Change with Value unchanged.
+
+**Acceleration has no effect.** The button was held on the top half from 0, with Max 10000:
+
+| Acceleration | Held | Changes | Steps |
+|---|---|---|---|
+| 0, the default | 3 s; 8 s | 24; 69 to 70 | **all by 1** |
+| 1 | 3 s | 24 | all by 1 |
+| 5 | 3 s; 8 s | 24; 69 | **all by 1** |
+| 100 | 8 s | 69 | **all by 1** |
+
+- **The timing never changed.** In every hold, the first repeat came about 0.53 s after the first Change, then one step
+  every 0.11 s.
+- **Acceleration read back as set**: 1, 5 and 100. It is stored and ignored.
+- One UpClick came after the release, as before.
+
+**A buddy written through another property is also read through it.** With Increment 1, Min 0, Max 10, Value 2:
+
+| Buddy | Its property before the click | The click | Logged |
+|---|---|---|---|
+| Label1, `BuddyProperty = "Caption"` | Caption `7` | top half | Label1_Change with Caption `8`, then Change with Value 8, then UpClick |
+| the same | Caption `7` | bottom half | Label1_Change with `6`, Change with 6, DownClick |
+| **Label1, SyncBuddy True and no BuddyProperty** | Caption `7` | top half | the same as with `"Caption"`: **8** |
+| **Text1, `BuddyProperty = "Tag"`** | Text `9`, **Tag `3`** | top half | Change with **Value 4**. **Tag became `4`, and Text stayed `9`**. No Text1_Change |
+| the same | Text `9`, **Tag `abc`** | top half | **Value 1, and Tag `1`**: Tag that won't convert counts as 0, as for Text |
+
+- **The click reads the named property, not Text and not Value,** converts it as for Text, steps, and writes the result
+  back into the same property.
+- **The buddy's own Change comes before the UpDown's,** as with Text. Writing a Tag raises no Change on the TextBox.
+
 ### Drawing
 
 Screenshots at 96 dpi, one fresh form per state:

@@ -294,6 +294,179 @@ VB6's save of the hand-written form, with the order it put each line in:
 - **Double-clicked from the toolbox,** a Toolbar is written with Align 1, Height 660, Top 0, Width 6000, extents 10583
   by 1164, ButtonWidth 609, ButtonHeight 1005 and Appearance 1. Appearance is written even at its default.
 
+### Caption widths (2026-10-27)
+
+**The probe:**
+- **The form:** twenty Toolbars from hand-written blocks with `Align = 0 'None`, 8000 twips wide, in a shown form.
+- **The cases:** buttons were added from code, and ButtonWidth, ButtonHeight and each button's size read back in
+  pixels.
+- **The comparison:** each caption was also measured with the form's TextWidth in three candidate fonts. The Toolbar has
+  no Font property.
+- **The setting:** Windows 10 at 96 dpi, without visual styles. Native and p-code logged the same.
+
+**The rule, for captions below the images:** a button is **the caption's width in Segoe UI 9 plus 7 pixels, and at
+least 23**.
+
+| Caption | Text width: MS Sans Serif 8 / Tahoma 8 / **Segoe UI 9** | Button width |
+|---|---|---|
+| `""`, `A`, `i`, `W`, `OK`, `Ab` | up to 16 in Segoe UI | **23**, the minimum |
+| `File` | 16 / 16 / **18** | **25** |
+| `Alpha` | 27 / 27 / **31** | **38** |
+| `Save As` | 40 / 39 / **40** | **47** |
+| `Alphabet` | 42 / 43 / **48** | **55** |
+| `iiiiiiii` | 16 / 16 / **24** | **31** |
+| `MMMMMMMM` | 72 / 64 / **88** | **95** |
+| `A much longer caption here` | 130 / 131 / **148** | **155** |
+
+**Segoe UI 9 fits every row exactly, and neither 8-point font fits any two.** MMMMMMMM would need 23 pixels of padding
+in MS Sans Serif and 31 in Tahoma, where `Alpha` needs 11.
+
+**This reconciles the 510.2362 above.** The first probes in this entry ran in session 0, not on a logged-on desktop.
+There `Alpha` made a button 34 pixels wide, which is its 27 pixels in an 8-point font plus the same 7. So the caption
+font is the system's: Segoe UI 9 on the Windows 10 desktop, an 8-point font in session 0. **That is inferred from the
+fit,** not measured again in session 0. A reader on another
+configuration should measure the caption in the system's font, not in a fixed one.
+
+**With TextAlignment 1, captions to the right:** a button is **the caption's width in Segoe UI 9 plus 27 pixels, and at
+least 43**. That held the same with an image bound and shown and with none.
+
+| Caption | Segoe UI 9 | Button width |
+|---|---|---|
+| `""`, `i`, `A`, `OK` | up to 16 | **43**, the minimum |
+| `Alpha` | 31 | **58** |
+| `Save As` | 40 | **67** |
+| `Alphabet` | 48 | **75** |
+| `MMMMMMMM` | 88 | **115** |
+| `A much longer caption here` | 148 | **175** |
+
+**Heights:**
+- **A bar with any caption** has buttons 38 high, or 22 with TextAlignment 1.
+- **A bar with no caption at all** has buttons 22 high, image or no image.
+- An image alone gives 23 × 22.
+- The bar is the buttons' height plus 4 for Style 0, and their height for Style 1, flat.
+
+**Every button on a bar has the widest button's width.** Mixed captions `A`, `Alphabet`, `""` and `OK` gave four
+buttons of 55 each, at Left 0, 55, 110 and 165, or four of 75 with TextAlignment 1. With images, `A`, `Alpha` and
+`MMMMMMMM` gave three of 95.
+
+**The width follows the captions as they change:**
+- `A` gave 23. `Caption = "Alphabet"` gave 55, and `Caption = "A"` again gave 23.
+- Adding an `Alphabet` button widened both buttons to 55. Removing it narrowed the first back to 23.
+- **After `Buttons.Clear`, ButtonWidth and ButtonHeight keep their last values,** 23 and 38, and so does the bar's
+  height. A button with no caption added then brought the height down to 22.
+
+**Captions with special characters:**
+- **`&File` drew as "File" with the F underlined, but was measured with the ampersand,** at 35 rather than `File`'s 25.
+  That fits the rule: `&File` is 28 pixels in Segoe UI 9.
+- **A tab and a line break drew as nothing,** "Tabx" and "Twolines", on one line.
+- **Neither fits the rule through the form's TextWidth.** TextWidth expands a tab to a tab stop and measures a broken
+  caption by its widest line, so `Tab` vbTab `x` read 54 and `Two` vbCrLf `lines` 24, where the buttons were 40 and 62.
+- **Measured against the same captions with the characters left out:**
+
+  | Caption | Segoe UI 9 | Button |
+  |---|---|---|
+  | `Tabx` | 24 | 32 |
+  | `Tab` vbTab `x` | | **40**: 8 more |
+  | `Twolines` | 45 | 53 |
+  | `Two` vbCrLf `lines` | | **62**: 9 more |
+  | `Two` vbLf `lines` | | **61**: 8 more |
+  | `Two` vbCr `lines` | | **54**: 1 more |
+
+  **So the bar measures a caption on one line, with each control character taking a width of its own:** about 8
+  pixels for a tab or a line feed, and 1 for a carriage return. That is measured, not explained.
+- **`Tabx` and `Twolines` came out one pixel above the rule,** 32 and 53 where 31 and 52 were expected. The eight
+  captions in the first table fit it exactly. Rounding in the TextWidth comparison may account for it. An
+  implementation that measures with the system font itself, rather than through TextWidth, should land within a pixel.
+
+**Styles, on a flat bar, with the caption `Alpha`:**
+- default and check: 38;
+- **dropdown: 53**, the button and a 15-pixel arrow;
+- separator: 8.
+
+**A bar narrower than its buttons:**
+- **Wrappable True, the default:** six 55-pixel buttons on a 133-pixel bar went into **three rows of two**. Their Tops
+  were 2, 40 and 78, and the bar's Height grew to 118, three rows of 38 plus 4.
+- **Wrappable False:** the same six went back into one row, at Left 0 to 275, past the bar's right edge. They kept
+  Visible True. The bar's Height went back to 42.
+- With Wrappable False from the start, Width 2000 or 1000 left the six in one row. Wrappable True with Width 8000 gave
+  one row again.
+
+### Drawing a bound ImageList (2026-10-27, #2334)
+
+**The probe:**
+- **The form:** eight Toolbars from hand-written blocks with `Align = 0 'None`, stacked down a shown form, and six
+  ImageLists filled at run time.
+- **The images:** each is a solid colour with a black one-pixel border and a square of the mask colour, `&HC0C0C0`,
+  in its top-left corner, a quarter of its width. The corner shows where an image sits and whether it was masked.
+
+  | List | Images |
+  |---|---|
+  | IL16 | red, yellow, cyan, 16 × 16 |
+  | IL32 | the same at 32 × 32 |
+  | ILHot | green, dark green: **no third image** |
+  | ILDis | blue, navy: **no third image** |
+  | ILEmpty | none |
+  | ILNoMask | as IL16, filled after `UseMaskColor = False` |
+
+- **The buttons:** each bar got four, from Add: "One" with image 1, no caption with image 2, "Three" with image 3, and
+  "Four" with no image.
+- **The measurements:** sizes from code, and screenshots at 96 dpi, without visual styles. A driver on the guest's
+  console moved the mouse. Native and p-code logged and drew the same.
+
+**Button size follows the image size and TextAlignment:**
+
+| Bar | ButtonWidth × ButtonHeight | In pixels | Bar Height |
+|---|---|---|---|
+| no buttons, no list | 360.0005 × 329.9533 | 24 × 22 | 600, as written |
+| IL16, captions below | **540.2835 × 569.7638** | **36 × 38** | 630 |
+| **no list, the same captions** | **540.2835 × 569.7638** | **36 × 38** | 630 |
+| IL16, **TextAlignment 1**, captions right | **840.189 × 329.9528** | **56 × 22** | 390 |
+| **IL32**, captions below | **585.0709 × 810.1418** | **39 × 54** | 870 |
+| IL16, Style 1, flat | 540.2835 × 569.7638 | 36 × 38 | **570**, the buttons at Top 0 rather than 30 |
+
+- Every button on a bar has the bar's size, with or without its own caption or image.
+- **A bar with captions and no list is already sized for a 16 × 16 image.** Binding IL16 to it afterwards changed nothing,
+  and setting its buttons' images then drew them in the space it had.
+
+**Where the image sits,** measured from the button's top-left corner, the border included:
+
+| Bar | Button | Image | Caption |
+|---|---|---|---|
+| IL16, captions below | 36 × 38 | 16 × 16 at **10, 3**: centred across, 3 down | below it, its text 23 to 31 down |
+| IL16, TextAlignment 1 | 56 × 22 | 16 × 16 at **5, 3** | to its right. "One"'s text ran from 34 to 51 across, ending 4 pixels from the right edge |
+| IL32, captions below | 39 × 54 | 32 × 32 at **3, 3** | below it, its text 39 to 47 down |
+
+- **A button with no image keeps the image's space.** "Four" drew its caption where the others did, below or to the
+  right of an empty square.
+- The button's raised edge is two pixels: white and 227 at the top and left, 160 and 105 at the bottom and right.
+
+**UseMaskColor:**
+- **With UseMaskColor True,** the corner drew in the button face, 240: **masked**.
+- **ILNoMask, filled with UseMaskColor False,** drew the corner in 192: **not masked**.
+- **`IL16.UseMaskColor = False` after binding** unmasked every bar bound to IL16 at its next paint. TA was refreshed, but
+  the corner showed 192 on the other bars too. IL32's bar stayed masked.
+- **`ILNoMask.UseMaskColor = True` after binding** wasn't read. The resized bar above it covered that bar by then.
+
+**HotImageList and DisabledImageList:**
+
+| Button | Standard bar, Style 0 | Flat bar, Style 1 |
+|---|---|---|
+| 1, enabled, image 1 | red, **unchanged under the mouse** | red; **under the mouse, green: ILHot's image 1**, with a raised edge |
+| 2, disabled, image 2 | **navy: ILDis's image 2** | navy, unchanged under the mouse |
+| 3, disabled, image 3, which ILDis lacks | **no image**, and the caption embossed grey | the same |
+| 4, enabled, image 3, which ILHot lacks | cyan, unchanged under the mouse | cyan; **under the mouse, no image at all**, with a raised edge |
+
+So **only a flat bar draws hot images.** **A disabled button draws DisabledImageList's image, and a missing index in
+either list draws nothing,** not the normal image.
+
+**Binding and rebinding:**
+- **`Set ImageList = ILEmpty`, an empty list, raises 35613,** "ImageList must be initialized before it can be used",
+  and the bar stays unbound. A button's `Image = 1` then raises 35613 too.
+- **Replacing a bound list,** `Set ImageList = IL32` on a bar bound to IL16 with images set, raised nothing.
+  - **Every button's Image went to 0,** as unbinding does.
+  - The buttons grew to 39 × 54 at once, before any image was set again.
+  - Setting the images again drew IL32's.
+
 ### The Properties window
 
 Thirty-two rows:

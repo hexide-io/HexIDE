@@ -10,9 +10,8 @@ namespace HexIDE.Runtime.Interpreter;
 /// <remarks>
 /// They resolve only in a project that references the control, as in VB6, where without the reference a bare
 /// <c>cdlCancel</c> is an undeclared variable. They come after the four in-box libraries, as an <c>Object=</c> reference
-/// comes after them in VB6's order. Every one is a Long, as the in-box constants are. Only the bare name resolves:
-/// <c>MSComDlg.cdlCancel</c> and <c>FileOpenConstants.cdlOFNReadOnly</c> are not implemented, and are refused rather
-/// than read as Empty.
+/// comes after them in VB6's order. Every one is a Long, as the in-box constants are. This is the legacy bare-name
+/// lookup; the registered MSComDlg library also supplies qualified names through the shared library resolver.
 /// </remarks>
 internal static class CommonDialogConstants
 {
