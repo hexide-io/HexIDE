@@ -718,11 +718,14 @@ IDE shutdown. On Windows, both stdio and launched pipe servers are assigned to t
 their subsequent descendants even when HexIDE is killed without shutdown or disposal. Assignment
 failure fails the connection and tears down the launched process; externally owned pipe servers
 are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
-are outside this guarantee. On Linux and macOS, `{pid}` remains cooperative: servers that ignore
-it can still outlive a crash. The decided `HexIDE.ProcessWatchdog` follow-up is not implemented yet.
-The lifetime test helper is launched with its own dependencies and runtime configuration;
-its stdio and pipe readiness checks run on Linux too. The assertion that killing its owner
-ends the server and child remains Windows-only.
+are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
+in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
+after an unclean IDE exit it sends SIGTERM to the group, then SIGKILL after two seconds.
+The guard preserves the server's exit code. Normal shutdown still attempts the protocol first;
+a guard left after the transport's grace period is terminated with its group. Externally owned
+pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
+The lifetime tests kill the owner without disposal and check both server and child on Windows,
+Linux and macOS; the helper runs with its own dependencies and runtime configuration.
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
@@ -873,6 +876,10 @@ id, exit code, outstanding request names (including requests abandoned when the 
 the conversation, rather than waiting out a diagnostics timeout. A clean exit or an exit on another
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
+
+The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
+warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
+does not mean the independent stderr reader has finished recording those lines.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one

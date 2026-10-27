@@ -1,7 +1,7 @@
 ## In-box controls: the SSTab (2026-10-27, #1090)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with TABCTL32.OCX 6.01.9782.
+- **The software:** VB6 SP6 (6.00.9782), with TABCTL32.OCX 6.01.9782.
   - The form line is `Object = "{BDC217C8-ED16-11CD-956C-0000C04E4C0A}#1.1#0"; "TABCTL32.OCX"`.
   - The block is `Begin TabDlg.SSTab`.
 - **The form:** drawn in VB6's IDE.

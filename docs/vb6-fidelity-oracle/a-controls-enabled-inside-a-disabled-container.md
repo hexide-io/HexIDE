@@ -34,8 +34,9 @@ reads that again once every container above it is enabled.
 - **An SSTab, from TABCTL32.OCX, does the same** with its children (the oracle's "In-box controls: the SSTab").
 
 **The obvious guess,** that a control's Enabled is its own property and a container's doesn't show in it, **is wrong**.
-It is the guess HexIDE makes.
+It is the guess HexIDE made before #2245.
 
-**In HexIDE:** Text1.Enabled read True inside a disabled Frame, measured with a headless test against `FrameWithChildren`
-(#2245). The Frame does disable its children's input, which `ADisabledFrame_DisablesItsContents` asserts, but the value
-VB6 code reads is the control's own.
+**In HexIDE before #2245:** Text1.Enabled read True inside a disabled Frame, measured with a headless test against
+`FrameWithChildren`. The Frame already disabled its children's input. #2245 makes the getter follow the container
+chain while the setter retains the control's own value; headless regressions cover Frame, PictureBox,
+nested Frames and enumeration through Me.Controls.

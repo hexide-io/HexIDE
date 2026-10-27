@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../HexIDE.LspGuard/HexIDE.LspGuard.csproj"
+                      ReferenceOutputAssembly="false" OutputItemType="Content"
+                      CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="HexIDE.Tests" />
     <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
   </ItemGroup>

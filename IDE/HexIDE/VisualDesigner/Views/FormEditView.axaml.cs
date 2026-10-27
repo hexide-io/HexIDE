@@ -35,11 +35,6 @@ public partial class FormEditView : UserControl
         FormContainer.AddHandler(PointerReleasedEvent, OnFormPointerReleased);
     }
 
-    private double SnapToGrid(double x)
-    {
-        return SnapGridUtils.SnapToGrid(this, x);
-    }
-
     private Point newControlInitialPress;
     private bool isSpawningNewControl;
     private IDisposable? selectedComponentSub;
@@ -61,7 +56,6 @@ public partial class FormEditView : UserControl
                 Log.Debug("FormEditView: Spawning control at ({Left},{Top} {Width}x{Height})",
                     Canvas.GetLeft(NewControlSpawnerPhantom), Canvas.GetTop(NewControlSpawnerPhantom),
                     NewControlSpawnerPhantom.Width, NewControlSpawnerPhantom.Height);
-                // The phantom is a preview on the form's grid; where the drag began and ended decide the control (#2039).
                 vm.SpawnControlDrawn(newControlInitialPress, e.GetPosition(NewControlSpawner));
                 if (ControlsContainer.ContainerFromIndex(ControlsContainer.SelectedIndex) is { } control)
                 {
@@ -75,17 +69,14 @@ public partial class FormEditView : UserControl
 
     private void OnNewControlMoving(object? sender, PointerEventArgs e)
     {
-        if (isSpawningNewControl)
+        if (isSpawningNewControl && DataContext is FormEditViewModel vm)
         {
             var point = e.GetCurrentPoint(NewControlSpawner).Position;
-            double left = SnapToGrid(Math.Min(point.X, newControlInitialPress.X));
-            double top = SnapToGrid(Math.Min(point.Y, newControlInitialPress.Y));
-            double right = SnapToGrid(Math.Max(point.X, newControlInitialPress.X));
-            double bottom = SnapToGrid(Math.Max(point.Y, newControlInitialPress.Y));
-            Canvas.SetLeft(NewControlSpawnerPhantom, left);
-            Canvas.SetTop(NewControlSpawnerPhantom, top);
-            NewControlSpawnerPhantom.Width = Math.Max(1, right - left);
-            NewControlSpawnerPhantom.Height = Math.Max(1, bottom - top);
+            var (rect, _) = vm.DrawnControlRectangle(newControlInitialPress, point);
+            Canvas.SetLeft(NewControlSpawnerPhantom, rect.Left);
+            Canvas.SetTop(NewControlSpawnerPhantom, rect.Top);
+            NewControlSpawnerPhantom.Width = rect.Width;
+            NewControlSpawnerPhantom.Height = rect.Height;
             NewControlSpawnerPhantom.IsVisible = true;
         }
     }

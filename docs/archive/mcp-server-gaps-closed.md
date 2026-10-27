@@ -9,6 +9,252 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## A running Toolbar's dropdown menu, open, was in neither the dump nor the snapshot — **CLOSED** (#2323, 2026-10-27)
+
+**Symptom (2026-10-27, Windows at 150%, #2309's live check).** A click on a dropdown's arrow,
+`Window/Custom[Toolbar1]/Button[#4]/Text[▾]`, opened the menu: the program raised ButtonDropDown. But `take_snapshot`
+showed no menu and gave no note, and `dump_visual_tree` with `match: "First"` or `"MenuItem"` found nothing, in
+`Form1`, `auto` or `ide`. The next click landed on a `LightDismissOverlayLayer`, and Down then Enter raised
+ButtonMenuClick, so the menu was open. A caller who trusted the snapshot would conclude the dropdown never opened.
+
+**Cause.** On a desktop a popup is a window of its own, so the dump and the snapshot reach a control's context menu or
+flyout from the control that owns it (`AttachedPopupsOf`). `FlyoutsOf` read `Button.Flyout` for a Button and
+`FlyoutBase.GetAttachedFlyout` only for other controls. `VBToolbar.Press` attaches its MenuFlyout to the dropdown's
+Button with `SetAttachedFlyout` and opens it with `ShowAt`, so that route missed it.
+
+**Workaround.** None to see it. Keys reach it blind.
+
+**Fixed (#2323).** `FlyoutsOf` reads the attached flyout for every control, Buttons included, after a Button's own
+Flyout and before a ContextFlyout. The snapshot composer asks the same question, so the menu is drawn as well as
+listed. `LogicallyParentedPopupTests.An_open_flyout_attached_to_a_button_is_in_the_tree`, for a Button and a
+ToggleButton, asserts the owner route. Headlessly a popup is an overlay inside the window, so the walk finds the items
+either way, and the owner route is the part that fails with the old `FlyoutsOf`.
+
+**Live (2026-10-27, a Debug build of the fix cherry-picked onto #2309's branch on Windows at 150%, headless `claude -p`
+through the hexide tools).** The project was the Toolbar corpus form, with a ButtonMenuClick handler appending
+` MC:<key>` to the caption.
+
+- A click on the arrow opened the menu, and `take_snapshot` showed it under Menu ▾, with its one visible item, First.
+- `match: "First"` found `Window/Custom[Toolbar1]/Button[#4]/Pane/MenuItem[First]`, offering `invoke`.
+- Invoking it closed the menu and raised ButtonMenuClick: the caption became `Form1 MC:m1`.
+
+## `invoke_menu_item` couldn't reach an item with a control header, or a submenu filled when it opens — **CLOSED** (#2321, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2140's live check).** #2140's Window → Panel Layouts submenu has both kinds of item.
+
+- **A control header.** Each saved layout has a TextBlock header and an automation name. `invoke_menu_item
+  {"path":"Window/Panel Layouts/Beta/Switch"}` answered `No item 'Beta' in menu 'Panel Layouts'. It holds: Save Layout
+  As…, Full Editor, Avalonia.Controls.TextBlock, Avalonia.Controls.TextBlock`.
+- **A submenu filled when it opens.** The submenu holds a placeholder until its SubmenuOpened handler fills it. In a
+  fresh session, `"Window/Panel Layouts/Full Editor"` answered `It has no items.`, and the same call worked once
+  something had opened the submenu.
+
+**Workaround.** `interact` `expand` along the path, then `invoke` on the item by its tree path.
+
+**Cause.** `MenuPath` read a header by its `ToString`, which for a control is its type's name. It also walked a
+submenu's logical items without opening it, so a handler that fills the submenu when it opens had not run.
+
+**Fixed (#2321).** A header that is a control is read by the item's automation name, which the dump shows it by, or
+else its text. Each closed submenu on the path gets its SubmenuOpened before its items are read, as opening it does,
+without a popup. `MenuPathTests` covers both, and each test fails with its half of the fix removed.
+
+**Live (2026-10-27, a Debug build of the fix cherry-picked onto #2140's branch on Windows, headless `claude -p` through
+the hexide tools).**
+
+- In a fresh session, with no menu opened by hand, `Window/Panel Layouts/Full Editor` answered `Invoked 'Full Editor'.`
+- After saving a layout named Beta, a miss in Panel Layouts listed `Save Layout As…, Full Editor, Beta`.
+- `Window/Panel Layouts/Beta/Switch` answered `Invoked 'Switch'.`
+
+---
+
+## No way to turn a lock key on for a running program, so a StatusBar key panel's on state couldn't be checked — **CLOSED** (#2296, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2254's live check).** A StatusBar panel of Style 1 to 4 draws its Text black while
+its key's toggle is on and grey while it's off. A live check could see the off state but not the on state. On Windows
+the StatusBar reads the toggle the operating system keeps, and `press_key` raises Avalonia's key events without
+changing it. On the test form, `press_key` targeting `Window` was also refused, since nothing there takes keyboard
+focus.
+
+**Workaround.** None live. The headless tests reached both states through an injected key reader.
+
+**Fixed (#2296).** A new DEBUG-only tool, `set_lock_key {key, state}`. It sets CapsLock, NumLock, Insert or ScrollLock
+`On` or `Off` as programs running in HexIDE read it, and `Keyboard` returns the key to the keyboard's own toggle. The
+state lives in `LockKeys` in the runtime, beside the keyboard read it overrides. A StatusBar prefers it, and repaints
+when it changes. Every reply lists all four keys, each with `on` and a `source` (`Set`, `Keyboard`, or `Window` where a
+host has no toggle to read). The machine's keyboard is untouched. A new tool rather than a change to `press_key`: a
+press can't set the OS toggle, and teaching the StatusBar to count automation's presses on top of the OS reading
+would double-count a real one. Guarded by `SetLockKeyTests` and by
+`StatusBarDrawingAndEventsTests.A_key_panel_follows_a_lock_key_set_by_automation`, whose four cases fail with the
+override ignored.
+
+**Live (2026-10-27, a Debug build of the fix on Windows at 150%, headless `claude -p` through the hexide tools).** The
+form was the StatusBar corpus form with its third panel made an enabled Caps panel reading `CAPS`.
+
+- With no arguments, the reply listed all four keys off, with source `Keyboard`, and changed nothing.
+- The running form's `CAPS` was grey. After `{"key":"CapsLock","state":"On"}` it was black, with no other pixel
+  of the window changed: 69 dark pixels in the text against none.
+- After `Off` it was grey again, as it was after `Keyboard`. Both pictures were identical to the first.
+- `Shift` and a key with no state were refused, each naming the accepted keys and states.
+
+## A double click sent no second press when its first click replaced what it landed on — **CLOSED** (#2324, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2309's live check).** `interact` `click` with `double` on a running Toolbar's
+`Button[New]` answered `…; the second click was not sent because the target is hidden or closed, or detached`. The
+same happened on `Window/Custom[Toolbar1]` with `16,22 double`, though the bar is never replaced. So the Toolbar's
+measured double-click couldn't be checked live: a second ButtonClick, and no DblClick (#1088).
+
+**Cause.** Before the second press, `SecondPress` required the element the first press landed on to be still attached.
+A Toolbar rebuilds its buttons on each release (`VBToolbar.Release` → `RefreshButtons`), so that element was always
+gone.
+
+**Workaround.** None. Two single clicks are not a double click.
+
+**Fixed (#2324).** The second press hit-tests the first press's point again and goes to whatever takes the pointer
+there, with a click count of 2, as a person's second press lands. It is refused only when the window is hidden or
+closed, or nothing is at the point. When it reaches a different element from the first, the reply says so and names
+it. The first live run of the fix still missed about one time in three: the second press found the bar's own presenter
+though the new button was laid out, attached and composited. Hit-testing reads the composition the render thread
+holds, which lagged the layout. So the second press now waits for the window's next frame and for the render thread to
+process a composition batch, each bounded at 250 ms. `DoubleClickReplacedTests` guards the hit-test, and fails with the
+old refusal back. The headless compositor doesn't lag, so the wait is guarded only by the live runs below.
+
+**Live (2026-10-27, a Debug build of the fix cherry-picked onto #2309's branch on Windows at 150%, headless `claude -p`
+through the hexide tools).** The project was the Toolbar corpus form, without its ImageList (#2309's branch predates
+it), with handlers appending ` BC:<key>` for each ButtonClick and ` DC` for each DblClick to the form's caption.
+
+- Without the frame and batch wait, three bar double-clicks in a row added one, two, then one ButtonClick. Diagnostics
+  showed the misses' hit chain going straight to the bar's presenter.
+- With them, six double-clicks on `Window/Custom[Toolbar1]` at `16,22` and two on `Button[New]` each added two
+  ButtonClicks and no DblClick, as #1088 measured. Each reply said the second press went to the new button's
+  `AccessText`, at `Window/Custom[Toolbar1]/Button[New]`.
+
+---
+
+## `inspect_element` reported `selectionItems: []` for a tree whatever was selected — **CLOSED** (#2288, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2287's live check).** After `interact select` on the Watches row `TreeItem[x]`
+answered `selected 'x'`, `inspect_element` on its `Tree` answered `"selectionItems":[]`. It gave the same after
+`remove_from_selection`, so a check that expected `[]` after clearing the row was checking nothing.
+
+**Cause.** `Inspect` filled `selectionItems` from the peer's `ISelectionProvider`, or else from a
+`SelectingItemsControl`. Avalonia's `TreeView` is neither: it derives from `ItemsControl`, and its peer offers no
+selection provider. So neither branch ran, and the default empty array went out as the answer. All four of the IDE's
+trees were affected: Watches, Locals, Project Explorer and the Options page tree.
+
+**Workaround.** None in the tree itself. #2287's check used a consequence instead: Debug → Edit Watch opens its dialog
+only while a row is selected.
+
+**Fixed (#2288).** `Inspect` reads a tree's `SelectedItems` and names each row as `remove_from_selection` does: by
+its container's label, falling back to `NameWithoutRow` for a row not realised. `InspectTreeSelectionTests` covers a
+tree of rows and a bound tree named the way the IDE's trees are. Both fail with the new branch disabled.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).**
+
+- **Project Explorer:** after selecting Form1's row, `selectionItems` was `["Form1 (Form1.frm)"]`.
+- **Watches:** with a watch on `x`, `selectionItems` was `[]` before selecting, `["x"]` after `select`, and `[]` after
+  `remove_from_selection`.
+- **Options:** the page tree read `["General"]` on opening and `["Formatting"]` after selecting Editor → Formatting.
+
+## `get_locals` failed with run-time error 393 on a form holding a Timer — **CLOSED** (#2289, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2281's live check).** Paused in any procedure of a form with a Timer, `get_locals {}`
+answered `'get_locals' failed with an unhandled HexIDE.Runtime.Interpreter.VBRunTimeException: Run-time error '393': Get
+not supported at runtime`. `get_locals {"maxDepth":1}` worked, because it doesn't expand `Me`. The Locals window
+listed Timer1 under `Me` with no expander.
+
+**Cause.** Not the tool's. The default depth of 3 expands `Me`, then Timer1, and a control expands to every property
+`AvaloniaInteroperability.ReadProperties` can read. A Timer's Left and Top raise 393 when read, as VB6's do (#2069),
+and the raise ended the whole read. The Locals window met the same throw when it asked for Timer1's children, and
+showed no expander.
+
+**Workaround.** `maxDepth` 1, which loses everything under `Me`.
+
+**Fixed (#2289).** `ReadProperties` catches a raising read one property at a time. The Locals tree lists that property
+with the raised error's own description in angle brackets and no type, and lists the rest as before. The angle brackets
+are VB6's own convention for a listed member whose read raises (measured on #2289), though VB6 lists no Left or Top for a
+Timer at all: which members Locals lists is #2329. Guarded by `ControlLocalsTests`, whose two new tests fail with the
+catch removed.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).** The project
+was a form holding Timer1, paused by a `Stop` in Form_Load.
+
+- `get_locals {}` succeeded. Under `Me`, Timer1 listed 13 rows, Left and Top among them as
+  `<Get not supported at runtime>` with an empty type, and Interval as `250`.
+- In the Locals window, Timer1 had an expandCollapse provider, and expanding it showed the same rows.
+- The same rows showed properties a VB6 Timer doesn't have, two of them reading `NaN`. That belongs to #801 and #2329, and
+  is recorded on #801.
+
+---
+
+## A drag can't stop before its release, and the designer's preview and grab handles were not in the tree — **CLOSED** (#2231, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's live check).** `click` with `to` presses, raises its held moves and releases in
+one call, so nothing that shows only while the button is down can be seen: the designer's draw preview
+(`NewControlSpawnerPhantom`), the rubber band, a control's outline while it moves or resizes, Dock's drop targets, and a
+running form's MouseMove with a button held. `dump_visual_tree {"window":"ide","match":"NewControlSpawner","interactiveOnly":false}`
+answered `Nothing matches 'NewControlSpawner'.`, though a drag's reply named `Canvas[NewControlSpawner]`. On 2026-10-27,
+#2232's live check found a selected control's grab handles missing too: `match "Resize"` found nothing, though a move
+drag's reply named `'ResizeAdorner'` as the pointer capturer.
+
+**Workaround.** Check only where a control lands. For a resize, press at a guessed point on the control's edge.
+
+**Part 1, fixed (#2231).** The preview, its canvas, the rubber band, the resize adorner and its eight handles carry
+AutomationIds, and the control view lists an adorner under the element it adorns. A handle is
+`…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]`, and `inspect_element` reads the preview's bounds.
+
+**Part 2, fixed (#2231).** `click … to x,y hold` stops after the held moves with the button still down, and the new
+`release` action lets it go in a later call, at an optional point it moves to first, with an unheld drag's reply. While
+it is held, every reply carries a `heldButton` note (`HeldButtonNote`, beside `OpenDialogNote`), `click`, `double_click`
+and `hover` are refused, and keys still go. After 120 s with no call the hold is abandoned, as decided on the issue:
+Escape, held moves back to the press, and a release there. The next reply says what the designer's undo stack recorded,
+if anything. Measured headlessly (`HeldButtonTests`): an abandoned move and an abandoned Dock drag change nothing, and an
+abandoned draw places a 2 by 2 control, `Add: Command1`.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).**
+
+- With the Command tool on, `interact click` on `…/None[NewControlSpawner]` with `"20,20 to 100,60 hold"` replied that
+  the left button was still held and that the canvas had the pointer capture, with a `heldButton` note. `inspect_element`
+  on `…/None[NewControlSpawnerPhantom]` then had no `isHidden` and a `boundingRect` 80 by 40, and `take_snapshot` showed
+  the preview, a solid 2-pixel outline, on the form.
+- `get_project_info` carried the same `heldButton`. `click "5,5"` and `hover` were refused, naming the held button.
+- `release` with `"140,90"` replied as an unheld drag does, released at (140, 90), with no `heldButton` after it.
+- Holding `…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]` with `"4,4 to 44,34 hold"` grew Command1
+  from 121 by 65 to 160 by 88 while held. With nothing called for two minutes, the next `get_project_info` said the hold
+  was abandoned at 07:46:27 UTC: Escape went to the focused `ControlItem`, and it was let go where it was pressed.
+  Command1 was then 120 by 64, not 121 by 65: a resize returns to the grid, and a drawn control is a pixel larger than
+  its grid cells, so the note said `The designer recorded 'Resize: Command1' anyway, so it did not cancel; Undo takes it
+  back.` The call after that had no `heldButton`, and `release` was refused, since nothing was held.
+
+## `take_snapshot` left out text a control drew after popping a clip, above 100% scaling — **CLOSED** (#2293, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, 150% scaling, #2254's live check).** `take_snapshot` of the running form in
+`corpus/inbox-controls/saved/statusbar` showed "Ready" in the StatusBar's first panel and nothing in its second, in a clean
+reply. The compositor's own frame of the same window showed the date there too. So the live check reported a StatusBar
+fault that wasn't there.
+
+**Cause.** An Avalonia.Skia defect that only a `RenderTargetBitmap` at a DPI other than 96 meets. Its scale is kept apart
+and multiplied into each transform set, `PopClip` rebuilds the current transform from the canvas matrix, which already
+holds the scale, and so the first transform pushed after a popped clip gets it twice. Drawing text pushes one for the
+text's origin, so above 100% the glyphs landed outside the bitmap. `SnapshotComposer` rendered at `96 * scaling` DPI, so
+it met this whenever a control's own `Render` drew text after popping a clip, as the StatusBar does per panel.
+
+**Workaround.** None in the tools. A diagnostic build saved the compositor's frame.
+
+**Fixed (#2293).** `SnapshotComposer` draws the window and each popup with `Compositor.CreateCompositionVisualSnapshot`,
+which is what the screen shows. A window in no frame yet, as one shown a moment ago is, is waited for. If the compositor
+gives no picture within 5 s, a render target draws it, and the reply's `note` says so, since that picture can lack such
+text. `SnapshotScalingTests` draws two clipped texts at 100%, 150% and 200%: the second is missing from a render target
+at 150% and 200% (0 dark pixels against 142 in the compositor's image at 150%), and present in the snapshot.
+
+**Live (2026-10-27, a Debug build of the fix on Windows at 150%, headless `claude -p` through the hexide tools).**
+
+- Merged locally with #2254, which isn't on main yet, the running StatusBar form's `take_snapshot` showed "Ready" in the
+  first panel and "27/10/2026" in the second, with no fallback note.
+- On the fix alone, the IDE, the File menu dropped down (a window of its own on the desktop, composed in place under
+  the menu bar), the Options dialog and a running form all captured as before, at scale 1.5.
+
+---
+
 ## `set_window_state` with no window manager said the window manager hadn't confirmed, and to re-read — **CLOSED** (#2185, 2026-10-27)
 
 **Symptom (2026-10-26, openSUSE Leap 16 VM, Xvfb `:99` with no window manager, #1755's live check).**
