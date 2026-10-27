@@ -523,7 +523,9 @@ public static class UiAutomationDriver
                                : " Make it show first; invoke_command and set_property act on "
                              + "its view model and still work"));
 
-        if (norm is "click" or "invoke" && DisabledPressRefusal(control) is { } disabled)
+        if (norm is not ("invokecommand" or "setproperty")
+            && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } disabledVerb
+            && DisabledInteractionRefusal(control, disabledVerb) is { } disabled)
             return Err(disabled);
 
         AutomationPeer peer;
@@ -777,7 +779,7 @@ public static class UiAutomationDriver
 
     // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
-    private static string? DisabledPressRefusal(Control control)
+    private static string? DisabledInteractionRefusal(Control control, string verb)
     {
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
         var open = OpenDialogs.Among(OpenWindows());
@@ -787,13 +789,21 @@ public static class UiAutomationDriver
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
             return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
-                   + "No person could click or invoke it, so nothing was pressed or invoked. Answer the dialog first: "
+                   + $"No person could use it, so '{verb}' was refused and nothing was done. Answer the dialog first: "
                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
         }
-        return !control.IsEffectivelyEnabled || window is { IsEffectivelyEnabled: false }
-            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could click or invoke it, so "
-              + "nothing was pressed or invoked. Wait until it is enabled before trying again"
-            : null;
+        if (control.IsEffectivelyEnabled && window is not { IsEffectivelyEnabled: false })
+            return null;
+
+        var container = control.GetVisualAncestors().OfType<Control>()
+            .Concat(control.GetLogicalAncestors().OfType<Control>())
+            .FirstOrDefault(c => !c.IsEnabled);
+        var cause = control.IsEnabled && container is not null
+            ? $" Its container '{Describe(container)}'{(window is null ? string.Empty : AddressOf(window, "Window", container))} disables it."
+            : string.Empty;
+        return $"'{Describe(control)}' is disabled (\"isEnabled\": false).{cause} "
+               + $"No person could use it, so '{verb}' was refused and nothing was done. "
+               + "Wait until it is enabled before trying again; inspect_element reports its current state";
     }
 
     /// <summary>
