@@ -282,6 +282,17 @@ write failure SHALL be reported to the user.
 - **GIVEN** an opaque OCX block contains an image
 - **THEN** the Properties window offers no export for that property bag
 
+### Requirement: The designer SHALL offer a read-only tab-order overlay
+The designer SHALL offer a toggle, initially off, that draws each modelled control's existing `TabIndex` over its
+canvas position. Controls without that property SHALL have no badge. A badge SHALL be crossed out with a diagonal slash when the control
+has `TabStop` set to false, so the mark remains distinct from every digit’s strokes. Badges SHALL follow property and position changes and SHALL NOT intercept pointer input
+or change the form's properties. This is a HexIDE presentation feature, not a VB6 designer gesture.
+
+#### Scenario: Inspecting tab order
+- **WHEN** the developer enables the tab-order toggle
+- **THEN** tab-index badges appear over the controls, with non-tab-stops crossed out
+- **AND** disabling the toggle hides the badges
+
 ### Requirement: A form SHALL be previewable without running its code
 The form designer SHALL offer a Preview Form command that opens a live window using the runtime loader's
 layout, menus and tab settings, without starting the project or loading an interpreter. Control interaction,

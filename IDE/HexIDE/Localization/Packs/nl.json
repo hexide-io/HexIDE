@@ -2,7 +2,9 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
@@ -103,6 +105,7 @@
     "Str.Menu.Edit.Cut": "K_nippen",
     "Str.Menu.Edit.Copy": "_Kopiëren",
     "Str.Menu.Edit.Paste": "_Plakken",
+    "Str.Menu.Edit.PasteAsComment": "Als _commentaar plakken",
     "Str.Menu.Edit.PasteLink": "Koppeling pla_kken",
     "Str.Menu.Edit.Remove": "Verwijderen",
     "Str.Menu.Edit.Delete": "_Verwijderen",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protocol_inspector...",
     "Str.Menu.AddIns": "_Invoegtoepassingen",
     "Str.Menu.Window": "_Venster",
+    "Str.Menu.Window.ReopenClosed": "Gesloten venster opnieuw openen",
+    "Str.Menu.Window.RecentlyClosed": "Onlangs gesloten vensters",
     "Str.Menu.Window.Split": "S_plitsen",
     "Str.Menu.Window.ResetLayout": "Vensterindeling _herstellen",
     "Str.Menu.Help": "_Help",
@@ -363,6 +368,7 @@
     "Str.Designer.Context.Properties": "Eigenschappen",
     "Str.CodeEditor.FileNotSaved.Banner": "Dit bestand wordt niet opgeslagen — HexIDE kan het nog niet getrouw reproduceren, dus opslaan zou het wijzigen. De code maakt deel uit van het bestand, daarom wordt typen in dit venster geweigerd.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "De naamswijziging is niet doorgevoerd, omdat die de header van dit bestand of de Attribute-regels van een lid zou wijzigen, die door de IDE worden beheerd.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "De naam is niet gewijzigd omdat dit ook andere documenten wijzigt: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Regel {0} hoort bij de header van dit bestand of bij de Attribute-regels van een lid, die nooit worden uitgevoerd; daar kan dus geen onderbrekingspunt of bladwijzer worden geplaatst.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Bestand invoegen",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nieuwe naam:",
@@ -895,7 +901,7 @@
     "Str.Dock.Close": "Paneel sluiten",
     "Str.Dock.ScrollLeft": "Tabbladen naar links schuiven",
     "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
   }
 }
