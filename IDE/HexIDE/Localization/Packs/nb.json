@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Klipp _ut",
     "Str.Menu.Edit.Copy": "_Kopier",
     "Str.Menu.Edit.Paste": "_Lim inn",
+    "Str.Menu.Edit.PasteAsComment": "Lim inn som _kommentar",
     "Str.Menu.Edit.PasteLink": "Lim inn _kobling",
     "Str.Menu.Edit.Remove": "Fjern",
     "Str.Menu.Edit.Delete": "_Slett",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definisjon",
     "Str.Menu.View.Declaration": "Dek_larasjon",
     "Str.Menu.View.LastPosition": "Siste posisjo_n",
+    "Str.Tool.RecentEdits.Title": "Nylige redigeringer",
     "Str.Menu.View.ObjectBrowser": "_Objektutforsker",
     "Str.Menu.View.ImmediateWindow": "_Direktevindu",
     "Str.Menu.View.LocalsWindow": "Vindu for lokale _variabler",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Protokollinspektør...",
     "Str.Menu.AddIns": "_Tillegg",
     "Str.Menu.Window": "_Vindu",
+    "Str.Menu.Window.ReopenClosed": "Åpne lukket vindu på nytt",
+    "Str.Menu.Window.RecentlyClosed": "Nylig lukkede vinduer",
     "Str.Menu.Window.Split": "_Del",
     "Str.Menu.Window.ResetLayout": "_Tilbakestill vindusoppsett",
     "Str.Menu.Help": "_Hjelp",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "_Slett",
     "Str.Designer.Context.BringToFront": "Flytt forrest",
     "Str.Designer.Context.SendToBack": "Flytt bakerst",
+    "Str.Designer.PreviewForm": "Forhåndsvis skjema",
     "Str.Designer.Context.ViewCode": "Vis kode",
     "Str.Designer.Context.AlignToGrid": "Juster etter rutenett",
     "Str.Designer.Context.Properties": "Egenskaper",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "Maksimer eller gjenopprett panel",
     "Str.Dock.Close": "Lukk panel",
     "Str.Dock.ScrollLeft": "Rull faner til venstre",
-    "Str.Dock.ScrollRight": "Rull faner til høyre"
+    "Str.Dock.ScrollRight": "Rull faner til høyre",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
   }
 }

@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "_Vyjmout",
     "Str.Menu.Edit.Copy": "_Kopírovat",
     "Str.Menu.Edit.Paste": "V_ložit",
+    "Str.Menu.Edit.PasteAsComment": "Vložit jako _komentář",
     "Str.Menu.Edit.PasteLink": "Vložit _odkaz",
     "Str.Menu.Edit.Remove": "Odebrat",
     "Str.Menu.Edit.Delete": "_Smazat",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definice",
     "Str.Menu.View.Declaration": "De_klarace",
     "Str.Menu.View.LastPosition": "Poslední po_zice",
+    "Str.Tool.RecentEdits.Title": "Nedávné úpravy",
     "Str.Menu.View.ObjectBrowser": "Prohlížeč _objektů",
     "Str.Menu.View.ImmediateWindow": "Okno _Immediate",
     "Str.Menu.View.LocalsWindow": "Okno _lokálních proměnných",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektor protokolu...",
     "Str.Menu.AddIns": "_Doplňky",
     "Str.Menu.Window": "_Okno",
+    "Str.Menu.Window.ReopenClosed": "Znovu otevřít zavřené okno",
+    "Str.Menu.Window.RecentlyClosed": "Nedávno zavřená okna",
     "Str.Menu.Window.Split": "_Rozdělit",
     "Str.Menu.Window.ResetLayout": "O_bnovit rozložení oken",
     "Str.Menu.Help": "_Nápověda",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "_Odstranit",
     "Str.Designer.Context.BringToFront": "Přenést do popředí",
     "Str.Designer.Context.SendToBack": "Přenést do pozadí",
+    "Str.Designer.PreviewForm": "Náhled formuláře",
     "Str.Designer.Context.ViewCode": "Zobrazit kód",
     "Str.Designer.Context.AlignToGrid": "Zarovnat k mřížce",
     "Str.Designer.Context.Properties": "Vlastnosti",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "Maximalizovat nebo obnovit panel",
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
-    "Str.Dock.ScrollRight": "Posunout karty doprava"
+    "Str.Dock.ScrollRight": "Posunout karty doprava",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }
 }

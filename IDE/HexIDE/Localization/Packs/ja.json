@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "切り取り",
     "Str.Menu.Edit.Copy": "コピー",
     "Str.Menu.Edit.Paste": "貼り付け",
+    "Str.Menu.Edit.PasteAsComment": "コメントとして貼り付け",
     "Str.Menu.Edit.PasteLink": "リンクの貼り付け",
     "Str.Menu.Edit.Remove": "削除",
     "Str.Menu.Edit.Delete": "削除",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "定義",
     "Str.Menu.View.Declaration": "宣言",
     "Str.Menu.View.LastPosition": "最後の位置",
+    "Str.Tool.RecentEdits.Title": "最近の編集",
     "Str.Menu.View.ObjectBrowser": "オブジェクトブラウザー",
     "Str.Menu.View.ImmediateWindow": "イミディエイトウィンドウ",
     "Str.Menu.View.LocalsWindow": "ローカルウィンドウ",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "プロトコル インスペクター...",
     "Str.Menu.AddIns": "アドイン",
     "Str.Menu.Window": "ウィンドウ",
+    "Str.Menu.Window.ReopenClosed": "閉じたウィンドウを再度開く",
+    "Str.Menu.Window.RecentlyClosed": "最近閉じたウィンドウ",
     "Str.Menu.Window.Split": "分割",
     "Str.Menu.Window.ResetLayout": "ウィンドウレイアウトをリセット",
     "Str.Menu.Help": "ヘルプ",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "削除",
     "Str.Designer.Context.BringToFront": "最前面へ移動",
     "Str.Designer.Context.SendToBack": "最背面へ移動",
+    "Str.Designer.PreviewForm": "フォームのプレビュー",
     "Str.Designer.Context.ViewCode": "コードの表示",
     "Str.Designer.Context.AlignToGrid": "グリッドに合わせる",
     "Str.Designer.Context.Properties": "プロパティ",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "ペインの最大化または元に戻す",
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
-    "Str.Dock.ScrollRight": "タブを右にスクロール"
+    "Str.Dock.ScrollRight": "タブを右にスクロール",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
   }
 }

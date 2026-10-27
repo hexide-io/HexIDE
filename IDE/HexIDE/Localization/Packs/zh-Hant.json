@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "剪下",
     "Str.Menu.Edit.Copy": "複製",
     "Str.Menu.Edit.Paste": "貼上",
+    "Str.Menu.Edit.PasteAsComment": "貼上為註解",
     "Str.Menu.Edit.PasteLink": "貼上連結",
     "Str.Menu.Edit.Remove": "移除",
     "Str.Menu.Edit.Delete": "刪除",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "定義",
     "Str.Menu.View.Declaration": "宣告",
     "Str.Menu.View.LastPosition": "上一個位置",
+    "Str.Tool.RecentEdits.Title": "最近編輯",
     "Str.Menu.View.ObjectBrowser": "物件瀏覽器",
     "Str.Menu.View.ImmediateWindow": "即時運算視窗",
     "Str.Menu.View.LocalsWindow": "區域變數視窗",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "通訊協定檢查器...",
     "Str.Menu.AddIns": "增益集",
     "Str.Menu.Window": "視窗",
+    "Str.Menu.Window.ReopenClosed": "重新開啟已關閉的視窗",
+    "Str.Menu.Window.RecentlyClosed": "最近關閉的視窗",
     "Str.Menu.Window.Split": "分割",
     "Str.Menu.Window.ResetLayout": "重設視窗版面配置",
     "Str.Menu.Help": "說明",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "刪除",
     "Str.Designer.Context.BringToFront": "移到最上層",
     "Str.Designer.Context.SendToBack": "移到最下層",
+    "Str.Designer.PreviewForm": "預覽表單",
     "Str.Designer.Context.ViewCode": "檢視程式碼",
     "Str.Designer.Context.AlignToGrid": "對齊格線",
     "Str.Designer.Context.Properties": "屬性",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "最大化或還原窗格",
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
-    "Str.Dock.ScrollRight": "向右捲動索引標籤"
+    "Str.Dock.ScrollRight": "向右捲動索引標籤",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色"
   }
 }

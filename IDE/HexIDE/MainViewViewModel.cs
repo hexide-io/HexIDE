@@ -52,6 +52,8 @@ public partial class MainViewViewModel : ObservableObject
     private readonly IWindowManager windowManager;
     private readonly IProjectService projectService;
     private readonly IDocumentDockService documentDockService;
+    public DelegateCommand ReopenClosedDocumentCommand { get; }
+    public ObservableCollection<RecentProjectItemViewModel> ClosedDocumentMenuItems { get; } = new();
     private readonly DockFactory dockFactory;
     private readonly IProjectRunnerService projectRunnerService;
     private readonly IEventBus eventBus;
@@ -85,6 +87,7 @@ public partial class MainViewViewModel : ObservableObject
     public LocalsToolViewModel Locals { get; }
     public WatchesToolViewModel Watches { get; }
     public CallStackToolViewModel CallStack { get; }
+    public RecentEditsToolViewModel RecentEdits { get; }
     public ProjectToolViewModel ProjectExplorer { get; }
     public ColorPaletteToolViewModel ColorPalette { get; }
     public ObjectBrowserToolViewModel ObjectBrowser { get; }
@@ -312,8 +315,18 @@ public partial class MainViewViewModel : ObservableObject
 
         private IRootDock BuildLayout(LayoutManifest m, IDocumentDock? reuseDocument)
         {
+            var knownStates = new List<ToolLayoutState>();
+            var unknownKeys = new HashSet<string>();
+            foreach (var state in m.Tools)
+            {
+                if (toolsByKey.ContainsKey(state.Key))
+                    knownStates.Add(state);
+                else if (unknownKeys.Add(state.Key))
+                    Log.Warning("DockFactory: Skipping unknown layout tool key {Key}", state.Key);
+            }
+
             List<ToolLayoutState> OpenIn(DockRegion r) =>
-                m.Tools.Where(t => t.Open && t.Region == r).OrderBy(t => t.Order).ToList();
+                knownStates.Where(t => t.Open && t.Region == r).OrderBy(t => t.Order).ToList();
 
             // LEFT — single ToolDock holding the left tool(s) (the toolbox).
             IToolDock? leftDock = null;
@@ -737,8 +750,10 @@ public partial class MainViewViewModel : ObservableObject
         IWindowStateService windowStateService,
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
+        RecentEditsToolViewModel recentEdits,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
+        RecentEdits = recentEdits;
         Personality = personalityService;
         AddinMenuService = addinMenuService;
         AddinCommandService = addinCommandService;
@@ -805,6 +820,19 @@ public partial class MainViewViewModel : ObservableObject
 
         Layout = dockFactory.CreateLayout();
         dockFactory.InitLayout(Layout);
+        documentDockService.TrackTabs();
+        ReopenClosedDocumentCommand = new DelegateCommand(
+            () => documentDockService.ReopenClosedDocument(editorService),
+            () => documentDockService.RecentlyClosed?.Entries.Count > 0);
+        if (documentDockService.RecentlyClosed is { } history)
+            ((System.Collections.Specialized.INotifyCollectionChanged)history.Entries).CollectionChanged += (_, _) =>
+            {
+                ReopenClosedDocumentCommand.RaiseCanExecutedChanged();
+                ClosedDocumentMenuItems.Clear();
+                foreach (var entry in history.Entries)
+                    ClosedDocumentMenuItems.Add(new RecentProjectItemViewModel(entry.Title,
+                        new DelegateCommand(() => documentDockService.ReopenClosedDocument(editorService, entry))));
+            };
 
         // Eager-save wiring: baseline the just-restored layout (so a no-op gesture won't rewrite it),
         // debounce changes ~400ms, and listen for programmatic open/close. Mouse-driven changes
@@ -1646,6 +1674,8 @@ public partial class MainViewViewModel : ObservableObject
     public void OpenImmediateTool() => OpenOrActivateTool(Immediate, false);
     public void OpenLocalsTool() => OpenOrActivateTool(Locals, false);
     public void OpenWatchesTool() => OpenOrActivateTool(Watches, false);
+    public void OpenRecentEditsTool() => OpenOrActivateTool(RecentEdits, false);
+
     public void OpenCallStackTool() => OpenOrActivateTool(CallStack, false);
     public void OpenColorPaletteTool() => OpenOrActivateTool(ColorPalette, false);
     public void OpenObjectBrowserTool()

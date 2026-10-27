@@ -180,18 +180,23 @@ check it fails there.
 
 ### And for the version gap WSL leaves — Podman, matching CI's distro
 
-WSL closes the Windows-path class, but it is **not** the same Linux CI runs, and the difference is measured
-rather than assumed:
+WSL closes the Windows-path class. Whether it is also the Linux CI runs depends on GitHub's `ubuntu-latest`,
+which **moved from 24.04 to 26.04 from 2026-10-19**: the job log's "Operating System" group reads
+`Image: ubuntu-26.04` (first noticed on batch 49, 2026-10-26). So WSL and CI now run the same Ubuntu release:
 
 | | Ubuntu | ICU | glibc |
 |---|---|---|---|
-| CI (`build-ide`) and the container below | **24.04** | **libicu74** | 2.39 |
+| CI (`build-ide`, `ubuntu-latest`) and the container below, since 2026-10-19 | **26.04** | not yet measured on the runner | not yet measured |
 | WSL | **26.04 LTS** | **libicu78** | 2.43 |
+| CI before 2026-10-19 | 24.04 | libicu74 | 2.39 |
 
-Four ICU major versions apart. .NET takes string comparison, casing and culture-sensitive formatting from
-the platform's ICU, and this project compares VB6 identifiers case-insensitively everywhere, ships 27
-language packs, and round-trips culture-sensitive values into Windows-native files. So a divergence there
-would present exactly as the original bug class did: green locally, red on CI.
+Before the move they were four ICU major versions apart. .NET takes string comparison, casing and
+culture-sensitive formatting from the platform's ICU, and this project compares VB6 identifiers
+case-insensitively everywhere, ships 27 language packs, and round-trips culture-sensitive values into
+Windows-native files. So a divergence there would present exactly as the original bug class did: green
+locally, red on CI. **The container's tag follows CI's release.** Check the job log's `Image:` line when a
+Linux failure won't reproduce under WSL, and move the tag below when `ubuntu-latest` moves again; a
+container pinned to the release CI has left reproduces nothing.
 
 ```sh
 # One-time. Podman, not Docker Desktop — the latter needs a paid subscription at 250+ employees or
@@ -203,7 +208,7 @@ podman run --rm \
   -v "<clone-root>:/repo" \
   -v hexide-nuget:/root/.nuget \
   -w /repo/IDE \
-  mcr.microsoft.com/dotnet/sdk:10.0-noble \
+  mcr.microsoft.com/dotnet/sdk:10.0-resolute \
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 

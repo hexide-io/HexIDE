@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Kli_p",
     "Str.Menu.Edit.Copy": "_Kopier",
     "Str.Menu.Edit.Paste": "_Sæt ind",
+    "Str.Menu.Edit.PasteAsComment": "Indsæt som _kommentar",
     "Str.Menu.Edit.PasteLink": "Sæt _kæde ind",
     "Str.Menu.Edit.Remove": "Fjern",
     "Str.Menu.Edit.Delete": "_Slet",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "Dekl_aration",
     "Str.Menu.View.LastPosition": "Seneste positio_n",
+    "Str.Tool.RecentEdits.Title": "Seneste redigeringer",
     "Str.Menu.View.ObjectBrowser": "_Objektbrowser",
     "Str.Menu.View.ImmediateWindow": "_Kommandovindue",
     "Str.Menu.View.LocalsWindow": "Vindue for lokale _variabler",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protoko_linspektør...",
     "Str.Menu.AddIns": "_Tilføjelser",
     "Str.Menu.Window": "_Vindue",
+    "Str.Menu.Window.ReopenClosed": "Genåbn lukket vindue",
+    "Str.Menu.Window.RecentlyClosed": "Nyligt lukkede vinduer",
     "Str.Menu.Window.Split": "O_pdel",
     "Str.Menu.Window.ResetLayout": "_Nulstil vindueslayout",
     "Str.Menu.Help": "_Hjælp",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "_Slet",
     "Str.Designer.Context.BringToFront": "Placér forrest",
     "Str.Designer.Context.SendToBack": "Placér bagest",
+    "Str.Designer.PreviewForm": "Forhåndsvis formular",
     "Str.Designer.Context.ViewCode": "Vis kode",
     "Str.Designer.Context.AlignToGrid": "Justér efter gitter",
     "Str.Designer.Context.Properties": "Egenskaber",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "Maksimer eller gendan panel",
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
-    "Str.Dock.ScrollRight": "Rul faner til højre"
+    "Str.Dock.ScrollRight": "Rul faner til højre",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde"
   }
 }

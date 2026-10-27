@@ -10,6 +10,7 @@
              xmlns:ide="clr-namespace:HexIDE.IDE;assembly=HexIDE.Core"
              xmlns:dockSettings="clr-namespace:Dock.Settings;assembly=Dock.Settings"
              xmlns:projects="clr-namespace:HexIDE.Projects"
+             xmlns:forms="clr-namespace:HexIDE.Forms.ViewModels"
              mc:Ignorable="d" d:DesignWidth="1080" d:DesignHeight="551"
              x:DataType="vb:MainViewViewModel"
              x:Name="RootView"
@@ -50,6 +51,8 @@
                               ExecutingCommand="{CompiledBinding OpenCallStackTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenColorPaletteCommand}"
                               ExecutingCommand="{CompiledBinding OpenColorPaletteTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ReopenClosedDocumentCommand}"
+                              ExecutingCommand="{CompiledBinding ReopenClosedDocumentCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}"
                               ExecutingCommand="{CompiledBinding ResetWindowLayout}" />
 
@@ -189,6 +192,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CutCommand}" Header="{DynamicResource Str.Menu.Edit.Cut}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CopyCommand}" Header="{DynamicResource Str.Menu.Edit.Copy}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.PasteCommand}" Header="{DynamicResource Str.Menu.Edit.Paste}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Paste}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.PasteAsCommentCommand}" Header="{DynamicResource Str.Menu.Edit.PasteAsComment}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.PasteLinkCommand}" Header="{DynamicResource Str.Menu.Edit.PasteLink}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.RemoveCommand}" Header="{DynamicResource Str.Menu.Edit.Remove}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.DeleteCommand}" Header="{DynamicResource Str.Menu.Edit.Delete}" />
@@ -225,6 +229,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.Definition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.Declaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LastPosition}" IsEnabled="False" />
+                            <MenuItem Header="{DynamicResource Str.Tool.RecentEdits.Title}" Command="{CompiledBinding OpenRecentEditsTool}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.ObjectBrowser}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Objectbrowser}" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" />
                             <Separator />
@@ -383,6 +388,15 @@
                             <MenuItem Header="{DynamicResource Str.Menu.AddIns.Manager}" x:Name="AddInManagerMenuItem" Command="{CompiledBinding OpenAddInManager}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Window}">
+                            <MenuItem Header="{DynamicResource Str.Menu.Window.ReopenClosed}" Command="{x:Static vb:ApplicationCommands.ReopenClosedDocumentCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Window.RecentlyClosed}" ItemsSource="{CompiledBinding ClosedDocumentMenuItems}">
+                                <MenuItem.ItemContainerTheme>
+                                    <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="forms:RecentProjectItemViewModel">
+                                        <Setter Property="Header" Value="{CompiledBinding Header}" />
+                                        <Setter Property="Command" Value="{CompiledBinding Command}" />
+                                    </ControlTheme>
+                                </MenuItem.ItemContainerTheme>
+                            </MenuItem>
                             <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" IsEnabled="False" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Window.ResetLayout}" Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}" />

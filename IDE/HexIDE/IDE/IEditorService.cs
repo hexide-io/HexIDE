@@ -12,6 +12,9 @@ public interface IEditorService
     void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument);
     void EditProject(ProjectDefinition? project);
 
+    void RestoreCaret(DocumentIdentity document, int offset);
+    void RestoreCaret(RelatedDocumentDefinition document, int offset);
+
     /// <summary>
     /// Opens whatever document a URI names and puts the caret at a position in it. False when nothing
     /// loaded answers to that URI.

@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "کاٹیں",
     "Str.Menu.Edit.Copy": "کاپی کریں",
     "Str.Menu.Edit.Paste": "پیسٹ کریں",
+    "Str.Menu.Edit.PasteAsComment": "تبصرے کے طور پر چسپاں کریں",
     "Str.Menu.Edit.PasteLink": "لنک پیسٹ کریں",
     "Str.Menu.Edit.Remove": "ہٹائیں",
     "Str.Menu.Edit.Delete": "حذف کریں",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "تعریف",
     "Str.Menu.View.Declaration": "اعلان",
     "Str.Menu.View.LastPosition": "آخری مقام",
+    "Str.Tool.RecentEdits.Title": "حالیہ ترامیم",
     "Str.Menu.View.ObjectBrowser": "آبجیکٹ براؤزر",
     "Str.Menu.View.ImmediateWindow": "فوری ونڈو",
     "Str.Menu.View.LocalsWindow": "مقامی ونڈو",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "پروٹوکول انسپکٹر...",
     "Str.Menu.AddIns": "ایڈ-انز",
     "Str.Menu.Window": "ونڈو",
+    "Str.Menu.Window.ReopenClosed": "بند ونڈو دوبارہ کھولیں",
+    "Str.Menu.Window.RecentlyClosed": "حال ہی میں بند کی گئی ونڈوز",
     "Str.Menu.Window.Split": "تقسیم کریں",
     "Str.Menu.Window.ResetLayout": "ونڈو ترتیب دوبارہ مرتب کریں",
     "Str.Menu.Help": "مدد",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "حذف کریں",
     "Str.Designer.Context.BringToFront": "سامنے لائیں",
     "Str.Designer.Context.SendToBack": "پیچھے بھیجیں",
+    "Str.Designer.PreviewForm": "فارم کا پیش منظر",
     "Str.Designer.Context.ViewCode": "کوڈ دیکھیں",
     "Str.Designer.Context.AlignToGrid": "گرڈ سے ہم آہنگ کریں",
     "Str.Designer.Context.Properties": "خصوصیات",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "پینل بڑا کریں یا بحال کریں",
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
-    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں"
+    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
   }
 }

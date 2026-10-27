@@ -105,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Klipp u_t",
     "Str.Menu.Edit.Copy": "_Kopiera",
     "Str.Menu.Edit.Paste": "Klistra _in",
+    "Str.Menu.Edit.PasteAsComment": "Klistra in som _kommentar",
     "Str.Menu.Edit.PasteLink": "Klistra in län_k",
     "Str.Menu.Edit.Remove": "Ta bort",
     "Str.Menu.Edit.Delete": "_Radera",
@@ -131,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "D_eklaration",
     "Str.Menu.View.LastPosition": "Senaste positio_n",
+    "Str.Tool.RecentEdits.Title": "Senaste redigeringar",
     "Str.Menu.View.ObjectBrowser": "_Objektbläddrare",
     "Str.Menu.View.ImmediateWindow": "_Direktfönster",
     "Str.Menu.View.LocalsWindow": "_Lokala fönster",
@@ -209,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokoll_inspektör...",
     "Str.Menu.AddIns": "_Tillägg",
     "Str.Menu.Window": "_Fönster",
+    "Str.Menu.Window.ReopenClosed": "Öppna stängt fönster igen",
+    "Str.Menu.Window.RecentlyClosed": "Nyligen stängda fönster",
     "Str.Menu.Window.Split": "_Dela",
     "Str.Menu.Window.ResetLayout": "_Återställ fönsterlayout",
     "Str.Menu.Help": "_Hjälp",
@@ -358,6 +362,7 @@
     "Str.Designer.Context.Delete": "_Ta bort",
     "Str.Designer.Context.BringToFront": "Flytta längst fram",
     "Str.Designer.Context.SendToBack": "Flytta längst bak",
+    "Str.Designer.PreviewForm": "Förhandsvisa formulär",
     "Str.Designer.Context.ViewCode": "Visa kod",
     "Str.Designer.Context.AlignToGrid": "Justera mot rutnät",
     "Str.Designer.Context.Properties": "Egenskaper",
@@ -894,6 +899,7 @@
     "Str.Dock.MaximizeRestore": "Maximera eller återställ panel",
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
-    "Str.Dock.ScrollRight": "Rulla flikar åt höger"
+    "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
   }
 }
