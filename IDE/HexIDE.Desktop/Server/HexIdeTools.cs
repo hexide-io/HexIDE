@@ -221,19 +221,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // as a name that did not exist, straight after open_file had opened it. (#572)
             if (found.Carried is { } carried)
             {
-                var open = ctx.DocumentDockService.OpenDocuments.OfType<RelatedDocumentEditorViewModel>()
-                    .FirstOrDefault(e => e.RelatedDocument == carried);
-                if (open is not null)
-                    return new FileContentResult(open.Document.Text, open.IsDirty, null, carried.Owner.Name, carried.Name);
-                if (carried.AbsolutePath is not { } path || !File.Exists(path))
-                    return new FileContentResult(null, false,
-                        $"'{carried.Name}' is carried by {carried.Owner.Name}, but its file is not on disk"
-                        + (carried.AbsolutePath is { } missing ? $" at {missing}" : "") + ".",
-                        carried.Owner.Name, carried.Name);
-                var bytes = File.ReadAllBytes(path);
-                var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
-                return new FileContentResult(new System.Text.UTF8Encoding(false).GetString(bom ? bytes.AsSpan(3) : bytes.AsSpan()), false, null,
-                    carried.Owner.Name, carried.Name);
+                var (text, error) = CarriedTextOf(carried);
+                return new FileContentResult(text, CarriedEditorOf(carried)?.IsDirty ?? false, error, carried.Owner.Name, carried.Name);
             }
 
             return new FileContentResult(null, false, found.Error);
@@ -758,6 +747,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (column is not null && line is null)
             return new MutateResult(false, "'column' needs 'line'; nothing was opened");
         DocumentIdentity? placedIn = null;
+        RelatedDocumentDefinition? placedInCarried = null;
         var opened = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // Carried files are the only project members with no other route in: the Project Explorer opens
@@ -786,23 +776,37 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             }
             if (found.Carried is { } carried)
             {
-                if (line is not null)
-                    return Naming(new MutateResult(false,
-                        $"'{carried.Name}' is a carried file, which opens in the plain-text editor, where this does not put the "
-                        + "caret; nothing was opened"), found);
+                // Placed as in a code window, against the text get_file_content returns (#2403). It was refused, opening
+                // nothing, which left a caller to walk the caret there a key at a time.
+                if (line is { } wanted)
+                {
+                    var (text, missing) = CarriedTextOf(carried);
+                    if (text is null)
+                        return Naming(new MutateResult(false, $"Nothing was opened: {missing}"), found);
+                    if (HexIDE.Automation.CaretPlacement.Refusal(text, wanted, column ?? 1) is { } refusal)
+                        return Naming(new MutateResult(false, $"Nothing was opened: in {carried.Name}, {refusal}"), found);
+                }
                 ctx.EditorService.EditRelatedDocument(carried);
+                if (line is { } at)
+                {
+                    if (CarriedEditorOf(carried) is not { } editor || !HexIDE.Automation.CaretPlacement.Place(editor, at, column ?? 1))
+                        return Naming(new MutateResult(false,
+                            $"{carried.Name} was opened, but its editor could not be found to put the caret in"), found);
+                    placedInCarried = carried;
+                }
                 return Naming(new MutateResult(true, null, TabStateNote()), found);
             }
             return new MutateResult(false, found.Error);
         });
 
         var focused = await FocusingTheActiveTabAsync(opened);
-        if (placedIn is not { } placed || !focused.Success)
+        if ((placedIn is null && placedInCarried is null) || !focused.Success)
             return focused;
         // Read back, not echoed (#700 review): once focus and the view's first layout have run, as the view opens a fold
         // around a caret navigated into it and the editor moves one it could not show.
         var where = await Dispatcher.UIThread.InvokeAsync(
-            () => CodeEditorOf(placed) is { } editor ? HexIDE.Automation.CaretPlacement.Where(editor, line!.Value, column ?? 1) : null,
+            () => (placedIn is { } placed ? CodeEditorOf(placed) : (ISearchableDocument?)CarriedEditorOf(placedInCarried!)) is { } editor
+                ? HexIDE.Automation.CaretPlacement.Where(editor, line!.Value, column ?? 1) : null,
             DispatcherPriority.Background);
         return where is null ? focused : focused with { Note = $"{focused.Note} {where}" };
     }
@@ -3137,6 +3141,25 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// <summary>The code editor open on this document, if any, matched by identity rather than by name.</summary>
     private CodeEditorViewModel? CodeEditorOf(DocumentIdentity document) =>
         ctx.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault(e => e.Identity == document);
+
+    private RelatedDocumentEditorViewModel? CarriedEditorOf(RelatedDocumentDefinition carried) =>
+        ctx.DocumentDockService.OpenDocuments.OfType<RelatedDocumentEditorViewModel>().FirstOrDefault(e => e.RelatedDocument == carried);
+
+    /// <summary>
+    /// A carried file's text as its editor holds it, or else as it is on disk; or why there is none. The text
+    /// get_file_content returns, so open_file's line is checked against the lines a caller read (#572, #2403).
+    /// </summary>
+    private (string? Text, string? Error) CarriedTextOf(RelatedDocumentDefinition carried)
+    {
+        if (CarriedEditorOf(carried) is { } open)
+            return (open.Document.Text, null);
+        if (carried.AbsolutePath is not { } path || !File.Exists(path))
+            return (null, $"'{carried.Name}' is carried by {carried.Owner.Name}, but its file is not on disk"
+                          + (carried.AbsolutePath is { } missing ? $" at {missing}" : "") + ".");
+        var bytes = File.ReadAllBytes(path);
+        var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        return (new System.Text.UTF8Encoding(false).GetString(bom ? bytes.AsSpan(3) : bytes.AsSpan()), null);
+    }
 
     /// <summary>
     /// Why some of <paramref name="lines"/> cannot be marked in <paramref name="document"/>, or null when all can:
