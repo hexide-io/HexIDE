@@ -136,6 +136,14 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: Converting a hex or octal String
+- **WHEN** CInt, CLng, CByte, CDbl, CCur, CSng, CDec or Val reads a hex or octal String
+- **THEN** width follows the unsigned value, independent of leading zeros
+- **AND** CInt and Val read signed 16 bits through &HFFFF; the other conversions retain that unsigned value
+- **AND** values from &H10000 through &HFFFFFFFF are read as signed 32 bits before range checking
+- **AND** above &HFFFFFFFF CInt, CByte and Val retain low 32 bits, CLng raises 6, and the other conversions read the whole value
+- **AND** numeric conversions refuse a trailing `&` with error 13 (the literal form remains valid)
+
 #### Scenario: A For body changes its integral numeric counter
 - **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
 - **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11

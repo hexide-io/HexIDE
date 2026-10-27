@@ -153,7 +153,7 @@ So a bar whose Min exceeds its Max is legal, and the range check takes the two e
 | `Label1.Left = "NaN"` / `"Infinity"` / `"-Infinity"` / `"1.#INF"` / `"1.#QNAN"` | unchanged | **13** |
 | `Val("NaN")` | `0` (Double) | 0 |
 
-**A hex String wraps at the target's width, and a trailing `&` in it is refused:**
+**Hex/octal Strings use signed widths, and numeric conversions refuse a trailing `&`:**
 
 | Expression | Value | Err |
 |---|---|---|
@@ -167,7 +167,28 @@ So a bar whose Min exceeds its Max is legal, and the range check takes the two e
 | `Text1.BackColor = "&H8000000F"` / `= "-2147483633"` | `-2147483633` (Long), a system colour | 0 |
 | `Text1.BackColor = "&H8000000F&"` | unchanged | 13 |
 
-**A colour reads back as its Long, and a hex literal is typed by its digits:**
+**Width follows value, including leading zeros (#788, follow-up measurement).** Provenance: the
+issue's measurement comment reports 36 Strings passed through CInt, CLng, CByte, CDbl, CCur,
+CSng, Val and CDec on vb6.exe SP6, native and p-code agreeing (PR #2279, debb22e9).
+The following extends the table above; it does not establish behaviour beyond the measured forms.
+
+| Unsigned digit value V | CInt | Val | Other conversions |
+|---|---|---|---|
+| V ≤ &HFFFF | signed 16 bits | signed 16 bits | V, then destination range check |
+| &H10000 ≤ V ≤ &HFFFFFFFF | signed 32 bits, then range check | signed 32 bits | signed 32 bits, then destination range check |
+| V > &HFFFFFFFF | low 32 bits, signed, then range check | low 32 bits, signed | CByte uses low 32 bits then range check; CLng raises 6; CDbl/CCur/CSng/CDec use V whole |
+
+Thus CInt/Val of `"&H8000"` give -32768, of `"&HFFFF"` -1; CLng gives
+32768 and 65535 respectively, and CByte of the latter raises 6. CInt of `"&H10000"`
+raises 6, of `"&HFFFFFFFF"` gives -1, of `"&H100000000"` gives 0, and of
+`"&HFFFFFFFFF"` gives -1. Leading zeros do not alter these readings. Octal follows
+the same rule: `"&O100000"` corresponds to `"&H8000"`, and `"&O40000000000"`
+to `"&H100000000"`. The result subtype is the conversion's named type; Val returns Double.
+
+A space before or after `"&H10"` is accepted as 16. Each conversion raises 13 for
+`"&H 1"`, `"&H"` and `"&HG"`; Val instead returns 1, 0 and 0 respectively.
+
+**A colour reads back as its Long, and a hex literal is typed by its value:**
 
 | Statement, after `Text1.BackColor = &HFF` | Value | Err |
 |---|---|---|
@@ -259,7 +280,7 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - ~~**Positions are not rounded to whole twips** (#791).~~ They are since #933, which holds them in twips at the
   property: see *A control's position at run time*.
 - **A comma in a numeric String** (#770).
-- **A hex String** (#788): `BackColor = "&H8000000F"` is an Overflow, and `"&H8000000F&"` is accepted.
+- **Hex/octal Strings** now use the measured widths and refuse a trailing `&` (#788).
 - **Reading a control as a value** outside a property assignment (`s = Text1`) gives a .NET type name (#790).
 - **Not measured:** `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what
   VB6 raises there is unmeasured.
