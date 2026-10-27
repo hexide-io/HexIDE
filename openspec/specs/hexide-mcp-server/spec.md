@@ -367,6 +367,20 @@ unrelated save, and that damage surfaces somewhere other than where it was cause
 - **WHEN** a build excludes the automation server
 - **THEN** it contains no way to bypass a file dialog
 
+### Requirement: One armed answer SHALL be able to name several files, for an Open that allows them
+The server SHALL let a client arm one answer that names several files, in order, as a person selects them in an
+Open dialog that allows several. Only such a dialog SHALL take all of them. A save dialog, or an Open that takes one
+file, SHALL answer it as cancelled rather than with its first file, which no person could have chosen there, and
+a reply SHALL say so: the reply of the save that took it, or else the next reply that arms or discards an answer.
+
+#### Scenario: Adding two files at once
+- **WHEN** a client arms two module paths as one answer and invokes Add File
+- **THEN** both modules join the project
+
+#### Scenario: Several files reach a save
+- **WHEN** a client arms two paths as one answer and a document without a file is saved
+- **THEN** nothing is written, and the save's reply fails, saying its picker answered as cancelled and why
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
