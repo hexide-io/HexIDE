@@ -128,3 +128,63 @@ What it still does not do:
   somewhere else*.
 - **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
 
+### An Image's Click across its whole rectangle, and inside a Frame (2026-10-27, #861)
+
+**The probe.** A twips form holding:
+- Image1, with no picture, at Left 300, Top 300, 1500 x 900;
+- a windowless Label1;
+- Frame1, holding Image2, also with no picture.
+
+The program moved the cursor with `SetCursorPos` and pressed with `mouse_event`, 900 ms between sequences, in the
+guest's console session at 15 twips a pixel. Every handler logged its name and arguments. Built native and p-code, and
+the two logged the same lines.
+
+| Pressed | VB6 |
+|---|---|
+| Image1's centre | Image1 MouseDown `1 750 450`, MouseUp, **Click** |
+| one pixel in from Image1's far corner | Image1 MouseDown `1 1485 885`, MouseUp, **Click** |
+| one pixel past Image1's right edge | the form's MouseDown `1 1815 750`, MouseUp, Click |
+| Label1's centre | Label1 MouseDown `1 750 300`, MouseUp, Click |
+| Image2's centre, inside Frame1 | Image2 MouseDown `1 600 450`, MouseUp, **Click**, and nothing on Frame1 |
+| Frame1, away from Image2 | Frame1 MouseDown `1 1995 1200`, MouseUp, Click |
+| a double click on Image1's centre | MouseDown, MouseUp, Click, DblClick, MouseUp |
+
+So an Image with no picture takes Click, as it takes the mouse events, across its whole rectangle and no further. A Click
+in an Image inside a Frame goes to the Image alone. X and Y are in the control's own coordinates. The order is the one
+`mouse-events.md` and the rows above measured for the Image.
+
+### MouseMove around a click (2026-10-27, #2412)
+
+**The question.** None of the probes above logged MouseMove. Does a real click raise one on arrival? Does one come after
+the release, or between the two clicks of a double click? Does any of this differ by control?
+
+**The probe.** A twips form holding Command1, a windowless Label1 and Image1 with no picture. Every one of the four,
+the form included, has a handler for each mouse event, logging its arguments. The program parks the cursor off the
+form, moves it with `SetCursorPos`, waits 400 ms, and presses with `mouse_event`: 40 ms down, 40 ms up, then 900 ms
+before the next step. Run in the guest's console session, built native and p-code, and the two logged the same lines.
+
+| Step | VB6 |
+|---|---|
+| The cursor arrives on Command1 from off the form | Command1 MouseMove `0 750 300`, once |
+| A click on Command1, the cursor at rest | MouseDown `1`, Click, MouseUp `1`, **MouseMove `0`**: all at the same point |
+| A second click there, still at rest | the same four, **no MouseMove before the MouseDown** |
+| A double click on Command1, at rest | the four, twice: a CommandButton has no DblClick |
+| `SetCursorPos` to the point the cursor is already at | **MouseMove `0`**, once, though nothing moved |
+| One pixel to the right | MouseMove `0 765 300` |
+| The cursor arrives on the form | Form MouseMove `0 3600 2400` |
+| A click on the form, at rest | MouseDown, MouseUp, Click, **MouseMove `0`** |
+| A double click on the form, at rest | MouseDown, MouseUp, Click, MouseMove `0`, DblClick, MouseUp: no MouseMove after the second release |
+| Press on the form, three steps of 10 pixels, release | MouseDown, MouseMove `1` at each step, MouseUp at the last point, Click, MouseMove `0` |
+| Label1 and Image1: arrival, a click, a double click | as the form: one MouseMove on arrival, MouseMove `0` after Click, none after a double click's second release |
+| Press on Command1, the cursor to the form, release | Command1 MouseDown, Command1 MouseMove `1 3300 2100` in Command1's coordinates, Command1 MouseUp there, no Click; then **Form MouseMove `0`** |
+
+**What it says.**
+- **A MouseMove comes once on arrival**, with Button 0. It does not come again for a press with the cursor at rest.
+- **Every single click ends with a MouseMove**, Button 0, at the release point: after MouseUp on a CommandButton, and
+  after Click elsewhere. That fits Windows sending one when the press's capture is released. A double click's second
+  release is not followed by one.
+- **The control that took the press owns the moves until the release,** and the next move goes to whatever is under the
+  cursor.
+- **`SetCursorPos` raises a MouseMove even when the cursor does not move.**
+- When the program moved its own form under a resting cursor at start-up, the form and Command1 each logged a
+  MouseMove before the first step. That depends on where the cursor happened to be, so no row is drawn from it.

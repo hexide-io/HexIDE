@@ -833,6 +833,19 @@ actions `invoke_command` and `set_property` SHALL continue to act on the view mo
 - **THEN** the refusal names the blocking dialog and directs the caller to answer it
 - **AND** nothing is done
 
+### Requirement: A click SHALL move the pointer there before it presses
+`interact`'s `click` SHALL raise a pointer move at the point on the element it presses before the press, as a person's
+pointer arrives first, so a running form's MouseMove comes before its MouseDown. A click where the last click left the
+pointer, in the same window, SHALL move nothing first, as a still pointer sends no move. The reply SHALL say which.
+
+#### Scenario: A click on a running form's button
+- **WHEN** `click` presses Command1, which logs its mouse events
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+
+#### Scenario: A second click at the same point
+- **WHEN** `click` presses again where the last click left the pointer
+- **THEN** no move comes before the press, and the reply says the pointer was already there
+
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is
 sent, with a click count of 2, even when the first click replaced what it landed on or the addressed control. It SHALL be

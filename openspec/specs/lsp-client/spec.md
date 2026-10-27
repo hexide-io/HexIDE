@@ -1311,3 +1311,53 @@ when the UI language changes.
 - **WHEN** the UI language changes while a server is connected
 - **THEN** the existing connection stays open
 - **AND** the next connection's initialize request carries the newly resolved locale
+
+### Requirement: Explicit file-operation senders SHALL respect server filters
+The connection's explicit create, rename and delete notification entry points SHALL send only disk-file
+URIs selected by the corresponding `workspace.fileOperations` registration filters. Filters SHALL
+respect scheme, glob, file/folder kind and case options. Rename SHALL match either the old or new URI.
+A missing registration or an empty matching batch SHALL send no notification.
+
+The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
+file operations to every running connection whose operation filter matches, independently of document
+language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
+HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
+eligible for matching notifications. File operations SHALL NOT start a server.
+
+Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
+reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
+report file operations. Save As retains the original, so it SHALL NOT report a rename. Explorer name
+changes and removal without disk deletion SHALL NOT report file operations.
+
+Disk rename and Remove-with-delete hooks remain outstanding (#2248): current explorer operations change
+names and membership only.
+
+#### Scenario: A server requests only Basic modules
+- **GIVEN** a server registers `didCreate` with a `file` scheme and `**/*.bas` file pattern
+- **WHEN** the connection is explicitly told about a created `.bas` and `.frm` file
+- **THEN** one `workspace/didCreateFiles` notification contains only the `.bas` URI
+
+#### Scenario: A server has no delete registration
+- **WHEN** the connection is explicitly told about a deleted file
+- **THEN** no `workspace/didDeleteFiles` notification is sent
+
+#### Scenario: Save As creates a file
+- **GIVEN** a saved module and a destination that does not exist
+- **WHEN** Save As successfully writes the destination
+- **THEN** matching running servers receive creation of the destination
+- **AND** the original file remains and no rename is reported
+
+#### Scenario: A first save creates a form
+- **WHEN** a new form is successfully written for the first time
+- **THEN** matching running servers receive creation of its disk URI
+- **AND** saving it again reports no file creation
+
+#### Scenario: HexIDE generates the server's workspace artefact
+- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives no file-operation notification
+
+#### Scenario: The server owns its workspace artefact
+- **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification
