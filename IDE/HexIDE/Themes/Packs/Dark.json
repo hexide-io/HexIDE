@@ -3,6 +3,8 @@
   "description": "Dark colour scheme for the Modern shell (VS Code-inspired)",
   "themeVariant": "Dark",
   "colors": {
+    "IndentGuide": "#404048",
+    "ActiveIndentGuide": "#909098",
     "BracketDepth1": "#D3B07C",
     "BracketDepth2": "#7AA6F0",
     "BracketDepth3": "#E58FE5",

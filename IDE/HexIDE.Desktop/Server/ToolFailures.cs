@@ -205,7 +205,9 @@ internal static partial class ToolFailures
         if (!BigInteger.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number)
             || (number >= bounds.Item1 && number <= bounds.Item2))
             return null;
-        return FormattableString.Invariant($"{text} is too {(number < bounds.Item1 ? "small" : "large")}; it takes a whole number from {bounds.Item1} to {bounds.Item2}");
+        return number < bounds.Item1
+            ? FormattableString.Invariant($"{text} is smaller than any whole number this argument can hold ({bounds.Item1})")
+            : FormattableString.Invariant($"{text} is larger than any whole number this argument can hold ({bounds.Item2})");
     }
 
     internal static string ParameterGuidance(string tool, string name)

@@ -82,10 +82,10 @@ public class MidLineFoldBehaviourTests : IDisposable
     {
         var folds = new List<NewFolding>();
         if (withProcedureFold)
-            folds.Add(new NewFolding(rig.LineStart(3), rig.LineEnd(7)));
+            folds.Add(new NewFolding(rig.Anchor, rig.LineEnd(7)));
         folds.Add(new NewFolding(rig.Anchor, rig.RunEnd));
         rig.Folding.UpdateFoldings(folds, -1);
-        var run = rig.Folding.GetFoldingsAt(rig.Anchor).Single();
+        var run = rig.Folding.GetFoldingsAt(rig.Anchor).Single(f => f.EndOffset == rig.RunEnd);
         run.IsFolded = true;
         rig.Editor.TextArea.TextView.EnsureVisualLines();
         Dispatcher.UIThread.RunJobs();
@@ -160,11 +160,11 @@ public class MidLineFoldBehaviourTests : IDisposable
     public void WithAProceduresFoldOnTheSameRowTheMarginShowsOnlyTheProcedures()
     {
         // Read in FoldingMargin.OnTextViewVisualLinesChanged: one marker per row, for the first fold starting at or
-        // after the row's start, and the procedure's starts at the start of the row. So a run expanded beside a
+        // after the row's start, and the procedure's is first at the shared anchor. So a run expanded beside a
         // server's procedure fold has no marker to fold it again with; design.md records that as an issue to file.
         var rig = Show();
         var run = FoldTheRun(rig, withProcedureFold: true);
-        var procedure = rig.Folding.GetFoldingsAt(rig.LineStart(3)).Single();
+        var procedure = rig.Folding.GetFoldingsAt(rig.Anchor).Single(f => f.EndOffset == rig.LineEnd(7));
 
         var onTheRow = Markers(rig).Where(m => m.Line == 3).ToList();
         onTheRow.Should().ContainSingle();

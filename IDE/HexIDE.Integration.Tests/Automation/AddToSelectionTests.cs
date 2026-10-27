@@ -1,4 +1,5 @@
 using System.Linq;
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -124,8 +125,59 @@ public class AddToSelectionTests
             var outcome = UiAutomationDriver.Interact(Row(list, 2), "add_to_selection", null);
 
             outcome.Success.Should().BeFalse();
-            outcome.Error.Should().Contain("one selection at a time").And.Contain("use select");
+            outcome.Error.Should().Contain("one selection at a time").And.Contain("add_to_selection").And.Contain("use select");
             list.Selection.SelectedIndexes.Should().BeEquivalentTo([0], "a refusal must leave the selection alone");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    public void Removing_from_a_single_selection_reports_the_result(bool useTree, bool selected)
+    {
+        var first = new TreeViewItem { Header = "one" };
+        var second = new TreeViewItem { Header = "two" };
+        AutomationProperties.SetName(first, "one");
+        AutomationProperties.SetName(second, "two");
+        var tree = new TreeView { ItemsSource = new[] { first, second } };
+        var list = new ListBox { ItemsSource = new[] { "one", "two" } };
+        var window = new Window { Content = useTree ? tree : list, Width = 320, Height = 240 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            if (useTree) tree.SelectedItem = first;
+            else list.SelectedIndex = 0;
+            var target = useTree ? selected ? first : second : (Control)list.ContainerFromIndex(selected ? 0 : 1)!;
+
+            var outcome = UiAutomationDriver.Interact(target, "remove_from_selection", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be(selected
+                ? "removed 'one' from the selection; nothing is selected now"
+                : "'two' was not selected; 1 item is selected now: one");
+            if (useTree) tree.SelectedItem.Should().Be(selected ? null : first);
+            else list.SelectedIndex.Should().Be(selected ? -1 : 0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_list_that_requires_selection_is_reported_as_refused_with_a_pointer_route()
+    {
+        var (window, list) = Show(SelectionMode.AlwaysSelected);
+        try
+        {
+            list.SelectedIndex = 0;
+
+            var outcome = UiAutomationDriver.Interact(Row(list, 0), "remove_from_selection", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("remove_from_selection").And.Contain("click").And.Contain("value 'ctrl'");
+            list.SelectedIndex.Should().Be(0);
         }
         finally { window.Close(); }
     }

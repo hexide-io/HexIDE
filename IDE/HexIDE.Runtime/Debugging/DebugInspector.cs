@@ -203,12 +203,8 @@ public static class DebugInspector
                 () => EnvChildren(baseEnv, ctx, NewAncestorSet(), 1, selfName)));
         }
 
-        // 2) The procedure's own params + locals — a currentEnv entry whose SLOT differs from the base scope's slot
-        //    for that name, or that has no base counterpart. Comparing by SLOT (not name) is what keeps a local /
-        //    ByVal param that SHADOWS a module var or instance field visible: AllocVariable overwrote the cloned
-        //    base entry with a fresh slot, while the base env keeps the outer slot (shown under the root). A
-        //    name-only subtraction dropped the shadowing local entirely. The env dictionaries ignore case (#811), so
-        //    a local differing from a module var only in case is looked up as that name, and its slot decides.
+        // 2) The procedure's own params + locals. Procedure scopes no longer copy base bindings (#2120).
+        // Keep the slot comparison for module-level execution, where env itself is the base scope.
         foreach (var (name, slot) in env.variableToLocation)
         {
             if (Hidden.Contains(name) || IsFormName(ctx, env, name))
@@ -422,7 +418,8 @@ public static class DebugInspector
     // as a module's variable, and it is not one.
     private static bool IsFormName(ModuleExecutionContext ctx, ExecutionEnvironment env, string name)
         => env.TryGetVariableLocation(name, out var location)
-           && ctx.State[location].Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
+           && ctx.State.TryRead(location, out var value)
+           && value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
            && string.Equals(form.ClassName, name, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSelfRef(string name, string? selfName)
