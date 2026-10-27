@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bittinen",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bittinen",
     "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.LspArtifact.Title": "Työtilan tiedostot",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
     "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
+    "Str.PropDesc.ImageWidth": "Kuvien leveys.",
+    "Str.PropDesc.ImageHeight": "Kuvien korkeus.",
+    "Str.PropDesc.MaskColor": "Läpinäkyvien pikselien väri.",
+    "Str.PropDesc.UseMaskColor": "Käytetäänkö maskin väriä.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Näytä sisennysohjaimet",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
   }

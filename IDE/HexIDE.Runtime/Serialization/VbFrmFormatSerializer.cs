@@ -267,6 +267,20 @@ public class VbFrmFormatSerializer
                 Sink.WriteLine(line);
         });
 
+    public void BeginProperty(string name, string guid)
+    {
+        WriteIndent();
+        Sink.WriteLine($"BeginProperty {name} {guid} ");
+        indentLevel++;
+    }
+
+    public void EndProperty()
+    {
+        indentLevel--;
+        WriteIndent();
+        Sink.WriteLine("EndProperty");
+    }
+
     public void WriteVerbatimLine(string line)
     {
         Sink.WriteLine(line);

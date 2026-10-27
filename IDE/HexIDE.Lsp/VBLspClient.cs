@@ -174,12 +174,13 @@ public sealed class VBLspClient : ILspClient
     /// The session redactor for names this client supplies. URI fields stay real so the server can use
     /// them; folder display names are assigned their export pseudonym before they reach the wire.
     /// </param>
+    /// <param name="locale">Resolved UI language, read anew for each handshake.</param>
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
-        ConversationRedactor? workspaceNames = null)
+        ConversationRedactor? workspaceNames = null, Func<string>? locale = null)
     {
         _transport = transport;
         _logger = logger;
@@ -190,7 +191,10 @@ public sealed class VBLspClient : ILspClient
         _capture = capture;
         _connectionId = connectionId;
         _workspaceNames = workspaceNames;
+        _locale = locale ?? (() => "en");
     }
+
+    private readonly Func<string> _locale;
 
     /// <summary>
     /// Where this connection's conversation is recorded, and under what name. Null when nothing is
@@ -540,6 +544,7 @@ public sealed class VBLspClient : ILspClient
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
             Trace: _trace,
+            Locale: _locale(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),

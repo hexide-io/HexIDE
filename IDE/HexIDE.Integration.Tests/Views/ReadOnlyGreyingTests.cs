@@ -315,6 +315,85 @@ public class ReadOnlyGreyingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task OpeningACodeWindowRequestsFoldsOnlyOnce()
+    {
+        Show(OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If Win64 Then\nDebug.Print 64\n#End If\n"));
+
+        await Task.Delay(650, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+
+        lsp.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(ILspClient.RequestFoldingRangesAsync))
+            .Should().Be(1, "opening requests folds immediately; attaching the document must not schedule a second request");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(3, false)]
+    [InlineData(4, true)]
+    public async Task TwinBasicTargetsUseMeasuredConstantsWithoutChangingExecution(int target, bool win64)
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If CBool(Win32) Then\nDebug.Print 101\n#Else\nDebug.Print 102\n#End If\n" +
+            "#If Win64 Then\nDebug.Print 201\n#Else\nDebug.Print 202\n#End If\n" +
+            "#If TWINBASIC_BUILD > 0 Then\nDebug.Print 301\n#Else\nDebug.Print 302\n#End If\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().Contain(c => c != grey);
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        lsp.ClearReceivedCalls();
+        selector.SelectedIndex = target;
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        selector.SelectedIndex.Should().Be(target);
+        ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, "Debug.Print 102")).Should().Contain(c => c != grey);
+        ColoursOn(editor, LineOf(editor, win64 ? "Debug.Print 202" : "Debug.Print 201"))
+            .Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, win64 ? "Debug.Print 201" : "Debug.Print 202"))
+            .Should().Contain(c => c != grey);
+        foreach (var text in new[] { "Debug.Print 301", "Debug.Print 302" })
+            ColoursOn(editor, LineOf(editor, text)).Should().Contain(c => c != grey);
+        CompilationConstants.ForProject(vm.ModuleDefinition!.Owner).BuiltIns.Should().BeSameAs(CompilationConstants.Vb6BuiltIns);
+        lsp.ReceivedCalls().Select(call => call.GetMethodInfo().Name).Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(VBProjectType.EXE, "Standard EXE")]
+    [InlineData(VBProjectType.OleDll, "ActiveX DLL")]
+    [InlineData(VBProjectType.Control, "ActiveX Control")]
+    [InlineData(VBProjectType.OleExe, null)]
+    public async Task TwinBasicBuildTypeUsesOnlyMeasuredProjectNames(VBProjectType type, string? buildType)
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If TWINBASIC_BUILD_TYPE = \"Standard EXE\" Then\nDebug.Print 101\n#Else\nDebug.Print 102\n#End If\n");
+        vm.ModuleDefinition!.Owner.ProjectType = type;
+        if (buildType is not null) vm.ReplaceBody(vm.BufferBody.Replace("Standard EXE", buildType));
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
+        selector.SelectedIndex = 3;
+        selector.SelectedIndex.Should().Be(3);
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        if (buildType is null)
+        {
+            ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().Contain(c => c != grey);
+            ColoursOn(editor, LineOf(editor, "Debug.Print 102")).Should().Contain(c => c != grey);
+        }
+        else
+        {
+            ColoursOn(editor, LineOf(editor, "Debug.Print 102"))
+                .Should().OnlyContain(c => c == grey);
+            ColoursOn(editor, LineOf(editor, "Debug.Print 101"))
+                .Should().Contain(c => c != grey);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task TypingWithinALineKeepsTheGreyingUntilTheNextEvaluation()
     {
         var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");

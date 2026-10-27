@@ -163,6 +163,27 @@ public class DumpFitsReplyTests
         note.Should().Contain("active document").And.Contain("still over").And.Contain("scope it with 'root'");
     }
 
+    // What is hidden inside the active document shows no more than anywhere else, and every form designer now carries a
+    // hidden draw preview and rubber band in its tree (#2231): their children go first there too. The document's own node
+    // is kept even when hidden, as the root of what was asked for.
+    [Fact]
+    public void Hidden_children_inside_the_active_document_are_cut_too()
+    {
+        var hidden = Wide() with { Path = "Window/Host/Document/Hidden", IsHidden = true };
+        var document = Node("Window/Host/Document", hidden, Node("Window/Host/Document/Shown")) with { IsHidden = true };
+        var tree = Node("Window", Node("Window/Host", document));
+
+        var (fitted, note) = HexIdeTools.FitToReply(tree, document.Path);
+
+        var keptDocument = Flat(fitted).Single(n => n.Node.Path == document.Path).Node;
+        keptDocument.Children.Select(c => c.Path).Should().Equal(hidden.Path, "Window/Host/Document/Shown");
+        var keptHidden = keptDocument.Children[0];
+        keptHidden.Children.Should().BeEmpty();
+        keptHidden.Truncated.Should().BeTrue();
+        Size(fitted).Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
+        note.Should().Contain("children below hidden nodes were omitted");
+    }
+
     // The note comes before the tree, so a client that keeps only the start of a long reply still has it.
     [Fact]
     public void The_note_is_written_before_the_tree()
