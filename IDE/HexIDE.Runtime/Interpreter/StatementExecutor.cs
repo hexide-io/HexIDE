@@ -296,7 +296,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
             "Reading an object's default member calls into the program, which is not available in the Immediate window."),
-        VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
+        VbObject or VbErr or VbApp or ControlFont => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
 
@@ -3299,6 +3299,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is Control fontControl && ControlFont.AppliesTo(fontControl)
+                && membersCall.iCS_S_MemberCall().Length == 1
+                && UdtFieldName(membersCall.iCS_S_MemberCall()[0]).Equals("Font", StringComparison.OrdinalIgnoreCase))
+            {
+                ControlFont.Set(fontControl, value);
+                return default;
+            }
             if (setLead && target.Value is VBTreeView treeView
                 && membersCall.iCS_S_MemberCall().Length == 1
                 && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))

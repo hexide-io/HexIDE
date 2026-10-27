@@ -45,6 +45,7 @@ public class AttachedProperties
         {
             if (e.NewValue is VBFont font)
             {
+                AvaloniaInterop.ControlFont.DescriptorChanged(control, font);
                 control.FontFamily = font.ToFontFamily();
                 control.FontWeight = font.ToFontWeight();
                 control.FontSize = font.ToFontSize();

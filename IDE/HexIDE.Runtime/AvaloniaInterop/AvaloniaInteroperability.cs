@@ -262,6 +262,14 @@ public static class AvaloniaInteroperability
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
         VBProps.RefuseIfRemoved(control);
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(control))
+        {
+            if (value.Type != Vb6Value.ValueType.String)
+                throw new NotImplementedException("Font value conversion is not implemented (#934)");
+            // A value assignment writes Name; Set is handled separately by the statement executor.
+            _ = ControlFont.Get(control);
+            return FontMembers.TrySet(control, "FontName", value);
+        }
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -484,6 +492,11 @@ public static class AvaloniaInteroperability
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
         VBProps.RefuseIfRemoved(c);
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(c))
+        {
+            value = new Vb6Value(ControlFont.Get(c));
+            return true;
+        }
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
         if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
         {

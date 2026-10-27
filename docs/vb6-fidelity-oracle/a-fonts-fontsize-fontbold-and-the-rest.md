@@ -99,6 +99,7 @@ and a form's `FontSize = 13`, which reads 12, changes none of its controls'.
 - **The five members read and write** on every control with a font and on the form, as the tables say. The sizes come
   from the measured runs, generated from the probe's log.
 - **Above 400 pixels** the last run is taken to go on, which for System is 104 pixels. That is assumed, not measured.
-- **Not modelled:** `Font.Weight` and the rest of the Font object (#934). HexIDE keeps a weight as the file gave it and
-  reads FontBold as above 550.
+- **Font object (#934):** member reads now use an object, with Currency Size and Weight reading 400 or 700 as above.
+  The measured direct Size writes 9 and 12 and shared control references are implemented; other object-member writes
+  and standalone StdFont remain refused. HexIDE keeps the file descriptor's raw weight for serialization.
 

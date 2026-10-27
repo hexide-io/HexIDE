@@ -1333,13 +1333,28 @@ Native handles remain unimplemented; no handle value is fabricated.
 
 These preparatory binding entries are outside the language-name inventory; its counts have not moved.
 
+### Control Font object (#934)
+
+| Member or surface | Detail |
+|---|---|
+| Control `Font` | Implemented for existing font-bearing runtime controls: TypeName Font, stable identity, Name default value, Currency Size, measured member reads, shared Set and error 380 for Nothing. Font on scroll bars, Timer, Shape, Line and Image raises 438. |
+| `New StdFont`, `stdole.StdFont` | Not implemented: the supplied measurement records sharing after construction but does not record initial member values. Explicit construction refuses; auto-instancing remains refused. |
+| `Font.Size` writes | Only measured Integer 9 and 12 are implemented in this slice. Other sizes and conversions refuse as not implemented; the measured standalone StdFont size 20 case remains outstanding. |
+| `Font.Name`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Weight`, `Charset` writes | Not implemented: object-member assignment conversions and error contracts remain unmeasured. Scalar FontName/FontBold and sibling setters retain their existing measured behavior and propagate through shared references. |
+| `Font.Underline`, `Font.Strikethrough` reads | Not implemented: the supplied Font-object measurements do not record these reads. Their scalar control aliases retain their measured behavior. |
+| Font methods and native handles | Not implemented; no unmeasured method result or native handle is fabricated. |
+| File-control and Data Font objects | Not implemented: the three file controls and Data need their underlying runtime implementations; Font reads and writes on their placeholders explicitly refuse. |
+| Locals Font expansion | Not implemented in this slice: Font reads now carry the object, but the inspector still treats it as a leaf. |
+
+These member bindings are outside the language-name inventory; its counts have not moved.
+
 The sweep behind this document did not reach everything, and a coverage document that implies otherwise is
 worse than one that says where it stops. Known holes, none of which have rows anywhere above:
 
 | Area | Missing |
 |---|---|
 | **The entire event surface** | Not one VB6 event is listed — no `Form_Load`, `Form_Unload`, `Form_QueryUnload`, `Form_Resize`, `Form_Paint`, no `_Click`, `_Change`, `_KeyPress`, `_MouseDown`. |
-| In-box classes | **#2062:** a .frm control without its own Font block receives a load-time copy of the form font, including inside nested Frames/PictureBoxes; explicit blocks stay intact. `FontName`/`FontSize` read that copy. Designer rendering and UserControl contents remain unmeasured. `Form`, `MDIForm`, `UserControl`, `Menu`, `VBControlExtender`, `StdFont`, `StdPicture` — the classes the enumerated members hang off. |
+| In-box classes | **#934:** control Font is now a shared object with Currency Size and default Name; see the control Font member table above for implemented and refused surfaces. **#2062:** a .frm control without its own Font block receives a load-time copy of the form font, including inside nested Frames/PictureBoxes; explicit blocks stay intact. `FontName`/`FontSize` read that copy. Designer rendering and UserControl contents remain unmeasured. `Form`, `MDIForm`, `UserControl`, `Menu`, `VBControlExtender`, `StdFont`, `StdPicture` — the classes the enumerated members hang off. |
 | Extender methods | `Move`, `ZOrder`, `SetFocus`, `Refresh`, `Show`, `Hide`, `PopupMenu`, `Arrange`, `ShowWhatsThis`. Not enumerated, though `Move` on a control runs since #1071 (oracle, "Move, ScaleWidth and ScaleHeight") and on a form since #1569 (oracle, "A form's Move"), `SetFocus` since #1061 (oracle, "SetFocus"), and `ZOrder` on a control since #1503 (oracle, "What ZOrder does at run time"). |
 | Graphics methods | `Point`, `PaintPicture`, `TextWidth`, `TextHeight`, `ScaleX`, `ScaleY` (and `Line` appears only as a statement, not in its graphics form). |
 | Printer methods | Every `Printer` row is a *property*; `Printer.Print`, `.NewPage`, `.EndDoc`, `.KillDoc`, `.Line` are absent. |
