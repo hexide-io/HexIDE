@@ -305,6 +305,162 @@ pixels: 295 twips is 20 pixels, so 300 twips a row.
   So after those, the strip can cover the controls under it, or leave a gap.
 - **The move is applied whatever the control's position.** Text1 at Top 0 went to 300 with Tabs = 5, and back to 0.
 
+### The saved files
+
+**The programs:**
+- **Drawn:** the form the earlier groups ran, drawn in VB6's IDE and saved there. It is in
+  `corpus/inbox-controls/pending/sstab/`.
+- **Re-saved:** a form of three SSTabs written by hand, opened in VB6's IDE, dirtied with a comment and saved. A fourth
+  SSTab was double-clicked from the toolbox first. That save is in `pending/sstab-resaved/`.
+  - SSTab1 had every property off its default, its lines in reverse order.
+  - SSTab2 had only its position, extents and `_Version`.
+  - SSTab3's flags didn't match its controls.
+- **The flags:** seven more two-tab SSTabs, each varying one line of the file, read at run time and never opened in the
+  IDE.
+- **The reads:** every file was read back at run time, natively and as p-code. Each pair logged the same lines.
+
+**VB6's drawn SSTab, with a control drawn on each tab and tab 1 left showing:**
+
+```
+   Begin TabDlg.SSTab SSTab1 
+      Height          =   3195
+      Left            =   120
+      TabIndex        =   0
+      Top             =   120
+      Width           =   4995
+      _ExtentX        =   8811
+      _ExtentY        =   5636
+      _Version        =   393216
+      Tab             =   1
+      TabHeight       =   520
+      TabCaption(0)   =   "Tab 0"
+      TabPicture(0)   =   "Form1.frx":0000
+      Tab(0).ControlEnabled=   0   'False
+      Tab(0).Control(0)=   "Command1"
+      Tab(0).Control(0).Enabled=   0   'False
+      Tab(0).ControlCount=   1
+      TabCaption(1)   =   "Tab 1"
+      TabPicture(1)   =   "Form1.frx":001C
+      Tab(1).ControlEnabled=   -1  'True
+      Tab(1).Control(0)=   "Text1"
+      Tab(1).Control(0).Enabled=   0   'False
+      Tab(1).ControlCount=   1
+      ...tab 2 the same, holding Check1...
+      Begin VB.CheckBox Check1 
+         ...
+         Left            =   -74370
+      ...
+      Begin VB.TextBox Text1 
+         Left            =   480
+      ...
+      Begin VB.CommandButton Command1 
+         Left            =   -74670
+```
+
+- **Every tab's controls are nested in the SSTab's block.** Those on tabs not showing are written 75000 twips left of
+  where they are drawn.
+- **Each tab writes five kinds of line, in this order:**
+  - `TabCaption(n)`;
+  - `TabPicture(n)`, when it has one, a `.frx` reference;
+  - `Tab(n).ControlEnabled`;
+  - for each control, `Tab(n).Control(i)`, naming it, then `Tab(n).Control(i).Enabled`;
+  - `Tab(n).ControlCount`.
+  - A tab with no controls writes `ControlCount = 0` and no `Control(i)` lines.
+- **`Tab(n).ControlEnabled` is -1 on the showing tab** in every SSTab VB6 drew or added. VB6 re-saves the flags it
+  holds, though:
+  - SSTab2, loaded without them, was saved with -1 on all three tabs;
+  - SSTab3, loaded with them wrong, was saved with -1 on two.
+- **`Tab(n).Control(i).Enabled` was always written 0.** Setting it to -1 changed nothing that was measured.
+- **TabHeight is always written,** in HIMETRIC, 520 by default. TabMaxWidth is HIMETRIC too: the file's 900 and 1500
+  read 510 and 850 twips.
+- **`TabEnabled(n)` and `TabVisible(n)` aren't saved.** Written by hand, they were ignored at run time (tab 1 stayed
+  enabled, tab 3 visible) and dropped from VB6's save.
+- **`TabPicture(n)` lines:**
+  - Each is a 28-byte `.frx` record for an empty picture: Long 24, then CLSID_StdPicture
+    `{0BE35204-8F91-11CE-9DE3-00AA004BB851}`, then `lt` 0 0, then a Long size of 0.
+  - **Not every tab writes one:**
+    - the drawn SSTab, each of whose tabs was clicked in the designer, wrote all three;
+    - the double-clicked SSTab4 wrote one for tab 0;
+    - SSTab1, selected in the designer with tab 2 showing, wrote one for tab 2;
+    - SSTab2 and SSTab3, never selected, wrote none.
+  
+  The rule that fits all four: a tab writes its picture once the designer has read that tab's Picture, which the
+  Properties window does for the showing tab whenever the SSTab is selected.
+- **The SSTab's own lines** come in this order, whatever order they were read in: the extender's (Height, Left,
+  TabIndex, Top, Width), `_ExtentX`, `_ExtentY`, `_Version`, then
+  ```
+  TabOrientation, Style, MousePointer, Tabs, Tab, TabsPerRow, TabHeight, TabMaxWidth,
+  WordWrap, ShowFocusRect, BackColor, ForeColor, OLEDropMode, the Font block, then the tabs
+  ```
+  Each is written only when off its default, apart from TabHeight. The font is a `BeginProperty Font` block.
+- **The double-clicked SSTab is small:** Height 750, Width 1845, `_ExtentX` 3254, `_ExtentY` 1323, at Left 4050, Top
+  3225 on a 9600×7200 form. It has three tabs, `Tab 0` to `Tab 2`, with tab 0 showing.
+- **SSTab3's children were written windowed controls first, then Label2,** though Label2 was second in the file.
+
+**SSTab2, the minimal block, loaded with the defaults:** Tabs 3, Tab 0, TabsPerRow 3, captions `Tab 0` to `Tab 2`,
+TabHeight 295 twips, TabMaxWidth 0, Style 0, TabOrientation 0, WordWrap and ShowFocusRect True, BackColor `&H8000000F`,
+ForeColor 0, and the form's font.
+
+**Loading: what the run time does with the file's lists and flags.** The seven two-tab SSTabs each had tab 1 showing,
+Cmd on tab 0 and Txt on tab 1, and varied one thing. Each row gives the Left/TabStop of both, as loaded, then after
+Tab = 0 and Tab = 1:
+
+| | The file | As loaded | Tab = 0 | Tab = 1 |
+|---|---|---|---|---|
+| A | as VB6 writes it, but Txt written off the page, at -74520 | Cmd -74670/False, **Txt -74520/True** | Cmd 330/True, Txt -74520 | Cmd -74670, **Txt -74520, lost** |
+| B | as VB6 writes it, but Cmd written on the page, at 330 | **Cmd 330/False**, Txt 480/True | Cmd 330/True, Txt -74520/False | **Cmd 330**/False, Txt 480/True |
+| C | `ControlEnabled` -1 on tab 0, not tab 1 | Cmd -74670/True, **Txt -74520/False** | **Cmd -74670**, Txt 480/True | Cmd -74670, Txt -74520 |
+| D | no `ControlEnabled` or `Control(i).Enabled` lines | as C | as C | as C |
+| E | `Tab(0).Control(0).Enabled = -1` | as VB6's | as VB6's | as VB6's |
+| F | `Tab(1).Control(0).Enabled = -1` | as VB6's | as VB6's | as VB6's |
+| G | no `Tab(n).Control` lines | Cmd -74670/**True**, Txt 480/True | **Cmd -74670**, Txt -74520/False | Cmd -74670, Txt 480/True |
+
+"As VB6's" means as for a file VB6 wrote: Cmd -74670/False and Txt 480/True as loaded, and the two swapping with each
+change of tab.
+
+- **The run time trusts the positions written.** Nothing is moved into place:
+  - A: Txt, written off the page on the showing tab, stays there, and is lost once tab 1 is left.
+  - B: Cmd, written on the page for a hidden tab, shows on tab 1, and then on both tabs.
+- **The lists say which controls a hidden tab brings back.** Without them, Cmd was never shown (G).
+- **A listed control of a tab whose `ControlEnabled` is False is given TabStop False.** A control in no list keeps its
+  own (G, and Check2 below).
+- **When `Tab(0).ControlEnabled` is True, or missing, and the file's Tab isn't 0, loading leaves tab 0.** Every child on
+  the page is moved left and recorded as tab 0's, and nothing is brought back for the showing tab (C, D).
+  - **So in C and D, Txt is shown on tab 0, and tab 0's own Cmd is never shown.**
+  - An SSTab VB6 drew, or loaded with consistent flags, is saved with `ControlEnabled` False on tab 0 whenever another
+    tab shows, so it loads as VB6's designer showed it.
+  - One it loaded with the flags missing or wrong, it saves with them still wrong, as SSTab3 shows.
+
+**SSTab3, whose flags didn't match:** tab 1 showing, `ControlEnabled` -1 on tab 0 instead.
+- Tab 0's list named Check2, written off the page; tab 1's named Text2, on the page.
+- Label2, on the page, and Option2, off it, were in no list.
+- **Run directly:** as C. Text2 and Label2 were moved off at load and showed only on tab 0, and Check2 and Option2 never
+  showed.
+- **Opened in VB6's IDE and saved:**
+  - tabs 0 and 1 were both listed with Label2 and Text2, with `ControlEnabled` -1 on both;
+  - Text2 and Label2 were written on the page, as the designer showed them on tab 1;
+  - Check2 and Option2 were written in no list.
+  
+  Run, that save did exactly what the hand-written file did. So VB6 saved a file that runs differently from what its
+  designer showed.
+
+**TabIndex is renumbered in the saved file.** This answers the open question in `vb6-designer-geometry.md`.
+- The hand-written values were:
+  - SSTab1 0, and its children 1 to 3;
+  - SSTab2 10;
+  - SSTab3 20, and its children 21 to 25.
+- VB6 saved:
+  - SSTab1 and its children 0 to 3, as written;
+  - SSTab3 4, its children 5 to 9 **in file order**, the reverse of their written TabIndexes;
+  - SSTab2 10, as written;
+  - the new SSTab4 11.
+- One rule fits this and the geometry note's `0,0,9,9,4,(absent)` → `0..5`:
+  - each in-range TabIndex keeps its place;
+  - a repeated one takes the next place free;
+  - the out-of-range ones fill the remaining places in file order.
+
+  It has been checked against those two forms only.
+
 ### In HexIDE
 
 An SSTab is left out at run time (#857), and the designer doesn't model it (#1090).
