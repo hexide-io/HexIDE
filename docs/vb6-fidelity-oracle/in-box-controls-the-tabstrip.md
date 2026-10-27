@@ -227,6 +227,107 @@ Whether a TabStrip takes the controls drawn on it, answered on VB6's IDE rather 
 - **A TabStrip double-clicked from the toolbox** was 1500 × 750 at 4050, 3225, centred, with one tab whose caption is
   empty.
 
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
+  `corpus/inbox-controls/pending/tabstrip/`.
+  - TabStrip1 had every property off its default, its lines in reverse order, and three tabs.
+  - TabStrip2 had only its position, extents and `_Version`.
+  - A third TabStrip was double-clicked from the toolbox.
+- **The tab names:**
+  - Caption, Key, `Object.ToolTipText` and `ImageVarType` are from VB6's own `Template\Forms\Options Dialog.frm`.
+  - The image lines are what VB6 wrote after a tab's image was set to 2, then to `blue`, on the TabStrip's Property
+    Pages in the IDE.
+- **The read:** the hand-written form and VB6's save were read back at run time, natively and as p-code. All four runs
+  logged the same values.
+
+**VB6's block, as it wrote it:**
+
+```
+   Begin MSComctlLib.TabStrip TabStrip1 
+      Height          =   3000
+      Left            =   120
+      TabIndex        =   0
+      Top             =   120
+      Width           =   4400
+      _ExtentX        =   7752
+      _ExtentY        =   5292
+      TabWidthStyle   =   2
+      MultiRow        =   -1  'True
+      Style           =   1
+      ShowTips        =   0   'False
+      TabFixedWidth   =   1200
+      TabFixedHeight  =   400
+      HotTracking     =   -1  'True
+      MultiSelect     =   -1  'True
+      Placement       =   1
+      Separators      =   -1  'True
+      TabMinWidth     =   600
+      TabStyle        =   1
+      ImageList       =   "ImageList1"
+      _Version        =   393216
+      BeginProperty Tabs {1EFB6598-857C-11D1-B16A-00C0F0283628} 
+         NumTabs         =   3
+         BeginProperty Tab1 {1EFB659A-857C-11D1-B16A-00C0F0283628} 
+            Caption         =   "&One"
+            Key             =   "k1"
+            Object.Tag             =   "tag one"
+            Object.ToolTipText     =   "tip one"
+            ImageVarType    =   2
+            ImageIndex      =   1
+         EndProperty
+         BeginProperty Tab2 {1EFB659A-857C-11D1-B16A-00C0F0283628} 
+            Caption         =   "Two"
+            Key             =   "k2"
+            ImageVarType    =   8
+            ImageKey        =   "blue"
+         EndProperty
+         BeginProperty Tab3 {1EFB659A-857C-11D1-B16A-00C0F0283628} 
+            Caption         =   "Three"
+            Object.Tag             =   "t3"
+            ImageVarType    =   2
+         EndProperty
+      EndProperty
+      MousePointer    =   2
+      BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
+         ...
+      EndProperty
+      OLEDropMode     =   1
+   End
+```
+
+- **The order is VB6's, whatever order the lines were read in.**
+  - `_Version` comes after the properties, not straight after the extents as the MSFlexGrid's does.
+  - Then the Tabs block, MousePointer, the Font block and OLEDropMode.
+- **Each property is written only when off its default.**
+- **Every TabStrip gets a Tabs block,** with `NumTabs` and one `BeginProperty TabN` per tab.
+  - The minimal block and the double-clicked one were each given one tab holding only `ImageVarType = 2`.
+  - A tab's lines are Caption, Key, `Object.Tag`, `Object.ToolTipText`, ImageVarType, and then the image. Each is written
+    only when set, except **ImageVarType, which is always written**: 2 with no image.
+- **A tab's image is two lines:**
+  - an index is `ImageVarType = 2` and `ImageIndex = n`;
+  - a key is `ImageVarType = 8` and `ImageKey = "key"`.
+
+  Read back, Image kept the type: Integer 1, String `blue`.
+- **The ImageList is named:** `ImageList = "ImageList1"`. Written by hand after the Tabs block, it still linked, and both
+  tabs' images loaded.
+- **TabFixedWidth, TabFixedHeight and TabMinWidth are HIMETRIC in the file.** 1200, 400 and 600 read back as 680, 226 and
+  340.1575 twips. TabFixedHeight is an Integer, so 226.77 became 226.
+- **The selection isn't saved.** A hand-written `Selected = -1` on the third tab was ignored, and VB6's save left it out.
+  The first tab is selected at load.
+- **There is no `.frx` for the TabStrip.** The corpus's `.frx` holds the ImageList's images.
+
+**What a wrong line does.**
+- **A wrong name is ignored silently:** `Image = 1` loaded no image.
+- **`ImageVarType = 8` with no `ImageKey` beside it breaks the whole form.**
+  - Written with `Image = "blue"`, the IDE said "Type mismatch" and opened no designer. Ctrl+S then asked where to save.
+  - `vb6.exe /make` failed with "Type mismatch".
+  - Dropping those two lines, and nothing else, made both load.
+
+**The designer re-sizes to whole pixels when it moves a TabStrip.** After TabStrip1 was dragged in the IDE, its Width of
+5000 was saved as 4995: 333 pixels. Re-saving without a drag kept 4400.
+
 ### In HexIDE
 
 HexIDE doesn't model the TabStrip (#1089). The designer draws it as an empty box (#157). Running a form that holds one

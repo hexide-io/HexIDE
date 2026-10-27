@@ -44,7 +44,7 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 ## `pending/`
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
-controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088) and "In-box controls: the ListView" (#1085) and "In-box controls: the TreeView" (#1086) and "In-box controls: the CommonDialog" (#1084) and "In-box controls: the SSTab" (#1090) and "In-box controls: the MSFlexGrid" (#1099) and "In-box controls: the RichTextBox" (#1100). The `.vbp` files beside them are hand-written, as in `input/`.
+controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088) and "In-box controls: the ListView" (#1085) and "In-box controls: the TreeView" (#1086) and "In-box controls: the CommonDialog" (#1084) and "In-box controls: the SSTab" (#1090) and "In-box controls: the MSFlexGrid" (#1099) and "In-box controls: the RichTextBox" (#1100) and "In-box controls: the TabStrip" (#1089). The `.vbp` files beside them are hand-written, as in `input/`.
 
 | Folder | What it is |
 |---|---|
@@ -63,4 +63,5 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `sstab-resaved/` | Three SSTabs written by hand and saved by VB6, with a fourth double-clicked from the toolbox: one with every property off its default and its lines reversed, a minimal block, and one whose `ControlEnabled` flags and lists did not match its controls, which VB6 rewrote. See the oracle entry before taking it as a model (#1090) |
 | `msflexgrid/` | Three MSFlexGrids saved by VB6: one written by hand with every property off its default and its lines reversed, a minimal block, and one double-clicked from the toolbox. There is no `.frx`: cell text is not saved, only FormatString (#1099) |
 | `richtextbox/` | Three RichTextBoxes saved by VB6: one written by hand with every property off its default, its lines reversed and its TextRTF inline, then Locked set in the Properties window (saved as `ReadOnly`); a minimal block; and one double-clicked from the toolbox. Every TextRTF is in the `.frx` (#1100) |
+| `tabstrip/` | Three TabStrips saved by VB6: one written by hand with every property off its default, its lines reversed and three tabs with tags, tips and images by index and by key; a minimal block; and one double-clicked from the toolbox. Every one gets a Tabs block. The `.frx` is the ImageList's (#1089) |
 | `defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |
