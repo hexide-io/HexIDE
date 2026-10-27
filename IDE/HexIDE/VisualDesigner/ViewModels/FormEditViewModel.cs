@@ -676,6 +676,12 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass, RuntimeLibrary? library = null)
     {
+        if (componentClass is StatusBarComponentClass)
+        {
+            // VB6's toolbox double-click: full form width, 25 px high, centred on a whole pixel (#1087).
+            SpawnControlAt(componentClass, new Rect(0, Math.Floor((Form.Height - 25) / 2), Form.Width, 25), library: library);
+            return;
+        }
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;

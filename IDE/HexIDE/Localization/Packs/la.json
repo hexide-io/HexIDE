@@ -625,6 +625,8 @@
     "Str.PropDesc.WindowList": "Utrum hic index fenestras filiales MDI apertas enumeret.",
     "Str.PropDesc.Locked": "Utrum contenta moderaminis recenseri possint.",
     "Str.PropDesc.MultiSelect": "Utrum plura elementa quam unum seligi possint, et quomodo.",
+    "Str.PropDesc.SimpleText": "Textus stilo simplici ostensus.",
+    "Str.PropDesc.ShowTips": "Utrum monita tabellarum ostendantur.",
     "Str.PropDesc.Style": "Quomodo moderamen pingitur et quomodo se gerit.",
     "Str.PropDesc.StartUpPosition": "Ubi forma in scaena ponatur cum primum aperitur.",
     "Str.PropDesc.ShowInTaskbar": "Utrum forma in tabula officiorum appareat.",

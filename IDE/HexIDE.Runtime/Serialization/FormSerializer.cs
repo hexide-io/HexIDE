@@ -363,6 +363,7 @@ public class FormSerializer
     private static bool IsOwnRunLine(InBoxComponentClass inBox, string name) =>
         name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
         || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
+        || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
@@ -400,6 +401,15 @@ public class FormSerializer
             vb.WriteProperty("_ExtentX", typeof(int), extents.X);
             vb.WriteProperty("_ExtentY", typeof(int), extents.Y);
         }
+        // The StatusBar writes these before _Version (VB6 SP6, #1087 issuecomment-6427372779).
+        if (inBox is StatusBarComponentClass)
+            foreach (var property in new PropertyClass[] { StatusBarComponentClass.StyleProperty,
+                         StatusBarComponentClass.SimpleTextProperty, StatusBarComponentClass.ShowTipsProperty })
+            {
+                var value = instance.GetBoxedPropertyOrDefault(property);
+                if (value is not null && !Equals(value, property.BoxedDefaultValue(inBox)))
+                    vb.WriteProperty(property.Name, property.PropertyType, value);
+            }
         if (Carried("_Version") is { } version)
             WriteCarried(version);
         else
@@ -407,6 +417,9 @@ public class FormSerializer
 
         foreach (var property in inBox.OwnProperties)
         {
+            if (inBox is StatusBarComponentClass && (property == StatusBarComponentClass.StyleProperty
+                || property == StatusBarComponentClass.SimpleTextProperty || property == StatusBarComponentClass.ShowTipsProperty))
+                continue;
             var value = instance.GetBoxedPropertyOrDefault(property);
             if (value is not null && (inBox.IsAlwaysWritten(property) || !Equals(value, property.BoxedDefaultValue(inBox))))
                 vb.WriteProperty(property.Name, property.PropertyType, value);
@@ -414,5 +427,9 @@ public class FormSerializer
                 if (ReferenceEquals(after, property) && Carried(name) is { } carried)
                     WriteCarried(carried);
         }
+        // Keep the saved panel block, including TextSave and its picture records, verbatim. Runtime
+        // panel edits do not mutate the designer instance, just as with other control properties.
+        if (inBox is StatusBarComponentClass && Carried("Panels") is { } panels)
+            WriteCarried(panels);
     }
 }

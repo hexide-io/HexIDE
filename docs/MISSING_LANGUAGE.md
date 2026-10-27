@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 2 | 16 | 42 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 34 | 52 | 0 | 67 | 153 |
+| Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 3 | 22 | 1 | 25 | 51 |
 | Literals, types and suffixes | 6 | 0 | 3 | 14 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 82 | 15 | 0 | 26 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **7** | **2** | **140** | **437** | **20** | **578** | **1184** |
+| **Total** | **7** | **2** | **139** | **438** | **20** | **578** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -316,7 +316,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 
-## Dies mid-run — 140 names
+## Dies mid-run — 139 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -401,7 +401,6 @@ most of the in-box object model.
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `Line` | **Dies** | There is no standalone LINE token; `Line Input` is lexed as ONE token, `LINE_INPUT : L I N E ' ' I N P U T` (Grammar/VB6.g4), consumed by `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA… | StatementExecutor.cs |
-| `LoadPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set Picture1.Picture = LoadPicture("x.bmp")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
@@ -623,7 +622,7 @@ missing.
 | `TypeOf ... Is` | Supported | **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (34 absent, 52 partial, 67 supported)
+### Intrinsic functions — 153 names (33 absent, 53 partial, 67 supported)
 
 
 **array** (3)
@@ -735,7 +734,7 @@ missing.
 | `GetSetting` | Supported | **#1562:** runs as vb6.exe measured: the value as text, or the default, converted only when it is the answer, so a Null default is no error where the key is present. Names compare without case. A value another program wrote that is not REG_SZ is 5 | VB6BuiltIns.Settings.cs |
 | `IIf` | Supported | **[#1461](https://github.com/hexide-io/HexIDE/issues/1461), measured native and p-code:** both parts are evaluated before IIf chooses, the true part first, so a part that raises raises whichever is chosen: `IIf(n <> 0, 1 / n, 0)` with n 0 is 11. **That is VB6's answer, not a defect:** a guarded division in IIf is a bug in the program, and HexIDE raising 11 there is the faithful behaviour; do not "fix" it. The condition is read as CBool reads it, except that Null takes the false part with no error: "abc" is 13, "0", Empty and Null the false part, 0.4 the true part, and an object without a default member 438. The part comes back as itself, an object included (`Set o = IIf(True, k, Nothing)`), and reads as a Variant: `IIf(True, i, 6) * 7000` with i an Integer 5 is 35000. Two or four arguments do not compile. | VB6BuiltIns.Choice.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
-| `LoadPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set Picture1.Picture = LoadPicture("x.bmp")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
+| `LoadPicture` | Partial | **#1087:** one nonempty file path loads a BMP or ICO picture for Panel.Picture or Panels.Add. Other formats, omitted/empty paths, optional arguments and file-error mapping refuse as unmeasured. StdPicture submembers and other controls accepting these objects remain unimplemented. | PanelPicture.cs, VB6BuiltIns.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
@@ -1253,6 +1252,24 @@ that made `vbNewLine` and `vbTab` read as the largest cliff in this inventory, w
 | `vbTab` | Supported | Member of the `VBA.Constants` module. `Chr(9)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbTab`, as `VBA.Constants.vbTab` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until then, long after it resolved. | VB6InBoxLibraries.cs |
 | `vbUseCompareOption` | Supported | **Not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in vb6.exe, "Method or data member not found", and HexIDE refuses it in the same words. The bare form is an undeclared Variant, `Empty`, in both. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** it was rated Dies, which counted a faithful refusal as a gap. | VB6InBoxLibraries.cs |
 | `vbVerticalTab` | Supported | Member of the `VBA.Constants` module. `Chr(11)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbVerticalTab`, as `VBA.Constants.vbVerticalTab` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until then, long after it resolved. | VB6InBoxLibraries.cs |
+
+## StatusBar control members (outside the baseline inventory)
+
+The baseline counts above do not enumerate common-control members. **#1087 parts A/B** implement the
+MSComctlLib.StatusBar object model from [the measured oracle](vb6-fidelity-oracle/in-box-controls-the-statusbar.md)
+and issuecomment-6427372779. The following gaps remain explicit refusals, rather than invented values.
+
+| Member | Status | Detail | Source |
+|---|---|---|---|
+| `StatusBar.Panels` / `IPanels` / `IPanel` | Partial | Add, Item, Remove, Clear; default Text; fixed Width/MinWidth, property ranges and measured errors. Panel text/borders, key indicators, time/date, Simple style and measured pointer/panel events are implemented; saved panel blocks and companion picture records round-trip byte for byte. | StatusBarPanels.cs |
+| `Panels.Count` | Supported | Measured Integer, including 0 after Clear; assignment raises measured 383. Panel Index is also Integer (issuecomment-6428228813). | StatusBarPanels.cs |
+| `Panel.Picture` assignment / `Panels.Add(Picture)` | Partial | Saved BMP/ICO records become runtime objects; LoadPicture files and another panel picture can be assigned, or cleared with Nothing, and draw in normal style. Saved blocks remain preserved verbatim. | PanelPicture.cs, StatusBarPanels.cs, StatusBarPresentation.cs |
+| Picture object members / TypeName | Dies | The recorded Type 1/3 and Width/Height 423 values have no measured return types. These members, TypeName, native handles and the remaining StdPicture surface refuse rather than invent a contract. | PanelPicture.cs, VB6BuiltIns.Inspection.cs |
+| `Panel.Width` with Spring / later `Panel.Left` | Partial | Spring panels share extra width equally above their minimums, reserving 19 px for the grip; fixed panels can overflow. Hidden panels take no space. Width, MinWidth and Left are Singles. Nonempty Contents sizing remains deferred to the rest of part B; empty Contents uses MinWidth. Exact text inset/clipping remains unmeasured rendering. | StatusBarPanels.cs |
+| `StatusBar.hWnd`, `MouseIcon`, `Font`, `OLEDrag`, OLE events and extender members | Dies | Native handle, DragIcon, DragMode, Negotiate, WhatsThisHelpID and unsupported object/OLE surfaces refuse; FontName/FontSize use the existing font members. Pointer events and panel events are implemented in their measured order. No hDC member is invented. | StatusBarComponentClass.cs |
+| `Panel.Tag` holding another object | Partial | The measured own-bar cycle raises 35700; other object ownership is not implemented. Scalar tags work. | StatusBarPanels.cs |
+| Initial lock-key state on non-Windows hosts | Partial | Key panels track presses seen by the form; querying pre-existing host toggle states is not implemented. Windows queries its keyboard state. Kana stays greyed on the measured keyboard. | StatusBarPresentation.cs |
+| Other StatusBar conversions | Partial | Unmeasured enum fractions/nonnumeric input, key casing, removed-panel access, length ties/overflow, nonnumeric indices, and MousePointer/OLEDropMode assignments refuse; measured numeric ranges and half-to-even index lookup work. | StatusBarMembers.cs, StatusBarPanels.cs |
 
 ## The signature-help trap
 

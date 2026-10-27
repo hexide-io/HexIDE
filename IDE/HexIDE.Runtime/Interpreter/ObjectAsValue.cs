@@ -40,6 +40,7 @@ internal static class ObjectAsValue
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         VbErr err => new Vb6Value(err.Number),
+        StatusBarPanel panel => new Vb6Value(panel.Text),
         // VB6 refuses both before the program runs: Debug is only ever Debug.Print or Debug.Assert ("Syntax error"),
         // and a control array needs an index ("Argument not optional"). Raised here as the statement runs.
         DebugProxy => throw new VBCompileErrorException("Syntax error"),
@@ -62,6 +63,7 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbErr err => new Vb6Value(err.Number),
+        StatusBarPanel panel => new Vb6Value(panel.Text),
         _ => value,
     };
 

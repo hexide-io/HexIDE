@@ -23,7 +23,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     }
 
     /// <summary>The in-box controls HexIDE implements (#1082), which the toolbox offers from each library declaring one.</summary>
-    public static IReadOnlyList<InBoxComponentClass> Implemented => [ProgressBarComponentClass.Instance];
+    public static IReadOnlyList<InBoxComponentClass> Implemented => [ProgressBarComponentClass.Instance, StatusBarComponentClass.Instance];
 
     /// <summary>The control's class name, as its libraries declare it: <c>ProgressBar</c>.</summary>
     public abstract string ControlClassName { get; }
@@ -34,7 +34,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     public override string VBTypeName => Library.TypeName(ControlClassName);
 
     /// <summary>Every library that declares the control, each under whose type name a form may hold it.</summary>
-    public IEnumerable<RuntimeLibrary> Libraries =>
+    public virtual IEnumerable<RuntimeLibrary> Libraries =>
         ControlLibraries.All.Where(l => l.Controls.ContainsKey(ControlClassName));
 
     /// <summary>The control's own persisted properties, in the order it writes them.</summary>

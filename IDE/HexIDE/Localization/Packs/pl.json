@@ -626,6 +626,8 @@
     "Str.PropDesc.WindowList": "Czy to menu wyświetla otwarte okna podrzędne MDI.",
     "Str.PropDesc.Locked": "Czy zawartość formantu można edytować.",
     "Str.PropDesc.MultiSelect": "Czy można zaznaczyć więcej niż jeden element i w jaki sposób.",
+    "Str.PropDesc.SimpleText": "Tekst wyświetlany w stylu prostym.",
+    "Str.PropDesc.ShowTips": "Czy wyświetlane są podpowiedzi paneli.",
     "Str.PropDesc.Style": "Sposób rysowania formantu i jego zachowanie.",
     "Str.PropDesc.StartUpPosition": "Gdzie formularz jest umieszczany na ekranie przy pierwszym otwarciu.",
     "Str.PropDesc.ShowInTaskbar": "Czy formularz jest widoczny na pasku zadań.",

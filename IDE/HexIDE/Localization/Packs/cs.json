@@ -626,6 +626,8 @@
     "Str.PropDesc.WindowList": "Zda tato nabídka zobrazuje otevřená podřízená okna MDI.",
     "Str.PropDesc.Locked": "Zda lze obsah prvku upravovat.",
     "Str.PropDesc.MultiSelect": "Zda lze vybrat více než jednu položku a jakým způsobem.",
+    "Str.PropDesc.SimpleText": "Text zobrazený v jednoduchém stylu.",
+    "Str.PropDesc.ShowTips": "Zda se zobrazují popisky panelů.",
     "Str.PropDesc.Style": "Jak je prvek vykreslen a jak se chová.",
     "Str.PropDesc.StartUpPosition": "Kde se formulář na obrazovce umístí při prvním otevření.",
     "Str.PropDesc.ShowInTaskbar": "Zda se formulář zobrazí na hlavním panelu.",

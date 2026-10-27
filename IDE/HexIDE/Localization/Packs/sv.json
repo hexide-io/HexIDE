@@ -626,6 +626,8 @@
     "Str.PropDesc.WindowList": "Om menyn listar de öppna MDI-underfönstren.",
     "Str.PropDesc.Locked": "Om kontrollens innehåll kan redigeras.",
     "Str.PropDesc.MultiSelect": "Om mer än ett objekt kan markeras, och hur.",
+    "Str.PropDesc.SimpleText": "Texten som visas i enkel stil.",
+    "Str.PropDesc.ShowTips": "Om panelernas verktygstips visas.",
     "Str.PropDesc.Style": "Hur kontrollen ritas och hur den beter sig.",
     "Str.PropDesc.StartUpPosition": "Var formuläret placeras på skärmen när det öppnas första gången.",
     "Str.PropDesc.ShowInTaskbar": "Om formuläret visas i aktivitetsfältet.",
