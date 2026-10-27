@@ -356,6 +356,81 @@ Typing a letter, `q`, `a` or `r`, raised KeyDown and KeyUp and nothing else.
   - Appearance 0 with BorderStyle 1 draws a single flat line.
   - Appearance 0 with BorderStyle 0 draws no border at all.
 
+### The saved files
+
+**The programs.**
+- **The save:** a form of three TreeViews, written by hand, opened in VB6's IDE, and saved there once the form had been
+  dirtied with a comment.
+  - The first had every property off its default, under its type-library name, in scrambled order.
+  - The second had only its size and `_Version`.
+  - The third had its defaults written out.
+- **The run-time reads:** EXEs read every property back, natively and as p-code, from the form as written and from
+  VB6's save of it. The two reads agreed.
+- **The corpus:** VB6's save is in `corpus/inbox-controls/pending/treeview/`.
+
+**Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
+
+```
+   Begin MSComctlLib.TreeView TreeView1 
+      Height          =   750
+      Left            =   2250
+      TabIndex        =   4
+      Top             =   1875
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   1323
+      _Version        =   393217
+      Style           =   7
+      Appearance      =   1
+   End
+```
+
+**The order VB6 writes the lines in,** whatever order they were read in: the extender's lines; `_ExtentX` and
+`_ExtentY`; then
+
+| Lines |
+|---|
+| **`_Version`, first** |
+| HideSelection, Indentation, LabelEdit, LineStyle, PathSeparator, Sorted, Style |
+| Checkboxes, FullRowSelect, HotTracking, Scroll, SingleSel |
+| ImageList, as a string: `ImageList = "ImageList1"` |
+| BorderStyle, Appearance, MousePointer, Enabled |
+| the Font block |
+| OLEDragMode, OLEDropMode |
+
+- **Every property is saved under its type-library name.** Lines naming each one were kept.
+- **OLEDragMode and OLEDropMode are written once,** after the Font block. The ListView writes them twice.
+- **`_Version` comes before every other property,** where the ListView writes it in the middle.
+
+**Indentation is HIMETRIC in the file:**
+- A hand-written `Indentation = 529` read back as 299.9055 twips, and VB6 saved it as 529.
+- A hand-written 1000, the default, was dropped.
+
+**Which lines are left out:**
+- **Appearance was written in every save,** at 1 too.
+- **Style 7 is written.** Everything else is written only when off its default. In the third TreeView, LineStyle 0,
+  LabelEdit 0, Indentation 1000, PathSeparator `\`, HideSelection True, Scroll True and BorderStyle 0 were all dropped.
+
+**A block missing a line** loads as follows, read at run time from the second TreeView:
+
+| Property | Loaded as |
+|---|---|
+| **Style** | **0**, text only, **though a new control starts at 7** |
+| Indentation | 566.9291 twips, 1000 HIMETRIC |
+| PathSeparator | `\` |
+| HideSelection, Scroll, Enabled | True |
+| BorderStyle | 0, as a new control has |
+| Appearance | 1 |
+| everything else | its default, as listed under Defaults |
+
+Saved again, that block came back with `Appearance = 1` and nothing else.
+
+**In the IDE:**
+- **At design time, the control draws four nodes, each called `Sample Node`:** a root over two children, then a second
+  root.
+- They are drawn in the control's Style, LineStyle, Checkboxes and Font, with the bound ImageList's first picture.
+- No nodes are saved. The property pages have no page for them.
+
 ### In HexIDE
 
 A form holding a TreeView is refused at load, as any in-box control HexIDE doesn't model is (#1086).
