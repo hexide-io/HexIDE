@@ -153,6 +153,48 @@ public class StatusBarDrawingAndEventsTests : WindowTestFixture
         finally { System.IO.File.Delete(file); }
     }
 
+    private static byte[] DrawRuntime(VBStatusBar bar)
+    {
+        var window = (Window)TopLevel.GetTopLevel(bar)!;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        using var frame = window.CaptureRenderedFrame()!;
+        var origin = bar.TranslatePoint(default, window)!.Value;
+        var panel = bar.Panels.Items[1];
+        panel.TryGetProperty("Left", out var left);
+        var x = (int)Math.Round((float)left.Value! / 15);
+        var width = (int)Math.Floor(panel.CurrentWidth() / 15.0) - 6;
+        var rect = new PixelRect((int)origin.X + x + 3, (int)origin.Y + 3, width, 19);
+        var pixels = new byte[width * 19 * 4];
+        var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try { frame.CopyPixels(rect, pin.AddrOfPinnedObject(), pixels.Length, width * 4); }
+        finally { pin.Free(); }
+        return pixels;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(6)]
+    public void Loaded_fixed_panel_draws_text_and_greys_inactive_keys(int style)
+    {
+        var (bar, _) = Loaded();
+        bar.Panels.Items[0].TrySetProperty("AutoSize", new Vb6Value(1));
+        bar.Panels.CallAsync("Add", []).GetAwaiter().GetResult();
+        var panel = bar.Panels.Items[1];
+        var empty = DrawRuntime(bar);
+        panel.TrySetProperty("Text", new Vb6Value("Visible"));
+        panel.TrySetProperty("Enabled", new Vb6Value(false));
+        panel.TrySetProperty("Style", new Vb6Value(style));
+        var grey = DrawRuntime(bar);
+        grey.Should().NotEqual(empty, "the fixed panel's interior must contain text");
+        panel.TrySetProperty("Enabled", new Vb6Value(true));
+        panel.TrySetProperty("Style", new Vb6Value(0));
+        DrawRuntime(bar).Should().NotEqual(grey, "disabled text must be greyed");
+    }
+
     [AvaloniaFact]
     public void Text_borders_alignment_visibility_and_simple_style_are_drawn()
     {
