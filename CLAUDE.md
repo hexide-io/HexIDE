@@ -15,19 +15,19 @@ Requirements: .NET 10 SDK. No Java needed — `Antlr4BuildTasks` bundles the ANT
 cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj
 cd IDE && dotnet run --project HexIDE.Desktop/
 
-# Tests
-cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1900 VB6 interpreter tests
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~300 LSP server tests
-cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
-cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests
+# Tests (from the repository root)
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/          # VB6 interpreter tests
+pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ # LSP server tests
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/                  # IDE ViewModel tests (foreign servers — see below)
+pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/      # Headless Avalonia UI tests
 
 # Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
-cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
 
 # One class, or an arbitrary slice
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
+pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
 cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
@@ -46,12 +46,19 @@ Failed test jobs upload their `TestResults` directories as `test-results-<job>-<
 seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
 `dotnet test` prints only a log path, download that job's artifact to read the reason.
 
-CI and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
+CI, `scripts/test.ps1` and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
 `.github/workflows/build.yml` (#883). A short run must fail so its logs are kept by #1309.
 The four main-suite floors are about 95% of the measured totals recorded beside them; raise them
-when the suites grow. The WSL runner uses a floor of one for a filtered run, or accepts an explicit
-`--minimum-expected-tests` for a known slice. Its argument checks run with
-`bash scripts/test-linux.selftest.sh`. The async test-context lifetime fix is tracked separately in
+when the suites grow. Both scripts use a floor of one for a filtered run, or accept an explicit
+`--minimum-expected-tests` after `--` for a known slice. Run local suites from the repository root
+with `pwsh scripts/test.ps1 <project> [arguments]` (Windows PowerShell 5.1 also works via
+`powershell -ExecutionPolicy Bypass -File scripts/test.ps1`). Its final PASS/FAIL follows the exit
+code: MTP can print `Passed!` even when the floor fails. Bare `dotnet test` has no default floor.
+A project default was checked with this tree's MTP 1.9.1 for #2264: filters do not disable it
+and a later floor is rejected
+as a duplicate, so it would break filtered runs. Argument checks run with
+`pwsh scripts/test.selftest.ps1` and `bash scripts/test-linux.selftest.sh`.
+The async test-context lifetime fix is tracked separately in
 [#2194](https://github.com/hexide-io/HexIDE/issues/2194).
 
 **Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
@@ -965,6 +972,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
   The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
+  Use `scripts/test.ps1` for local runs: full suites get the CI floor, filtered runs get one,
+  and an explicit `--minimum-expected-tests` after `--` overrides that choice.
   — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement
   on VSTest and worth relying on: "0 tests, green" cannot happen by typo.
 

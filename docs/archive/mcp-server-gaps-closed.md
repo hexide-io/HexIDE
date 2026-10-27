@@ -9,6 +9,40 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `interact`'s `click` pressed without moving the pointer there, so a program's MouseMove never ran from one — **CLOSED** (#2407, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's TreeView recheck, on #2353).** `click` raised a press and a release at the point,
+and no move first, so a running form's MouseMove never fired from a click. A person's click always arrives with the
+pointer having moved onto the control. A live check of a control's event order, MouseMove, MouseDown, MouseUp,
+Click, couldn't be made with `click` alone, and the recheck had to `hover` at the same points to get MouseMove at all.
+
+**Fixed (#2407).** `click` raises a `PointerMoved` on the element it presses, at the point, before the press, on its own
+pointer. That is the route a running form's MouseMove is raised from. A click where the last click left the pointer in
+that window moves nothing first, as a still pointer sends no move; a hover's end takes the pointer out of the window,
+so the next click arrives again. A double click's second press already moved nothing. The reply ends `the pointer moved
+there first, as a person's does` or `the pointer was already there from the last click, so it did not move first`.
+Guarded by `InteractClickTests` and `MouseEventTests`. The oracle's mouse probes logged no MouseMove, so whether VB6
+raises others around a click is unmeasured: #2412.
+
+**Live, against a real pointer (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+A twips form logged each mouse event into a label: `cMM`, `cMD`, `cMU` and `cC` for Command1's MouseMove, MouseDown,
+MouseUp and Click, and `fMM`, `fMD`, `fMU` and `fC` for the form's.
+
+| Input | Windows, through `click` | Linux under WSLg, through `click` | Linux, real X input from `xdotool` |
+|---|---|---|---|
+| click on Command1 | `cMM cMD cC cMU` | `cMM cMD cC cMU` | `cMM cMD cC cMU` |
+| click on the form at (333, 200) | `fMM fMD fMU fC` | `fMM fMD fMU fC` | `fMM fMD fMU fC` |
+| the same click again | `fMD fMU fC` | `fMD fMU fC` | `fMD fMU fC` (and `cMD cC cMU` on Command1) |
+
+- **The real pointer.** `xdotool mousemove` then `click 1`, so the X server's own input reached Avalonia's X11
+  backend. With the form not yet active, the first real click on Command1 gave `cMM` alone, as the window manager took
+  the press to activate the form; with it active, it gave the row above.
+- **Windows.** The real-pointer column couldn't be measured there: the session was locked, and posted mouse messages
+  don't reliably reach Avalonia's input on this host, as an earlier entry found. Three posted clicks left one
+  `fMM fMD fMU fC`, which says nothing either way.
+
+---
+
 ## `set_window_state` reached only the IDE's own window — **CLOSED** (#2357, 2026-10-27)
 
 **Symptom.** `set_window_state` and `get_window_state` took no `window` and acted on the IDE's main window only, and no
@@ -60,6 +94,40 @@ Guarded by `WindowStateOtherWindowTests` and `ForegroundWindowTests`.
   - minimize and restore from minimized, one each, with one Activate on the restore.
 
   Three for a maximize is the runtime's own behaviour whichever route it comes by: #2389.
+
+## The code window's completion description: desktop snapshot composition needed a live check — **CLOSED** (#1334, 2026-10-27)
+
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+
+**Fixed in code, with headless regression tests (#1678).** The dump reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and commits it through the list's own commit path. The snapshot composer discovers the
+description's top-level root by the same route and composes it after the list, which headless rendering can't prove:
+a headless popup renders in the window's own overlay.
+
+**Why the check took a foreign server.** The bundled VB6 server sends no `detail` on any completion item, so with it
+alone no item has a description, and the tooltip never shows. The carried-file editor asks no server for completion
+(#266), so a C file carried by the project couldn't stand in either. clangd attached to `.bas` beside the bundled server
+can, once it parses the module: its first attempt answered `twice` as `"kind":1,"deprecated":true` with no `detail`,
+clangd's fallback for a file it can't parse, because `Attribute VB_Name = "Module1"` isn't C. A `.clangd` beside the
+probe adding `-xc` and `-DAttribute=char*` made that line a declaration missing its semicolon, which clang recovers from.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of main at 8ae02d39 plus #2401, which touches neither path; clangd
+22.1.6 from the foreign-server cache, attached for `.bas` in the session's own profile; headless `claude -p` through
+the hexide tools, with `--capture-lsp`).** Module1 read `int twice(int x);` and `int main(void) { return tw; }`.
+
+- `open_file {"name":"Module1","line":3,"column":27}` put the caret after `tw`, and `press_key` Ctrl+Space on the
+  editor opened the list: clangd's item first, then the bundled server's keywords.
+- `get_lsp_message` on clangd's completion response gave `{"detail":"int",…,"kind":3,"label":" twice(int x)",…}`.
+- `interact` `select` on `…/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[twice(int x)]` answered
+  `selected ' twice(int x)'`. `dump_visual_tree` rooted at the list then listed `…/List[PART_ListBox]/Text[int]`, a
+  `TextBlock` named `int`, beside the list's scroll viewer.
+- `take_snapshot {"window":"ide"}` drew the tooltip: a bordered box reading `int`, just right of the list, level with
+  the selected row, whole, with the list unclipped beside it. Checked by eye on the image as well as by the caller.
+
+**Found on the way.** `open_file` with a `line` refuses a carried file and opens nothing: #2403, in the live document.
 
 ---
 

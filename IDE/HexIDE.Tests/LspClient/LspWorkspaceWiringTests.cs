@@ -49,6 +49,17 @@ public class LspWorkspaceWiringTests
     }
 
     [Fact]
+    public void ProjectSavesUseTheApplicationsLanguageRegistry()
+    {
+        var composition = AsTheApplicationBuildsIt();
+        var factory = typeof(ProjectService).GetField("lspClient",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(composition.ProjectService);
+        var client = factory.Should().BeOfType<Func<ILspClient>>().Which;
+        client().Should().BeSameAs(composition.LspClient);
+    }
+
+    [Fact]
     public void AskingWhereTheWorkspaceIsDoesNotThrow()
     {
         // Deliberately not asserting an answer — the defect was never a wrong directory, it was that the

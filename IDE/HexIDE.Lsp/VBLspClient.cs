@@ -576,7 +576,8 @@ public sealed class VBLspClient : ILspClient
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
-                    WorkspaceFolders: true),
+                    WorkspaceFolders: true,
+                    FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities()));
 
@@ -1246,6 +1247,39 @@ public sealed class VBLspClient : ILspClient
 
         return new Diagnostic(range, message, severity, source, code,
             href is null ? null : new CodeDescription(href));
+    }
+
+    public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didCreate", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didCreateFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didCreateFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var matching = files.Where(file => FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.OldUri)
+            || FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.NewUri)).ToArray();
+        if (matching.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didRenameFiles", new RenameFilesParams(matching)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didRenameFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didDelete", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didDeleteFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didDeleteFiles", ex, cancellationToken); }
     }
 
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
