@@ -1172,10 +1172,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitForNextStmt(VB6Parser.ForNextStmtContext context)
     {
-        var variable = context.iCS_S_VariableOrProcedureCall().GetText();
+        var counter = context.iCS_S_VariableOrProcedureCall();
+        var variable = counter.GetText();
+        // `For i% = …` and `Next i%` name the variable `i`, a local, a module's or another module's Public, checked against
+        // its declared type; an undeclared one is declared with the character's type (measured for % & ! # @, #739).
+        if (counter.typeHint() is { } counterHint)
+            variable = TypedCounter(counter.ambiguousIdentifier().GetText(), counterHint, declare: true);
         RefuseConstantTarget(variable, VariableRequired);
-        if (context.typeHint().Length != 0)
-            throw new NotImplementedException("TypeHints not implemented");
+        foreach (var hint in context.typeHint())
+        {
+            if (context.NEXT().Symbol.TokenIndex > hint.Start.TokenIndex || context.ambiguousIdentifier() is not { } next)
+                throw new NotImplementedException("TypeHints not implemented");
+            TypedCounter(next.GetText(), hint, declare: false);
+        }
         if (context.asTypeClause() != null)
             throw new NotImplementedException("asTypeClause not implemented");
         // Start, limit and step, in that order, each converted into the counter's type as soon as it is evaluated, so one
@@ -1237,6 +1246,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             i = AdvanceForCounter(context, variable, stepL, i);
         }
         return default;
+    }
+
+    /// <summary>
+    /// A For counter, or the name on its Next, written with a type character: the variable of the bare name, measured on
+    /// vb6.exe for #739, native and p-code. A character its declared type does not match, a Variant's included, is VB6's
+    /// compile error, as is a String counter's `$` ("Type mismatch"). An undeclared name is "Variable not defined" under
+    /// Option Explicit, and otherwise the counter declares it with the character's type.
+    /// </summary>
+    private string TypedCounter(string name, VB6Parser.TypeHintContext hint, bool declare)
+    {
+        var type = BaseTypeMapper.Map(hint);
+        if (currentEnv.TryGetVariableLocation(name, out var location))
+        {
+            if (interpreter.ExecutionContext.State.DeclaredTypeOf(location) != type)
+                throw new VBCompileErrorException("Type-declaration character does not match declared data type");
+            if (type == Vb6Value.ValueType.String)
+                throw new VBCompileErrorException("Type mismatch");
+            return name;
+        }
+        if (currentModule.PrePass.RequireVariableDefinitions)
+            throw new VBVariableNotDefinedException(name);
+        // An undeclared `$` counter, and a Next naming an undeclared variable, were not measured.
+        if (!declare || type == Vb6Value.ValueType.String)
+            throw new NotImplementedException($"`{name}{hint.GetText()}` on a For or Next it does not declare is not implemented (#739)");
+        interpreter.ExecutionContext.AllocVariable(currentEnv, name, new Vb6Value(type), type);
+        return name;
     }
 
     // A Single, Double, Currency or Date counter steps in its own type, and so may take a fraction (#983).
@@ -2081,13 +2116,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
-            // `F% = 7` inside `Function F%()` sets the return in VB6 (measured, #740). It is an assignment through a type
-            // character, which is #739's: until then it is refused, rather than writing a variable named `F%` and leaving the
-            // Function to return its type's default.
-            if (varOrProcCall.typeHint() is not null
-                && string.Equals(currentEnv.ReturnName, varOrProcCall.ambiguousIdentifier().GetText(), StringComparison.OrdinalIgnoreCase))
-                throw new NotImplementedException(
-                    $"`{varOrProcCall.GetText()} = …`, a Function's return assigned through its type character, is not implemented (#739)");
             // `c!key = x`: a Collection's item is read-only (measured, #1471, #1492). No other default member takes it yet.
             if (varOrProcCall.dictionaryCallStmt() is { } bang)
             {
@@ -2096,7 +2124,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     ? bangItems.ItemAssigned(bangTarget, [new Vb6Value(ExpressionExecutor.BangKey(bang))], VbCollection.ItemAssignment.Member)
                     : new NotImplementedException($"`{varOrProcCall.GetText()} = …` is supported only on a Collection, which refuses it");
             }
-            var identifier = varOrProcCall.GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
+            var identifier = varOrProcCall.ambiguousIdentifier().GetText();
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
             if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed))
                 (letFound, oldLet) = await interpreter.ReadVariableAfter(currentEnv, identifier, letFoundNeed!);
@@ -2117,9 +2145,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // used to raise Err 424 on it. (#171)
                 if (currentModule.PrePass.RequireVariableDefinitions)
                     throw new VBVariableNotDefinedException(identifier);
-                AllocImplicitVariant(identifier);
+                if (varOrProcCall.typeHint() is { } implicitHint)
+                {
+                    var type = BaseTypeMapper.Map(implicitHint);
+                    interpreter.ExecutionContext.AllocVariable(currentEnv, identifier, new Vb6Value(type), type);
+                }
+                else
+                    AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
+            if (varOrProcCall.typeHint() is { } hint
+                && currentEnv.TryGetVariableLocation(identifier, out var hintedSlot)
+                && interpreter.ExecutionContext.State.DeclaredTypeOf(hintedSlot) != BaseTypeMapper.Map(hint))
+                throw new VBCompileErrorException("Type-declaration character does not match declared data type");
             if (oldLet.Value is VBSSTab)
                 return default;
 
