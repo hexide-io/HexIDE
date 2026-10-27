@@ -93,7 +93,7 @@ public partial class ProtocolInspectorToolView : UserControl
         // -1 as the error offset, because this scan does not parse and so has no position to report. A
         // body that fails to parse still folds as far as its brackets close, deliberately: that body is
         // the one somebody most wants to read.
-        _folding.UpdateFoldings(JsonFolding.Foldings(editor.Text ?? ""), -1);
+        Vb6FoldingAdapter.Update(_folding, [.. JsonFolding.Foldings(editor.Text ?? "")]);
     }
 
     /// <summary>

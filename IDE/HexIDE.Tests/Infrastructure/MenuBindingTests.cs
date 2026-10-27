@@ -14,6 +14,22 @@ public class MenuBindingTests
     }
 
     [Fact]
+    public void ReopenClosedWindowUsesTheRebindableShellCommandAndListsHistory()
+    {
+        var view = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"));
+        var command = "{x:Static vb:ApplicationCommands.ReopenClosedDocumentCommand}";
+        view.Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
+                (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Window.ReopenClosed}")
+            .Attribute("Command")!.Value.Should().Be(command);
+        view.Descendants().Single(e => e.Name.LocalName == "CommandBinding" &&
+                (string?)e.Attribute("Command") == command)
+            .Attribute("ExecutingCommand")!.Value.Should().Be("{CompiledBinding ReopenClosedDocumentCommand}");
+        view.Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
+                (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Window.RecentlyClosed}")
+            .Attribute("ItemsSource")!.Value.Should().Be("{CompiledBinding ClosedDocumentMenuItems}");
+    }
+
+    [Fact]
     public void AddMdiForm_uses_the_disabled_command_like_its_toolbar_twin()
     {
         var items = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"))

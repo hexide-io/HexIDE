@@ -2,7 +2,9 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.Designer.ShowTabOrder": "הצגת סדר טאבים (מחוק: TabStop כבוי)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
@@ -103,6 +105,7 @@
     "Str.Menu.Edit.Cut": "גזור",
     "Str.Menu.Edit.Copy": "העתק",
     "Str.Menu.Edit.Paste": "הדבק",
+    "Str.Menu.Edit.PasteAsComment": "הדבק כהערה",
     "Str.Menu.Edit.PasteLink": "הדבק קישור",
     "Str.Menu.Edit.Remove": "הסר",
     "Str.Menu.Edit.Delete": "מחק",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "בוחן פרוטוקול...",
     "Str.Menu.AddIns": "תוספים",
     "Str.Menu.Window": "חלון",
+    "Str.Menu.Window.ReopenClosed": "פתיחה מחדש של חלון שנסגר",
+    "Str.Menu.Window.RecentlyClosed": "חלונות שנסגרו לאחרונה",
     "Str.Menu.Window.Split": "פצל",
     "Str.Menu.Window.ResetLayout": "אפס פריסת חלונות",
     "Str.Menu.Help": "עזרה",
@@ -363,6 +368,7 @@
     "Str.Designer.Context.Properties": "מאפיינים",
     "Str.CodeEditor.FileNotSaved.Banner": "קובץ זה לא יישמר — HexIDE עדיין אינו יכול לשחזר אותו נאמנה, ולכן שמירתו תשנה אותו. הקוד שלו הוא חלק מהקובץ, ומשום כך הקלדה בחלון זה נדחית.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "שינוי השם לא בוצע, כי הוא היה משנה את כותרת הקובץ הזה או את שורות ה-Attribute של אחד האיברים, שסביבת הפיתוח מנהלת.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "שינוי השם לא בוצע משום שהוא עורך גם מסמכים אחרים: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "שורה {0} היא חלק מכותרת הקובץ הזה או משורות ה-Attribute של אחד האיברים, שלעולם אינן מורצות, ולכן אי אפשר להציב בה נקודת עצירה או סימנייה.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "הוסף קובץ",
     "Str.CodeEditor.Dialog.RenamePrompt": "שם חדש:",
@@ -895,7 +901,6 @@
     "Str.Dock.Close": "סגירת החלונית",
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
     "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
   }
 }
