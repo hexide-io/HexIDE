@@ -123,20 +123,29 @@ over `The` gave a blue `BLUE`: SelColor 16711680.
 - **With nothing selected, the Sel properties read the formatting at the caret:** inside `slow`, bold, 14, Courier New.
 - **Over several paragraphs whose formatting differs,** SelAlignment, SelIndent and SelBullet read Null.
 
+Each assignment below was logged with Err read straight after it. A first pass read the value back through a helper
+holding its own `On Error`, which clears Err, and logged SelAlignment 3 and -1 as ignored without an error. They are
+380.
+
 | Assignment | Logged |
 |---|---|
 | SelAlignment 0, 1, 2 | taken |
-| SelAlignment 3, -1 | **ignored**, no error |
+| SelAlignment 3, 4, 100, -1, Null | **380**, the alignment kept |
 | `SelIndent = 500` | **494.9292**: rounded to whole pixels, read back through HIMETRIC |
 | `SelHangingIndent = 200` | 195.0236 |
 | `SelRightIndent = 300` | 299.9055 |
-| `SelIndent = -100` | 0, no error |
-| `SelFontSize = 0` | **ignored** |
+| `SelIndent = -100`, `SelHangingIndent = -100` | 0, no error |
+| `SelRightIndent = -100` | **-74.26772**: a negative right indent is kept |
+| `SelFontSize = 0`, `SelFontSize = -5` | **ignored**, no error |
 | `SelFontSize = 2000` | **1638.35**, no error |
 | `SelColor = -1`, `SelColor = &H80000008` | **0**, black, no error. A system colour isn't kept |
-| `SelFontName = "No Such Font"` | **kept** as given |
+| `SelColor = &H1000000` | 16777216, kept, no error |
+| `SelFontName = "No Such Font"` | **kept** as given, no error |
+| `SelFontName = ""` | no error, and read back **Arial**, the face the text had before "No Such Font". No rule offered |
+| `SelBold = Null`, `SelBold = 5` | no error, and SelBold read **True** after each, though the text had not been bold |
 | `SelCharOffset = 100` | 100 |
-| `SelTabCount = 2`, `SelTabs(0) = 720`, `SelTabs(1) = 1440` | taken. SelTabs(5) is **381** |
+| `SelTabCount = 2`, `SelTabs(0) = 720`, `SelTabs(1) = 1440` | taken. SelTabs(0) read back 720.0001. Reading or writing SelTabs(5) is **381** |
+| `SelTabCount = -1`, `SelTabCount = 100` | **380** |
 | `SelProtected = True` | taken, but `SelText` from code still replaced the protected text |
 | MultiLine, ScrollBars at run time | **383**, read-only |
 
