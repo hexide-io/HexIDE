@@ -330,19 +330,23 @@ public class LspClientRegistryTests
         slow.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns(late.Task);
         var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        var clock = new CompletionClock();
         var sut = new LspClientRegistry(
-            [Registration("slow", slow, priority: 10), Registration("fast", fast)], logger);
+            [Registration("slow", slow, priority: 10), Registration("fast", fast)], logger, timeProvider: clock);
         await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var started = System.Diagnostics.Stopwatch.StartNew();
         var pending = sut.RequestCompletionAsync(Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
         try
         {
-            var items = await pending.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
-            started.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(900));
+            clock.HasTimer.Should().BeTrue();
+            clock.Advance(TimeSpan.FromMilliseconds(999));
+            pending.IsCompleted.Should().BeFalse();
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            var items = await pending;
             items.Select(i => i.Label).Should().Equal("fast");
+            clock.Advance(TimeSpan.FromMilliseconds(1));
             late.SetResult([new CompletionItem("late", CompletionItemKind.Function)]);
-            await recorded.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+            await recorded.Task;
             slow.Received(1).NoteLateCompletion();
             fast.DidNotReceive().NoteLateCompletion();
             logger.ReceivedCalls().Should().Contain(call => call.GetMethodInfo().Name == "Log"
@@ -351,6 +355,37 @@ public class LspClientRegistryTests
             items.Select(i => i.Label).Should().Equal("fast");
         }
         finally { late.TrySetResult([]); }
+    }
+
+    // Only the one-shot timer used by this completion request is needed.
+    private sealed class CompletionClock : TimeProvider
+    {
+        private long _ticks;
+        private long _due;
+        private Action? _fire;
+        public bool HasTimer => _fire is not null;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => _ticks;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state,
+            TimeSpan dueTime, TimeSpan period)
+        {
+            period.Should().Be(Timeout.InfiniteTimeSpan);
+            _due = _ticks + dueTime.Ticks;
+            _fire = () => callback(state);
+            var timer = Substitute.For<ITimer>();
+            timer.When(t => t.Dispose()).Do(_ => _fire = null);
+            return timer;
+        }
+
+        public void Advance(TimeSpan elapsed)
+        {
+            _ticks += elapsed.Ticks;
+            if (_ticks < _due) return;
+            var fire = _fire;
+            _fire = null;
+            fire?.Invoke();
+        }
     }
 
     [Fact]

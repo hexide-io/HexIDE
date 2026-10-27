@@ -1,5 +1,8 @@
 using System.Linq;
+using Dock.Model.Core;
+using Dock.Model.Controls;
 using System.Runtime.CompilerServices;
+using Dock.Model.Mvvm.Controls;
 using HexIDE;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -17,7 +20,7 @@ namespace HexIDE.Tests.ViewModels;
 
 public class DockFactoryTests
 {
-    private static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory()
+    private static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null)
     {
         var docDock = Substitute.For<IDocumentDockService>();
         var eventBus = Substitute.For<IEventBus>();
@@ -44,8 +47,9 @@ public class DockFactoryTests
             Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), windowManager);
 
-        // Substitute returns null from LoadLayoutManifest → factory builds the default layout.
+        // A missing manifest makes the factory build the default layout.
         var wss = Substitute.For<IWindowStateService>();
+        wss.LoadLayoutManifest().Returns(manifest);
 
         // A registry with nothing attached: the view model reads Connections and
         // ConfigurationProblems in its constructor.
@@ -63,6 +67,57 @@ public class DockFactoryTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers, protocolInspector, wss, new DockFactoryReference());
         return (factory, immediate);
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left)]
+    [InlineData(DockRegion.Right)]
+    [InlineData(DockRegion.Bottom)]
+    [InlineData(DockRegion.Document)]
+    public void CreateLayout_UnknownKey_PreservesKnownWindows(DockRegion region)
+    {
+        var json = LayoutManifestJson.Serialize(new LayoutManifest(LayoutManifest.CurrentVersion, 0.17, 0.29,
+        [
+            new("futureTool", true, region, 0, 0.2),
+            new("properties", true, DockRegion.Left, 1, null),
+            new("toolbox", true, DockRegion.Right, 2, 0.4),
+            new("immediate", true, DockRegion.Bottom, 3, 0.6),
+            new("objectBrowser", true, DockRegion.Document, 4, null),
+        ]));
+        var (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(json));
+
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+
+        var restored = factory.CaptureManifest(root);
+        restored.LeftProportion.Should().Be(0.17);
+        restored.RightProportion.Should().Be(0.29);
+        foreach (var expected in LayoutManifestJson.Deserialize(json)!.Tools.Where(t => t.Key != "futureTool"))
+        {
+            var actual = restored.Tools.Single(t => t.Key == expected.Key);
+            actual.Open.Should().BeTrue();
+            actual.Region.Should().Be(expected.Region);
+            if (expected.Proportion is { } proportion)
+                actual.Proportion.Should().Be(proportion);
+        }
+        restored.Tools.Should().NotContain(t => t.Key == "futureTool");
+    }
+
+    [Fact]
+    public void CreateLayout_RepeatedUnknownKey_LogsOnce()
+    {
+        using var log = new HexIDE.Tests.Sidecar.CapturedLog();
+        var (factory, _) = CreateFactory(new LayoutManifest(LayoutManifest.CurrentVersion, 0.1, 0.3,
+        [
+            new("futureTool", true, DockRegion.Left, 0, null),
+            new("futureTool", true, DockRegion.Right, 0, null),
+            new("futureClosedTool", false, DockRegion.Document, 0, null),
+        ]));
+
+        factory.CreateLayout();
+
+        log.Messages.Where(m => m.Contains("futureTool")).Should().ContainSingle();
+        log.Messages.Where(m => m.Contains("futureClosedTool")).Should().ContainSingle();
     }
 
     [Fact]
@@ -96,6 +151,29 @@ public class DockFactoryTests
     }
 
     [Fact]
+    public void PlaceTool_ReopensToolbox_InNonemptyLeftDock()
+    {
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var main = (IDock)root.DefaultDockable!;
+        var original = main.VisibleDockables!.OfType<IToolDock>().Single(d => d.Alignment == Alignment.Left);
+        var toolbox = (Dock.Model.Mvvm.Controls.Tool)original.ActiveDockable!;
+        toolbox.CanClose = true;
+        factory.CloseDockable(toolbox);
+        main.VisibleDockables!.OfType<IToolDock>().Should().NotContain(d => d.Alignment == Alignment.Left);
+
+        factory.PlaceTool(root, toolbox, rightFallback: false);
+
+        var left = main.VisibleDockables!.OfType<IToolDock>().Single(d => d.Alignment == Alignment.Left);
+        left.VisibleDockables.Should().ContainSingle().Which.Should().BeSameAs(toolbox);
+        left.ActiveDockable.Should().BeSameAs(toolbox);
+        left.Proportion.Should().BeGreaterThan(0);
+        left.IsEmpty.Should().BeFalse();
+        toolbox.Owner.Should().BeSameAs(left);
+    }
+
+    [Fact]
     public void CaptureManifest_AfterClosingAnOpenedTool_RecordsItClosed()
     {
         // Regression guard: a closed dockable keeps a stale Owner pointing at its old parent.
@@ -109,5 +187,129 @@ public class DockFactoryTests
         factory.CloseDockable(immediate);
 
         factory.CaptureManifest(root).Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CaptureManifest_LiveToolInUnrecognizedDock_RestoresOpenInHomeRegion(bool nested)
+    {
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        if (nested)
+        {
+            // A far-left drop wraps the previous main dock in another proportional dock.
+            var main = root.DefaultDockable!;
+            var wrapper = new ProportionalDock { VisibleDockables = factory.CreateList(main) };
+            root.VisibleDockables = factory.CreateList<IDockable>(wrapper);
+            root.DefaultDockable = wrapper;
+            main.Owner = wrapper;
+            wrapper.Owner = root;
+        }
+        else
+        {
+            var main = (IDock)root.DefaultDockable!;
+            var dock = new ToolDock { VisibleDockables = factory.CreateList<IDockable>(immediate) };
+            main.VisibleDockables!.Add(dock);
+            dock.Owner = main;
+            immediate.Owner = dock;
+        }
+
+        var key = nested ? "toolbox" : "immediate";
+        var home = LayoutManifest.Default.Tools.Single(t => t.Key == key);
+        var manifest = factory.CaptureManifest(root);
+        manifest.Tools.Single(t => t.Key == key).Should().Be(home with { Open = true });
+
+        var (restoredFactory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(manifest)));
+        var restoredRoot = restoredFactory.CreateLayout();
+        restoredFactory.InitLayout(restoredRoot);
+        restoredFactory.CaptureManifest(restoredRoot).Tools.Single(t => t.Key == key).Open.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left)]
+    [InlineData(DockRegion.Right)]
+    [InlineData(DockRegion.Bottom)]
+    public void AddinTool_LateRegistration_RestoresPlacement(DockRegion region)
+    {
+        var saved = new ToolLayoutState("addin:sample", true, region, region == DockRegion.Bottom ? 0 : 1, 0.42);
+        var (factory, _) = CreateFactory(LayoutManifest.Default with
+        {
+            LeftProportion = 0.17,
+            RightProportion = 0.27,
+            Tools = LayoutManifest.Default.Tools.Select(t => region == DockRegion.Right
+                && t.Region == region && t.Order >= saved.Order ? t with { Order = t.Order + 1 } : t)
+                .Append(saved).ToArray()
+        });
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var pending = factory.CaptureManifest(root);
+        pending.Tools.Should().Contain(saved);
+        pending.LeftProportion.Should().Be(0.17);
+        pending.RightProportion.Should().Be(0.27);
+        var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+
+        factory.RegisterAddinTool(root, tool);
+
+        var captured = factory.CaptureManifest(root).Tools.Single(t => t.Key == saved.Key);
+        captured.Open.Should().BeTrue();
+        captured.Region.Should().Be(region);
+        captured.Order.Should().Be(saved.Order);
+        if (region != DockRegion.Left)
+            captured.Proportion.Should().Be(0.42);
+    }
+
+    [Fact]
+    public void AddinTool_ClosedAtSave_StaysClosedUntilShown()
+    {
+        var saved = new ToolLayoutState("addin:sample", false, DockRegion.Bottom, 0, 0.42);
+        var (factory, _) = CreateFactory(LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Append(saved).ToArray()
+        });
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+        factory.RegisterAddinTool(root, tool);
+        factory.CaptureManifest(root).Tools.Should().Contain(saved);
+
+        factory.PlaceTool(root, tool, rightFallback: true);
+
+        factory.CaptureManifest(root).Tools.Should().Contain(saved with { Open = true });
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left)]
+    [InlineData(DockRegion.Right)]
+    [InlineData(DockRegion.Bottom)]
+    public void AddinTool_Reset_ReturnsOpenToolsToDefaultRegion_AndKeepsClosedToolsClosed(DockRegion region)
+    {
+        var saved = new ToolLayoutState("addin:sample", true, region, 0, 0.42);
+        var (factory, _) = CreateFactory(LayoutManifest.Default with
+        {
+            LeftProportion = 0.17,
+            RightProportion = 0.27,
+            Tools = LayoutManifest.Default.Tools.Append(saved).ToArray()
+        });
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+        var closed = new HexIDE.Addins.AddinToolWindowViewModel("closed", "Closed", () => new object());
+        factory.RegisterAddinTool(root, tool);
+        factory.RegisterAddinTool(root, closed);
+        factory.CloseDockable(closed);
+
+        root = factory.ResetLayout(root);
+        factory.InitLayout(root);
+
+        var manifest = factory.CaptureManifest(root);
+        var reset = manifest.Tools.Single(t => t.Key == saved.Key);
+        reset.Open.Should().BeTrue();
+        reset.Region.Should().Be(DockRegion.Right);
+        reset.Proportion.Should().NotBe(0.42);
+        manifest.Tools.Single(t => t.Key == "addin:closed").Open.Should().BeFalse();
+        manifest.LeftProportion.Should().Be(LayoutManifest.DefaultLeftProportion);
+        manifest.RightProportion.Should().Be(LayoutManifest.DefaultRightProportion);
     }
 }

@@ -1,6 +1,6 @@
 ## In-box controls: the TreeView (2026-10-27, #1086)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md).
 - **The program:** a Sub Main showing a 6000×4500-twip form holding:
   - a 5000×3000-twip TreeView with VB6's double-clicked property lines;

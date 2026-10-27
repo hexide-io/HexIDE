@@ -72,10 +72,18 @@ public partial class VB6BuiltIns
     // Measured (#840): TypeName(Err) is "ErrObject" and TypeName(App) is "App", which neither class's own name gives.
     private static string InBoxTypeName(ICSharpProxy px) => px switch
     {
+        ToolbarItems items => items.TypeName,
+        ToolbarItem item => item.TypeName,
         VbErr => "ErrObject",
         VbApp => "App",
         VbClipboard => "Clipboard",
         VbCollection => "Collection",
+        PanelPicture => throw new NotImplementedException("Panel.Picture TypeName is unmeasured (#1087)"),
+        StatusBarPanel => "IPanel",
+        StatusBarPanels => "IPanels",
+        ImageListImages => "IImages",
+        ImageListImage => "IImage",
+        ImageListPictureObject => "Picture",
         Components.InBox.TreeNodes => "INodes",
         Components.InBox.TreeNode => "INode",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).

@@ -113,6 +113,9 @@ public static class UiAutomationDriver
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
         else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
+        // Neither of those, so an empty list read as "nothing is selected" whatever the tree held (#2288).
+        else if (control is TreeView tree)
+            selection = Safe(() => TreeSelectedNames(tree).ToArray(), []);
 
         string? value = peer.GetProvider<IValueProvider>() is { } vp ? Safe<string?>(() => vp.Value, null) : null;
         // A dropdown's peer names its selection, and gives its value, by the item's ToString, which for a view model with
@@ -196,7 +199,9 @@ public static class UiAutomationDriver
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
                 window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
+                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null,
+            peer.GetProvider<IExpandCollapseProvider>() is { } expansion
+                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
     }
 
     /// <summary>
@@ -392,7 +397,7 @@ public static class UiAutomationDriver
     /// </summary>
     public static readonly IReadOnlyList<string> Verbs =
     [
-        "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "click", "set_value",
+        "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "click", "release", "set_value",
         "set_range_value", "toggle", "expand", "collapse", "scroll", "invoke_command", "set_property", "close",
     ];
 
@@ -496,18 +501,30 @@ public static class UiAutomationDriver
         var norm = Normalise(action);
         if (norm.Length == 0) return Err("action is required");
 
+        // One mouse: with its button held for a later release, a second press is input it cannot make (#2231).
+        if (norm is "click" or "doubleclick" && HeldButton.Current is { } held)
+            return new InteractOutcome(false, "pointer", null, held.Refusal(norm == "click" ? "click" : "double_click"));
+
         // A provider or pointer action stands for something a person does to the control, and nobody can press
         // what is not showing. The peer acts regardless, so without this a hidden Approve button reported that it
-        // approved (#1069). The reflection actions act on the view model, not the control, so they are exempt.
-        if (norm is not ("invokecommand" or "setproperty") && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } verb
+        // approved (#1069). The reflection actions act on the view model, not the control, so they are exempt, and
+        // so is release, which lets go of the held button: its target only places the point it may move to first.
+        if (norm is not ("invokecommand" or "setproperty" or "release") && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } verb
             && Shows(control) is not true and var shows)
             return Err(NotShowingRefusal(control, verb, shows)
-                       + (verb == "scroll"
+                       + (shows is false && Safe(() => ShowingCopyHint(control), null) is { } copyHint
+                           ? copyHint
+                           : verb == "scroll"
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
                            ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
-                           : " Target the copy that shows, or make it show first; invoke_command and set_property act on "
+                           : shows is false && CollapsedPropertyCategoryHolding(control) is { } category
+                               ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                               : " Make it show first; invoke_command and set_property act on "
                              + "its view model and still work"));
+
+        if (norm is "click" or "invoke" && DisabledPressRefusal(control) is { } disabled)
+            return Err(disabled);
 
         AutomationPeer peer;
         try { peer = ControlAutomationPeer.CreatePeerForElement(control); }
@@ -731,6 +748,9 @@ public static class UiAutomationDriver
                     // The press only: the release is still to come, as the outcome's Release (FinishAsync).
                     return DoClick(control, value);
 
+                case "release":
+                    return DoRelease(control, value);
+
                 case "scroll":
                     return DoScroll(control, value);
 
@@ -755,6 +775,27 @@ public static class UiAutomationDriver
         }
     }
 
+    // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
+    // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
+    private static string? DisabledPressRefusal(Control control)
+    {
+        var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
+        var open = OpenDialogs.Among(OpenWindows());
+        var blocking = open.Where(d => OpenDialogs.Blocks(d, window)).ToList();
+        if (blocking.FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d))) is { } dialog)
+        {
+            foreach (var blocked in blocking)
+                OpenDialogs.NamedInReply(blocked);
+            return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
+                   + "No person could click or invoke it, so nothing was pressed or invoked. Answer the dialog first: "
+                   + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
+        }
+        return !control.IsEffectivelyEnabled || window is { IsEffectivelyEnabled: false }
+            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could click or invoke it, so "
+              + "nothing was pressed or invoked. Wait until it is enabled before trying again"
+            : null;
+    }
+
     /// <summary>
     /// The refusal for acting on <paramref name="control"/> through <paramref name="verb"/> while it is not showing,
     /// shared by every tool that stands for something a person does to a control (#1069).
@@ -773,6 +814,38 @@ public static class UiAutomationDriver
             : "is not showing: it or a container is hidden, which dump_visual_tree marks \"isHidden\": true. "
               + $"No person could reach it, so '{verb}' was refused and nothing was done.");
 
+    private static string? ShowingCopyHint(Control control)
+    {
+        if (TopLevel.GetTopLevel(control) is not Window window) return null;
+        var label = LabelOf(control);
+        var id = NullIfEmpty(AutomationProperties.GetAutomationId(control));
+        var paths = new List<string>();
+        Walk(window, "Window");
+        return paths.Count switch
+        {
+            0 => null,
+            1 => $" a showing copy is at '{paths[0]}'; target that",
+            _ => $" {paths.Count} showing copies are in this window; first paths: "
+                 + string.Join(", ", paths.Take(3).Select(p => $"'{p}'")) + "; target the one you want",
+        };
+
+        void Walk(Control parent, string path)
+        {
+            var children = new List<MeaningfulChild>();
+            CollectMeaningfulChildren(parent, children);
+            foreach (var child in children)
+            {
+                var candidate = child.Control;
+                var childPath = path + "/" + BestSegment(child, children);
+                if (candidate.GetType() == control.GetType() && Shows(candidate) is true
+                    && (LabelOf(candidate) == label
+                        || id is not null && AutomationProperties.GetAutomationId(candidate) == id))
+                    paths.Add(childPath);
+                Walk(candidate, childPath);
+            }
+        }
+    }
+
     /// <summary>
     /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.
     /// </summary>
@@ -784,7 +857,7 @@ public static class UiAutomationDriver
             : null;
 
     /// <summary>
-    /// Adds the target to, or takes it out of, the selection of a list that holds several at once. <c>select</c>
+    /// Adds a list item to the selection, or removes a selected list or tree item. <c>select</c>
     /// replaces a selection, so without this the designer canvas could hold one control or, through Ctrl+A,
     /// all of them, and the Format commands, which act on a chosen group, could not be aimed (#661).
     /// </summary>
@@ -793,17 +866,37 @@ public static class UiAutomationDriver
         var verb = add ? "add_to_selection" : "remove_from_selection";
         if (NullIfEmpty(value) is not null)
             return Err($"{verb} takes no value: target the item itself by its path from dump_visual_tree");
-        if (MultiSelectOwner(control) is not { } owner)
-            return peer.GetProvider<ISelectionItemProvider>() is not null
-                ? Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so there is "
-                      + "nothing to add to; use select")
+        if (!add && control is TreeViewItem item && item.FindAncestorOfType<TreeView>() is { } tree
+            && tree.TreeItemFromContainer(item) is { } data)
+        {
+            var selected = tree.SelectedItems?.Contains(data) == true;
+            if (selected) tree.SelectedItems?.Remove(data);
+            if (tree.SelectedItems?.Contains(data) == true)
+                return Err($"remove_from_selection did not clear '{LabelOf(control, peer)}'; try click with value 'ctrl'");
+            var names = TreeSelectedNames(tree);
+            var summary = names.Count == 0 ? "nothing is selected now"
+                : $"{names.Count} item{(names.Count == 1 ? " is" : "s are")} selected now: {string.Join(", ", names)}";
+            var treeChange = selected ? $"removed '{LabelOf(control, peer)}' from the selection"
+                : $"'{LabelOf(control, peer)}' was not selected";
+            return Ok($"{treeChange}; {summary}");
+        }
+        var owner = ItemsControl.ItemsControlFromItemContainer(control) as ListBox;
+        if (owner is null || owner.IndexFromContainer(control) < 0)
+            return add && peer.GetProvider<ISelectionItemProvider>() is not null
+                ? Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so "
+                      + "add_to_selection cannot add another item; use select")
                 : Unsupported(verb);
+        if (add && MultiSelectOwner(control) is null)
+            return Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so "
+                       + "add_to_selection cannot add another item; use select");
 
         var index = owner.IndexFromContainer(control);
         var label = LabelOf(control, peer);
         var was = owner.Selection.IsSelected(index);
         if (add) owner.Selection.Select(index);
         else owner.Selection.Deselect(index);
+        if (!add && owner.Selection.IsSelected(index))
+            return Err($"remove_from_selection did not clear '{label}'; try click with value 'ctrl'");
 
         var change = add
             ? was ? $"'{label}' was already selected" : $"added '{label}' to the selection"
@@ -816,12 +909,38 @@ public static class UiAutomationDriver
     /// where its row does not exist. Read from the list itself: a ListBox's or TabControl's peer offers no selection
     /// provider, so inspect_element reported nothing selected on every one of them (#1263).
     /// </summary>
+    /// <summary>
+    /// What a tree has selected, each named as its row reads, or as its item does when the row is not realised. A TreeView
+    /// is no SelectingItemsControl and its peer offers no selection provider, so nothing else reads it (#2288).
+    /// </summary>
+    private static List<string> TreeSelectedNames(TreeView tree) =>
+        tree.SelectedItems?.Cast<object>().Select(x =>
+            tree.GetVisualDescendants().OfType<TreeViewItem>()
+                .FirstOrDefault(candidate => ReferenceEquals(tree.TreeItemFromContainer(candidate), x)) is { } row
+                ? LabelOf(row) : NameWithoutRow(x, 0)).ToList() ?? [];
+
     private static List<string> SelectedNames(SelectingItemsControl owner, bool primaryFirst = false) =>
         [.. (owner is ListBox list ? list.Selection.SelectedIndexes : owner.SelectedIndex >= 0 ? [owner.SelectedIndex] : [])
             .OrderBy(i => primaryFirst && i == owner.SelectedIndex ? 0 : 1)
             .Select(i => owner.ContainerFromIndex(i) is Control c
                 ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
-                : owner.Items[i]?.ToString() ?? $"#{i}")];
+                : NameWithoutRow(owner.Items[i], i))];
+
+    /// <summary>
+    /// What a selected item is called while it has no row, scrolled out of a long list or in one with no room to show it.
+    /// The IDE's view models carry the name their row is given as <c>AccessibleName</c>, which the row binds, so that is
+    /// the name the dump would show. Failing that, the item's own text, but never its type's name, which names no row:
+    /// a Properties list too short to show a row answered "HexIDE.VisualDesigner.PropertyViewModel" (#2026).
+    /// </summary>
+    private static string NameWithoutRow(object? item, int index)
+    {
+        if (Safe(() => item?.GetType().GetProperty("AccessibleName")?.GetValue(item), null) is string { Length: > 0 } accessible)
+            return accessible;
+        var text = Safe(() => item?.ToString(), null);
+        return text is null || IsDefaultText(text, item)
+            ? $"#{index}, which has no row to read a name from: a list makes rows only for what it shows"
+            : text;
+    }
 
     /// <summary>
     /// Whether <paramref name="text"/> is what <paramref name="item"/> gives with no ToString of its own: its type, as object
@@ -1489,7 +1608,13 @@ public static class UiAutomationDriver
         + "right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by "
         + "spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag "
         + "(paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, "
-        + "or the target without a path; to cannot accompany double";
+        + "or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with "
+        + "the button still down at the to point until action release";
+
+    /// <summary>What <c>release</c>'s value may hold, quoted in its refusals.</summary>
+    private const string ReleaseValue =
+        "release takes x,y relative to the target, or <path>:x,y, to move the held button there before letting go, or no "
+        + "value to let go where it is held";
 
     /// <summary>
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
@@ -1512,7 +1637,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
-        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var destination, out var problem))
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var destination, out var hold, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
@@ -1529,26 +1654,9 @@ public static class UiAutomationDriver
         var releaseWhere = where;
         if (destination is not null)
         {
-            var colon = destination.LastIndexOf(':');
-            var releaseControl = control;
-            if (colon >= 0)
-            {
-                var resolved = Resolve(topLevel, destination[..colon]);
-                if (resolved.control is not { } found)
-                    return Fail($"could not resolve the release path: {resolved.error}; nothing was pressed");
-                releaseControl = found;
-            }
-            var coordinates = destination[(colon + 1)..].Split(',');
-            if (coordinates.Length != 2
-                || !double.TryParse(coordinates[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var rx)
-                || !double.TryParse(coordinates[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ry)
-                || !double.IsFinite(rx) || !double.IsFinite(ry))
-                return Fail($"'{destination}' is not a release point; click takes {ClickValue}; nothing was pressed");
-            var releaseLocal = new Point(rx, ry);
-            if (releaseControl.TranslatePoint(releaseLocal, topLevel) is not { } translated)
-                return Fail("could not translate the release point into window coordinates; nothing was pressed");
-            releasePoint = translated;
-            releaseWhere = FormattableString.Invariant($"({rx:0.#}, {ry:0.#}) on '{Describe(releaseControl)}', which is ({translated.X:0.#}, {translated.Y:0.#}) in the window");
+            if (ReleasePointOf(control, topLevel, destination, $"click takes {ClickValue}", out var unreadable) is not { } release)
+                return Fail($"{unreadable}; nothing was pressed");
+            (releasePoint, releaseWhere) = release;
         }
 
         var watch = WatchProgram(topLevel as Window);
@@ -1570,6 +1678,16 @@ public static class UiAutomationDriver
         var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
             ? UiSaveFeedback.Watch(saveButton.Command) : null;
 #endif
+        // A drag in Dock's layout says what it moved, or that nothing moved: one whose drop found no target read the same
+        // as one that docked (#2175).
+        var dockLayout = destination is null ? null : (hit as Visual)?.FindAncestorOfType<Dock.Avalonia.Controls.DockControl>()?.Layout;
+        var placedBefore = dockLayout is null ? null : DockPlacement(dockLayout);
+        // Dock starts a drag only from what it marks as a drag area: a tab, a tool window's title strip. Anything else in its
+        // layout, a designer drag among them, could not have docked, and saying it had not read as a failure (#2232).
+        var pressedDockHandle = dockLayout is not null && (hit as Visual)?.GetSelfAndVisualAncestors()
+            .Any(Dock.Settings.DockProperties.GetIsDragArea) == true;
+        // What an abandoned hold asks whether its release committed anything: the designer the press landed in (#2231).
+        var surface = hold ? (hit as Visual)?.FindAncestorOfType<FormEditView>()?.DataContext as FormEditViewModel : null;
         // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
         // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
         if (destination is not null)
@@ -1588,22 +1706,35 @@ public static class UiAutomationDriver
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
         var pressed = $"the {name} button{holding} at {where}{landing}";
+        // Each held move is input of its own, raised by FinishAsync with the dispatcher's layout run between them, as a
+        // real pointer's moves are. Dock adds its drop target on the first move past its threshold and finds the drop
+        // from that target's layout, so eight moves raised in one burst left the release over a target with no size,
+        // and nothing docked (#2175). A control that captured the pointer on its press takes them, as it would.
+        Exception? moveFailed = null;
+        // Between any two points, since a held drag moves on from where it stopped, and an abandoned one back to its press.
+        List<Action> MovesBetween(Point from, Point to) => [.. Enumerable.Range(1, 8).Select(step => (Action)(() =>
+        {
+            try
+            {
+                var point = from + (to - from) * (step / 8.0);
+                var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
+                    ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
+                receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
+                    point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
+            }
+            catch (Exception ex) { moveFailed ??= ex; }
+        }))];
+        List<Action>? moves = destination is null ? null : MovesBetween(inWindow, releasePoint);
+        // Where the second press of a double click went, when not where the first did.
+        var secondLanding = "";
         InteractOutcome Release(bool second)
         {
             try
             {
+                if (moveFailed is not null)
+                    return new InteractOutcome(false, "pointer", null,
+                        $"pressed {pressed}, and a held move threw, so the button was let go without a release: {moveFailed.Message}");
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
-                if (destination is not null)
-                {
-                    for (var step = 1; step <= 8; step++)
-                    {
-                        var point = inWindow + (releasePoint - inWindow) * (step / 8.0);
-                        var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
-                            ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
-                        receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
-                            point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
-                    }
-                }
                 var captured = pointer.Captured is not null;
                 var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
@@ -1615,8 +1746,9 @@ public static class UiAutomationDriver
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
-                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")})"), null,
+                var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{(second ? secondLanding : "")}"
+                    + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
                 return UiSaveFeedback.After(saveWatch, outcome);
@@ -1631,20 +1763,206 @@ public static class UiAutomationDriver
             finally { pointer.Capture(null); }
         }
 
-        InteractOutcome SecondPress()
+        // A person's second press lands where the first did, on whatever is there by then. A control that rebuilds its visuals
+        // on a click, as a Toolbar rebuilds its buttons on each release, has replaced what the first press landed on, and
+        // requiring that to be still attached sent no second click at all (#2324).
+        async Task<InteractOutcome> SecondPress()
         {
-            if (!control.IsEffectivelyVisible || !topLevel.IsVisible || TopLevel.GetTopLevel(control) != topLevel
-                || TopLevel.GetTopLevel(hit) != topLevel)
-                return Fail($"clicked {pressed}; the second click was not sent because the target is hidden or closed, or detached");
-            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+            // A person's second press comes at least a frame after the first release, so what that release rebuilt has been
+            // laid out and drawn and the press finds it. Hit-tested sooner, a Toolbar's new button had no bounds yet and the
+            // press fell through to the bar itself (#2324 live check).
+            var frame = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            topLevel.RequestAnimationFrame(_ => frame.TrySetResult());
+            await Task.WhenAny(frame.Task, Task.Delay(SecondPressFrameWait));
+            // And for the render thread to have applied that frame: hit-testing reads the composition the render thread holds,
+            // which lagged the layout often enough that one double click in three missed the new button (#2324 live check).
+            if (Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(topLevel)?.Compositor is { } compositor)
+                await Task.WhenAny(compositor.RequestCompositionBatchCommitAsync().Processed, Task.Delay(SecondPressFrameWait));
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+            if (!topLevel.IsVisible)
+                return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
+            if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
+                return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+            again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
                 new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
-            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}; the release is still to come",
+            if (!ReferenceEquals(again, hit))
+                secondLanding = again is Control replacement
+                    ? $"; the first click replaced what it landed on, so the second press went to '{Describe(replacement)}'"
+                      + $"{AddressOf(topLevel, "Window", replacement)}, which is at that point now"
+                    : $"; the first click replaced what it landed on, so the second press went to the '{again.GetType().Name}' now at that point";
+            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}{secondLanding}; the release is still to come",
                 null, Release: () => Release(second: true));
         }
 
+        // A held drag stops where a release would be, with the button still down, and a later release finishes it (#2231).
+        InteractOutcome Hold()
+        {
+            if (moveFailed is not null)
+            {
+                pointer.Capture(null);
+                return Fail($"pressed {pressed}, and a held move threw, so the button was let go without a release: {moveFailed.Message}");
+            }
+            HeldButton.Begin(new HeldButton(topLevel, pointer, name, inWindow, where, releasePoint, releaseWhere, MovesBetween,
+                (point, pointWhere) =>
+                {
+                    (releasePoint, releaseWhere) = (point, pointWhere);
+                    return Release(second: false);
+                },
+                Captured, surface));
+            return new InteractOutcome(true, "pointer",
+                $"pressed {pressed}, and moved to {releaseWhere}; the {name} button is still held there, and {Captured()}; "
+                + "interact 'release' lets it go", null);
+        }
+
+        // What holds the pointer while the button is down, which is what a release will go to.
+        string Captured()
+        {
+            if (pointer.Captured is Control capturer)
+                return $"{Named(capturer)} has the pointer capture";
+            return topLevel.InputHitTest(releasePoint) is Control under
+                ? $"nothing has the pointer capture, so a release goes to {Named(under)} under it"
+                : "nothing has the pointer capture, and nothing under it takes the pointer";
+        }
+        string Named(Control named) => AddressOf(topLevel, "Window", named) is { Length: > 0 } address
+            ? $"'{Describe(named)}'{address},"
+            : $"'{Describe(named)}'";
+
+        if (hold)
+            return new InteractOutcome(true, "pointer", $"pressed {pressed}; the held moves are still to come", null,
+                Release: Hold, ClickWatch: watch, HeldMoves: moves);
         return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
-            Release: () => Release(second: false), ClickWatch: destination is null ? null : watch);
+            Release: () => Release(second: false), ClickWatch: destination is null ? null : watch, HeldMoves: moves);
     }
+
+    /// <summary>
+    /// A release point: 'x,y' relative to <paramref name="control"/>, or '&lt;path&gt;:x,y' relative to the control at that
+    /// path, in <paramref name="topLevel"/>'s coordinates and in words; or null with why it is not one, ending with
+    /// <paramref name="takes"/> when the text could not be read.
+    /// </summary>
+    private static (Point Point, string Where)? ReleasePointOf(Control control, TopLevel topLevel, string destination, string takes,
+        out string? error)
+    {
+        error = null;
+        var colon = destination.LastIndexOf(':');
+        var releaseControl = control;
+        if (colon >= 0)
+        {
+            var resolved = Resolve(topLevel, destination[..colon]);
+            if (resolved.control is not { } found)
+            {
+                error = $"could not resolve the release path: {resolved.error}";
+                return null;
+            }
+            releaseControl = found;
+        }
+        var coordinates = destination[(colon + 1)..].Split(',');
+        if (coordinates.Length != 2
+            || !double.TryParse(coordinates[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var rx)
+            || !double.TryParse(coordinates[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ry)
+            || !double.IsFinite(rx) || !double.IsFinite(ry))
+        {
+            error = $"'{destination}' is not a release point; {takes}";
+            return null;
+        }
+        if (releaseControl.TranslatePoint(new Point(rx, ry), topLevel) is not { } translated)
+        {
+            error = "could not translate the release point into window coordinates";
+            return null;
+        }
+        return (translated, FormattableString.Invariant($"({rx:0.#}, {ry:0.#}) on '{Describe(releaseControl)}', which is ({translated.X:0.#}, {translated.Y:0.#}) in the window"));
+    }
+
+    /// <summary>
+    /// Lets go of the button <c>click … to x,y hold</c> left down (#2231): at the point <paramref name="value"/> names, moved
+    /// to first as a drag's held moves are, or where it is held. The reply is an unheld drag's, so a held drag ends exactly
+    /// as an ordinary one does: release point, recipient, capture, and what Dock moved.
+    /// </summary>
+    private static InteractOutcome DoRelease(Control control, string? value)
+    {
+        if (HeldButton.Current is not { } held)
+            return Err("no button is held, so there is nothing to release: release lets go of the button that "
+                       + "click … to x,y hold left down, and a click without hold lets go by itself");
+        var (point, where) = (held.At, held.AtWhere);
+        IReadOnlyList<Action>? moves = null;
+        if (NullIfEmpty(value) is { } destination)
+        {
+            if (!ReferenceEquals(TopLevel.GetTopLevel(control), held.Window))
+                return Err($"the {held.Button} button is held in '{HeldButton.Title(held.Window)}', and '{Describe(control)}' is "
+                           + "not in that window, so nothing was done: give a target there, or no value to let go where it is held");
+            if (ReleasePointOf(control, held.Window, destination.Trim(), ReleaseValue, out var unreadable) is not { } release)
+                return Err($"{unreadable}; nothing was done, and the button is still held");
+            (point, where) = release;
+            moves = held.MovesTo(point);
+        }
+        // No longer the held button from here, so neither the idle limit nor a closing window acts on it while the moves and
+        // the release, still to come, are raised.
+        held.End();
+        return new InteractOutcome(true, "pointer", "the release is still to come", null,
+            Release: () => held.ReleaseAt(point, where), HeldMoves: moves);
+    }
+
+    /// <summary>Where a tool or document sits in a Dock layout, read before and after a drag (#2175).</summary>
+    private sealed record DockPlace(Dock.Model.Core.IDockable? Owner, int Index, bool Floating, string[] Beside);
+
+    /// <summary>
+    /// Every tool and document in <paramref name="layout"/>, floating windows included, with the dock that holds it, its
+    /// tab position there, and what else that dock holds, which is how a dock the IDE gives no name is told apart.
+    /// </summary>
+    private static Dictionary<Dock.Model.Core.IDockable, DockPlace> DockPlacement(Dock.Model.Core.IDock layout)
+    {
+        var placed = new Dictionary<Dock.Model.Core.IDockable, DockPlace>(ReferenceEqualityComparer.Instance);
+        void Walk(Dock.Model.Core.IDock dock, bool floating)
+        {
+            var children = dock.VisibleDockables?.ToList() ?? [];
+            var leaves = children.Where(c => c is Dock.Model.Controls.ITool or Dock.Model.Controls.IDocument).ToList();
+            foreach (var child in children)
+            {
+                if (child is Dock.Model.Core.IDock inner)
+                    Walk(inner, floating);
+                else if (leaves.Contains(child))
+                    placed[child] = new DockPlace(dock, leaves.IndexOf(child), floating,
+                        [.. leaves.Where(l => !ReferenceEquals(l, child)).Select(DockableName)]);
+            }
+            if (dock is Dock.Model.Controls.IRootDock { Windows: { } windows })
+                foreach (var window in windows)
+                    if (window.Layout is { } floated)
+                        Walk(floated, true);
+        }
+        Walk(layout, false);
+        return placed;
+    }
+
+    /// <summary>What a drag changed in a Dock layout, as a clause for its reply: what moved where, or, for a drag pressed on
+    /// one of Dock's drag areas (<paramref name="couldDock"/>), that nothing did. Otherwise nothing is said.</summary>
+    private static string DockMoved(Dictionary<Dock.Model.Core.IDockable, DockPlace> before,
+        Dictionary<Dock.Model.Core.IDockable, DockPlace> after, bool couldDock)
+    {
+        var moved = new List<string>();
+        foreach (var (dockable, now) in after)
+        {
+            if (!before.TryGetValue(dockable, out var was))
+                continue;
+            if (!ReferenceEquals(was.Owner, now.Owner) || was.Floating != now.Floating)
+                moved.Add($"'{DockableName(dockable)}' from {At(was)} to {At(now)}");
+            else if (was.Index != now.Index)
+                moved.Add($"'{DockableName(dockable)}' within {At(now)}, from tab {was.Index + 1} to tab {now.Index + 1}");
+        }
+        if (moved.Count > 0)
+            return "; Dock moved " + string.Join(", and ", moved);
+        return couldDock
+            ? "; Dock's layout is unchanged, so nothing was docked: the release was not over one of Dock's drop targets, "
+              + "or dropped what it dragged where it was"
+            : "";
+
+        static string At(DockPlace place) =>
+            (place.Beside.Length == 0 ? "a dock of its own" : "the dock with " + string.Join(", ", place.Beside.Select(b => $"'{b}'")))
+            + (place.Floating ? ", in a floating window" : "");
+    }
+
+    private static string DockableName(Dock.Model.Core.IDockable dockable) =>
+        !string.IsNullOrEmpty(dockable.Title) ? dockable.Title
+        : !string.IsNullOrEmpty(dockable.Id) ? dockable.Id
+        : dockable.GetType().Name;
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
     public static readonly TimeSpan ClickFrameWait = TimeSpan.FromSeconds(1);
@@ -1740,6 +2058,9 @@ public static class UiAutomationDriver
     /// <summary>How long <c>click</c> holds the button down, about as long as a person does.</summary>
     public const int ClickHoldMs = 50;
 
+    /// <summary>How long a double click's second press waits for the window's next frame, where none comes, as headlessly.</summary>
+    internal static readonly TimeSpan SecondPressFrameWait = TimeSpan.FromMilliseconds(250);
+
     /// <summary>
     /// Completes an action that comes in two parts, as <c>click</c> does. Its release is raised as input of its own,
     /// <see cref="ClickHoldMs"/> after the press and at input priority, so whatever the press set off has run first, as it
@@ -1757,6 +2078,12 @@ public static class UiAutomationDriver
         if (outcome.ClickWatch is { } pressWatch)
             await WaitForProgramAsync(pressWatch, outcome);
         await Task.Delay(ClickHoldMs);
+        foreach (var move in outcome.HeldMoves ?? [])
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(move, Avalonia.Threading.DispatcherPriority.Input);
+            // Everything queued above Background, the layout a move asked for among it, has run before the next one (#2175).
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+        }
         var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
         if (!released.Success || released.NextClick is not { } next)
             return released;
@@ -1766,6 +2093,77 @@ public static class UiAutomationDriver
         await Task.Delay(ClickHoldMs);
         var second = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(next, Avalonia.Threading.DispatcherPriority.Input);
         return await FinishAsync(second);
+    }
+
+    /// <summary>
+    /// Abandons the held button (#2231), as <see cref="HeldButton.IdleLimit"/> with no call does: Escape to whatever has the
+    /// keys in its window, then the held moves back to the press and a release there, which is the only way a real mouse
+    /// gets back. The next reply says so, and what the surface did with it. With <paramref name="idleOnly"/>, a hold a call
+    /// has touched since the timer fired is kept.
+    /// </summary>
+    /// <remarks>
+    /// "Where the press started" means the moves too: a Thumb, as Dock's and a resize handle's drags are, takes its offset
+    /// from the moves and not from the release's position, so a release at the press after no move back would leave it where
+    /// it was held. Not every surface takes this as cancelled. The designer has no Escape: a draw let go where it began
+    /// places a control 2 by 2 pixels, and a resize returns to the grid, so a control drawn a pixel larger than its grid
+    /// cells, as every drawn one is, records a resize (both measured, 2026-10-27). The reply names what the designer's undo
+    /// stack recorded rather than calling the drag cancelled.
+    /// </remarks>
+    internal static async Task AbandonHeldAsync(bool idleOnly = false)
+    {
+        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.Idle())
+            return;
+        held.End();
+        var keyed = held.Window.FocusManager?.GetFocusedElement() as Control ?? held.Pointer.Captured as Control ?? held.Window;
+        string escaped;
+        try
+        {
+            DeliverKey(keyed, Key.Escape, KeyModifiers.None, null);
+            escaped = $"Escape went to '{Describe(keyed)}'";
+        }
+        catch (Exception ex)
+        {
+            escaped = $"Escape threw at '{Describe(keyed)}': {ex.Message}";
+        }
+
+        // The designer pushes one undo step per gesture that changed the form, so a step pushed now is a commit (#2231).
+        var undo = (held.Surface as FormEditViewModel)?.UndoStack;
+        var recorded = new List<string>();
+        void Recorded()
+        {
+            if (undo!.UndoDescription is { } step)
+                recorded.Add(step);
+        }
+        if (undo is not null)
+            undo.Changed += Recorded;
+        InteractOutcome released;
+        try
+        {
+            foreach (var move in held.MovesBack())
+            {
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(move, Avalonia.Threading.DispatcherPriority.Input);
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+            }
+            released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                () => held.ReleaseAt(held.PressedAt, held.PressedWhere), Avalonia.Threading.DispatcherPriority.Input);
+        }
+        catch (Exception ex)
+        {
+            released = Err($"the moves back or the release threw: {ex.Message}");
+        }
+        finally
+        {
+            if (undo is not null)
+                undo.Changed -= Recorded;
+        }
+        var outcome = released.Success ? $"the release reports: {released.Detail}" : $"the release failed: {released.Error}";
+        var designer = undo is null ? ""
+            : recorded.Count > 0
+                ? $". The designer recorded {string.Join(" and ", recorded.Select(r => $"'{r}'"))} anyway, so it did not cancel; Undo takes it back"
+                : ". The designer recorded nothing, so nothing was placed, moved or resized";
+        HeldButton.Ended($"The held {held.Button} button was abandoned at {HeldButton.Clock()}, with no call for "
+                         + $"{HeldButton.IdleLimit.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s: {escaped}, "
+                         + $"then it moved back to where it was pressed, {held.PressedWhere}, and was let go there; {outcome}{designer}.");
     }
 
     /// <summary>How long a reply waits, by default, for a running program to finish what an action set off.</summary>
@@ -1971,9 +2369,10 @@ public static class UiAutomationDriver
         [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
-    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out string problem)
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out bool hold, out string problem)
     {
         destination = null;
+        hold = false;
         var match = System.Text.RegularExpressions.Regex.Match(value ?? "", @"(?:^|\s)to\s+(.+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         if (match.Success)
         {
@@ -1983,7 +2382,7 @@ public static class UiAutomationDriver
             while (destination.LastIndexOf(' ') is var space && space >= 0)
             {
                 var tail = destination[(space + 1)..];
-                if (tail.ToLowerInvariant() is not ("double" or "left" or "right" or "middle" or "shift" or "ctrl" or "control" or "alt"))
+                if (tail.ToLowerInvariant() is not ("double" or "left" or "right" or "middle" or "shift" or "ctrl" or "control" or "alt" or "hold"))
                     break;
                 value += " " + tail;
                 destination = destination[..space].TrimEnd();
@@ -2001,6 +2400,11 @@ public static class UiAutomationDriver
             if (word == "double")
             {
                 twice = true;
+                continue;
+            }
+            if (word == "hold")
+            {
+                hold = true;
                 continue;
             }
             if (word.Contains(','))
@@ -2031,7 +2435,7 @@ public static class UiAutomationDriver
             KeyModifiers? key = word switch { "shift" => KeyModifiers.Shift, "ctrl" or "control" => KeyModifiers.Control, "alt" => KeyModifiers.Alt, _ => null };
             if (key is not { } held)
             {
-                problem = $"'{token}' is not a point, a button, a key or double; click takes {ClickValue}";
+                problem = $"'{token}' is not a point, a button, a key, double or hold; click takes {ClickValue}";
                 return false;
             }
             keys |= held;
@@ -2039,6 +2443,12 @@ public static class UiAutomationDriver
         if (twice && destination is not null)
         {
             problem = "double cannot be combined with to: a double click repeats at one point, while to drags to a release point";
+            return false;
+        }
+        if (hold && destination is null)
+        {
+            problem = "hold keeps the button down at the end of a drag, so it needs to, as in '20,20 to 100,60 hold'; "
+                      + "nothing was pressed";
             return false;
         }
         return true;
@@ -3056,9 +3466,24 @@ public static class UiAutomationDriver
         var mechanism = "keyboard"; // No input path has been used yet.
         try
         {
+            // A chord written as one key, as a person writes it, was refused as an unknown key, which sent the caller to the
+            // key names when 'H' was never the problem (#2189). Read it as the key and its modifiers, and say so.
+            var asWritten = key.Trim();
+            var chordRead = string.Empty;
+            if (ChordAsWritten(key) is { } written)
+            {
+                if (!TryParseModifiers(written.Modifiers, out _, out _))
+                    return new InteractOutcome(false, "keyboard", null,
+                        $"'{asWritten}' is not a key, and not a chord either: '{written.Modifiers}' is not a modifier. press_key presses "
+                        + "one key: pass it as 'key', and any of Ctrl, Shift, Alt and Meta as 'modifiers'");
+                chordRead = $"; '{asWritten}' was read as key '{written.Key}' with modifiers '{written.Modifiers}'"
+                            + (string.IsNullOrWhiteSpace(modifiers) ? "" : $", added to '{modifiers}'");
+                key = written.Key;
+                modifiers = string.IsNullOrWhiteSpace(modifiers) ? written.Modifiers : $"{modifiers}+{written.Modifiers}";
+            }
             if (!Enum.TryParse<Key>((key ?? string.Empty).Trim(), ignoreCase: true, out var parsedKey))
                 return new InteractOutcome(false, "keyboard", null,
-                    $"unknown key '{key}' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)");
+                    $"unknown key '{key}'{(chordRead.Length > 0 ? $" in '{asWritten}'" : "")} — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)");
             if (!TryParseModifiers(modifiers, out var mods, out var modError))
                 return new InteractOutcome(false, "keyboard", null, modError);
 
@@ -3070,7 +3495,7 @@ public static class UiAutomationDriver
             var top = TopLevel.GetTopLevel(control);
             var before = top?.FocusManager?.GetFocusedElement() as Control;
             // A container means the keyboard as it stands, not its first focusable descendant.
-            var retained = before is not null && (ReferenceEquals(before, control) || IsUnder(control, before));
+            var retained = before is not null && (ReferenceEquals(before, control) || IsUnderInView(control, before));
             if ((retained ? before : FindKeyTarget(control)) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
@@ -3099,8 +3524,16 @@ public static class UiAutomationDriver
                 return selectionDelete && !pressedIn.Selection.IsEmpty
                     ? refused with { Error = refused.Error + SelectionState(pressedIn) } : refused;
 
+            // From the target's window, which a flyout's item is in as the dump shows it, not from the item's own root,
+            // whose path no tool can resolve (#2030).
             var beforePath = before is null ? "nothing"
-                : PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
+                : (top is Control window ? PathWithin(window, "Window", before) : null)
+                  ?? PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
+            // Named before the key goes, as the receiver was when it was pressed: Escape on a flyout's item closes the flyout,
+            // and the item has no path once it has (#2030).
+            var where = ReferenceEquals(target, control)
+                ? string.Empty
+                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
             var focused = target.IsFocused || target.Focus();
             var after = top?.FocusManager?.GetFocusedElement() as Control;
             var focusMove = !ReferenceEquals(before, after)
@@ -3118,15 +3551,13 @@ public static class UiAutomationDriver
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
             // nothing happens", and in each the answer was that the event went to a control other than the
             // one the caller meant — which the old reply had no way to say.
-            var chord = mods == KeyModifiers.None ? string.Empty : mods + "+";
-            var where = ReferenceEquals(target, control)
-                ? string.Empty
-                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
+            // Flags print as "Control, Shift", which read as two presses (#2189).
+            var chord = mods == KeyModifiers.None ? string.Empty : mods.ToString().Replace(", ", "+") + "+";
             var changed = partial is not null && deletionArea is not null
                 ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
                   + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}", null);
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}{chordRead}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -3390,6 +3821,9 @@ public static class UiAutomationDriver
         TopLevel? sentTo = null;
         try
         {
+            // The window's own pointer is not the held drag's, and a mouse has one (#2231).
+            if (HeldButton.Current is { } held)
+                return new InteractOutcome(false, "pointer", null, held.Refusal("hover"));
             if (TopLevel.GetTopLevel(control) is not { } topLevel)
                 return new InteractOutcome(false, "pointer", null,
                     "the control is not attached to a window, so it has no coordinates to hover at");
@@ -3718,7 +4152,7 @@ public static class UiAutomationDriver
     /// <summary>A control named the way a caller would recognise it: type plus whatever identity it carries.</summary>
     private static string Describe(Control control)
     {
-        var id = control.Name ?? (control as StyledElement)?.Name;
+        var id = NullIfEmpty(control.Name) ?? NullIfEmpty(AutomationProperties.GetAutomationId(control));
         return string.IsNullOrEmpty(id) ? control.GetType().Name : $"{control.GetType().Name}[{id}]";
     }
 
@@ -3777,6 +4211,14 @@ public static class UiAutomationDriver
         + (control is ComboBox { IsEditable: false }
             ? "; it is a dropdown that is not editable: 'expand' it, then 'select' its item by text" : "");
 
+    // "Ctrl+H" as its key and modifiers, or null for a key with no '+' between two parts. "Ctrl++" presses '+'.
+    private static (string Key, string Modifiers)? ChordAsWritten(string? key)
+    {
+        var text = (key ?? string.Empty).Trim();
+        var split = text.EndsWith('+') ? text.Length - 2 : text.LastIndexOf('+');
+        return split > 0 && text[split] == '+' ? (text[(split + 1)..].Trim(), text[..split].Trim()) : null;
+    }
+
     private static bool TryParseModifiers(string? modifiers, out KeyModifiers result, out string? error)
     {
         result = KeyModifiers.None;
@@ -3830,15 +4272,44 @@ public static class UiAutomationDriver
     /// </summary>
     private static Control? AnchorOf(Control addressed, Control receiver)
     {
-        if (ReferenceEquals(addressed, receiver) || IsUnder(addressed, receiver))
+        if (ReferenceEquals(addressed, receiver) || IsUnderInView(addressed, receiver))
             return receiver;
         return addressed.GetVisualDescendants().OfType<TextEditor>()
             .FirstOrDefault(e => ReferenceEquals(e.TextArea, receiver));
     }
 
-    // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried here first and answered
-    // false for a window over a control inside it (measured in the headless tests), so it is not relied on.
-    private static bool IsUnder(Visual ancestor, Visual target) => target.GetVisualAncestors().Contains(ancestor);
+    // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried first and answered false for a
+    // window over a control inside it (measured in the headless tests), so it is not relied on.
+    /// <summary>
+    /// Whether <paramref name="target"/> is below <paramref name="ancestor"/> in the control view, which nests an open
+    /// popup's content under the control that owns it, as the dump does. On the desktop a flyout's items have a visual
+    /// root of their own, so a visual walk from one never reached the window: focus in a text box's Cut/Copy/Paste
+    /// flyout read as no focus in the dialog, and press_key moved it out before pressing (#2030). So the walk goes from a
+    /// popup's content to the control the popup is placed at, as the dump finds that content from the control.
+    /// </summary>
+    /// <remarks>
+    /// Not through the popup root's logical parent: on the desktop it leads nowhere (measured live, #2030). The content's
+    /// logical parent is its <see cref="Popup"/>, whose <c>PlacementTarget</c> is the owner for a flyout and a context
+    /// menu alike; a menu-bar dropdown's popup is a visual child of its item, the fallback.
+    /// </remarks>
+    internal static bool IsUnderInView(Visual ancestor, Visual target)
+    {
+        var steps = 0;
+        for (var at = Up(target); at is not null && steps++ < 1000; at = Up(at))
+        {
+            if (ReferenceEquals(at, ancestor))
+                return true;
+        }
+        return false;
+
+        // An adorner counts as under the element it adorns, where the control view grafts it (#2231).
+        static Visual? Up(Visual v) =>
+            v is Control { Parent: Popup popup } && ReferenceEquals(popup.Child, v)
+                ? popup.PlacementTarget ?? popup.GetVisualParent() ?? popup.Parent as Visual
+                : v.GetVisualParent() is AdornerLayer && AdornerLayer.GetAdornedElement(v) is { } adorned
+                    ? adorned
+                    : v.GetVisualParent();
+    }
 
     /// <summary>
     /// The control-view path of <paramref name="target"/>, walked down from <paramref name="from"/> (whose own
@@ -3849,7 +4320,7 @@ public static class UiAutomationDriver
     /// </summary>
     internal static string? PathWithin(Control from, string fromPath, Control target)
     {
-        if (!ReferenceEquals(from, target) && !IsUnder(from, target))
+        if (!ReferenceEquals(from, target) && !IsUnderInView(from, target))
             return null;
 
         var current = from;
@@ -3859,7 +4330,7 @@ public static class UiAutomationDriver
             var siblings = new List<MeaningfulChild>();
             CollectMeaningfulChildren(current, siblings);
             var next = siblings.FirstOrDefault(m =>
-                ReferenceEquals(m.Control, target) || IsUnder(m.Control, target));
+                ReferenceEquals(m.Control, target) || IsUnderInView(m.Control, target));
             if (next is null)
                 break;
             path += "/" + BestSegment(next, siblings);
@@ -3874,10 +4345,12 @@ public static class UiAutomationDriver
     {
         var segs = (targetPath ?? string.Empty)
             .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Neither is a path at all, so each says where paths come from: a caller who guessed one from a snapshot, as
+        // "Editor/General" from the Options dialog's tree, was told only what was wrong with it (#2080).
         if (segs.Length == 0)
-            return (null, "empty target path");
+            return (null, EmptyPath + "; " + WherePathsComeFrom(root, null));
         if (!string.Equals(StripUnderscore(segs[0]), "Window", StringComparison.OrdinalIgnoreCase))
-            return (null, $"path must start with 'Window' (got '{segs[0]}')");
+            return (null, $"{NotFromWindow} (got '{segs[0]}'); {WherePathsComeFrom(root, segs[^1])}");
 
         Control current = root;
         var traversed = "Window";
@@ -3914,6 +4387,34 @@ public static class UiAutomationDriver
             traversed += "/" + segs[i];
         }
         return (current, null);
+    }
+
+    /// <summary>The start of the refusal for a target that is empty.</summary>
+    public const string EmptyPath = "empty target path";
+
+    /// <summary>The start of the refusal for a target whose first segment is not <c>Window</c>.</summary>
+    public const string NotFromWindow = "path must start with 'Window'";
+
+    // The example names the window the path was looked for in, so it can be sent as it stands: "ide" for the IDE's own,
+    // else the window's title, which 'window' takes too.
+    private static string WherePathsComeFrom(Control root, string? guess)
+    {
+        var window = root is not Window w ? null
+            : Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
+              { MainWindow: { } main } && ReferenceEquals(w, main) ? "ide"
+            : string.IsNullOrWhiteSpace(w.Title) ? null : w.Title;
+        static string Json(string text) => text.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        return "a path comes from dump_visual_tree, whose every node carries its 'path', and its 'match' finds a control by "
+               + "name" + (string.IsNullOrWhiteSpace(guess) ? ""
+                   : ", as dump_visual_tree {" + (window is null ? "" : $"\"window\":\"{Json(window)}\",")
+                     + $"\"match\":\"{Json(SearchTextOf(guess))}\"}}");
+    }
+
+    // What a guessed segment names: the text in its brackets, an id, or the segment itself.
+    private static string SearchTextOf(string segment)
+    {
+        var seg = ParseSegment(segment);
+        return seg.Discriminator ?? seg.IdShortcut ?? seg.Type ?? segment;
     }
 
     private static (Control? control, string? error) ResolveSegment(Control parent, string raw, string parentPath)
@@ -4129,6 +4630,11 @@ public static class UiAutomationDriver
         foreach (var v in children)
         {
             if (firstOnly && acc.Count > 0) return;
+            // An adorner is drawn in a layer of its own, far from the element it adorns. It is grafted under that
+            // element below instead, so its paths read the way the screen does: a selected control's grab handles under
+            // the control, not at the window's root (#2231).
+            if (v is AdornerLayer)
+                continue;
             if (v is Popup popup)
             {
                 CollectPopupChildren(popup, acc, firstOnly);
@@ -4148,6 +4654,15 @@ public static class UiAutomationDriver
             {
                 CollectMeaningfulChildren(v, acc, firstOnly);
             }
+        }
+
+        // After the element's own children, as it is drawn over them. One with no AutomationId folds away as any
+        // wrapper does, so a focus adorner adds nothing.
+        if (parent is Control adorned && AdornerLayer.GetAdorner(adorned) is Control adorner && !(firstOnly && acc.Count > 0))
+        {
+            var info = Classify(adorner);
+            if (info.Structural) CollectMeaningfulChildren(adorner, acc, firstOnly);
+            else acc.Add(new MeaningfulChild(adorner, info));
         }
     }
 
@@ -4252,10 +4767,16 @@ public static class UiAutomationDriver
         {
             Button b => b.Flyout,
             SplitButton sb => sb.Flyout,
-            _ => FlyoutBase.GetAttachedFlyout(c),
+            _ => null,
         };
         if (primary is not null) yield return primary;
-        if (c.ContextFlyout is { } context && !ReferenceEquals(context, primary)) yield return context;
+        // Any control can carry an attached flyout, a Button too: a running Toolbar's dropdown is a MenuFlyout attached to
+        // its button and shown with ShowAt, and read only for controls other than buttons it was in neither the dump nor
+        // the snapshot, though open (#2323).
+        var attached = FlyoutBase.GetAttachedFlyout(c);
+        if (attached is not null && !ReferenceEquals(attached, primary)) yield return attached;
+        if (c.ContextFlyout is { } context && !ReferenceEquals(context, primary) && !ReferenceEquals(context, attached))
+            yield return context;
     }
 
     // All Control descendants at any depth (for the #AutomationId shortcut). Crosses into open popups
@@ -4478,7 +4999,8 @@ public record UiNodeDetail(
     // The value pattern's writability, independent of the range pattern's flag. Null without that pattern.
     bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    WindowFrameState? Frame = null);
+    WindowFrameState? Frame = null,
+    string? ExpandCollapseState = null);
 
 /// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
@@ -4505,6 +5027,10 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
 /// </param>
 /// <param name="NextClick">The second press of a double click, after the first release has settled. Not serialized.</param>
+/// <param name="HeldMoves">
+/// A drag's held moves, which <see cref="UiAutomationDriver.FinishAsync"/> raises one by one before the release, with the
+/// dispatcher's layout run between them (#2175). Not serialized.
+/// </param>
 /// <param name="ClickWatch">The program before the first press, waited for between clicks. Not serialized.</param>
 /// <param name="Settled">
 /// What the action left on a running form, read once the program has run what it set off: a clause for the detail, or
@@ -4518,7 +5044,8 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<Task<InteractOutcome>>? NextClick = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);

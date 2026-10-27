@@ -1,6 +1,6 @@
 ## In-box controls: the Toolbar (2026-10-26, #1088)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md). Every build was made with `/make` as native code and as p-code, and
 the two logged the same lines. The one exception is the junk Left and Top an invisible button reads back, given below.
 - **Run time:** a Sub Main showing a 6000×4500-twip form holding VB6's double-clicked Toolbar, a PictureBox and an
@@ -9,7 +9,7 @@ the two logged the same lines. The one exception is the junk Left and Top an inv
   StatusBar, in session 0.
 - **The files:** a hand-written form holding two configured Toolbars was opened in VB6's IDE, made dirty and saved. The
   second Toolbar's ShowTips was then set to False in the Properties window, by double-clicking its value, and saved
-  again. VB6's save is `corpus/inbox-controls/pending/toolbar`.
+  again. VB6's save is `corpus/inbox-controls/saved/toolbar`.
 - **The saved form run again:** the hand-written form and VB6's save were each built and run, reading every property
   back. Their logs were the same.
 - **Events:** VB6's save, with event handlers added, run on the guest's console. The agent clicked each button with real
@@ -307,4 +307,21 @@ weren't opened.
 
 ### In HexIDE
 
-A form holding a Toolbar is refused at load, as any in-box control HexIDE doesn't model is (#1088).
+The runtime-only portions of #1088 model a top-level MSComctlLib.Toolbar's scalar defaults and measured
+assignments, including no-effect size writes, and its Buttons/ButtonMenus collections and item scalar
+properties. Measured single-row geometry now supports the probed Alpha caption, separators and placeholders,
+including repositioning after width, style, visibility and collection edits. Populated
+ButtonWidth/ButtonHeight use the measured Alpha dimensions, with the measured TextAlignment 1 ButtonHeight.
+Arbitrary captions, dimensions after Clear, wrapping/overflow, non-default-style item Top/Height and right-
+aligned item geometry still refuse: the probes supply no general sizing or wrapping rule. Hidden Left/Top
+refuse rather than reproduce build-dependent junk; hidden Width/Height remain zero. Unmeasured conversions
+refuse. The designer still carries every Toolbar block verbatim. Nested and control-array bars retain the load
+refusal. Designed top-level bars now load their Buttons and ButtonMenus property bags, including the measured Object.* aliases, numeric ImageIndex values, ToolTips and
+twips placeholder widths. Saved HIMETRIC button dimensions are not applied as runtime size assignments;
+runtime geometry still uses only the measured content cases. Runtime drawing and the measured pointer/dropdown
+menu events are implemented;
+ImageList binding remains unfinished. Part C verifies the existing verbatim preservation path against the saved
+Toolbar form and ImageList companion byte for byte, both unchanged and after a form-caption edit, and through a
+second save. This preserves `ToolTips`, BorderStyle after `_Version`, HIMETRIC button dimensions, twips placeholder
+widths and the nested ButtonMenus without modelling or rewriting them. The runtime loading slice does not yet
+enable editing/rewriting Toolbar property bags in the designer. No new VB6 measurements were made for these portions.

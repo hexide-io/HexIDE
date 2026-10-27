@@ -9,7 +9,7 @@ namespace HexIDE.IDE;
 /// used <c>Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)</c>, which on Unix
 /// returns an <b>empty string</b> when <c>XDG_CONFIG_HOME</c> is unset — and it is unset on most Linux
 /// distributions by default, because applications are expected to default to <c>~/.config</c>
-/// themselves. Measured on the same Ubuntu 24.04 image CI runs:
+/// themselves. Measured on Ubuntu 24.04, the image CI ran at the time:
 /// </para>
 ///
 /// <code>

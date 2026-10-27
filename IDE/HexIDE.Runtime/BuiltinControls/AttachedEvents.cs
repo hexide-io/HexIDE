@@ -194,7 +194,7 @@ public static class AttachedEvents
         client.AddHandler(InputElement.PointerMovedEvent, (_, e) => Handler(e, ComponentBaseClass.MouseMoveEvent), handledEventsToo: true);
     }
 
-    private static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass)
+    internal static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass)
     {
         if (!OwnsThePointerEvent(control, e.Source) || VBProps.GetName(control) is null)
             return;

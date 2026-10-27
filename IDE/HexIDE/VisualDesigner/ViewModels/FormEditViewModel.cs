@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -18,6 +19,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
@@ -676,10 +678,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass, RuntimeLibrary? library = null)
     {
+        if (componentClass is StatusBarComponentClass)
+        {
+            // VB6's toolbox double-click: full form width, 25 px high, centred on a whole pixel (#1087).
+            SpawnControlAt(componentClass, new Rect(0, Math.Floor((Form.Height - 25) / 2), Form.Width, 25), library: library);
+            return;
+        }
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;
-        if (settingsService.AlignToGrid)
+        if (settingsService.AlignToGrid && componentClass is not ImageListComponentClass)
         {
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);
@@ -718,12 +726,22 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (ToolsBoxToolViewModel.SelectedComponent is not { BaseClass: { } baseClass } tool)
             return;
 
-        var origin = ContainerAt(pressedAt)?.ClientOrigin ?? default;
+        var (rect, container) = DrawnControlRectangle(pressedAt, releasedAt);
+        SpawnControl(baseClass, rect, container, tool.Library);
+    }
+
+    /// <summary>The canvas rectangle and container shared by the drag preview and placement.</summary>
+    internal (Rect Rectangle, ComponentInstanceViewModel? Container) DrawnControlRectangle(Point pressedAt, Point releasedAt)
+    {
+        var container = ContainerAt(pressedAt);
+        var origin = container?.ClientOrigin ?? default;
         var (x1, x2) = (Snapped(pressedAt.X - origin.X, settingsService.GridWidth), Snapped(releasedAt.X - origin.X, settingsService.GridWidth));
         var (y1, y2) = (Snapped(pressedAt.Y - origin.Y, settingsService.GridHeight), Snapped(releasedAt.Y - origin.Y, settingsService.GridHeight));
         var rect = new Rect(origin.X + Math.Min(x1, x2), origin.Y + Math.Min(y1, y2),
             Math.Max(1, Math.Abs(x2 - x1)), Math.Max(1, Math.Abs(y2 - y1)));
-        SpawnControlAt(baseClass, rect, pressedAt, tool.Library, drawn: true);
+        if (container is not null)
+            rect = HeldTo(rect, container);
+        return (new Rect(rect.X, rect.Y, rect.Width + 1, rect.Height + 1), container);
 
         double Snapped(double pixels, int grid) =>
             settingsService.AlignToGrid && grid > 0 ? Math.Round(pixels / grid, MidpointRounding.AwayFromZero) * grid : pixels;
@@ -772,25 +790,24 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// For an in-box control, the library it is placed from, when the toolbox offers it from an older library than its
     /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
     /// </param>
-    /// <param name="drawn">
-    /// A drag drew it: it ends one pixel past <paramref name="rect"/>, as every control VB6's designer draws does (measured,
-    /// #2058). <c>add_control</c> keeps the size it is given.
-    /// </param>
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect, Point? pressedAt = null,
-        RuntimeLibrary? library = null, bool drawn = false)
+        RuntimeLibrary? library = null)
+    {
+        var container = pressedAt is { } press ? ContainerAt(press) : null;
+        if (container is not null)
+            rect = HeldTo(rect, container);
+        SpawnControl(baseClass, rect, container, library);
+    }
+
+    private void SpawnControl(ComponentBaseClass baseClass, Rect rect, ComponentInstanceViewModel? container,
+        RuntimeLibrary? library)
     {
         var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var instance = new ComponentInstance(baseClass, newName);
-        var container = pressedAt is { } press ? ContainerAt(press) : null;
         if (container is not null)
-        {
             instance.SetContainer(container.Instance);
-            rect = HeldTo(rect, container);
-        }
-        if (drawn)
-            rect = new Rect(rect.X, rect.Y, rect.Width + 1, rect.Height + 1);
         if (baseClass is InBoxComponentClass inBox && library is not null && !ReferenceEquals(library, inBox.Library))
             instance.SetProperty(InBoxComponentClass.LoadedTypeNameProperty, library.TypeName(inBox.ControlClassName));
         DeclareLibraryOf(instance);
@@ -1526,6 +1543,31 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     public void SaveFormAs() => projectService.SaveForm(formDefinition!, true).ListenErrors();
+
+    public async Task PreviewForm()
+    {
+        if (formDefinition is null || !HasWindowFrame)
+            return;
+
+        VBFormRuntime? preview = null;
+        try
+        {
+            preview = FormComponentClass.Instance.InstantiateWindow(Form.Instance, VBLoader.HasMenuBar(formDefinition));
+            // No SetCode, PrepareForm or Start: events have no interpreter to dispatch to (#2003).
+            preview.Content = VBLoader.SpawnComponents(formDefinition, preview.Context.ExecutionContext,
+                preview.Context.RootEnv, new StandaloneStandardLib(preview));
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
+                preview.Show(owner);
+            else
+                preview.Show();
+        }
+        catch (NotImplementedException e)
+        {
+            preview?.Close();
+            await windowManager.MessageBox(e.Message, localization.GetString("Str.Designer.PreviewForm"),
+                MessageBoxButtons.Ok, MessageBoxIcon.Error);
+        }
+    }
 
     public void ViewCode() => editorService.EditCode(formDefinition);
 
