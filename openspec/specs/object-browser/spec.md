@@ -187,3 +187,18 @@ localized automation names describing their purpose.
 - **WHEN** a screen reader or automation caller inspects the Object Browser
 - **THEN** each input and list is named in the selected IDE language
 - **AND** the class and member lists can be distinguished without positional indices
+
+### Requirement: Reference files SHALL load only from local paths without registration
+The Object Browser SHALL use the shared type-library `IsLocalPath` check before checking file existence
+or reading a reference by path. UNC, device and non-fully-qualified paths SHALL be treated as unavailable,
+with a diagnostic log naming the reference. File loads SHALL use `LoadTypeLibEx` with `REGKIND_NONE`, so
+browsing a library cannot register it. This intentionally avoids VB6's unsafe remote-loading behaviour.
+
+#### Scenario: A reference names a remote or device path
+- **WHEN** a reference's library path is a UNC or device path
+- **THEN** neither the existence check nor the type-library reader is called for that path
+- **AND** its metadata is unavailable and the refusal log names the reference
+
+#### Scenario: A reference names a local file
+- **WHEN** a reference names an existing fully qualified local file accepted by the shared check
+- **THEN** the browser reads its types without registering the library

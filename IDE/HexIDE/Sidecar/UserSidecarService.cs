@@ -299,12 +299,9 @@ public class UserSidecarService : IUserSidecarService
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A document whose file is missing is still a document of the project</b>, and that is why this cannot be
-    /// "the project's names". A module whose file cannot be found is loaded empty, so the code window shows only
-    /// the header it would have, and nothing about it says how many lines its file had or how long its header was.
-    /// Its entries can neither be moved nor checked against its lines, so they are carried in the file untouched,
-    /// for an opening that finds the file to apply. A form whose file is missing is never loaded at all, and a
-    /// file that cannot be read never becomes a document, so both of those are already names the project lacks.
+    /// A member whose file is missing is preserved rather than loaded. Its entries can neither be moved nor
+    /// checked against its lines, so they are carried untouched for an opening that finds the file to apply.
+    /// A document's file may also disappear after loading, before the sidecar is read.
     /// </para>
     /// <para>
     /// A document with no file yet is not missing one: the code window shows it whole, header and all, so its
@@ -318,6 +315,20 @@ public class UserSidecarService : IUserSidecarService
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
             (document.AbsolutePath is { } file && !File.Exists(file) ? missing : owned).Add(document.Name);
+        foreach (var line in project.PreservedItemLines)
+        {
+            var eq = line.IndexOf('=');
+            if (eq < 0) continue;
+            var kind = line[..eq].Trim();
+            if (!kind.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var value = line[(eq + 1)..].Trim();
+            var semi = value.IndexOf(';');
+            missing.Add(semi >= 0 ? value[..semi].Trim() : SerializedProject.FileNameWithoutExtensionOf(value));
+        }
         owned.ExceptWith(missing);
         return owned;
     }

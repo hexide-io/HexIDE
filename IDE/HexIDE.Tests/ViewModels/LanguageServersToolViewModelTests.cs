@@ -210,6 +210,63 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         report.Should().NotContain("vba-lsp.pipe (connect)");
     }
 
+    [Fact]
+    public void ReportRedactsFailureDetailsAndConfigurationProblems()
+    {
+        const string Path = "C:/Fixtures/private-work/runtime/fake.dll";
+        var connection = Conn("broken", "vb6") with
+        {
+            Attempt = new LanguageConnectionAttempt(LanguageConnectionStage.Connecting,
+                [new LanguageConnectionStep(LanguageConnectionStage.Connecting,
+                    LanguageConnectionStepOutcome.StoppedHere, TimeSpan.Zero,
+                    $"could not start '{Path}'")], DateTimeOffset.UtcNow),
+        };
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([connection]);
+        registry.ConfigurationProblems.Returns([
+            new LanguageServerConfigProblem("broken", $"unseen command: '{Path}'", true),
+        ]);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        var redactor = new ConversationRedactor(_pseudonyms);
+        var expected = redactor.LocalPath(Path);
+
+        var report = vm.ToReportText(redactor);
+
+        report.Should().NotContain("private-work");
+        report.Should().Contain($"could not start '{expected}'")
+            .And.Contain($"unseen command: '{expected}'");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReportUsesTheWorkspaceRootBeforeMatchingUnquotedProse(bool fromProject)
+    {
+        const string Root = "C:/Fixtures/Private Account/My Workspace";
+        var connection = Conn("broken", "vb6") with
+        {
+            WorkspaceRootUri = fromProject ? null : "file:///C:/Fixtures/Private%20Account/My%20Workspace",
+            Attempt = new LanguageConnectionAttempt(LanguageConnectionStage.Connecting,
+                [new LanguageConnectionStep(LanguageConnectionStage.Connecting,
+                    LanguageConnectionStepOutcome.StoppedHere, TimeSpan.Zero,
+                    $"runtime not found at {Root}/runtime/fake.dll")], DateTimeOffset.UtcNow),
+        };
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([connection]);
+        registry.ConfigurationProblems.Returns([
+            new LanguageServerConfigProblem("broken", $"unseen command: {Root}/server.exe", true),
+        ]);
+        var projects = Substitute.For<HexIDE.IDE.IProjectManager>();
+        projects.LoadedProjects.Returns(fromProject
+            ? [new HexIDE.Runtime.ProjectElements.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "Example")
+                { WorkingDirectory = Root }]
+            : []);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, projects);
+
+        vm.ReportText.Should().Contain("<workspace>").And.NotContain("Private")
+            .And.NotContain("Account").And.NotContain("Workspace");
+    }
+
     // ── Arming ───────────────────────────────────────────────────────────────
 
     [Fact]

@@ -151,7 +151,8 @@ public class MainViewViewModelTests
             new AddinToolWindowService(),
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-            _debugController);
+            _debugController,
+            new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc));
     }
 
     // --- Add File: a file that joined read byte for byte ---

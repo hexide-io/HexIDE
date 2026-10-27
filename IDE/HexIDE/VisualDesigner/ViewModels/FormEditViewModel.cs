@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Labs.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -18,6 +19,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
@@ -676,10 +678,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass, RuntimeLibrary? library = null)
     {
+        if (componentClass is StatusBarComponentClass)
+        {
+            // VB6's toolbox double-click: full form width, 25 px high, centred on a whole pixel (#1087).
+            SpawnControlAt(componentClass, new Rect(0, Math.Floor((Form.Height - 25) / 2), Form.Width, 25), library: library);
+            return;
+        }
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;
-        if (settingsService.AlignToGrid)
+        if (settingsService.AlignToGrid && componentClass is not ImageListComponentClass)
         {
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);
@@ -1526,6 +1534,31 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     public void SaveFormAs() => projectService.SaveForm(formDefinition!, true).ListenErrors();
+
+    public async Task PreviewForm()
+    {
+        if (formDefinition is null || !HasWindowFrame)
+            return;
+
+        VBFormRuntime? preview = null;
+        try
+        {
+            preview = FormComponentClass.Instance.InstantiateWindow(Form.Instance, VBLoader.HasMenuBar(formDefinition));
+            // No SetCode, PrepareForm or Start: events have no interpreter to dispatch to (#2003).
+            preview.Content = VBLoader.SpawnComponents(formDefinition, preview.Context.ExecutionContext,
+                preview.Context.RootEnv, new StandaloneStandardLib(preview));
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
+                preview.Show(owner);
+            else
+                preview.Show();
+        }
+        catch (NotImplementedException e)
+        {
+            preview?.Close();
+            await windowManager.MessageBox(e.Message, localization.GetString("Str.Designer.PreviewForm"),
+                MessageBoxButtons.Ok, MessageBoxIcon.Error);
+        }
+    }
 
     public void ViewCode() => editorService.EditCode(formDefinition);
 

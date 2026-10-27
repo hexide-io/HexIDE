@@ -117,6 +117,8 @@ public partial class VB6BuiltIns
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
+        // LoadPicture accepts only the measured file-path shape; its other conversions refuse there.
+        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)) return arg;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
@@ -169,6 +171,7 @@ public partial class VB6BuiltIns
         RegisterMath(d);
         RegisterArray(d);
         RegisterInspection(d);
+        d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);

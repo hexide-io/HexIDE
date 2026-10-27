@@ -425,11 +425,11 @@ public class InteractClickTests
     }
 
     [AvaloniaTheory]
-    [InlineData("10", "'10' is not a point, a button, a key or double")]
+    [InlineData("10", "'10' is not a point, a button, a key, double or hold")]
     [InlineData("1,2,3", "'1,2,3' is not a point")]
     [InlineData("1,2 3,4", "'3,4' is not a point")]
     [InlineData("left right", "names two")]
-    [InlineData("wiggle", "'wiggle' is not a point, a button, a key or double")]
+    [InlineData("wiggle", "'wiggle' is not a point, a button, a key, double or hold")]
     public void A_value_click_cannot_read_is_refused_with_what_it_takes(string value, string why)
     {
         var scene = Build();
