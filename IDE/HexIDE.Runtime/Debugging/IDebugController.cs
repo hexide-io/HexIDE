@@ -116,6 +116,9 @@ public interface IDebugController
     /// the executing activation (captured for Locals only when this statement decides to break — no hot-path cost).</summary>
     ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame);
 
+    /// <summary>A breakpoint-only position leaves stepping at its existing statement positions.</summary>
+    ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame) => ValueTask.CompletedTask;
+
     /// <summary>Enter Break for the <c>Stop</c> statement (reason = StopStatement). Awaited by the interpreter so
     /// execution suspends exactly as it would at a breakpoint.</summary>
     ValueTask EnterBreakFromStopStatementAsync(int line, string module, IDebugFrame? frame);

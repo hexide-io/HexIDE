@@ -36,6 +36,8 @@ public sealed record ProcedureInfo(
     // Object` one is read late all the same, as ReturnsVariant says.
     bool ReturnsObject = false)
 {
+    public Antlr4.Runtime.ParserRuleContext? Declaration { get; init; }
+
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 
     /// <summary>

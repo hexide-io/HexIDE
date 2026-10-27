@@ -162,6 +162,88 @@ Each row follows the ones above it on the same list.
   save of all nine is `corpus/inbox-controls/pending/defaults`. In it the ImageCombo is named `s`, because one of the
   rig's keystrokes landed in its (Name) row, so don't read that name as VB6's.
 
+### What the designer draws (2026-10-27, #2266)
+
+**The probe.** The ImageList block VB6 wrote in `corpus/inbox-controls/pending/defaults`, moved to Left 600 and Top 600,
+and a Timer at 1800, 600, beside it.
+- **The software:** VB6's IDE, SP6 (6.00.9782), on Windows 10 at 96 dpi, without visual styles, under the default
+  system colours.
+- **The method:** the form was opened in the designer, deselected and screenshotted. Each box's pixels were then read
+  one by one.
+
+**The ImageList is a 38 × 38 box with a two-pixel raised edge.** It is not etched, and it differs from the Timer's edge:
+
+| Pixels | Colour | The system colour it is |
+|---|---|---|
+| the outer top row and left column | 227, 227, 227 | 3D light |
+| the inner top row and left column | 255, 255, 255 | 3D highlight |
+| the inner bottom row and right column | 160, 160, 160 | 3D shadow |
+| the outer bottom row and right column | 105, 105, 105 | 3D dark shadow |
+| the inside | 240, 240, 240 | 3D face, the form's colour |
+
+That is Windows' raised edge, both halves raised. **The picture inside** takes columns 4 to 33 and rows 10 to 33 of
+the box's 0 to 37. It is three stacked white cards outlined in black, offset by 4 pixels, the front one bearing an
+hourglass in green, navy, silver and grey. It has one teal pixel at column 26, row 32. Its right and bottom edges
+land where a 32 × 32 picture drawn at 2, 2, just inside the edge, would end. That fits the picture being such an image
+with transparent margins on its left and top, though the image itself wasn't seen.
+
+**The Timer is a 28 × 28 box with a different edge:**
+- the outer top row and left column are 3D light, and the outer bottom row and right column 3D dark shadow;
+- the inner top row and left column are 3D dark shadow, and the inner bottom row and right column 3D light.
+
+The outer half is raised and the inner half sunken, which is Windows' bump edge. A stopwatch is drawn inside.
+
+<details><summary>The ImageList's 38 × 38 pixels</summary>
+
+`l` 227 grey, `w` white, `s` 160 grey, `d` 105 grey, `.` 240 face, `k` black, `g` green 0,128,0, `n` navy 0,0,128,
+`c` silver 192,192,192, `m` grey 128,128,128, `t` teal 0,128,128.
+
+```
+llllllllllllllllllllllllllllllllllllld
+lwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwsd
+lw..................................sd
+lw..................................sd
+lw..................................sd
+lw..................................sd
+lw..................................sd
+lw..................................sd
+lw..................................sd
+lw..................................sd
+lw..........kkkkkkkkkkkkkkkkkkkkkk..sd
+lw..........kwwwwwwwwwwwwwwwwwwwwk..sd
+lw..........kwwwwwwwwwwwwwwwwwwwwk..sd
+lw..........kwwwwwwwwwwwwwwwwwwwwk..sd
+lw......kkkkkkkkkkkkkkkkkkkkkkwwwk..sd
+lw......kwwwwwwwwwwwwwwwwwwwwkwwwk..sd
+lw......kwwwwwwwwwwwwwwwwwwwwkwwwk..sd
+lw......kwwwwwwwwwwwwwwwwwwwwkwwwk..sd
+lw..kkkkkkkkkkkkkkkkkkkkkkwwwkwwwk..sd
+lw..kwwwwwwwwwwwwwwwwwwwwkwwwkwwwk..sd
+lw..kwwwwgggggggnnnnnwwwwkwwwkwwwk..sd
+lw..kwwwwwccccccccccwwwwwkwwwkwwwk..sd
+lw..kwwwwwccccccccccwwwwwkwwwkwwwk..sd
+lw..kwwwwwwmmmmmmmmwwwwwwkwwwkwwwk..sd
+lw..kwwwwwwwwmmmmwwwwwwwwkwwwkwwwk..sd
+lw..kwwwwwwwwwccwwwwwwwwwkwwwkkkkk..sd
+lw..kwwwwwwwwwccwwwwwwwwwkwwwk......sd
+lw..kwwwwwwwwccccwwwwwwwwkwwwk......sd
+lw..kwwwwwwccccccccwwwwwwkwwwk......sd
+lw..kwwwwwccccmmccccwwwwwkkkkk......sd
+lw..kwwwwwcccmmmmcccwwwwwk..........sd
+lw..kwwwwgggggggnnnnnwwwwk..........sd
+lw..kwwwwwwwwwwwwwwwwwwwwkt.........sd
+lw..kkkkkkkkkkkkkkkkkkkkkk..........sd
+lw..................................sd
+lw..................................sd
+lssssssssssssssssssssssssssssssssssssd
+dddddddddddddddddddddddddddddddddddddd
+```
+
+</details>
+
+**Unmeasured:** the box under a non-default colour scheme or a dark one; the CommonDialog's and the other
+no-run-time-appearance controls' boxes.
+
 ### The Properties window and the property pages
 
 - **The Properties window lists 12 rows.** Read on the console: (About), (Custom), (Name), BackColor, ImageHeight,

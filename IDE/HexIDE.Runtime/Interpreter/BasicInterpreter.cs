@@ -1016,6 +1016,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         try
         {
+            if (SuppressImplicitDeclaration && env.TryGetVariableLocation(name, out var location)
+                && !ExecutionContext.State.TryRead(location, out _))
+                throw new Debugging.ImmediateEvalException($"Execution slot {location} is out of scope.");
             found = ExecutionContext.TryGetVariable(env, name, out value);
             need = null;
             return true;
@@ -1357,41 +1360,39 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
 
         var callee = (baseEnv ?? owner.ModuleEnv).CreateProcedureScope();
+        callee.AllocatedSlots = new List<int>();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by
         // BindParameters) then the body's own Dim locals (appended by the StatementExecutor in declaration order).
         // NOT the return-name (its hold transfers to the caller) and NOT ByRef params (they alias the caller slot).
         var ownedSlots = new List<int>();
         callee.ReturnName = proc.IsFunction ? proc.Name : null;
         bool countMe = me is not null && !IsLifecycleHook(proc.Name);
-        if (me is { } m)
-        {
-            ExecutionContext.AllocVariable(callee, "Me", m);
-            if (countMe) AddRef(m);   // a running (non-lifecycle) method holds Me → defers a last-ref drop to return
-        }
-        // The slots that stand for a UDT field (#1451) or an array element (#1455) a ByRef parameter was given, unlinked when
-        // the call returns, which also unlocks an element's array.
         var refSlots = new List<int>();
-        try
-        {
-            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
-        }
-        catch
-        {
-            foreach (var slot in refSlots)
-                ExecutionContext.State.ReleaseRef(slot);
-            throw;
-        }
-        // The return slot is typed as the declaration says, as a Dim's is, so a store into the name converts there, and a
-        // failure is raised in the Function, where its own handler traps it (measured, #1444: `FI = 40000` in a Function
-        // As Integer is 6 inside it, `FD = "0.5"` As Date is 00:05, `FS = 5` As String "5", and `FB = "abc"` As Boolean 13).
-        if (proc.IsFunction)
-            ExecutionContext.AllocVariable(callee, proc.Name, SeedReturnValue(proc),
-                proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? proc.ReturnType : null);
         Vb6Value? ret = null;
         bool completed = false;
+        bool holdsMe = false;
+        bool hasReturnSlot = false;
         try
         {
-            if (proc.Body != null)
+            if (me is { } m)
+            {
+                ExecutionContext.AllocVariable(callee, "Me", m);
+                if (countMe)
+                {
+                    AddRef(m);
+                    holdsMe = true;
+                }
+            }
+            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
+            // The return slot is typed as the declaration says, so a failed store is raised inside the Function,
+            // where its own handler traps it (measured, #1444).
+            if (proc.IsFunction)
+            {
+                ExecutionContext.AllocVariable(callee, proc.Name, SeedReturnValue(proc),
+                    proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? proc.ReturnType : null);
+                hasReturnSlot = true;
+            }
+            if (proc.Body != null || proc.Declaration != null)
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
                 // A class's or a form's Statics are its instance's, and a standard module's are the run's (#1491).
@@ -1416,11 +1417,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 try
                 {
                     await executor.HoistDeclaredLocals(proc);
-                    await executor.Execute(proc.Body);
+                    if (proc.Declaration is VB6Parser.SubStmtContext declaration)
+                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true);
+                    if (proc.Body is { } procedureBody)
+                        await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
                     // goes on with what the call returned (#766).
                     if (Events is { } events)
                         await events.WaitForRaised();
+                    // Keep entry procedures' existing stepping positions while honouring their End breakpoints:
+                    // a startup step carries on from Initialize into Load's first statement (#2172 review).
+                    if ((proc.Body == null || executor.ReachedProcedureEnd) && proc.Declaration is { } ending)
+                        await executor.ProcedureBoundary(ending.Stop.Line,
+                            breakpointOnly: isEntry || ending is VB6Parser.PropertyGetStmtContext);
                 }
                 finally { activationStack.Remove(executor); }
             }
@@ -1444,26 +1453,34 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally
         {
-            foreach (var slot in refSlots)
-                ExecutionContext.State.ReleaseRef(slot);
-            // Scope-exit release: this activation's owned holds (ByVal params + Dim locals, Dim locals among
-            // themselves in declaration order), then Me. In a `finally` so an unhandled-error unwind still
-            // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
-            // the NORMAL path — its hold transfers to the caller. But on an ERROR exit (the body threw, so no
-            // caller adopts it), release the return-name slot too, or a `Set F = New T` before a fault leaks.
-            // A procedure's scalar locals, Variants and object references, are released before its arrays, each in
-            // declaration order (measured, #970: `Dim a(0) As Foo, o` terminates o's object first, and two arrays or
-            // two scalars go in the order they were declared).
-            foreach (var slot in ownedSlots)
-                if (!ExecutionContext.State.IsDeclaredArray(slot))
-                    await ReleaseRef(ExecutionContext.State[slot]);
-            foreach (var slot in ownedSlots)
-                if (ExecutionContext.State.IsDeclaredArray(slot))
-                    await ReleaseRef(ExecutionContext.State[slot]);
-            if (countMe && me is { } m2)
-                await ReleaseRef(m2);
-            if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
-                await ReleaseRef(orphan);
+            try
+            {
+                foreach (var slot in refSlots)
+                    ExecutionContext.State.ReleaseRef(slot);
+                // Scope-exit release: this activation's owned holds (ByVal params + Dim locals, Dim locals among
+                // themselves in declaration order), then Me. In a `finally` so an unhandled-error unwind still
+                // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
+                // the NORMAL path — its hold transfers to the caller. But on an ERROR exit (the body threw, so no
+                // caller adopts it), release the return-name slot too, or a `Set F = New T` before a fault leaks.
+                // A procedure's scalar locals, Variants and object references, are released before its arrays, each in
+                // declaration order (measured, #970: `Dim a(0) As Foo, o` terminates o's object first, and two arrays or
+                // two scalars go in the order they were declared).
+                foreach (var slot in ownedSlots)
+                    if (!ExecutionContext.State.IsDeclaredArray(slot))
+                        await ReleaseRef(ExecutionContext.State[slot]);
+                foreach (var slot in ownedSlots)
+                    if (ExecutionContext.State.IsDeclaredArray(slot))
+                        await ReleaseRef(ExecutionContext.State[slot]);
+                if (holdsMe && me is { } m2)
+                    await ReleaseRef(m2);
+                if (!completed && hasReturnSlot && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
+                    await ReleaseRef(orphan);
+            }
+            finally
+            {
+                foreach (var slot in callee.AllocatedSlots)
+                    ExecutionContext.State.Free(slot);
+            }
         }
         // A procedure whose last statement raised an event that reached End, or faulted, has no statement left for
         // a gate to stop: the event's boundary took the unwind as a clean stop, so the statement simply returned.
@@ -1723,7 +1740,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                                                                                    // (NOT counted — the caller's slot already holds the ref)
                 else if (refAliasable)
                 {
-                    var slot = ExecutionContext.State.AllocRef(arg.Ref!);
+                    var slot = ExecutionContext.State.AllocRef(arg.Ref!, callee);
                     refSlots.Add(slot);
                     callee.DefineVariable(p.Name, slot);
                 }

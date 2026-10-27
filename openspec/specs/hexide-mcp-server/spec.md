@@ -14,16 +14,6 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
-### Requirement: Click and invoke SHALL refuse disabled targets with the reason
-`interact` SHALL refuse `click` and `invoke` before sending input to a disabled target or a target in a
-disabled window. When a modal dialog blocks that window, the refusal SHALL identify the dialog and tell
-the caller how to find and answer it first. Otherwise it SHALL say the target must be enabled first.
-
-#### Scenario: A reset prompt disables the running form
-- **WHEN** a caller clicks or invokes a button in the form while a modal reset prompt disables it
-- **THEN** nothing is pressed or invoked
-- **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
-
 ### Requirement: Removing a selected list or tree item SHALL report the resulting selection
 `interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
 report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
@@ -37,6 +27,19 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 #### Scenario: Removing an unselected row
 - **WHEN** the target list or tree row is not selected
 - **THEN** the selection remains unchanged and the reply says the target was not selected
+
+### Requirement: Inspection SHALL report what a tree has selected
+`inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
+reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
+SHALL be read from the tree itself.
+
+#### Scenario: A selected watch row
+- **WHEN** a Watches row is selected and the Watches tree is inspected
+- **THEN** `selectionItems` names that row
+
+#### Scenario: A cleared tree
+- **WHEN** the row is removed from the selection and the tree is inspected again
+- **THEN** `selectionItems` is empty
 
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
@@ -159,6 +162,13 @@ day it lands, with nothing to add.
 - **AND** the category row and its toggle are showing
 - **THEN** the refusal SHALL name the category as displayed and tell the caller to `toggle` the Button in that row
 - **AND** the selection and category expansion remain unchanged
+
+#### Scenario: A hidden control has showing copies
+- **WHEN** `interact` refuses a provider or pointer action on a hidden control
+- **AND** the same window contains showing controls of the same type with the same label or non-empty automation ID
+- **THEN** the refusal SHALL give the showing copy's addressable path when there is one, or the total count and first three paths when there are several
+- **AND** no action is performed; the caller chooses which path to target
+- **AND** when no copy shows, the existing guidance to make the control show remains
 
 #### Scenario: A grid recycles a row after filtering
 - **WHEN** filtering a DataGrid leaves recycled rows in its rows presenter
@@ -486,6 +496,77 @@ restored position.
 - **WHEN** a Minimized or Maximized request goes unconfirmed on an X11 display with no window manager
 - **THEN** the reply says no window manager is running, so nothing will apply it, and does not direct the caller to re-read
 
+### Requirement: An open popup a control owns SHALL be in the dump and the snapshot
+An open context menu or flyout SHALL appear under the control that owns it in `dump_visual_tree`, with its items
+addressable, and SHALL be drawn in `take_snapshot`, however it is attached: a ContextMenu, a Button's Flyout, a
+ContextFlyout, or a flyout attached with `FlyoutBase.SetAttachedFlyout`, to a Button as to any other control.
+
+#### Scenario: A running Toolbar's dropdown
+- **WHEN** a running form's Toolbar opens a dropdown's menu, a flyout attached to its button
+- **THEN** the dump lists the menu's items under that button, and the snapshot shows the menu
+
+### Requirement: invoke_menu_item SHALL reach what a click on the menu reaches
+`invoke_menu_item` SHALL raise each submenu's SubmenuOpened along its path before reading that submenu's items, as
+opening it does, so a submenu filled then holds its items. It SHALL match an item whose header is a control by its
+automation name, or else its text, and SHALL list that name, never a type name, when a segment is missed.
+
+#### Scenario: A submenu nothing has opened yet
+- **WHEN** a path runs through a submenu that a SubmenuOpened handler fills, in a session where nothing has opened it
+- **THEN** the handler runs, and the path reaches the item it added
+
+#### Scenario: An item with a TextBlock header
+- **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
+- **THEN** the item is reached, and a miss in that menu lists it by that name
+
+### Requirement: hover SHALL report a tip by the text it shows
+`hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
+blocks in order. A tip with no text to read SHALL be reported as such, never by a type's name, and an open tip whose
+text has not appeared yet SHALL be read again until it does or the dwell ends.
+
+#### Scenario: A carried control's box in the designer
+- **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
+- **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
+
+### Requirement: hover SHALL report where an opened tip is
+When a tip opens during `hover`, the reply SHALL give its bounds in the window, in the units of `inspect_element`'s
+`boundingRect`, and SHALL say how far its top-left is from the point hovered, since the tip closes when the hover ends.
+
+#### Scenario: A toolbar button's tip
+- **WHEN** `hover` opens the Add Form button's tip
+- **THEN** the reply's `tipBounds` places the tip in the window, and its detail says where that is from the point hovered
+
+### Requirement: Hiding a tool window SHALL close that window alone
+`set_tool_window_visible` with `visible: false` SHALL close the named tool window alone, as its tab's close button does,
+leaving open any other tool window tabbed in the same dock. Its reply SHALL say what the window is now, and SHALL name
+any other tool window that opened or closed with it.
+
+#### Scenario: Two tools tabbed in one dock
+- **WHEN** the Toolbox and the Properties window are tabs of one dock and a caller hides Properties
+- **THEN** only Properties closes, the Toolbox stays open, and the reply is "Properties is now hidden."
+
+### Requirement: press_key SHALL refuse a disabled control
+`press_key` SHALL refuse a target that is not effectively enabled with the refusal `interact` gives a disabled target,
+and SHALL NOT raise the key on it by any route. `inspect_element` SHALL
+report `isKeyboardFocusable` false for such a control.
+
+#### Scenario: The disabled region combo in Options
+- **WHEN** `press_key` presses Down on Options → Language's region combo while it is disabled
+- **THEN** the reply is a refusal saying the combo is disabled and nothing was done, and no key reaches it
+
+### Requirement: hover SHALL say what took the tip when input it did not send moved the pointer
+When no tip opens during `hover`'s watch and pointer input it did not send reached the window meanwhile, the reply SHALL
+say so as the cause: the real mouse, or another hover running at the same time, with where the pointer went and the control
+it is over. It SHALL say to move the real mouse off the window, or to hover one control at a time. It SHALL NOT offer either
+cause when no such input came, and SHALL NOT count routed pointer events a tool raises on a control, which cannot move a tip.
+
+#### Scenario: The real mouse resting over the window
+- **WHEN** the real mouse moves the pointer onto another control during the watch, and no tip opens
+- **THEN** the reply names the real mouse, where the pointer went and what it is over, and says to move the mouse off the window
+
+#### Scenario: Two hovers at once
+- **WHEN** another hover moves the pointer elsewhere during the watch, and no tip opens
+- **THEN** the reply names the other hover, not the real mouse, and says to hover one control at a time
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
@@ -500,6 +581,37 @@ Tool descriptions SHALL explain how to map inspected window-relative bounds into
 - **AND** the reply reports that shift as `windowOffsetX`
 - **AND** a window-relative x coordinate maps to `x * scale + windowOffsetX` in the full image
 - **AND** in the inline copy it maps to `(x + windowOffsetX / scale) * inlineScale`
+
+### Requirement: Automation SHALL be able to set the lock-key state a running program reads
+In a DEBUG build, `set_lock_key` SHALL set a lock key on or off as running programs read it, without changing the
+machine's keyboard, or return it to the keyboard's toggle. A StatusBar's key panels SHALL prefer a set state and
+repaint when it changes. Every reply SHALL list all four keys with their state and its source, and a refused call SHALL
+change nothing.
+
+#### Scenario: Checking a Caps panel's on state
+- **WHEN** a running form's StatusBar has a Caps panel and `set_lock_key` sets CapsLock On
+- **THEN** the panel draws its text black, and the reply lists CapsLock as on with source Set
+
+#### Scenario: Returning a key to the keyboard
+- **WHEN** `set_lock_key` sets CapsLock to Keyboard
+- **THEN** the panel follows the keyboard's own toggle again, and the reply gives that key's source as Keyboard on Windows
+
+### Requirement: Snapshots show what the screen shows at any scaling
+
+A snapshot SHALL draw the window and each popup as the compositor draws them on screen, so that text a control draws
+after popping a clip appears at every display scaling. A window in no frame yet SHALL be waited for. If the compositor
+gives no picture in time, the snapshot SHALL still be taken another way, and its `note` SHALL say so and that such text
+may be missing.
+
+#### Scenario: Clipped text at 150%
+
+- **WHEN** a control draws text in a clip, pops it, and draws more text in another, and the display is at 150%
+- **THEN** both texts are in the snapshot, where the screen draws them
+
+#### Scenario: No picture from the compositor
+
+- **WHEN** the compositor gives no picture of the window in time
+- **THEN** the snapshot is still taken, and its `note` says it was drawn another way and may lack such text
 
 ### Requirement: Automation SHALL be able to start with a pathless project
 The `--newproject-unsaved` launch flag SHALL create a Standard EXE and skip the startup dialog without saving
@@ -674,6 +786,37 @@ pressing.
 - **WHEN** a drag pressed on a tool window's title strip releases where no drop target is
 - **THEN** the reply says the layout is unchanged, so nothing was docked
 
+### Requirement: Disabled interaction targets explain their refusal
+The server SHALL refuse `interact` provider and pointer actions on an effectively disabled target before
+acting, naming the control, `"isEnabled": false`, and the refused action, and stating that nothing was
+done. The refusal SHALL name the disabling container when enablement is inherited. When a modal dialog
+blocks the window, it SHALL name the dialog and direct the caller to find and answer it first. Reflection
+actions `invoke_command` and `set_property` SHALL continue to act on the view model.
+
+#### Scenario: Invoking a disabled toolbar button
+- **WHEN** `interact` invokes a showing button disabled directly or through its container
+- **THEN** the reply explains that it is disabled and nothing was done, without reporting an exception
+
+#### Scenario: A disabled Frame contains an enabled button
+- **WHEN** a caller acts on a button whose Frame disables it
+- **THEN** the refusal names the Frame and the action, and nothing is done
+
+#### Scenario: A reset prompt disables the running form
+- **WHEN** a caller acts on a control while a modal reset prompt disables its window
+- **THEN** the refusal names the blocking dialog and directs the caller to answer it
+- **AND** nothing is done
+
+### Requirement: A double click's second press SHALL land where the first did
+The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is
+sent, with a click count of 2, even when the first click replaced what it landed on or the addressed control. It SHALL be
+refused only when the window is hidden or closed, or nothing takes the pointer there. When the second press reached a
+different element from the first, the reply SHALL say so and name it.
+
+#### Scenario: A control that rebuilds itself on a click
+- **WHEN** `click` with `double` targets a Toolbar that replaces its buttons on each release
+- **THEN** the second press reaches the new button at that point, with a click count of 2
+- **AND** the reply says the first click replaced what it landed on, and names where the second press went
+
 #### Scenario: A drag that could not have docked
 
 - **WHEN** a drag in Dock's layout is pressed off Dock's drag areas, as a form designer drag is
@@ -769,3 +912,21 @@ AutomationIds, so the dump lists them and `inspect_element` reads their bounds.
 
 - **WHEN** an element's adorner has no AutomationId and holds nothing meaningful
 - **THEN** the dump adds nothing for it
+
+### Requirement: Control identity in interaction replies
+
+The shared control description used by interaction replies SHALL append the control's Avalonia name
+in brackets to its concrete type, falling back to its automation id when the name is empty, and to
+the bare type when neither identifier exists. This includes click press/release descriptions and
+disabled-window refusals.
+
+#### Scenario: Running form control identified in click and refusal
+
+- **WHEN** a caller clicks a running form's `Button[cmdMark]`, whose concrete type is `VBCommandButton`
+- **THEN** the click reply describes it as `VBCommandButton[cmdMark]`
+- **AND** a click refused because a modal dialog disables its window uses the same description
+
+#### Scenario: Toolbar button identified without an Avalonia name
+
+- **WHEN** a caller clicks an unnamed button whose automation id is `Standard.OpenProject`
+- **THEN** the reply describes it as `Button[Standard.OpenProject]`

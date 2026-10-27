@@ -59,5 +59,39 @@ as [a Timer's designer position](a-controls-position-at-run-time.md#a-timers-des
 - 343 reads "Object not an array" early-bound and late-bound. Through `CallByName` it reads "Application-defined or
   object-defined error".
 
-**Unmeasured:** members outside these 19, such as WhatsThisHelpID and the drag members; and what the IDE's Locals
-window shows for a Timer.
+**Unmeasured:** members outside these 19, such as WhatsThisHelpID and the drag members.
+
+### In the IDE's Locals window (#2289)
+
+**The probe.** The same form ran in VB6's IDE, SP6 (6.00.9782). Its Form_Load was `Dim t As Object`, `Set t = Timer1`
+and `Stop`. Paused there, the Locals window was widened and these nodes expanded: `t`, then `Me`, then `Me`'s Timer1
+and Timer2, then Timer2's element.
+
+**What the window showed**, Expression, Value and Type exactly as written:
+
+| Expression | Value | Type |
+|---|---|---|
+| `t` | | `Object/Timer` |
+| `[_Default]` | `False` | `Boolean` |
+| `Enabled` | `False` | `Boolean` |
+| `Index` | `<Object not an array>` | `Integer` |
+| `Interval` | `1000` | `Long` |
+| `Name` | `"Timer1"` | `String` |
+| `Parent`, with an expander | | `Form/Form1` |
+| `Tag` | `"t1"` | `String` |
+
+- **Those seven rows are all a Timer lists.** There is no Left and no Top, and none of the 438 members.
+- **Under `Me`, Timer1 is a node of type `Timer/Timer`, with the same seven rows.**
+- **Timer2, the control array, is also a `Timer/Timer` node.** Its one child is `Item 1`, of type
+  `Variant/Object/Timer`, numbered from 1 though the element's Index is 0. That child lists the same seven rows, with
+  `[_Default]` `True`, `Enabled` `True`, `Index` `0`, `Interval` `250`, `Name` `"Timer2"` and `Tag` `""`.
+- **`Me` ends with `Item 1` and `Item 2`**, of type `Variant/Object/Timer`, after its own members and controls.
+- **A listed member whose read raises shows that error's text in angle brackets**, with the member's declared type:
+  - a Timer's Index reads `<Object not an array>`, type `Integer`;
+  - `Me`'s first row, `[_Default]`, reads `<Wrong number of arguments or invalid property assignment>`, type
+    `Object`.
+
+**What this settles for #2289.** VB6's convention for a listed member that raises is the error's text in angle
+brackets. But Left and Top aren't listed members, so VB6 shows nothing for them: there are no rows.
+
+**Unmeasured:** a Timer created with `Controls.Add`; the Watches window's view of the same nodes.

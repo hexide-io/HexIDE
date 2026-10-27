@@ -81,6 +81,9 @@ public class ExecutionEnvironment
     // Per activation, never cloned: a Function's own name still resolves to a recursive call (#741).
     internal string? ReturnName { get; set; }
 
+    // Only RunProcedure enables ownership; a clone never inherits another activation's slots.
+    internal List<int>? AllocatedSlots { get; set; }
+
     // Calls own only their parameters, locals, return name and Me; module/instance names stay in their scope.
     internal ExecutionEnvironment CreateProcedureScope() => new() { moduleScope = this };
 
