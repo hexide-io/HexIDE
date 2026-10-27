@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -82,5 +83,29 @@ public class SnapshotScalingTests : WindowTestFixture
             second.Should().BeGreaterThan(0, "the text after the first clip is popped is drawn where the screen draws it");
         }
         finally { window.Close(); }
+    }
+
+    // A compositor that gives no picture in time costs the snapshot nothing but its fidelity, and the note says which.
+    [AvaloniaFact]
+    public async Task With_no_picture_from_the_compositor_a_render_target_draws_it_and_the_note_says_so()
+    {
+        var wait = SnapshotComposer.CompositorWait;
+        SnapshotComposer.CompositorWait = TimeSpan.Zero;
+        var window = new Window { Width = 200, Height = 100, Content = new Border { Background = Brushes.White } };
+        window.Show();
+        try
+        {
+            using var snapshot = await SnapshotComposerTests.Drawn(SnapshotComposer.ComposeAsync(window,
+                new PixelRect(0, 0, 300, 150), [], 1.5));
+
+            snapshot.Image.PixelSize.Should().Be(new PixelSize(300, 150));
+            snapshot.Fallback.Should().StartWith("The compositor gave no picture of 'Border' within 0 s, so a render target drew it instead.")
+                .And.Contain("can leave out text a control draws after popping a clip");
+        }
+        finally
+        {
+            SnapshotComposer.CompositorWait = wait;
+            window.Close();
+        }
     }
 }
