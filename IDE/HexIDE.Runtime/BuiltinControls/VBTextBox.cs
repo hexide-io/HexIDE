@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
+using Avalonia.Input;
 using Avalonia.Media;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -39,6 +40,21 @@ public class VBTextBox : TextBox
     {
         base.OnApplyTemplate(e);
         textPresenter = e.NameScope.Find<TextPresenter>("PART_TextPresenter");
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!MultiLine && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Home or Key.End)
+        {
+            // Avalonia's ClearSelection returns to the old anchor when End leaves CaretIndex unchanged (#2423).
+            var position = e.Key == Key.Home ? 0 : Text?.Length ?? 0;
+            SetCurrentValue(CaretIndexProperty, position);
+            SetCurrentValue(SelectionStartProperty, position);
+            SetCurrentValue(SelectionEndProperty, position);
+            e.Handled = true;
+            return;
+        }
+        base.OnKeyDown(e);
     }
 
     protected override Size MeasureOverride(Size availableSize)
