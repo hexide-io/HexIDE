@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "“{1}”未添加。它的名称是“{0}”，而该名称已经是此工程中某个窗体、模块或类的名称。",
     "Str.Naming.Msg.AdoptedNameNotValid": "“{1}”未添加。它的名称是“{0}”，而该名称无效：名称以字母开头，其后只能包含字母、数字和下划线。",
     "Str.ProjectLoad.ModuleFailed": "无法加载模块 {0}：{1}",
+    "Str.ProjectLoad.MemberNotFound": "找不到项目文件：{0}",
     "Str.ProjectLoad.FormNotFound": "找不到窗体文件：{0}",
     "Str.ProjectLoad.FormFailed": "无法加载窗体 {0}",
     "Str.ProjectLoad.FormFailedWithReason": "无法加载窗体 {0}：{1}",

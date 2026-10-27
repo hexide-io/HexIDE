@@ -93,6 +93,8 @@ public sealed class ProjectLoader
                         module.UpdateCode(moduleSource);
                     }
                 }
+                else
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", modulePath);
                 project.AddModule(module);
                 // Only once it has joined: a notice that the file will save back unchanged is untrue of a
                 // member that then failed to load.
@@ -121,7 +123,7 @@ public sealed class ProjectLoader
             {
                 if (!File.Exists(formAbsolutePath))
                 {
-                    errorSink.LogError("Str.ProjectLoad.FormNotFound", "Form file not found: {0}", formPath);
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", formPath);
                     // Preserve the Form= line so the missing node survives an open->save round-trip
                     // (mirrors modules, which are kept even when their file is absent). Not loaded into
                     // the model — a future project-explorer spec may surface it with a "missing" glyph.
@@ -221,6 +223,8 @@ public sealed class ProjectLoader
                         }
                     }
                 }
+                else
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", modulePath);
                 project.AddModule(module);
                 // Only once it has joined: a notice that the file will save back unchanged is untrue of a
                 // member that then failed to load.

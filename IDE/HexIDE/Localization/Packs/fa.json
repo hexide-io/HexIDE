@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' افزوده نشد. نام آن '{0}' است که هم‌اکنون نام یک فرم، ماژول یا کلاس در این پروژه است.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' افزوده نشد. نام آن '{0}' است که معتبر نیست: نام با یک حرف آغاز می‌شود و با حروف، ارقام و زیرخط ادامه می‌یابد.",
     "Str.ProjectLoad.ModuleFailed": "بارگذاری ماژول {0} ناموفق بود: {1}",
+    "Str.ProjectLoad.MemberNotFound": "فایل پروژه پیدا نشد: {0}",
     "Str.ProjectLoad.FormNotFound": "فایل فرم یافت نشد: {0}",
     "Str.ProjectLoad.FormFailed": "بارگذاری فرم {0} ناموفق بود",
     "Str.ProjectLoad.FormFailedWithReason": "بارگذاری فرم {0} ناموفق بود: {1}",

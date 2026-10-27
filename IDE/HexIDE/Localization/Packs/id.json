@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' tidak ditambahkan. Berkas itu bernama '{0}', yang sudah menjadi nama sebuah form, modul, atau kelas di proyek ini.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' tidak ditambahkan. Berkas itu bernama '{0}', dan itu bukan nama yang valid: nama diawali dengan huruf dan dilanjutkan dengan huruf, angka, dan garis bawah.",
     "Str.ProjectLoad.ModuleFailed": "Gagal memuat modul {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Berkas proyek tidak ditemukan: {0}",
     "Str.ProjectLoad.FormNotFound": "Berkas formulir tidak ditemukan: {0}",
     "Str.ProjectLoad.FormFailed": "Gagal memuat formulir {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Gagal memuat formulir {0}: {1}",

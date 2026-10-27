@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' không được thêm vào. Nó có tên là '{0}', vốn đã là tên của một biểu mẫu, mô-đun hoặc lớp trong dự án này.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' không được thêm vào. Nó có tên là '{0}', vốn không phải là tên hợp lệ: tên bắt đầu bằng một chữ cái, sau đó là các chữ cái, chữ số và dấu gạch dưới.",
     "Str.ProjectLoad.ModuleFailed": "Không thể tải mô-đun {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Không tìm thấy tệp dự án: {0}",
     "Str.ProjectLoad.FormNotFound": "Không tìm thấy tệp biểu mẫu: {0}",
     "Str.ProjectLoad.FormFailed": "Không thể tải biểu mẫu {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Không thể tải biểu mẫu {0}: {1}",

@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' не додано. Його ім'я — '{0}', а це вже ім'я форми, модуля або класу в цьому проєкті.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' не додано. Його ім'я — '{0}', а це недійсне ім'я: ім'я починається з літери, а далі складається з літер, цифр і символів підкреслення.",
     "Str.ProjectLoad.ModuleFailed": "Не вдалося завантажити модуль {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Файл проєкту не знайдено: {0}",
     "Str.ProjectLoad.FormNotFound": "Файл форми не знайдено: {0}",
     "Str.ProjectLoad.FormFailed": "Не вдалося завантажити форму {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Не вдалося завантажити форму {0}: {1}",

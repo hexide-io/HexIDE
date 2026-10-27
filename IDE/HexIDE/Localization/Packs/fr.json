@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui est déjà celui d'une feuille, d'un module ou d'une classe dans ce projet.",
     "Str.Naming.Msg.AdoptedNameNotValid": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui n'est pas un nom valide : un nom commence par une lettre et se poursuit par des lettres, des chiffres et des traits de soulignement.",
     "Str.ProjectLoad.ModuleFailed": "Impossible de charger le module {0} : {1}",
+    "Str.ProjectLoad.MemberNotFound": "Fichier du projet introuvable : {0}",
     "Str.ProjectLoad.FormNotFound": "Fichier de feuille introuvable : {0}",
     "Str.ProjectLoad.FormFailed": "Impossible de charger la feuille {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Impossible de charger la feuille {0} : {1}",

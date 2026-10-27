@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' जोड़ी नहीं गई। इसका नाम '{0}' है, जो इस प्रोजेक्ट में पहले से ही किसी फ़ॉर्म, मॉड्यूल या क्लास का नाम है।",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' जोड़ी नहीं गई। इसका नाम '{0}' है, जो मान्य नाम नहीं है: नाम अक्षर से शुरू होता है और उसके बाद अक्षर, अंक और अंडरस्कोर आ सकते हैं।",
     "Str.ProjectLoad.ModuleFailed": "मॉड्यूल {0} लोड नहीं किया जा सका: {1}",
+    "Str.ProjectLoad.MemberNotFound": "प्रोजेक्ट फ़ाइल नहीं मिली: {0}",
     "Str.ProjectLoad.FormNotFound": "फ़ॉर्म फ़ाइल नहीं मिली: {0}",
     "Str.ProjectLoad.FormFailed": "फ़ॉर्म {0} लोड नहीं किया जा सका",
     "Str.ProjectLoad.FormFailedWithReason": "फ़ॉर्म {0} लोड नहीं किया जा सका: {1}",

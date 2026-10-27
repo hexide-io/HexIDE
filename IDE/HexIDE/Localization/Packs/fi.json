@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka ei ole kelvollinen nimi: nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla.",
     "Str.ProjectLoad.ModuleFailed": "Moduulin {0} lataaminen epäonnistui: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Projektitiedostoa ei löytynyt: {0}",
     "Str.ProjectLoad.FormNotFound": "Lomaketiedostoa ei löytynyt: {0}",
     "Str.ProjectLoad.FormFailed": "Lomakkeen {0} lataaminen epäonnistui",
     "Str.ProjectLoad.FormFailedWithReason": "Lomakkeen {0} lataaminen epäonnistui: {1}",

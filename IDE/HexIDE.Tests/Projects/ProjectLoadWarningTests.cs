@@ -19,7 +19,7 @@ public class ProjectLoadWarningTests : IDisposable
         Directory.CreateDirectory(dir);
         localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>() switch
         {
-            "Str.ProjectLoad.FormNotFound" => "Formular fehlt: {0}",
+            "Str.ProjectLoad.MemberNotFound" => "Projektdatei fehlt: {0}",
             "Str.ProjectLoad.Heading" => "Warnungen:",
             "Str.ProjectLoad.MoreWarnings" => "Weitere: {0}",
             "Str.ProjectLoad.UnknownControl" => "Klasse {0}, Steuerelement {1}",
@@ -77,7 +77,7 @@ public class ProjectLoadWarningTests : IDisposable
     [Theory]
     [InlineData("UserControl=Control1.ctl", "Control1.ctl", "ModuleFailed", true)]
     [InlineData("Module=Module1; Module1.bas", "Module1.bas", "ModuleFailed", true)]
-    [InlineData("Form=Missing.frm", "Missing.frm", "FormNotFound", false)]
+    [InlineData("Form=Missing.frm", "Missing.frm", "MemberNotFound", false)]
     [InlineData("Form=Broken.frm", "Broken.frm", "FormFailed", false)]
     [InlineData("Form=Broken.frm", "Broken.frm", "FormFailedWithReason", true)]
     public async Task Loader_supplies_a_key_fallback_and_separate_arguments(
@@ -86,7 +86,7 @@ public class ProjectLoadWarningTests : IDisposable
         var token = TestContext.Current.CancellationToken;
         var path = Path.Join(dir, "P.vbp");
         await File.WriteAllTextAsync(path, "Type=Exe\r\nName=\"P\"\r\n" + item + "\r\n", token);
-        if (suffix != "FormNotFound")
+        if (suffix != "MemberNotFound")
             await File.WriteAllTextAsync(Path.Join(dir, member), "Begin VB.Label Label1\r\nEnd", token);
         var sink = new Sink();
         var loader = new ProjectLoader
@@ -104,7 +104,7 @@ public class ProjectLoadWarningTests : IDisposable
         var expected = suffix switch
         {
             "ModuleFailed" => $"Failed to load module {member}: read probe",
-            "FormNotFound" => $"Form file not found: {member}",
+            "MemberNotFound" => $"Project file not found: {member}",
             "FormFailed" => $"Failed to load form {member}",
             _ => $"Failed to load form {member}: read probe"
         };
@@ -116,7 +116,33 @@ public class ProjectLoadWarningTests : IDisposable
     {
         await Open("VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd\r\n", "Form=Missing.frm\r\n");
         Messages.Should().ContainSingle().Which.ReplaceLineEndings("\n")
-            .Should().Be("Warnungen:\nFormular fehlt: Missing.frm");
+            .Should().Be("Warnungen:\nProjektdatei fehlt: Missing.frm");
+    }
+
+    [Theory]
+    [InlineData("Form=sub\\Missing.frm", @"sub\Missing.frm")]
+    [InlineData("Module=Named; sub\\Missing.bas", @"sub\Missing.bas")]
+    [InlineData("Class=Named; sub\\Missing.cls", @"sub\Missing.cls")]
+    [InlineData("UserControl=sub\\Missing.ctl", @"sub\Missing.ctl")]
+    [InlineData("PropertyPage=sub\\Missing.pag", @"sub\Missing.pag")]
+    public async Task Missing_members_share_a_warning_with_only_the_project_file_path(string item, string member)
+    {
+        var path = Path.Join(dir, "P.vbp");
+        await File.WriteAllTextAsync(path, "Type=Exe\r\nName=\"P\"\r\n" + item + "\r\n",
+            TestContext.Current.CancellationToken);
+        var sink = new Sink();
+
+        var result = await new ProjectLoader().LoadAsync(path, sink);
+
+        sink.Key.Should().Be("Str.ProjectLoad.MemberNotFound");
+        sink.Arguments.Should().Equal(member);
+        string.Format(sink.Fallback!, sink.Arguments).Should().Be($"Project file not found: {member}");
+        if (item.StartsWith("Form=", StringComparison.Ordinal))
+            result.Project.PreservedItemLines.Should().Contain(item);
+        else
+            result.Project.Modules.Should().ContainSingle().Which.AbsolutePath.Should()
+                .Be(Path.Join(dir, SerializedProject.ToHostPath(member)));
+        result.Project.Forms.Should().BeEmpty();
     }
 
     private sealed class Sink : IDeserializeErrorSink

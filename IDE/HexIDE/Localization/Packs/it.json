@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' non è stato aggiunto. Si chiama '{0}', che è già il nome di un form, di un modulo o di una classe in questo progetto.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' non è stato aggiunto. Si chiama '{0}', che non è un nome valido: un nome inizia con una lettera e prosegue con lettere, cifre e caratteri di sottolineatura.",
     "Str.ProjectLoad.ModuleFailed": "Impossibile caricare il modulo {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "File del progetto non trovato: {0}",
     "Str.ProjectLoad.FormNotFound": "File del form non trovato: {0}",
     "Str.ProjectLoad.FormFailed": "Impossibile caricare il form {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Impossibile caricare il form {0}: {1}",

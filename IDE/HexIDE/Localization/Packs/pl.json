@@ -855,6 +855,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która jest już nazwą formularza, modułu lub klasy w tym projekcie.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która nie jest prawidłową nazwą: nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia.",
     "Str.ProjectLoad.ModuleFailed": "Nie udało się wczytać modułu {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Nie znaleziono pliku projektu: {0}",
     "Str.ProjectLoad.FormNotFound": "Nie znaleziono pliku formularza: {0}",
     "Str.ProjectLoad.FormFailed": "Nie udało się wczytać formularza {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nie udało się wczytać formularza {0}: {1}",
