@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Maksimalkan atau pulihkan panel",
     "Str.Dock.Close": "Tutup panel",
     "Str.Dock.ScrollLeft": "Gulir tab ke kiri",
-    "Str.Dock.ScrollRight": "Gulir tab ke kanan"
+    "Str.Dock.ScrollRight": "Gulir tab ke kanan",
+    "Str.PropDesc.ImageWidth": "Lebar gambar.",
+    "Str.PropDesc.ImageHeight": "Tinggi gambar.",
+    "Str.PropDesc.MaskColor": "Warna piksel transparan.",
+    "Str.PropDesc.UseMaskColor": "Apakah warna masker digunakan."
   }
 }

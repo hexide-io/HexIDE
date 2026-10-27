@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Paneli büyüt veya geri yükle",
     "Str.Dock.Close": "Paneli kapat",
     "Str.Dock.ScrollLeft": "Sekmeleri sola kaydır",
-    "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır"
+    "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır",
+    "Str.PropDesc.ImageWidth": "Görüntülerin genişliği.",
+    "Str.PropDesc.ImageHeight": "Görüntülerin yüksekliği.",
+    "Str.PropDesc.MaskColor": "Saydam piksellerin rengi.",
+    "Str.PropDesc.UseMaskColor": "Maske renginin kullanılıp kullanılmayacağı."
   }
 }

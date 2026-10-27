@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Maximalizovat nebo obnovit panel",
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
-    "Str.Dock.ScrollRight": "Posunout karty doprava"
+    "Str.Dock.ScrollRight": "Posunout karty doprava",
+    "Str.PropDesc.ImageWidth": "Šířka obrázků.",
+    "Str.PropDesc.ImageHeight": "Výška obrázků.",
+    "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
+    "Str.PropDesc.UseMaskColor": "Zda použít barvu masky."
   }
 }

@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Ingrandisci o ripristina pannello",
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
-    "Str.Dock.ScrollRight": "Scorri schede a destra"
+    "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.PropDesc.ImageWidth": "La larghezza delle immagini.",
+    "Str.PropDesc.ImageHeight": "L’altezza delle immagini.",
+    "Str.PropDesc.MaskColor": "Il colore dei pixel trasparenti.",
+    "Str.PropDesc.UseMaskColor": "Indica se usare il colore della maschera."
   }
 }

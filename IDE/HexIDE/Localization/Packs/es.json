@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Maximizar o restaurar panel",
     "Str.Dock.Close": "Cerrar panel",
     "Str.Dock.ScrollLeft": "Desplazar pestañas a la izquierda",
-    "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha"
+    "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha",
+    "Str.PropDesc.ImageWidth": "El ancho de las imágenes.",
+    "Str.PropDesc.ImageHeight": "La altura de las imágenes.",
+    "Str.PropDesc.MaskColor": "El color de los píxeles transparentes.",
+    "Str.PropDesc.UseMaskColor": "Si se usa el color de máscara."
   }
 }

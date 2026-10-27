@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "تكبير اللوحة أو استعادتها",
     "Str.Dock.Close": "إغلاق اللوحة",
     "Str.Dock.ScrollLeft": "تمرير علامات التبويب لليسار",
-    "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين"
+    "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين",
+    "Str.PropDesc.ImageWidth": "عرض الصور.",
+    "Str.PropDesc.ImageHeight": "ارتفاع الصور.",
+    "Str.PropDesc.MaskColor": "اللون المستخدم للبكسلات الشفافة.",
+    "Str.PropDesc.UseMaskColor": "ما إذا كان لون القناع مستخدمًا."
   }
 }

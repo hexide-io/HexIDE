@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Fenster maximieren oder wiederherstellen",
     "Str.Dock.Close": "Fenster schließen",
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
-    "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen"
+    "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
+    "Str.PropDesc.ImageWidth": "Die Breite der Bilder.",
+    "Str.PropDesc.ImageHeight": "Die Höhe der Bilder.",
+    "Str.PropDesc.MaskColor": "Die Farbe für transparente Pixel.",
+    "Str.PropDesc.UseMaskColor": "Ob die Maskenfarbe verwendet wird."
   }
 }

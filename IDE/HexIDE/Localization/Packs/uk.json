@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Розгорнути або відновити панель",
     "Str.Dock.Close": "Закрити панель",
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
-    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч"
+    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
+    "Str.PropDesc.ImageWidth": "Ширина зображень.",
+    "Str.PropDesc.ImageHeight": "Висота зображень.",
+    "Str.PropDesc.MaskColor": "Колір прозорих пікселів.",
+    "Str.PropDesc.UseMaskColor": "Чи використовувати колір маски."
   }
 }

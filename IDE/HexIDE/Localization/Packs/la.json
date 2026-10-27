@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Tabulam amplifica vel restitue",
     "Str.Dock.Close": "Tabulam claude",
     "Str.Dock.ScrollLeft": "Schedas sinistrorsum volve",
-    "Str.Dock.ScrollRight": "Schedas dextrorsum volve"
+    "Str.Dock.ScrollRight": "Schedas dextrorsum volve",
+    "Str.PropDesc.ImageWidth": "Latitudo imaginum.",
+    "Str.PropDesc.ImageHeight": "Altitudo imaginum.",
+    "Str.PropDesc.MaskColor": "Color punctorum perlucidorum.",
+    "Str.PropDesc.UseMaskColor": "Utrum color personae adhibeatur."
   }
 }

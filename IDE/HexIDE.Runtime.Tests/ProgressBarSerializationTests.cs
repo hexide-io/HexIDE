@@ -182,7 +182,7 @@ public class ProgressBarSerializationTests
         var bars = Directory.EnumerateFiles(saved, "*.frm", SearchOption.AllDirectories)
             .SelectMany(f => new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
                 Vb6TextFile.ReadAllText(f), new NullSink())!.Components)
-            .Where(c => c.GetPropertyOrDefault(InBoxComponentClass.LoadedTypeNameProperty) is not null)
+            .Where(c => c.BaseClass is ProgressBarComponentClass)
             .ToList();
 
         bars.Should().HaveCount(30).And.OnlyContain(c => c.BaseClass is ProgressBarComponentClass);

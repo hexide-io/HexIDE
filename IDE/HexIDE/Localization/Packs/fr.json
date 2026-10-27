@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Agrandir ou restaurer le volet",
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
-    "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite"
+    "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
+    "Str.PropDesc.ImageWidth": "La largeur des images.",
+    "Str.PropDesc.ImageHeight": "La hauteur des images.",
+    "Str.PropDesc.MaskColor": "La couleur des pixels transparents.",
+    "Str.PropDesc.UseMaskColor": "Indique si la couleur du masque est utilisée."
   }
 }

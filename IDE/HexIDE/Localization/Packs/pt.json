@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Maximizar ou restaurar painel",
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
-    "Str.Dock.ScrollRight": "Deslocar separadores para a direita"
+    "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
+    "Str.PropDesc.ImageWidth": "A largura das imagens.",
+    "Str.PropDesc.ImageHeight": "A altura das imagens.",
+    "Str.PropDesc.MaskColor": "A cor dos pixels transparentes.",
+    "Str.PropDesc.UseMaskColor": "Se a cor da máscara é usada."
   }
 }

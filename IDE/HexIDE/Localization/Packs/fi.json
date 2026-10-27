@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Suurenna tai palauta paneeli",
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
-    "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle"
+    "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
+    "Str.PropDesc.ImageWidth": "Kuvien leveys.",
+    "Str.PropDesc.ImageHeight": "Kuvien korkeus.",
+    "Str.PropDesc.MaskColor": "Läpinäkyvien pikselien väri.",
+    "Str.PropDesc.UseMaskColor": "Käytetäänkö maskin väriä."
   }
 }

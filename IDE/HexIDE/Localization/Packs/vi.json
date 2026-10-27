@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Phóng to hoặc khôi phục ngăn",
     "Str.Dock.Close": "Đóng ngăn",
     "Str.Dock.ScrollLeft": "Cuộn thẻ sang trái",
-    "Str.Dock.ScrollRight": "Cuộn thẻ sang phải"
+    "Str.Dock.ScrollRight": "Cuộn thẻ sang phải",
+    "Str.PropDesc.ImageWidth": "Chiều rộng của ảnh.",
+    "Str.PropDesc.ImageHeight": "Chiều cao của ảnh.",
+    "Str.PropDesc.MaskColor": "Màu dùng cho điểm ảnh trong suốt.",
+    "Str.PropDesc.UseMaskColor": "Có sử dụng màu mặt nạ hay không."
   }
 }

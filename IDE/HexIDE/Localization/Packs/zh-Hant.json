@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "最大化或還原窗格",
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
-    "Str.Dock.ScrollRight": "向右捲動索引標籤"
+    "Str.Dock.ScrollRight": "向右捲動索引標籤",
+    "Str.PropDesc.ImageWidth": "影像的寬度。",
+    "Str.PropDesc.ImageHeight": "影像的高度。",
+    "Str.PropDesc.MaskColor": "透明像素使用的色彩。",
+    "Str.PropDesc.UseMaskColor": "是否使用遮罩色彩。"
   }
 }

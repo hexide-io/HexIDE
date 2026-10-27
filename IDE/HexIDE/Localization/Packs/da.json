@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Maksimer eller gendan panel",
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
-    "Str.Dock.ScrollRight": "Rul faner til højre"
+    "Str.Dock.ScrollRight": "Rul faner til højre",
+    "Str.PropDesc.ImageWidth": "Billedernes bredde.",
+    "Str.PropDesc.ImageHeight": "Billedernes højde.",
+    "Str.PropDesc.MaskColor": "Farven til gennemsigtige pixels.",
+    "Str.PropDesc.UseMaskColor": "Om maskefarven bruges."
   }
 }

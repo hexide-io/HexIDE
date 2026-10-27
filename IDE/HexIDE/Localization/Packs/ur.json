@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "پینل بڑا کریں یا بحال کریں",
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
-    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں"
+    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.PropDesc.ImageWidth": "تصاویر کی چوڑائی۔",
+    "Str.PropDesc.ImageHeight": "تصاویر کی اونچائی۔",
+    "Str.PropDesc.MaskColor": "شفاف پکسلز کا رنگ۔",
+    "Str.PropDesc.UseMaskColor": "آیا ماسک کا رنگ استعمال کرنا ہے۔"
   }
 }

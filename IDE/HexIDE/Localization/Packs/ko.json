@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "창 최대화 또는 복원",
     "Str.Dock.Close": "창 닫기",
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
-    "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤"
+    "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
+    "Str.PropDesc.ImageWidth": "이미지의 너비입니다.",
+    "Str.PropDesc.ImageHeight": "이미지의 높이입니다.",
+    "Str.PropDesc.MaskColor": "투명 픽셀에 사용하는 색입니다.",
+    "Str.PropDesc.UseMaskColor": "마스크 색 사용 여부입니다."
   }
 }

@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "بیشینه‌سازی یا بازیابی پنل",
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
-    "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست"
+    "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
+    "Str.PropDesc.ImageWidth": "عرض تصاویر.",
+    "Str.PropDesc.ImageHeight": "ارتفاع تصاویر.",
+    "Str.PropDesc.MaskColor": "رنگ پیکسل‌های شفاف.",
+    "Str.PropDesc.UseMaskColor": "آیا رنگ ماسک استفاده شود."
   }
 }

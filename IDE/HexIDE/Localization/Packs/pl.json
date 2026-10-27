@@ -893,6 +893,10 @@
     "Str.Dock.MaximizeRestore": "Maksymalizuj lub przywróć panel",
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
-    "Str.Dock.ScrollRight": "Przewiń karty w prawo"
+    "Str.Dock.ScrollRight": "Przewiń karty w prawo",
+    "Str.PropDesc.ImageWidth": "Szerokość obrazów.",
+    "Str.PropDesc.ImageHeight": "Wysokość obrazów.",
+    "Str.PropDesc.MaskColor": "Kolor przezroczystych pikseli.",
+    "Str.PropDesc.UseMaskColor": "Czy używać koloru maski."
   }
 }
