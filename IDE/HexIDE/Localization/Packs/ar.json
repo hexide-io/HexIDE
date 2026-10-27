@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "عام",
     "Str.Tool.Properties.Tab.Alphabetic": "أبجدي",
     "Str.Tool.Properties.Tab.Categorized": "حسب الفئة",
+    "Str.Tool.Project.MissingFile": "ملف مفقود",
+    "Str.Tool.Project.Unsupported": "غير مدعوم",
     "Str.Tool.Project.Toolbar.ViewCode": "عرض التعليمات البرمجية",
     "Str.Tool.Project.Toolbar.ViewObject": "عرض الكائن",
     "Str.Tool.Project.Menu.SetAsStartUp": "تعيين كبدء التشغيل",

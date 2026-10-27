@@ -301,6 +301,7 @@
 | Feature | Status | Notes |
 |---|---|---|
 | Project / Forms / Modules tree | Changed | VB6's type-grouped view deliberately replaced by an always-on filesystem hierarchy (muscle-memory override, 2026-06-12) — see [project-explorer](../openspec/specs/project-explorer/spec.md) |
+| Missing / unsupported project items | Done | Preserved `.vbp` items appear in the filesystem tree, with missing-file and unsupported-UserDocument overlays (#44); missing forms, modules, classes, UserControls and PropertyPages remain preserved on save without creating empty files |
 | View Code | Done | |
 | View Object | Done | |
 | Set as Startup Project | Done | |

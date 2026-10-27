@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Algemeen",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabetisch",
     "Str.Tool.Properties.Tab.Categorized": "Gecategoriseerd",
+    "Str.Tool.Project.MissingFile": "Bestand ontbreekt",
+    "Str.Tool.Project.Unsupported": "Niet ondersteund",
     "Str.Tool.Project.Toolbar.ViewCode": "Code weergeven",
     "Str.Tool.Project.Toolbar.ViewObject": "Object weergeven",
     "Str.Tool.Project.Menu.SetAsStartUp": "Als opstartobject instellen",

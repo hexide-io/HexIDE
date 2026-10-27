@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "常规",
     "Str.Tool.Properties.Tab.Alphabetic": "按字母序",
     "Str.Tool.Properties.Tab.Categorized": "按分类",
+    "Str.Tool.Project.MissingFile": "文件缺失",
+    "Str.Tool.Project.Unsupported": "不支持",
     "Str.Tool.Project.Toolbar.ViewCode": "查看代码",
     "Str.Tool.Project.Toolbar.ViewObject": "查看对象",
     "Str.Tool.Project.Menu.SetAsStartUp": "设为启动项",

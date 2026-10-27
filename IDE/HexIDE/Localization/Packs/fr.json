@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Général",
     "Str.Tool.Properties.Tab.Alphabetic": "Alphabétique",
     "Str.Tool.Properties.Tab.Categorized": "Par catégorie",
+    "Str.Tool.Project.MissingFile": "Fichier manquant",
+    "Str.Tool.Project.Unsupported": "Non pris en charge",
     "Str.Tool.Project.Toolbar.ViewCode": "Afficher le code",
     "Str.Tool.Project.Toolbar.ViewObject": "Afficher l'objet",
     "Str.Tool.Project.Menu.SetAsStartUp": "Définir comme objet de démarrage",
