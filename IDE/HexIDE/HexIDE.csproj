@@ -52,6 +52,7 @@
         <AvaloniaResource Include="Icons\AppIcon\hexide.ico" />
         <None Remove="Themes\Packs\*.json" />
         <AvaloniaResource Include="Themes\Packs\*.json" />
+        <EmbeddedResource Include="Themes/manifest.json" LogicalName="HexIDE.Themes.manifest.json" />
         <None Remove="Keymaps\Packs\*.json" />
         <AvaloniaResource Include="Keymaps\Packs\*.json" />
         <None Remove="Localization\Packs\*.json" />

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -13,10 +15,34 @@ namespace HexIDE.Themes;
 public sealed class ThemeService : IThemeService
 {
     private ResourceDictionary? _currentOverride;
+    private readonly Dictionary<string, string?> _packs = new(StringComparer.OrdinalIgnoreCase);
 
     public string ActiveTheme { get; private set; } = "Classic";
 
-    public IReadOnlyList<string> AvailableThemes { get; } = ["Classic", "Dark", "Abyss"];
+    public IReadOnlyList<string> AvailableThemes { get; }
+
+    public ThemeService() : this(UserDataPath.For("themes")) { }
+
+    internal ThemeService(string packsDirectory)
+    {
+        using var manifest = typeof(ThemeService).Assembly.GetManifestResourceStream("HexIDE.Themes.manifest.json")!;
+        var shipped = JsonSerializer.Deserialize(manifest, ThemeJsonContext.Default.StringArray)!;
+        foreach (var id in shipped)
+            _packs.Add(id, null);
+
+        try
+        {
+            if (Directory.Exists(packsDirectory))
+                foreach (var path in Directory.EnumerateFiles(packsDirectory, "*.json").Order(StringComparer.Ordinal))
+                    _packs.TryAdd(Path.GetFileNameWithoutExtension(path), path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning(ex, "ThemeService: Failed to discover themes in '{Directory}'", packsDirectory);
+        }
+
+        AvailableThemes = _packs.Keys.ToArray();
+    }
 
     public void Apply(string themeName)
     {
@@ -44,8 +70,11 @@ public sealed class ThemeService : IThemeService
 
         try
         {
-            var uri = new Uri($"avares://HexIDE/Themes/Packs/{themeName}.json");
-            using var stream = AssetLoader.Open(uri);
+            if (!_packs.TryGetValue(themeName, out var path))
+                throw new InvalidOperationException($"Unknown theme '{themeName}'.");
+            using var stream = path != null
+                ? File.OpenRead(path)
+                : AssetLoader.Open(new Uri($"avares://HexIDE/Themes/Packs/{themeName}.json"));
             var pack = JsonSerializer.Deserialize(stream, ThemeJsonContext.Default.ThemePackRecord)
                        ?? throw new InvalidOperationException($"Theme pack '{themeName}' deserialized to null.");
 
