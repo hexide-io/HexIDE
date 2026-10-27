@@ -1766,8 +1766,19 @@ public static class UiAutomationDriver
         // A person's second press lands where the first did, on whatever is there by then. A control that rebuilds its visuals
         // on a click, as a Toolbar rebuilds its buttons on each release, has replaced what the first press landed on, and
         // requiring that to be still attached sent no second click at all (#2324).
-        InteractOutcome SecondPress()
+        async Task<InteractOutcome> SecondPress()
         {
+            // A person's second press comes at least a frame after the first release, so what that release rebuilt has been
+            // laid out and drawn and the press finds it. Hit-tested sooner, a Toolbar's new button had no bounds yet and the
+            // press fell through to the bar itself (#2324 live check).
+            var frame = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            topLevel.RequestAnimationFrame(_ => frame.TrySetResult());
+            await Task.WhenAny(frame.Task, Task.Delay(SecondPressFrameWait));
+            // And for the render thread to have applied that frame: hit-testing reads the composition the render thread holds,
+            // which lagged the layout often enough that one double click in three missed the new button (#2324 live check).
+            if (Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(topLevel)?.Compositor is { } compositor)
+                await Task.WhenAny(compositor.RequestCompositionBatchCommitAsync().Processed, Task.Delay(SecondPressFrameWait));
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
             if (!topLevel.IsVisible)
                 return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
@@ -2046,6 +2057,9 @@ public static class UiAutomationDriver
 
     /// <summary>How long <c>click</c> holds the button down, about as long as a person does.</summary>
     public const int ClickHoldMs = 50;
+
+    /// <summary>How long a double click's second press waits for the window's next frame, where none comes, as headlessly.</summary>
+    internal static readonly TimeSpan SecondPressFrameWait = TimeSpan.FromMilliseconds(250);
 
     /// <summary>
     /// Completes an action that comes in two parts, as <c>click</c> does. Its release is raised as input of its own,
@@ -5024,7 +5038,7 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<Task<InteractOutcome>>? NextClick = null,
     [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null,
     [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null);
 
