@@ -1725,6 +1725,8 @@ public static class UiAutomationDriver
             catch (Exception ex) { moveFailed ??= ex; }
         }))];
         List<Action>? moves = destination is null ? null : MovesBetween(inWindow, releasePoint);
+        // Where the second press of a double click went, when not where the first did.
+        var secondLanding = "";
         InteractOutcome Release(bool second)
         {
             try
@@ -1745,7 +1747,7 @@ public static class UiAutomationDriver
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{(second ? secondLanding : "")}"
                     + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
@@ -1761,14 +1763,34 @@ public static class UiAutomationDriver
             finally { pointer.Capture(null); }
         }
 
-        InteractOutcome SecondPress()
+        // A person's second press lands where the first did, on whatever is there by then. A control that rebuilds its visuals
+        // on a click, as a Toolbar rebuilds its buttons on each release, has replaced what the first press landed on, and
+        // requiring that to be still attached sent no second click at all (#2324).
+        async Task<InteractOutcome> SecondPress()
         {
-            if (!control.IsEffectivelyVisible || !topLevel.IsVisible || TopLevel.GetTopLevel(control) != topLevel
-                || TopLevel.GetTopLevel(hit) != topLevel)
-                return Fail($"clicked {pressed}; the second click was not sent because the target is hidden or closed, or detached");
-            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+            // A person's second press comes at least a frame after the first release, so what that release rebuilt has been
+            // laid out and drawn and the press finds it. Hit-tested sooner, a Toolbar's new button had no bounds yet and the
+            // press fell through to the bar itself (#2324 live check).
+            var frame = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            topLevel.RequestAnimationFrame(_ => frame.TrySetResult());
+            await Task.WhenAny(frame.Task, Task.Delay(SecondPressFrameWait));
+            // And for the render thread to have applied that frame: hit-testing reads the composition the render thread holds,
+            // which lagged the layout often enough that one double click in three missed the new button (#2324 live check).
+            if (Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(topLevel)?.Compositor is { } compositor)
+                await Task.WhenAny(compositor.RequestCompositionBatchCommitAsync().Processed, Task.Delay(SecondPressFrameWait));
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+            if (!topLevel.IsVisible)
+                return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
+            if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
+                return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+            again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
                 new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
-            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}; the release is still to come",
+            if (!ReferenceEquals(again, hit))
+                secondLanding = again is Control replacement
+                    ? $"; the first click replaced what it landed on, so the second press went to '{Describe(replacement)}'"
+                      + $"{AddressOf(topLevel, "Window", replacement)}, which is at that point now"
+                    : $"; the first click replaced what it landed on, so the second press went to the '{again.GetType().Name}' now at that point";
+            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}{secondLanding}; the release is still to come",
                 null, Release: () => Release(second: true));
         }
 
@@ -2035,6 +2057,9 @@ public static class UiAutomationDriver
 
     /// <summary>How long <c>click</c> holds the button down, about as long as a person does.</summary>
     public const int ClickHoldMs = 50;
+
+    /// <summary>How long a double click's second press waits for the window's next frame, where none comes, as headlessly.</summary>
+    internal static readonly TimeSpan SecondPressFrameWait = TimeSpan.FromMilliseconds(250);
 
     /// <summary>
     /// Completes an action that comes in two parts, as <c>click</c> does. Its release is raised as input of its own,
@@ -5013,7 +5038,7 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<Task<InteractOutcome>>? NextClick = null,
     [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null,
     [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null);
 
