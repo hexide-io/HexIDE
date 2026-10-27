@@ -80,6 +80,40 @@ window and window-text colours. A block without the lines reads the button colou
 - **After Clear, reading a held item's Text raises an error.** The line that read it failed whole, so the number wasn't
   logged.
 
+### Return types, Tag and the case of a key (2026-10-27)
+
+Read into a Variant and logged with TypeName and VarType, early-bound through `ImageCombo1` and a `ComboItem` variable
+and late-bound through `As Object`. The two bindings gave the same types. Native and p-code logged the same lines.
+
+| Read | Type |
+|---|---|
+| `ComboItems.Count`, empty and with items | **Long**, VarType 3 |
+| `ComboItem.Index` | **Long** |
+| `ComboItem.Indentation`, and the ImageCombo's own `Indentation` | **Integer**, VarType 2 |
+| `ComboItem.Image` and `SelImage`, never set | Integer 0 |
+| `ComboItem.Text` and `Key` | String |
+| `ComboItem.Selected` | Boolean |
+
+**A new item's Tag is an empty String,** VarType 8, not Empty. `IsEmpty(Tag)` is False and `Tag = ""` is True. That held
+for an item from `Add(, "abc", "Alpha")` and for one from `Add()`.
+
+**Tag is a Variant that keeps what it is given, except Empty:**
+
+| Assignment | Tag reads |
+|---|---|
+| `Tag = Empty` | **an empty String**, VarType 8 |
+| `Tag = Null` | Null, VarType 1, with no error |
+| `Tag = 5`, `= 2.5`, `= True`, `= "x"` | Integer 5, Double 2.5, Boolean True, String `x` |
+| `Set Tag = Text1` | the TextBox object |
+| `Tag = Text1`, without Set | the String `Text1`, the TextBox's default property |
+| `Set Tag = Nothing` | Nothing. `Tag Is Nothing` is True |
+
+**A key lookup is case-sensitive:**
+- With an item keyed `abc`, `ComboItems("abc")` found it, and **`ComboItems("ABC")` and `("Abc")` raised 35601**,
+  "Element not found".
+- **`Add(, "ABC", "Upper")` was then taken**, not refused as a duplicate. `ComboItems("ABC")` found the new item.
+- After `ComboItems(1).Key = "XYZ"`, `ComboItems("xyz")` raised 35601, and so did `Remove "xYz"`.
+
 ### SelectedItem and Text
 
 | Step | Result |
