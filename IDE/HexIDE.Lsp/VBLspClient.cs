@@ -576,7 +576,8 @@ public sealed class VBLspClient : ILspClient
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
-                    WorkspaceFolders: true),
+                    WorkspaceFolders: true,
+                    FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities()));
 
@@ -1248,6 +1249,39 @@ public sealed class VBLspClient : ILspClient
             href is null ? null : new CodeDescription(href));
     }
 
+    public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didCreate", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didCreateFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didCreateFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var matching = files.Where(file => FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.OldUri)
+            || FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.NewUri)).ToArray();
+        if (matching.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didRenameFiles", new RenameFilesParams(matching)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didRenameFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didDelete", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didDeleteFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didDeleteFiles", ex, cancellationToken); }
+    }
+
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
     {
         // No _openDocuments write, unlike its three siblings: a save changes neither the text nor the
@@ -1278,12 +1312,21 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !CanServe("hoverProvider")) return null;
+        var unavailable = _rpc is null ? "no RPC connection"
+            : !_initialized ? "initialization is incomplete"
+            : !CanServe("hoverProvider") ? "hoverProvider is unavailable" : null;
+        if (unavailable is not null)
+        {
+            _logger.LogDebug("textDocument/hover was not sent: {Reason}", unavailable);
+            return null;
+        }
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await InvokeRequestAsync<HoverResult?>(_rpc,
+            var result = await InvokeRequestAsync<HoverResult?>(_rpc!,
                 "textDocument/hover", p, cancellationToken);
+            if (result is null) _logger.LogDebug("textDocument/hover: server returned null");
+            return result;
         }
         catch (Exception ex)
         {

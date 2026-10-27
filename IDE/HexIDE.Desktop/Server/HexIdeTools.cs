@@ -987,21 +987,36 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns the current main window state (Maximized/Normal/Minimized) and the reported position and client size in every state.")]
-    public async Task<WindowStateResult> GetWindowStateAsync(CancellationToken ct)
+    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. 'name' is what to pass as 'window' to reach the same window again.")]
+    public async Task<WindowStateResult> GetWindowStateAsync(
+        [Description(WindowStateParameter)] string? window = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var window = (Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-            if (window is null)
-                return new WindowStateResult("Unknown", 0, 0, 0, 0);
-
-            return WindowStateOf(window);
+            var (target, name, error) = ResolveStateWindow(window);
+            return target is null ? new WindowStateResult("Unknown", 0, 0, 0, 0, null, error) : WindowStateOf(target, name!);
         });
     }
 
-    private static WindowStateResult WindowStateOf(Avalonia.Controls.Window window)
+    private const string WindowStateParameter =
+        "Which window. Omitted, or \"ide\", is the IDE's own, as before this parameter existed. A running form's name such "
+        + "as \"Form2\", or a window's title, reaches that window, minimized ones included, and \"auto\" picks as "
+        + "dump_visual_tree does. An unknown name is refused with the open windows listed.";
+
+    // The window get_window_state and set_window_state act on: the IDE's own when 'window' is omitted, as it was before the
+    // parameter existed, though the tree tools default to "auto" (#2357). Named as a caller passes it to reach it again.
+    private static (Avalonia.Controls.Window? Window, string? Name, string? Error) ResolveStateWindow(string? window)
+    {
+        var (target, _, error) = ResolveActiveWindow(string.IsNullOrWhiteSpace(window) ? "ide" : window, ideByDefault: true);
+        if (target is null)
+            return (null, null, error);
+        var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        return (target, target == main ? "ide"
+            : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
+            : DescribeWindow(target), null);
+    }
+
+    private static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
     {
         var state = window.WindowState switch
         {
@@ -1011,24 +1026,47 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         };
         var pos  = window.Position;
         var size = window.ClientSize;
-        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height);
+        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name);
     }
 
+    /// <summary>
+    /// Why a person couldn't make <paramref name="target"/> the state or size asked for: it has no minimize or maximize box,
+    /// or a border that can't be dragged. Null when they could. Only a window other than the IDE's own is held to this.
+    /// </summary>
+    internal static string? WindowBoxRefusal(Avalonia.Controls.Window target, string name,
+        Avalonia.Controls.WindowState state, bool resizes) => state switch
+    {
+        Avalonia.Controls.WindowState.Minimized when !target.CanMinimize =>
+            $"'{name}' has no minimize box, so a person can't minimize it. On a running form, MinButton, ControlBox and "
+            + "BorderStyle decide whether it has one; the program can still set its WindowState. Nothing was changed.",
+        Avalonia.Controls.WindowState.Maximized when !target.CanMaximize =>
+            $"'{name}' has no maximize box, so a person can't maximize it. On a running form, MaxButton, ControlBox and "
+            + "BorderStyle decide whether it has one; the program can still set its WindowState. Nothing was changed.",
+        Avalonia.Controls.WindowState.Normal when resizes && !target.CanResize =>
+            $"'{name}' has a fixed border, so a person can't resize it; width and height are refused. x and y alone move "
+            + "it. Nothing was changed.",
+        _ => null,
+    };
+
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
+    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
         // so the "optional" the description promised was refused on the wire. (#582)
         int? x = null, int? y = null, int? width = null, int? height = null,
+        [Description(WindowStateParameter)] string? window = null,
         CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        UiAutomationDriver.ProgramWatch? watch = null;
+        Avalonia.Controls.Window? acted = null;
+        string? actedName = null;
+        var result = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var window = (Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-            if (window is null)
-                return new WindowStateChangeResult(false, "No main window", null);
+            var (resolved, name, resolveError) = ResolveStateWindow(window);
+            if (resolved is null)
+                return new WindowStateChangeResult(false, resolveError, null);
+            var main = resolved == (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
             var target = state.ToLowerInvariant() switch
             {
@@ -1051,16 +1089,21 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (width is <= 0 || height is <= 0)
                 return new WindowStateChangeResult(false,
                     $"width and height must be positive; got {(width is <= 0 ? $"width {width}" : $"height {height}")}. Nothing was changed.", null);
+            // Another window is changed as a person changes it, so what a person couldn't do is refused (#2357). The IDE's
+            // own is set as it always was.
+            if (!main && (WindowBoxRefusal(resolved, name!, target.Value, width is not null || height is not null)
+                          ?? UiAutomationDriver.WindowRefusal(resolved, "set_window_state", name)) is { } refusal)
+                return new WindowStateChangeResult(false, refusal, null);
 
             // Validate before sending even the restore: an asynchronous backend cannot undo it reliably.
             if (geometry)
             {
-                var position = new Avalonia.PixelPoint(x ?? window.Position.X, y ?? window.Position.Y);
+                var position = new Avalonia.PixelPoint(x ?? resolved.Position.X, y ?? resolved.Position.Y);
                 var size = Avalonia.PixelSize.FromSize(
-                    new Avalonia.Size(width ?? window.ClientSize.Width, height ?? window.ClientSize.Height),
-                    window.RenderScaling);
+                    new Avalonia.Size(width ?? resolved.ClientSize.Width, height ?? resolved.ClientSize.Height),
+                    resolved.RenderScaling);
                 var frame = new Avalonia.PixelRect(position, size);
-                var screens = window.Screens.All;
+                var screens = resolved.Screens.All;
                 if (screens.Count > 0 && !screens.Any(s => s.WorkingArea.Intersects(frame)))
                     return new WindowStateChangeResult(false,
                         $"({position.X},{position.Y}) would put the window on no screen. Screens: "
@@ -1068,12 +1111,37 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         + ". Nothing was changed.", null);
             }
 
-            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(window, target.Value, x, y, width, height, ct);
+            // Read before the change, as interact's is: what the program does with it, its Resize, runs after (#2357).
+            if (!main)
+                watch = UiAutomationDriver.WatchProgram(resolved, () => ctx.DebugController.CurrentStop);
+            (acted, actedName) = (resolved, name);
+            var applied = await HexIDE.Automation.WindowChange.ApplyAsync(resolved, target.Value, x, y, width, height, ct);
             if (applied)
-                return new WindowStateChangeResult(true, null, WindowStateOf(window), null);
+                return new WindowStateChangeResult(true, null, WindowStateOf(resolved, name!), null);
             var (error, note) = Unconfirmed(target.Value, X11WindowManager.IsRunning());
-            return new WindowStateChangeResult(false, error, WindowStateOf(window), note);
+            return new WindowStateChangeResult(false, error, WindowStateOf(resolved, name!), note);
         });
+        if (watch is null || acted is null)
+            return result;
+
+        // Waited off the UI thread, as interact's is, then read again: the program's Resize may move or size the form.
+        var waited = await UiAutomationDriver.WaitForProgramAsync(watch, new InteractOutcome(true, "window", "", null), ct: ct);
+        var after = await Dispatcher.UIThread.InvokeAsync(() => WindowStateOf(acted, actedName!));
+        var programNote = waited.Detail is { Length: > 0 } detail ? ProgramNote(detail) : null;
+        return result with
+        {
+            Window = after,
+            Note = result.Note is null ? programNote : programNote is null ? result.Note : result.Note + " " + programNote,
+        };
+    }
+
+    // The program wait's parenthesised addition to a reply, as a sentence of its own for a note.
+    internal static string ProgramNote(string detail)
+    {
+        var text = detail.Trim();
+        if (text.StartsWith('(') && text.EndsWith(')'))
+            text = text[1..^1];
+        return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..] + ".";
     }
 
     /// <summary>
@@ -1931,7 +1999,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var rows = new List<WatchRow>();
         foreach (var w in ctx.RootViewModel.Watches.Service.Watches)
         {
-            var result = await ctx.DebugController.EvaluateWatchAsync(w.Expression);
+            var result = await ctx.DebugController.EvaluateScopedWatchAsync(w.Expression, w.Context);
             rows.Add(new WatchRow(
                 w.Expression, w.Type.ToString(), w.Context,
                 result?.Display ?? "<Out of context>", result?.TypeName ?? "", result?.Ok ?? false));
@@ -2446,7 +2514,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation, but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
@@ -2759,14 +2827,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     // Active window for the automation tools: any visible window over the main window, modal or not, such as Find
     // (#1264) (mirrors take_snapshot) so dialogs are addressable with no extra parameter.
-    private static (Window? window, string? label, string? error) ResolveActiveWindow(string? scope = null)
+    private static (Window? window, string? label, string? error) ResolveActiveWindow(string? scope = null, bool ideByDefault = false)
     {
         var lifetime = Avalonia.Application.Current!.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         var mainWindow = lifetime?.MainWindow;
         if (mainWindow is null)
             return (null, null, "No main window");
 
-        var (window, error) = HexIDE.IDE.ForegroundWindow.Pick(scope, mainWindow, lifetime!.Windows);
+        var (window, error) = HexIDE.IDE.ForegroundWindow.Pick(scope, mainWindow, lifetime!.Windows, ideByDefault);
         if (window is null)
             return (null, null, error);
 
@@ -3528,7 +3596,9 @@ internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsC
 internal record AddFileResult(
     bool Success, string? Path, string? Error, string? Note = null, string? Project = null, string? Document = null);
 
-internal record WindowStateResult(string State, int X, int Y, int Width, int Height);
+/// <summary>A window's state, as <c>get_window_state</c> reports it. <c>Name</c> is what reaches it as 'window' again;
+/// <c>Error</c> says why no window was read.</summary>
+internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null);
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
 internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);

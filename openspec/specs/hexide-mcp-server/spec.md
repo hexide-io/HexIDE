@@ -496,6 +496,33 @@ restored position.
 - **WHEN** a Minimized or Maximized request goes unconfirmed on an X11 display with no window manager
 - **THEN** the reply says no window manager is running, so nothing will apply it, and does not direct the caller to re-read
 
+### Requirement: The window-state tools SHALL reach any window
+`get_window_state` and `set_window_state` SHALL take an optional `window`, resolved as the tree tools resolve it, and
+SHALL act on the IDE's own window when it is omitted. The reply SHALL name the window by what reaches it again, and an
+unknown name's refusal SHALL say that the IDE's window is the default here.
+
+#### Scenario: No window named
+- **WHEN** `get_window_state` is called with no `window`
+- **THEN** it reports the IDE's own window, named `ide`
+
+### Requirement: Another window SHALL change as a person changes it
+`set_window_state` SHALL change a window other than the IDE's own as its minimize, maximize or restore box or its frame
+would, so a running form's own events run, and SHALL wait for the program as `interact`'s does. It SHALL refuse what a
+person couldn't do, with nothing changed: a state the window has no box for, a size for a fixed border, and any change
+to a disabled window or one under a modal dialog.
+
+#### Scenario: Minimizing a running form
+- **WHEN** `set_window_state` minimizes `window: "Form1"` and then restores it
+- **THEN** the form's Resize runs for each, as it does for its minimize and restore boxes, and the reply names `Form1`
+
+#### Scenario: A Fixed Dialog
+- **WHEN** `set_window_state` asks a Fixed Dialog form to minimize, or to take a new width
+- **THEN** it is refused, naming the missing minimize box or the fixed border, and a move alone is applied
+
+#### Scenario: A form under a MsgBox
+- **WHEN** the program's MsgBox is open over its form, and `set_window_state` asks to minimize the form
+- **THEN** it is refused, naming the MsgBox, and the form is unchanged
+
 ### Requirement: An open popup a control owns SHALL be in the dump and the snapshot
 An open context menu or flyout SHALL appear under the control that owns it in `dump_visual_tree`, with its items
 addressable, and SHALL be drawn in `take_snapshot`, however it is attached: a ContextMenu, a Button's Flyout, a
@@ -805,6 +832,19 @@ actions `invoke_command` and `set_property` SHALL continue to act on the view mo
 - **WHEN** a caller acts on a control while a modal reset prompt disables its window
 - **THEN** the refusal names the blocking dialog and directs the caller to answer it
 - **AND** nothing is done
+
+### Requirement: A click SHALL move the pointer there before it presses
+`interact`'s `click` SHALL raise a pointer move at the point on the element it presses before the press, as a person's
+pointer arrives first, so a running form's MouseMove comes before its MouseDown. A click where the last click left the
+pointer, in the same window, SHALL move nothing first, as a still pointer sends no move. The reply SHALL say which.
+
+#### Scenario: A click on a running form's button
+- **WHEN** `click` presses Command1, which logs its mouse events
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+
+#### Scenario: A second click at the same point
+- **WHEN** `click` presses again where the last click left the pointer
+- **THEN** no move comes before the press, and the reply says the pointer was already there
 
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is

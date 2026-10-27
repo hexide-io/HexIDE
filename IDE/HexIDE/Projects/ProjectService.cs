@@ -631,8 +631,15 @@ public class ProjectService : IProjectService
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
+        {
+            var existed = File.Exists(destination.Path);
             if (Write(destination, announceSave, ownCommand, rewrites))
+            {
                 written.Add(destination);
+                if (announceSave && !existed && lspClient is not null)
+                    await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(destination.Path)).AbsoluteUri]);
+            }
+        }
 
         foreach (var destination in written)
         {
@@ -1348,7 +1355,11 @@ public class ProjectService : IProjectService
         // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a
         // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
-            Write(file, announceSave: true);
+        {
+            var existed = File.Exists(file.Path);
+            if (Write(file, announceSave: true) && !existed && lspClient is not null)
+                await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(file.Path)).AbsoluteUri]);
+        }
         if (lspClient is not null)
             await lspClient().WorkspaceChangedAsync();
     });

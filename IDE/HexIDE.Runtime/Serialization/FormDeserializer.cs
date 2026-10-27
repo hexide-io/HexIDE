@@ -28,6 +28,7 @@ public class FormDeserializer
         TextBoxComponentClass.Instance,
         TimerComponentClass.Instance,
         VScrollBarComponentClass.Instance,
+        Components.InBox.TreeViewComponentClass.Instance,
     ];
 
     private static Dictionary<string, ComponentBaseClass> componentsByTypeNames;
@@ -576,6 +577,13 @@ public class FormDeserializer
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            else if (componentClass is Components.InBox.TreeViewComponentClass)
+            {
+                instance.SetProperty(Components.InBox.InBoxComponentClass.LoadedTypeNameProperty, serializedComponent.Type);
+                instance.SetProperty(Components.InBox.InBoxComponentClass.ExtentBasisProperty,
+                    new Components.InBox.InBoxComponentClass.ExtentBasis(
+                        instance.GetPropertyOrDefault(VBProperties.WidthProperty), instance.GetPropertyOrDefault(VBProperties.HeightProperty)));
+            }
             if (componentClass is Components.InBox.ImageListComponentClass
                 && serializedComponent.Properties.TryGetValue("Images", out var imagesValue)
                 && imagesValue is Dictionary<string, object> imageProperties)
