@@ -8,6 +8,16 @@ ProgressBar](in-box-controls-the-progressbar.md).
   - the three-picture ImageList saved in [In-box controls: the ImageList](in-box-controls-the-imagelist.md).
 
   It drives the TreeView late-bound under `On Error Resume Next`, logging each value with its `TypeName`, or the error.
+- **The events program:** the same form, with a TextBox and KeyPreview on, and a tree with LineStyle 1 of three roots:
+  - Root 1, over Alpha (itself over Alpha one) and Bravo;
+  - Root 2, over Charlie;
+  - Root 3.
+
+  A driver on the console clicked with real mouse input and typed with real keystrokes, and marked each action in the
+  log. It found where to click from a HitTest scan. Each event handler logged itself, with the selection and which
+  nodes were expanded.
+- **The drawing program:** the same form, setting up states in turn and asking the driver for a screenshot of each. The
+  guest runs at 96 dpi, and a VB6 EXE has no manifest, so the control draws without visual styles.
 - **The builds:** `/make` as native code and as p-code, both run on the guest's console, as the ListView had to be. The
   two logged the same lines throughout, apart from timings.
 
@@ -242,6 +252,184 @@ sorted to:
   - `Nodes(-32768)` is 35600.
   - `Nodes("k32768")` found it by Key, with Index -32768.
 - **Clearing is slow.** `Nodes.Clear` on 33000 nodes was still running after a minute of CPU in one run.
+
+### Events
+
+**The layout the driver found,** with the default Indentation of 38 pixels:
+- Rows are 16 pixels high, the first at the top.
+- A root's label starts 38 pixels in, so with LineStyle 1 a root's button sits in the first 38 pixels.
+- A child's label is one Indentation further in.
+- With Checkboxes on, the box takes the place where the label began, and the label moves right.
+
+**The mouse:**
+
+| Action | Events, in order |
+|---|---|
+| click an unselected node's label | MouseDown, **NodeClick**, MouseUp, Click |
+| click a node's plus or minus button | MouseDown, **Expand** or **Collapse**, MouseUp, Click. **No NodeClick, and the selection doesn't move** |
+| double-click a node's label | MouseDown, NodeClick, MouseUp, Click, **Expand**, DblClick, MouseUp. A double-click toggles the node |
+| click the selected node's label again, with LabelEdit automatic | MouseDown, NodeClick, MouseUp, Click, and a moment later BeforeLabelEdit. **NodeClick is raised again for the node already selected** |
+| the same, with LabelEdit manual | MouseDown, NodeClick, MouseUp, Click, and no edit |
+| right-click a node's label | MouseDown with Button 2, **NodeClick**, MouseUp with Button 2, **Click**. **It selects the node** |
+| click the empty area below the nodes | MouseDown, MouseUp, Click. The selection is unchanged |
+| click a node's checkbox | MouseDown, **NodeCheck** with the new Checked, MouseUp, Click. **No NodeClick, and the selection doesn't move** |
+
+- **MouseDown and MouseUp give X and Y in twips** from the control's top-left.
+- **The TreeView selects its first node when it gets the focus with nothing selected.** The form showed with Root 1
+  selected though nothing had selected it, where nodes added after the control had the focus left SelectedItem
+  `Nothing`.
+
+**The keyboard,** as the TreeView's KeyDown and KeyUp logged it:
+
+| Key | Events |
+|---|---|
+| Home | KeyDown, NodeClick on the first node, KeyUp |
+| Down | KeyDown, NodeClick on the next visible node, KeyUp |
+| Right, on a collapsed node | KeyDown, **Expand**, KeyUp |
+| Right, on an expanded node | KeyDown, NodeClick on its first child, KeyUp |
+| Left, on an expanded node | KeyDown, **Collapse**, KeyUp |
+| Left, on a collapsed child | KeyDown, NodeClick on its parent, KeyUp |
+| numpad `*` | KeyDown, Expand, KeyUp |
+| numpad `-` | KeyDown, Collapse, KeyUp |
+| **Enter** | **Expand or Collapse, toggling the selected node, then** KeyDown and KeyUp. The Expand or Collapse comes **before** the KeyDown |
+| Space, with Checkboxes on | KeyDown, NodeCheck on the selected node, KeyUp |
+
+Typing a letter, `q`, `a` or `r`, raised KeyDown and KeyUp and nothing else.
+
+**SingleSel True:**
+- **Clicking a node's label expands it,** with Expand raised before NodeClick.
+- **It also collapses the node selected before,** with that node's Collapse raised first. Clicking Root 1 with Root 2
+  selected raised Collapse Root 2, Expand Root 1, NodeClick Root 1.
+- Clicking Alpha under Root 1 expanded Alpha and left Root 1 open.
+- **Collapsing Root 1 with its button moved the selection from Alpha to Root 1 and raised no NodeClick.**
+
+**Editing a label** behaves as the ListView's does:
+- StartLabelEdit raises BeforeLabelEdit before it returns.
+- Enter after typing raises AfterLabelEdit with the new text in NewString, a String, and **the node's Text still the old
+  one inside the event**.
+- **Escape raises no AfterLabelEdit, and nor does Enter with the text unchanged.**
+- Enter with the text deleted raised AfterLabelEdit with NewString `""`, and the node was left with no text.
+- `Cancel = True` in BeforeLabelEdit opens no edit box, and the keys typed then go to the TreeView. `Cancel = True` in
+  AfterLabelEdit keeps the old text.
+
+**What code raises:**
+- **Expanded = True raises Expand, and Expanded = False raises Collapse.** The ListView's code raised nothing.
+- **EnsureVisible raises Expand for each ancestor it opens.**
+- Expanded = False on the parent of the selected node moved the selection to the parent, raising Collapse and **no
+  NodeClick**.
+- **These raised nothing:**
+  - setting Selected, Set SelectedItem, Checked or Text;
+  - setting Sorted;
+  - Add, Remove or Clear.
+
+### Drawing
+
+**The Styles,** with LineStyle 0, Root 1 and Alpha expanded, Bravo selected, and an Image on every node:
+
+| Style | Drawn |
+|---|---|
+| 0 | text only, indented, with no lines, buttons or pictures |
+| 1 | pictures and text |
+| 2 | buttons and text. **With LineStyle 0 a root has no button,** and Alpha did |
+| 3 | buttons, pictures and text |
+| 4 | lines and text. With LineStyle 0 there are no lines at the root level |
+| 5 | lines, pictures and text |
+| 6 | lines, buttons and text |
+| 7 | lines, buttons, pictures and text |
+
+- **LineStyle 1** gives the roots lines and buttons too.
+- **Indentation 300** set the step between levels to 20 pixels. It read back as 299.9055.
+
+**Selection and node styles:**
+- **Selection:** a selected node's label is highlighted, with a dotted focus rectangle while the control has the focus.
+  **FullRowSelect highlights the whole row,** across to the right edge, with lines (Style 7) and without (Style 3).
+- **Checkboxes:** every node drew a box, with only the node set Checked afterwards ticked.
+- **A node's styles:**
+  - **Bold** makes the label bold.
+  - **ForeColor** colours the label.
+  - **BackColor** fills the label's background only.
+- **Losing the focus:** with HideSelection True, the selection is not drawn at all. With HideSelection False, the
+  selected label is drawn on button-face grey.
+- **Enabled False** left every label as it was, apart from the selected node's, which was drawn grey.
+- **Borders:**
+  - BorderStyle 1 with Appearance 1 adds a line inside the sunken edge.
+  - Appearance 0 with BorderStyle 1 draws a single flat line.
+  - Appearance 0 with BorderStyle 0 draws no border at all.
+
+### The saved files
+
+**The programs.**
+- **The save:** a form of three TreeViews, written by hand, opened in VB6's IDE, and saved there once the form had been
+  dirtied with a comment.
+  - The first had every property off its default, under its type-library name, in scrambled order.
+  - The second had only its size and `_Version`.
+  - The third had its defaults written out.
+- **The run-time reads:** EXEs read every property back, natively and as p-code, from the form as written and from
+  VB6's save of it. The two reads agreed.
+- **The corpus:** VB6's save is in `corpus/inbox-controls/pending/treeview/`.
+
+**Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
+
+```
+   Begin MSComctlLib.TreeView TreeView1 
+      Height          =   750
+      Left            =   2250
+      TabIndex        =   4
+      Top             =   1875
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   1323
+      _Version        =   393217
+      Style           =   7
+      Appearance      =   1
+   End
+```
+
+**The order VB6 writes the lines in,** whatever order they were read in: the extender's lines; `_ExtentX` and
+`_ExtentY`; then
+
+| Lines |
+|---|
+| **`_Version`, first** |
+| HideSelection, Indentation, LabelEdit, LineStyle, PathSeparator, Sorted, Style |
+| Checkboxes, FullRowSelect, HotTracking, Scroll, SingleSel |
+| ImageList, as a string: `ImageList = "ImageList1"` |
+| BorderStyle, Appearance, MousePointer, Enabled |
+| the Font block |
+| OLEDragMode, OLEDropMode |
+
+- **Every property is saved under its type-library name.** Lines naming each one were kept.
+- **OLEDragMode and OLEDropMode are written once,** after the Font block. The ListView writes them twice.
+- **`_Version` comes before every other property,** where the ListView writes it in the middle.
+
+**Indentation is HIMETRIC in the file:**
+- A hand-written `Indentation = 529` read back as 299.9055 twips, and VB6 saved it as 529.
+- A hand-written 1000, the default, was dropped.
+
+**Which lines are left out:**
+- **Appearance was written in every save,** at 1 too.
+- **Style 7 is written.** Everything else is written only when off its default. In the third TreeView, LineStyle 0,
+  LabelEdit 0, Indentation 1000, PathSeparator `\`, HideSelection True, Scroll True and BorderStyle 0 were all dropped.
+
+**A block missing a line** loads as follows, read at run time from the second TreeView:
+
+| Property | Loaded as |
+|---|---|
+| **Style** | **0**, text only, **though a new control starts at 7** |
+| Indentation | 566.9291 twips, 1000 HIMETRIC |
+| PathSeparator | `\` |
+| HideSelection, Scroll, Enabled | True |
+| BorderStyle | 0, as a new control has |
+| Appearance | 1 |
+| everything else | its default, as listed under Defaults |
+
+Saved again, that block came back with `Appearance = 1` and nothing else.
+
+**In the IDE:**
+- **At design time, the control draws four nodes, each called `Sample Node`:** a root over two children, then a second
+  root.
+- They are drawn in the control's Style, LineStyle, Checkboxes and Font, with the bound ImageList's first picture.
+- No nodes are saved. The property pages have no page for them.
 
 ### In HexIDE
 
