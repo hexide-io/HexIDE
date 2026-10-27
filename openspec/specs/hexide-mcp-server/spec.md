@@ -654,6 +654,48 @@ pressing.
 - **WHEN** a drag in Dock's layout is pressed off Dock's drag areas, as a form designer drag is
 - **THEN** the reply says nothing about Dock
 
+### Requirement: A drag's button can be held between calls
+
+A `click` drag with `hold` SHALL stop after its held moves with the button still down at the `to` point. While it is
+held, every tool's reply SHALL carry a `heldButton` note saying where and what has the capture, and `click`,
+`double_click` and `hover` SHALL be refused without pressing or moving anything. `release` SHALL let it go, after held
+moves to any point it is given, with an unheld drag's reply, and SHALL be refused when nothing is held.
+
+#### Scenario: Hold a draw to see its preview
+
+- **WHEN** a toolbox control is selected and `interact` clicks the designer canvas with `20,20 to 100,60 hold`
+- **THEN** the drawing phantom shows at the drawn rectangle, nothing is placed, and the reply says the button is still held
+- **AND** `release` then places the control an unheld drag to the same point would
+
+#### Scenario: Release at a further point
+
+- **WHEN** `release` is given `140,90` while a draw is held at `100,60`
+- **THEN** held moves go to `140,90` before the release, and the control is drawn to it
+
+#### Scenario: A second press while the button is held
+
+- **WHEN** `click` or `double_click` targets any control, or `hover` is called, while a button is held
+- **THEN** the call is refused, nothing is pressed or moved, and the refusal says to `release` first
+
+### Requirement: An idle or orphaned hold ends without a stray drop
+
+After 120 seconds with no tool call, a held button SHALL be abandoned, not released where it is held: Escape SHALL go
+to the focused control in its window, then held moves SHALL return to the press point and the button SHALL be released
+there. The next reply's `heldButton` SHALL say so, and, for a press in the form designer, whether the designer recorded
+an undo step anyway. A hold whose window closes SHALL be dropped without a release, and the next reply SHALL say why.
+
+#### Scenario: An idle hold is abandoned
+
+- **WHEN** no tool is called for 120 seconds while a button is held
+- **THEN** Escape is sent, the pointer moves back to the press, and the button is released there
+- **AND** a Dock drag docks nothing and a designer move ends where it began, while a resize snaps to the grid and a draw
+  still places a control, and the next reply's `heldButton` names any undo step the designer recorded
+
+#### Scenario: The held window closes
+
+- **WHEN** the window a button is held in closes
+- **THEN** the hold is dropped without a release, and the next reply's `heldButton` says the window closed
+
 ### Requirement: Properties category expansion
 
 Categorized Properties rows SHALL expose an expand/collapse provider driven by the category's open state. Their toggle SHALL use the localized category header as its accessible name. `inspect_element` SHALL report `expandCollapseState` from an available expand/collapse provider.

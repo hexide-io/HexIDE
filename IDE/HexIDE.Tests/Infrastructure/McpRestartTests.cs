@@ -617,6 +617,7 @@ public class McpRestartTests
             .And.Contain("app.UseLoopbackOnly(port);")
             .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
+            .And.Contain(".AddCallToolFilter(HeldButtonNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
 
         var startup = ToolSource.WithoutComments(

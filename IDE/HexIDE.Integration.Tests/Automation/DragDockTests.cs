@@ -21,9 +21,9 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </summary>
 public class DragDockTests
 {
-    private sealed record Layout(Window Window, DockControl Host, ToolDock Left, ToolDock Right, Tool Alpha, Tool Beta);
+    internal sealed record Layout(Window Window, DockControl Host, ToolDock Left, ToolDock Right, Tool Alpha, Tool Beta);
 
-    private static Layout Shown()
+    internal static Layout Shown()
     {
         var factory = new Factory();
         var alpha = new Tool { Id = "Alpha", Title = "Alpha" };
@@ -56,7 +56,7 @@ public class DragDockTests
         return new Layout(window, host, left, right, alpha, beta);
     }
 
-    private static ToolChromeControl ChromeOf(Layout layout, ToolDock dock) =>
+    internal static ToolChromeControl ChromeOf(Layout layout, ToolDock dock) =>
         layout.Host.GetVisualDescendants().OfType<ToolChromeControl>().Single(c => ReferenceEquals(c.DataContext, dock));
 
     [AvaloniaFact]
