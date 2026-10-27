@@ -205,7 +205,7 @@ public static class AttachedEvents
             : (control, VBScaleMode.Twip);
         // Its own handler, and each WithEvents variable holding it (#1556).
         Raise(e, eventClass, ControlEvents.Handlers(control, control.FindLogicalAncestorOfType<IModuleExecutionRoot>(), eventClass.Name),
-            VBProps.GetIndex(control), origin, mode, VBProps.GetClientInset(control));
+            VBProps.GetIndex(control), origin, mode, control is VBTreeView tree ? tree.ClientEdge : VBProps.GetClientInset(control));
     }
 
     private static void Raise(PointerEventArgs e, EventClass eventClass, IReadOnlyList<ControlEvents.Handler> all, int? index,

@@ -1308,6 +1308,7 @@ signature help and the Object Browser, not the completion popup.
 `GetVisibleCount` returns complete client-row capacity as a Long, before layout and in Form_Load
 as well as after Show (4 for the default-edged 80-pixel tree, 12 for the 200-pixel tree).
 Saved Appearance/BorderStyle choose the measured 0/1/2/3-pixel edge, drawing and pointer origin.
+MouseDown, MouseMove and MouseUp report client-area twips, subtracting that edge.
 Scrolling (#2359) remains unmeasured and not implemented; label editing follows in #2360.
 `TreeNodes.cs` supplies the hierarchy model and `TreeNodeAutomation.cs` now exposes
 its collection and node identities to the interpreter. Injected collections can be built and walked from VB6:

@@ -59,7 +59,15 @@ The control SHALL dispatch NodeClick on each label click, including a right clic
 Expansion-button clicks SHALL toggle expansion without NodeClick; checkbox clicks SHALL toggle Checked
 and dispatch NodeCheck without changing selection. MouseDown SHALL precede the node event, followed by
 MouseUp and Click. A label double click SHALL toggle expansion before DblClick, with no second MouseDown
-or Click. Mouse coordinates SHALL be twips.
+or Click. Mouse coordinates SHALL be client-area twips, subtracting the measured
+Appearance/BorderStyle edge from the outer pointer position.
+
+#### Scenario: Mouse coordinates inside the edge
+
+- **GIVEN** a default-edged tree or a flat borderless tree
+- **WHEN** the pointer moves, presses and releases 21 pixels from the outer top-left corner
+- **THEN** MouseMove, MouseDown and MouseUp report X and Y as 285 twips with the default edge,
+  or 315 twips with no edge
 
 #### Scenario: Collapse an ancestor of the selected node
 

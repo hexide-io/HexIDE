@@ -78,6 +78,35 @@ public class TreeViewEventTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, 21, 21, 285f, 285f)]
+    [InlineData(false, 40, 30, 570f, 420f)]
+    [InlineData(true, 21, 21, 315f, 315f)]
+    [InlineData(true, 40, 30, 600f, 450f)]
+    public void Mouse_coordinates_start_inside_the_client_edge(bool flat, int x, int y, float expectedX, float expectedY)
+    {
+        var (tree, root, window) = Create();
+        try
+        {
+            if (flat) tree.LoadEdge(0, 0);
+            var point = tree.TranslatePoint(new Point(x, y), window)!.Value;
+            window.MouseMove(point);
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            foreach (var name in new[] { "MouseMove", "MouseDown", "MouseUp" })
+            {
+                var calls = root.Calls.Where(c => c.Name == "TreeView1_" + name).ToArray();
+                calls.Should().NotBeEmpty();
+                foreach (var call in calls)
+                {
+                    call.Args![2].Value.Should().Be(expectedX);
+                    call.Args[3].Value.Should().Be(expectedY);
+                }
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Code_expansion_and_ensure_visible_raise_only_expansion_events()
     {
@@ -164,8 +193,8 @@ public class TreeViewEventTests
             tree.Nodes.SelectedItem.Should().BeSameAs(a);
             var down = root.Calls.First(c => c.Name.EndsWith("MouseDown")).Args!;
             down[0].Value.Should().Be(2);
-            down[2].Value.Should().Be(630f);
-            down[3].Value.Should().Be(150f);
+            down[2].Value.Should().Be(600f);
+            down[3].Value.Should().Be(120f);
             root.Calls.Clear();
             point += new Vector(30, 0);
             window.MouseDown(point, MouseButton.Right);
