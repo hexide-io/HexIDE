@@ -2165,6 +2165,10 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
+            // The document change is debounced 300ms, but completion needs the current source.
+            await vm.FlushDocumentAsync(token);
+            if (token.IsCancellationRequested) return;
+
             var items = triggerCharacter is null
                 ? await vm.RequestCompletionAsync(position, token)
                 : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
