@@ -10,11 +10,14 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # Exceptions must name a file in the notices, rather than exempting a whole directory.
 notices = ROOT / "THIRD-PARTY-NOTICES.md"
 credited = set(re.findall(r"`([^`\n]+)`", notices.read_text(encoding="utf-8"))) if notices.exists() else set()
+# Licence texts this tree carries for another repository and never applies to its own files: the oracle mirror
+# publishes .github/oracle-mirror/ as hexide-io/vb6-behaviour, whose prose is CC BY 4.0 (see its README).
+carried = {".github/oracle-mirror/LICENSE"}
 paths = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
 failed = False
 for name in paths:
     path = ROOT / name
-    if not name or not path.is_file() or name in credited:
+    if not name or not path.is_file() or name in credited or name in carried:
         continue
     data = path.read_bytes()
     if b"\0" in data:
