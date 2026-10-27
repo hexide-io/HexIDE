@@ -140,6 +140,13 @@ public class DockFactoryTests
             (restoredFactory, _) = CreateFactory(pending);
             restoredRoot = restoredFactory.CreateLayout();
             restoredFactory.InitLayout(restoredRoot);
+            // An empty late-registration slot can be collapsed by the first layout pass.
+            var pendingMain = (IProportionalDock)restoredRoot.DefaultDockable!;
+            var pendingSplit = (IProportionalDock)pendingMain.VisibleDockables![0];
+            IDockable pendingSlot = pendingSplit.VisibleDockables![2];
+            if (nested)
+                pendingSlot = ((IProportionalDock)pendingSlot).VisibleDockables!.Single();
+            pendingSlot.Proportion = 0;
             var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
             restoredFactory.RegisterAddinTool(restoredRoot, tool);
             restoredTool = tool;

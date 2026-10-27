@@ -663,9 +663,9 @@ public partial class MainViewViewModel : ObservableObject
                     branch = ancestor;
                 var siblings = (layout.DefaultDockable as IDock)?.VisibleDockables;
                 var documentBranch = siblings?.FirstOrDefault(d => Find<IDocumentDock>(d, _ => true) != null);
-                if (siblings != null && documentBranch != null)
-                    return (ReferenceEquals(branch, documentBranch) ? DockRegion.Bottom
-                        : siblings.IndexOf(branch) < siblings.IndexOf(documentBranch) ? DockRegion.Left : DockRegion.Right,
+                if (siblings != null && documentBranch != null && !ReferenceEquals(branch, documentBranch)
+                    && (!ReferenceEquals(branch, splitTool) || splitTool.Alignment != Alignment.Unset))
+                    return (siblings.IndexOf(branch) < siblings.IndexOf(documentBranch) ? DockRegion.Left : DockRegion.Right,
                         container.VisibleDockables!.IndexOf(tool),
                         double.IsNaN(splitTool.Proportion) ? null : splitTool.Proportion);
             }
@@ -729,7 +729,9 @@ public partial class MainViewViewModel : ObservableObject
                     pending.ActiveDockable = tool;
                 if (!pendingToolDocks.Values.Contains(pending))
                     pendingToolGroups.Remove(pending);
-                InitDockable(tool, pending);
+                // The first layout pass can collapse an empty add-in slot before registration.
+                pending.Proportion = group.Proportion ?? double.NaN;
+                InitDockable(pending, pending.Owner);
                 LayoutChanged?.Invoke();
                 return;
             }
