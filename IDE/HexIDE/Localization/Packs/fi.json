@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Läpinäkyvien pikselien väri.",
     "Str.PropDesc.UseMaskColor": "Käytetäänkö maskin väriä.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Näytä sisennysohjaimet",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
+    "Str.Layout.Layouts": "_Paneeliasettelut",
+    "Str.Layout.Save": "_Tallenna asettelu nimellä…",
+    "Str.Layout.FullEditor": "_Koko muokkain",
+    "Str.Layout.Switch": "_Vaihda",
+    "Str.Layout.Rename": "_Nimeä uudelleen…",
+    "Str.Layout.Delete": "_Poista",
+    "Str.Layout.NamePrompt": "Asettelun nimi:",
+    "Str.Layout.InvalidName": "Anna yksilöllinen asettelun nimi, joka ei ole tyhjä.",
+    "Str.Layout.Skipped": "Lisäosien ikkunat, jotka eivät olleet käytettävissä, ohitettiin: {0}",
+    "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa."
   }
 }

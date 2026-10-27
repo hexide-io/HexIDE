@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "اللون المستخدم للبكسلات الشفافة.",
     "Str.PropDesc.UseMaskColor": "ما إذا كان لون القناع مستخدمًا.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
+    "Str.Layout.Layouts": "تخطيطات اللوحات",
+    "Str.Layout.Save": "حفظ التخطيط باسم…",
+    "Str.Layout.FullEditor": "المحرر الكامل",
+    "Str.Layout.Switch": "تبديل",
+    "Str.Layout.Rename": "إعادة تسمية…",
+    "Str.Layout.Delete": "حذف",
+    "Str.Layout.NamePrompt": "اسم التخطيط:",
+    "Str.Layout.InvalidName": "أدخل اسم تخطيط فريدًا وغير فارغ.",
+    "Str.Layout.Skipped": "تم تخطي نوافذ الوظائف الإضافية غير المتاحة: {0}",
+    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات."
   }
 }

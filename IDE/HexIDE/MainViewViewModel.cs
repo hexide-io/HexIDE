@@ -226,6 +226,11 @@ public partial class MainViewViewModel : ObservableObject
         private double leftProportion = LayoutManifest.DefaultLeftProportion;
         private double rightProportion = LayoutManifest.DefaultRightProportion;
 
+        public IReadOnlyList<ToolLayoutState> SkippedTools => deferredTools.Values
+            .Where(t => !toolsByKey.ContainsKey(t.Key)).ToArray();
+
+        public IRootDock ApplyLayout(LayoutManifest manifest) => BuildLayout(manifest, DocumentDock);
+
         // Every tool's "home" region/order — the single source of truth for defaults and for
         // restoring a closed-then-reopened tool to its slot.
         private static readonly IReadOnlyDictionary<string, ToolLayoutState> Home =
@@ -282,6 +287,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["objectBrowser"]     = objectBrowser,
                 ["translationEditor"] = translationEditor,
                 ["languageServers"]   = languageServers,
+                ["protocolInspector"] = protocolInspector,
             };
             documentDockFactory.Value = this;
         }
@@ -351,7 +357,7 @@ public partial class MainViewViewModel : ObservableObject
             // LEFT — single ToolDock holding the left tool(s) (the toolbox).
             IToolDock? leftDock = null;
             var leftTools = OpenIn(DockRegion.Left)
-                .Select(s => toolsByKey[s.Key]).OfType<Tool>().Cast<IDockable>().ToArray();
+                .Select(s => toolsByKey.GetValueOrDefault(s.Key)).OfType<Tool>().Cast<IDockable>().ToArray();
             if (leftTools.Length > 0)
             {
                 leftDock = CreateToolDock();
@@ -364,12 +370,12 @@ public partial class MainViewViewModel : ObservableObject
             // RIGHT — vertical stack of single-tool ToolDocks.
             RightDock = null;
             var rightStates = OpenIn(DockRegion.Right);
-            if (rightStates.Any(s => toolsByKey[s.Key] is Tool))
+            if (rightStates.Any(s => toolsByKey.GetValueOrDefault(s.Key) is Tool))
             {
                 var children = new List<IDockable>();
                 foreach (var s in rightStates)
                 {
-                    if (toolsByKey[s.Key] is not Tool t) continue;
+                    if (toolsByKey.GetValueOrDefault(s.Key) is not Tool t) continue;
                     if (children.Count > 0) children.Add(new ProportionalDockSplitter());
                     children.Add(MakeToolDock(t, Alignment.Top, s.Proportion));
                 }
@@ -395,7 +401,7 @@ public partial class MainViewViewModel : ObservableObject
             {
                 dd = live;
                 dd.VisibleDockables ??= CreateList<IDockable>();
-                foreach (var managed in dd.VisibleDockables.OfType<Document>().Where(d => KeyOf(d) != null).ToList())
+                foreach (var managed in dd.VisibleDockables.Where(d => KeyOf(d) != null || d is AddinToolWindowViewModel).ToList())
                     dd.VisibleDockables.Remove(managed);
             }
             else
@@ -412,18 +418,20 @@ public partial class MainViewViewModel : ObservableObject
             DocumentDock = dd;
 
             var documentTools = OpenIn(DockRegion.Document)
-                .Select(s => toolsByKey[s.Key]).OfType<Document>().Cast<IDockable>().ToArray();
+                .Select(s => toolsByKey.GetValueOrDefault(s.Key)).OfType<IDockable>().ToArray();
             foreach (var d in documentTools)
                 if (!dd.VisibleDockables!.Contains(d))
                     dd.VisibleDockables!.Add(d);
             if (documentTools.Length > 0)
                 dd.ActiveDockable = documentTools[0];
+            else if (dd.ActiveDockable is null || !dd.VisibleDockables!.Contains(dd.ActiveDockable))
+                dd.ActiveDockable = dd.VisibleDockables!.FirstOrDefault();
 
             // MIDDLE — document on top, bottom tools stacked below.
             var middleChildren = new List<IDockable> { DocumentDock };
             foreach (var s in OpenIn(DockRegion.Bottom))
             {
-                if (toolsByKey[s.Key] is not Tool t) continue;
+                if (toolsByKey.GetValueOrDefault(s.Key) is not Tool t) continue;
                 middleChildren.Add(new ProportionalDockSplitter());
                 middleChildren.Add(MakeToolDock(t, Alignment.Bottom, s.Proportion ?? 0.3));
             }
@@ -542,18 +550,22 @@ public partial class MainViewViewModel : ObservableObject
             if (container is null)
                 return null; // not in the live tree → closed
 
-            // Documents (Object Browser / Translation Editor) only round-trip in the document region.
-            if (tool is Document)
-                return container is IDocumentDock && KeyOf(tool) is { } dk
-                    ? (DockRegion.Document, Home[dk].Order, (double?)null)
-                    : null;
+            // Ignore editor/designer tabs when ordering the manifest-managed document tools.
+            if (container is IDocumentDock && (tool is Document || tool is AddinToolWindowViewModel))
+            {
+                var order = container.VisibleDockables!
+                    .Where(d => KeyOf(d) != null || d is AddinToolWindowViewModel)
+                    .TakeWhile(d => !ReferenceEquals(d, tool)).Count();
+                return (DockRegion.Document, order, null);
+            }
+            if (tool is Document) return null;
 
             if (container is IToolDock td && FindContainer(layout, td) is { } parent)
             {
                 double? prop = double.IsNaN(td.Proportion) ? null : td.Proportion;
 
                 if (ReferenceEquals(parent, layout.DefaultDockable) && td.Alignment == Alignment.Left)
-                    return (DockRegion.Left, td.VisibleDockables!.IndexOf(tool), prop);
+                    return (DockRegion.Left, td.VisibleDockables?.IndexOf(tool) ?? 0, prop);
 
                 var ctx = parent.Context as string;
                 if (ctx == nameof(RightDock))
@@ -617,6 +629,19 @@ public partial class MainViewViewModel : ObservableObject
 
             switch (region)
             {
+                case DockRegion.Document:
+                {
+                    if (DocumentDock is not { } documents) return;
+                    documents.VisibleDockables ??= CreateList<IDockable>();
+                    var next = documents.VisibleDockables.FirstOrDefault(d =>
+                        KeyOf(d) is { } k && savedOrders.GetValueOrDefault(k, int.MaxValue) > order);
+                    var index = next != null ? documents.VisibleDockables.IndexOf(next) : documents.VisibleDockables.Count;
+                    documents.VisibleDockables.Insert(index, tool);
+                    documents.ActiveDockable = tool;
+                    InitDockable(tool, documents);
+                    SetFocusedDockable(documents, tool);
+                    break;
+                }
                 case DockRegion.Left:
                 {
                     var left = GetOrCreateLeftDock(layout);
@@ -806,8 +831,8 @@ public partial class MainViewViewModel : ObservableObject
         addinToolWindowService.ShowRequested    += tool => OpenOrActivateTool(tool, true);
         addinToolWindowService.ToolUnregistered += tool =>
         {
-            var parent = FindDock<IDockable>(x => ReferenceEquals(x, tool))?.Owner as IDock;
-            if (parent is not null) dockFactory.CloseDockable(parent);
+            if (FindDock<IDockable>(x => ReferenceEquals(x, tool)) is not null)
+                dockFactory.CloseDockable(tool);
         };
         this.windowManager = windowManager;
         this.projectService = projectService;
@@ -861,9 +886,12 @@ public partial class MainViewViewModel : ObservableObject
         FocusedProjectUtil = focusedProjectUtil;
 
         this.windowStateService = windowStateService;
+        NamedLayouts = new NamedLayoutService(windowStateService);
 
         Layout = dockFactory.CreateLayout();
         dockFactory.InitLayout(Layout);
+        foreach (var tool in addinToolWindowService.Tools)
+            dockFactory.RegisterAddinTool(Layout, tool);
         documentDockService.TrackTabs();
         ReopenClosedDocumentCommand = new DelegateCommand(
             () => documentDockService.ReopenClosedDocument(editorService),
@@ -885,6 +913,7 @@ public partial class MainViewViewModel : ObservableObject
         _layoutSaveTimer.Tick += (_, _) => LoggedTimerCallback.Run("dock-layout save", FlushLayoutSaveDebounced);
         _lastSavedLayoutJson = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         dockFactory.LayoutChanged += ScheduleLayoutSave;
+        ReportSkippedPanelWindows();
 
         VBWindowContext.RunTimeError += (form, e) =>
         {
@@ -1706,13 +1735,87 @@ public partial class MainViewViewModel : ObservableObject
         windowStateService.SaveLayoutManifestJson(json);
     }
 
+    public NamedLayoutService NamedLayouts { get; }
+
+    public async Task SaveNamedLayoutAsync()
+    {
+        var name = await windowManager.InputBox(localization.GetString("Str.Layout.NamePrompt"),
+            localization.GetString("Str.Layout.Layouts").Replace("_", ""), "");
+        if (name is null) return;
+        await ChangeNamedLayouts(() => NamedLayouts.Save(name, dockFactory.CaptureManifest(Layout)));
+    }
+
+    public async Task RenameNamedLayoutAsync(string name)
+    {
+        var replacement = await windowManager.InputBox(localization.GetString("Str.Layout.NamePrompt"),
+            localization.GetString("Str.Layout.Layouts").Replace("_", ""), name);
+        if (replacement is null) return;
+        await ChangeNamedLayouts(() => NamedLayouts.Rename(name, replacement));
+    }
+
+    public Task DeleteNamedLayoutAsync(string name) => ChangeNamedLayouts(() =>
+    {
+        NamedLayouts.Delete(name);
+        return true;
+    });
+
+    private async Task ChangeNamedLayouts(Func<bool> change)
+    {
+        try
+        {
+            if (!change())
+                await windowManager.MessageBox(localization.GetString("Str.Layout.InvalidName"));
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to save named panel layouts");
+            await windowManager.MessageBox(localization.GetString("Str.Layout.SaveFailed"));
+        }
+    }
+
+    public void SwitchNamedLayout(string name)
+    {
+        if (NamedLayouts.Get(name) is { } manifest) ApplyPanelLayout(manifest);
+    }
+
+    public void FullEditorLayout() => ApplyPanelLayout(LayoutManifest.FullEditor);
+
+    private string? _panelLayoutNotice;
+
+    private void ApplyPanelLayout(LayoutManifest manifest)
+    {
+        _layoutSaveTimer.Stop();
+        var fresh = dockFactory.ApplyLayout(manifest);
+        dockFactory.InitLayout(fresh);
+        Layout = fresh;
+        SaveLayout();
+        ReportSkippedPanelWindows();
+    }
+
+    private void ReportSkippedPanelWindows()
+    {
+        if (dockFactory.SkippedTools.Count > 0)
+        {
+            _panelLayoutNotice = string.Format(localization.GetString("Str.Layout.Skipped"),
+                string.Join(", ", dockFactory.SkippedTools.Select(t => t.Key)));
+            StatusBar.SetMessage(_panelLayoutNotice);
+        }
+        else if (_panelLayoutNotice is not null)
+        {
+            if (StatusBar.Message == _panelLayoutNotice) StatusBar.ClearMessage();
+            _panelLayoutNotice = null;
+        }
+    }
+
     /// <summary>Discard the saved layout and rebuild the default arrangement live, keeping open documents.</summary>
     public void ResetWindowLayout()
     {
+        _layoutSaveTimer.Stop();
         var fresh = dockFactory.ResetLayout(Layout);
         dockFactory.InitLayout(fresh);
         Layout = fresh;
         _lastSavedLayoutJson = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
+        ReportSkippedPanelWindows();
     }
 
     public void OpenImmediateTool() => OpenOrActivateTool(Immediate, false);

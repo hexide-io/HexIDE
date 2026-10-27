@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Color punctorum perlucidorum.",
     "Str.PropDesc.UseMaskColor": "Utrum color personae adhibeatur.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Lineas indentationis monstrare",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare",
+    "Str.Layout.Layouts": "_Dispositiones tabularum",
+    "Str.Layout.Save": "Dispositionem _servare ut…",
+    "Str.Layout.FullEditor": "Editor _plenus",
+    "Str.Layout.Switch": "_Mutare",
+    "Str.Layout.Rename": "_Renominare…",
+    "Str.Layout.Delete": "_Delere",
+    "Str.Layout.NamePrompt": "Nomen dispositionis:",
+    "Str.Layout.InvalidName": "Nomen dispositionis unicum nec vacuum inscribe.",
+    "Str.Layout.Skipped": "Fenestrae additamentorum non praesto omissae sunt: {0}",
+    "Str.Layout.SaveFailed": "Dispositiones tabularum servari non potuerunt."
   }
 }

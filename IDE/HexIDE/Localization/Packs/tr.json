@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Saydam piksellerin rengi.",
     "Str.PropDesc.UseMaskColor": "Maske renginin kullanılıp kullanılmayacağı.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir",
+    "Str.Layout.Layouts": "_Panel Düzenleri",
+    "Str.Layout.Save": "Düzeni Farklı _Kaydet…",
+    "Str.Layout.FullEditor": "_Tam Düzenleyici",
+    "Str.Layout.Switch": "_Geçiş Yap",
+    "Str.Layout.Rename": "_Yeniden Adlandır…",
+    "Str.Layout.Delete": "_Sil",
+    "Str.Layout.NamePrompt": "Düzen adı:",
+    "Str.Layout.InvalidName": "Benzersiz, boş olmayan bir düzen adı girin.",
+    "Str.Layout.Skipped": "Kullanılamayan eklenti pencereleri atlandı: {0}",
+    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi."
   }
 }

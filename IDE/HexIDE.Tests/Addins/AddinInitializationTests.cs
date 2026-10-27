@@ -64,7 +64,7 @@ public sealed class AddinInitializationTests : IDisposable
         var notifications = 0;
         var reachedAfterFactory = false;
         var addin = Substitute.For<IAddin>();
-        addin.When(a => a.Initialize(_host)).Do(_ =>
+        addin.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(_ =>
         {
             _host.Menus.Add("AddIns/Failed", "Earlier menu", null, () => { });
             _host.ToolWindows.Register("earlier", "Earlier tool", null, () => new object()).Show();
@@ -117,7 +117,7 @@ public sealed class AddinInitializationTests : IDisposable
     public void Cleanup_failures_preserve_the_factory_error_and_do_not_stop_rollback_or_the_next_addin()
     {
         var failed = Substitute.For<IAddin>();
-        failed.When(a => a.Initialize(_host)).Do(_ =>
+        failed.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(_ =>
         {
             _host.Menus.Add("Tools", "Failed", null, () => { });
             _host.ToolWindows.Register("failed", "Failed", null, () => new object());
@@ -129,7 +129,7 @@ public sealed class AddinInitializationTests : IDisposable
         _registry.InitializeAddin(ctx, failed, AddinStatus.Loaded, _host);
 
         var healthy = Substitute.For<IAddin>();
-        healthy.When(a => a.Initialize(_host)).Do(_ => _host.Menus.Add("Tools", "Healthy", null, () => { }));
+        healthy.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(_ => _host.Menus.Add("Tools", "Healthy", null, () => { }));
         var next = new AddinContext(new AddinInfo("healthy", "Healthy", "", "", ""));
         _registry.InitializeAddin(next, healthy, AddinStatus.Loaded, _host);
 
@@ -152,7 +152,7 @@ public sealed class AddinInitializationTests : IDisposable
         var removed = 0;
         _tools.ToolUnregistered += _ => removed++;
         var failed = Substitute.For<IAddin>();
-        failed.When(a => a.Initialize(_host)).Do(_ =>
+        failed.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(_ =>
         {
             _host.RegisterComponent(component);
             toolbox.SelectedComponent = toolbox.Components.Last();
@@ -168,6 +168,30 @@ public sealed class AddinInitializationTests : IDisposable
         _tools.Tools.Should().ContainSingle().Which.Id.Should().Be("previous");
         removed.Should().Be(1);
         previous.Dispose();
+    }
+
+    [Fact]
+    public void ToolWindowOwnership_SurvivesInitialize_AndAllowsSameIdAcrossAddins()
+    {
+        IHexIdeHost? firstHost = null;
+        IHexIdeHost? secondHost = null;
+        var first = Substitute.For<IAddin>();
+        var second = Substitute.For<IAddin>();
+        first.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(c => firstHost = c.Arg<IHexIdeHost>());
+        second.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(c => secondHost = c.Arg<IHexIdeHost>());
+        _registry.InitializeAddin(new AddinContext(new AddinInfo("first", "First", "", "", "", Id: "first")),
+            first, AddinStatus.Loaded, _host);
+        _registry.InitializeAddin(new AddinContext(new AddinInfo("second", "Second", "", "", "", Id: "second")),
+            second, AddinStatus.Loaded, _host);
+
+        using var one = firstHost!.ToolWindows.Register("output", "First", null, () => new object());
+        using var two = secondHost!.ToolWindows.Register("output", "Second", null, () => new object());
+        _tools.Tools.Select(t => t.Id).Should().OnlyHaveUniqueItems();
+        var duplicate = () => firstHost.ToolWindows.Register("output", "Duplicate", null, () => new object());
+        duplicate.Should().Throw<InvalidOperationException>();
+        one.Dispose();
+        using var replacement = firstHost.ToolWindows.Register("output", "Replacement", null, () => new object());
+        _tools.Tools.Should().HaveCount(2);
     }
 
 }

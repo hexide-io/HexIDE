@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
     "Str.PropDesc.UseMaskColor": "Zda použít barvu masky.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.Layout.Layouts": "_Rozložení panelů",
+    "Str.Layout.Save": "_Uložit rozložení jako…",
+    "Str.Layout.FullEditor": "_Celý editor",
+    "Str.Layout.Switch": "_Přepnout",
+    "Str.Layout.Rename": "_Přejmenovat…",
+    "Str.Layout.Delete": "_Odstranit",
+    "Str.Layout.NamePrompt": "Název rozložení:",
+    "Str.Layout.InvalidName": "Zadejte jedinečný neprázdný název rozložení.",
+    "Str.Layout.Skipped": "Nedostupná okna doplňků byla přeskočena: {0}",
+    "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit."
   }
 }

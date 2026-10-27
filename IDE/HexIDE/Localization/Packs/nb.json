@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Fargen på gjennomsiktige piksler.",
     "Str.PropDesc.UseMaskColor": "Om maskefargen brukes.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis innrykkslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
+    "Str.Layout.Layouts": "_Paneloppsett",
+    "Str.Layout.Save": "_Lagre oppsett som…",
+    "Str.Layout.FullEditor": "_Hele redigeringsvinduet",
+    "Str.Layout.Switch": "_Bytt",
+    "Str.Layout.Rename": "_Gi nytt navn…",
+    "Str.Layout.Delete": "_Slett",
+    "Str.Layout.NamePrompt": "Oppsettnavn:",
+    "Str.Layout.InvalidName": "Angi et unikt oppsettnavn som ikke er tomt.",
+    "Str.Layout.Skipped": "Utilgjengelige tilleggsvinduer ble hoppet over: {0}",
+    "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres."
   }
 }

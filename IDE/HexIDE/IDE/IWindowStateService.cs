@@ -27,6 +27,11 @@ public sealed record LayoutManifest(
     double RightProportion,
     IReadOnlyList<ToolLayoutState> Tools)
 {
+    public static LayoutManifest FullEditor => Default with
+    {
+        Tools = Default.Tools.Select(t => t with { Open = false }).ToArray(),
+    };
+
     public const int CurrentVersion = 2;
     public const double DefaultLeftProportion = 0.06;
     public const double DefaultRightProportion = 0.2155;
@@ -48,12 +53,16 @@ public sealed record LayoutManifest(
             new("colorPalette",      false, DockRegion.Bottom,   4, 0.3),
             new("objectBrowser",     false, DockRegion.Document, 0, null),
             new("translationEditor", false, DockRegion.Document, 1, null),
+            new("protocolInspector", false, DockRegion.Document, 3, null),
             new("languageServers",   false, DockRegion.Document, 2, null),
         });
 }
 
 public interface IWindowStateService
 {
+    IReadOnlyDictionary<string, LayoutManifest> LoadNamedLayouts();
+    void SaveNamedLayouts(IReadOnlyDictionary<string, LayoutManifest> layouts);
+
     void SaveWindowState(Window mainWindow);
     void RestoreWindowState(Window mainWindow);
 

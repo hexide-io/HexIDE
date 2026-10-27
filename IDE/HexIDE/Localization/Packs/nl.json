@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "De kleur voor transparante pixels.",
     "Str.PropDesc.UseMaskColor": "Of de maskerkleur wordt gebruikt.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.Layout.Layouts": "_Paneelindelingen",
+    "Str.Layout.Save": "Indeling _opslaan als…",
+    "Str.Layout.FullEditor": "_Volledige editor",
+    "Str.Layout.Switch": "_Wisselen",
+    "Str.Layout.Rename": "_Naam wijzigen…",
+    "Str.Layout.Delete": "_Verwijderen",
+    "Str.Layout.NamePrompt": "Naam van indeling:",
+    "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
+    "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
+    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen."
   }
 }

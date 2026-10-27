@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "شفاف پکسلز کا رنگ۔",
     "Str.PropDesc.UseMaskColor": "آیا ماسک کا رنگ استعمال کرنا ہے۔",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
+    "Str.Layout.Layouts": "پینل کی ترتیبیں",
+    "Str.Layout.Save": "ترتیب اس نام سے محفوظ کریں…",
+    "Str.Layout.FullEditor": "مکمل ایڈیٹر",
+    "Str.Layout.Switch": "تبدیل کریں",
+    "Str.Layout.Rename": "نام تبدیل کریں…",
+    "Str.Layout.Delete": "حذف کریں",
+    "Str.Layout.NamePrompt": "ترتیب کا نام:",
+    "Str.Layout.InvalidName": "ترتیب کے لیے ایک منفرد، غیر خالی نام درج کریں۔",
+    "Str.Layout.Skipped": "غیر دستیاب ایڈ اِن ونڈوز چھوڑ دی گئیں: {0}",
+    "Str.Layout.SaveFailed": "پینل کی ترتیبیں محفوظ نہیں ہو سکیں۔"
   }
 }

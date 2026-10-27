@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "पारदर्शी पिक्सेल का रंग।",
     "Str.PropDesc.UseMaskColor": "क्या मास्क रंग का उपयोग करना है।",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें",
+    "Str.Layout.Layouts": "पैनल विन्यास",
+    "Str.Layout.Save": "विन्यास इस नाम से सहेजें…",
+    "Str.Layout.FullEditor": "पूरा संपादक",
+    "Str.Layout.Switch": "बदलें",
+    "Str.Layout.Rename": "नाम बदलें…",
+    "Str.Layout.Delete": "हटाएँ",
+    "Str.Layout.NamePrompt": "विन्यास का नाम:",
+    "Str.Layout.InvalidName": "एक अद्वितीय, गैर-रिक्त विन्यास नाम दर्ज करें।",
+    "Str.Layout.Skipped": "अनुपलब्ध ऐड-इन विंडो छोड़ दी गईं: {0}",
+    "Str.Layout.SaveFailed": "पैनल विन्यास सहेजे नहीं जा सके।"
   }
 }

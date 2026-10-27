@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Die Farbe für transparente Pixel.",
     "Str.PropDesc.UseMaskColor": "Ob die Maskenfarbe verwendet wird.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
+    "Str.Layout.Layouts": "_Panelanordnungen",
+    "Str.Layout.Save": "Anordnung _speichern unter…",
+    "Str.Layout.FullEditor": "_Vollständiger Editor",
+    "Str.Layout.Switch": "_Wechseln",
+    "Str.Layout.Rename": "_Umbenennen…",
+    "Str.Layout.Delete": "_Löschen",
+    "Str.Layout.NamePrompt": "Name der Anordnung:",
+    "Str.Layout.InvalidName": "Geben Sie einen eindeutigen, nicht leeren Namen für die Anordnung ein.",
+    "Str.Layout.Skipped": "Nicht verfügbare Add-In-Fenster wurden übersprungen: {0}",
+    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden."
   }
 }

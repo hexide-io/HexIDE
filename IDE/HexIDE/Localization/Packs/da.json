@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Farven til gennemsigtige pixels.",
     "Str.PropDesc.UseMaskColor": "Om maskefarven bruges.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis indrykningslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
+    "Str.Layout.Layouts": "_Panellayout",
+    "Str.Layout.Save": "_Gem layout som…",
+    "Str.Layout.FullEditor": "_Hele editoren",
+    "Str.Layout.Switch": "_Skift",
+    "Str.Layout.Rename": "_Omdøb…",
+    "Str.Layout.Delete": "_Slet",
+    "Str.Layout.NamePrompt": "Layoutnavn:",
+    "Str.Layout.InvalidName": "Angiv et entydigt layoutnavn, der ikke er tomt.",
+    "Str.Layout.Skipped": "Utilgængelige tilføjelsesvinduer blev sprunget over: {0}",
+    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes."
   }
 }

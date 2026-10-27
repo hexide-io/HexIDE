@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "رنگ پیکسل‌های شفاف.",
     "Str.PropDesc.UseMaskColor": "آیا رنگ ماسک استفاده شود.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
+    "Str.Layout.Layouts": "چیدمان‌های پنل",
+    "Str.Layout.Save": "ذخیرهٔ چیدمان با نام…",
+    "Str.Layout.FullEditor": "ویرایشگر کامل",
+    "Str.Layout.Switch": "تعویض",
+    "Str.Layout.Rename": "تغییر نام…",
+    "Str.Layout.Delete": "حذف",
+    "Str.Layout.NamePrompt": "نام چیدمان:",
+    "Str.Layout.InvalidName": "یک نام یکتا و غیرخالی برای چیدمان وارد کنید.",
+    "Str.Layout.Skipped": "پنجره‌های افزونهٔ در دسترس نبودند و رد شدند: {0}",
+    "Str.Layout.SaveFailed": "چیدمان‌های پنل ذخیره نشدند."
   }
 }

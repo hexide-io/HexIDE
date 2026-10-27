@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "The color used for transparent pixels.",
     "Str.PropDesc.UseMaskColor": "Whether to use the mask color.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Show indent guides",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth",
+    "Str.Layout.Layouts": "_Panel Layouts",
+    "Str.Layout.Save": "_Save Layout As…",
+    "Str.Layout.FullEditor": "_Full Editor",
+    "Str.Layout.Switch": "_Switch",
+    "Str.Layout.Rename": "_Rename…",
+    "Str.Layout.Delete": "_Delete",
+    "Str.Layout.NamePrompt": "Layout name:",
+    "Str.Layout.InvalidName": "Enter a unique, non-empty layout name.",
+    "Str.Layout.Skipped": "Unavailable add-in windows were skipped: {0}",
+    "Str.Layout.SaveFailed": "The panel layouts could not be saved."
   }
 }

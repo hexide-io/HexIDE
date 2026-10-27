@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Färgen för genomskinliga pixlar.",
     "Str.PropDesc.UseMaskColor": "Om maskfärgen används.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
+    "Str.Layout.Layouts": "_Panellayouter",
+    "Str.Layout.Save": "_Spara layout som…",
+    "Str.Layout.FullEditor": "_Hela redigeraren",
+    "Str.Layout.Switch": "_Byt",
+    "Str.Layout.Rename": "_Byt namn…",
+    "Str.Layout.Delete": "_Ta bort",
+    "Str.Layout.NamePrompt": "Layoutnamn:",
+    "Str.Layout.InvalidName": "Ange ett unikt layoutnamn som inte är tomt.",
+    "Str.Layout.Skipped": "Otillgängliga tilläggsfönster hoppades över: {0}",
+    "Str.Layout.SaveFailed": "Panellayouterna kunde inte sparas."
   }
 }

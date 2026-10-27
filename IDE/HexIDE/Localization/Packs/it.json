@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Il colore dei pixel trasparenti.",
     "Str.PropDesc.UseMaskColor": "Indica se usare il colore della maschera.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
+    "Str.Layout.Layouts": "_Disposizioni dei pannelli",
+    "Str.Layout.Save": "_Salva disposizione con nome…",
+    "Str.Layout.FullEditor": "_Editor completo",
+    "Str.Layout.Switch": "_Passa",
+    "Str.Layout.Rename": "_Rinomina…",
+    "Str.Layout.Delete": "_Elimina",
+    "Str.Layout.NamePrompt": "Nome della disposizione:",
+    "Str.Layout.InvalidName": "Inserire un nome di disposizione univoco e non vuoto.",
+    "Str.Layout.Skipped": "Le finestre dei componenti aggiuntivi non disponibili sono state ignorate: {0}",
+    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli."
   }
 }

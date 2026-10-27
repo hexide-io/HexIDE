@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "La couleur des pixels transparents.",
     "Str.PropDesc.UseMaskColor": "Indique si la couleur du masque est utilisée.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
+    "Str.Layout.Layouts": "_Dispositions des panneaux",
+    "Str.Layout.Save": "_Enregistrer la disposition sous…",
+    "Str.Layout.FullEditor": "Éditeur _complet",
+    "Str.Layout.Switch": "_Basculer",
+    "Str.Layout.Rename": "_Renommer…",
+    "Str.Layout.Delete": "_Supprimer",
+    "Str.Layout.NamePrompt": "Nom de la disposition :",
+    "Str.Layout.InvalidName": "Saisissez un nom de disposition unique et non vide.",
+    "Str.Layout.Skipped": "Les fenêtres de compléments indisponibles ont été ignorées : {0}",
+    "Str.Layout.SaveFailed": "Impossible d’enregistrer les dispositions des panneaux."
   }
 }

@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Kolor przezroczystych pikseli.",
     "Str.PropDesc.UseMaskColor": "Czy używać koloru maski.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
+    "Str.Layout.Layouts": "_Układy paneli",
+    "Str.Layout.Save": "_Zapisz układ jako…",
+    "Str.Layout.FullEditor": "_Pełny edytor",
+    "Str.Layout.Switch": "_Przełącz",
+    "Str.Layout.Rename": "Zmień _nazwę…",
+    "Str.Layout.Delete": "_Usuń",
+    "Str.Layout.NamePrompt": "Nazwa układu:",
+    "Str.Layout.InvalidName": "Wprowadź unikatową, niepustą nazwę układu.",
+    "Str.Layout.Skipped": "Pominięto niedostępne okna dodatków: {0}",
+    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli."
   }
 }

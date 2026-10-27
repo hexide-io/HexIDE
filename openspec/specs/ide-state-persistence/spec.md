@@ -81,3 +81,37 @@ at all, which is the state the IDE starts in.
 #### Scenario: Opening a different project
 - **WHEN** the developer opens a different project
 - **THEN** the window geometry and panel arrangement are unchanged
+
+### Requirement: Named panel layouts
+
+The IDE SHALL offer named panel layouts through the Window menu: saving the current arrangement under a
+unique name, listing, switching, renaming and deleting saved layouts. Names SHALL be non-empty and unique
+without regard to case. Named layouts SHALL persist in the user's configuration independently of the
+current session layout. Switching SHALL preserve open editor and designer tabs. The built-in Full Editor
+layout SHALL close all tool panels and give the document region the frame. Saved-layout menu items
+SHALL expose the layout name as their accessible name.
+
+#### Scenario: Switching working arrangements
+- **WHEN** a developer saves two arrangements and switches between them
+- **THEN** each arrangement restores its tool visibility, canonical regions, order and proportions
+- **AND** open editor and designer tabs survive the switch
+
+#### Scenario: Full Editor
+- **WHEN** the developer chooses Full Editor from Window → Panel Layouts
+- **THEN** all built-in and add-in tool panels close while documents remain open
+- **AND** previously saved named layouts remain available
+
+### Requirement: Add-in window identity in layouts
+
+A saved add-in tool window SHALL use the same `addin:<id>` key in current and named layouts.
+The registered tool id SHALL identify its owning add-in and window together.
+Registration SHALL refuse duplicate window ids within an add-in while allowing different add-ins to use
+the same window id. The host facade SHALL retain the owning add-in when registering after initialization.
+Restoration SHALL resolve a window only through its own add-in's registration. Unavailable windows SHALL
+be deferred, retained in the saved arrangement and reported in the status bar. Unknown keys SHALL
+be skipped without preventing known windows from being restored.
+
+#### Scenario: Another add-in uses the same window id
+- **WHEN** a layout names an unavailable add-in's window and another add-in registers that window id
+- **THEN** the other add-in's window does not stand in for the missing window
+- **AND** the layout reports the unavailable tool key

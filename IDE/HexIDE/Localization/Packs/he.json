@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "הצבע של פיקסלים שקופים.",
     "Str.PropDesc.UseMaskColor": "האם להשתמש בצבע המסכה.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "הצג קווי הנחיה להזחה",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.Layout.Layouts": "פריסות חלוניות",
+    "Str.Layout.Save": "שמירת פריסה בשם…",
+    "Str.Layout.FullEditor": "עורך מלא",
+    "Str.Layout.Switch": "החלפה",
+    "Str.Layout.Rename": "שינוי שם…",
+    "Str.Layout.Delete": "מחיקה",
+    "Str.Layout.NamePrompt": "שם הפריסה:",
+    "Str.Layout.InvalidName": "יש להזין שם פריסה ייחודי שאינו ריק.",
+    "Str.Layout.Skipped": "דולגו חלונות תוספים שאינם זמינים: {0}",
+    "Str.Layout.SaveFailed": "לא ניתן לשמור את פריסות החלוניות."
   }
 }

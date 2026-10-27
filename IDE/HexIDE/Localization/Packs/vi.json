@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Màu dùng cho điểm ảnh trong suốt.",
     "Str.PropDesc.UseMaskColor": "Có sử dụng màu mặt nạ hay không.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Hiện đường dẫn thụt lề",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Tô màu dấu ngoặc theo độ sâu lồng nhau"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Tô màu dấu ngoặc theo độ sâu lồng nhau",
+    "Str.Layout.Layouts": "_Bố cục bảng",
+    "Str.Layout.Save": "_Lưu bố cục thành…",
+    "Str.Layout.FullEditor": "_Trình soạn thảo đầy đủ",
+    "Str.Layout.Switch": "_Chuyển",
+    "Str.Layout.Rename": "Đổi _tên…",
+    "Str.Layout.Delete": "_Xóa",
+    "Str.Layout.NamePrompt": "Tên bố cục:",
+    "Str.Layout.InvalidName": "Nhập tên bố cục duy nhất và không để trống.",
+    "Str.Layout.Skipped": "Đã bỏ qua các cửa sổ phần bổ trợ không khả dụng: {0}",
+    "Str.Layout.SaveFailed": "Không thể lưu các bố cục bảng."
   }
 }

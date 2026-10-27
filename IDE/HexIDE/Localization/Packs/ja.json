@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "透明ピクセルに使用する色。",
     "Str.PropDesc.UseMaskColor": "マスク色を使用するかどうか。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
+    "Str.Layout.Layouts": "パネルレイアウト",
+    "Str.Layout.Save": "名前を付けてレイアウトを保存…",
+    "Str.Layout.FullEditor": "エディター全体",
+    "Str.Layout.Switch": "切り替え",
+    "Str.Layout.Rename": "名前の変更…",
+    "Str.Layout.Delete": "削除",
+    "Str.Layout.NamePrompt": "レイアウト名:",
+    "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
+    "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
+    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。"
   }
 }

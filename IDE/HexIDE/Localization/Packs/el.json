@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Το χρώμα των διαφανών pixel.",
     "Str.PropDesc.UseMaskColor": "Αν χρησιμοποιείται το χρώμα μάσκας.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
+    "Str.Layout.Layouts": "Διατάξεις πάνελ",
+    "Str.Layout.Save": "Αποθήκευση διάταξης ως…",
+    "Str.Layout.FullEditor": "Πλήρης επεξεργαστής",
+    "Str.Layout.Switch": "Εναλλαγή",
+    "Str.Layout.Rename": "Μετονομασία…",
+    "Str.Layout.Delete": "Διαγραφή",
+    "Str.Layout.NamePrompt": "Όνομα διάταξης:",
+    "Str.Layout.InvalidName": "Εισαγάγετε ένα μοναδικό, μη κενό όνομα διάταξης.",
+    "Str.Layout.Skipped": "Παραλείφθηκαν μη διαθέσιμα παράθυρα προσθέτων: {0}",
+    "Str.Layout.SaveFailed": "Δεν ήταν δυνατή η αποθήκευση των διατάξεων πάνελ."
   }
 }

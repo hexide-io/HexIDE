@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "透明像素使用的色彩。",
     "Str.PropDesc.UseMaskColor": "是否使用遮罩色彩。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "顯示縮排參考線",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色",
+    "Str.Layout.Layouts": "面板配置",
+    "Str.Layout.Save": "另存配置為…",
+    "Str.Layout.FullEditor": "完整編輯器",
+    "Str.Layout.Switch": "切換",
+    "Str.Layout.Rename": "重新命名…",
+    "Str.Layout.Delete": "刪除",
+    "Str.Layout.NamePrompt": "配置名稱：",
+    "Str.Layout.InvalidName": "請輸入唯一且非空的配置名稱。",
+    "Str.Layout.Skipped": "已略過無法使用的增益集視窗：{0}",
+    "Str.Layout.SaveFailed": "無法儲存面板配置。"
   }
 }

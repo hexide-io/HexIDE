@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Warna piksel transparan.",
     "Str.PropDesc.UseMaskColor": "Apakah warna masker digunakan.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Tampilkan panduan indentasi",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan",
+    "Str.Layout.Layouts": "_Tata Letak Panel",
+    "Str.Layout.Save": "_Simpan Tata Letak Sebagai…",
+    "Str.Layout.FullEditor": "_Editor Penuh",
+    "Str.Layout.Switch": "_Beralih",
+    "Str.Layout.Rename": "_Ganti Nama…",
+    "Str.Layout.Delete": "_Hapus",
+    "Str.Layout.NamePrompt": "Nama tata letak:",
+    "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
+    "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
+    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan."
   }
 }

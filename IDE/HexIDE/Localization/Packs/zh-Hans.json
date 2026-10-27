@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "透明像素使用的颜色。",
     "Str.PropDesc.UseMaskColor": "是否使用遮罩颜色。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
+    "Str.Layout.Layouts": "面板布局",
+    "Str.Layout.Save": "将布局另存为…",
+    "Str.Layout.FullEditor": "完整编辑器",
+    "Str.Layout.Switch": "切换",
+    "Str.Layout.Rename": "重命名…",
+    "Str.Layout.Delete": "删除",
+    "Str.Layout.NamePrompt": "布局名称：",
+    "Str.Layout.InvalidName": "请输入唯一且非空的布局名称。",
+    "Str.Layout.Skipped": "已跳过不可用的加载项窗口：{0}",
+    "Str.Layout.SaveFailed": "无法保存面板布局。"
   }
 }

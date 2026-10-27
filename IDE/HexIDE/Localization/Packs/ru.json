@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "Цвет прозрачных пикселей.",
     "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности",
+    "Str.Layout.Layouts": "Макеты панелей",
+    "Str.Layout.Save": "Сохранить макет как…",
+    "Str.Layout.FullEditor": "Полный редактор",
+    "Str.Layout.Switch": "Переключить",
+    "Str.Layout.Rename": "Переименовать…",
+    "Str.Layout.Delete": "Удалить",
+    "Str.Layout.NamePrompt": "Имя макета:",
+    "Str.Layout.InvalidName": "Введите уникальное непустое имя макета.",
+    "Str.Layout.Skipped": "Недоступные окна надстроек пропущены: {0}",
+    "Str.Layout.SaveFailed": "Не удалось сохранить макеты панелей."
   }
 }

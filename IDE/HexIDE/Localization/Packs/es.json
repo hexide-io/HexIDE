@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "El color de los píxeles transparentes.",
     "Str.PropDesc.UseMaskColor": "Si se usa el color de máscara.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guías de sangría",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorear paréntesis por profundidad de anidamiento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorear paréntesis por profundidad de anidamiento",
+    "Str.Layout.Layouts": "_Diseños de paneles",
+    "Str.Layout.Save": "_Guardar diseño como…",
+    "Str.Layout.FullEditor": "_Editor completo",
+    "Str.Layout.Switch": "_Cambiar",
+    "Str.Layout.Rename": "_Cambiar nombre…",
+    "Str.Layout.Delete": "_Eliminar",
+    "Str.Layout.NamePrompt": "Nombre del diseño:",
+    "Str.Layout.InvalidName": "Escriba un nombre de diseño único y no vacío.",
+    "Str.Layout.Skipped": "Se omitieron las ventanas de complementos no disponibles: {0}",
+    "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles."
   }
 }

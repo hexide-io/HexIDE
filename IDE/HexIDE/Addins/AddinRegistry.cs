@@ -243,7 +243,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             using var contributions = new AddinInitializationScope();
             ctx.Instance = addin;
-            addin.Initialize(host);
+            addin.Initialize(host.ToolWindows is AddinToolWindowService tools
+                ? new AddinOwnedHost(host, tools.ForOwner(ctx.Info.Id))
+                : host);
             contributions.Complete();
             ctx.Status = status;
             Log.Information("AddinRegistry: {Title} v{Version} loaded from {Dir} [{Trust}]",

@@ -912,6 +912,16 @@
     "Str.PropDesc.MaskColor": "La koloro por travideblaj bilderoj.",
     "Str.PropDesc.UseMaskColor": "Ĉu uzi la maskan koloron.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
+    "Str.Layout.Layouts": "_Panelaranĝoj",
+    "Str.Layout.Save": "_Konservi aranĝon kiel…",
+    "Str.Layout.FullEditor": "_Plena redaktilo",
+    "Str.Layout.Switch": "_Ŝanĝi",
+    "Str.Layout.Rename": "_Alinomi…",
+    "Str.Layout.Delete": "_Forigi",
+    "Str.Layout.NamePrompt": "Nomo de aranĝo:",
+    "Str.Layout.InvalidName": "Enigu unikan, nemalplenan nomon de aranĝo.",
+    "Str.Layout.Skipped": "Nedisponeblaj fenestroj de aldonaĵoj estis preterlasitaj: {0}",
+    "Str.Layout.SaveFailed": "La panelaranĝoj ne povis esti konservitaj."
   }
 }
