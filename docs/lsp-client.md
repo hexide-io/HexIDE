@@ -169,6 +169,11 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
+Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
+and folding requests for that document and waits for their cancellation frames to be sent before
+`didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
+documents. The change starts a fresh diagnostic pull; editor refreshes request fresh tokens and folds.
+
 Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
 answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
 has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
