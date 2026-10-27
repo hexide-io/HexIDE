@@ -615,8 +615,10 @@ modifier keys. Release coordinates SHALL be relative to the target, or to the co
 several moves with the button held before releasing to the pointer capturer or the hit-tested control.
 Each held move SHALL be input of its own, with the dispatcher's layout run before the next, as a real
 pointer's moves are. The reply SHALL name the press landing, release point and recipient, and whether
-capture routed the release. A drag pressed in Dock's layout SHALL also say which tools or documents Dock
-moved, and where, or that the layout is unchanged. Combining `double` with `to` SHALL be refused before
+capture routed the release. A drag that moves a tool or document SHALL also say what Dock moved, and
+where. A drag pressed on one of Dock's drag areas, a tab or a tool window's title strip, that moves nothing
+SHALL say the layout is unchanged; any other drag, such as one in the form designer, SHALL say nothing about
+Dock, since it could not have docked anything. Combining `double` with `to` SHALL be refused before
 pressing.
 
 #### Scenario: Draw a toolbox control
@@ -637,8 +639,13 @@ pressing.
 
 #### Scenario: A drag that docks nothing
 
-- **WHEN** a drag in Dock's layout releases where no drop target is
+- **WHEN** a drag pressed on a tool window's title strip releases where no drop target is
 - **THEN** the reply says the layout is unchanged, so nothing was docked
+
+#### Scenario: A drag that could not have docked
+
+- **WHEN** a drag in Dock's layout is pressed off Dock's drag areas, as a form designer drag is
+- **THEN** the reply says nothing about Dock
 
 ### Requirement: Properties category expansion
 
@@ -649,3 +656,19 @@ Categorized Properties rows SHALL expose an expand/collapse provider driven by t
 - **THEN** its open state and property visibility follow the requested state
 - **AND** repeating the action succeeds without toggling the state
 - **AND** inspection reports the current expansion state, including after using the category toggle
+
+### Requirement: press_key reads a chord written as one key
+`press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
+as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
+parts are not all modifiers SHALL be refused before anything is pressed, naming the part that is not one.
+
+#### Scenario: A chord written as one key
+
+- **WHEN** `press_key` is called with `key` `Ctrl+H` and no `modifiers`
+- **THEN** it presses H with Control
+- **AND** the reply says `'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'`
+
+#### Scenario: A chord with a part that is not a modifier
+
+- **WHEN** `press_key` is called with `key` `A+B`
+- **THEN** nothing is pressed, and the refusal says `A` is not a modifier

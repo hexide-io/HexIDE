@@ -2009,6 +2009,53 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // A chord written as one key, as a person writes it, presses that chord and says how it was read. It was refused as an
+    // unknown key, which sent the caller to the key names when 'H' was never the problem (#2189).
+    [AvaloniaTheory]
+    [InlineData("Ctrl+H", null, Avalonia.Input.Key.H, Avalonia.Input.KeyModifiers.Control, "'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'")]
+    [InlineData(" ctrl+shift+s ", null, Avalonia.Input.Key.S, Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
+        "was read as key 's' with modifiers 'ctrl+shift'")]
+    [InlineData("Shift+H", "Ctrl", Avalonia.Input.Key.H, Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
+        "'Shift+H' was read as key 'H' with modifiers 'Shift', added to 'Ctrl'")]
+    public void PressKey_AChordWrittenAsOneKey_PressesIt_AndSaysHowItWasRead(
+        string key, string? modifiers, Avalonia.Input.Key expectedKey, Avalonia.Input.KeyModifiers expectedModifiers, string note)
+    {
+        Avalonia.Input.Key? got = null;
+        var mods = Avalonia.Input.KeyModifiers.None;
+        var box = new TextBox();
+        box.KeyDown += (_, e) => { got = e.Key; mods = e.KeyModifiers; };
+        var window = Show(box);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(box, key, modifiers);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            got.Should().Be(expectedKey);
+            mods.Should().Be(expectedModifiers);
+            outcome.Detail.Should().EndWith(note)
+                .And.Contain($"pressed {expectedModifiers.ToString().Replace(", ", "+")}+{expectedKey}").And.NotContain("Control, ");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_AChordWhosePrefixIsNoModifier_OrWhoseKeyIsUnknown_SaysWhichPartIsWrong()
+    {
+        var pressed = 0;
+        var box = new TextBox();
+        box.KeyDown += (_, _) => pressed++;
+        var window = Show(box);
+        try
+        {
+            UiAutomationDriver.PressKey(box, "A+B", null).Error.Should()
+                .StartWith("'A+B' is not a key, and not a chord either: 'A' is not a modifier.").And.NotContain("unknown key");
+            UiAutomationDriver.PressKey(box, "Ctrl+Nope", null).Error.Should().StartWith("unknown key 'Nope' in 'Ctrl+Nope'");
+            UiAutomationDriver.PressKey(box, "+", null).Error.Should().StartWith("unknown key '+' —");
+            pressed.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
     // ── press_key target resolution ─────────────────────────────────────────────────────────────
     // Two recorded MCP gaps, one root cause: the key was raised on a control the caller did not mean,
     // and the reply said "success" either way. A routed event reaches the element it is raised on and
