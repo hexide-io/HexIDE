@@ -42,7 +42,11 @@ public class VBLoader
         IBasicStandardLibrary? standardLibrary = null,
         VbObject? form = null)
     {
-        RefuseUnsupportedControls(element, standardLibrary is not null);
+        var toolbars = element.Components.Where(c => c.BaseClass is FormComponentClass)
+            .SelectMany(c => c.PreservedChildSubtrees)
+            .Select(block => (block.Text, Component: Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)))
+            .Where(pair => pair.Component is not null).ToDictionary(pair => pair.Text, pair => pair.Component!);
+        RefuseUnsupportedControls(element, standardLibrary is not null, toolbars.Keys);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -112,6 +116,16 @@ public class VBLoader
 
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
+
+        // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
+        foreach (var (block, component) in toolbars)
+        {
+            PlaceComponentTree(component, canvas, canvas, element, (part, control, host) =>
+            {
+                OnPlaced(part, control, host);
+                dialogs[block] = control;
+            });
+        }
 
         // A CommonDialog is read from the block the form keeps for it, and only to run: nothing in the designer or the
         // file changes (#1084). It is invisible, and has a name in code as any control has.
@@ -717,11 +731,11 @@ public class VBLoader
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUnsupportedControls(FormDefinition element, bool canShowDialogs)
+    private static void RefuseUnsupportedControls(FormDefinition element, bool canShowDialogs, ICollection<string> runtimeToolbars)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!(canShowDialogs && CommonDialogBlock(block) is not null))
+            if (!runtimeToolbars.Contains(block) && !(canShowDialogs && CommonDialogBlock(block) is not null))
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)

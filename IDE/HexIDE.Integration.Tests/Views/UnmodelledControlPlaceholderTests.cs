@@ -22,7 +22,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <remarks>
 /// The box is view-only: it is in neither of the designer's component lists, so nothing selects, moves or writes it,
 /// and the control still goes out once, from the block it was preserved as. Its size is VB6's (UnmodelledControl):
-/// the ImageList below records only extents, and VB6 draws it 1200 x 480 twips, 80 x 32 in the designer's pixels.
+/// the unregistered ImageList class below records only extents, and VB6 draws it 1200 x 480 twips, 80 x 32 in the designer's pixels.
 /// </remarks>
 public class UnmodelledControlPlaceholderTests
 {
@@ -61,7 +61,7 @@ public class UnmodelledControlPlaceholderTests
         "      Top             =   300\r\n" +
         "      Width           =   1500\r\n" +
         "   End\r\n" +
-        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "   Begin NoSuchLib.ImageList imlIcons \r\n" +
         "      Left            =   4200\r\n" +
         "      Top             =   2325\r\n" +
         "      _ExtentX        =   1005\r\n" +
@@ -88,14 +88,14 @@ public class UnmodelledControlPlaceholderTests
         var vm = Designer(out _);
 
         vm.UnmodelledControls.Select(c => (c.TypeName, c.Name))
-            .Should().BeEquivalentTo([("NoSuchLib.Gauge", "Gauge1"), ("MSComctlLib.ImageList", "imlIcons")]);
+            .Should().BeEquivalentTo([("NoSuchLib.Gauge", "Gauge1"), ("NoSuchLib.ImageList", "imlIcons")]);
         vm.AllComponents.Select(c => c.Name).Should().NotContain(["Gauge1", "imlIcons"],
             "a component is what the designer edits and the writer writes; these are carried");
 
         var images = vm.UnmodelledControls.Single(c => c.Name == "imlIcons");
         (images.Left, images.Top, images.Width, images.Height).Should().Be((280d, 155d, 80d, 32d),
             "4200, 2325 twips, and VB6's 1200 x 480 for a control recording only its extents");
-        images.ClassName.Should().Be("ImageList", "the box, 80 pixels wide by default, shows the class as VB6's TypeName does");
+        images.ClassName.Should().Be("ImageList", "the box shows the unregistered class name");
 
         // Inside the frame, measured from the frame's client origin as a modelled child is.
         var frame = vm.AllComponents.Single(c => c.Name == "Frame1");
@@ -112,7 +112,7 @@ public class UnmodelledControlPlaceholderTests
         "   ClientLeft      =   0\r\n" +
         "   ClientTop       =   0\r\n" +
         "   ClientWidth     =   4800\r\n" +
-        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "   Begin NoSuchLib.ImageList imlIcons \r\n" +
         "      Left            =   3000\r\n" +
         "      Top             =   1500\r\n" +
         "      _ExtentX        =   1005\r\n" +
@@ -162,7 +162,7 @@ public class UnmodelledControlPlaceholderTests
 
         var (text, _) = new FormSerializer().Serialize(form, "Form1.frm");
 
-        text.Split("Begin MSComctlLib.ImageList imlIcons").Should().HaveCount(2);
+        text.Split("Begin NoSuchLib.ImageList imlIcons").Should().HaveCount(2);
         text.Split("Begin NoSuchLib.Gauge Gauge1").Should().HaveCount(2);
     }
 
@@ -216,6 +216,84 @@ public class UnmodelledControlPlaceholderTests
             Dispatcher.UIThread.RunJobs();
 
             vm.SelectedComponent!.Name.Should().Be("Command1", "a press on the box is swallowed: it selects nothing");
+        }
+        finally { window.Close(); }
+    }
+
+    // #2327: HexIDE runs a top-level Toolbar and a CommonDialog, though the designer only carries their blocks, so their
+    // boxes say they are view-only here. A Toolbar in a control array is still refused at run time, as is a class HexIDE
+    // has never heard of, and theirs say they are not supported.
+    private const string RunningForm =
+        "VERSION 5.00\r\n" +
+        "Object = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"\r\n" +
+        "Object = \"{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0\"; \"COMDLG32.OCX\"\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   ClientHeight    =   4500\r\n" +
+        "   ClientLeft      =   60\r\n" +
+        "   ClientTop       =   345\r\n" +
+        "   ClientWidth     =   6000\r\n" +
+        "   Begin MSComctlLib.Toolbar Toolbar1 \r\n" +
+        "      Align           =   1  'Align Top\r\n" +
+        "      Height          =   660\r\n" +
+        "      Left            =   0\r\n" +
+        "      TabIndex        =   0\r\n" +
+        "      Top             =   0\r\n" +
+        "      Width           =   6000\r\n" +
+        "      _Version        =   393216\r\n" +
+        "   End\r\n" +
+        "   Begin MSComctlLib.Toolbar Bars \r\n" +
+        "      Height          =   660\r\n" +
+        "      Index           =   0\r\n" +
+        "      Left            =   0\r\n" +
+        "      TabIndex        =   1\r\n" +
+        "      Top             =   1200\r\n" +
+        "      Width           =   6000\r\n" +
+        "      _Version        =   393216\r\n" +
+        "   End\r\n" +
+        "   Begin MSComDlg.CommonDialog CommonDialog1 \r\n" +
+        "      Left            =   600\r\n" +
+        "      Top             =   2400\r\n" +
+        "      _ExtentX        =   847\r\n" +
+        "      _ExtentY        =   847\r\n" +
+        "      _Version        =   393216\r\n" +
+        "   End\r\n" +
+        "   Begin NoSuchLib.Gauge Gauge1 \r\n" +
+        "      Height          =   300\r\n" +
+        "      Left            =   2400\r\n" +
+        "      TabIndex        =   2\r\n" +
+        "      Top             =   2400\r\n" +
+        "      Width           =   2400\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n";
+
+    [AvaloniaFact]
+    public void A_control_HexIDE_runs_says_view_only_and_any_other_says_not_supported()
+    {
+        var vm = Designer(out _, RunningForm);
+        vm.UnmodelledControls.ToDictionary(c => c.Name, c => c.ViewOnly).Should().BeEquivalentTo(new Dictionary<string, bool>
+        {
+            ["Toolbar1"] = true, ["CommonDialog1"] = true, ["Bars"] = false, ["Gauge1"] = false,
+        });
+
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Resources["Str.Designer.Unmodelled.NotSupported"] = "Not supported";
+        window.Resources["Str.Designer.Unmodelled.ViewOnly"] = "View-only";
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            // What each box says under its class name: the last line it shows.
+            var canvas = view.GetVisualDescendants().OfType<HexIDE.Controls.DesignerCanvas>().Single();
+            var says = canvas.GetVisualChildren().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                .SelectMany(p => p.GetVisualDescendants().OfType<Classic.Avalonia.Theme.ClassicBorderDecorator>().Take(1))
+                .ToDictionary(box => AutomationProperties.GetName(box)!, box => box.GetVisualDescendants().OfType<TextBlock>()
+                    .Where(text => text.IsEffectivelyVisible).Select(text => text.Text).Last());
+            says.Should().BeEquivalentTo(new Dictionary<string, string?>
+            {
+                ["Toolbar1"] = "View-only", ["CommonDialog1"] = "View-only", ["Bars"] = "Not supported", ["Gauge1"] = "Not supported",
+            });
         }
         finally { window.Close(); }
     }

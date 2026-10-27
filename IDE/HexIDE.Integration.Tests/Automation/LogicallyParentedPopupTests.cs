@@ -49,6 +49,33 @@ public class LogicallyParentedPopupTests
         finally { window.Close(); }
     }
 
+    // A running Toolbar's dropdown: a MenuFlyout attached to its button and shown with ShowAt. The attached flyout was read
+    // only for controls other than buttons, so the open menu was in neither the dump nor the snapshot (#2323).
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_open_flyout_attached_to_a_button_is_in_the_tree(bool toggle)
+    {
+        var flyout = new MenuFlyout { ItemsSource = new[] { new MenuItem { Header = "First" }, new MenuItem { Header = "Second" } } };
+        Button button = toggle ? new ToggleButton { Content = "Menu" } : new Button { Content = "Menu" };
+        FlyoutBase.SetAttachedFlyout(button, flyout);
+        var window = Show(button);
+        try
+        {
+            flyout.ShowAt(button);
+            Dispatcher.UIThread.RunJobs();
+
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false);
+
+            // Headlessly a popup is an overlay inside the window, so the walk finds the items whatever this route says. On a
+            // desktop it is a window of its own, which only the owner leads to: that route is what this guards.
+            UiAutomationDriver.AttachedPopupsOfPublic(button).Should().ContainSingle().Which.Should().BeSameAs(flyout.Popup);
+            Find(tree, "First").Should().NotBeNull("the menu is open on the button");
+            Find(tree, "Second").Should().NotBeNull();
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void An_open_context_menus_items_are_in_the_tree()
     {

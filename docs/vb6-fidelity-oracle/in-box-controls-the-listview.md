@@ -1,6 +1,6 @@
 ## In-box controls: the ListView (2026-10-26, #1085)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md).
 - **The object-model program:** a Sub Main showing a 6000×4500-twip form holding a 5000×3000-twip ListView with VB6's
   double-clicked property lines, a PictureBox, and the three-picture ImageList saved in [In-box controls: the

@@ -94,14 +94,15 @@ internal static class OpenDialogNote
         }
     }
 
-    /// <summary><paramref name="result"/> with <paramref name="note"/> added: a field of its JSON object, or a block.</summary>
-    internal static CallToolResult With(CallToolResult result, string note)
+    /// <summary><paramref name="result"/> with <paramref name="note"/> added: a field of its JSON object, named
+    /// <paramref name="field"/>, or a block.</summary>
+    internal static CallToolResult With(CallToolResult result, string note, string field = "modalDialog")
     {
         var content = result.Content.ToList();
         var index = content.FindIndex(c => c is TextContentBlock);
         if (index >= 0 && TryParseObject(((TextContentBlock)content[index]).Text) is { } reply)
         {
-            reply["modalDialog"] = note;
+            reply[field] = note;
             content[index] = new TextContentBlock { Text = reply.ToJsonString(ReplyJson.Options) };
         }
         else

@@ -23,6 +23,17 @@
   `visibility` rule, so it hoists like `Public` (subject to the same cross-module unqualified-variable-read gap in
   *Partial*). Noted only because it is an ancient construct one might expect to be missing.
 
+## Slot lifetime (#79)
+
+Procedure activations reclaim their allocated slots after scope-exit reference releases, including on error
+unwind and failed parameter binding. Static slots pass to the run or instance and remain persistent; ByRef
+aliases never belong to the callee. Freed slot numbers are not reused, and exhausted numbering raises error 7.
+Debugger inspection treats freed slots as out of scope.
+
+Instance fields and instance Statics still retain their storage after termination. Phase 2 is deferred until
+member accesses on terminated instances have been counted across the Runtime suite, Battleship and the #2067
+sweep, as the issue's design note requires. Replacing the module-environment clone is separate performance work.
+
 ## Known host limitation
 
 - **Linux locale categories (#798):** the program uses one culture, captured from .NET's
@@ -111,7 +122,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **A label sharing its line with a construct TERMINATOR** (`Cont: Next i`, `Fin: End If`, `Alt: Else`) — the construct parses and the module loads, but the name is not a jump target, so a `GoTo` to it raises "Sub or Function not defined". Measured legal in VB6 (corpus `line-labels/label-immediately-before-a-loop-terminator`, `separator-vs-label/label-before-end-if`, `label-before-else`). **This is the tree-walking limit, not the label-registration defect fixed in the line-head work**: a label sharing its line with a STATEMENT now registers correctly, but `Next` is not a statement in the body block — it is the tail of the `forNextStmt` rule — so jumping to it means resuming in the middle of a statement the walk is already inside, which is the same wall as GoSub/Return. Same for `End If` and `Else`. A label ALONE on its line before a terminator works, because there it is a statement of its own. Note the shape of the eventual fix is known and cheap once a position exists: a trailing line head labels the position one past the block's last statement, which the pc loop already treats as "this block is done" — for a `For` body that is exactly the continue semantics. **#223:** fall-through before `End If` now works; jumping to terminator labels, including `Cont: Next i`, remains deferred.
 - **Date / Time statements** (set system clock) — both throw (StatementExecutor.cs:156, 1010); VB6 sets host clock. Documented "Out of Phase 2" (interpreter-core:336, Time not named).
 - **Attribute statement in a procedure body** — FIXED (#832): an `Attribute` line inside a procedure, or after a module-level declaration, is metadata and runs as nothing, as VB6 runs it, and the debugger treats it as a blank line: a step never stops on one, at any nesting, and Set Next Statement onto one is refused. Measured on vb6.exe for VB_UserMemId, VB_Description, VB_ProcData, VB_HelpID, VB_MemberFlags, VB_VarDescription, VB_VarHelpID and VB_VarMemberFlags. Honouring VB_UserMemId (a default member) is a separate question, and for a class HexIDE parsed it is collection, not a wall: #174.
-- **SavePicture statement** — throws (StatementExecutor.cs:810-812); VB6 runtime-library statement writing a Picture to a bitmap file. Deferred family-level (graphics/VB-objects; sibling LoadPicture slated for advanced Phase 1) but not named individually.
+- **SavePicture statement** — throws (StatementExecutor.cs:810-812); VB6 runtime-library statement writing a Picture to a bitmap file. Deferred family-level (graphics/VB-objects; sibling LoadPicture now accepts a BMP/ICO file for StatusBar panels in #1087; its remaining surface is deferred) but not named individually.
 - **Type-hint suffixes & $-typed string twins** (`Left$`, `Mid$`, `Format$`, `x%`, `s$`) — tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742). Most typeHint sites throw: an unqualified read (`Debug.Print s$` -> "Type hint is not supported", the same for `% & ! # @`), `Dim n$` ("DIM type hints not implemented") and `Next i%` ("TypeHints not implemented"). **Not every one, and the exceptions are worse than a throw.** An assignment target keeps the character in the name it looks up, so without `Option Explicit`, `Dim s As String : s$ = "x"` creates a second variable called `s$` and leaves `s` empty, with no error, for all six characters; under `Option Explicit` the assignment raises "Variable not defined (s$)" instead, which VB6 does not. A `For i% = 1 To 2` counter does the same to a declared `i`, and is silent under `Option Explicit` too, because `VisitForNextStmt` allocates its counter without that check ([#739](https://github.com/hexide-io/HexIDE/issues/739), silently wrong: VB6 sends both to the declared variable. The oracle's 2026-10-11 entry "A type character on a name the program also declares" measured the assignment for each of the six characters, module and local, with and without `Option Explicit`, and the `%` counter in a local, with and without). A module-qualified read drops the character unchecked, so `Module1.VF$("x")` runs where VB6 refuses to compile it (#742). And a `Function` declared with one (`Function GetName$()`) does not parse, so its whole module never loads: the grammar's `functionStmt` has no `typeHint?`, though `propertyGetStmt` has one ([#740](https://github.com/hexide-io/HexIDE/issues/740)). VB6 core syntax, $-intrinsics return String not Variant. A call written with a `$` now runs (#1071): `Trim$(s)` and the other 22 library `$` forms answer as their plain form with a String, a Null raising 94, and a user `Function Trim` declared `As String` answers `Trim$` (oracle, "The library's `$` forms"). A `$` the oracle has not measured on that name stops the run naming #742. What is deferred pending type-hint dispatch is the reads, and a `$` call the oracle has not measured (#742); #739 is a wrong value and #740 a grammar fix, and neither waits on it. The deferral is recorded in: `MISSING_FEATURES.md`, the "VB6 built-in functions" row ("the `$`-typed twins (`Format$/Left$/Mid$/…`) need the type-hint dispatch"); `vb6-fidelity-oracle/turning-a-number-or-a-date-into-text.md`, closing the Format engine tables ("`Format$` still awaits the `$`-type-hint dispatch"); and the header comment of `VB6BuiltIns.Strings.cs` ("The `$`-typed twins (Left$, Mid$, …) need type-hint dispatch and are deferred").
 - **Call-site ByRef keyword & ParamArray** — ParamArray unimplemented (real VB6, documented pending at MISSING_FEATURES.md:490); the call-site `ByRef` keyword throw is a proleap-grammar artifact (not legal VB6). ByRef semantics themselves are fully implemented via slot aliasing.
 - ~~**Like operator** (`s Like "a*b"`) — unconditional throw (ExpressionExecutor.cs:872); VB6 pattern match under Option Compare. Deferred at the interpreter deferral list above.~~ **FIXED (#1547):** `VbLike` matches as vb6.exe does over about 190 measured rows, under the module's Option Compare. Under Text it does not take a ligature or sharp s for its letters (#1479).
@@ -220,9 +231,12 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
   Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
   no coercion at all.
-- **Arrays OF a UDT, and array fields inside a UDT** — two independent slices. Arrays of a UDT are refused
-  at declaration with a message naming the type (#181), rather than accepted as an unusable array (#178).
-  Array fields inside a UDT remain unsupported.
+- **Arrays OF a UDT, and array fields inside a UDT** — implemented (#178): elements own their fields,
+  assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
+  Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
+  fixed-length strings and array fields As New remain refused. Get/Put of UDT arrays and Types containing array
+  fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
+  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** (string-justify form) — read, measure, pad, write back; the shape already running for
   `Mid`. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
@@ -241,10 +255,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ### Found while auditing — bugs, not classification
 
-- **`a(1) = b` for a UDT array** calls `SetValue` with no `CopyIfValueType`, unlike every other UDT value
-  boundary — a silent wrong answer waiting for arrays-of-UDT to land.
-- **`t.arr(3) = 5` discards the index**, so it would overwrite the whole array slot; the `MemberHasArgs`
-  guard is applied in the Object branch and not the `VbUdt` branch.
+- **UDT array stores and indexed fields (#178)** — fixed: whole-element stores use `CopyForStore` (already
+  present before #178), array fields are included in deep copies, and indexed field writes retain their subscripts.
 - **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
   boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
   implemented." in place of the construct's name.

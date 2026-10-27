@@ -1576,6 +1576,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return placed;
     }
 
+    /// <summary>Refuses answers reaching other documents before applying any of this document's edits.</summary>
+    internal string? ApplyRename(WorkspaceEdit edit, string oldName)
+    {
+        if (edit.Changes is null) return null;
+        var uri = GetDocumentUriPublic();
+        var others = edit.Changes
+            .Where(c => c.Value.Length > 0 && !LspDocumentUri.AreSame(c.Key, uri))
+            .Select(c => editorService.DocumentNameForUri(c.Key) ?? c.Key)
+            .ToArray();
+        if (others.Length > 0)
+            return string.Format(localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments"),
+                string.Join(", ", others));
+
+        var edits = edit.Changes.FirstOrDefault(c => LspDocumentUri.AreSame(c.Key, uri)).Value;
+        return edits is null ? null : ApplyRename(edits, oldName);
+    }
+
     /// <summary>
     /// Applies a server's rename, or refuses it as a whole when it would change a read-only region.
     /// </summary>

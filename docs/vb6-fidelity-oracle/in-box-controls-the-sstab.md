@@ -1,7 +1,7 @@
 ## In-box controls: the SSTab (2026-10-27, #1090)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with TABCTL32.OCX 6.01.9782.
+- **The software:** VB6 SP6 (6.00.9782), with TABCTL32.OCX 6.01.9782.
   - The form line is `Object = "{BDC217C8-ED16-11CD-956C-0000C04E4C0A}#1.1#0"; "TABCTL32.OCX"`.
   - The block is `Begin TabDlg.SSTab`.
 - **The form:** drawn in VB6's IDE.
@@ -254,7 +254,8 @@ to match:
   - Left and Right stand the tabs on end. **The captions aren't turned:** they're drawn across the strip, clipped to its
     thickness, so `Tab 1` showed as `Ta` on the left, and nothing legible on the right.
 - **TabHeight 600:** a caption too long for its tab wraps onto a second line inside it, with WordWrap True. At the
-  default height, the second line is clipped. The same caption with WordWrap False wasn't captured.
+  default height, the second line is clipped. **With WordWrap False it stays on one line, centred, and clipped at both
+  ends:** `uch longer caption tha`.
 - **TabMaxWidth 900:**
   - in Style 0, every tab is 900 twips wide, packed from the left, rather than sharing the width;
   - in Style 1, the tabs look as they do without it, the captions being narrower than 900.
@@ -463,4 +464,7 @@ change of tab.
 
 ### In HexIDE
 
-An SSTab is left out at run time (#857), and the designer doesn't model it (#1090).
+HexIDE runs the SSTab (#1090). Forms VB6 designed load their pages and the tab rows draw. Clicks, the arrows, Ctrl+Tab
+and Alt mnemonics switch tabs in the order measured above, and a page's controls move 75000 twips left as it is left.
+Both saved forms round-trip byte for byte. The designer shows an SSTab form read-only until its edits can keep each
+page's controls (#2301).

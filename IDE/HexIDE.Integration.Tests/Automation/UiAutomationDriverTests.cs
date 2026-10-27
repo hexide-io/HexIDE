@@ -149,6 +149,45 @@ public class UiAutomationDriverTests
     }
 
 
+    [AvaloniaTheory]
+    [InlineData("click", false)]
+    [InlineData("invoke", false)]
+    [InlineData("click", true)]
+    [InlineData("invoke", true)]
+    public void Disabled_targets_are_refused_before_click_or_invoke(string action, bool modal)
+    {
+        UiAutomationDriver.TrackWindows();
+        var clicks = 0;
+        var presses = 0;
+        var button = new Button { Name = "Ask", Content = "Ask", IsEnabled = modal };
+        button.Click += (_, _) => clicks++;
+        button.AddHandler(InputElement.PointerPressedEvent, (_, _) => presses++, handledEventsToo: true);
+        var window = new Window { Title = "Loop", Content = button, Width = 200, Height = 150 };
+        window.Show();
+        var dialog = new Window { Title = "Reset prompt", Content = new Button { Content = "OK" } };
+        if (modal)
+            _ = dialog.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(button, action, null);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("disabled").And.Contain("nothing was pressed");
+            if (modal)
+                outcome.Error.Should().Contain("modal dialog").And.Contain("Reset prompt").And.Contain("Answer")
+                    .And.Contain("dump_visual_tree");
+            else
+                outcome.Error.Should().Contain("enabled").And.NotContain("modal dialog");
+            clicks.Should().Be(0);
+            presses.Should().Be(0);
+        }
+        finally
+        {
+            dialog.Close();
+            window.Close();
+        }
+    }
+
     // The refusal quotes the verb in its canonical spelling, whatever the caller typed: "no person could set_value
     // it" is not a sentence, and "DoubleClick" is not the verb's name.
     [AvaloniaFact]
@@ -191,7 +230,8 @@ public class UiAutomationDriverTests
 
             var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
             error.Should().BeNull();
-            UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing");
+            UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing")
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             clicks.Should().Be(0);
         }
         finally { window.Close(); }
@@ -363,9 +403,11 @@ public class UiAutomationDriverTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Appearance")]
-    [InlineData("Apparence")]
-    public void Select_hidden_property_names_the_category_and_a_toggle_that_opens_it(string header)
+    [InlineData("Appearance", false)]
+    [InlineData("Apparence", false)]
+    [InlineData("Appearance", true)]
+    [InlineData("Apparence", true)]
+    public void Select_hidden_property_names_the_category_and_a_toggle_that_opens_it(string header, bool byPath)
     {
         var loc = Substitute.For<HexIDE.Localization.ILocalizationService>();
         loc.GetString("Str.PropCategory.Appearance").Returns(header);
@@ -387,9 +429,20 @@ public class UiAutomationDriverTests
             var list = view.FindControl<ListBox>("CategorizedProperties")!;
             category.IsExpanded = false;
             Dispatcher.UIThread.RunJobs();
-            var refused = UiAutomationDriver.Interact(list, "select", "BackColor");
+            Control target = list;
+            if (byPath)
+            {
+                var node = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 30, interactiveOnly: false))
+                    .Single(n => n.Name == "BackColor" && n.ControlType == "ListItem");
+                node.IsHidden.Should().BeTrue();
+                var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
+                error.Should().BeNull();
+                target = resolved!;
+            }
+            var refused = UiAutomationDriver.Interact(target, "select", byPath ? null : "BackColor");
             refused.Success.Should().BeFalse();
-            refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it");
+            refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it")
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             list.SelectedItem.Should().BeNull();
             category.IsExpanded.Should().BeFalse();
 
@@ -400,6 +453,101 @@ public class UiAutomationDriverTests
             category.IsExpanded.Should().BeTrue();
             UiAutomationDriver.Interact(list, "select", "BackColor").Success.Should().BeTrue();
             list.SelectedItem.Should().BeSameAs(property);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("collapse")]
+    [InlineData("expand")]
+    [InlineData("name")]
+    public void Property_category_row_supports_expand_and_collapse(string action)
+    {
+        var loc = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        loc.GetString("Str.PropCategory.Appearance").Returns("Appearance");
+        var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
+            Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
+        var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
+        var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
+        vm.Properties.Add(property);
+        vm.CategorizedProperties.Add(category);
+        vm.CategorizedProperties.Add(property);
+        var view = new HexIDE.VisualDesigner.Views.PropertiesToolView { DataContext = vm };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+        window.Show();
+        view.FindControl<TabItem>("CategorizedPropertiesTab")!.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var list = view.FindControl<ListBox>("CategorizedProperties")!;
+            var row = list.ContainerFromIndex(0)!;
+            var toggle = row.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Single();
+            if (action == "name")
+            {
+                ControlAutomationPeer.CreatePeerForElement(toggle)!.GetName().Should().Be("Appearance");
+                return;
+            }
+            category.IsExpanded = action == "collapse";
+            UiAutomationDriver.Interact(row, action, null).Success.Should().BeTrue();
+            UiAutomationDriver.Inspect(row, "category").ExpandCollapseState.Should().Be(action == "expand" ? "Expanded" : "Collapsed");
+            category.IsExpanded.Should().Be(action == "expand");
+            property.IsVisible.Should().Be(category.IsExpanded);
+            var peer = ControlAutomationPeer.CreatePeerForElement(row)!;
+            peer.GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>()!
+                .ExpandCollapseState.Should().Be(action == "expand"
+                    ? Avalonia.Automation.ExpandCollapseState.Expanded : Avalonia.Automation.ExpandCollapseState.Collapsed);
+            UiAutomationDriver.Interact(row, action, null).Success.Should().BeTrue();
+            ControlAutomationPeer.CreatePeerForElement(toggle)!.GetName().Should().Be("Appearance");
+            UiAutomationDriver.Interact(toggle, "toggle", null).Success.Should().BeTrue();
+            peer.GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>()!
+                .ExpandCollapseState.Should().Be(action == "expand"
+                    ? Avalonia.Automation.ExpandCollapseState.Collapsed : Avalonia.Automation.ExpandCollapseState.Expanded);
+            ControlAutomationPeer.CreatePeerForElement(list.ContainerFromIndex(1)!)!
+                .GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>().Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("invoke", false, 1)]
+    [InlineData("click", true, 1)]
+    [InlineData("invoke", false, 5)]
+    public void Interact_HiddenCopy_NamesShowingPaths(string action, bool byId, int count)
+    {
+        var clicks = 0;
+        var hidden = new Button { Content = "Approve" };
+        hidden.Click += (_, _) => clicks++;
+        AutomationProperties.SetAutomationId(hidden, "approval");
+        var panel = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { hidden } } } };
+        var shown = Enumerable.Range(0, count).Select(i => new Button { Content = byId ? "Continue" : "Approve" }).ToArray();
+        foreach (var button in shown)
+        {
+            if (byId) AutomationProperties.SetAutomationId(button, "approval");
+            button.Click += (_, _) => clicks++;
+            panel.Children.Add(button);
+        }
+        panel.Children.Add(new TextBlock { Text = "Approve" });
+        panel.Children.Add(new Button { Content = "Reject" });
+        var window = new Window { Content = panel, Width = 300, Height = 400 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var result = UiAutomationDriver.Interact(hidden, action, null);
+            result.Success.Should().BeFalse();
+            if (count == 1)
+                result.Error.Should().Contain($"a showing copy is at '{UiAutomationDriver.PathWithin(window, "Window", shown[0])}'; target that");
+            else
+            {
+                result.Error.Should().Contain("5 showing copies");
+                foreach (var button in shown.Take(3))
+                    result.Error.Should().Contain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+                foreach (var button in shown.Skip(3))
+                    result.Error.Should().NotContain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+            }
+            result.Error.Should().NotContain("Make it show first");
+            clicks.Should().Be(0);
         }
         finally { window.Close(); }
     }
@@ -1900,6 +2048,53 @@ public class UiAutomationDriverTests
         {
             UiAutomationDriver.PressKey(box, "NotAKey", null).Error.Should().Contain("unknown key");
             UiAutomationDriver.PressKey(box, "S", "Hyper").Error.Should().Contain("unknown modifier");
+        }
+        finally { window.Close(); }
+    }
+
+    // A chord written as one key, as a person writes it, presses that chord and says how it was read. It was refused as an
+    // unknown key, which sent the caller to the key names when 'H' was never the problem (#2189).
+    [AvaloniaTheory]
+    [InlineData("Ctrl+H", null, Avalonia.Input.Key.H, Avalonia.Input.KeyModifiers.Control, "'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'")]
+    [InlineData(" ctrl+shift+s ", null, Avalonia.Input.Key.S, Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
+        "was read as key 's' with modifiers 'ctrl+shift'")]
+    [InlineData("Shift+H", "Ctrl", Avalonia.Input.Key.H, Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
+        "'Shift+H' was read as key 'H' with modifiers 'Shift', added to 'Ctrl'")]
+    public void PressKey_AChordWrittenAsOneKey_PressesIt_AndSaysHowItWasRead(
+        string key, string? modifiers, Avalonia.Input.Key expectedKey, Avalonia.Input.KeyModifiers expectedModifiers, string note)
+    {
+        Avalonia.Input.Key? got = null;
+        var mods = Avalonia.Input.KeyModifiers.None;
+        var box = new TextBox();
+        box.KeyDown += (_, e) => { got = e.Key; mods = e.KeyModifiers; };
+        var window = Show(box);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(box, key, modifiers);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            got.Should().Be(expectedKey);
+            mods.Should().Be(expectedModifiers);
+            outcome.Detail.Should().EndWith(note)
+                .And.Contain($"pressed {expectedModifiers.ToString().Replace(", ", "+")}+{expectedKey}").And.NotContain("Control, ");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_AChordWhosePrefixIsNoModifier_OrWhoseKeyIsUnknown_SaysWhichPartIsWrong()
+    {
+        var pressed = 0;
+        var box = new TextBox();
+        box.KeyDown += (_, _) => pressed++;
+        var window = Show(box);
+        try
+        {
+            UiAutomationDriver.PressKey(box, "A+B", null).Error.Should()
+                .StartWith("'A+B' is not a key, and not a chord either: 'A' is not a modifier.").And.NotContain("unknown key");
+            UiAutomationDriver.PressKey(box, "Ctrl+Nope", null).Error.Should().StartWith("unknown key 'Nope' in 'Ctrl+Nope'");
+            UiAutomationDriver.PressKey(box, "+", null).Error.Should().StartWith("unknown key '+' —");
+            pressed.Should().Be(0);
         }
         finally { window.Close(); }
     }

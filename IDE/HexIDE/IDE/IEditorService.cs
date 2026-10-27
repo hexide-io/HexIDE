@@ -12,6 +12,9 @@ public interface IEditorService
     void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument);
     void EditProject(ProjectDefinition? project);
 
+    /// <summary>The loaded member name for a URI, or null when nothing loaded answers.</summary>
+    string? DocumentNameForUri(string uri);
+
     void RestoreCaret(DocumentIdentity document, int offset);
     void RestoreCaret(RelatedDocumentDefinition document, int offset);
 
