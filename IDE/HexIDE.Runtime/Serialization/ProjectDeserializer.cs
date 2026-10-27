@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Text;
 using HexIDE.Runtime.ProjectElements;
 using Serilog;
@@ -193,7 +194,7 @@ public class ProjectDeserializer
                 if (refStr.StartsWith("*\\G", StringComparison.OrdinalIgnoreCase))
                     refStr = refStr[3..];
                 var refParts = refStr.Split('#', 5);
-                if (refParts.Length >= 3 && int.TryParse(refParts[2], out var lcid))
+                if (refParts.Length >= 3 && int.TryParse(refParts[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lcid))
                 {
                     var path = refParts.Length >= 4 && !string.IsNullOrEmpty(refParts[3]) ? refParts[3] : null;
                     var name = refParts.Length >= 5 && !string.IsNullOrEmpty(refParts[4]) ? refParts[4] : null;
