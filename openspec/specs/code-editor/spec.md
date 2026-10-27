@@ -576,8 +576,9 @@ was SHALL keep the greying until the next evaluation, and an edit that adds or r
 
 ### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
 A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
-VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit and twinBASIC 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
 The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+Changing the selection SHALL NOT send language-server requests or notifications.
 VBA's constants are not measured, since there is no VBA oracle.
 
 #### Scenario: Previewing a VBA branch
@@ -585,3 +586,11 @@ VBA's constants are not measured, since there is no VBA oracle.
 - **THEN** the default VB6 view greys the VBA7 branch
 - **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
 - **THEN** the view greys the Else branch instead, without changing what F5 runs
+
+
+#### Scenario: Previewing a twinBASIC branch
+- **WHEN** the developer chooses twinBASIC 32-bit or twinBASIC 64-bit
+- **THEN** greying uses the measured twinBASIC built-ins for that bitness and function calls read zero
+- **AND** the build number is unknown, so conditions depending on it remain ungreyed
+- **AND** the build type is "Standard EXE", "ActiveX DLL" or "ActiveX Control" for the corresponding VB6 project type; otherwise it is unknown and conditions depending on it remain ungreyed
+- **AND** execution and language-server diagnostics retain their own constants

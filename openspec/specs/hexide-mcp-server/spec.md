@@ -444,8 +444,11 @@ window and an empty caption. It SHALL retain `activeDialog` with its previous me
 ### Requirement: Window mutations await platform confirmation
 `set_window_state` SHALL wait at most one second per phase for the requested state and for requested geometry
 notifications, return observed window values, and report an unconfirmed request with `success: false` and a
-note directing the caller to `get_window_state`. Geometry SHALL follow a confirmed restore, and off-screen
-validation SHALL precede any mutation. Omitted coordinates SHALL retain the restored position.
+note directing the caller to `get_window_state`. On an X11 display whose root window has no
+`_NET_SUPPORTING_WM_CHECK`, an unconfirmed Minimized or Maximized SHALL instead say that no window manager is
+running, so nothing will apply it, and that Normal with a position and size still works. Geometry SHALL follow a
+confirmed restore, and off-screen validation SHALL precede any mutation. Omitted coordinates SHALL retain the
+restored position.
 
 #### Scenario: A window manager applies changes asynchronously
 - **WHEN** the platform confirms a state or geometry change after a dispatcher layout pass
@@ -454,6 +457,10 @@ validation SHALL precede any mutation. Omitted coordinates SHALL retain the rest
 #### Scenario: No window manager applies the request
 - **WHEN** the requested state remains unconfirmed at the deadline
 - **THEN** the reply reports failure, the observed window, and how to re-read its state
+
+#### Scenario: An X11 display with no window manager
+- **WHEN** a Minimized or Maximized request goes unconfirmed on an X11 display with no window manager
+- **THEN** the reply says no window manager is running, so nothing will apply it, and does not direct the caller to re-read
 
 ### Requirement: Snapshot coordinates include popup overhang
 
@@ -673,3 +680,26 @@ parts are not all modifiers SHALL be refused before anything is pressed, naming 
 
 - **WHEN** `press_key` is called with `key` `A+B`
 - **THEN** nothing is pressed, and the refusal says `A` is not a modifier
+
+### Requirement: Adorners are addressed under the element they adorn
+The control view SHALL list an adorner under the element it adorns, after that element's own children, and not where
+its adorner layer sits, so its paths read as the screen does and round-trip through `Resolve` and `PathWithin`. An
+adorner SHALL be folded away as any wrapper is unless it, or something in it, is meaningful. The designer's draw
+preview, its rubber band, a selected control's resize adorner and the adorner's eight grab handles SHALL carry
+AutomationIds, so the dump lists them and `inspect_element` reads their bounds.
+
+#### Scenario: A selected control's grab handles
+
+- **WHEN** a control is selected in the form designer
+- **THEN** `…/ListItem[Command1]/None[ResizeAdorner]` and its handles, such as `None[PART_BottomRight]`, are in the dump
+- **AND** a `click` drag on a handle resizes the control
+
+#### Scenario: The draw preview
+
+- **WHEN** a toolbox tool is selected
+- **THEN** `NewControlSpawner` and its `NewControlSpawnerPhantom` are in the dump, the preview marked hidden until a draw shows it
+
+#### Scenario: An adorner with nothing meaningful in it
+
+- **WHEN** an element's adorner has no AutomationId and holds nothing meaningful
+- **THEN** the dump adds nothing for it

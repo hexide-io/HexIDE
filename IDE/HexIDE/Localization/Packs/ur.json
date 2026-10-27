@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 بٹ",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 بٹ",
     "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.LspArtifact.Title": "کام کی جگہ کی فائلیں",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
     "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.PropDesc.ImageWidth": "تصاویر کی چوڑائی۔",
+    "Str.PropDesc.ImageHeight": "تصاویر کی اونچائی۔",
+    "Str.PropDesc.MaskColor": "شفاف پکسلز کا رنگ۔",
+    "Str.PropDesc.UseMaskColor": "آیا ماسک کا رنگ استعمال کرنا ہے۔",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
   }
