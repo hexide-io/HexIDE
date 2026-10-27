@@ -891,7 +891,7 @@ public class VBLoader
         // another form running (measured, #822).
         return StartAndShow(shown.Context, token, close: shown.Close, closeUnshown: shown.Close, showUntilClosed: () =>
         {
-            shown.Show();
+            shown.ShowForm();
             return new TaskCompletionSource().Task;
         });
     }

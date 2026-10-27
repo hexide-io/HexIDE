@@ -62,10 +62,34 @@ What these show:
 
 - **A form's Move** is built as measured above: the argument shapes, the checks before anything moves, twips whatever
   the ScaleMode, and a single Resize for a change of size (`VBFormRuntime.ResizeOnce`).
-- **Left and Top go where an assignment to them puts them**, which doesn't yet move the window (#852).
+- **Left and Top move the window** and retain assigned twips between pixels (#852).
 - **Not modelled:** the window system's smallest size. HexIDE's form takes the size asked for, as an assignment to Width
   does.
 - **Refused:** Move on a minimized or maximized form, which wasn't measured. Named arguments to Move are refused
   with every method's, #1474.
 - **`FormMoveTests`** runs the probe less the rows that are the window system's or need a run-time ScaleMode, which
   HexIDE can't set yet (#990). Every expected line is vb6.exe's.
+
+### Left and Top read and written at run time (#852)
+
+The follow-up probe recorded in #852 (hexide-int's measurement comment, supervisor confirmed 2026-10-27;
+PR #2279, 5dbc44c6) used VB6.EXE SP6, native and p-code builds with identical output. Two forms had
+4500 x 3000 clients at ClientLeft 2000, ClientTop 1500, one Manual and one CenterScreen. The Windows 10
+console had a 1024 x 768 screen at 15 twips per pixel; session 0 used the classic frame.
+
+| Read or write | Console Left, Top | Session 0 Left, Top |
+|---|---|---|
+| Manual, Form_Load and after Show | 1875, 1035 | 1935, 1155 |
+| CenterScreen, Form_Load | 1875, 1035 | 1935, 1155 |
+| CenterScreen, after Show | 5310, 3960 | 5370, 4050 |
+| Left = 1200, Top = 900 | 1200, 900 | 1200, 900 |
+| Left = 1207 | 1207, 900 | 1207, 900 |
+| ScaleMode = 3, read again | 1207, 900 | 1207, 900 |
+| Left = 600 at ScaleMode 3 | 600, 900 | 600, 900 |
+| Move 300, 450 at ScaleMode 3 | 300, 450 | 300, 450 |
+| Left = -3000 | Left -3000 | Left -3000 |
+
+Left's TypeName was Single. Position means the outer window origin, in twips even on a pixel form.
+The console's outer size was 4740 x 3585, session 0's 4620 x 3405. CenterScreen acts at Show,
+not Load, using the outer size and whole pixels. A written 1207 reads back unchanged despite the
+window occupying a whole pixel. No native/p-code difference was observed.
