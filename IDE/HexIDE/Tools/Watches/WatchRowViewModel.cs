@@ -33,7 +33,16 @@ public partial class WatchRowViewModel
 
     public string Expression => Watch.Expression;
     private string? externalContext;
-    public string Context => externalContext ?? Watch.Context;
+    public string Context
+    {
+        get
+        {
+            var context = externalContext ?? Watch.Context;
+            return context == WatchExpression.AllProceduresContext
+                ? _localization.GetString("Str.Dialog.AddWatch.AllContext") : context;
+        }
+    }
+    public void RefreshContext() => PropertyChanged?.Invoke(this, new(nameof(Context)));
     public void SetExternalContext(string context)
     {
         externalContext = context;

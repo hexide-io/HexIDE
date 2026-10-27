@@ -480,6 +480,20 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     }
 
     [Fact]
+    public void StandardOutputIsShownAsANonMessageWithItsVerbatimDetail()
+    {
+        _capture.Record("pipe", ConversationDirection.Received, ConversationEntryKind.StandardOutput,
+            null, null, 0, null, "No project was found");
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+        vm.SelectedRow.Kind.Should().Be("StandardOutput");
+        vm.SelectedRow.Method.Should().Be("No project was found");
+        vm.SelectedRow.IsNotAMessage.Should().BeTrue();
+        vm.HasSelectedBody.Should().BeFalse();
+        vm.SelectedBodyUnavailable.Should().Be("Str.Tool.ProtocolInspector.StandardOutputHasNoBody");
+    }
+
+    [Fact]
     public void AStandardErrorLineSaysItIsTheServersWordsRatherThanALostBody()
     {
         // FOUND ON A RUNNING IDE, by selecting the row. A stderr line is Received — it arrived, it was

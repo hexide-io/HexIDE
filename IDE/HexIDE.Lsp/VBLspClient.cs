@@ -258,6 +258,11 @@ public sealed class VBLspClient : ILspClient
                 TaskScheduler.Default);
             throw;
         }
+        catch (Exception ex)
+        {
+            scope.DropAnswer(ex);
+            throw;
+        }
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -558,9 +563,6 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
-                    // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
-                    // fold part-way along its closing line, and a fold read by whole lines then hides that line.
-                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
@@ -1427,8 +1429,13 @@ public sealed class VBLspClient : ILspClient
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var result = await InvokeRequestAsync<CompletionList?>(_rpc,
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            var result = raw is not { } value || value.ValueKind == JsonValueKind.Null
+                ? null
+                : value.ValueKind == JsonValueKind.Array
+                    ? new CompletionList(false, value.Deserialize(LspJsonContext.Default.CompletionItemArray)!)
+                    : value.Deserialize(LspJsonContext.Default.CompletionList);
             onAnswer();
             return result?.Items ?? [];
         }
@@ -1439,7 +1446,7 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null)
     {
         if (_rpc is null || !_initialized || !CanServe("signatureHelpProvider")) return null;
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
@@ -1564,14 +1571,29 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
+    public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("renameProvider")) return null;
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
-            return await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
+            var edit = await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
                 "textDocument/rename", p, cancellationToken);
+            return edit is null ? null : new RenameResult(edit, null);
+        }
+        catch (RemoteInvocationException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (ex.ErrorCode is -32800 or -32801)
+            {
+                _logger.LogDebug(ex, "textDocument/rename was cancelled by the server");
+                return null;
+            }
+
+            if (ex.ErrorCode == -32803)
+                _logger.LogDebug(ex, "textDocument/rename refused: {Reason}", ex.Message);
+            else
+                WarnRequestFailedOnce("textDocument/rename", ex, cancellationToken);
+            return new RenameResult(null, ex.Message);
         }
         catch (Exception ex)
         {
@@ -1838,9 +1860,12 @@ public sealed class VBLspClient : ILspClient
         // The two directions are not interchangeable and ConversationDirection already says which is
         // which: Received is "a reply, a notification, a line of standard error", Local is "a process
         // starting". A stderr line arrived from the server; an exit code is something observed about it.
-        var (direction, kind) = notice.Kind == TransportNoticeKind.StandardError
-            ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
-            : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
+        var (direction, kind) = notice.Kind switch
+        {
+            TransportNoticeKind.StandardError => (ConversationDirection.Received, ConversationEntryKind.StandardError),
+            TransportNoticeKind.StandardOutput => (ConversationDirection.Received, ConversationEntryKind.StandardOutput),
+            _ => (ConversationDirection.Local, ConversationEntryKind.Lifecycle),
+        };
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop

@@ -33,6 +33,16 @@ public class ConversationTraceTests
             Detail: detail);
 
     [Fact]
+    public void StandardOutputHasItsOwnTraceLabel()
+    {
+        var text = ConversationTrace.ToTraceText(
+            Envelope(ConversationDirection.Received, ConversationEntryKind.StandardOutput,
+                method: null, detail: "No project was found"), null);
+        text.Should().Contain("stdout: No project was found");
+        text.Should().NotContain("stderr:");
+    }
+
+    [Fact]
     public void ARequestReadsTheWayAServerAuthorsOwnTraceReads()
     {
         var text = ConversationTrace.ToTraceText(

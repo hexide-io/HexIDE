@@ -55,3 +55,12 @@ the whole entry ungreyed.
 #### Scenario: A condition on the build number
 - **WHEN** a `.twin` entry tests the compiler's build number, which the archive does not record
 - **THEN** neither branch of that test is grey
+
+### Requirement: Report refused archive opens without unloading projects
+The IDE MUST report a refused archive open with the selected file name and the reader's reason. Opening an archive from the project picker MUST preserve already open projects and their documents on failure.
+
+#### Scenario: The reader refuses the selected archive
+- **WHEN** the user selects a malformed archive in Open Project
+- **THEN** an error message names the file and includes the reader's reason
+- **AND** the existing projects and documents remain open
+- **AND** the refused archive is not added to recent projects

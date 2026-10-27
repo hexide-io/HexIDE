@@ -26,6 +26,8 @@
                               ExecutingCommand="{CompiledBinding #Root.Redo}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CopyCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Copy}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteAsCommentCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.PasteAsComment}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Paste}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CutCommand}"
@@ -124,6 +126,7 @@
                                  Margin="2,0,0,0"
                                  IsVisible="{CompiledBinding Settings.IsMinimapVisible}" />
         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
+            <Grid ClipToBounds="True">
             <avaloniaEdit:TextEditor Name="TextEditor"
                                      FontFamily="Courier New,Monospace"
                                      FontSize="13"
@@ -167,6 +170,8 @@
                     </MenuFlyout>
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>
+            <StackPanel x:Name="StickyHeaders" VerticalAlignment="Top" ClipToBounds="True" />
+            </Grid>
         </ClassicBorderDecorator>
         </DockPanel>
     </DockPanel>

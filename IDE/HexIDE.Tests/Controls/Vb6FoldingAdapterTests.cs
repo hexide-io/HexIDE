@@ -171,7 +171,7 @@ public class Vb6FoldingAdapterTests
         var document = new TextDocument(text);
         var run = RunFoldsOf(text).Single();
         var procedure = Vb6FoldingAdapter.FromServer(document, [new FoldingRange(1, 4)]).Single();
-        var crossing = Vb6FoldingAdapter.FromServer(document, [new FoldingRange(2, 3)]).Single();
+        var crossing = Vb6FoldingAdapter.FromServer(document, [new FoldingRange(2, 3, StartCharacter: 0)]).Single();
 
         Vb6FoldingAdapter.Merge([run], [procedure, crossing]).Should().Equal(procedure, run);
     }
@@ -179,16 +179,16 @@ public class Vb6FoldingAdapterTests
     // ── A server's folds ──────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void AServerFoldRunsFromItsFirstLineToTheEndOfItsLast()
+    public void AServerFoldDefaultsToTheEndsOfItsFirstAndLastLines()
     {
         var document = new TextDocument(Frm);
 
         var folds = Vb6FoldingAdapter.FromServer(document, [new FoldingRange(11, 13)]);
 
         folds.Should().ContainSingle();
-        folds[0].StartOffset.Should().Be(document.GetLineByNumber(12).Offset);
+        folds[0].StartOffset.Should().Be(document.GetLineByNumber(12).EndOffset);
         folds[0].EndOffset.Should().Be(document.GetLineByNumber(14).EndOffset);
-        folds[0].Name.Should().Be("Private Sub cmdOK_Click()");
+        folds[0].Name.Should().BeNull();
     }
 
     [Fact]
@@ -245,13 +245,77 @@ public class Vb6FoldingAdapterTests
     }
 
     [Fact]
-    public void AServerFoldThatStartsWhereTheHeaderStartsIsDropped()
+    public void AServerFoldThatSharesAnOwnFoldsStartIsKept()
     {
-        // The folding manager matches folds to sections by start offset alone, so two starting together can swap
-        // sections and the header's folded state with them. Measured on AvaloniaEdit 12.0.0, 2026-10-02.
-        var header = Fold(0, 50);
+        var own = Fold(10, 50);
+        var server = Fold(10, 120);
 
-        Vb6FoldingAdapter.Merge([header], [Fold(0, 120), Fold(0, 20), Fold(0, 50)]).Should().Equal(header);
+        Vb6FoldingAdapter.Merge([own], [server]).Should().Equal(server, own);
+    }
+
+    [Fact]
+    public void AServerFoldHonoursCharactersOnBothLines()
+    {
+        var document = new TextDocument("  int area() {\r\n    return 1;\r\n  }\r\n");
+        var fold = Vb6FoldingAdapter.FromServer(document,
+            [new FoldingRange(0, 2, StartCharacter: 14, EndCharacter: 2)]).Single();
+
+        fold.StartOffset.Should().Be(14);
+        fold.EndOffset.Should().Be(document.GetLineByNumber(3).Offset + 2);
+        fold.Name.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnInnerFoldKeepsItsStateWhenTheOuterVanishes(bool innerFolded)
+    {
+        var manager = new FoldingManager(new TextDocument(new string('x', 100)));
+        Vb6FoldingAdapter.Update(manager, [Fold(10, 90), Fold(10, 50)]);
+        manager.AllFoldings.Single(f => f.EndOffset == 90).IsFolded = !innerFolded;
+        manager.AllFoldings.Single(f => f.EndOffset == 50).IsFolded = innerFolded;
+
+        Vb6FoldingAdapter.Update(manager, [Fold(10, 50)]);
+
+        manager.AllFoldings.Single().IsFolded.Should().Be(innerFolded);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AReturningFoldTakesItsDefaultRatherThanTheSurvivorsState(bool defaultClosed)
+    {
+        var manager = new FoldingManager(new TextDocument(new string('x', 100)));
+        Vb6FoldingAdapter.Update(manager, [Fold(10, 90), Fold(10, 50)]);
+        manager.AllFoldings.Single(f => f.EndOffset == 90).IsFolded = !defaultClosed;
+        manager.AllFoldings.Single(f => f.EndOffset == 50).IsFolded = !defaultClosed;
+        Vb6FoldingAdapter.Update(manager, [Fold(10, 50)]);
+        Vb6FoldingAdapter.Update(manager, [new NewFolding(10, 90) { DefaultClosed = defaultClosed }, Fold(10, 50)]);
+
+        manager.AllFoldings.Single(f => f.EndOffset == 90).IsFolded.Should().Be(defaultClosed);
+        manager.AllFoldings.Single(f => f.EndOffset == 50).IsFolded.Should().Be(!defaultClosed);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ASameStartPairKeepsStatesAcrossUpdates(bool editAbove, bool reverseOrder)
+    {
+        var document = new TextDocument(new string('x', 100));
+        var manager = new FoldingManager(document);
+        Vb6FoldingAdapter.Update(manager, [Fold(10, 90), Fold(10, 50)]);
+        manager.AllFoldings.Single(f => f.EndOffset == 50).IsFolded = true;
+        var shift = editAbove ? 7 : 0;
+        if (editAbove) document.Insert(0, "header\n");
+        var outer = Fold(10 + shift, 90 + shift);
+        var inner = Fold(10 + shift, 50 + shift);
+
+        Vb6FoldingAdapter.Update(manager, reverseOrder ? [inner, outer] : [outer, inner]);
+
+        manager.AllFoldings.Should().HaveCount(2);
+        manager.AllFoldings.Single(f => f.EndOffset == outer.EndOffset).IsFolded.Should().BeFalse();
+        manager.AllFoldings.Single(f => f.EndOffset == inner.EndOffset).IsFolded.Should().BeTrue();
     }
 
     [Fact]

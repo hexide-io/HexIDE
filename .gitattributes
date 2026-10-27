@@ -1,6 +1,7 @@
 # Shell scripts must stay LF even when checked out on Windows (autocrlf) — a CR after
 # the shebang breaks `#!/usr/bin/env bash` on Linux/CI (build_cloudflare.sh, copy-in script).
 *.sh text eol=lf
+scripts/hooks/pre-commit text eol=lf
 
 # VB6 source is CRLF by format convention: VB6 wrote it that way, HexIDE writes it that way, and
 # SerializationCorpusTests compares bytes. Without these rules a Linux/macOS checkout normalizes the

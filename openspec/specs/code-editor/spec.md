@@ -22,11 +22,22 @@ that the developer could not see them was a limitation of its code window, and t
 ## Requirements
 
 ### Requirement: Syntax keywords match regardless of case
-The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing. Standalone `End` and every `END_*` block terminator from the MIT lexer SHALL receive the `Keyword` colour in every theme.
 
 #### Scenario: Keywords differ from the definition's casing
 - **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
 - **THEN** each word receives its named keyword colour from the syntax definition
+
+#### Scenario: Block terminators use keyword blue
+- **WHEN** the editor highlights `End Sub`, `End If`, `End Function`, `End With` or `End Select` in any theme
+- **THEN** both words receive the theme's `Keyword` colour
+
+### Requirement: Syntax definition provenance and palette
+The VB6 syntax definition SHALL be authored under MIT from HexIDE's MIT lexer grammar, and SHALL use the named colours managed by `SyntaxHighlightingTheme`. Comments, strings, numbers, date literals, type suffixes and line continuations SHALL receive syntax colours.
+
+#### Scenario: Literal and punctuation highlighting
+- **WHEN** the editor highlights a string, number, `#1/2/2000#`, type suffix or line continuation outside a comment
+- **THEN** it applies the definition's corresponding named syntax colour
 
 ### Requirement: The code window SHALL hold the whole file
 The code window for a form, module, class, UserControl or PropertyPage SHALL hold the file's complete text.
@@ -221,7 +232,9 @@ an edit explicitly reaching into a run remains refused. An empty range edit dele
 text SHALL widen over its run, as a key deletion does. A set whose widened spans overlap another edit
 SHALL be refused without changing the document. Find's Replace and Replace All SHALL likewise widen
 empty replacements over the runs of declarations they empty; non-empty replacements SHALL keep those runs.
-Formatting is unchanged.
+Formatting SHALL first discard changes to protected lines, then match each remaining whole-line hunk to
+its described logical declaration. An empty hunk deleting that entire declaration SHALL remove its attribute
+run as well. A hunk deleting only part of a continued declaration SHALL NOT remove the run.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
@@ -233,6 +246,10 @@ one visible line, so a mark set there would land on a line the developer cannot 
 #### Scenario: Formatting a class
 - **WHEN** a class is formatted by a server whose answer replaces the whole document
 - **THEN** the code is formatted and the header is unchanged
+
+#### Scenario: Formatting deletes a described declaration
+- **WHEN** a kept formatting hunk deletes every physical line of a described declaration
+- **THEN** its attribute run is removed with it, other kept formatting changes apply, and Undo restores both
 
 #### Scenario: Replacing text that also appears in the header
 - **GIVEN** a form with a control named `Command1` and code that refers to it
@@ -400,6 +417,148 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **THEN** overtype mode is enabled and the status bar displays the localized overtype label
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
+
+### Requirement: Indentation guides
+
+The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.
+
+#### Scenario: Nested indentation
+- **WHEN** the caret enters a nested indented block
+- **THEN** that block's guide is emphasised throughout its contiguous indentation run
+- **AND** equally indented blocks elsewhere retain the normal guide colour
+
+#### Scenario: Guides disabled
+- **WHEN** Show indent guides is turned off and options are applied
+- **THEN** open code windows stop drawing guides
+- **AND** the preference survives restarting the IDE
+
+### Requirement: Parentheses coloured by nesting depth
+The VB6 code editor SHALL colour matching parentheses with the same theme-defined foreground, cycling
+through the `BracketDepth1`, `BracketDepth2` and `BracketDepth3` theme palette entries by nesting depth. It SHALL mark unmatched parentheses with a separate theme
+foreground (`BracketUnmatched`), ignore parentheses inside lexer string and comment tokens, and offer a persisted Editor → General
+option to disable this colouring. Existing editors SHALL repaint when the text, palette or option changes.
+
+#### Scenario: Nested pairs and an unmatched parenthesis
+- **WHEN** the editor displays `(()) )`
+- **THEN** the outer pair uses the first palette entry and the inner pair uses the second
+- **AND** the final closing parenthesis uses the unmatched foreground
+
+#### Scenario: Colouring disabled
+- **WHEN** the user disables the nesting-depth option
+- **THEN** parentheses retain ordinary syntax colouring, including unmatched parentheses
+
+### Requirement: Recent edit locations
+The IDE SHALL provide a Recent Edits panel from the View menu, listing edited code locations newest first
+with the module, 1-based line and a text preview. Selecting a row SHALL navigate to that document and line
+without recording another edit. The list SHALL be session-only and contain at most 50 entries.
+
+An edit in the same document within 10 lines of the newest entry SHALL replace that entry; an edit further
+away or in another document SHALL add an entry. Locations SHALL follow inserted or removed text above
+them. Removing a whole tracked line SHALL drop its entry. Closing and reopening a code tab SHALL retain
+its entries; removing its document from the project or unloading the project SHALL drop them.
+
+#### Scenario: Nearby and distant edits
+- **WHEN** a developer edits a line 9 or 10 lines from the newest entry in the same document
+- **THEN** that entry is replaced by the new location
+- **WHEN** the distance is 11 lines, or the edit is in another document
+- **THEN** a new entry is added, evicting the oldest if the list exceeds 50
+
+#### Scenario: Returning to moved text after closing a tab
+- **WHEN** lines are inserted above a recorded location and its code tab is closed and reopened
+- **THEN** the row retains the moved line number and preview
+- **AND** selecting it opens that document at the moved line without adding an entry
+
+### Requirement: Paste as Comment
+The code window SHALL offer Paste as Comment in the Edit menu and expose `PasteAsCommentCommand`
+for keymap bindings. It SHALL replace the selection with the clipboard's lines, each prefixed with an
+apostrophe, continuing subsequent lines at the insertion line's leading indentation. The paste SHALL
+be one undo step and use the document's newline convention. Empty or unavailable clipboard text SHALL
+leave the document unchanged.
+
+When text remains on the line after a non-rectangular selection or caret, the paste SHALL end with a
+line break and the insertion line's leading indentation, keeping that text uncommented on its own line.
+
+#### Scenario: Keeping a snippet without compiling it
+- **WHEN** the developer pastes two clipboard lines as comments at an indented caret
+- **THEN** each inserted line begins with an apostrophe at that indentation
+- **AND** Undo restores the previous text in one step
+
+#### Scenario: Pasting before existing code
+- **WHEN** the developer pastes as comments with the caret before existing code on the same line
+- **THEN** a line break separates the last pasted comment from the existing code
+- **AND** the existing code remains uncommented at the insertion line's indentation
+- **AND** Undo restores the previous text in one step
+### Requirement: Find scopes SHALL include project members and live buffers
+Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
+All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.
+Current Project SHALL target the active document's owning project (code, designer or carried file),
+then the Project Explorer selection, then the startup project, and SHALL display that project's name.
+Project scopes SHALL prefer open editors' live buffers over stored code, without flushing editors.
+Closed members SHALL be searched without opening non-matching files; selecting a hit SHALL open its
+editor and select the matching text. Forms, modules and carried files SHALL participate.
+
+#### Scenario: Unsaved edits are searchable
+- **WHEN** a term is added to or removed from an open module without saving
+- **AND** Find searches that project
+- **THEN** the results reflect the live buffer, and the module's stored code is unchanged
+
+#### Scenario: A group contains several projects
+- **WHEN** a code window or designer in a non-startup project is active
+- **THEN** Current Project names and searches that document's project
+- **AND** All Projects searches every loaded project
+
+### Requirement: Structural and selection scopes SHALL restrict every search and replacement
+Current Procedure and Current Module SHALL use containing procedure or module ranges reported by the
+active document's language server, including nested symbols, and SHALL fall back to Current Document
+when no containing range is reported. Selected Text SHALL preserve the original selected span across
+Find selections and track edits to its boundaries. These limits SHALL apply to Find, Replace and
+Replace All, including plain text, patterns, either direction and wrapping.
+
+#### Scenario: A foreign language server reports a procedure
+- **WHEN** the active carried file's server reports a procedure containing the caret
+- **AND** Current Procedure is selected
+- **THEN** Find and replacement are confined to that procedure
+
+#### Scenario: Find selects a match inside Selected Text
+- **WHEN** Find selects one match inside the original selected text
+- **THEN** the next search still covers the original span rather than only that match
+
+### Requirement: Replace All SHALL confirm changes across files
+Before Replace All changes matches in more than one document, it SHALL ask for confirmation.
+Refusal SHALL leave every buffer unchanged and SHALL NOT open closed editors for replacement.
+Accepted replacement SHALL edit live editor buffers, leaving saving to the developer.
+
+#### Scenario: Cross-file replacement is cancelled
+- **WHEN** matches exist in multiple files and the developer refuses confirmation
+- **THEN** no file is opened or changed by replacement
+
+### Requirement: Sticky scroll shows enclosing block headers
+The code window SHALL pin the headers of language-server folding ranges enclosing its top visible code
+line, when their header lines have scrolled out of view. It SHALL list distinct headers from outermost
+inward, up to the configured depth. The editor's serialized header and member-attribute folds SHALL NOT
+supply sticky headers. Without server ranges there SHALL be no pinned headers.
+
+#### Scenario: Scrolling inside nested blocks
+- **WHEN** the top visible code line is inside nested server folding ranges whose headers are above it
+- **THEN** their source header lines appear above the code, in nesting order
+- **AND** scrolling out of a range removes its header
+- **AND** a replacement folding response updates the pinned headers
+
+#### Scenario: Navigating from a pinned header
+- **WHEN** the developer clicks a pinned header
+- **THEN** the editor places the caret at column one of that header's line and scrolls to it
+- **AND** keyboard focus returns to the code
+
+### Requirement: Sticky scroll is configurable
+Editor → General SHALL offer a sticky-scroll switch and a maximum header depth of one through ten.
+Sticky scroll SHALL default to enabled with a depth of three. Applying either option SHALL update open
+code windows, and both settings SHALL persist between sessions and participate in Restore Defaults.
+
+#### Scenario: Limiting or disabling pinned headers
+- **WHEN** the developer applies a depth of one
+- **THEN** only the outermost enclosing header is pinned
+- **WHEN** the developer disables sticky scroll
+- **THEN** open code windows show no pinned headers
 
 ### Requirement: Inactive conditional branches SHALL be greyed for the selected view target
 The code window SHALL grey only the interpreter preprocessor's determined inactive lines in the theme's
