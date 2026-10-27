@@ -22,6 +22,8 @@ public static class AvaloniaMethodsInteroperability
             strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
             return Vb6Value.Nothing;
         }
+        if (c is VBTreeView)
+            throw new NotImplementedException();
         if (c is VBToolbar)
             VBToolbar.RefusePending(method);
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a

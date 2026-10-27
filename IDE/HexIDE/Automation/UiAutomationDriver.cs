@@ -782,8 +782,17 @@ public static class UiAutomationDriver
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
     // press_key refuses with it too, since its routed fallback pressed a key on a disabled control and reported
     // success (#2366).
-    private static string? DisabledInteractionRefusal(Control control, string verb)
+    /// <summary>
+    /// Why a person couldn't act on <paramref name="window"/> itself, its caption buttons or frame, through
+    /// <paramref name="verb"/>: a modal dialog over it, or the window disabled. Null when they could. It names the window
+    /// as <paramref name="name"/>, as the caller reached it: a running form's window is otherwise only its class.
+    /// </summary>
+    public static string? WindowRefusal(Window window, string verb, string? name = null) =>
+        DisabledInteractionRefusal(window, verb, name);
+
+    private static string? DisabledInteractionRefusal(Control control, string verb, string? name = null)
     {
+        var subject = name ?? Describe(control);
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
         var open = OpenDialogs.Among(OpenWindows());
         var blocking = open.Where(d => OpenDialogs.Blocks(d, window)).ToList();
@@ -791,7 +800,7 @@ public static class UiAutomationDriver
         {
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
-            return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
+            return $"'{subject}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
                    + $"No person could use it, so '{verb}' was refused and nothing was done. Answer the dialog first: "
                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
         }
@@ -804,7 +813,7 @@ public static class UiAutomationDriver
         var cause = control.IsEnabled && container is not null
             ? $" Its container '{Describe(container)}'{(window is null ? string.Empty : AddressOf(window, "Window", container))} disables it."
             : string.Empty;
-        return $"'{Describe(control)}' is disabled (\"isEnabled\": false).{cause} "
+        return $"'{subject}' is disabled (\"isEnabled\": false).{cause} "
                + $"No person could use it, so '{verb}' was refused and nothing was done. "
                + "Wait until it is enabled before trying again; inspect_element reports its current state";
     }
@@ -1633,7 +1642,8 @@ public static class UiAutomationDriver
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
     /// the element a real press there would reach, so a control's own press and release handlers run as they do for a
     /// person: a Button raises Click from its release, and a running form raises MouseDown, Click and MouseUp in the
-    /// order VB6 does (#974). <c>invoke</c> goes through an automation peer, which raises Click and no pointer event, and
+    /// order VB6 does (#974). A PointerMoved there comes first, as a person's pointer arrives before it presses, so a
+    /// running form's MouseMove does too, unless the last click left the pointer at that point (#2407). <c>invoke</c> goes through an automation peer, which raises Click and no pointer event, and
     /// <c>double_click</c> raises DoubleTapped, so this is the only verb that presses.
     /// </summary>
     /// <remarks>
@@ -1701,6 +1711,15 @@ public static class UiAutomationDriver
             .Any(Dock.Settings.DockProperties.GetIsDragArea) == true;
         // What an abandoned hold asks whether its release committed anything: the designer the press landed in (#2231).
         var surface = hold ? (hit as Visual)?.FindAncestorOfType<FormEditView>()?.DataContext as FormEditViewModel : null;
+        // A person's pointer arrives before it presses, so the element sees a move first and a running form raises
+        // MouseMove before MouseDown. A click raised no move, so a program's MouseMove never ran from one (#2407). A still
+        // pointer sends none, so a click where the last one left it moves nothing.
+        var arrived = !PointerAlreadyAt(topLevel, inWindow);
+        if (arrived)
+            hit.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, hit, pointer, topLevel, inWindow,
+                (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, PointerUpdateKind.Other), keys));
+        var arrival = arrived ? "; the pointer moved there first, as a person's does"
+            : "; the pointer was already there from the last click, so it did not move first";
         // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
         // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
         if (destination is not null)
@@ -1755,12 +1774,13 @@ public static class UiAutomationDriver
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
                 releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                PointerNowAt(topLevel, releasePoint);
                 var recipient = destination is null ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{(second ? secondLanding : "")}"
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
                     + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
@@ -3960,8 +3980,22 @@ public static class UiAutomationDriver
     public static void EndHover(Control control)
     {
         if (TopLevel.GetTopLevel(control) is { } topLevel)
+        {
             RawPointer.Leave(topLevel);
+            ClickPointer.Remove(topLevel);
+        }
     }
+
+    // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
+    // move. A hover's end takes the pointer out of the window, and forgets it (#2407).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, System.Runtime.CompilerServices.StrongBox<Point>>
+        ClickPointer = new();
+
+    private static bool PointerAlreadyAt(TopLevel topLevel, Point at) =>
+        ClickPointer.TryGetValue(topLevel, out var last) && Math.Abs(last.Value.X - at.X) < 0.5 && Math.Abs(last.Value.Y - at.Y) < 0.5;
+
+    private static void PointerNowAt(TopLevel topLevel, Point at) =>
+        ClickPointer.AddOrUpdate(topLevel, new System.Runtime.CompilerServices.StrongBox<Point>(at));
 
     /// <summary>
     /// Watches the input <paramref name="topLevel"/> receives while hover waits for a tip, for pointer input this hover did

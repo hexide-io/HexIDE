@@ -710,14 +710,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private Antlr4.Runtime.Tree.IParseTree Parse(string source, string moduleName)
     {
         var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(source)));
-        var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
-        parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
-        parser.AddErrorListener(this);
         parsingModule = moduleName;
         try
         {
+            var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+            parser.RemoveErrorListeners();
+            parser.AddErrorListener(this);
             return ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
         }
         finally

@@ -42,6 +42,7 @@ internal static class ObjectAsValue
         Components.InBox.TabStripTab tab => new Vb6Value(tab.Tab.Caption),
         VBTabStrip => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         ToolbarItem item => item.DefaultValue,
+        Components.InBox.TreeNode node => new Vb6Value(node.Text),
         VBSSTab => new Vb6Value((short)0),
         VbErr err => new Vb6Value(err.Number),
         StatusBarPanel panel => new Vb6Value(panel.Text),
@@ -67,6 +68,7 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         ToolbarItem item => item.DefaultValue,
+        Components.InBox.TreeNode node => new Vb6Value(node.Text),
         VBSSTab => new Vb6Value((short)0),
         VbErr err => new Vb6Value(err.Number),
         StatusBarPanel panel => new Vb6Value(panel.Text),

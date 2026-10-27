@@ -115,3 +115,34 @@ Property Get is #977's. Not pinned, and known to differ:
   2)` returns the Variant array where VB6 raises 13. That is a missing error on a path that runs: #999.
 - **`StrConv`** isn't implemented, so its row stops the run before the store.
 
+### An array of objects (2026-10-27, #999)
+
+**The question.** #999 measured that `As Object()` and `As Collection()` refuse `Array(1, 2)` with 13 and that an
+`As Object()` takes an Object() through a Variant. What does a return of objects accept across element types: an
+Object() for a Collection(), a Collection() for an Object(), and an array of one class for another class's?
+
+**The probe.** A project for each case, with classes Class1 and Class2. Each Function is in a standard module and is
+called as `x = F()` under `On Error Resume Next`, logging `Err.Number` and `TypeName(x)`. Seven more projects make the
+same assignments between dynamic arrays, `b = a`, with no Function. Native and p-code agreed on every row.
+
+| Return type, and the array stored | vb6.exe |
+|---|---|
+| `As Collection()` storing a Collection(); `As Class1()` storing a Class1() | Err 0; `x` is **"Object()"** |
+| `As Collection()` storing an Object() variable | does not compile: "Can't assign to array" |
+| `As Object()` storing a Collection() or a Class1() variable | does not compile: "Can't assign to array" |
+| `As Class1()` storing an Object() or a Class2() variable | does not compile: "Can't assign to array" |
+| `As Object()` storing a Variant() variable | does not compile: "Can't assign to array" |
+| Through a Variant, `v = a: F = v`: Class1() into Class1(), Object() into Class1(), Object() into Collection(), Collection() into Object(), Class2() into Class1(), Class1() into Object() | **Err 0** each; "Object()" |
+| `As Class1()`, through a Variant, an Object() whose element 0 holds a Collection | Err 0; `TypeName(x(0))` "Collection"; `Set y = x(0)`, `y As Class1`, then raises 13 |
+| `b = a`, dynamic arrays: Object() into Collection(), Collection() into Object(), Class1() into Object(), Class2() into Class1(), Object() into Class1() | does not compile: "Can't assign to array" |
+| `b = v`, `v` a Variant holding an Object() or a Class2(), into `b() As Class1` | Err 0; "Object()" |
+
+**What it says.**
+- **At compile time,** an array of objects goes only to the same element type, as for the scalar element types above.
+  Object is not a wildcard here, in either direction.
+- **At run time,** through a Variant, any array of objects is accepted by any return or array variable of objects. The
+  class is not checked, not even for an element that holds an object of another class. That surfaces only when the
+  element is used as the class, as 13 on the `Set`.
+- **The 13 that #999 measured** is for an array whose elements are not objects: `Array(1, 2)` is a Variant(). So the
+  run-time check needs only "an array of objects", not the class.
+- **`TypeName` of a Collection() or a Class1() is "Object()".**
