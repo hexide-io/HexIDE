@@ -1,9 +1,9 @@
 # In-box control corpus
 
 The saved fixtures cover ProgressBars from MSCOMCTL.OCX (`MSComctlLib`, 6.0) and COMCTL32.OCX (`ComctlLib`, 5.0),
-and StatusBars and ImageLists from MSCOMCTL.OCX. An in-box control's native persistence differs from an intrinsic's: the extender's
+and StatusBars, ImageLists and Toolbars from MSCOMCTL.OCX. An in-box control's native persistence differs from an intrinsic's: the extender's
 properties sort by name, followed by the control's own run, whose ordering and nested property bags are measured
-rather than inferred (hexide-io/HexIDE#1082, #1083, #1087).
+rather than inferred (hexide-io/HexIDE#1082, #1083, #1087, #1088).
 
 ## Two halves
 
@@ -30,6 +30,12 @@ window so the form was modified, and the form saved with Ctrl+S:
 The StatusBar saves were written on 2026-10-26 for the [StatusBar console measurements](../../docs/vb6-fidelity-oracle/in-box-controls-the-statusbar.md)
 (#1087). Their companion picture records are VB6's bytes; the `.vbp` files are hand-written.
 
+**`saved/toolbar/`: written by VB6's IDE on 2026-10-26.** Two hand-written Toolbars saved by VB6, with nine buttons
+of every Style, an ImageList and nested ButtonMenus; ShowTips was set False in the Properties window and saved as
+`ToolTips` (#1088, issuecomment-6428845889). The `.frx` is the ImageList's; the `.vbp` is hand-written. Moved from
+`pending/` after `ToolbarSerializationTests` verified both files byte for byte, including after a form-caption edit.
+The Toolbar's blocks are carried verbatim, and the ImageList's is modelled (#1083); ImageList binding is not implemented yet.
+
 **`input/`: authored here.** Each control's property lines are named as its type library names the property, so a line
 VB6 didn't recognise comes back missing and a value it changed comes back changed. Their `.vbp` files are hand-written
 too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
@@ -44,6 +50,7 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 | `window/` | One control with every own property off its default, set from VB6's Properties window. Its `MouseIcon` didn't load, so where VB6 writes one is not measured |
 | `statusbar/` | Two StatusBars: one with four configured panels (a Spring with Key, Tag and ToolTipText, a Date panel, a disabled Caps panel, an invisible Contents panel), and one in Simple style with ShowTips off. The panels' `Object.Width` and `MinWidth` are HIMETRIC (#1087) |
 | `statusbar-picture/` | A StatusBar whose first panel holds a bitmap and second an icon, written by hand and saved again by VB6, which kept the `.frx` byte for byte and put each `Picture` line first in its panel (#1087) |
+| `toolbar/` | Two configured Toolbars and an ImageList companion, preserved verbatim (#1088); provenance above |
 
 ## ImageList saves
 
@@ -61,7 +68,6 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `saved/imagelist/custom/` | The same with a Custom size of 24 by 20 and UseMaskColor unticked, holding a 32 x 32 bitmap and a 16 x 16 one |
 | `saved/imagelist/empty-key/` | Four pictures, 16 x 16: no Key and no Tag; Key `k2` and no Tag; Key `k3` and Tag `t3`; no Key and Tag `t4`. An empty Key writes `Key = ""`, and an empty Tag no line |
 | `imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
-| `toolbar/` | Two Toolbars, written by hand and saved by VB6: nine buttons of every Style bound to an ImageList, with a dropdown's ButtonMenus, and a bar with its own properties off their defaults, ShowTips set False in the Properties window and saved as `ToolTips` (#1088). The `.frx` is the ImageList's |
 | `listview/` | Three ListViews written by hand and saved by VB6. The first has every property off its default, its lines scrambled, and two columns with Key, Tag, Width and ImageIndex: VB6 put the lines in its own order, wrote SortOrder 1 and TextBackground 1 as `-1  'True`, and OLEDragMode and OLEDropMode twice. The second was written with only its size and `_Version`, and the third flat with a border (#1085). The `.frx` is the ImageList's |
 | `listview-columns/` | A form like `listview/`, whose first ListView has HideColumnHeaders, AllowReorder and ColHdrIcons set and three plain columns, saved after a column's Icon Index was set and a column inserted in that ListView's Column Headers property page: VB6 wrote the icon as `ImageIndex` and the new column's 1440 twips as `Object.Width = 2540`, which is HIMETRIC, and moved the later columns' SubItemIndex up (#1085) |
 | `treeview/` | Three TreeViews written by hand and saved by VB6: one with every property off its default, its lines scrambled and Indentation written as 529, which is HIMETRIC; one with only its size and `_Version`, which VB6 saved with `Appearance` alone, its Style being 0; and one with its defaults written out, which VB6 cut to `Style` and `Appearance` (#1086). The `.frx` is the ImageList's |

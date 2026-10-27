@@ -2079,6 +2079,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is ToolbarItem toolbarItem)
+                {
+                    toolbarItem.SetDefault(value);
+                    return default;
+                }
                 if (oldLet.Value is StatusBarPanel panel)
                 {
                     panel.SetText(value);
@@ -2295,6 +2300,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
                 };
 
+            if (members[0].iCS_S_ProcedureOrArrayCall() is { } toolbarCall && toolbarCall.argsCall().Length == 1)
+            {
+                ToolbarItems? collection = variable.Value switch
+                {
+                    VBToolbar bar when UdtFieldName(members[0]).Equals("Buttons", StringComparison.OrdinalIgnoreCase) => bar.Buttons,
+                    ToolbarItems items when UdtFieldName(members[0]).Equals("Item", StringComparison.OrdinalIgnoreCase) => items,
+                    ToolbarItem item when UdtFieldName(members[0]).Equals("ButtonMenus", StringComparison.OrdinalIgnoreCase)
+                        && item.TryGetProperty("ButtonMenus", out var menus) => (ToolbarItems)menus.Value!,
+                    _ => null,
+                };
+                if (collection is not null)
+                {
+                    ((ToolbarItem)collection.Item(await expressionExecutor.EvaluateCallArgs(toolbarCall.argsCall(0))).Value!).SetDefault(value);
+                    return default;
+                }
+            }
+
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
                 return default;
@@ -2373,6 +2395,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A Collection's item is read-only: `c(1) = x` is 424 once the index is found (measured, #1471, #1492).
             if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection heldItems } held))
                 throw heldItems.ItemAssigned(held, indexes, VbCollection.ItemAssignment.Index);
+            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: ToolbarItems toolbarItems }))
+            {
+                ((ToolbarItem)toolbarItems.Item(indexes).Value!).SetDefault(value);
+                return default;
+            }
             if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: StatusBarPanels panels }))
             {
                 panels.Item(indexes).SetText(value);
@@ -3251,6 +3278,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBToolbar && membersCall.iCS_S_MemberCall().Length == 1)
+            {
+                var name = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+                VBToolbar.RefusePending(name);
+                if (name.Equals("Buttons", StringComparison.OrdinalIgnoreCase)) throw ToolbarItems.Error(383);
+            }
+            if (setLead && target.Value is ToolbarItem item && membersCall.iCS_S_MemberCall().Length == 1
+                && UdtFieldName(membersCall.iCS_S_MemberCall()[0]).Equals("Tag", StringComparison.OrdinalIgnoreCase))
+            {
+                item.TrySetProperty("Tag", value);
+                return default;
+            }
             if (setLead && target.Value is VBStatusBar or StatusBarPanel or StatusBarPanels)
             {
                 var parts = membersCall.iCS_S_MemberCall();
