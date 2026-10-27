@@ -263,7 +263,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Draw control from toolbox | Done | Click-drag on canvas spawns control. Drawn inside a Frame or PictureBox, it goes into the innermost one under the press, held to it, as VB6 does ([#2039](https://github.com/hexide-io/HexIDE/issues/2039)). Its corners go to the nearest grid line and it ends one pixel past them, as VB6's do ([#2058](https://github.com/hexide-io/HexIDE/issues/2058)) |
+| Draw control from toolbox | Done | Click-drag on canvas spawns control. Drawn inside a Frame or PictureBox, it goes into the innermost one under the press, held to it, as VB6 does ([#2039](https://github.com/hexide-io/HexIDE/issues/2039)). Its corners go to the nearest grid line and it ends one pixel past them, as VB6's do ([#2058](https://github.com/hexide-io/HexIDE/issues/2058)). The drag preview uses the same rectangle and container as placement (#2092) |
 | Grid display | Done | Visual dot grid; configurable size |
 | Snap to grid | Done | Controlled by Options |
 | Select single control | Done | |

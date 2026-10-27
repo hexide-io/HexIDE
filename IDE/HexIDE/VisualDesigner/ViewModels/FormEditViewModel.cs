@@ -726,12 +726,22 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (ToolsBoxToolViewModel.SelectedComponent is not { BaseClass: { } baseClass } tool)
             return;
 
-        var origin = ContainerAt(pressedAt)?.ClientOrigin ?? default;
+        var (rect, container) = DrawnControlRectangle(pressedAt, releasedAt);
+        SpawnControl(baseClass, rect, container, tool.Library);
+    }
+
+    /// <summary>The canvas rectangle and container shared by the drag preview and placement.</summary>
+    internal (Rect Rectangle, ComponentInstanceViewModel? Container) DrawnControlRectangle(Point pressedAt, Point releasedAt)
+    {
+        var container = ContainerAt(pressedAt);
+        var origin = container?.ClientOrigin ?? default;
         var (x1, x2) = (Snapped(pressedAt.X - origin.X, settingsService.GridWidth), Snapped(releasedAt.X - origin.X, settingsService.GridWidth));
         var (y1, y2) = (Snapped(pressedAt.Y - origin.Y, settingsService.GridHeight), Snapped(releasedAt.Y - origin.Y, settingsService.GridHeight));
         var rect = new Rect(origin.X + Math.Min(x1, x2), origin.Y + Math.Min(y1, y2),
             Math.Max(1, Math.Abs(x2 - x1)), Math.Max(1, Math.Abs(y2 - y1)));
-        SpawnControlAt(baseClass, rect, pressedAt, tool.Library, drawn: true);
+        if (container is not null)
+            rect = HeldTo(rect, container);
+        return (new Rect(rect.X, rect.Y, rect.Width + 1, rect.Height + 1), container);
 
         double Snapped(double pixels, int grid) =>
             settingsService.AlignToGrid && grid > 0 ? Math.Round(pixels / grid, MidpointRounding.AwayFromZero) * grid : pixels;
@@ -780,25 +790,24 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// For an in-box control, the library it is placed from, when the toolbox offers it from an older library than its
     /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
     /// </param>
-    /// <param name="drawn">
-    /// A drag drew it: it ends one pixel past <paramref name="rect"/>, as every control VB6's designer draws does (measured,
-    /// #2058). <c>add_control</c> keeps the size it is given.
-    /// </param>
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect, Point? pressedAt = null,
-        RuntimeLibrary? library = null, bool drawn = false)
+        RuntimeLibrary? library = null)
+    {
+        var container = pressedAt is { } press ? ContainerAt(press) : null;
+        if (container is not null)
+            rect = HeldTo(rect, container);
+        SpawnControl(baseClass, rect, container, library);
+    }
+
+    private void SpawnControl(ComponentBaseClass baseClass, Rect rect, ComponentInstanceViewModel? container,
+        RuntimeLibrary? library)
     {
         var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var instance = new ComponentInstance(baseClass, newName);
-        var container = pressedAt is { } press ? ContainerAt(press) : null;
         if (container is not null)
-        {
             instance.SetContainer(container.Instance);
-            rect = HeldTo(rect, container);
-        }
-        if (drawn)
-            rect = new Rect(rect.X, rect.Y, rect.Width + 1, rect.Height + 1);
         if (baseClass is InBoxComponentClass inBox && library is not null && !ReferenceEquals(library, inBox.Library))
             instance.SetProperty(InBoxComponentClass.LoadedTypeNameProperty, library.TypeName(inBox.ControlClassName));
         DeclareLibraryOf(instance);
