@@ -158,6 +158,75 @@ to 2 and back read MultiRow True. Left and right tabs are always in rows.
     selected. Code selects one tab at a time.
   - **DeselectAll with Style 1 left no tab selected,** SelectedItem Nothing. With Style 0 it did nothing.
 
+### Events, with real input
+
+**The probe:** four tabs, `&Alpha`, `&Beta`, `Gamma` with an image, and `&Delta`, each with a ToolTipText, run on the
+guest's console. A driver clicked and typed for real and marked each action in the log. Native and p-code logged the
+same lines, mouse coordinates apart. Mouse X and Y are twips from the TabStrip's top-left corner.
+
+| Action | Events, in order |
+|---|---|
+| Click a tab that isn't selected | MouseDown, with SelectedItem still the old tab; BeforeClick; **MouseUp, with the new tab already selected**; Click |
+| Click the selected tab | MouseDown, MouseUp, Click. **No BeforeClick** |
+| Click in the client area, below the tabs | **nothing**, on the TabStrip or on the form |
+| Double-click a tab | the first click's events, then **MouseUp and Click again, with no MouseDown**. The TabStrip has no DblClick event |
+| Right-click a tab | MouseDown and MouseUp with Button 2, then **Click**. The selection is unchanged |
+| Left or Right arrow | KeyDown, BeforeClick, Click, KeyUp. Left on the first tab raises only KeyDown and KeyUp |
+| Home, End | the first tab, the last, with BeforeClick and Click |
+| Down arrow, Ctrl+Tab, Ctrl+PgDn | KeyDown and KeyUp only: no tab changes |
+| Space, Escape | KeyDown, KeyPress, KeyUp |
+| **Alt and a caption's `&` letter** | **selects that tab:** BeforeClick, Click, then KeyUp, with no KeyDown. From Text1, Alt+B also moved the focus: GotFocus came first |
+| Tab, Shift+Tab | the focus moves in and out. The TabStrip takes the focus, and draws a focus rectangle on the selected tab |
+| Click a tab, BeforeClick setting Cancel | MouseDown, BeforeClick, MouseUp, **Click**. The selection is unchanged |
+| Right arrow, BeforeClick setting Cancel | KeyDown, BeforeClick, KeyUp. **No Click** |
+| Style 1 and MultiSelect: **Ctrl+click** a second tab | MouseDown, MouseUp, Click, **no BeforeClick**. Both tabs Selected; SelectedItem stays the first |
+| then a plain click on a third tab | MouseDown, MouseUp, Click, no BeforeClick. Only that tab selected |
+| Hover a tab with a ToolTipText | its tip appears. ShowTips is True by default |
+
+**Changing Style at run time selects the first tab.**
+- From 0 to 1, Click was raised with no BeforeClick, and the focus left the TabStrip and came back (LostFocus,
+  Text1's GotFocus, GotFocus).
+- Setting Style or TabStyle on a fresh form moved the selection from the second tab to the first.
+- hWnd was unchanged each time.
+
+**HotTracking is read-only at run time: 383.** TabStyle can be set at run time.
+
+### Drawing
+
+Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code. The TabStrip draws as the classic,
+unthemed tab control.
+- **As loaded,** with its one empty tab: a narrow tab with no caption.
+- **The selected tab is drawn raised** and joined to the client area. **A caption's `&` letter is underlined.**
+- **Images** sit left of the captions.
+- **Placement 1** puts the tabs along the bottom.
+  - **Placement 2:** a column down the left, the captions turned to read upwards.
+  - **Placement 3:** a column down the right, the captions reading downwards.
+- **Style 1** draws buttons, the selected one pressed. **Style 2** draws flat buttons, and Separators draws a line
+  between them. With MultiSelect, Ctrl+clicked buttons are all drawn pressed.
+- **MultiRow with 12 tabs:** four rows, the selected tab's row at the bottom, each row stretched to the full width.
+  With TabStyle 1 the selected row was still the bottom one.
+- **MultiRow False with 12 tabs:** one row, cut off at the right edge, with a pair of scroll arrows.
+- **TabWidthStyle 2 with TabFixedWidth 1200 and TabFixedHeight 500:** large tabs, the captions centred.
+- **Enabled False draws the TabStrip exactly as enabled.** The captions aren't greyed.
+- **HighLighted True on a tab drew no differently,** in a disabled TabStrip.
+
+### The designer: a control drawn on a TabStrip is not its child
+
+The supervisor's question, answered on VB6's IDE rather than from memory:
+- **The steps:**
+  1. A form holding TabStrip1 at 120, 120 was opened in the IDE.
+  2. A CommandButton was drawn with the toolbox on TabStrip1's client area.
+  3. TabStrip1 was dragged by its row of tabs, 60 pixels right and 60 down, and the form was saved.
+- **The button stayed where it was drawn:**
+  - TabStrip1 moved to 1020, 1020, while Command1 stayed at 900, 1350.
+  - After the drag, Command1 sat over the TabStrip's top-left corner.
+- **The `.frm` holds the button at the form's level,** in its own `Begin VB.CommandButton` beside the TabStrip's block,
+  not inside it.
+- **The drawn button was above the TabStrip,** being drawn later. That is z-order, not containment: programs show and hide
+  their own frames over a TabStrip for this reason.
+- **A TabStrip double-clicked from the toolbox** was 1500 × 750 at 4050, 3225, centred, with one tab whose caption is
+  empty.
+
 ### In HexIDE
 
 HexIDE doesn't model the TabStrip (#1089). The designer draws it as an empty box (#157). Running a form that holds one
