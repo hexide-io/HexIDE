@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Вырезать",
     "Str.Menu.Edit.Copy": "Копировать",
     "Str.Menu.Edit.Paste": "Вставить",
+    "Str.Menu.Edit.PasteAsComment": "Вставить как комментарий",
     "Str.Menu.Edit.PasteLink": "Вставить связь",
     "Str.Menu.Edit.Remove": "Удалить",
     "Str.Menu.Edit.Delete": "Удалить",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "Определение",
     "Str.Menu.View.Declaration": "Объявление",
     "Str.Menu.View.LastPosition": "Последняя позиция",
+    "Str.Tool.RecentEdits.Title": "Последние изменения",
     "Str.Menu.View.ObjectBrowser": "Обозреватель объектов",
     "Str.Menu.View.ImmediateWindow": "Окно отладки",
     "Str.Menu.View.LocalsWindow": "Окно локальных переменных",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Инспектор протокола...",
     "Str.Menu.AddIns": "Надстройки",
     "Str.Menu.Window": "Окно",
+    "Str.Menu.Window.ReopenClosed": "Открыть закрытое окно",
+    "Str.Menu.Window.RecentlyClosed": "Недавно закрытые окна",
     "Str.Menu.Window.Split": "Разделить",
     "Str.Menu.Window.ResetLayout": "Сбросить расположение окон",
     "Str.Menu.Help": "Справка",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "Удалить",
     "Str.Designer.Context.BringToFront": "На передний план",
     "Str.Designer.Context.SendToBack": "На задний план",
+    "Str.Designer.PreviewForm": "Предпросмотр формы",
     "Str.Designer.Context.ViewCode": "Показать код",
     "Str.Designer.Context.AlignToGrid": "Выровнять по сетке",
     "Str.Designer.Context.Properties": "Свойства",
     "Str.CodeEditor.FileNotSaved.Banner": "Этот файл не будет сохранён — HexIDE пока не может воспроизвести его в точности, поэтому сохранение изменило бы его. Его код — часть файла, так что ввод в этом окне отклоняется.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Переименование не выполнено, так как оно изменило бы заголовок этого файла или строки Attribute одного из членов, которыми управляет IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Переименование не выполнено, поскольку оно также изменяет другие документы: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Строка {0} относится к заголовку этого файла или к строкам Attribute одного из членов, которые никогда не выполняются, поэтому на ней нельзя поставить точку останова или закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставить файл",
     "Str.CodeEditor.Dialog.RenamePrompt": "Новое имя:",
@@ -897,6 +904,7 @@
     "Str.PropDesc.ImageWidth": "Ширина изображений.",
     "Str.PropDesc.ImageHeight": "Высота изображений.",
     "Str.PropDesc.MaskColor": "Цвет прозрачных пикселей.",
-    "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски."
+    "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
   }
 }

@@ -63,6 +63,13 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         Title = ComputeTitle();
     }
 
+    internal ArchiveDocumentViewModel Reopen()
+    {
+        var reopened = new ArchiveDocumentViewModel(Entry, localization);
+        reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
+        return reopened;
+    }
+
     private static IReadOnlyList<LineRange> InactiveLinesOf(string text, string name, string? buildType)
     {
         var builtIns = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);

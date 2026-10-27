@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Po_tong",
     "Str.Menu.Edit.Copy": "_Salin",
     "Str.Menu.Edit.Paste": "_Tempel",
+    "Str.Menu.Edit.PasteAsComment": "Tempel sebagai _komentar",
     "Str.Menu.Edit.PasteLink": "Tempel Tau_tan",
     "Str.Menu.Edit.Remove": "Hapus",
     "Str.Menu.Edit.Delete": "_Hapus",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definisi",
     "Str.Menu.View.Declaration": "Dek_larasi",
     "Str.Menu.View.LastPosition": "Posisi Terakhi_r",
+    "Str.Tool.RecentEdits.Title": "Suntingan Terbaru",
     "Str.Menu.View.ObjectBrowser": "Penjelajah _Objek",
     "Str.Menu.View.ImmediateWindow": "Jendela _Immediate",
     "Str.Menu.View.LocalsWindow": "Jendela Lokal_s",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektur Protokol...",
     "Str.Menu.AddIns": "_Add-In",
     "Str.Menu.Window": "_Jendela",
+    "Str.Menu.Window.ReopenClosed": "Buka Kembali Jendela Tertutup",
+    "Str.Menu.Window.RecentlyClosed": "Jendela yang Baru Ditutup",
     "Str.Menu.Window.Split": "_Bagi",
     "Str.Menu.Window.ResetLayout": "_Atur Ulang Tata Letak Jendela",
     "Str.Menu.Help": "Bant_uan",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "_Hapus",
     "Str.Designer.Context.BringToFront": "Bawa ke Depan",
     "Str.Designer.Context.SendToBack": "Kirim ke Belakang",
+    "Str.Designer.PreviewForm": "Pratinjau Formulir",
     "Str.Designer.Context.ViewCode": "Lihat Kode",
     "Str.Designer.Context.AlignToGrid": "Sejajarkan ke Kisi",
     "Str.Designer.Context.Properties": "Properti",
     "Str.CodeEditor.FileNotSaved.Banner": "Berkas ini tidak akan disimpan — HexIDE belum dapat menghasilkannya kembali secara persis, sehingga menyimpannya akan mengubahnya. Kodenya adalah bagian dari berkas, jadi pengetikan di jendela ini ditolak.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Penggantian nama tidak dilakukan karena akan mengubah header berkas ini atau baris Attribute milik suatu anggota, yang dikelola oleh IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Penggantian nama tidak dilakukan karena juga mengubah dokumen lain: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Baris {0} adalah bagian dari header berkas ini atau baris Attribute milik suatu anggota, yang tidak pernah dijalankan, sehingga tidak dapat diberi titik henti atau markah.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Sisipkan Berkas",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nama baru:",
@@ -897,6 +904,7 @@
     "Str.PropDesc.ImageWidth": "Lebar gambar.",
     "Str.PropDesc.ImageHeight": "Tinggi gambar.",
     "Str.PropDesc.MaskColor": "Warna piksel transparan.",
-    "Str.PropDesc.UseMaskColor": "Apakah warna masker digunakan."
+    "Str.PropDesc.UseMaskColor": "Apakah warna masker digunakan.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan"
   }
 }

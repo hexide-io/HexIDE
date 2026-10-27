@@ -31,6 +31,45 @@ project=${1%/}
 shift
 
 source_root=$(cd "$(dirname "$0")/.." && pwd -P)
+
+# Use CI's floors for full suites (#883). Filtered runs only promise to run at least one test;
+# callers can supply an explicit floor for a known slice. Raise full-suite floors in build.yml.
+add_test_floor() {
+    local project=$1 key floor arg filtered=false explicit=false separator=false
+    shift
+    case "$project" in
+        IDE/HexIDE.Runtime.Tests) key=RUNTIME ;;
+        IDE/HexIDE.Tests) key=IDE ;;
+        IDE/HexIDE.Integration.Tests) key=INTEGRATION ;;
+        IDE/HexIDE.TwinBasic.Tests) key=TWINBASIC ;;
+        LspServer/HexIDE.VbLspServer.Tests) key=LSP_SERVER ;;
+        *) echo "test-linux.sh: no CI test floor for $project" >&2; return 2 ;;
+    esac
+    for arg in "$@"; do
+        case "$arg" in
+            --filter-*) filtered=true ;;
+            --minimum-expected-tests|--minimum-expected-tests=*) explicit=true ;;
+            --) separator=true ;;
+        esac
+    done
+    test_args=("$@")
+    if [ "$explicit" = true ]; then return; fi
+    floor=$(sed -n "s/^  MIN_TESTS_${key}: *\([0-9][0-9]*\).*/\1/p" "$source_root/.github/workflows/build.yml")
+    if [[ ! "$floor" =~ ^[1-9][0-9]*$ ]]; then
+        echo "test-linux.sh: missing or invalid MIN_TESTS_$key in build.yml" >&2; return 2
+    fi
+    if [ "$filtered" = true ]; then floor=1; fi
+    if [ "$separator" = false ]; then test_args+=(--); fi
+    # Put runner options immediately after --, leaving all original arguments intact.
+    local i
+    for i in "${!test_args[@]}"; do
+        if [ "${test_args[$i]}" = -- ]; then
+            test_args=("${test_args[@]:0:i+1}" --minimum-expected-tests "$floor" "${test_args[@]:i+1}")
+            break
+        fi
+    done
+}
+add_test_floor "$project" "$@"
 case "$source_root" in
     /mnt/*) ;;
     *) echo "test-linux.sh: run it from a checkout on the Windows drive, not from $source_root" >&2; exit 2 ;;
@@ -49,4 +88,4 @@ rsync -a --delete \
 
 echo "test-linux.sh: $source_root -> $copy" >&2
 cd "$copy/$project"
-exec dotnet test "$@"
+exec dotnet test "${test_args[@]}"

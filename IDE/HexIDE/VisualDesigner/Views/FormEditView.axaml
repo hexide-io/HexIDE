@@ -128,6 +128,15 @@
     </UserControl.Resources>
     <VisualLayerManager>
       <DockPanel>
+        <CheckBox x:Name="ShowTabOrderToggle" DockPanel.Dock="Top" Margin="8,4"
+                  Content="{DynamicResource Str.Designer.ShowTabOrder}" />
+        <Button x:Name="PreviewFormButton"
+                DockPanel.Dock="Top"
+                HorizontalAlignment="Left"
+                Margin="8,5"
+                IsVisible="{CompiledBinding HasWindowFrame}"
+                Content="{DynamicResource Str.Designer.PreviewForm}"
+                Command="{CompiledBinding PreviewForm}" />
         <!-- Read-only banner. The design surface below is disabled rather than each mutation guarded:
              input that never arrives cannot mutate anything. Silent read-only would be worse than either
              option, so the reason is always on screen. -->
@@ -281,7 +290,13 @@
                                         <controls:ControlsContainer.ItemTemplate>
                                             <DataTemplate x:DataType="visualDesigner:ComponentInstanceViewModel">
                                                 <controls:ControlRenderer Component="{CompiledBinding .}"
-                                                                          />
+                                                                          Classes.runtimeHidden="{CompiledBinding !IsRuntimeVisible}">
+                                                    <controls:ControlRenderer.Styles>
+                                                        <Style Selector="controls|ControlRenderer.runtimeHidden">
+                                                            <Setter Property="OpacityMask" Value="{DynamicResource DesignerHiddenControlMaskBrush}" />
+                                                        </Style>
+                                                    </controls:ControlRenderer.Styles>
+                                                </controls:ControlRenderer>
                                             </DataTemplate>
                                         </controls:ControlsContainer.ItemTemplate>
                                         <controls:ControlsContainer.Styles>
@@ -321,6 +336,36 @@
                                                 IsVisible="False"
                                                 BorderThickness="2" />
                                     </Canvas>
+                                    <ItemsControl x:Name="TabOrderOverlay" IsHitTestVisible="False"
+                                                  IsVisible="{CompiledBinding #ShowTabOrderToggle.IsChecked}"
+                                                  ItemsSource="{CompiledBinding Components}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemContainerTheme>
+                                            <ControlTheme TargetType="ContentPresenter"
+                                                          x:DataType="visualDesigner:ComponentInstanceViewModel">
+                                                <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left}" />
+                                                <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top}" />
+                                            </ControlTheme>
+                                        </ItemsControl.ItemContainerTheme>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="visualDesigner:ComponentInstanceViewModel">
+                                                <Border Classes="tabIndexBadge" IsVisible="{CompiledBinding HasTabIndex}"
+                                                        Background="{DynamicResource ActiveTitleBarBrush}"
+                                                        BorderBrush="{DynamicResource SelectionAdornerBrush}"
+                                                        BorderThickness="1" Padding="3,1">
+                                                    <Grid>
+                                                        <TextBlock Text="{CompiledBinding TabIndex}"
+                                                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+                                                        <Path Data="M0,1 L1,0" Stretch="Fill" StrokeThickness="1.5"
+                                                              IsVisible="{CompiledBinding IsTabStopOff}"
+                                                              Stroke="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                     <Canvas x:Name="RubberBandCanvas" IsHitTestVisible="False">
                                         <Border x:Name="RubberBandRect"
                                                 IsVisible="False"
