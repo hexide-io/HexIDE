@@ -603,6 +603,7 @@ public partial class MainViewViewModel : ObservableObject
         {
             var key = "addin:" + tool.Id;
             toolsByKey[key] = tool;
+            tool.KeepSavedWidth = deferredTools.GetValueOrDefault(key)?.Proportion is not null;
             if (!deferredTools.TryGetValue(key, out var saved) || saved.Open)
                 PlaceTool(layout, tool, rightFallback: true);
         }
