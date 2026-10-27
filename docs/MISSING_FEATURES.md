@@ -277,7 +277,7 @@
 | Color picker (via Color Palette) | Done | |
 | Font picker (via Property grid) | Done | An uninstalled current family is listed and selected without substituting a rendering fallback (#912) |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |
-| Multi-select | Done | Rubber-band and Ctrl+click; group drag; primary/secondary handles. The last selected control is the reference for Align and Make Same Size and is shown in Properties (#928); rubber-band keeps the first matched control as its reference |
+| Multi-select | Done | Rubber-band and Ctrl+click; cross-container Ctrl/Shift clicks are ignored without changing the reference (#2181, measured); group drag; primary/secondary handles. The last selected control is the reference for Align and Make Same Size and is shown in Properties (#928); rubber-band keeps the first matched control as its reference |
 | Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar. Centers and Middles land where VB6's do, in whole twips (#929, measured) |
 | Make Same Size commands | Done | Same Width / Height / Size via Format > Make Same Size |
 | Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented. Make Equal truncates the gap to a whole twip and leaves the outermost controls, as VB6 does (#929, measured across) |
