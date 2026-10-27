@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Afficher la compilation conditionnelle pour",
     "Str.Tool.Properties.ExportPicture": "Exporter l’image...",
     "Str.LspArtifact.Title": "Fichiers de l’espace de travail",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
     "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
+    "Str.PropDesc.ImageWidth": "La largeur des images.",
+    "Str.PropDesc.ImageHeight": "La hauteur des images.",
+    "Str.PropDesc.MaskColor": "La couleur des pixels transparents.",
+    "Str.PropDesc.UseMaskColor": "Indique si la couleur du masque est utilisée.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
   }

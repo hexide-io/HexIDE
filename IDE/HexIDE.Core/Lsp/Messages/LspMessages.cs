@@ -182,7 +182,8 @@ public record InitializeParams(
     [property: JsonPropertyName("workspaceFolders")] WorkspaceFolder[]? WorkspaceFolders = null,
     // Appended, never inserted. This is a positional record with several construction sites and tests
     // asserting on it; an insert whose types line up compiles cleanly while landing a value in the wrong slot.
-    [property: JsonPropertyName("trace")] string? Trace = null);
+    [property: JsonPropertyName("trace")] string? Trace = null,
+    [property: JsonPropertyName("locale")] string? Locale = null);
 
 /// <summary>
 /// How much a server should say about its own work: the three values the protocol defines, and nothing else.

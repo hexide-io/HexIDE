@@ -87,6 +87,11 @@ code block), or an array of marked strings (#2022). Legacy forms are normalized 
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
 
+`initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
+System default uses the localization service's system resolution; pseudo-locales send `en`.
+A language change takes effect on the next connection: reconnect the server to send the new locale.
+Changing the UI language does not automatically restart servers (#2210).
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
@@ -755,6 +760,15 @@ Body redaction remains textual, including for a body the client cannot decode. I
 structural JSON pass nor a sweep for occurrences of the project name. **A name a server echoes back in
 its own fields is outside this fix** and may survive export; review the preview before sharing it.
 
+The shared body rule also replaces plain absolute drive-letter, UNC and Unix paths in prose (#2205),
+using the same segment mapping as `LocalPath`. Before that pass, the user profile and temp roots are
+replaced literally with `<home>` and `<temp>`; Language Servers reports also register every open project
+and connection workspace root as `<workspace>`. Longest roots win, including slash, backslash, Windows
+case variants and percent-encoded URI spellings, so spaces in these roots cannot disclose an account name.
+Quoted paths can contain spaces; remaining unquoted paths stop at whitespace and prose punctuation. Language Servers reports apply this rule to failure details and
+configuration problems as well as capabilities. Relative paths and unquoted paths containing spaces outside the known roots are
+ambiguous in prose and are outside this guarantee; review reports before sharing.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline
@@ -794,6 +808,10 @@ For folding ranges, document symbols, formatting and rename, the highest-priorit
 advertises the capability supplies the single answer (registration order breaks ties). Each other
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
+
+The editor flushes its debounced document change before requesting completion (for both letters and
+advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items

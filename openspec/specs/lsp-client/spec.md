@@ -1187,12 +1187,19 @@ anyway, so it is recorded rather than defended.
 - **AND** the public add-in provider contract remains outside this change
 
 ### Requirement: Completion SHALL merge within a bounded popup budget
+The editor SHALL flush pending document changes before requesting completion, including requests triggered
+by letters and advertised trigger characters.
+
 The registry SHALL ask every document claimant concurrently and return when all answer or one
 second from the request elapses. It SHALL include only answers received within that budget and SHALL
 deduplicate by ordinal label and kind, retaining the complete item from the higher-priority server or the
 earlier registration on a tie. Late answers SHALL be dropped, logged at debug level, and recorded in the
 protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
 deadline and caller cancellation.
+
+#### Scenario: Typing requests completion before the debounce expires
+- **WHEN** a letter or advertised trigger character is typed with a pending document change
+- **THEN** the `didChange` carrying that character precedes `textDocument/completion` on the wire
 
 #### Scenario: A server returns a bare completion array
 - **WHEN** a completion reply is a `CompletionItem[]` rather than a `CompletionList`
@@ -1267,3 +1274,15 @@ version or detached view SHALL NOT be applied. Delta, range and refresh requests
 - **WHEN** a full request fails
 - **THEN** the editor keeps lexical colouring
 - **AND** a later edit schedules another full request
+
+### Requirement: Initialize UI locale
+
+The client SHALL send `initialize.locale` as the resolved Options Language setting's BCP 47 tag,
+using the same system-language resolution as the IDE and `en` for either pseudo-locale.
+The client SHALL read the locale at each handshake and SHALL NOT restart servers automatically
+when the UI language changes.
+
+#### Scenario: Language changes between connections
+- **WHEN** the UI language changes while a server is connected
+- **THEN** the existing connection stays open
+- **AND** the next connection's initialize request carries the newly resolved locale
