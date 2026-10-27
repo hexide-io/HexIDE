@@ -158,7 +158,8 @@ too (#360). The current rumdl fixture indexes only with a workspace root, so the
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
-that method's warning available for a later genuine failure (#723).
+that method's warning available for a later genuine failure (#723). Document diagnostic pulls instead
+retry ContentModified and retriggerable ServerCancelled replies as described below (#2209).
 
 Every outbound request has a 30-second local deadline, using the same named default as `initialize`
 (#486). This is a consistency choice, not a measured server response budget. A shorter caller token stops
@@ -594,6 +595,11 @@ to be open before it is asked about. Such a server is asked on open and when it 
 of no change and no save, so those asks never reach it. Asking only about documents that had been sent would
 leave it no way to give diagnostics at all, which is why
 [#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
+
+A document pull answered `-32801` (ContentModified), or `-32802` (ServerCancelled) unless
+`data.retriggerRequest` is `false`, is retried after 250 ms, doubling to a 4-second cap (#2209).
+Each attempt is a separate request in the protocol inspector. A change, close, newer pull or connection
+replacement stops the old retry loop; a changed document gets its own fresh pull.
 
 The close of a pulled document clears its marks under the same gate that checks and publishes answers.
 The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
