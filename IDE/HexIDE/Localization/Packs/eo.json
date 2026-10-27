@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bita",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bita",
     "Str.CodeEditor.ViewAs.Tooltip": "Montri kondiĉan kompiladon kiel",
     "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
     "Str.LspArtifact.Title": "Laborspacaj dosieroj",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Fermi panelon",
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
     "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
+    "Str.PropDesc.ImageWidth": "La larĝo de la bildoj.",
+    "Str.PropDesc.ImageHeight": "La alto de la bildoj.",
+    "Str.PropDesc.MaskColor": "La koloro por travideblaj bilderoj.",
+    "Str.PropDesc.UseMaskColor": "Ĉu uzi la maskan koloron.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
   }

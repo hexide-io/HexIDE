@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-Bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-Bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Bedingte Kompilierung anzeigen als",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.LspArtifact.Title": "Arbeitsbereichsdateien",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Fenster schließen",
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
     "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
+    "Str.PropDesc.ImageWidth": "Die Breite der Bilder.",
+    "Str.PropDesc.ImageHeight": "Die Höhe der Bilder.",
+    "Str.PropDesc.MaskColor": "Die Farbe für transparente Pixel.",
+    "Str.PropDesc.UseMaskColor": "Ob die Maskenfarbe verwendet wird.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
   }

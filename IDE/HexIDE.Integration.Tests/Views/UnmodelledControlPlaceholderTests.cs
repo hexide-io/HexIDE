@@ -22,7 +22,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <remarks>
 /// The box is view-only: it is in neither of the designer's component lists, so nothing selects, moves or writes it,
 /// and the control still goes out once, from the block it was preserved as. Its size is VB6's (UnmodelledControl):
-/// the ImageList below records only extents, and VB6 draws it 1200 x 480 twips, 80 x 32 in the designer's pixels.
+/// the unregistered ImageList class below records only extents, and VB6 draws it 1200 x 480 twips, 80 x 32 in the designer's pixels.
 /// </remarks>
 public class UnmodelledControlPlaceholderTests
 {
@@ -61,7 +61,7 @@ public class UnmodelledControlPlaceholderTests
         "      Top             =   300\r\n" +
         "      Width           =   1500\r\n" +
         "   End\r\n" +
-        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "   Begin NoSuchLib.ImageList imlIcons \r\n" +
         "      Left            =   4200\r\n" +
         "      Top             =   2325\r\n" +
         "      _ExtentX        =   1005\r\n" +
@@ -88,14 +88,14 @@ public class UnmodelledControlPlaceholderTests
         var vm = Designer(out _);
 
         vm.UnmodelledControls.Select(c => (c.TypeName, c.Name))
-            .Should().BeEquivalentTo([("NoSuchLib.Gauge", "Gauge1"), ("MSComctlLib.ImageList", "imlIcons")]);
+            .Should().BeEquivalentTo([("NoSuchLib.Gauge", "Gauge1"), ("NoSuchLib.ImageList", "imlIcons")]);
         vm.AllComponents.Select(c => c.Name).Should().NotContain(["Gauge1", "imlIcons"],
             "a component is what the designer edits and the writer writes; these are carried");
 
         var images = vm.UnmodelledControls.Single(c => c.Name == "imlIcons");
         (images.Left, images.Top, images.Width, images.Height).Should().Be((280d, 155d, 80d, 32d),
             "4200, 2325 twips, and VB6's 1200 x 480 for a control recording only its extents");
-        images.ClassName.Should().Be("ImageList", "the box, 80 pixels wide by default, shows the class as VB6's TypeName does");
+        images.ClassName.Should().Be("ImageList", "the box shows the unregistered class name");
 
         // Inside the frame, measured from the frame's client origin as a modelled child is.
         var frame = vm.AllComponents.Single(c => c.Name == "Frame1");
@@ -112,7 +112,7 @@ public class UnmodelledControlPlaceholderTests
         "   ClientLeft      =   0\r\n" +
         "   ClientTop       =   0\r\n" +
         "   ClientWidth     =   4800\r\n" +
-        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "   Begin NoSuchLib.ImageList imlIcons \r\n" +
         "      Left            =   3000\r\n" +
         "      Top             =   1500\r\n" +
         "      _ExtentX        =   1005\r\n" +
@@ -162,7 +162,7 @@ public class UnmodelledControlPlaceholderTests
 
         var (text, _) = new FormSerializer().Serialize(form, "Form1.frm");
 
-        text.Split("Begin MSComctlLib.ImageList imlIcons").Should().HaveCount(2);
+        text.Split("Begin NoSuchLib.ImageList imlIcons").Should().HaveCount(2);
         text.Split("Begin NoSuchLib.Gauge Gauge1").Should().HaveCount(2);
     }
 

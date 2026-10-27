@@ -1326,3 +1326,16 @@ Two known drift hazards, both live:
 2. `IDE/HexIDE.Runtime/README.md` carries a walls table that has already gone stale at least once
    (it listed `Implements` as permanently out of scope after it had been implemented).
 
+
+## Referenced control libraries (outside the 1184-name inventory)
+
+These require an Object reference; the inventory and headline counts above cover the language's in-box names.
+
+| Member | Status | Detail | Implementation |
+|---|---|---|---|
+| `MSComctlLib.ImageList.ListImages` | Supported | #1083: Add, Item by index/key, Remove, Clear, Count and For Each in index order; measured collection errors, read-only Picture/Index, Key and Variant Tag. Saved BMP/ICO pictures retain type and dimensions. | VBImageList.cs |
+| `MSComctlLib.ImageList` properties | Partial | #1083: ImageWidth/ImageHeight, BackColor, MaskColor and UseMaskColor; invisible at run time. The 5.0 ComctlLib control and property pages remain unavailable. Property conversions beyond Integer/Long dimensions and colors or Boolean UseMaskColor, and key comparisons differing only in case, explicitly refuse as unmeasured. Other Picture conversions and writes to Left/Top/Index also refuse as unmeasured. LoadPicture retains its existing unimplemented status. | ImageListComponentClass.cs |
+| `ListImage.Draw` | **Dies** | Member marked not implemented (#1083 supervisor decision): HexIDE has no device contexts; Form/PictureBox hDC is already unavailable. | VBImageList.cs |
+| `ImageList.Overlay` | **Dies** | Member marked not implemented (#1083 supervisor decision): drawing awaits a device-context design. | VBImageList.cs |
+| `ImageList.hImageList` | **Dies** | Member marked not implemented (#1083 supervisor decision): native handles are not fabricated. | VBImageList.cs |
+| `ListImage.ExtractIcon` | **Dies** | Member marked not implemented (#1083 supervisor decision): native icon extraction awaits the handle design. | VBImageList.cs |

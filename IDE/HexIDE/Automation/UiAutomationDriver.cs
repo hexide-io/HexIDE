@@ -4043,10 +4043,13 @@ public static class UiAutomationDriver
         }
         return false;
 
+        // An adorner counts as under the element it adorns, where the control view grafts it (#2231).
         static Visual? Up(Visual v) =>
             v is Control { Parent: Popup popup } && ReferenceEquals(popup.Child, v)
                 ? popup.PlacementTarget ?? popup.GetVisualParent() ?? popup.Parent as Visual
-                : v.GetVisualParent();
+                : v.GetVisualParent() is AdornerLayer && AdornerLayer.GetAdornedElement(v) is { } adorned
+                    ? adorned
+                    : v.GetVisualParent();
     }
 
     /// <summary>
@@ -4368,6 +4371,11 @@ public static class UiAutomationDriver
         foreach (var v in children)
         {
             if (firstOnly && acc.Count > 0) return;
+            // An adorner is drawn in a layer of its own, far from the element it adorns. It is grafted under that
+            // element below instead, so its paths read the way the screen does: a selected control's grab handles under
+            // the control, not at the window's root (#2231).
+            if (v is AdornerLayer)
+                continue;
             if (v is Popup popup)
             {
                 CollectPopupChildren(popup, acc, firstOnly);
@@ -4387,6 +4395,15 @@ public static class UiAutomationDriver
             {
                 CollectMeaningfulChildren(v, acc, firstOnly);
             }
+        }
+
+        // After the element's own children, as it is drawn over them. One with no AutomationId folds away as any
+        // wrapper does, so a focus adorner adds nothing.
+        if (parent is Control adorned && AdornerLayer.GetAdorner(adorned) is Control adorner && !(firstOnly && acc.Count > 0))
+        {
+            var info = Classify(adorner);
+            if (info.Structural) CollectMeaningfulChildren(adorner, acc, firstOnly);
+            else acc.Add(new MeaningfulChild(adorner, info));
         }
     }
 

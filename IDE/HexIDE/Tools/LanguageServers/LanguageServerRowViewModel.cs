@@ -290,7 +290,7 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
             {
                 lines.Add($"    {step.Marker} {step.Stage}"
                         + (step.Elapsed.Length > 0 ? $"  ({step.Elapsed})" : "")
-                        + (step.HasDetail ? $"  {step.Detail}" : ""));
+                        + (step.HasDetail ? $"  {redactor.Body(step.Detail)}" : ""));
             }
         }
         if (HasDeclined) lines.Add($"  declined by the client: {string.Join(", ", Declined)}");
