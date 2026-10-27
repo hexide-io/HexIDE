@@ -577,7 +577,8 @@ public partial class MainViewViewModel : ObservableObject
                     left.VisibleDockables ??= CreateList<IDockable>();
                     left.VisibleDockables.Add(tool);
                     left.ActiveDockable = tool;
-                    InitDockable(tool, left);
+                    // Initialize after adding the tool so Dock does not retain IsEmpty = true.
+                    InitDockable(left, layout.DefaultDockable);
                     SetFocusedDockable(left, tool);
                     break;
                 }
@@ -675,7 +676,6 @@ public partial class MainViewViewModel : ObservableObject
             main.VisibleDockables ??= CreateList<IDockable>();
             main.VisibleDockables.Insert(0, new ProportionalDockSplitter());
             main.VisibleDockables.Insert(0, left);
-            InitDockable(left, main);
             return left;
         }
 
