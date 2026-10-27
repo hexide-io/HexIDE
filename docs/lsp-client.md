@@ -151,8 +151,10 @@ it for good. Then the connection is disposed, which ends the stuck writes (#1221
 
 `FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
 reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
-requests the client does not support. Each scenario asserts what a user would see. It is an in-process
-server over raw frames, so it proves nothing about interoperability: that stays with the foreign servers.
+requests the client does not support. Each scenario asserts what a user would see. Lost-connection scenarios
+wait separately for the stopped client and its warning, since the warning may be logged after `IsRunning`
+clears (#2244). It is an in-process server over raw frames, so it proves nothing about interoperability:
+that stays with the foreign servers.
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
