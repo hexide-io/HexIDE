@@ -312,6 +312,20 @@ by the tree-walking execution limit.
 - **WHEN** a true If prints `T` and closes with `Fin: End If`, followed by a print of `AFTER`
 - **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`
 
+### Requirement: One Next SHALL close every loop it lists
+A Next that lists several counters, `Next j, i`, SHALL close one loop per name, innermost first, exactly as
+`Next j` followed by `Next i` does, for For and For Each loops alike, as vb6.exe was measured to (#2393). The
+interpreter and the LSP server SHALL both accept it. A list with a name missing, `Next j,` or `Next , i`, SHALL
+remain a syntax error.
+
+#### Scenario: Two nested loops closed by one Next
+- **WHEN** `For i = 1 To 2` encloses `For j = 1 To 2`, and the inner body appends `i & j`, closed by `Next j, i`
+- **THEN** the body sees 11, 12, 21 and 22, and both counters are 3 afterwards
+
+#### Scenario: Exit For leaves only the inner loop
+- **WHEN** the inner loop of a pair closed by `Next j, i` runs `Exit For`
+- **THEN** the outer loop continues with its next pass
+
 ### Requirement: Line continuations preserve name boundaries
 A single line continuation between identifier fragments SHALL preserve their name boundary rather than
 concatenate them. Multi-word keywords
