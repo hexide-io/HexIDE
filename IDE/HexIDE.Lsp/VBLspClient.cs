@@ -1429,8 +1429,13 @@ public sealed class VBLspClient : ILspClient
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var result = await InvokeRequestAsync<CompletionList?>(_rpc,
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            var result = raw is not { } value || value.ValueKind == JsonValueKind.Null
+                ? null
+                : value.ValueKind == JsonValueKind.Array
+                    ? new CompletionList(false, value.Deserialize(LspJsonContext.Default.CompletionItemArray)!)
+                    : value.Deserialize(LspJsonContext.Default.CompletionList);
             onAnswer();
             return result?.Items ?? [];
         }
