@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using HexIDE.Forms.ViewModels;
@@ -41,6 +42,19 @@ public class InBoxToolboxTests
         var imageList = vm.Components.Single(c => c.Instance.BaseClass.VBTypeName == "MSComctlLib.ImageList");
         imageList.Width.Should().Be(38);
         imageList.Height.Should().Be(38);
+    }
+
+    [AvaloniaFact]
+    public void UpDown_toolbox_default_has_the_measured_size_and_no_own_properties()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComCtl2);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComCtl2.UpDown");
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComCtl2);
+        vm.CommitLayout();
+        var output = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings();
+        output.Should().Contain("Height          =   750").And.Contain("Width           =   255")
+            .And.Contain("_ExtentX        =   450").And.Contain("_ExtentY        =   1323")
+            .And.Contain("_Version        =   393216" + Environment.NewLine + "   End");
     }
 
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(

@@ -2228,6 +2228,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
+                VBUpDown => "MSComCtl2",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)

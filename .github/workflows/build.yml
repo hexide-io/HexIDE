@@ -25,7 +25,7 @@ env:
   MIN_TESTS_RUNTIME: 5849       # 6157 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_TWINBASIC: 200      # 226
   MIN_TESTS_IDE: 4042           # 4255 measured; catches short runs; raise to 95% of a new full total.
-  MIN_TESTS_INTEGRATION: 2503   # 2635 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_INTEGRATION: 2689   # 2831 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_LSP_SERVER: 528     # 556 measured; catches short runs; raise to 95% of a new full total.
 
 jobs:

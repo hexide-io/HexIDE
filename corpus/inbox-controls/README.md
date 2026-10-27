@@ -57,10 +57,19 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 `saved/imagelist/` holds VB6's `three/`, `custom/` and `empty-key/` saves for #1083.
 The round-trip lane walks their forms and companions. The original probe pictures remain in `pending/imagelist/pictures/`.
 
+## UpDown saves
+
+`saved/updown/` holds the four MSCOMCT2.OCX UpDowns VB6 SP6 saved on 2026-10-27 (#1093).
+One has its own properties off their defaults, one is minimal, one is bound to Text2 through the
+Properties window, and one was double-clicked from the toolbox. The bound block records BuddyControl,
+BuddyDispid, OrigLeft/Top/Right/Bottom and BuddyProperty = 0; Text2 is saved narrowed. There is no `.frx`.
+The round-trip lane walks the save; loaded UpDown blocks remain read-only in the designer and are
+preserved verbatim when the form is edited. The `.vbp` is hand-written, as in `input/`.
+
 ## `pending/`
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
-controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088) and "In-box controls: the ListView" (#1085) and "In-box controls: the TreeView" (#1086) and "In-box controls: the CommonDialog" (#1084) and "In-box controls: the SSTab" (#1090) and "In-box controls: the MSFlexGrid" (#1099) and "In-box controls: the RichTextBox" (#1100) and "In-box controls: the TabStrip" (#1089), and on 2026-10-27 for "In-box controls: the Slider" (#1091) and "In-box controls: the UpDown" (#1093) and "In-box controls: the DTPicker" (#1094) "In-box controls: the MonthView" (#1095), "In-box controls: the ImageCombo" (#1092) and "In-box controls: the FlatScrollBar" (#1097). The `.vbp` files beside them are hand-written, as in `input/`.
+controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the StatusBar" (#1087) and "In-box controls: the Toolbar" (#1088) and "In-box controls: the ListView" (#1085) and "In-box controls: the TreeView" (#1086) and "In-box controls: the CommonDialog" (#1084) and "In-box controls: the SSTab" (#1090) and "In-box controls: the MSFlexGrid" (#1099) and "In-box controls: the RichTextBox" (#1100) and "In-box controls: the TabStrip" (#1089), and on 2026-10-27 for "In-box controls: the Slider" (#1091) and "In-box controls: the DTPicker" (#1094) "In-box controls: the MonthView" (#1095), "In-box controls: the ImageCombo" (#1092) and "In-box controls: the FlatScrollBar" (#1097). The `.vbp` files beside them are hand-written, as in `input/`.
 
 | Folder | What it is |
 |---|---|
@@ -79,7 +88,6 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `tabstrip/` | Three TabStrips saved by VB6: one written by hand with every property off its default, its lines reversed and three tabs with tags, tips and images by index and by key; a minimal block; and one double-clicked from the toolbox. Every one gets a Tabs block. The `.frx` is the ImageList's (#1089) |
 | `defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |
 | `slider/` | Five Sliders saved by VB6: one written by hand with every property off its default and its lines reversed, its `Text` line dropped as VB6 doesn't save it; a minimal block; an upright one; one with only `Value`; and one double-clicked from the toolbox. There is no `.frx` (#1091) |
-| `updown/` | Four UpDowns from MSCOMCT2.OCX saved by VB6: one written by hand with every property but the buddy's off its default and its lines reversed; a minimal block; one bound to Text2 through the Properties window, which wrote `BuddyControl`, `BuddyDispid`, the four `Orig` lines and `BuddyProperty = 0` and narrowed Text2; and one double-clicked from the toolbox. There is no `.frx` (#1093) |
 | `dtpicker/` | Seven DTPickers from MSCOMCT2.OCX, written by hand with their lines reversed and saved by VB6 untouched: a minimal block; one with only `MaxDate`; one with `MinDate`, `MaxDate`, `CurrentDate`, `CustomFormat` and Format 3; one with the five calendar colours, `CheckBox`, `UpDown`, `Enabled`, `MousePointer` and `OLEDropMode`; one with `CurrentDate` and an earlier save's `Format`; one with Format 0; and one with a `Font` block. Every block gains a `Format` line, whose high 16 bits differ between IDE sessions, and a `CurrentDate`; a block without one is saved as 36494. There is no `.frx` (#1094) |
 | `dtpicker-added/` | Three DTPickers saved by VB6: two minimal blocks, the second of which had its Properties window shown and so saved the moment it was read as its `CurrentDate`, and one double-clicked from the toolbox, 1500 x 750 and written first. There is no `.frx` (#1094) |
 | `monthview/` | Nine MonthViews from MSCOMCT2.OCX saved by VB6: a minimal block; six written by hand with their lines reversed, for the dates and selection, the appearance and switches, two months by two, the six colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. Every block gains `Appearance`, a `StartOfWeek` whose high 16 bits differ between IDE sessions, and a `CurrentDate`; the toolbox one has StartOfWeek 2, the locale's Monday. The ones that size themselves were rewritten at their new size. There is no `.frx` (#1095) |

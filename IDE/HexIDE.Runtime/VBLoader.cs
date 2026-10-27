@@ -117,6 +117,39 @@ public class VBLoader
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
 
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            if (RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } upDownBlock)
+            {
+                var upDown = (VBUpDown)Components.InBox.UpDownComponentClass.Instance.Instantiate(
+                    new ComponentInstance(Components.InBox.UpDownComponentClass.Instance, upDownBlock.Name));
+                foreach (var (property, value) in upDownBlock.Properties)
+                {
+                    if (property is "Left" or "Top" or "Width" or "Height")
+                    {
+                        var pixels = Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) / 15;
+                        switch (property)
+                        {
+                            case "Left": Canvas.SetLeft(upDown, pixels); break;
+                            case "Top": Canvas.SetTop(upDown, pixels); break;
+                            case "Width": upDown.Width = pixels; break;
+                            case "Height": upDown.Height = pixels; break;
+                        }
+                    }
+                    else if (property == "TabIndex")
+                        Avalonia.Input.KeyboardNavigation.SetTabIndex(upDown, Convert.ToInt32(value.Value));
+                    else if (property == "Orientation" && Convert.ToInt32(value.Value) is 0 or 1)
+                        upDown.Horizontal = Convert.ToInt32(value.Value) == 1;
+                    else if (property == "Visible")
+                        upDown.IsVisible = Convert.ToInt32(value.Value) != 0;
+                }
+                upDown.LoadProperties(upDownBlock.Properties);
+                VBProps.SetName(upDown, upDownBlock.Name);
+                VBProps.SetRunTimeId(upDown);
+                canvas.Children.Add(upDown);
+                executionContext.AllocVariable(environment, upDownBlock.Name, new Vb6Value(upDown));
+                dialogs[block] = upDown;
+            }
+
         // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
         foreach (var (block, component) in toolbars)
         {
@@ -167,6 +200,9 @@ public class VBLoader
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
         var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
+        foreach (var (block, control) in dialogs)
+            if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
+                upDown.LoadBuddy(saved.Properties, controls);
         controls.Maker = (componentClass, name, container) => MakeAtRunTime(componentClass, name, container, canvas, element);
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
@@ -736,7 +772,8 @@ public class VBLoader
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block) && !(canShowDialogs && CommonDialogBlock(block) is not null))
+            if (!runtimeToolbars.Contains(block) && !(canShowDialogs && CommonDialogBlock(block) is not null)
+                && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
@@ -759,14 +796,17 @@ public class VBLoader
     /// The OCX's own properties, <c>_ExtentX</c>, <c>_ExtentY</c> and <c>_Version</c>, and its designer position, are
     /// the designer's and mean nothing to a running program.
     /// </remarks>
-    private static (string Name, List<(string Property, Vb6Value Value)> Properties)? CommonDialogBlock(string block)
+    private static (string Name, List<(string Property, Vb6Value Value)> Properties)? CommonDialogBlock(string block) =>
+        RuntimeControlBlock(block, "MSComDlg.CommonDialog");
+
+    private static (string Name, List<(string Property, Vb6Value Value)> Properties)? RuntimeControlBlock(string block, string typeName)
     {
         var lines = block.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
         if (lines.Count < 2)
             return null;
         var begin = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (begin.Length < 3 || !begin[0].Equals("Begin", StringComparison.OrdinalIgnoreCase)
-            || !begin[1].Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
+            || !begin[1].Equals(typeName, StringComparison.OrdinalIgnoreCase))
             return null;
         var properties = new List<(string, Vb6Value)>();
         foreach (var line in lines.Skip(1).SkipLast(1))
@@ -780,7 +820,7 @@ public class VBLoader
             var text = line[(equals + 1)..].Trim();
             if (name.Equals("Index", StringComparison.OrdinalIgnoreCase))
                 return null;
-            if (name.StartsWith('_') || name is "Left" or "Top")
+            if (name.StartsWith('_') || typeName == "MSComDlg.CommonDialog" && name is "Left" or "Top")
                 continue;
             properties.Add((name, DesignTimeValue(text)));
         }

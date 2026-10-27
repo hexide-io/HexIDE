@@ -39,6 +39,7 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        VBUpDown upDown => new Vb6Value((long)upDown.Value),
         ToolbarItem item => item.DefaultValue,
         VbErr err => new Vb6Value(err.Number),
         StatusBarPanel panel => new Vb6Value(panel.Text),
@@ -63,6 +64,7 @@ internal static class ObjectAsValue
     public static Vb6Value DefaultMemberIfAny(Vb6Value value) => value.Value switch
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
+        VBUpDown upDown => new Vb6Value((long)upDown.Value),
         ToolbarItem item => item.DefaultValue,
         VbErr err => new Vb6Value(err.Number),
         StatusBarPanel panel => new Vb6Value(panel.Text),

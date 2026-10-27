@@ -55,7 +55,7 @@ public partial class VB6BuiltIns
             }
             catch (OverflowException) { throw new VBRunTimeException(VBStandardError.Overflow); }
         }
-        var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
+        var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v, allowCurrency: target == VT.Long)) : v;
         return VbNumeric.Narrow(num, target, null);
     }
 
@@ -106,7 +106,7 @@ public partial class VB6BuiltIns
     /// <summary>The number of the error value VB6 passes for an omitted argument (DISP_E_PARAMNOTFOUND): 448, "Named argument not found".</summary>
     private const long MissingArgumentNumber = 448;
 
-    internal static double ToNum(Vb6Value v)
+    internal static double ToNum(Vb6Value v, bool allowCurrency = false)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool bo) return bo ? -1 : 0;
@@ -134,10 +134,12 @@ public partial class VB6BuiltIns
             //   en-GB, and "1,000" is 1 and "6.5" is 65 under de-DE;
             // - a trailing sign and parentheses make a negative: "6-" and "(6)" are both -6;
             // - D marks an exponent as E does: "1D3" is 1000.
+            // The UpDown buddy probe also measures "$3" as Long 3 on en-US (#1093).
             s = WithoutThousandsAfterDigit(s);
-            if (!double.TryParse(s, NumberStyle, VbLocale.Current, out var sd)
+            var style = NumberStyle | (allowCurrency ? NumberStyles.AllowCurrencySymbol : 0);
+            if (!double.TryParse(s, style, VbLocale.Current, out var sd)
                 && !(s.AsSpan().IndexOfAny('d', 'D') >= 0
-                     && double.TryParse(s.Replace('d', 'e').Replace('D', 'E'), NumberStyle, VbLocale.Current, out sd)))
+                     && double.TryParse(s.Replace('d', 'e').Replace('D', 'E'), style, VbLocale.Current, out sd)))
                 throw new VBRunTimeException(VBStandardError.TypeMismatch);
             return Finite(sd, s);
         }
