@@ -3170,6 +3170,52 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 : $"Discarded {discarded} armed answer(s); the next file dialog will be shown for real."));
     }
 
+    [McpServerTool(Name = "set_lock_key")]
+    [DescribesEnum(typeof(HexIDE.Runtime.BuiltinControls.LockKey))]
+    [DescribesEnum(typeof(HexIDE.Runtime.BuiltinControls.LockKeySource))]
+    [Description("Sets a lock key's toggle as programs running in HexIDE read it, so a StatusBar's key panels (Style 1 to 4) can be checked on and off. The machine's keyboard is untouched: press_key raises key events but can't change the toggle Windows keeps, which is what a StatusBar reads there. 'key' is CapsLock, NumLock, Insert or ScrollLock. 'state' is On, Off, or Keyboard, which returns the key to the keyboard's own toggle. Both are matched without regard to case. A state set here lasts until it is set to Keyboard or the IDE exits, and a StatusBar on screen repaints at once. Called with neither argument, nothing changes. Every reply lists all four keys, each with 'on' as a running program reads it and a 'source': Set (by this tool), Keyboard (the keyboard's toggle, on Windows), or Window (on another host, where each window follows the presses it has seen, so 'on' is null). Code that calls GetKeyState through a Declare reads the real keyboard, not this.")]
+    public Task<LockKeysResult> SetLockKeyAsync(
+        [Description("CapsLock, NumLock, Insert or ScrollLock.")] string? key = null,
+        [Description("On, Off, or Keyboard to return the key to the keyboard's own toggle.")] string? state = null,
+        CancellationToken ct = default)
+    {
+        static LockKeysResult Reply(bool success, string? error, string note) => new(success, error,
+            Enum.GetValues<HexIDE.Runtime.BuiltinControls.LockKey>().Select(k =>
+            {
+                if (HexIDE.Runtime.BuiltinControls.LockKeys.Override(k) is { } set)
+                    return new LockKeyRow(k, set, HexIDE.Runtime.BuiltinControls.LockKeySource.Set);
+                return HexIDE.Runtime.BuiltinControls.LockKeys.Keyboard(k) is { } keyboard
+                    ? new LockKeyRow(k, keyboard, HexIDE.Runtime.BuiltinControls.LockKeySource.Keyboard)
+                    : new LockKeyRow(k, null, HexIDE.Runtime.BuiltinControls.LockKeySource.Window);
+            }).ToArray(), note);
+
+        const string Vocabulary = "'key' is CapsLock, NumLock, Insert or ScrollLock, and 'state' is On, Off or Keyboard";
+        if (key is null && state is null)
+            return Task.FromResult(Reply(true, null, "Nothing was changed. These are the four keys as a running program reads them."));
+        if (key is null || state is null)
+            return Task.FromResult(Reply(false,
+                $"Nothing was changed: {(key is null ? "'state' was given without 'key'" : "'key' was given without 'state'")}. "
+                + $"Pass both, or neither to read the keys; {Vocabulary}.", "The keys are as before."));
+        // By name only: TryParse would also take "1" as NumLock.
+        if (!key.Trim().All(char.IsLetter)
+            || !Enum.TryParse<HexIDE.Runtime.BuiltinControls.LockKey>(key.Trim(), ignoreCase: true, out var lockKey))
+            return Task.FromResult(Reply(false, $"Nothing was changed: '{key}' is not a lock key; {Vocabulary}.", "The keys are as before."));
+        bool? on;
+        switch (state.Trim().ToLowerInvariant())
+        {
+            case "on": on = true; break;
+            case "off": on = false; break;
+            case "keyboard": on = null; break;
+            default:
+                return Task.FromResult(Reply(false, $"Nothing was changed: '{state}' is not a state; {Vocabulary}.", "The keys are as before."));
+        }
+
+        HexIDE.Runtime.BuiltinControls.LockKeys.SetOverride(lockKey, on);
+        return Task.FromResult(Reply(true, null, on is { } set
+            ? $"{lockKey} now reads {(set ? "on" : "off")} to a running program, whatever the keyboard says, until it is set to Keyboard or the IDE exits. The machine's own keyboard is unchanged."
+            : $"{lockKey} now follows the keyboard again."));
+    }
+
     [McpServerTool(Name = "export_lsp_conversation")]
     [Description("Writes the recorded conversation to two files and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Document names, paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one name stay distinguishable and a normalisation bug survives the redaction. That includes the name of a document with no file on disk, which goes on the wire as untitled:<project>/<document>: both segments are the developer's own words and both are replaced. Extensions and drive letters survive, so what a message was about is still legible. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit `connectionId` for the whole interleaved timeline.")]
     public async Task<LspExportResult> ExportLspConversationAsync(
@@ -3514,6 +3560,12 @@ internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int
 /// <param name="Path">What the next dialog will return, or null when it will answer as cancelled.</param>
 /// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>
 internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note);
+
+/// <param name="Keys">All four lock keys after the call, whether or not it changed one.</param>
+internal record LockKeysResult(bool Success, string? Error, LockKeyRow[] Keys, string Note);
+
+/// <param name="On">The key's toggle as a running program reads it; null where each window follows its own presses.</param>
+internal record LockKeyRow(HexIDE.Runtime.BuiltinControls.LockKey Key, bool? On, HexIDE.Runtime.BuiltinControls.LockKeySource Source);
 
 // The note is written first: a client that cuts or previews a long reply keeps its start, and the note says how to
 // narrow it (#1982 review).
