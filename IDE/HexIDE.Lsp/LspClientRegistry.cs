@@ -324,6 +324,33 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // why the gate belongs on the connection and not here.
         Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.SaveDocumentAsync(uri, cancellationToken)));
 
+    public Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default) =>
+        RouteFileOperationsAsync(uris, "didCreate", uri => uri,
+            (client, files) => client.DidCreateFilesAsync(files, cancellationToken));
+
+    public Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default) =>
+        RouteFileOperationsAsync(uris, "didDelete", uri => uri,
+            (client, files) => client.DidDeleteFilesAsync(files, cancellationToken));
+
+    public Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default) =>
+        RouteFileOperationsAsync(files, "didRename", file => file.OldUri,
+            (client, matching) => client.DidRenameFilesAsync(matching, cancellationToken), file => file.NewUri);
+
+    private Task RouteFileOperationsAsync<T>(T[] files, string operation, Func<T, string> uri,
+        Func<ILspClient, T[], Task> send, Func<T, string>? newUri = null) =>
+        // Generated workspace artefacts already describe the project; keep a single writer (#2248).
+        // Other workspace events follow operation filters, not language claims, and never launch a server.
+        Task.WhenAll(_entries.Where(e => e.Registration.WorkspaceArtifact is null
+            && e.Client is { IsRunning: true }).Select(e =>
+        {
+            var client = e.Client!;
+            var matching = files.Where(file =>
+                FileOperationFilters.Matches(client.AdvertisedCapabilities, operation, uri(file))
+                || newUri is not null && FileOperationFilters.Matches(client.AdvertisedCapabilities, operation, newUri(file)))
+                .ToArray();
+            return matching.Length == 0 ? Task.CompletedTask : send(client, matching);
+        }));
+
     // ── One-answer features ─────────────────────────────────────────────────────────────────────────
     // A document has ONE structure and ONE set of folds, however many servers are looking at it. Two
     // servers answering describe the same thing twice, so the answers do not merge — they duplicate.

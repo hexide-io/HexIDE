@@ -901,7 +901,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 32 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 33 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -969,7 +969,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 3 of 21
+### `workspace/*` — 4 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -981,7 +981,7 @@ than inferred.
 | ○ | `workspace/didChangeConfiguration` | → |  |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
 | ○ | `workspace/didChangeWorkspaceFolders` | → |  |
-| ○ | `workspace/didCreateFiles` | → |  |
+| ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
 | ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
@@ -1102,6 +1102,34 @@ that, which is CI.
 
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
+
+### File-operation notifications (#2248)
+
+`VBLspClient` has explicit `DidCreateFilesAsync`, `DidRenameFilesAsync` and `DidDeleteFilesAsync`
+entry points for successfully completed disk operations. Each connection reads
+`workspace.fileOperations.didCreate`, `didRename` or `didDelete` from the server's initialize reply
+and sends only matching files. Filters support URI schemes, file/folder selection, glob alternatives,
+character ranges and `ignoreCase`; rename matches either URI. Empty matching batches send nothing.
+These are notifications and carry no request id. Wire tests read the frames and use a shutdown response
+as a barrier when asserting silence.
+
+The registry fans out to every running server whose operation filter matches, regardless of its document
+language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
+notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
+it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
+receiving matching notifications. File events do not start servers. Initialize advertises the three
+notification capabilities.
+First saves and Save As to a destination that does not exist report creation after the write succeeds;
+ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
+reports no rename. Save Project and SaveProjectToDirectory use the same creation rule. Failed writes,
+including I/O and access-denied failures, send no creation notification; a wire test checks silence
+after a shutdown barrier.
+
+Disk rename and Remove-with-delete hooks remain outstanding: explorer name changes currently leave
+paths unchanged, and Remove only detaches a member. Neither is a disk event. The generated rename/delete
+rows remain ○ until IDE actions perform those disk operations; their explicit protocol senders and
+registry routes are ready.
+`willCreate`, `willRename` and `willDelete` remain outside the issue's scope.
 
 ### What the shape of that table says
 

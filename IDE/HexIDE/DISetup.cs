@@ -130,7 +130,8 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IHeaderRefresher>(out var headerRefresher);
                 ctx.Inject<ArchiveProjectService>(out var archives);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives);
+                ctx.Inject<Func<ILspClient>>(out var lspClient);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
