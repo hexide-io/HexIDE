@@ -143,6 +143,8 @@ public partial class MainViewViewModel : ObservableObject
 
     private void UpdateRunState()
     {
+        // Break is bound directly so a running form's focus cannot divert it from the IDE (#2179).
+        BreakProjectCommand.RaiseCanExecutedChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(WindowTitle));
         if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)

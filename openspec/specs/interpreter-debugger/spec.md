@@ -64,6 +64,12 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
 - **THEN** the program suspends at the next executed statement and enters break mode
 
+#### Scenario: Breaking a DoEvents loop from the IDE
+- **WHEN** a running form has focus and its event handler loops with `DoEvents`
+- **THEN** the Standard and Debug toolbar Break buttons remain enabled
+- **AND** invoking Break suspends execution at the next statement
+- **AND** those controls disable while paused and enable again on Continue
+
 #### Scenario: Continuing from break mode
 - **WHEN** the developer presses F5 while paused
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
