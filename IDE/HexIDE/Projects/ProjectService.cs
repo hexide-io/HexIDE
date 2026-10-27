@@ -94,8 +94,24 @@ public class ProjectService : IProjectService
     /// A file joining the project that a kept line already names, because it failed to load, takes that
     /// line's place: kept as well, the project file would name it twice.
     /// </summary>
-    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath) =>
-        project.PreservedItemLines.RemoveAll(line => KeptLineNames(project, line, absolutePath));
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
+    {
+        for (var i = project.PreservedItemLines.Count - 1; i >= 0; i--)
+        {
+            if (!KeptLineNames(project, project.PreservedItemLines[i], absolutePath))
+                continue;
+            project.PreservedItemLines.RemoveAt(i);
+            // Slots follow the remaining lines' list indexes, not the removed line's position.
+            for (var j = i; j < project.PreservedItemLines.Count; j++)
+            {
+                if (project.PreservedItemLineSlots.TryGetValue(j + 1, out var slot))
+                    project.PreservedItemLineSlots[j] = slot;
+                else
+                    project.PreservedItemLineSlots.Remove(j);
+            }
+            project.PreservedItemLineSlots.Remove(project.PreservedItemLines.Count);
+        }
+    }
 
     /// <summary>
     /// Whether a line the project file keeps for a member names the file at <paramref name="absolutePath"/>, as the
@@ -261,8 +277,6 @@ public class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
-        await UnloadAllProjects();
-
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",
@@ -279,6 +293,10 @@ public class ProjectService : IProjectService
         if (files == null || files.Count != 1)
             throw new OperationCanceledException();
 
+        // Archive projects coexist with the current workspace, as on the direct/recent open path.
+        if (!string.Equals(Path.GetExtension(files[0]), ".twinproj", StringComparison.OrdinalIgnoreCase))
+            await UnloadAllProjects();
+
         await OpenProject(files[0]);
     }
 
@@ -287,7 +305,17 @@ public class ProjectService : IProjectService
         if (string.Equals(Path.GetExtension(projectPath), ".twinproj", StringComparison.OrdinalIgnoreCase))
         {
             if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
-            await archives.Open(projectPath);
+            try
+            {
+                await archives.Open(projectPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Error(ex, "Error opening archive project {ProjectPath}", projectPath);
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Archive.OpenErrorFormat"), Path.GetFileName(projectPath), ex.Message),
+                    icon: MessageBoxIcon.Error);
+            }
             return;
         }
         if (string.Equals(Path.GetExtension(projectPath), ".vbg", StringComparison.OrdinalIgnoreCase))

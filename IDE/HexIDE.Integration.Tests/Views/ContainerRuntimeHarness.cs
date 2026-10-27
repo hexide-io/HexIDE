@@ -40,9 +40,9 @@ internal static class ContainerRuntimeHarness
         public void DebugPrint(Vb6Value value) => debug.Add(value);
     }
 
-    internal static (Control root, Canvas canvas, ModuleExecutionContext ctx, ExecutionEnvironment env) Spawn(string frm)
+    internal static (Control root, Canvas canvas, ModuleExecutionContext ctx, ExecutionEnvironment env) Spawn(string frm, IReadOnlyDictionary<int, byte[]>? frxBlobs = null)
     {
-        var form = new FormDeserializer().Deserialize(Project, frm, NullSink.Instance)!;
+        var form = new FormDeserializer().Deserialize(Project, frm, NullSink.Instance, frxBlobs: frxBlobs)!;
         var ctx = new ModuleExecutionContext();
         var env = new ExecutionEnvironment();
         var root = VBLoader.SpawnComponents(form, ctx, env);

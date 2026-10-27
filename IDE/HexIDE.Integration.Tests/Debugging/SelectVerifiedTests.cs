@@ -42,9 +42,38 @@ public class SelectVerifiedTests
         while (!done())
         {
             DateTime.UtcNow.Should().BeBefore(deadline, "the fixture session answers well within this");
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
             await Task.Delay(10);
         }
+    }
+
+    // A dispatcher job restores its posting context and leaves it on this thread. Preserve the test's context so
+    // later awaits and xunit cleanup cannot inherit an idle context from a job queued by another test (#1296).
+    private static void RunJobsKeepingContext()
+    {
+        var context = ExecutionContext.Capture();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Draining_jobs_keeps_the_tests_execution_context()
+    {
+        var marker = new AsyncLocal<string>();
+        marker.Value = "queued job";
+        Dispatcher.UIThread.Post(() => marker.Value.Should().Be("queued job"));
+        marker.Value = "current test";
+
+        RunJobsKeepingContext();
+
+        marker.Value.Should().Be("current test");
     }
 
     private static ILocalizationService Localization(string format = "{0}, line {1}")
@@ -81,7 +110,7 @@ public class SelectVerifiedTests
             var caller = UiAutomationDriver.Resolve(window, rows[1].Path).control!;
 
             var outcome = UiAutomationDriver.Interact(caller, "select", null);
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
 
             outcome.Success.Should().BeTrue(outcome.Error);
             outcome.Detail.Should().Be($"selected '{callerName}'");
@@ -151,7 +180,7 @@ public class SelectVerifiedTests
         var window = new Window { Width = 300, Height = 300, Content = new CallStackToolView { DataContext = stack } };
         window.Show();
         controller.Stopped += NSubstitute.Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.Breakpoint, "Module1", 3));
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         try
         {
             var deeper = window.GetVisualDescendants().OfType<ListBoxItem>().Single(i => ReferenceEquals(i.DataContext, stack.Frames[2]));
@@ -176,7 +205,7 @@ public class SelectVerifiedTests
         };
         var window = new Window { Width = 200, Height = 200, Content = list };
         window.Show();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         try
         {
             var main = list.ContainerFromIndex(1)!;
@@ -198,7 +227,7 @@ public class SelectVerifiedTests
         var stray = new ListBoxItem { Content = "Main" };
         var window = new Window { Width = 200, Height = 200, Content = new StackPanel { Children = { stray } } };
         window.Show();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         try
         {
             var outcome = UiAutomationDriver.Interact(stray, "select", null);

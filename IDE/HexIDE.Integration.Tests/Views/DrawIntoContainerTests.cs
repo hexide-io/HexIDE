@@ -16,14 +16,17 @@ using HexIDE.VisualDesigner;
 namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
-/// A control drawn inside a Frame or PictureBox goes into the innermost one under the point the drag began from, and the
-/// drag is held to it (#2039). Every case is vb6.exe's, drawn with the mouse in its designer on the oracle VM's console, in
-/// the same form: Frame1 at 600, 600, 3600 × 2400, holding Picture1 at 1800, 600, 1500 × 1200, and Command0 on the form.
-/// The grid is VB6's default, 120 twips, which is 8 pixels.
+/// A control drawn with a tool: which container it goes into, and where and how big it is. Every expectation is vb6.exe's,
+/// drawn with the mouse in its designer on the oracle VM's console, in the same form: Frame1 at 600, 600, 3600 × 2400,
+/// holding Picture1 at 1800, 600, 1500 × 1200 with a 2-pixel border, and Command0 on the form. The grid is VB6's default,
+/// 120 twips, which is 8 pixels, unless a case turns it off.
 /// </summary>
 /// <remarks>
-/// VB6 ends a drawn control one pixel past its far grid line, which HexIDE doesn't yet (#2058). Each expected size below
-/// is vb6.exe's less that pixel, 15 twips, and says so.
+/// <list type="bullet">
+/// <item>It goes into the innermost container under the press, and the drag is held to that container (#2039).</item>
+/// <item>Its corners go to the nearest line of that container's grid, and it ends one pixel past its far corner, grid or no
+/// grid (#2058).</item>
+/// </list>
 /// </remarks>
 public class DrawIntoContainerTests
 {
@@ -70,28 +73,27 @@ public class DrawIntoContainerTests
     private static readonly Point Frame = new(40, 40);
     private static readonly Point PictureClient = new(40 + 120 + 2, 40 + 40 + 2);
 
-    private static (FormEditViewModel vm, FormDefinition form) Designer()
+    private static (FormEditViewModel vm, FormDefinition form) Designer(bool alignToGrid = true)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, Probe, new NullSink())!;
         project.AddForm(form);
         var settings = Substitute.For<ISettingsService>();
-        settings.AlignToGrid.Returns(true);
+        settings.AlignToGrid.Returns(alignToGrid);
         settings.GridWidth.Returns(8);
         settings.GridHeight.Returns(8);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
+        toolbox.SelectedComponent = toolbox.Components.Single(c => c.BaseClass is CommandButtonComponentClass);
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
             settings, Substitute.For<ILocalizationService>()).Initialize(form);
         return (vm, form);
     }
 
-    private static Rect At(Point origin, double left, double top, double width, double height) =>
-        new(origin.X + left, origin.Y + top, width, height);
+    private static Point At(Point origin, double x, double y) => new(origin.X + x, origin.Y + y);
 
-    private static (string? Container, int Left, int Top, int Width, int Height) Drawn(FormEditViewModel vm, Rect rect, Point? pressedAt)
+    private static (string? Container, int Left, int Top, int Width, int Height) Saved(FormEditViewModel vm)
     {
-        vm.SpawnControlAt(CommandButtonComponentClass.Instance, rect, pressedAt);
         vm.CommitLayout();
         var placed = vm.SelectedComponent!.Instance;
         return (placed.Container?.GetPropertyOrDefault(VBProperties.NameProperty),
@@ -101,25 +103,29 @@ public class DrawIntoContainerTests
         static int Twips(double pixels) => (int)System.Math.Round(pixels * 15);
     }
 
+    private static (string? Container, int Left, int Top, int Width, int Height) Drawn(FormEditViewModel vm, Point pressed, Point released)
+    {
+        vm.SpawnControlDrawn(pressed, released);
+        return Saved(vm);
+    }
+
     // a: vb6.exe saved Frame1's Command1 at 240, 1200, 1215 × 735.
     [AvaloniaFact]
     public void A_control_drawn_inside_a_Frame_goes_into_it()
     {
         var (vm, _) = Designer();
-        var rect = At(Frame, 16, 80, 80, 48);
 
-        Drawn(vm, rect, rect.TopLeft).Should().Be(("Frame1", 240, 1200, 1215 - 15, 735 - 15));
+        Drawn(vm, At(Frame, 16, 80), At(Frame, 96, 128)).Should().Be(("Frame1", 240, 1200, 1215, 735));
     }
 
     // b: pressed inside Frame1 and released on the form beyond it. vb6.exe saved 480, 1920, 3135 × 495: the far corner
-    // stopped at the Frame's 240 × 160 pixels.
+    // stopped at the Frame's 240 × 160 pixels, and the control ends one pixel past it.
     [AvaloniaFact]
     public void A_drag_begun_in_a_Frame_is_held_to_it()
     {
         var (vm, _) = Designer();
-        var rect = At(Frame, 32, 128, 400, 64);
 
-        Drawn(vm, rect, rect.TopLeft).Should().Be(("Frame1", 480, 1920, 3135 - 15, 495 - 15));
+        Drawn(vm, At(Frame, 32, 128), At(Frame, 432, 192)).Should().Be(("Frame1", 480, 1920, 3135, 495));
     }
 
     // c: pressed on the form above Frame1 and released inside it. vb6.exe saved it on the form, 240, 240, 1455 × 1455.
@@ -127,9 +133,8 @@ public class DrawIntoContainerTests
     public void A_drag_begun_on_the_form_stays_on_the_form_wherever_it_ends()
     {
         var (vm, _) = Designer();
-        var rect = new Rect(16, 16, 96, 96);
 
-        Drawn(vm, rect, rect.TopLeft).Should().Be((null, 240, 240, 1455 - 15, 1455 - 15));
+        Drawn(vm, new Point(16, 16), new Point(112, 112)).Should().Be((null, 240, 240, 1455, 1455));
     }
 
     // d: inside Picture1, inside Frame1. vb6.exe saved Picture1's Command4 at 240, 240, 855 × 615.
@@ -137,9 +142,8 @@ public class DrawIntoContainerTests
     public void A_control_drawn_inside_a_nested_PictureBox_goes_into_the_innermost_container()
     {
         var (vm, _) = Designer();
-        var rect = At(PictureClient, 16, 16, 56, 40);
 
-        Drawn(vm, rect, rect.TopLeft).Should().Be(("Picture1", 240, 240, 855 - 15, 615 - 15));
+        Drawn(vm, At(PictureClient, 16, 16), At(PictureClient, 72, 56)).Should().Be(("Picture1", 240, 240, 855, 615));
     }
 
     // i: pressed inside Picture1 and released far outside Frame1. vb6.exe saved 240, 240, 1215 × 975: from its client
@@ -149,9 +153,8 @@ public class DrawIntoContainerTests
     public void A_drag_begun_in_a_PictureBox_stops_at_its_outer_size_snapped_down()
     {
         var (vm, _) = Designer();
-        var rect = At(PictureClient, 16, 16, 400, 300);
 
-        Drawn(vm, rect, rect.TopLeft).Should().Be(("Picture1", 240, 240, 1215 - 15, 975 - 15));
+        Drawn(vm, At(PictureClient, 16, 16), At(PictureClient, 416, 316)).Should().Be(("Picture1", 240, 240, 1215, 975));
     }
 
     // k: pressed inside Picture1 and dragged up and left out of it, over Frame1. vb6.exe saved it in Picture1 at 0, 0,
@@ -160,9 +163,43 @@ public class DrawIntoContainerTests
     public void A_drag_out_of_a_container_up_and_left_stops_at_its_client_origin()
     {
         var (vm, _) = Designer();
-        var rect = At(PictureClient, -40, -30, 112, 86);
 
-        Drawn(vm, rect, new Point(PictureClient.X + 72, PictureClient.Y + 56)).Should().Be(("Picture1", 0, 0, 1095 - 15, 855 - 15));
+        Drawn(vm, At(PictureClient, 72, 56), At(PictureClient, -40, -30)).Should().Be(("Picture1", 0, 0, 1095, 855));
+    }
+
+    // n1: on the form, pressed 5, 14 px in and released at 50, 30. vb6.exe saved 120, 240, 615 × 255: each corner went to
+    // the nearest grid line, 8, 16 and 48, 32, where snapping down would give 0, 8 (#2058).
+    [AvaloniaFact]
+    public void A_drawn_corner_goes_to_the_nearest_grid_line()
+    {
+        var (vm, _) = Designer();
+
+        Drawn(vm, new Point(5, 14), new Point(50, 30)).Should().Be((null, 120, 240, 615, 255));
+    }
+
+    // n2 and n3, the grid off: vb6.exe saved 75, 210, 690 × 270 and 4710, 240, 330 × 570. Unsnapped, and still one pixel
+    // past the far corner: 45 × 17 apart is 46 × 18, and 21 × 37 is 22 × 38 (#2058).
+    [AvaloniaTheory]
+    [InlineData(5, 14, 50, 31, 75, 210, 690, 270)]
+    [InlineData(314, 16, 335, 53, 4710, 240, 330, 570)]
+    public void With_the_grid_off_a_drawn_control_still_ends_a_pixel_past_its_far_corner(
+        double x1, double y1, double x2, double y2, int left, int top, int width, int height)
+    {
+        var (vm, _) = Designer(alignToGrid: false);
+
+        Drawn(vm, new Point(x1, y1), new Point(x2, y2)).Should().Be((null, left, top, width, height));
+    }
+
+    // add_control keeps the size it's given: the extra pixel is a drag's.
+    [AvaloniaFact]
+    public void A_control_placed_with_a_size_keeps_it()
+    {
+        var (vm, _) = Designer();
+        var rect = new Rect(16, 16, 80, 32);
+
+        vm.SpawnControlAt(CommandButtonComponentClass.Instance, rect, rect.TopLeft);
+
+        Saved(vm).Should().Be((null, 240, 240, 1200, 480));
     }
 
     // k again, drawn through the designer itself: the view hands over where the drag began, not its rectangle's top-left,
@@ -171,8 +208,6 @@ public class DrawIntoContainerTests
     public void A_drag_drawn_in_the_designer_goes_into_the_container_it_began_in()
     {
         var (vm, _) = Designer();
-        vm.ToolsBoxToolViewModel.SelectedComponent =
-            vm.ToolsBoxToolViewModel.Components.Single(c => c.BaseClass is CommandButtonComponentClass);
         var view = new FormEditView { DataContext = vm };
         var window = new Window { Width = 800, Height = 600, Content = view };
         window.Show();
@@ -184,18 +219,57 @@ public class DrawIntoContainerTests
             var spawner = view.FindControl<Canvas>("NewControlSpawner")!;
             Point OnWindow(Point canvas) => spawner.TranslatePoint(canvas, window)!.Value;
 
-            window.MouseDown(OnWindow(new Point(PictureClient.X + 72, PictureClient.Y + 56)), MouseButton.Left);
-            window.MouseMove(OnWindow(new Point(Frame.X + 60, Frame.Y + 30)));
-            window.MouseMove(OnWindow(new Point(Frame.X + 16, Frame.Y + 16)));
-            window.MouseUp(OnWindow(new Point(Frame.X + 16, Frame.Y + 16)), MouseButton.Left);
+            window.MouseDown(OnWindow(At(PictureClient, 72, 56)), MouseButton.Left);
+            window.MouseMove(OnWindow(At(Frame, 60, 30)));
+            window.MouseMove(OnWindow(At(Frame, 16, 16)));
+            window.MouseUp(OnWindow(At(Frame, 16, 16)), MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            vm.CommitLayout();
 
-            var placed = vm.AllComponents.Single(c => c.Name == "Command1").Instance;
-            placed.Container?.GetPropertyOrDefault(VBProperties.NameProperty).Should().Be("Picture1");
-            (placed.GetPropertyOrDefault(VBProperties.LeftProperty), placed.GetPropertyOrDefault(VBProperties.TopProperty),
-                placed.GetPropertyOrDefault(VBProperties.WidthProperty), placed.GetPropertyOrDefault(VBProperties.HeightProperty))
-                .Should().Be((0.0, 0.0, 72.0, 56.0), "vb6.exe's 1095 × 855 is 73 × 57 pixels, one more each way (#2058)");
+            Saved(vm).Should().Be(("Picture1", 0, 0, 1095, 855));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, 5, 14, 50, 30, 8, 16, 41, 17)]
+    [InlineData(true, 178, 98, 234, 138, 178, 98, 57, 41)]
+    [InlineData(true, 178, 98, 578, 398, 178, 98, 81, 65)]
+    [InlineData(true, 234, 138, 56, 56, 162, 82, 73, 57)]
+    [InlineData(true, 72, 168, 472, 232, 72, 168, 209, 33)]
+    [InlineData(false, 5, 14, 50, 31, 5, 14, 46, 18)]
+    public void The_drag_preview_matches_the_control_placed_on_release(bool grid,
+        double x1, double y1, double x2, double y2, double left, double top, double width, double height)
+    {
+        var (vm, _) = Designer(grid);
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var spawner = view.FindControl<Canvas>("NewControlSpawner")!;
+            var phantom = view.FindControl<Border>("NewControlSpawnerPhantom")!;
+            Point OnWindow(Point canvas) => spawner.TranslatePoint(canvas, window)!.Value;
+            var start = new Point(x1, y1);
+            var end = new Point(x2, y2);
+
+            window.MouseDown(OnWindow(start), MouseButton.Left);
+            window.MouseMove(OnWindow(start + new Vector(1, 1)));
+            window.MouseMove(OnWindow(end));
+
+            phantom.IsVisible.Should().BeTrue();
+            var preview = new Rect(Canvas.GetLeft(phantom), Canvas.GetTop(phantom), phantom.Width, phantom.Height);
+            preview.Should().Be(new Rect(left, top, width, height));
+
+            window.MouseUp(OnWindow(end), MouseButton.Left);
+            var placed = vm.SelectedComponent!;
+            new Rect(placed.Left, placed.Top, placed.Width, placed.Height).Should().Be(preview);
+            phantom.IsVisible.Should().BeFalse();
         }
         finally
         {
@@ -220,8 +294,7 @@ public class DrawIntoContainerTests
     public void A_drawn_control_is_its_containers_first_block_and_undo_takes_it_out()
     {
         var (vm, form) = Designer();
-        var rect = At(Frame, 16, 80, 80, 48);
-        Drawn(vm, rect, rect.TopLeft);
+        Drawn(vm, At(Frame, 16, 80), At(Frame, 96, 128));
 
         var (frm, _) = new FormSerializer().Serialize(form, "Form1.frm");
         frm.Should().MatchRegex(@"Begin VB\.Frame Frame1\s*\r\n(?:[^\r\n]*=[^\r\n]*\r\n)*\s*Begin VB\.CommandButton Command1");

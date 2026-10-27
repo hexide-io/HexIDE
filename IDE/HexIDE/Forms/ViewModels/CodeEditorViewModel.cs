@@ -114,6 +114,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public IBookmarkService BookmarkService => bookmarkService;
     public HexIDE.Debugging.IBreakpointService BreakpointService => breakpointService;
     public HexIDE.Runtime.Debugging.IDebugController DebugController => debugController;
+    public HexIDE.Tools.CallStackToolViewModel? CallStack { get; }
 
     /// <summary>True while the project is running OR paused in the debugger — the window in which a code edit
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
@@ -126,13 +127,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// then stands); Cancel → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
-    /// <param name="over">The window of the editor that asks, which the prompt holds. Shown over the active window, often the
-    /// running form, the prompt left the code window usable under it, and an automated key went in (#1290). VB6's prompt
-    /// holds the IDE and the running program together, its owner being the running form (measured, #1329); a modal here
-    /// holds one window, so it is the code window's.</param>
+    /// <param name="over">The visible editor window to show the prompt over. The prompt holds all desktop windows.</param>
     public async Task<bool> ConfirmResetWhileRunningAsync(Avalonia.Controls.Window? over = null)
     {
-        var result = await windowManager.MessageBox(
+        var result = await windowManager.TaskModalMessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
             buttons: MessageBoxButtons.OkCancel, icon: MessageBoxIcon.Warning, owner: over);
         if (result != MessageBoxResult.Ok)
@@ -199,6 +197,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </summary>
     private LspDocumentSession? session;
+    private readonly HexIDE.Tools.RecentEditHistory? recentEditHistory;
 
     /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
     public bool AwaitingDiagnostics => session?.AwaitingDiagnostics ?? false;
@@ -215,8 +214,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Tools.CallStackToolViewModel? callStack = null,
+        HexIDE.Tools.RecentEditHistory? recentEditHistory = null)
     {
+        this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
@@ -228,6 +230,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.breakpointService = breakpointService;
         this.debugController = debugController;
         ExternalDebugger = externalDebugger;
+        CallStack = callStack;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
@@ -892,6 +895,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;
@@ -934,6 +938,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;
@@ -1117,6 +1122,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Task FlushDocumentAsync(CancellationToken ct = default)
         => session?.FlushAsync(ct) ?? Task.CompletedTask;
 
+    public async Task<DocumentSymbol[]> RequestSearchSymbolsAsync()
+    {
+        await FlushDocumentAsync();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestDocumentSymbolsAsync(uri) : [];
+    }
+
     private async Task RefreshSymbolsAsync()
     {
         if (!lspClient.IsRunning) return;
@@ -1260,7 +1271,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// whole attribute block and sixteen lines below it. Since task 3.10 the bundled server sends one edit per
     /// run of changed lines and leaves protected lines out, but another server need not. So the answer is
     /// applied to a copy, reduced to the lines it actually changes, and anything touching the header or a
-    /// member's attribute run is dropped.
+    /// member's attribute run is dropped. A kept whole-line deletion of a complete logical declaration then
+    /// takes its run with it (#1890).
     /// </para>
     /// <para>
     /// Lines are compared without their terminators, so a server answering in <c>\n</c> for a
@@ -1272,7 +1284,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal Reduction ApplyFormatting(IReadOnlyList<TextEdit> edits)
     {
         var before = Document.Text;
-        var reduction = LineEdits.Reduce(before, Rewrite(before, edits), ReadOnlyRegions.Of(before, bufferPrefix.Length));
+        var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
+            ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
 
         if (reduction.Changes.Count > 0)
         {
@@ -1561,6 +1574,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             Document.EndUpdate();
         }
         return placed;
+    }
+
+    /// <summary>Refuses answers reaching other documents before applying any of this document's edits.</summary>
+    internal string? ApplyRename(WorkspaceEdit edit, string oldName)
+    {
+        if (edit.Changes is null) return null;
+        var uri = GetDocumentUriPublic();
+        var others = edit.Changes
+            .Where(c => c.Value.Length > 0 && !LspDocumentUri.AreSame(c.Key, uri))
+            .Select(c => editorService.DocumentNameForUri(c.Key) ?? c.Key)
+            .ToArray();
+        if (others.Length > 0)
+            return string.Format(localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments"),
+                string.Join(", ", others));
+
+        var edits = edit.Changes.FirstOrDefault(c => LspDocumentUri.AreSame(c.Key, uri)).Value;
+        return edits is null ? null : ApplyRename(edits, oldName);
     }
 
     /// <summary>
@@ -1868,6 +1898,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestHoverAsync(uri, position, ct) : Task.FromResult<HoverResult?>(null);
 
+    public Task<SemanticTokenResult?> RequestSemanticTokensAsync(CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestSemanticTokensAsync(uri, ct) : Task.FromResult<SemanticTokenResult?>(null);
+
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
 
@@ -1883,8 +1916,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 
-    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct) : Task.FromResult<SignatureHelp?>(null);
+    public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
+        => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
@@ -1895,8 +1928,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 
-    public Task<WorkspaceEdit?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+    public Task<RenameResult?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
     public Task<string?> ShowRenameInputBoxAsync(string defaultText)
         => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),

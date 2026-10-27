@@ -10,19 +10,19 @@ namespace HexIDE.Tests.Server;
 public class SnapshotCapturePathTests
 {
     [Fact]
-    public void Frame_capture_is_opt_in_and_explains_screen_capture_limits()
+    public void Frame_capture_is_opt_in_and_says_a_covering_window_is_not_in_it()
     {
         var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
         tool.Parameters.Should().Contain(p => p.Name == "includeFrame" && p.Optional && p.Type == "bool");
-        tool.Description.Should().Contain("includeFrame").And.Contain("occluded").And.Contain("Windows");
+        tool.Description.Should().Contain("includeFrame").And.Contain("even where another window covers it").And.Contain("Windows");
     }
 
     [Fact]
     public void Frame_capture_failure_is_returned_instead_of_a_client_only_image()
     {
         var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
-        tool.Body.Should().Contain("CaptureFrame(active, out windowOffset, out var frameError)")
-            .And.Contain("new SnapshotResult(null, frameError, activeDialog)");
+        tool.Body.Should().Contain("(snapshot, var frameError) = await HexIDE.Automation.SnapshotComposer.CaptureFrameAsync(active)")
+            .And.Contain("new SnapshotResult(null, frameError, activeDialog, Title: active.Title)");
     }
 
     [Fact]

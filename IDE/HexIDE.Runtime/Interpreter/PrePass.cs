@@ -30,6 +30,7 @@ public class PrePass : VB6BaseVisitor<object?>
     // Module-level variables declared Public, for the same classification: another module's Public variable in a bound
     // is VB6's "Constant expression required", where a name it cannot see is "Variable not defined" (measured).
     public HashSet<string> PublicVariables = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> PrivateVariables = new(StringComparer.OrdinalIgnoreCase);
     // Module-level arrays whose bounds are not plain integers. They are sized only when the module's declarations
     // run, which a form's run does not do yet (#256), so that run refuses them rather than leave them unallocated.
     public List<string> DeferredArrays = new();
@@ -383,6 +384,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 // "Constant expression required", as `Public n` is).
                 if (context.visibility()?.PUBLIC() != null || context.visibility()?.GLOBAL() != null)
                     PublicVariables.Add(subStmt.ambiguousIdentifier().GetText());
+                else if (context.visibility()?.PRIVATE() != null)
+                    PrivateVariables.Add(subStmt.ambiguousIdentifier().GetText());
             }
         }
         else
@@ -692,7 +695,7 @@ public class PrePass : VB6BaseVisitor<object?>
         GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject));
+            returnsVariant, returnsObject) { Declaration = context });
         NoteDefaultMember(context.block());
         return default;
     }
@@ -739,37 +742,54 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         declared = true;
         // A `Type … End Type` definition: parse each field to a scalar ValueType or a nested-type NAME (resolved
-        // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array fields and fixed-length
-        // strings inside a Type are deferred (spec walls).
+        // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array bounds are collected here; fixed-length
+        // strings inside a Type are deferred.
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleTypeName(name);
         var fields = new List<UdtField>();
         foreach (var el in context.typeStmt_Element())
         {
             var fieldName = el.ambiguousIdentifier().GetText();
-            if (el.LPAREN() != null)
-                throw new NotImplementedException($"Array field '{fieldName}' inside Type '{name}' is not yet supported");
+            var isArray = el.LPAREN() != null;
+            List<(int, int)>? bounds = null;
+            if (el.subscripts() is { } subscripts)
+            {
+                bounds = new();
+                foreach (var dimension in subscripts.subscript())
+                {
+                    var values = dimension.valueStmt();
+                    var lower = ArrayBase;
+                    if ((values.Length == 2 && !TryReadLiteralBound(values[0], out lower))
+                        || !TryReadLiteralBound(values[^1], out var upper))
+                        throw new NotImplementedException($"Nonliteral array bounds for field '{fieldName}' inside Type '{name}' are not implemented (#178)");
+                    if (upper < lower)
+                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#178)");
+                    bounds.Add((lower, upper));
+                }
+            }
 
             var asType = el.asTypeClause();
             if (asType == null)
             {
-                fields.Add(new UdtField(fieldName, Vb6Value.ValueType.EmptyVariant, null));   // untyped -> Variant
+                fields.Add(new UdtField(fieldName, Vb6Value.ValueType.EmptyVariant, null, IsArray: isArray, Bounds: bounds));   // untyped -> Variant
                 continue;
             }
             if (asType.fieldLength() != null)
                 throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
             if (asType.NEW() != null)
             {
+                if (isArray)
+                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#178)");
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }
             if (asType.type().complexType() is { } ct)
-                fields.Add(new UdtField(fieldName, null, ct.GetText()));   // nested UDT or Enum, resolved at NewUdt
+                fields.Add(new UdtField(fieldName, null, ct.GetText(), IsArray: isArray, Bounds: bounds));   // nested UDT or Enum, resolved at NewUdt
             else
                 fields.Add(new UdtField(fieldName,
                     BaseTypeMapper.Map(asType.type().baseType())
                         ?? throw new NotImplementedException($"Unsupported field type for '{fieldName}' in Type '{name}'"),
-                    null));
+                    null, IsArray: isArray, Bounds: bounds));
         }
         // Visibility is RECORDED rather than ignored. `Private` means invisible outside this module, and
         // measured means it: a foreign Private Type is "User-defined type not defined" whether the
@@ -789,7 +809,7 @@ public class PrePass : VB6BaseVisitor<object?>
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, true, ParseParams(context.argList()),
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject));
+            returnsVariant, returnsObject) { Declaration = context });
         NoteDefaultMember(context.block());
         return default;
     }
@@ -799,7 +819,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name);
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
-            Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())));
+            Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });
         NoteDefaultMember(context.block());
         return default;
     }

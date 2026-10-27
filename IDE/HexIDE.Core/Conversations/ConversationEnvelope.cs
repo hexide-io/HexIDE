@@ -20,7 +20,7 @@ public enum ConversationDirection
 
 /// <summary>What kind of thing an entry records.</summary>
 /// <remarks>
-/// <b>Five of these are not messages, and that is the point.</b> A conversation with a language server is
+/// <b>Six of these are not messages, and that is the point.</b> A conversation with a language server is
 /// not only the frames: it is also the process that carried them, what the client decided not to ask, what
 /// the server offered that nothing took up, and what this transport is structurally unable to show. Every
 /// one of those is invisible today, and each is the answer to a question a wire trace alone cannot settle.
@@ -83,6 +83,9 @@ public enum ConversationEntryKind
     /// nothing.
     /// </remarks>
     Note,
+
+    /// <summary>A line a named-pipe server wrote to standard output.</summary>
+    StandardOutput,
 }
 
 /// <summary>How a request ended, once it has ended.</summary>
@@ -94,7 +97,7 @@ public enum ConversationOutcome
     /// <summary>Answered successfully.</summary>
     Answered,
 
-    /// <summary>Answered with an error object.</summary>
+    /// <summary>Answered with an error object, or the received result could not be read.</summary>
     Failed,
 
     /// <summary>Cancelled by this client before an answer arrived.</summary>

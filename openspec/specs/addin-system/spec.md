@@ -48,7 +48,7 @@ need its own bespoke unregister call.
 - **THEN** every loaded add-in is disposed
 
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
-The host surface SHALL let an add-in add menu items at a named location, register a dockable tool window
+The host surface SHALL let an add-in add menu items under Tools or AddIns (case-insensitive), register a dockable tool window
 from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
 project template. A contributed control SHALL NOT be a container, and a form nesting a control under one
 SHALL be held read-only rather than saved.
@@ -68,6 +68,16 @@ such a form is recoverable; writing it is not.
 - **WHEN** an add-in adds a menu item at a named parent location
 - **THEN** it appears there, visually separated from the IDE's own items
 - **AND** it can supply a predicate that greys the item out when unavailable
+
+Unknown menu locations SHALL be logged with the contributing add-in's identity and requested path, and
+the placement SHALL be dropped without removing a separately registered command. AddIns SHALL also accept
+a submenu name after `/`; Tools SHALL retain its flat placement. A dropped placement SHALL return a
+harmless disposable handle.
+
+#### Scenario: Contributing to an unknown menu location
+- **WHEN** an add-in requests a menu location other than Tools or AddIns, including an empty path
+- **THEN** the host logs the add-in and requested path and adds no menu item
+- **AND** a separately registered command remains available
 
 #### Scenario: Contributing a tool window
 - **WHEN** an add-in registers a tool window with a factory
@@ -207,3 +217,24 @@ write did not land.
 #### Scenario: Two projects with a document of the same name
 - **WHEN** an add-in names such a document without naming a project
 - **THEN** the call is refused and the add-in is told the name is ambiguous
+
+### Requirement: Add-in tool window placement SHALL survive delayed registration
+The IDE SHALL save contributed tool windows by their registration ID in a separate add-in key namespace,
+including their open state, left/right/bottom dock region, stack order and proportion. It SHALL retain saved entries
+before the matching add-in registers, including across eager saves, and apply them when registration arrives.
+Reset Window Layout SHALL discard saved add-in placements, return open registered add-in tools to the right
+column and keep closed tools closed. A new tool SHALL use the right column by default.
+
+#### Scenario: An add-in registers after the layout is loaded
+- **WHEN** a saved add-in tool registers after startup
+- **THEN** an open tool returns to its saved region, order and proportion
+- **AND** a saved closed tool remains closed until explicitly shown
+
+#### Scenario: Saving before registration
+- **WHEN** the IDE saves its layout before a saved add-in tool registers
+- **THEN** its saved entry is preserved for later registration
+
+#### Scenario: Resetting with registered add-in tools
+- **WHEN** the developer resets the window layout with add-in tools registered
+- **THEN** open add-in tools return to the default right column
+- **AND** closed add-in tools remain closed

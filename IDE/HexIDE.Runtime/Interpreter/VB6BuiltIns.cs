@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
@@ -117,6 +117,8 @@ public partial class VB6BuiltIns
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
+        // LoadPicture accepts only the measured file-path shape; its other conversions refuse there.
+        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)) return arg;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
@@ -169,6 +171,7 @@ public partial class VB6BuiltIns
         RegisterMath(d);
         RegisterArray(d);
         RegisterInspection(d);
+        d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);
@@ -381,7 +384,7 @@ public partial class VB6BuiltIns
     /// <c>ccScrollingSmooth</c> without MSCOMCTL.OCX is an undeclared variable, as in VB6. The 5.0 and 6.0 libraries
     /// declare their 152 shared names with the same values in the same enums (measured), so their order never changes a value.
     /// </summary>
-    internal IReadOnlyList<Components.InBox.ControlLibrary> ControlLibraries { get; set; } = [];
+    internal IReadOnlyList<Components.InBox.RuntimeLibrary> ControlLibraries { get; set; } = [];
 
     private bool TryControlLibraryConstant(string name, out Vb6Value constant)
     {

@@ -267,15 +267,15 @@ internal sealed class ModuleLevelBounds
                     return VB6InBoxLibraries.TryInContainer(qualifier.Name!, parts[1], out value)
                         ? value
                         : throw new VBCompileErrorException("Method or data member not found");
-                case BasicInterpreter.QualifierKind.ControlLibrary when parts.Length == 2
-                        && qualifier.ControlLibrary!.TryBare(parts[1], out value):
+                case BasicInterpreter.QualifierKind.RuntimeLibrary when parts.Length == 2
+                        && qualifier.RuntimeLibrary!.TryBare(parts[1], out value):
                     return value;   // `MSComctlLib.ccScrollingSmooth` (#1082)
-                case BasicInterpreter.QualifierKind.ControlLibrary when parts.Length == 3
-                        && qualifier.ControlLibrary!.ContainerName(parts[1]) is { } container
-                        && qualifier.ControlLibrary.TryInContainer(container, parts[2], out value):
+                case BasicInterpreter.QualifierKind.RuntimeLibrary when parts.Length == 3
+                        && qualifier.RuntimeLibrary!.ContainerName(parts[1]) is { } container
+                        && qualifier.RuntimeLibrary.TryInContainer(container, parts[2], out value):
                     return value;   // `MSComctlLib.ScrollingConstants.ccScrollingSmooth`
                 case BasicInterpreter.QualifierKind.ControlLibraryContainer when parts.Length == 2:
-                    return qualifier.ControlLibrary!.TryInContainer(qualifier.Name!, parts[1], out value)
+                    return qualifier.RuntimeLibrary!.TryInContainer(qualifier.Name!, parts[1], out value)
                         ? value
                         : throw new VBCompileErrorException("Method or data member not found");
             }

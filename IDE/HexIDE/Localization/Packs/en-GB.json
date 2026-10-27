@@ -2,6 +2,7 @@
   "name": "English (United Kingdom)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colour parentheses by nesting depth",
     "Str.ProjectLoad.Heading": "Couldn't properly deserialise the project:",
     "Str.Toolbar.Customize": "Customise...",
     "Str.Menu.View.ColorPalette": "Colour Pa_lette",
@@ -25,6 +26,8 @@
     "Str.Automation.Minimize": "Minimise",
     "Str.Automation.MaximizeRestore": "Maximise or restore",
     "Str.Automation.ChooseColor": "Choose colour",
-    "Str.Dock.MaximizeRestore": "Maximise or restore pane"
+    "Str.Dock.MaximizeRestore": "Maximise or restore pane",
+    "Str.PropDesc.MaskColor": "The colour used for transparent pixels.",
+    "Str.PropDesc.UseMaskColor": "Whether to use the mask colour."
   }
 }

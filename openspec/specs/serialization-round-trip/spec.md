@@ -67,6 +67,16 @@ subset — and the developer discovers which parts by finding out what stopped w
 - **WHEN** a file contains a component of a type the IDE has no model for
 - **THEN** the component is written back in place rather than dropped
 
+#### Scenario: VB6's saved Toolbar form (#1088)
+- **WHEN** the form in `corpus/inbox-controls/saved/toolbar` is saved, including after a form-caption edit
+- **THEN** its carried Toolbar blocks retain `ToolTips`, BorderStyle after `_Version`, HIMETRIC ButtonWidth/ButtonHeight,
+  twips placeholder widths and nested ButtonMenus verbatim, and its ImageList companion retains every byte
+- **AND** the separate runtime loader reads designed top-level Toolbar button/menu bags under their measured names,
+  retaining numeric image indexes without ImageList binding; designer editing/rewriting of these bags remains unsupported
+- **AND** carried Toolbars SHALL remain view-only, excluded from the Properties component list, including their own
+  scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
+  SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
+
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
@@ -611,6 +621,36 @@ bytes are valid UTF-8.
 - **WHEN** its project is opened on a Windows-1252 host
 - **THEN** the module reads `Ã©`, not `é`
 
+### Requirement: A project SHALL record UTF-8 that detection cannot infer
+
+When saving a project, a source member retained as UTF-8 without a byte-order mark whose text has no
+character above U+00FF SHALL have a `path=utf-8` entry in a trailing `[HexIDE]` section of the `.vbp`.
+The path SHALL be the path used by the member's project item line, including after Save As. No entry
+SHALL be written for a member with a BOM, a character above U+00FF, or another encoding. Other tools'
+trailing sections SHALL be preserved, and the section SHALL follow every standard project key.
+
+A fresh open SHALL try that project's record after the encoding last read in and before the host's code
+page. The record SHALL apply only if strict decoding and encoding reproduce the bytes. A shared member
+SHALL follow the record of the project being opened. Source bytes SHALL NOT gain a BOM for this purpose.
+Whether VB6's File → Save Project retains the section is unmeasured; `/make` accepting trailing sections
+does not establish save behaviour.
+
+#### Scenario: An edit removes the UTF-8 signature
+- **GIVEN** a BOM-less UTF-8 module holding `' café 日本`
+- **WHEN** its code becomes `' café` and the project is saved and freshly opened
+- **THEN** its `.vbp` records its member path as `utf-8` and the module reads as `' café`
+- **AND** its file remains UTF-8 without a BOM
+
+#### Scenario: Detection becomes sufficient again
+- **GIVEN** a member with an encoding record
+- **WHEN** a character above U+00FF is added and the project is saved
+- **THEN** the redundant record is removed
+
+#### Scenario: An external editor replaces the recorded file with ANSI
+- **GIVEN** a member recorded as UTF-8 whose bytes no longer decode strictly as UTF-8
+- **WHEN** the project is freshly opened
+- **THEN** decoding continues to the host's code page and the byte-for-byte fallback as before
+
 ### Requirement: An edit the file's encoding cannot hold SHALL be refused the same way on every save path
 
 When a document holds a character its encoding cannot represent, the IDE SHALL refuse to save it rather than
@@ -652,6 +692,12 @@ being anchored to slots; adding or removing an item may therefore shift them.
 - **GIVEN** two `Form=` lines, the first naming a missing file and the second a loaded form
 - **WHEN** the project is saved, including to another folder
 - **THEN** the missing form's line remains first and both paths name the same files from the destination
+
+#### Scenario: A middle kept member joins the live project
+
+- **GIVEN** three kept member lines with recorded source slots
+- **WHEN** the middle member's file is restored, added to the project and the project is saved
+- **THEN** the other kept lines retain their own source slots and the restored member is named once
 
 ### Requirement: Missing control Font blocks inherit a load-time copy of the form font
 
@@ -731,3 +777,17 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
+
+### Requirement: MSComctlLib ImageList picture persistence
+
+The serializer SHALL preserve the measured MSComctlLib.ImageList format: extender properties, extents, BackColor,
+ImageWidth, ImageHeight, MaskColor, UseMaskColor, _Version, then Images. BackColor and MaskColor SHALL be written even
+at their defaults; the other own properties SHALL be omitted at their defaults. Each ListImage SHALL write Picture,
+then Key (including an empty Key), then a nonempty Object.Tag padded as Tag. Picture records SHALL retain the
+StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
+
+#### Scenario: VB6's ImageList saves round-trip
+
+- **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
+- **THEN** the form text and companion bytes match VB6's saved files
+- **AND** each saved image is available to the running program in index order with its Key, Tag and Picture

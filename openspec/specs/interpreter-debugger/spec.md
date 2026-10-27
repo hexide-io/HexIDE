@@ -64,6 +64,12 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
 - **THEN** the program suspends at the next executed statement and enters break mode
 
+#### Scenario: Breaking a DoEvents loop from the IDE
+- **WHEN** a running form has focus and its event handler loops with `DoEvents`
+- **THEN** the Standard and Debug toolbar Break buttons remain enabled
+- **AND** invoking Break suspends execution at the next statement
+- **AND** those controls disable while paused and enable again on Continue
+
 #### Scenario: Continuing from break mode
 - **WHEN** the developer presses F5 while paused
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
@@ -157,6 +163,11 @@ Locals is the primary inspection surface, showing what is in scope where executi
 - **WHEN** the developer expands an array, a user-defined type, or an object instance
 - **THEN** its elements or fields are shown, guarded against cycles and bounded in depth
 
+#### Scenario: Expanding a control whose property cannot be read
+- **WHEN** the developer expands a control one of whose listed properties raises when read
+- **THEN** that property is listed with the raised error's own description in angle brackets, and no type
+- **AND** the control's other properties are still listed, and the expansion does not fail
+
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.
 
@@ -179,7 +190,7 @@ The Immediate window is VB6's primary interactive debugging surface. It is a sin
 - **THEN** a message explains that evaluation is only available in break mode
 
 ### Requirement: Editing code during a run SHALL offer VB6's reset prompt
-The IDE SHALL prompt to reset the project when code is edited during a run, because edits cannot be applied to a suspended execution.
+The IDE SHALL prompt to reset the project when code is edited during a run, because edits cannot be applied to a suspended execution. While the prompt waits, the IDE SHALL disable every other desktop window and restore each window's previous enabled state when the prompt finishes.
 
 The interpreter cannot hot-patch a running program: the execution position is a live host call stack, not a re-pointable program counter. Rather than silently diverging, HexIDE surfaces the same prompt VB6 showed whenever it could not apply an edit live — which is both honest and familiar.
 
@@ -192,8 +203,9 @@ The interpreter cannot hot-patch a running program: the execution position is a 
 - **WHEN** the reset prompt is asked while the code window's own window is visible and not minimized
 - **THEN** the prompt is modal over that window, which it disables until answered
 - **AND** when that window is minimized, the prompt is modal over the top window instead, which may be the running form
-- **AND** in VB6 the running form owns the prompt and every window of the IDE and the program is disabled; the
-  difference is recorded as D2 in `docs/debugger-vb6-divergences.md`
+- **AND** all other desktop windows, including the IDE and running forms, are disabled until the prompt finishes
+- **AND** a window that was already disabled remains disabled afterwards
+- **AND** ownership still differs from VB6, as recorded in D2 in `docs/debugger-vb6-divergences.md`
 
 ### Requirement: The debugger SHALL expose the VB6 default keyboard gestures
 The default keymap SHALL bind the VB6 debugging gestures without requiring an opt-in keymap pack.
@@ -239,6 +251,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** the developer chooses Debug ▸ Add Watch, or presses Shift+F9 with the caret on an identifier
 - **THEN** the Add Watch dialog opens, pre-filled with that identifier where one was under the caret
 
+#### Scenario: Localizing a watch context
+- **WHEN** the IDE language changes
+- **THEN** the all-procedures context label SHALL refresh in existing Watches rows and the Add/Edit Watch dialog
+- **AND** named module/procedure contexts SHALL remain unchanged
+
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
@@ -260,6 +277,12 @@ The call stack answers "how did execution get here", which Locals alone cannot.
 #### Scenario: Viewing the call stack while paused
 - **WHEN** the developer presses Ctrl+L while paused
 - **THEN** the Call Stack window lists the active procedure activations, deepest first, each with its name and current line
+
+#### Scenario: Showing a caller
+- **WHEN** the developer selects or double-clicks a caller in the built-in Call Stack window
+- **THEN** the code window opens that module at the calling statement with a green call-site triangle
+- **AND** the current execution statement stays unchanged
+- **AND** the call-site marker clears on continuing or the next break
 
 #### Scenario: A concurrent event frozen above the paused frame
 - **WHEN** an event handler was frozen by break mode after the paused frame began
@@ -345,3 +368,29 @@ The IDE SHALL show localized design, run and break title tags, with break select
 - **THEN** the title shows the break tag and the running status message is cleared
 - **WHEN** execution continues
 - **THEN** the title shows the run tag and the running status message returns
+
+### Requirement: Procedure boundary stop positions
+
+The interpreter debugger SHALL honour breakpoints on Sub declarations before
+executing their bodies, and on Sub, Function and Property Get natural End lines after the last statement and before returning.
+A step from the last statement of a called Sub or Function SHALL stop on its End line; the following step
+SHALL reach the caller's next line. These positions retain the callee's frame until return (#2172).
+Entry procedures SHALL retain breakpoint-only End positions, so startup stepping advances from
+Initialize's last statement into Load's first statement.
+
+#### Scenario: Break on a procedure's natural End line
+- **WHEN** a procedure finishes its last statement with a breakpoint on its End line
+- **THEN** execution pauses on that line before the caller continues
+- **AND** the call stack still contains the callee
+
+#### Scenario: Step from a Function's last statement
+- **WHEN** Step Over runs the Function's last statement
+- **THEN** execution pauses on End Function
+- **AND** the next Step Over pauses on the caller's next line
+
+#### Scenario: Step through form startup
+- **WHEN** Step Into from design mode starts a form with Form_Initialize
+- **THEN** execution pauses on Initialize's first statement
+- **AND** a step from its last statement pauses on Load's first statement
+- **WHEN** the form has no Form_Initialize
+- **THEN** the initial step pauses on Load's first statement

@@ -77,7 +77,7 @@ public class ComponentsViewModelTests
     {
         var project = Project(form1UsesMsComctl: true, Ocx6);
         var vm = new ComponentsViewModel(project);
-        ControlLibrary? refused = null;
+        RuntimeLibrary? refused = null;
         vm.Refused += library => refused = library;
 
         var row = vm.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib);

@@ -33,6 +33,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 {
     private readonly List<Entry> _entries;
     private readonly ILogger<LspClientRegistry> _logger;
+    private readonly TimeProvider _timeProvider;
     private readonly ILspWorkspace? _workspace;
     private readonly IWorkspaceArtifactService? _artifacts;
 
@@ -84,9 +85,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger,
         ILspWorkspace? workspace = null,
         IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null,
-        IWorkspaceArtifactService? artifacts = null)
+        IWorkspaceArtifactService? artifacts = null,
+        TimeProvider? timeProvider = null)
     {
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
         ConfigurationProblems = configurationProblems ?? [];
@@ -343,6 +346,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ? c.RequestFoldingRangesAsync(uri, ct)
             : Task.FromResult<FoldingRange[]>([]);
 
+    public Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken ct = default) =>
+        StartedClaimantsFor(uri).FirstOrDefault(c => ServerCapabilities.SupportsSemanticTokensFull(c.AdvertisedCapabilities)) is { } client
+            ? client.RequestSemanticTokensAsync(uri, ct)
+            : Task.FromResult<SemanticTokenResult?>(null);
+
     // ── Merged features ─────────────────────────────────────────────────────────────────────────────
     // Completions genuinely combine: two servers offer different candidates for one prefix, and dropping
     // either would hide something the user could have typed. This is the case the merge helpers exist for.
@@ -373,9 +381,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         string uri, Position position, string? triggerCharacter, CancellationToken ct)
     {
         var budget = TimeSpan.FromSeconds(1);
-        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var started = _timeProvider.GetTimestamp();
         using var waiting = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var deadline = Task.Delay(budget, waiting.Token);
+        var deadline = Task.Delay(budget, _timeProvider, waiting.Token);
         var pending = StartedClaimantsFor(uri)
             .Where(c => triggerCharacter is null
                 || CompletionTriggers(c).Contains(triggerCharacter, StringComparer.Ordinal))
@@ -398,7 +406,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 var timely = false;
                 var items = await client.RequestCompletionAsync(uri, position, ct, () =>
                 {
-                    timely = clock.Elapsed <= budget;
+                    timely = _timeProvider.GetElapsedTime(started) <= budget;
                     if (timely || ct.IsCancellationRequested) return;
                     _logger.LogDebug("Completion from {Id} answered after the popup opened; discarded.", OwnerOf(client));
                     client.NoteLateCompletion();
@@ -419,8 +427,39 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestHoverAsync(uri, position, ct));
 
-    public Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken ct = default) =>
-        FirstAnswerAsync(uri, c => c.RequestSignatureHelpAsync(uri, position, ct));
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(
+        string uri, Position position, CancellationToken ct = default, string? triggerCharacter = null)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(1));
+
+        // Start every eligible request before waiting. WhenAll preserves priority order, not reply order.
+        var requests = StartedClaimantsFor(uri)
+            .Where(c => triggerCharacter is null || AdvertisesSignatureTrigger(c, triggerCharacter))
+            .Select(AskAsync).ToArray();
+        var answers = await Task.WhenAll(requests);
+        ct.ThrowIfCancellationRequested();
+        return answers.FirstOrDefault(a => a is { Signatures.Length: > 0 });
+
+        async Task<SignatureHelp?> AskAsync(ILspClient client)
+        {
+            try
+            {
+                // WaitAsync also bounds a client that ignores cancellation.
+                return await client.RequestSignatureHelpAsync(uri, position, budget.Token)
+                    .WaitAsync(budget.Token);
+            }
+            catch (OperationCanceledException) when (budget.IsCancellationRequested) { return null; }
+        }
+    }
+
+    private static bool AdvertisesSignatureTrigger(ILspClient client, string triggerCharacter) =>
+        client.AdvertisedCapabilities is { ValueKind: JsonValueKind.Object } caps &&
+        caps.TryGetProperty("signatureHelpProvider", out var provider) &&
+        provider.ValueKind == JsonValueKind.Object &&
+        provider.TryGetProperty("triggerCharacters", out var triggers) &&
+        triggers.ValueKind == JsonValueKind.Array &&
+        triggers.EnumerateArray().Any(t => t.ValueKind == JsonValueKind.String && t.GetString() == triggerCharacter);
 
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct));
@@ -435,8 +474,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Two sets of edits to one document cannot both be applied, so these need a winner rather than a merge.
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
-    public Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+    public Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
+        TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
     public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
         TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
@@ -914,7 +953,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(this, e);
     private void OnInnerTrace(object? sender, LogTraceParams e) => TraceReceived?.Invoke(this, e);
 
-    private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender, p);
+    private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender,
+        p with { ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName });
 
     private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 

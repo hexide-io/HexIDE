@@ -67,8 +67,10 @@ public sealed class ArchiveProjectService
         {
             var replacement = await Task.Run(() => workspace.Reload(path));
             foreach (var tab in Tabs(replacement.ContainerPath))
-                if (replacement.TryGetEntry(tab.Entry.Identity, out var entry)) tab.Update(entry);
+                if (replacement.TryGetEntry(tab.Entry.Identity, out var entry))
+                    tab.Update(entry, TwinBasicCompilationConstants.BuildTypeOf(replacement.Container));
                 else dock.CloseDocument(tab);
+            dock.RecentlyClosed?.RefreshArchive(replacement);
             Publish();
         }
         finally { gate.Release(); }
@@ -83,6 +85,7 @@ public sealed class ArchiveProjectService
             if (path == null) workspace.CloseAll();
             else workspace.Close(path);
             foreach (var tab in Tabs(path)) dock.CloseDocument(tab);
+            dock.RecentlyClosed?.CloseArchive(path);
             SelectTreeEntry(false);
             Publish();
         }
@@ -119,7 +122,7 @@ public sealed class ArchiveProjectService
             ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, entry.Identity.ContainerPath));
         if (project == null || !project.TryGetEntry(entry.Identity, out var current)) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
-            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization));
+            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, TwinBasicCompilationConstants.BuildTypeOf(project.Container)));
     }
 
     private ArchiveDocumentViewModel[] Tabs(string? path) => dock.OpenDocuments

@@ -30,9 +30,9 @@ public class InteractClickTests
     private sealed record Scene(Window Window, Button Button, Border Pad, Border Cover, Border Under);
 
     // A Button, a Border that records its pointer events, and a Border lying under another one.
-    private static Scene Build(bool namedPads = false)
+    private static Scene Build(bool namedPads = false, string? buttonName = null)
     {
-        var button = new Button { Content = "go", Width = 80, Height = 30 };
+        var button = new Button { Name = buttonName, Content = "go", Width = 80, Height = 30 };
         var pad = new Border { Name = namedPads ? "Press pad" : null, Background = Brushes.White, Width = 100, Height = 60 };
         var under = new Border { Background = Brushes.White, Width = 60, Height = 40 };
         var cover = new Border { Name = namedPads ? "Release pad" : null, Background = Brushes.Gray, Width = 60, Height = 40 };
@@ -52,6 +52,22 @@ public class InteractClickTests
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         return new Scene(window, button, pad, cover, under);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, "Button[Standard.OpenProject]")]
+    [InlineData("Open", "Button[Open]")]
+    public async Task Click_names_an_automation_id_and_preserves_an_Avalonia_name(string? name, string described)
+    {
+        var scene = Build(buttonName: name);
+        try
+        {
+            Avalonia.Automation.AutomationProperties.SetAutomationId(scene.Button, "Standard.OpenProject");
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Button, "click", null));
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain($"on '{described}'");
+        }
+        finally { scene.Window.Close(); }
     }
 
     [AvaloniaFact]
@@ -352,7 +368,8 @@ public class InteractClickTests
             outcome.Success.Should().BeTrue(outcome.Error);
             vm.Components.Should().ContainSingle();
             var drawn = vm.Components[0];
-            new Rect(drawn.Left, drawn.Top, drawn.Width, drawn.Height).Should().Be(new Rect(20, 20, 80, 40));
+            // One pixel past the release, as vb6.exe's designer draws it (#2058).
+            new Rect(drawn.Left, drawn.Top, drawn.Width, drawn.Height).Should().Be(new Rect(20, 20, 81, 41));
             outcome.Detail.Should().Contain("dragged").And.Contain("Canvas[NewControlSpawner]")
                 .And.Contain("(20, 20)").And.Contain("(100, 60)").And.Contain("pointer capturer");
         }
@@ -424,11 +441,11 @@ public class InteractClickTests
     }
 
     [AvaloniaTheory]
-    [InlineData("10", "'10' is not a point, a button, a key or double")]
+    [InlineData("10", "'10' is not a point, a button, a key, double or hold")]
     [InlineData("1,2,3", "'1,2,3' is not a point")]
     [InlineData("1,2 3,4", "'3,4' is not a point")]
     [InlineData("left right", "names two")]
-    [InlineData("wiggle", "'wiggle' is not a point, a button, a key or double")]
+    [InlineData("wiggle", "'wiggle' is not a point, a button, a key, double or hold")]
     public void A_value_click_cannot_read_is_refused_with_what_it_takes(string value, string why)
     {
         var scene = Build();
