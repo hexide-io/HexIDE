@@ -1105,15 +1105,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_tool_window_visible")]
-    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case. The reply's 'note' says whether the window is now shown or hidden.")]
+    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case. Hiding a window closes it alone, as its tab's close button does, not the other windows tabbed with it. The reply's 'note' says whether the window is now shown or hidden, by the name get_tool_windows gives it, and names any other window that opened or closed with it.")]
     public async Task<MutateResult> SetToolWindowVisibleAsync(string name, bool visible, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var error = ctx.RootViewModel.SetToolWindowVisible(name, visible);
-            return error is null
-                ? new MutateResult(true, null, $"{name} is now {(visible ? "shown" : "hidden")}.")
-                : new MutateResult(false, error);
+            var (error, note) = ctx.RootViewModel.SetToolWindowVisible(name, visible);
+            return error is null ? new MutateResult(true, null, note) : new MutateResult(false, error);
         });
     }
 
@@ -2448,7 +2446,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click/invoke refuse disabled targets, naming a blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
@@ -2549,7 +2547,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, an offset into the whole file get_file_content returns, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first showing under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' is how long to watch. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, so the next action finds nothing over the window; assert the reported text, not a snapshot. Measured headless only. 'window' picks the top-level window the path is resolved against; its own description lists the values. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, an offset into the whole file get_file_content returns, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first showing under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' is how long to watch. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, so assert the reply, not a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. 'window' is as in dump_visual_tree. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
     public async Task<InteractOutcome> HoverAsync(
         string target, double? x = null, double? y = null,
         [Description("How long to watch for a tip, in milliseconds: default 1500, from 0 to 10000. It must exceed the "
@@ -2597,14 +2595,32 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? tip = null;
         string? declared = null;
         var enabled = true;
+        // Where the tip was while it was open, beside the point hovered, both in the window: it closes when the hover ends,
+        // so this is the only time its placement can be read (#1303).
+        (Rect Bounds, Point Hovered)? placed = null;
         try
         {
             var deadline = Environment.TickCount64 + dwellMs;
+            // A tip that is a control is open a moment before its text blocks have their text, so one read that soon found
+            // none: a tip read as having no text keeps the poll going, and is reported only if no text comes (#2336).
+            string? textless = null;
             while (tip is null && Environment.TickCount64 < deadline)
             {
                 await Task.Delay(50, ct);
-                tip = await Dispatcher.UIThread.InvokeAsync(() => DescribeOpenToolTip(hovered));
+                (tip, placed) = await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (DescribeOpenToolTip(hovered) is not { } open)
+                        return ((string?)null, placed);
+                    var window = TopLevel.GetTopLevel(hovered);
+                    return (open.Text,
+                        window is not null && UiAutomationDriver.OpenTipBounds(open.Owner, window) is { } bounds
+                            && at.Receiver.TranslatePoint(at.Point, window) is { } point
+                            ? (bounds, point) : placed);
+                });
+                if (tip is not null && tip.EndsWith(UiAutomationDriver.NoTextToRead, StringComparison.Ordinal))
+                    (textless, tip) = (tip, null);
             }
+            tip ??= textless;
 
             // Nothing OPENED. Say so plainly -- and then, separately, say what the control declares, because the
             // caller's real question is usually "has this button the right tooltip?" and that is answerable from the
@@ -2624,7 +2640,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
 
         if (tip is not null)
-            return raised with { Detail = raised.Detail + "; tip: " + tip };
+            return placed is not { } where
+                ? raised with { Detail = raised.Detail + "; tip: " + tip }
+                : raised with
+                {
+                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")",
+                    TipBounds = [Round(where.Bounds.X), Round(where.Bounds.Y), Round(where.Bounds.Width), Round(where.Bounds.Height)],
+                };
 
         var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms";
         return raised with
@@ -2659,7 +2681,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// quick-info to its <c>TextEditor</c>, which may be above the element a caller addressed.
     /// </para>
     /// </remarks>
-    private static string? DescribeOpenToolTip(Control? from)
+    /// <summary>Where a tip opened, from the point hovered: "its top-left 4 right of and 21 below the point hovered".</summary>
+    internal static string TipPlacement(Rect tip, Point hovered)
+    {
+        var (dx, dy) = (Round(tip.X - hovered.X), Round(tip.Y - hovered.Y));
+        static string N(double v) => v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+        return $"its top-left {N(Math.Abs(dx))} {(dx < 0 ? "left" : "right")} of and {N(Math.Abs(dy))} "
+               + $"{(dy < 0 ? "above" : "below")} the point hovered";
+    }
+
+    private static double Round(double v) => Math.Round(v, 1);
+
+    private static (string Text, Control Owner)? DescribeOpenToolTip(Control? from)
     {
         if (from is null) return null;
 
@@ -2668,20 +2701,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // the CodeEditorView a path resolves to. Walking only upwards finds nothing and reports no tip for
         // one that is plainly open.
         for (var c = from; c is not null; c = c.Parent as Control)
-            if (TipOn(c) is { } fromAncestor) return fromAncestor;
+            if (TipOn(c) is { } fromAncestor) return (fromAncestor, c);
 
         foreach (var c in from.GetVisualDescendants().OfType<Control>())
-            if (TipOn(c) is { } fromDescendant) return fromDescendant;
+            if (TipOn(c) is { } fromDescendant) return (fromDescendant, c);
 
         return null;
     }
 
     private static string? TipOn(Control c) =>
-        ToolTip.GetIsOpen(c) && ToolTip.GetTip(c) is { } tip && tip.ToString() is { Length: > 0 } text
-            ? text.Trim()
-            : null;
+        ToolTip.GetIsOpen(c) && UiAutomationDriver.TipText(ToolTip.GetTip(c)) is { } text ? text : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers'; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — and focuses it first; falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, for reuse. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's own keys do, and is not refused for it. Navigation keys are never refused. Refused while a modal dialog is open over the window, as a person's keys would go to it. " + ProgramWaitNote)]
+    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers'; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' (in the code editor, AvaloniaEdit's TextArea, where its keys are handled) and focuses it first; falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, for reuse. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation keys are never refused. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         [Description("A control's path, as dump_visual_tree prints it.")] string target,
         [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ... A chord written as one, such as 'Ctrl+H', is read as key 'H' with modifiers 'Ctrl', and the reply says so.")] string key,

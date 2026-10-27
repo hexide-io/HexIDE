@@ -14,16 +14,6 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
-### Requirement: Click and invoke SHALL refuse disabled targets with the reason
-`interact` SHALL refuse `click` and `invoke` before sending input to a disabled target or a target in a
-disabled window. When a modal dialog blocks that window, the refusal SHALL identify the dialog and tell
-the caller how to find and answer it first. Otherwise it SHALL say the target must be enabled first.
-
-#### Scenario: A reset prompt disables the running form
-- **WHEN** a caller clicks or invokes a button in the form while a modal reset prompt disables it
-- **THEN** nothing is pressed or invoked
-- **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
-
 ### Requirement: Removing a selected list or tree item SHALL report the resulting selection
 `interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
 report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
@@ -528,6 +518,41 @@ automation name, or else its text, and SHALL list that name, never a type name, 
 - **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
 - **THEN** the item is reached, and a miss in that menu lists it by that name
 
+### Requirement: hover SHALL report a tip by the text it shows
+`hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
+blocks in order. A tip with no text to read SHALL be reported as such, never by a type's name, and an open tip whose
+text has not appeared yet SHALL be read again until it does or the dwell ends.
+
+#### Scenario: A carried control's box in the designer
+- **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
+- **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
+
+### Requirement: hover SHALL report where an opened tip is
+When a tip opens during `hover`, the reply SHALL give its bounds in the window, in the units of `inspect_element`'s
+`boundingRect`, and SHALL say how far its top-left is from the point hovered, since the tip closes when the hover ends.
+
+#### Scenario: A toolbar button's tip
+- **WHEN** `hover` opens the Add Form button's tip
+- **THEN** the reply's `tipBounds` places the tip in the window, and its detail says where that is from the point hovered
+
+### Requirement: Hiding a tool window SHALL close that window alone
+`set_tool_window_visible` with `visible: false` SHALL close the named tool window alone, as its tab's close button does,
+leaving open any other tool window tabbed in the same dock. Its reply SHALL say what the window is now, and SHALL name
+any other tool window that opened or closed with it.
+
+#### Scenario: Two tools tabbed in one dock
+- **WHEN** the Toolbox and the Properties window are tabs of one dock and a caller hides Properties
+- **THEN** only Properties closes, the Toolbox stays open, and the reply is "Properties is now hidden."
+
+### Requirement: press_key SHALL refuse a disabled control
+`press_key` SHALL refuse a target that is not effectively enabled with the refusal `interact` gives a disabled target,
+and SHALL NOT raise the key on it by any route. `inspect_element` SHALL
+report `isKeyboardFocusable` false for such a control.
+
+#### Scenario: The disabled region combo in Options
+- **WHEN** `press_key` presses Down on Options → Language's region combo while it is disabled
+- **THEN** the reply is a refusal saying the combo is disabled and nothing was done, and no key reaches it
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
@@ -746,6 +771,26 @@ pressing.
 
 - **WHEN** a drag pressed on a tool window's title strip releases where no drop target is
 - **THEN** the reply says the layout is unchanged, so nothing was docked
+
+### Requirement: Disabled interaction targets explain their refusal
+The server SHALL refuse `interact` provider and pointer actions on an effectively disabled target before
+acting, naming the control, `"isEnabled": false`, and the refused action, and stating that nothing was
+done. The refusal SHALL name the disabling container when enablement is inherited. When a modal dialog
+blocks the window, it SHALL name the dialog and direct the caller to find and answer it first. Reflection
+actions `invoke_command` and `set_property` SHALL continue to act on the view model.
+
+#### Scenario: Invoking a disabled toolbar button
+- **WHEN** `interact` invokes a showing button disabled directly or through its container
+- **THEN** the reply explains that it is disabled and nothing was done, without reporting an exception
+
+#### Scenario: A disabled Frame contains an enabled button
+- **WHEN** a caller acts on a button whose Frame disables it
+- **THEN** the refusal names the Frame and the action, and nothing is done
+
+#### Scenario: A reset prompt disables the running form
+- **WHEN** a caller acts on a control while a modal reset prompt disables its window
+- **THEN** the refusal names the blocking dialog and directs the caller to answer it
+- **AND** nothing is done
 
 ### Requirement: A double click's second press SHALL land where the first did
 The second press of `click` with `double` SHALL go to whatever takes the pointer at the first press's point when it is

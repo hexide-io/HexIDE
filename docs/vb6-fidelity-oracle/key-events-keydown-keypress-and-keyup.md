@@ -100,10 +100,77 @@ Form2, empty, raised its own events for every key:
 - **Alt+X:** no KeyPress.
 - **Tab:** KeyDown 9 and KeyPress 9, and **no KeyUp**. **That resisted explanation.**
 
+### CheckBox, OptionButton, ComboBox and a multi-line TextBox (2026-10-27)
+
+**The probe:**
+- **The form:** Check1, Combo1 (Style 0, a dropdown combo), Combo2 (Style 2, a dropdown list), Option1 and Option2,
+  Text2 (MultiLine), then Command1 (Default) and Command2 (Cancel), in that tab order.
+- **The lists:** each combo held `apple`, `banana` and `cherry`.
+- **The focus:** a Timer moved it with SetFocus to the control the driver named, so no key was spent on getting there.
+- **The modes:** A, as built; B, with KeyPreview True; D, with neither a Default nor a Cancel button.
+- **The input:** SendKeys on the guest's console.
+- **The builds:** native and p-code logged the same key events in every mode. One native run of mode D read the
+  driver's focus file while it was still being written, and logged an empty name for it. The key events after it
+  matched.
+
+**Under KeyPreview, the form's event still comes first for every key,** one event at a time, as for Text1 and List1:
+Form KeyDown, control KeyDown, Form KeyPress, control KeyPress, then Change or Click, Form KeyUp, control KeyUp. With
+Alt+Down, each of the two keys went through that pairing in turn.
+
+**The CheckBox and the OptionButton:**
+
+| Key | CheckBox | OptionButton, already selected |
+|---|---|---|
+| Space | KeyDown 32, KeyPress 32, KeyUp 32, **then Click**, with Value 1 | KeyDown 32, KeyPress 32, KeyUp 32, **no Click** |
+| `k` | KeyDown, KeyPress 107, KeyUp | the same |
+| Enter, Esc, with a Default and a Cancel button | **Command1 Click; Command2 Click. No key event anywhere**, the form's included under KeyPreview | the same |
+| Enter, Esc, with neither (D) | KeyDown, KeyPress and KeyUp, 13 and 27 | the same |
+| Down | **the focus moved to Combo1, the next control,** and Combo1 raised **KeyUp 40**, with no KeyDown | **Option2 got the focus and was selected:** GotFocus, then Click. No key event on either |
+| Up, from Option2 | | Option1: GotFocus, then Click |
+
+- **SetFocus on an OptionButton that isn't selected selects it:** GotFocus, then Click with Value True.
+- **The KeyUp after Down went to the control that took the focus** when that was a ComboBox. In the earlier probe, Down
+  on Command1 moved the focus to Command2, and Command2 raised no KeyUp.
+
+**The ComboBox, both styles:**
+
+| Key | Style 0, dropdown combo | Style 2, dropdown list |
+|---|---|---|
+| a letter, list closed | KeyDown, KeyPress, **Change**, KeyUp. `k` typed | KeyDown, KeyPress, **Click**, KeyUp. `b` selected banana, ListIndex 1 |
+| Down, list closed | KeyDown 40, **Click with ListIndex 0**, KeyUp. Text became `apple`, **with no Change** | KeyDown 40, Click with ListIndex 2, KeyUp |
+| Alt+Down | KeyDown 18, KeyDown 40 Shift 4, **DropDown**, KeyUp 40 Shift 4, KeyUp 18 | the same |
+| Down, list open | KeyDown, Click with the next item, KeyUp | the same. On the last item: KeyDown and KeyUp, no Click |
+| **Enter, list open** | **KeyDown 13 and KeyPress 13, and no KeyUp.** The list closed. **Command1 wasn't clicked** | the same |
+| **Esc, list open** | **KeyDown 27 and KeyPress 27, and no KeyUp.** **Command2 wasn't clicked** | the same |
+| Enter, Esc, list closed | Command1 Click; Command2 Click. No key event | the same |
+| F4, list closed; F4 again | KeyDown 115, DropDown, KeyUp 115; then KeyDown 115 and KeyUp 115 | |
+
+- **With neither a Default nor a Cancel button (D), Enter and Esc in an open list did raise their KeyUp,** as did Enter
+  and Esc with the list closed.
+- The ComboBox has no CloseUp event, so closing the list raised nothing of its own.
+
+**The multi-line TextBox:**
+
+| Key | With a Default and a Cancel button | With neither (D) |
+|---|---|---|
+| **Enter** | **Command1 Click, and no key event. No line break** | KeyDown 13, KeyPress 13, Change with `a` vbCrLf, KeyUp 13 |
+| **Ctrl+Enter** | KeyDown 17 Shift 2, KeyDown 13 Shift 2, **KeyPress 10**, Change with a line break added, KeyUp 13 Shift 2, KeyUp 17 | the same |
+| Esc | Command2 Click | KeyDown 27, KeyPress 27, KeyUp 27 |
+| Tab | **the focus moved to Command1.** No tab was typed | the same |
+
+**This overturned a guess recorded here earlier,** that a multi-line TextBox takes Enter rather than the Default
+button. **The Default button takes it,** and Ctrl+Enter is how a user types a line break, with KeyAscii 10.
+
+**Can KeyAscii = 0 stop Enter reaching a Default button? No.** Whenever the Default button took Enter, in Text1, List1,
+Check1, Option1, Text2, or a combo with its list closed, no KeyDown and no KeyPress was raised. That held on the control
+and, under KeyPreview, on the form. There is no handler in which to set KeyCode or KeyAscii to 0. The same holds for Esc
+and the Cancel button. **The only thing that kept Enter from the Default button was an open dropdown list,** which
+took the key itself.
+
 **Unmeasured:**
 - a form with controls but none focusable;
-- a multi-line TextBox with Enter, which takes it rather than the Default button;
-- the other intrinsic controls: CheckBox, OptionButton, ComboBox, the scroll bars and PictureBox;
+- a ComboBox of Style 1, Simple, and arrows in a combo's edit part with the list closed and Text typed;
+- the scroll bars and the PictureBox;
 - a UserControl's own key events;
 - holding a key down for auto-repeat;
 - the key events of a modal form shown from a key handler.

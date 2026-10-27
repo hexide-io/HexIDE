@@ -2,8 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:HexIDE.AIChat.Views"
              x:DataType="local:ChatViewModel"
-             x:Class="HexIDE.AIChat.Views.ChatView"
-             MinWidth="280">
+             x:Class="HexIDE.AIChat.Views.ChatView">
     <Grid RowDefinitions="*,Auto">
 
         <!-- Message history -->
