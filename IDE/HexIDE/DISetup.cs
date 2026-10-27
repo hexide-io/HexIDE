@@ -240,7 +240,8 @@ public partial class DISetup
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
                 var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
-                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms))
+                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    locale: () => localization.ResolvedLanguage)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and

@@ -26,6 +26,9 @@ internal sealed class IdeContext : IDisposable
     public AddinProjectTemplateService AddinProjectTemplateService { get; }
     public ILanguageSwitchService LanguageSwitch { get; }
 
+    /// <summary>The saved settings, for a tool that confirms a choice the Options dialog would otherwise save (#2268).</summary>
+    public ISettingsService Settings { get; }
+
     /// <summary>The IDE's strings, for a refusal a tool shares with the UI.</summary>
     public HexIDE.Localization.ILocalizationService Localization { get; }
 
@@ -53,7 +56,8 @@ internal sealed class IdeContext : IDisposable
         ILanguageSwitchService languageSwitch,
         HexIDE.Conversations.ConversationLog capture,
         HexIDE.Redaction.Pseudonymiser pseudonyms,
-        HexIDE.Localization.ILocalizationService localization)
+        HexIDE.Localization.ILocalizationService localization,
+        ISettingsService settings)
     {
         ProjectManager = projectManager;
         DocumentDockService = documentDockService;
@@ -74,6 +78,7 @@ internal sealed class IdeContext : IDisposable
         Capture = capture;
         Pseudonyms = pseudonyms;
         Localization = localization;
+        Settings = settings;
     }
 
     public void Dispose() => Diagnostics.Dispose();

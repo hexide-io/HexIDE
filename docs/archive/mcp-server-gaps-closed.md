@@ -9,6 +9,165 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## A drag can't stop before its release, and the designer's preview and grab handles were not in the tree — **CLOSED** (#2231, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's live check).** `click` with `to` presses, raises its held moves and releases in
+one call, so nothing that shows only while the button is down can be seen: the designer's draw preview
+(`NewControlSpawnerPhantom`), the rubber band, a control's outline while it moves or resizes, Dock's drop targets, and a
+running form's MouseMove with a button held. `dump_visual_tree {"window":"ide","match":"NewControlSpawner","interactiveOnly":false}`
+answered `Nothing matches 'NewControlSpawner'.`, though a drag's reply named `Canvas[NewControlSpawner]`. On 2026-10-27,
+#2232's live check found a selected control's grab handles missing too: `match "Resize"` found nothing, though a move
+drag's reply named `'ResizeAdorner'` as the pointer capturer.
+
+**Workaround.** Check only where a control lands. For a resize, press at a guessed point on the control's edge.
+
+**Part 1, fixed (#2231).** The preview, its canvas, the rubber band, the resize adorner and its eight handles carry
+AutomationIds, and the control view lists an adorner under the element it adorns. A handle is
+`…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]`, and `inspect_element` reads the preview's bounds.
+
+**Part 2, fixed (#2231).** `click … to x,y hold` stops after the held moves with the button still down, and the new
+`release` action lets it go in a later call, at an optional point it moves to first, with an unheld drag's reply. While
+it is held, every reply carries a `heldButton` note (`HeldButtonNote`, beside `OpenDialogNote`), `click`, `double_click`
+and `hover` are refused, and keys still go. After 120 s with no call the hold is abandoned, as decided on the issue:
+Escape, held moves back to the press, and a release there. The next reply says what the designer's undo stack recorded,
+if anything. Measured headlessly (`HeldButtonTests`): an abandoned move and an abandoned Dock drag change nothing, and an
+abandoned draw places a 2 by 2 control, `Add: Command1`.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).**
+
+- With the Command tool on, `interact click` on `…/None[NewControlSpawner]` with `"20,20 to 100,60 hold"` replied that
+  the left button was still held and that the canvas had the pointer capture, with a `heldButton` note. `inspect_element`
+  on `…/None[NewControlSpawnerPhantom]` then had no `isHidden` and a `boundingRect` 80 by 40, and `take_snapshot` showed
+  the dotted preview on the form.
+- `get_project_info` carried the same `heldButton`. `click "5,5"` and `hover` were refused, naming the held button.
+- `release` with `"140,90"` replied as an unheld drag does, released at (140, 90), with no `heldButton` after it.
+- Holding `…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]` with `"4,4 to 44,34 hold"` grew Command1
+  from 121 by 65 to 160 by 88 while held. With nothing called for two minutes, the next `get_project_info` said the hold
+  was abandoned at 07:46:27 UTC: Escape went to the focused `ControlItem`, and it was let go where it was pressed.
+  Command1 was then 120 by 64, not 121 by 65: a resize returns to the grid, and a drawn control is a pixel larger than
+  its grid cells, so the note said `The designer recorded 'Resize: Command1' anyway, so it did not cancel; Undo takes it
+  back.` The call after that had no `heldButton`, and `release` was refused, since nothing was held.
+
+## `take_snapshot` left out text a control drew after popping a clip, above 100% scaling — **CLOSED** (#2293, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, 150% scaling, #2254's live check).** `take_snapshot` of the running form in
+`corpus/inbox-controls/saved/statusbar` showed "Ready" in the StatusBar's first panel and nothing in its second, in a clean
+reply. The compositor's own frame of the same window showed the date there too. So the live check reported a StatusBar
+fault that wasn't there.
+
+**Cause.** An Avalonia.Skia defect that only a `RenderTargetBitmap` at a DPI other than 96 meets. Its scale is kept apart
+and multiplied into each transform set, `PopClip` rebuilds the current transform from the canvas matrix, which already
+holds the scale, and so the first transform pushed after a popped clip gets it twice. Drawing text pushes one for the
+text's origin, so above 100% the glyphs landed outside the bitmap. `SnapshotComposer` rendered at `96 * scaling` DPI, so
+it met this whenever a control's own `Render` drew text after popping a clip, as the StatusBar does per panel.
+
+**Workaround.** None in the tools. A diagnostic build saved the compositor's frame.
+
+**Fixed (#2293).** `SnapshotComposer` draws the window and each popup with `Compositor.CreateCompositionVisualSnapshot`,
+which is what the screen shows. A window in no frame yet, as one shown a moment ago is, is waited for. If the compositor
+gives no picture within 5 s, a render target draws it, and the reply's `note` says so, since that picture can lack such
+text. `SnapshotScalingTests` draws two clipped texts at 100%, 150% and 200%: the second is missing from a render target
+at 150% and 200% (0 dark pixels against 142 in the compositor's image at 150%), and present in the snapshot.
+
+**Live (2026-10-27, a Debug build of the fix on Windows at 150%, headless `claude -p` through the hexide tools).**
+
+- Merged locally with #2254, which isn't on main yet, the running StatusBar form's `take_snapshot` showed "Ready" in the
+  first panel and "27/10/2026" in the second, with no fallback note.
+- On the fix alone, the IDE, the File menu dropped down (a window of its own on the desktop, composed in place under
+  the menu bar), the Options dialog and a running form all captured as before, at scale 1.5.
+
+---
+
+## `set_window_state` with no window manager said the window manager hadn't confirmed, and to re-read — **CLOSED** (#2185, 2026-10-27)
+
+**Symptom (2026-10-26, openSUSE Leap 16 VM, Xvfb `:99` with no window manager, #1755's live check).**
+`set_window_state {"state":"Minimized"}` answered `"error":"The window manager has not confirmed the requested change."`
+with a note to re-read with `get_window_state`, and `Maximized` the same. Nothing would ever confirm either, and
+re-reading showed `Normal` every time. Nothing said that minimize and maximize couldn't work on that display while a
+restore with a position and size could.
+
+**Fixed (#2185).** When a minimize or maximize goes unconfirmed, HexIDE reads the X11 root window's
+`_NET_SUPPORTING_WM_CHECK`, which a window manager sets (`X11WindowManager`, libX11 through `LibraryImport`, in the
+DEBUG-only server). With none there, the reply says `No window manager is running on this display, so nothing will
+apply Minimized.`, explains why, and says Normal with x, y, width and height still works. A window manager that is
+there but slow, a display that can't be read, another platform, and an unconfirmed restore all keep the old text.
+Guarded by `WindowStateUnconfirmedTests`.
+
+**Live (2026-10-27, a Debug build of the fix under WSL, Ubuntu 26.04, headless `claude -p` through the hexide tools).**
+
+- On Xvfb `:99`, where `xprop -root _NET_SUPPORTING_WM_CHECK` finds no such atom, Minimized and Maximized each
+  answered with the new text, and `get_window_state` agreed with the reply's `window` field. A Normal with
+  `x 40, y 30, 900×640` was confirmed.
+- On WSLg's `:0`, whose root window carries `_NET_SUPPORTING_WM_CHECK`, the same build kept the old text for an
+  unconfirmed Minimized, and confirmed Maximized and the same Normal.
+
+## `set_ide_language`'s Keep didn't save the language — **CLOSED** (#2268, 2026-10-27)
+
+**Symptom (2026-10-27, rdcore's live check).** `set_ide_language` opened the confirmation gate, and Keep was pressed on
+it. The IDE stayed in the new language for the session, and the next start came back in the one saved before, *System
+default*. The reply said only that the gate "reverts on its own unless Keep is pressed", which a caller reads as Keep
+being the whole of confirming.
+
+**Cause.** The gate's Keep only leaves the language applied. The Options page saves it when the dialog closes with OK
+(`LanguagePageViewModel.SaveToSettings`), and the tool has no OK to press. The localization spec's *Confirming the
+change* says a confirmed language persists across restarts.
+
+**Fixed (#2268).** The tool saves the language to `ActiveLanguage` when its gate closes on Keep. Revert or the countdown
+saves nothing. It saves in the tool and not in the gate service, because there Cancel in Options still takes back a
+kept language. The reply says what Keep and Revert will do. Asking for the language already in use opens no gate, and
+the reply now says so, where before it claimed a gate was open. Guarded by `SetIdeLanguageSavesTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools, in the session's
+own profile).**
+
+- `set_ide_language {"id":"fr"}` replied `Switching to French ('fr'). A confirmation gate is open: Keep saves French
+  for later starts, as OK in Options does, and Revert or its countdown goes back to 'system' and saves nothing. …`.
+- `interact` invoked `Conserver  /  Keep`. The profile's `settings.json` then held `"activeLanguage": "fr"`.
+- After `shutdown_ide` and a relaunch, the menu bar and status bar were French from the start.
+- `set_ide_language {"id":"fr"}` then replied `French ('fr') is already the IDE's language, so no confirmation gate
+  was opened. It is saved for later starts.`, and no dialog was open.
+- The check also found the Properties description staying in English after the live switch, which is #2270.
+
+---
+
+## Every designer drag's reply said "nothing was docked" — **CLOSED** (#2232, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's and #2217's live checks).** All 18 drags on the form designer, moving, resizing
+and drawing controls, ended their replies with a sentence about Dock, though none of them involved it:
+`interact {"target":"…/List[ControlsContainer]/ListItem[Command1]","action":"click","value":"5,8 to 5,56","window":"ide"}`
+→ `dragged the left button at (5, 8) on 'ControlItem', … (pointer capturer); Dock's layout is unchanged, so nothing was
+docked: …`. Each drag did what it should. A first-time caller reads "nothing was docked" as the drag having failed.
+
+**Cause.** #2175 added the clause for every drag pressed inside a `DockControl`, and the designer is inside one.
+
+**Fixed (#2232).** The reply says what Dock moved whenever it moved something. It says the layout is unchanged only for a
+drag pressed on one of Dock's drag areas (`DockProperties.IsDragArea`: a tab, a tool window's title strip), which is
+where Dock itself starts a drag. Any other drag says nothing about Dock. Guarded by `DragDockTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Moving Command1 by `5,8 to 45,58`, and drawing a TextBox with the toolbox's Text tool, replied without the clause.
+- Properties dragged along its own title strip still said the layout was unchanged, and dragged onto the Project dock
+  said `Dock moved 'Properties' from a dock of its own to the dock with 'Project Group - Group1'`.
+
+## `press_key` refused a chord written as one key as an unknown key — **CLOSED** (#2189, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2030's live check, Sonnet).**
+`press_key {"target":"…/Custom[Root]/None[TextEditor]","key":"Ctrl+H","window":"ide"}` answered
+`unknown key 'Ctrl+H' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)`. `H` was never the problem:
+modifiers go in their own parameter, and the refusal didn't say so. The caller gave up on the keyboard and opened
+Replace from the Edit menu.
+
+**Fixed (#2189).** A `key` with a `+` between two parts is read as its last part, with the parts before it as
+modifiers added to any `modifiers` given, and the reply says so: `pressed Control+H …; 'Ctrl+H' was read as key 'H'
+with modifiers 'Ctrl'`. A leading part that is not a modifier is refused naming it, and an unknown last part is named
+in the chord. Combined modifiers now read `Control+Shift+End`, not `Control, Shift+End`. Guarded by
+`UiAutomationDriverTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** `Ctrl+H` in
+the code window opened Replace, as `H` with `Ctrl` does. `A+B` and `Ctrl+Nope` were refused naming the wrong part, and
+`Shift+End` with `Ctrl` replied `pressed Control+Shift+End …, added to 'Ctrl'`.
+
 ## Keyboard `type_text` counted a prompt-raising key as typed — **CLOSED** (#2035, 2026-10-26)
 
 **Symptom (2026-10-26, Windows, #1975's live check).** Keyboard `type_text` of `xyz` into the code window

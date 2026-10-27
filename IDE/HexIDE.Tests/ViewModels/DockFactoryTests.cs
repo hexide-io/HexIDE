@@ -1,5 +1,8 @@
 using System.Linq;
+using Dock.Model.Core;
+using Dock.Model.Controls;
 using System.Runtime.CompilerServices;
+using Dock.Model.Mvvm.Controls;
 using HexIDE;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -148,6 +151,29 @@ public class DockFactoryTests
     }
 
     [Fact]
+    public void PlaceTool_ReopensToolbox_InNonemptyLeftDock()
+    {
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var main = (IDock)root.DefaultDockable!;
+        var original = main.VisibleDockables!.OfType<IToolDock>().Single(d => d.Alignment == Alignment.Left);
+        var toolbox = (Dock.Model.Mvvm.Controls.Tool)original.ActiveDockable!;
+        toolbox.CanClose = true;
+        factory.CloseDockable(toolbox);
+        main.VisibleDockables!.OfType<IToolDock>().Should().NotContain(d => d.Alignment == Alignment.Left);
+
+        factory.PlaceTool(root, toolbox, rightFallback: false);
+
+        var left = main.VisibleDockables!.OfType<IToolDock>().Single(d => d.Alignment == Alignment.Left);
+        left.VisibleDockables.Should().ContainSingle().Which.Should().BeSameAs(toolbox);
+        left.ActiveDockable.Should().BeSameAs(toolbox);
+        left.Proportion.Should().BeGreaterThan(0);
+        left.IsEmpty.Should().BeFalse();
+        toolbox.Owner.Should().BeSameAs(left);
+    }
+
+    [Fact]
     public void CaptureManifest_AfterClosingAnOpenedTool_RecordsItClosed()
     {
         // Regression guard: a closed dockable keeps a stale Owner pointing at its old parent.
@@ -260,6 +286,44 @@ public class DockFactoryTests
         factory.CaptureManifest(restored).Tools.Should().Equal(captured.Tools);
     }
 
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CaptureManifest_LiveToolInUnrecognizedDock_RestoresOpenInHomeRegion(bool nested)
+    {
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        if (nested)
+        {
+            // A far-left drop wraps the previous main dock in another proportional dock.
+            var main = root.DefaultDockable!;
+            var wrapper = new ProportionalDock { VisibleDockables = factory.CreateList(main) };
+            root.VisibleDockables = factory.CreateList<IDockable>(wrapper);
+            root.DefaultDockable = wrapper;
+            main.Owner = wrapper;
+            wrapper.Owner = root;
+        }
+        else
+        {
+            var main = (IDock)root.DefaultDockable!;
+            var dock = new ToolDock { VisibleDockables = factory.CreateList<IDockable>(immediate) };
+            main.VisibleDockables!.Add(dock);
+            dock.Owner = main;
+            immediate.Owner = dock;
+        }
+
+        var key = nested ? "toolbox" : "immediate";
+        var home = LayoutManifest.Default.Tools.Single(t => t.Key == key);
+        var manifest = factory.CaptureManifest(root);
+        manifest.Tools.Single(t => t.Key == key).Should().Be(home with { Open = true });
+
+        var (restoredFactory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(manifest)));
+        var restoredRoot = restoredFactory.CreateLayout();
+        restoredFactory.InitLayout(restoredRoot);
+        restoredFactory.CaptureManifest(restoredRoot).Tools.Single(t => t.Key == key).Open.Should().BeTrue();
+    }
 
     [Theory]
     [InlineData(DockRegion.Left)]
