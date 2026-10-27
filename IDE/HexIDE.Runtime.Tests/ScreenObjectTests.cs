@@ -166,6 +166,43 @@ public class ScreenObjectTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task Option_Explicit_does_not_make_Screen_undeclared()
+    {
+        await Run("""
+            Option Explicit
+            Screen.MousePointer = 11
+            Debug.Print TypeName(Screen) & " " & Screen.MousePointer
+            """);
+        Printed("Screen 11");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_variable_the_program_names_Screen_wins(bool explicitDeclarations)
+    {
+        await Run((explicitDeclarations ? "Option Explicit" + Environment.NewLine : "") + """
+            Dim Screen As String
+            Screen = "mine"
+            Debug.Print Screen
+            """);
+        Printed("mine");
+    }
+
+    [Fact]
+    public async Task A_function_the_program_names_Screen_wins_as_a_chains_head_too()
+    {
+        await Run("""
+            Function Screen() As Collection
+                Set Screen = New Collection
+                Screen.Add "x"
+            End Function
+            Debug.Print Screen.Count
+            """);
+        AssertDebugLog([new Vb6Value(1L)]);
+    }
+
+    [Fact]
     public async Task A_variable_declared_As_Screen_holds_it()
     {
         await Run("""

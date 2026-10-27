@@ -666,7 +666,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Debug", () => new Vb6Value(new DebugProxy(stdLib)));
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
-        SeedProgramGlobal("Screen", () => new Vb6Value(Screen));
 
         // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
         // (#880). Set after every module's pre-pass, which is what lists them.
@@ -679,8 +678,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private VbScreen? screen;
 
-    /// <summary>The program-global <c>Screen</c> object (#2431).</summary>
+    /// <summary>
+    /// The program-global <c>Screen</c> object (#2431). Not a seeded variable, as <c>App</c> is: like <c>Clipboard</c>, the
+    /// name is reached only where nothing the program declares claims it, so a user's <c>Function Screen</c> or
+    /// <c>Dim Screen</c> still wins, and the Locals window does not list it.
+    /// </summary>
     public VbScreen Screen => screen ??= new VbScreen(this, stdLib);
+
+    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431).</summary>
+    internal Vb6Value? UnclaimedLibraryObject(string name) =>
+        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen) : (Vb6Value?)null;
 
     /// <summary>
     /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program

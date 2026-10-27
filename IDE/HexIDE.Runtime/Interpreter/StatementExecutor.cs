@@ -337,7 +337,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
             "Reading an object's default member calls into the program, which is not available in the Immediate window."),
-        VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
+        VbObject or VbErr or VbApp or VbScreen => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
 
@@ -2231,6 +2231,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 bool leadFound;
                 if (!interpreter.TryReadNow(currentEnv, identifier, out leadFound, out variable, out var leadNeed))
                     (leadFound, variable) = await interpreter.ReadVariableAfter(currentEnv, identifier, leadNeed!);
+                // `Screen.MousePointer = x`, where nothing the program declares is named Screen (#2431).
+                if (!leadFound && interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
+                    (leadFound, variable) = (true, libraryObject);
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
