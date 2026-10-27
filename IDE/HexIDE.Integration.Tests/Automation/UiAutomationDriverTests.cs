@@ -191,7 +191,8 @@ public class UiAutomationDriverTests
 
             var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
             error.Should().BeNull();
-            UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing");
+            UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing")
+                .And.NotContain("copy that shows");
             clicks.Should().Be(0);
         }
         finally { window.Close(); }
@@ -363,9 +364,11 @@ public class UiAutomationDriverTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Appearance")]
-    [InlineData("Apparence")]
-    public void Select_hidden_property_names_the_category_and_a_toggle_that_opens_it(string header)
+    [InlineData("Appearance", false)]
+    [InlineData("Apparence", false)]
+    [InlineData("Appearance", true)]
+    [InlineData("Apparence", true)]
+    public void Select_hidden_property_names_the_category_and_a_toggle_that_opens_it(string header, bool byPath)
     {
         var loc = Substitute.For<HexIDE.Localization.ILocalizationService>();
         loc.GetString("Str.PropCategory.Appearance").Returns(header);
@@ -387,9 +390,20 @@ public class UiAutomationDriverTests
             var list = view.FindControl<ListBox>("CategorizedProperties")!;
             category.IsExpanded = false;
             Dispatcher.UIThread.RunJobs();
-            var refused = UiAutomationDriver.Interact(list, "select", "BackColor");
+            Control target = list;
+            if (byPath)
+            {
+                var node = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 30, interactiveOnly: false))
+                    .Single(n => n.Name == "BackColor" && n.ControlType == "ListItem");
+                node.IsHidden.Should().BeTrue();
+                var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
+                error.Should().BeNull();
+                target = resolved!;
+            }
+            var refused = UiAutomationDriver.Interact(target, "select", byPath ? null : "BackColor");
             refused.Success.Should().BeFalse();
-            refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it");
+            refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it")
+                .And.NotContain("copy that shows");
             list.SelectedItem.Should().BeNull();
             category.IsExpanded.Should().BeFalse();
 
