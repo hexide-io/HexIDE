@@ -350,26 +350,38 @@ public class WindowManager : IWindowManager
         }
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var owner = GetTopWindow(desktop);
-            var window = new DialogWindow()
-            {
-                Content = dialog,
-                DataContext = dialog,
-                SizeToContent = SizeToContent.WidthAndHeight,
-                CanResize = dialog.CanResize,
-                ShowActivated = true,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                // Inherit the chrome's reading direction so dialogs mirror under an RTL language.
-                FlowDirection = owner.FlowDirection
-            };
-            if (dialog.CanResize)
-            {
-                // Let the window measure itself at content size, then unlock for user resizing
-                window.Opened += (_, _) => window.SizeToContent = SizeToContent.Manual;
-            }
-            return await window.ShowDialog<bool>(owner);
+            return await ShowDialog(desktop, dialog);
         }
         throw new NotImplementedException();
+    }
+
+    internal async Task<bool> ShowDialog(IClassicDesktopStyleApplicationLifetime desktop, IDialog dialog)
+    {
+        var owner = GetTopWindow(desktop);
+        if (dialog is LanguageRevertGateViewModel)
+        {
+            // Activation can still point at the main window while Options is open (#623).
+            owner = desktop.MainWindow ?? owner;
+            while (owner.OwnedWindows.LastOrDefault(child => child.IsVisible) is { } child)
+                owner = child;
+        }
+        var window = new DialogWindow()
+        {
+            Content = dialog,
+            DataContext = dialog,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = dialog.CanResize,
+            ShowActivated = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            // Inherit the chrome's reading direction so dialogs mirror under an RTL language.
+            FlowDirection = owner.FlowDirection
+        };
+        if (dialog.CanResize)
+        {
+            // Let the window measure itself at content size, then unlock for user resizing
+            window.Opened += (_, _) => window.SizeToContent = SizeToContent.Manual;
+        }
+        return await window.ShowDialog<bool>(owner);
     }
 
     private static Window MakeDialogWindow(string title, Control content) => new Window
