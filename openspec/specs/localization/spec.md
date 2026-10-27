@@ -136,6 +136,11 @@ not be reverted before the user was already looking at it.
 - **AND** the Locals ready header and out-of-context watch values update immediately
 - **AND** displayed frame names, evaluated values and debugger errors remain intact
 
+#### Scenario: Properties window stays open during a language change
+- **WHEN** the IDE language changes while a property is selected
+- **THEN** existing property descriptions and category headers update to the active language
+- **AND** the selected property, its value and category expansion state are preserved
+
 ### Requirement: A language change SHALL be revertible without reading the new language
 After a language change the IDE SHALL offer to keep or undo it in a way that does not require reading the
 new language, and SHALL undo it automatically if not confirmed within a short period.
