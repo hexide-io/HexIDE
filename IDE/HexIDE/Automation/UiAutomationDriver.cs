@@ -3152,9 +3152,24 @@ public static class UiAutomationDriver
         var mechanism = "keyboard"; // No input path has been used yet.
         try
         {
+            // A chord written as one key, as a person writes it, was refused as an unknown key, which sent the caller to the
+            // key names when 'H' was never the problem (#2189). Read it as the key and its modifiers, and say so.
+            var asWritten = key.Trim();
+            var chordRead = string.Empty;
+            if (ChordAsWritten(key) is { } written)
+            {
+                if (!TryParseModifiers(written.Modifiers, out _, out _))
+                    return new InteractOutcome(false, "keyboard", null,
+                        $"'{asWritten}' is not a key, and not a chord either: '{written.Modifiers}' is not a modifier. press_key presses "
+                        + "one key: pass it as 'key', and any of Ctrl, Shift, Alt and Meta as 'modifiers'");
+                chordRead = $"; '{asWritten}' was read as key '{written.Key}' with modifiers '{written.Modifiers}'"
+                            + (string.IsNullOrWhiteSpace(modifiers) ? "" : $", added to '{modifiers}'");
+                key = written.Key;
+                modifiers = string.IsNullOrWhiteSpace(modifiers) ? written.Modifiers : $"{modifiers}+{written.Modifiers}";
+            }
             if (!Enum.TryParse<Key>((key ?? string.Empty).Trim(), ignoreCase: true, out var parsedKey))
                 return new InteractOutcome(false, "keyboard", null,
-                    $"unknown key '{key}' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)");
+                    $"unknown key '{key}'{(chordRead.Length > 0 ? $" in '{asWritten}'" : "")} — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)");
             if (!TryParseModifiers(modifiers, out var mods, out var modError))
                 return new InteractOutcome(false, "keyboard", null, modError);
 
@@ -3222,12 +3237,13 @@ public static class UiAutomationDriver
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
             // nothing happens", and in each the answer was that the event went to a control other than the
             // one the caller meant — which the old reply had no way to say.
-            var chord = mods == KeyModifiers.None ? string.Empty : mods + "+";
+            // Flags print as "Control, Shift", which read as two presses (#2189).
+            var chord = mods == KeyModifiers.None ? string.Empty : mods.ToString().Replace(", ", "+") + "+";
             var changed = partial is not null && deletionArea is not null
                 ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
                   + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}", null);
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}{chordRead}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -3877,6 +3893,14 @@ public static class UiAutomationDriver
         $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into"
         + (control is ComboBox { IsEditable: false }
             ? "; it is a dropdown that is not editable: 'expand' it, then 'select' its item by text" : "");
+
+    // "Ctrl+H" as its key and modifiers, or null for a key with no '+' between two parts. "Ctrl++" presses '+'.
+    private static (string Key, string Modifiers)? ChordAsWritten(string? key)
+    {
+        var text = (key ?? string.Empty).Trim();
+        var split = text.EndsWith('+') ? text.Length - 2 : text.LastIndexOf('+');
+        return split > 0 && text[split] == '+' ? (text[(split + 1)..].Trim(), text[..split].Trim()) : null;
+    }
 
     private static bool TryParseModifiers(string? modifiers, out KeyModifiers result, out string? error)
     {
