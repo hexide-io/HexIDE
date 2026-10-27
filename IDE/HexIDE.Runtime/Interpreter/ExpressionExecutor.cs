@@ -1881,10 +1881,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // Module-qualified: a Public procedure (private is visible only when qualifying the current module),
         // else a module-level Public variable/const.
+        // A character on the member, `Module2.pS$`, is checked as it is on the bare name (measured, #742).
         var module = qualifier.Module!;
+        var memberHint = member.iCS_S_VariableOrProcedureCall()?.typeHint() ?? member.iCS_S_ProcedureOrArrayCall()?.typeHint();
         if (module.PrePass.Procedures.TryGetValue(memberName, out var proc)
             && (!proc.IsPrivate || ReferenceEquals(module, currentModule)))
         {
+            if (memberHint is not null)
+                RefuseMismatchedCharacter(proc, memberHint);
             var callArgs = argsCtx != null ? await ResolveCallArgs(argsCtx) : new List<CallArg>();
             if (await interpreter.RunProcedure(module, proc, callArgs, callerFrames: stmtFrames) is { } result)
                 return await ThenTheRest(result);
@@ -1910,6 +1914,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         if (await interpreter.ReadVariable(module.ModuleEnv, memberName) is (true, var v))
         {
+            if (memberHint is not null && module.ModuleEnv.TryGetVariableLocation(memberName, out var memberLocation))
+                RefuseMismatchedVariableCharacter(memberLocation, v, memberHint);
             // #965: the argument list indexes the module's array, as on an unqualified read. Private foreign
             // reads and non-array calls are unmeasured here and retain their existing behaviour.
             if (argsCtx != null && v.Value is VBArray

@@ -119,6 +119,24 @@ public class TypeCharacterReadTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task A_Public_read_through_its_modules_name_checks_the_character()
+    {
+        await RunModules("pS = \"ps\"\nDebug.Print TypeName(Module2.pS$) & \" \" & Module2.pS$\n",
+            ("Module2", "Public pS As String\n"));
+
+        AssertDebugLog(Lines("String ps"));
+    }
+
+    [Fact]
+    public async Task A_Public_read_through_its_modules_name_with_another_character_is_a_compile_error()
+    {
+        var run = () => RunModules("Debug.Print Module2.pS%\n", ("Module2", "Public pS As String\n"));
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>())
+            .WithMessage("*Type-declaration character does not match declared data type*");
+    }
+
+    [Fact]
     public async Task A_name_never_declared_is_declared_by_the_read_with_the_characters_type()
     {
         await Run("""
