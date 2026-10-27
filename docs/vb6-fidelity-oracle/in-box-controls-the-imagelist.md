@@ -15,7 +15,7 @@ included.
   6000×4500 form, and the form saved.
 - **The property pages:** the ImageList's (Custom) row opened its Property Pages. Pictures were inserted through
   its Insert Picture button and the file dialog, with a Key and a Tag typed for each, then OK, then Ctrl+S. VB6's saves
-  are in `corpus/inbox-controls/pending/imagelist`. Each saved form was then built and run, and its images listed.
+  are in `corpus/inbox-controls/saved/imagelist`. Each saved form was then built and run, and its images listed.
 
 ### The control
 
@@ -250,4 +250,8 @@ and no Tag, and the icon with Key `ico` and Tag `t3`:
 
 ### In HexIDE
 
-A form holding an ImageList is refused at load, as any in-box control HexIDE doesn't model is (#1083).
+MSComctlLib.ImageList is modelled (#1083): collection operations, properties, BMP/ICO pictures and byte-for-byte
+round trips of the three saved forms above. Draw, Overlay, hImageList and ExtractIcon are members marked not
+implemented, per the supervisor decisions on #1083; HexIDE has no device contexts or native handles.
+The original probe pictures remain under `pending/imagelist/pictures`; the forms and companions are under
+`saved/imagelist` and walked by the round-trip lane. No new VB6 measurements were made in that implementation.

@@ -767,3 +767,17 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
+
+### Requirement: MSComctlLib ImageList picture persistence
+
+The serializer SHALL preserve the measured MSComctlLib.ImageList format: extender properties, extents, BackColor,
+ImageWidth, ImageHeight, MaskColor, UseMaskColor, _Version, then Images. BackColor and MaskColor SHALL be written even
+at their defaults; the other own properties SHALL be omitted at their defaults. Each ListImage SHALL write Picture,
+then Key (including an empty Key), then a nonempty Object.Tag padded as Tag. Picture records SHALL retain the
+StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
+
+#### Scenario: VB6's ImageList saves round-trip
+
+- **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
+- **THEN** the form text and companion bytes match VB6's saved files
+- **AND** each saved image is available to the running program in index order with its Key, Tag and Picture

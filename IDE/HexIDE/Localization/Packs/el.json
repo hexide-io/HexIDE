@@ -903,6 +903,10 @@
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
+    "Str.PropDesc.ImageWidth": "Το πλάτος των εικόνων.",
+    "Str.PropDesc.ImageHeight": "Το ύψος των εικόνων.",
+    "Str.PropDesc.MaskColor": "Το χρώμα των διαφανών pixel.",
+    "Str.PropDesc.UseMaskColor": "Αν χρησιμοποιείται το χρώμα μάσκας.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
   }

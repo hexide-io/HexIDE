@@ -903,6 +903,10 @@
     "Str.Dock.Close": "Fermi panelon",
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
     "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
+    "Str.PropDesc.ImageWidth": "La larĝo de la bildoj.",
+    "Str.PropDesc.ImageHeight": "La alto de la bildoj.",
+    "Str.PropDesc.MaskColor": "La koloro por travideblaj bilderoj.",
+    "Str.PropDesc.UseMaskColor": "Ĉu uzi la maskan koloron.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
   }

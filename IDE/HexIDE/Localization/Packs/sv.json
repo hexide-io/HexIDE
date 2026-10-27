@@ -903,6 +903,10 @@
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
     "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.PropDesc.ImageWidth": "Bildernas bredd.",
+    "Str.PropDesc.ImageHeight": "Bildernas höjd.",
+    "Str.PropDesc.MaskColor": "Färgen för genomskinliga pixlar.",
+    "Str.PropDesc.UseMaskColor": "Om maskfärgen används.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
   }

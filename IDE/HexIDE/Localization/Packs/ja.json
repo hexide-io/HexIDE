@@ -903,6 +903,10 @@
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
     "Str.Dock.ScrollRight": "タブを右にスクロール",
+    "Str.PropDesc.ImageWidth": "画像の幅。",
+    "Str.PropDesc.ImageHeight": "画像の高さ。",
+    "Str.PropDesc.MaskColor": "透明ピクセルに使用する色。",
+    "Str.PropDesc.UseMaskColor": "マスク色を使用するかどうか。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
   }

@@ -903,6 +903,10 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
+    "Str.PropDesc.ImageWidth": "Šířka obrázků.",
+    "Str.PropDesc.ImageHeight": "Výška obrázků.",
+    "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
+    "Str.PropDesc.UseMaskColor": "Zda použít barvu masky.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }

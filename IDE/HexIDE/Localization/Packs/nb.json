@@ -903,6 +903,10 @@
     "Str.Dock.Close": "Lukk panel",
     "Str.Dock.ScrollLeft": "Rull faner til venstre",
     "Str.Dock.ScrollRight": "Rull faner til høyre",
+    "Str.PropDesc.ImageWidth": "Bredden på bildene.",
+    "Str.PropDesc.ImageHeight": "Høyden på bildene.",
+    "Str.PropDesc.MaskColor": "Fargen på gjennomsiktige piksler.",
+    "Str.PropDesc.UseMaskColor": "Om maskefargen brukes.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis innrykkslinjer",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
   }

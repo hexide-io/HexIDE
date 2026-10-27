@@ -903,6 +903,10 @@
     "Str.Dock.Close": "Paneli kapat",
     "Str.Dock.ScrollLeft": "Sekmeleri sola kaydır",
     "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır",
+    "Str.PropDesc.ImageWidth": "Görüntülerin genişliği.",
+    "Str.PropDesc.ImageHeight": "Görüntülerin yüksekliği.",
+    "Str.PropDesc.MaskColor": "Saydam piksellerin rengi.",
+    "Str.PropDesc.UseMaskColor": "Maske renginin kullanılıp kullanılmayacağı.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
   }
