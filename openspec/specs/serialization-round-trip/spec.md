@@ -683,6 +683,12 @@ being anchored to slots; adding or removing an item may therefore shift them.
 - **WHEN** the project is saved, including to another folder
 - **THEN** the missing form's line remains first and both paths name the same files from the destination
 
+#### Scenario: A middle kept member joins the live project
+
+- **GIVEN** three kept member lines with recorded source slots
+- **WHEN** the middle member's file is restored, added to the project and the project is saved
+- **THEN** the other kept lines retain their own source slots and the restored member is named once
+
 ### Requirement: Missing control Font blocks inherit a load-time copy of the form font
 
 When loading a `VB.Form` with a declared Font, the deserializer SHALL give each font-bearing
