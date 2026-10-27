@@ -22,7 +22,8 @@ public class SnapshotCapturePathTests
     {
         var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
         tool.Body.Should().Contain("(snapshot, var frameError) = await HexIDE.Automation.SnapshotComposer.CaptureFrameAsync(active)")
-            .And.Contain("new SnapshotResult(null, frameError, activeDialog, Title: active.Title)");
+            // A refusal names no capture area: it said it held a client area it never captured.
+            .And.Contain("new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null)");
     }
 
     [Fact]

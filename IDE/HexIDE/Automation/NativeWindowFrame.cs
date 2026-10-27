@@ -50,6 +50,15 @@ internal static class NativeWindowFrame
     /// says how much of it other windows cover, since that part shows them.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Why a window has no frame to capture, worded for whichever it is. A minimized one is restored through
+    /// set_window_state, which reaches a running form since #2357; a hidden one only its program can show.
+    /// </summary>
+    internal static string HiddenOrMinimized(bool minimized) => minimized
+        ? "The window is minimized, so Windows draws no frame for it. Restore it with set_window_state, state Normal and "
+          + "its name as 'window', then retry includeFrame true."
+        : "The window is hidden, so it has no frame on the screen. Show it, then retry includeFrame true.";
+
     internal static FrameImage? Capture(Window window, out string? error)
     {
         error = "Frame capture requires a Windows HWND; this host/window has none. Use includeFrame false for a client-area render.";
@@ -58,7 +67,7 @@ internal static class NativeWindowFrame
             return null;
         if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
         {
-            error = "The window is hidden or minimized. Show or restore it, then retry includeFrame true.";
+            error = HiddenOrMinimized(IsIconic(hwnd));
             return null;
         }
         error = "Windows could not read the window's rectangles or client origin. Retry on an interactive desktop, or use includeFrame false.";

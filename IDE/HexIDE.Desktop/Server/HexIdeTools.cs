@@ -2201,7 +2201,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // whether or not it is on top; see ForegroundWindow.Pick for which wins among several.
             var (active, label, error) = ResolveActiveWindow(window);
             if (active is null)
-                return new SnapshotResult(null, error, null);
+                return new SnapshotResult(null, error, null, CaptureArea: null);
 
             var activeDialog = label == "MainWindow" ? null : label;
 
@@ -2216,13 +2216,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             {
                 (snapshot, var frameError) = await HexIDE.Automation.SnapshotComposer.CaptureFrameAsync(active);
                 if (snapshot is null)
-                    return new SnapshotResult(null, frameError, activeDialog, Title: active.Title);
+                    return new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null);
             }
             else
                 snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
             using var captured = snapshot;
             if (snapshot is null)
-                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title);
+                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title, CaptureArea: null);
             var (bitmap, windowOffset, leftOut) = (snapshot.Image, snapshot.WindowOffset, snapshot.LeftOut);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
@@ -3543,7 +3543,8 @@ internal record SnapshotResult(
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
     int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null,
     string? Title = null,
-    string CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
+    // What the image holds, so absent when there is none: a refusal said it held a client area it never captured.
+    string? CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
 
 internal record ProjectInfoResult(
     string? ProjectName,

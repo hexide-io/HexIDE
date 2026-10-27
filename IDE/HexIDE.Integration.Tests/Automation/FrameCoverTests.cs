@@ -29,6 +29,18 @@ public class FrameCoverTests
             .Should().Be(0.5);
     }
 
+    // A minimized form can be restored through set_window_state since #2357, so the refusal says how; a hidden one only
+    // its program can show. The two used to share one message that offered both.
+    [Fact]
+    public void A_minimized_window_is_told_how_to_restore_and_a_hidden_one_how_to_show()
+    {
+        NativeWindowFrame.HiddenOrMinimized(minimized: true).Should().Be(
+            "The window is minimized, so Windows draws no frame for it. Restore it with set_window_state, state Normal and "
+            + "its name as 'window', then retry includeFrame true.");
+        NativeWindowFrame.HiddenOrMinimized(minimized: false).Should().Be(
+            "The window is hidden, so it has no frame on the screen. Show it, then retry includeFrame true.");
+    }
+
     [Fact]
     public void A_copy_says_how_much_other_windows_cover_and_which_is_on_top()
     {
