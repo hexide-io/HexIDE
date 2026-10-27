@@ -416,3 +416,23 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 #### Scenario: A retained debugger frame
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
+
+### Requirement: A literal's sign SHALL be an operator
+The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
+apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
+subtraction without requiring spaces. Negation of `&H8000` or a typed Integer holding -32768 SHALL raise
+Overflow (6), following p-code.
+
+#### Scenario: Negation after power
+- **WHEN** `-2 ^ 2` or `Const C = -2 ^ 2` is evaluated
+- **THEN** the result is Double -4
+- **AND** `(-2) ^ 2` is Double 4
+
+#### Scenario: Digits determine the type before negation
+- **WHEN** `-32768` or `-2147483648` is evaluated
+- **THEN** the result is respectively Long -32768 or Double -2147483648
+- **AND** an explicitly typed Integer constant or assignment can hold -32768
+
+#### Scenario: Subtraction without spaces
+- **WHEN** `x-1` is evaluated with Integer x holding 5
+- **THEN** the result is Integer 4
