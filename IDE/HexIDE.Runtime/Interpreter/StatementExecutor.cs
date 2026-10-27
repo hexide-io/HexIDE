@@ -3777,6 +3777,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         value = Vb6Value.Nothing;
                         declaredClass = "Collection";
                     }
+                    else if (!isArray && interpreter.ControlClassFor(ct.GetText()) is { } controlClass)
+                    {
+                        value = Vb6Value.Nothing;
+                        declaredClass = controlClass;
+                    }
                     else if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
                     {
                         // An object of a type the interpreter has no class for: VB's own (`As Form`, `As Control`,
