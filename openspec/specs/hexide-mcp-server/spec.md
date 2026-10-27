@@ -527,6 +527,14 @@ text has not appeared yet SHALL be read again until it does or the dwell ends.
 - **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
 - **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
 
+### Requirement: hover SHALL report where an opened tip is
+When a tip opens during `hover`, the reply SHALL give its bounds in the window, in the units of `inspect_element`'s
+`boundingRect`, and SHALL say how far its top-left is from the point hovered, since the tip closes when the hover ends.
+
+#### Scenario: A toolbar button's tip
+- **WHEN** `hover` opens the Add Form button's tip
+- **THEN** the reply's `tipBounds` places the tip in the window, and its detail says where that is from the point hovered
+
 ### Requirement: Hiding a tool window SHALL close that window alone
 `set_tool_window_visible` with `visible: false` SHALL close the named tool window alone, as its tab's close button does,
 leaving open any other tool window tabbed in the same dock. Its reply SHALL say what the window is now, and SHALL name

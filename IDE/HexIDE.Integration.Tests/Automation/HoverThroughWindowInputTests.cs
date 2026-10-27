@@ -173,6 +173,28 @@ public class HoverThroughWindowInputTests
 
     // A hover through the window moves the window's pointer on, so the control the last hover left it over is told it has
     // gone, as it would be by a real pointer.
+    // #1303 asks that the same control hovered twice reports its tip both times. It does, here and live; the live misses
+    // were the real mouse, resting over the window, taking the tip (#2376).
+    [AvaloniaFact]
+    public async Task Hovering_the_same_control_twice_opens_its_tip_twice()
+    {
+        var button = TippedButton("Add", "Add Form");
+        var window = Show(new StackPanel { Children = { button } });
+        try
+        {
+            for (var round = 1; round <= 2; round++)
+            {
+                UiAutomationDriver.Hover(button, null, null, null, out _).Success.Should().BeTrue();
+                await Settle(100);
+                ToolTip.GetIsOpen(button).Should().BeTrue($"hover {round} should open the tip");
+                UiAutomationDriver.EndHover(button);
+                await Settle(50);
+                ToolTip.GetIsOpen(button).Should().BeFalse($"the end of hover {round} should close it");
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_hover_moves_the_pointer_off_the_control_the_last_one_left_it_over()
     {
