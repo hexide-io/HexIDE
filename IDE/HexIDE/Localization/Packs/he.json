@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "הקובץ '{1}' לא נוסף. שמו הוא '{0}', וזה כבר שם של טופס, Module או Class Module בפרויקט זה.",
     "Str.Naming.Msg.AdoptedNameNotValid": "הקובץ '{1}' לא נוסף. שמו הוא '{0}', וזה אינו שם חוקי: שם מתחיל באות וממשיך באותיות, בספרות ובקווים תחתונים.",
     "Str.ProjectLoad.ModuleFailed": "טעינת המודול {0} נכשלה: {1}",
+    "Str.ProjectLoad.MemberNotFound": "קובץ הפרויקט לא נמצא: {0}",
     "Str.ProjectLoad.FormNotFound": "קובץ הטופס לא נמצא: {0}",
     "Str.ProjectLoad.FormFailed": "טעינת הטופס {0} נכשלה",
     "Str.ProjectLoad.FormFailedWithReason": "טעינת הטופס {0} נכשלה: {1}",

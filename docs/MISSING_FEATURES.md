@@ -14,7 +14,7 @@
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
 | New Project | Ctrl+N | Done | |
-| Open Project… | Ctrl+O | Done | |
+| Open Project… | Ctrl+O | Done | Missing forms, standard/class modules, UserControls and property pages share one localized warning naming the path from the `.vbp` (#2294). Missing/unsupported Explorer nodes and their labels remain outstanding. |
 | Add Project… | — | Done | Adds second project; implicit `CurrentGroup` created when >1 project loaded |
 | Remove *{project}* | — | Done | |
 | Unsaved-change tab marker | — | Done | Designer, code and carried-file tabs expose their existing dirty state through Dock's modified marker; matching saves refresh it (#901). Pointer selection ends its drag on release so subsequent Delete commits and marks the tab dirty. This is HexIDE's tab presentation, not a measured VB6 window affordance |

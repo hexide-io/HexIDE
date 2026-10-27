@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Plica '{1}' non addita est. Nomen eius est '{0}', quod iam est nomen formae, moduli aut classis in hoc incepto.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Plica '{1}' non addita est. Nomen eius est '{0}', quod nomen validum non est: nomen a littera incipit, deinde litteris, numeris et lineolis subscriptis continuatur.",
     "Str.ProjectLoad.ModuleFailed": "Modulus {0} onerari non potuit: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Fasciculus propositi non inventus: {0}",
     "Str.ProjectLoad.FormNotFound": "Scapus formae non inventus: {0}",
     "Str.ProjectLoad.FormFailed": "Forma {0} onerari non potuit",
     "Str.ProjectLoad.FormFailedWithReason": "Forma {0} onerari non potuit: {1}",

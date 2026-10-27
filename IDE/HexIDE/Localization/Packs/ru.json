@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Файл '{1}' не добавлен. Заданное в нём имя '{0}' уже занято формой, модулем или классом в этом проекте.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Файл '{1}' не добавлен. Заданное в нём имя '{0}' недопустимо: имя начинается с буквы, за которой могут идти буквы, цифры и знаки подчёркивания.",
     "Str.ProjectLoad.ModuleFailed": "Не удалось загрузить модуль {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Файл проекта не найден: {0}",
     "Str.ProjectLoad.FormNotFound": "Файл формы не найден: {0}",
     "Str.ProjectLoad.FormFailed": "Не удалось загрузить форму {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Не удалось загрузить форму {0}: {1}",

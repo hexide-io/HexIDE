@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' شامل نہیں کی گئی۔ اس کا نام '{0}' ہے، جو اس پروجیکٹ میں پہلے ہی کسی فارم، ماڈیول یا کلاس کا نام ہے۔",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' شامل نہیں کی گئی۔ اس کا نام '{0}' ہے، جو درست نام نہیں ہے: نام حرف سے شروع ہوتا ہے اور اس کے بعد حروف، ہندسے اور انڈر اسکور آ سکتے ہیں۔",
     "Str.ProjectLoad.ModuleFailed": "ماڈیول {0} لوڈ نہیں ہو سکا: {1}",
+    "Str.ProjectLoad.MemberNotFound": "پروجیکٹ فائل نہیں ملی: {0}",
     "Str.ProjectLoad.FormNotFound": "فارم کی فائل نہیں ملی: {0}",
     "Str.ProjectLoad.FormFailed": "فارم {0} لوڈ نہیں ہو سکا",
     "Str.ProjectLoad.FormFailedWithReason": "فارم {0} لوڈ نہیں ہو سکا: {1}",

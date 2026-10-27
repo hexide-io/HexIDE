@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' eklenmedi. Adı '{0}'; bu ise zaten bu projedeki bir formun, modülün veya sınıfın adı.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' eklenmedi. Adı '{0}'; bu ise geçerli bir ad değil: ad bir harfle başlar, ardından harf, rakam ve alt çizgiyle devam eder.",
     "Str.ProjectLoad.ModuleFailed": "{0} modülü yüklenemedi: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Proje dosyası bulunamadı: {0}",
     "Str.ProjectLoad.FormNotFound": "Form dosyası bulunamadı: {0}",
     "Str.ProjectLoad.FormFailed": "{0} formu yüklenemedi",
     "Str.ProjectLoad.FormFailedWithReason": "{0} formu yüklenemedi: {1}",

@@ -88,6 +88,8 @@ public sealed class ProjectLoader
                     // falls through to the header-less branch when FormPart is null).
                     module.UpdateCode(moduleSource);
                 }
+                else
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", modulePath);
                 project.AddModule(module);
                 // Only once it has joined: a notice that the file will save back unchanged is untrue of a
                 // member that then failed to load.
@@ -116,7 +118,7 @@ public sealed class ProjectLoader
             {
                 if (!File.Exists(formAbsolutePath))
                 {
-                    errorSink.LogError("Str.ProjectLoad.FormNotFound", "Form file not found: {0}", formPath);
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", formPath);
                     // Preserve the Form= line so the missing node survives an open->save round-trip
                     // (mirrors modules, whose lines are kept when their files are absent). Not loaded into
                     // the model — Project Explorer shows the preserved entry with a missing-file marker.
@@ -211,6 +213,8 @@ public sealed class ProjectLoader
                         module.UpdateCode(formPart.Code);
                     }
                 }
+                else
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", modulePath);
                 project.AddModule(module);
                 // Only once it has joined: a notice that the file will save back unchanged is untrue of a
                 // member that then failed to load.

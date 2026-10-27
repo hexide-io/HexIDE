@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' blev ikke tilføjet. Den hedder '{0}', som allerede er navnet på en formular, et modul eller en klasse i dette projekt.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' blev ikke tilføjet. Den hedder '{0}', som ikke er et gyldigt navn: et navn begynder med et bogstav og fortsætter med bogstaver, cifre og understregningstegn.",
     "Str.ProjectLoad.ModuleFailed": "Kunne ikke indlæse modulet {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Projektfilen blev ikke fundet: {0}",
     "Str.ProjectLoad.FormNotFound": "Formularfilen blev ikke fundet: {0}",
     "Str.ProjectLoad.FormFailed": "Kunne ikke indlæse formularen {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Kunne ikke indlæse formularen {0}: {1}",

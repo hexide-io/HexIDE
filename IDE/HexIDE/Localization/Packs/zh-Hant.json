@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "「{1}」未加入。它的名稱是「{0}」，而該名稱已經是此專案中某個表單、模組或類別的名稱。",
     "Str.Naming.Msg.AdoptedNameNotValid": "「{1}」未加入。它的名稱是「{0}」，而該名稱無效：名稱必須以字母開頭，後續只能是字母、數字與底線。",
     "Str.ProjectLoad.ModuleFailed": "無法載入模組 {0}：{1}",
+    "Str.ProjectLoad.MemberNotFound": "找不到專案檔案：{0}",
     "Str.ProjectLoad.FormNotFound": "找不到表單檔案：{0}",
     "Str.ProjectLoad.FormFailed": "無法載入表單 {0}",
     "Str.ProjectLoad.FormFailedWithReason": "無法載入表單 {0}：{1}",

@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Soubor „{1}“ nebyl přidán. Má název „{0}“, který je již názvem formuláře, modulu nebo třídy v tomto projektu.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Soubor „{1}“ nebyl přidán. Má název „{0}“, který není platný: název začíná písmenem a pokračuje písmeny, číslicemi a podtržítky.",
     "Str.ProjectLoad.ModuleFailed": "Nepodařilo se načíst modul {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Soubor projektu nebyl nalezen: {0}",
     "Str.ProjectLoad.FormNotFound": "Soubor formuláře nebyl nalezen: {0}",
     "Str.ProjectLoad.FormFailed": "Nepodařilo se načíst formulář {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nepodařilo se načíst formulář {0}: {1}",

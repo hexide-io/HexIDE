@@ -791,3 +791,16 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
+
+### Requirement: Missing project members share a localized load warning
+
+The loader SHALL report a missing form, standard module, class module, UserControl or property page
+with the same localized message, naming its path as recorded in the `.vbp`, and SHALL retain its project
+entry for saving.
+
+#### Scenario: A module is absent from a project subdirectory
+
+- **GIVEN** a project containing `Module=Utilities; Code\Utilities.bas` whose file is absent
+- **WHEN** the project is opened
+- **THEN** the load warning names `Code\Utilities.bas` without prefixing the host project directory
+- **AND** the module's item line remains available for saving

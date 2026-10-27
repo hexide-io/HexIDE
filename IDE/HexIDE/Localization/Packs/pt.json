@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' não foi adicionado. Chama-se '{0}', que já é o nome de um formulário, módulo ou classe neste projeto.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' não foi adicionado. Chama-se '{0}', que não é um nome válido: um nome começa por uma letra e continua com letras, dígitos e sublinhados.",
     "Str.ProjectLoad.ModuleFailed": "Não foi possível carregar o módulo {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Arquivo do projeto não encontrado: {0}",
     "Str.ProjectLoad.FormNotFound": "Ficheiro de formulário não encontrado: {0}",
     "Str.ProjectLoad.FormFailed": "Não foi possível carregar o formulário {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Não foi possível carregar o formulário {0}: {1}",

@@ -860,6 +860,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、その名前はこのプロジェクト内のフォーム、モジュール、またはクラスモジュールで既に使用されています。",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、これは有効な名前ではありません: 名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。",
     "Str.ProjectLoad.ModuleFailed": "モジュール {0} を読み込めませんでした: {1}",
+    "Str.ProjectLoad.MemberNotFound": "プロジェクトのファイルが見つかりません: {0}",
     "Str.ProjectLoad.FormNotFound": "フォームファイルが見つかりません: {0}",
     "Str.ProjectLoad.FormFailed": "フォーム {0} を読み込めませんでした",
     "Str.ProjectLoad.FormFailedWithReason": "フォーム {0} を読み込めませんでした: {1}",

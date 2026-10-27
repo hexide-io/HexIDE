@@ -896,6 +896,7 @@
     "Str.ScrollBar.PageRight": "Page right",
     "Str.ScrollBar.LineRight": "Column right",
     "Str.ProjectLoad.ModuleFailed": "Failed to load module {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Project file not found: {0}",
     "Str.ProjectLoad.FormNotFound": "Form file not found: {0}",
     "Str.ProjectLoad.FormFailed": "Failed to load form {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Failed to load form {0}: {1}",
