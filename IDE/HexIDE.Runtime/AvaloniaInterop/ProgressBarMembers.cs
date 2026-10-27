@@ -63,7 +63,7 @@ internal static class ProgressBarMembers
             "BorderStyle" => new Vb6Value((long)bar.BorderStyle),
             "OLEDropMode" => new Vb6Value((long)bar.OLEDropMode),
             "MousePointer" => new Vb6Value((long)AttachedProperties.GetMousePointer(bar)),
-            "Enabled" => new Vb6Value(bar.IsEnabled),
+            "Enabled" => new Vb6Value(bar.IsEffectivelyEnabled),
             _ => throw new NotImplementedException($"Reading a ProgressBar's {member.Name} is not implemented"),
         };
         return true;

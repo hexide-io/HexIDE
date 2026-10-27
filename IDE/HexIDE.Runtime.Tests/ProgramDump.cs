@@ -105,10 +105,10 @@ internal sealed partial class ProgramDump
         var errors = new FirstError();
         var input = new AntlrInputStream(new StringReader(Directive().Replace(source, m => m.Groups[1].Value + "'")));
         var lexer = new VB6Lexer(input);
-        var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
-        parser.RemoveErrorListeners();
         lexer.AddErrorListener(errors);
+        var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+        parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
         var module = parser.startRule().module();
 

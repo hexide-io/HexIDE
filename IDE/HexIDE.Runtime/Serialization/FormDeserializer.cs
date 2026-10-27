@@ -28,6 +28,7 @@ public class FormDeserializer
         TextBoxComponentClass.Instance,
         TimerComponentClass.Instance,
         VScrollBarComponentClass.Instance,
+        Components.InBox.TreeViewComponentClass.Instance,
     ];
 
     private static Dictionary<string, ComponentBaseClass> componentsByTypeNames;
@@ -91,6 +92,7 @@ public class FormDeserializer
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
+        Components.InBox.SSTabComponentClass.Instance,
     ];
 
     /// <summary>
@@ -574,6 +576,13 @@ public class FormDeserializer
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            else if (componentClass is Components.InBox.TreeViewComponentClass)
+            {
+                instance.SetProperty(Components.InBox.InBoxComponentClass.LoadedTypeNameProperty, serializedComponent.Type);
+                instance.SetProperty(Components.InBox.InBoxComponentClass.ExtentBasisProperty,
+                    new Components.InBox.InBoxComponentClass.ExtentBasis(
+                        instance.GetPropertyOrDefault(VBProperties.WidthProperty), instance.GetPropertyOrDefault(VBProperties.HeightProperty)));
+            }
             if (componentClass is Components.InBox.ImageListComponentClass
                 && serializedComponent.Properties.TryGetValue("Images", out var imagesValue)
                 && imagesValue is Dictionary<string, object> imageProperties)
@@ -596,6 +605,14 @@ public class FormDeserializer
                             && (!image.TryGetValue("Object.Tag", out var tag) || tag is string));
                 if (knownImages && imageProperties.GetValueOrDefault("NumListImages") is int count && pictures.Count == count)
                     instance.SetProperty(Components.InBox.ImageListComponentClass.PicturesProperty, pictures);
+            }
+
+            if (componentClass is Components.InBox.SSTabComponentClass)
+            {
+                instance.SetProperty(Components.InBox.SSTabSavedState.Property,
+                    new Components.InBox.SSTabSavedState(serializedComponent.Properties));
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
+                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
             }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
