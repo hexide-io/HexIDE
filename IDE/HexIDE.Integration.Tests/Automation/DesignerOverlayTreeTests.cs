@@ -28,7 +28,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </remarks>
 public class DesignerOverlayTreeTests
 {
-    private sealed record Designer(Window Window, FormEditView View, FormEditViewModel Model) : System.IDisposable
+    internal sealed record Designer(Window Window, FormEditView View, FormEditViewModel Model) : System.IDisposable
     {
         public void Dispose()
         {
@@ -37,7 +37,7 @@ public class DesignerOverlayTreeTests
         }
     }
 
-    private static Designer Shown()
+    internal static Designer Shown()
     {
         var toolbox = new ToolBoxToolViewModel(
             Substitute.For<IDocumentDockService>(), Substitute.For<IComponentRegistry>(),
@@ -54,7 +54,7 @@ public class DesignerOverlayTreeTests
         return new Designer(window, view, vm);
     }
 
-    private static void Settle(Window window)
+    internal static void Settle(Window window)
     {
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
