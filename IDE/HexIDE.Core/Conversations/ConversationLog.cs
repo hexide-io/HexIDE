@@ -70,7 +70,8 @@ public sealed class ConversationLog : IAsyncDisposable
         TaskCompletionSource<int>? ClearTo = null,
         ConversationOutcome? EndOutcome = null,
         ConversationDirection? EndOrigin = null,
-        bool Fault = false);
+        bool Fault = false,
+        bool AnswerDropped = false);
 
     private readonly CaptureLimits _limits;
     private readonly TimeProvider _clock;
@@ -400,6 +401,14 @@ public sealed class ConversationLog : IAsyncDisposable
         if (!_queue.Writer.TryWrite(pending)) Interlocked.Increment(ref _queueDropped);
     }
 
+    /// <summary>Marks a received reply that failed deferred result deserialization.</summary>
+    public void DropAnswer(string connectionId, string correlationId, string detail)
+    {
+        if (!_queue.Writer.TryWrite(new Pending(connectionId, default, default, default, null, correlationId,
+                0, null, detail, AnswerDropped: true)))
+            Interlocked.Increment(ref _queueDropped);
+    }
+
     /// <summary>Ends unanswered requests locally, ordered with captured frames. Null filters match all.</summary>
     public void EndRequests(string connectionId, ConversationDirection? origin = null, string? correlationId = null,
         ConversationOutcome outcome = ConversationOutcome.Abandoned)
@@ -522,6 +531,16 @@ public sealed class ConversationLog : IAsyncDisposable
         }
 
         var connection = Of(pending.ConnectionId);
+        if (pending.AnswerDropped)
+        {
+            var entry = connection.Ring.Snapshot().LastOrDefault(e => e.Kind == ConversationEntryKind.Request
+                && e.Direction == ConversationDirection.Sent && e.CorrelationId == pending.CorrelationId
+                && e.Outcome == ConversationOutcome.Answered);
+            if (entry is not null)
+                connection.Ring.Complete(entry.Sequence, ConversationOutcome.Failed, entry.Elapsed ?? TimeSpan.Zero,
+                    entry.AnswerSequence, entry.AnswerSizeBytes, ++_sequence, pending.Detail, true);
+            return;
+        }
         if (pending.EndOutcome is { } outcome)
         {
             // An ending takes a sequence as a reply does, once for every request it ends, so a poll after the

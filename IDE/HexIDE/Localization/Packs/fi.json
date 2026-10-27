@@ -2,8 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
@@ -104,6 +103,7 @@
     "Str.Menu.Edit.Cut": "_Leikkaa",
     "Str.Menu.Edit.Copy": "_Kopioi",
     "Str.Menu.Edit.Paste": "L_iitä",
+    "Str.Menu.Edit.PasteAsComment": "Liitä _kommenttina",
     "Str.Menu.Edit.PasteLink": "Liitä lin_kki",
     "Str.Menu.Edit.Remove": "Poista",
     "Str.Menu.Edit.Delete": "_Poista",
@@ -130,6 +130,7 @@
     "Str.Menu.View.Definition": "_Määritys",
     "Str.Menu.View.Declaration": "_Esittely",
     "Str.Menu.View.LastPosition": "Edellinen sija_inti",
+    "Str.Tool.RecentEdits.Title": "Viimeisimmät muokkaukset",
     "Str.Menu.View.ObjectBrowser": "_Objektiselain",
     "Str.Menu.View.ImmediateWindow": "_Komentoikkuna",
     "Str.Menu.View.LocalsWindow": "_Paikallismuuttujat-ikkuna",
@@ -208,6 +209,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokolla_tarkastelija...",
     "Str.Menu.AddIns": "_Apuohjelmat",
     "Str.Menu.Window": "_Ikkuna",
+    "Str.Menu.Window.ReopenClosed": "Avaa suljettu ikkuna uudelleen",
+    "Str.Menu.Window.RecentlyClosed": "Äskettäin suljetut ikkunat",
     "Str.Menu.Window.Split": "_Jaa",
     "Str.Menu.Window.ResetLayout": "_Palauta ikkuna-asettelu",
     "Str.Menu.Help": "_Ohje",
@@ -357,6 +360,7 @@
     "Str.Designer.Context.Delete": "_Poista",
     "Str.Designer.Context.BringToFront": "Tuo eteen",
     "Str.Designer.Context.SendToBack": "Vie taakse",
+    "Str.Designer.PreviewForm": "Esikatsele lomaketta",
     "Str.Designer.Context.ViewCode": "Näytä koodi",
     "Str.Designer.Context.AlignToGrid": "Kohdista ruudukkoon",
     "Str.Designer.Context.Properties": "Ominaisuudet",
@@ -894,6 +898,8 @@
     "Str.Dock.MaximizeRestore": "Suurenna tai palauta paneeli",
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
-    "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle"
+    "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä"
   }
 }

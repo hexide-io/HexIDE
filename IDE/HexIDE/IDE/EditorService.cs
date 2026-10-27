@@ -51,6 +51,20 @@ public class EditorService : IEditorService
         return null;
     }
 
+    public void RestoreCaret(DocumentIdentity document, int offset)
+    {
+        foreach (var editor in documentDockService.OpenDocuments)
+            if (editor is CodeEditorViewModel code && document.Equals(code.OpenDocument))
+                code.CaretOffset = Math.Clamp(offset, 0, code.Document.TextLength);
+    }
+
+    public void RestoreCaret(RelatedDocumentDefinition document, int offset)
+    {
+        foreach (var editor in documentDockService.OpenDocuments)
+            if (editor is RelatedDocumentEditorViewModel related && related.RelatedDocument == document)
+                related.CaretOffset = Math.Clamp(offset, 0, related.Document.TextLength);
+    }
+
     /// <inheritdoc />
     public bool NavigateTo(string uri, int line, int column)
     {

@@ -302,20 +302,17 @@ public class HeaderFoldTests : IDisposable
     [AvaloniaFact]
     public async Task AServerFoldStartingWhereTheHeaderStartsLeavesTheHeaderFolded()
     {
-        // Measured: the folding manager matches a fold to a section by start offset alone, so a server fold
-        // starting at the top of the file, listed first, took the header's section and the header's fold came
-        // back as a new, expanded one. Here the server answers twice, so the second answer meets the first's
-        // sections.
-        folds = [new FoldingRange(0, 13), SubFold];
+        // Both folds share a start; server re-answers must preserve the header's folded state.
+        folds = [new FoldingRange(0, 13, StartCharacter: 0), SubFold];
         var vm = OpenForm();
         var (_, editor) = Show(vm);
         await SettleFolding();
         ServerStateChanged(lsp);
         await SettleFolding();
 
-        Folding(editor).GetFoldingsAt(0).Should().ContainSingle("the server's fold from the top of the file is dropped");
-        var header = HeaderSection(editor);
-        header!.EndOffset.Should().Be(HeaderEnd(editor, HeaderLines), "and the one kept is the header's");
+        Folding(editor).GetFoldingsAt(0).Should().HaveCount(2, "both same-start folds survive");
+        var header = Folding(editor).GetFoldingsAt(0).Single(f => f.EndOffset == HeaderEnd(editor, HeaderLines));
+        header!.EndOffset.Should().Be(HeaderEnd(editor, HeaderLines), "the header keeps its own range");
         header.IsFolded.Should().BeTrue();
     }
 

@@ -2,8 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
@@ -104,6 +103,7 @@
     "Str.Menu.Edit.Cut": "Wy_tnij",
     "Str.Menu.Edit.Copy": "_Kopiuj",
     "Str.Menu.Edit.Paste": "_Wklej",
+    "Str.Menu.Edit.PasteAsComment": "Wklej jako _komentarz",
     "Str.Menu.Edit.PasteLink": "Wklej łą_cze",
     "Str.Menu.Edit.Remove": "Usuń",
     "Str.Menu.Edit.Delete": "_Usuń",
@@ -130,6 +130,7 @@
     "Str.Menu.View.Definition": "_Definicja",
     "Str.Menu.View.Declaration": "D_eklaracja",
     "Str.Menu.View.LastPosition": "Ostatnia pozycj_a",
+    "Str.Tool.RecentEdits.Title": "Ostatnie edycje",
     "Str.Menu.View.ObjectBrowser": "Przeglądarka _obiektów",
     "Str.Menu.View.ImmediateWindow": "Okno _bezpośrednie",
     "Str.Menu.View.LocalsWindow": "Okno zmiennych _lokalnych",
@@ -208,6 +209,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektor protokołu...",
     "Str.Menu.AddIns": "_Dodatki",
     "Str.Menu.Window": "_Okno",
+    "Str.Menu.Window.ReopenClosed": "Otwórz ponownie zamknięte okno",
+    "Str.Menu.Window.RecentlyClosed": "Ostatnio zamknięte okna",
     "Str.Menu.Window.Split": "_Podziel",
     "Str.Menu.Window.ResetLayout": "_Resetuj układ okien",
     "Str.Menu.Help": "Pomo_c",
@@ -357,6 +360,7 @@
     "Str.Designer.Context.Delete": "_Usuń",
     "Str.Designer.Context.BringToFront": "Przenieś na wierzch",
     "Str.Designer.Context.SendToBack": "Przenieś na spód",
+    "Str.Designer.PreviewForm": "Podgląd formularza",
     "Str.Designer.Context.ViewCode": "Pokaż kod",
     "Str.Designer.Context.AlignToGrid": "Wyrównaj do siatki",
     "Str.Designer.Context.Properties": "Właściwości",
@@ -894,6 +898,8 @@
     "Str.Dock.MaximizeRestore": "Maksymalizuj lub przywróć panel",
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
-    "Str.Dock.ScrollRight": "Przewiń karty w prawo"
+    "Str.Dock.ScrollRight": "Przewiń karty w prawo",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków"
   }
 }

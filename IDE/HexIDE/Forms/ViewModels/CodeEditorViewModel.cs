@@ -127,13 +127,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// then stands); Cancel → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
-    /// <param name="over">The window of the editor that asks, which the prompt holds. Shown over the active window, often the
-    /// running form, the prompt left the code window usable under it, and an automated key went in (#1290). VB6's prompt
-    /// holds the IDE and the running program together, its owner being the running form (measured, #1329); a modal here
-    /// holds one window, so it is the code window's.</param>
+    /// <param name="over">The visible editor window to show the prompt over. The prompt holds all desktop windows.</param>
     public async Task<bool> ConfirmResetWhileRunningAsync(Avalonia.Controls.Window? over = null)
     {
-        var result = await windowManager.MessageBox(
+        var result = await windowManager.TaskModalMessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
             buttons: MessageBoxButtons.OkCancel, icon: MessageBoxIcon.Warning, owner: over);
         if (result != MessageBoxResult.Ok)
@@ -200,6 +197,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </summary>
     private LspDocumentSession? session;
+    private readonly HexIDE.Tools.RecentEditHistory? recentEditHistory;
 
     /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
     public bool AwaitingDiagnostics => session?.AwaitingDiagnostics ?? false;
@@ -217,8 +215,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
-        HexIDE.Tools.CallStackToolViewModel? callStack = null)
+        HexIDE.Tools.CallStackToolViewModel? callStack = null,
+        HexIDE.Tools.RecentEditHistory? recentEditHistory = null)
     {
+        this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
         this.editorService = editorService;
@@ -895,6 +895,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;
@@ -937,6 +938,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         PopulateObjectNames();
 
         OpenToLanguageLayer();
+        if (recentEditHistory is not null) AutoDispose(recentEditHistory.Track(identity, Document));
 
         Title = ComputeTitle();
         return this;

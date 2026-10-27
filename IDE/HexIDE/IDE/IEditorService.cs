@@ -15,6 +15,9 @@ public interface IEditorService
     /// <summary>The loaded member name for a URI, or null when nothing loaded answers.</summary>
     string? DocumentNameForUri(string uri);
 
+    void RestoreCaret(DocumentIdentity document, int offset);
+    void RestoreCaret(RelatedDocumentDefinition document, int offset);
+
     /// <summary>
     /// Opens whatever document a URI names and puts the caret at a position in it. False when nothing
     /// loaded answers to that URI.
