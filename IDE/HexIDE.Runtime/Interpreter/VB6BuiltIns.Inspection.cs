@@ -76,6 +76,7 @@ public partial class VB6BuiltIns
         ToolbarItem item => item.TypeName,
         VbErr => "ErrObject",
         VbApp => "App",
+        VbScreen => "Screen",
         VbClipboard => "Clipboard",
         VbCollection => "Collection",
         PanelPicture => throw new NotImplementedException("Panel.Picture TypeName is unmeasured (#1087)"),

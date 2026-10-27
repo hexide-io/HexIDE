@@ -205,6 +205,48 @@ public sealed class VBProgram : IFormProgram
         contexts[instance] = context;
         if (!created.Contains(instance))
             created.Add(instance);
+        if (context.Window is { } window)
+            AvaloniaInterop.ScreenPointer.Apply(window, screenPointer);
+    }
+
+    /// <inheritdoc/>
+    public VbObject? ActiveForm => active?.FormInstance;
+
+    /// <summary>
+    /// The control that has the focus in the active form's window: the first of the form's controls at or above the focused
+    /// element, so a part of a control, a ComboBox's text box, is the ComboBox. Null when the focus is on none of them, as on a
+    /// form with nothing that can take it (measured: Nothing, as the form's own ActiveControl is), and when no form is active.
+    /// </summary>
+    public Avalonia.Controls.Control? ActiveControl
+    {
+        get
+        {
+            if (active?.Window is not { } window
+                || Avalonia.Controls.TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Avalonia.LogicalTree.ILogical focused)
+                return null;
+            Avalonia.Controls.Control? found = null;
+            for (var element = focused; element is not null; element = element.LogicalParent)
+            {
+                if (ReferenceEquals(element, window))
+                    return found;
+                if (found is null && element is Avalonia.Controls.Control control && FormControls.TryOf(control, out _))
+                    found = control;
+            }
+            // Not in the active form's window: the focus is elsewhere, as on the IDE's own editor.
+            return null;
+        }
+    }
+
+    // Screen.MousePointer, which every form shows while it is not 0 (#2431).
+    private BuiltinTypes.VBCursorType screenPointer;
+
+    /// <inheritdoc/>
+    public void ScreenPointerChanged(BuiltinTypes.VBCursorType pointer)
+    {
+        screenPointer = pointer;
+        foreach (var context in contexts.Values)
+            if (context.Window is { } window)
+                AvaloniaInterop.ScreenPointer.Apply(window, pointer);
     }
 
     /// <summary>

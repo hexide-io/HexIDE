@@ -3421,6 +3421,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return default;
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             }
+            // `Set s.ActiveForm = Nothing` is 382, naming the member, as a Let of it is (measured, #2431).
+            if (setLead && target.Value is VbScreen screen && membersCall.iCS_S_MemberCall().Length == 1)
+            {
+                screen.TrySetProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
+            }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             if (membersCall.iCS_S_MemberCall().Length != 1)

@@ -17,6 +17,9 @@ public interface IBasicStandardLibrary
 
     /// <summary>Where SaveSetting and GetSetting keep a program's settings (#1562): see <see cref="VbSettingsStores"/>.</summary>
     IVbSettingsStore Settings => throw new NotImplementedException("This host does not keep a program's settings (#1562)");
+
+    /// <summary>The screen the <c>Screen</c> object describes (#2431): see <see cref="IVbDisplay"/>.</summary>
+    IVbDisplay Display => throw new NotImplementedException("This host has no screen for the Screen object to describe (#2431)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
@@ -663,6 +666,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Debug", () => new Vb6Value(new DebugProxy(stdLib)));
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
+        SeedProgramGlobal("Screen", () => new Vb6Value(Screen));
 
         // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
         // (#880). Set after every module's pre-pass, which is what lists them.
@@ -672,6 +676,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
     public VbApp App { get; private set; } = new(AppInfo.None);
+
+    private VbScreen? screen;
+
+    /// <summary>The program-global <c>Screen</c> object (#2431).</summary>
+    public VbScreen Screen => screen ??= new VbScreen(this, stdLib);
 
     /// <summary>
     /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program

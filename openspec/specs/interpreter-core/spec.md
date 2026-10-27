@@ -462,3 +462,27 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
+
+### Requirement: The Screen object SHALL answer as VB6's does
+`Screen` SHALL be a program global. Its size SHALL be the primary screen in twips, 15 to a device-independent pixel.
+`MousePointer` SHALL convert as a control's does, and every form SHALL show it while it is not 0. `ActiveForm` and
+`ActiveControl` SHALL be Nothing, with no error, when no form is active. A member a program cannot write SHALL raise
+382 or 383, naming it.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-object.md`, #2431).
+
+#### Scenario: Centring a form on the screen
+- **WHEN** a program reads `Screen.Width` on a screen 1024 device-independent pixels wide
+- **THEN** it SHALL read the Single 15360
+
+#### Scenario: The hourglass over a form
+- **WHEN** a program sets `Screen.MousePointer = vbHourglass` while a form is shown
+- **THEN** the form and every control on it SHALL show the hourglass, until the program sets it to 0
+
+#### Scenario: No form active
+- **WHEN** a program with no form shown reads `Screen.ActiveForm` or `Screen.ActiveControl`
+- **THEN** it SHALL read Nothing, and raise no error
+
+#### Scenario: A write to a member a program cannot write
+- **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
+- **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
