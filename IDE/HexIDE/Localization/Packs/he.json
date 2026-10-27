@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "כללי",
     "Str.Tool.Properties.Tab.Alphabetic": "לפי סדר אלפביתי",
     "Str.Tool.Properties.Tab.Categorized": "לפי קטגוריות",
+    "Str.Tool.Project.MissingFile": "קובץ חסר",
+    "Str.Tool.Project.Unsupported": "לא נתמך",
     "Str.Tool.Project.Toolbar.ViewCode": "הצג קוד",
     "Str.Tool.Project.Toolbar.ViewObject": "הצג אובייקט",
     "Str.Tool.Project.Menu.SetAsStartUp": "קבע כפריט הפעלה",

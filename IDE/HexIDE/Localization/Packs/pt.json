@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Geral",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabética",
     "Str.Tool.Properties.Tab.Categorized": "Por categoria",
+    "Str.Tool.Project.MissingFile": "Arquivo ausente",
+    "Str.Tool.Project.Unsupported": "Não suportado",
     "Str.Tool.Project.Toolbar.ViewCode": "Ver código",
     "Str.Tool.Project.Toolbar.ViewObject": "Ver objeto",
     "Str.Tool.Project.Menu.SetAsStartUp": "Definir como inicial",
