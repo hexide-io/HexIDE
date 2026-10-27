@@ -24,6 +24,20 @@ the caller how to find and answer it first. Otherwise it SHALL say the target mu
 - **THEN** nothing is pressed or invoked
 - **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
 
+### Requirement: Removing a selected list or tree item SHALL report the resulting selection
+`interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
+report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
+If the control keeps the item selected, it SHALL refuse and suggest `click` with `value: "ctrl"`.
+A single-selection list's `add_to_selection` refusal SHALL name that verb and point to `select`.
+
+#### Scenario: Clearing a watch row
+- **WHEN** `remove_from_selection` targets the selected Watches tree row
+- **THEN** the tree has no selected item and the reply says nothing is selected now
+
+#### Scenario: Removing an unselected row
+- **WHEN** the target list or tree row is not selected
+- **THEN** the selection remains unchanged and the reply says the target was not selected
+
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
 and target, describe the dialog and where it opened, warn that the key may not have landed, and state

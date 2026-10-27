@@ -812,7 +812,7 @@ public static class UiAutomationDriver
             : null;
 
     /// <summary>
-    /// Adds the target to, or takes it out of, the selection of a list that holds several at once. <c>select</c>
+    /// Adds a list item to the selection, or removes a selected list or tree item. <c>select</c>
     /// replaces a selection, so without this the designer canvas could hold one control or, through Ctrl+A,
     /// all of them, and the Format commands, which act on a chosen group, could not be aimed (#661).
     /// </summary>
@@ -821,17 +821,40 @@ public static class UiAutomationDriver
         var verb = add ? "add_to_selection" : "remove_from_selection";
         if (NullIfEmpty(value) is not null)
             return Err($"{verb} takes no value: target the item itself by its path from dump_visual_tree");
-        if (MultiSelectOwner(control) is not { } owner)
-            return peer.GetProvider<ISelectionItemProvider>() is not null
-                ? Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so there is "
-                      + "nothing to add to; use select")
+        if (!add && control is TreeViewItem item && item.FindAncestorOfType<TreeView>() is { } tree
+            && tree.TreeItemFromContainer(item) is { } data)
+        {
+            var selected = tree.SelectedItems?.Contains(data) == true;
+            if (selected) tree.SelectedItems?.Remove(data);
+            if (tree.SelectedItems?.Contains(data) == true)
+                return Err($"remove_from_selection did not clear '{LabelOf(control, peer)}'; try click with value 'ctrl'");
+            var names = tree.SelectedItems?.Cast<object>().Select(x =>
+                tree.GetVisualDescendants().OfType<TreeViewItem>()
+                    .FirstOrDefault(candidate => ReferenceEquals(tree.TreeItemFromContainer(candidate), x)) is { } row
+                    ? LabelOf(row) : NameWithoutRow(x, 0)).ToList() ?? [];
+            var summary = names.Count == 0 ? "nothing is selected now"
+                : $"{names.Count} item{(names.Count == 1 ? " is" : "s are")} selected now: {string.Join(", ", names)}";
+            var treeChange = selected ? $"removed '{LabelOf(control, peer)}' from the selection"
+                : $"'{LabelOf(control, peer)}' was not selected";
+            return Ok($"{treeChange}; {summary}");
+        }
+        var owner = ItemsControl.ItemsControlFromItemContainer(control) as ListBox;
+        if (owner is null || owner.IndexFromContainer(control) < 0)
+            return add && peer.GetProvider<ISelectionItemProvider>() is not null
+                ? Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so "
+                      + "add_to_selection cannot add another item; use select")
                 : Unsupported(verb);
+        if (add && MultiSelectOwner(control) is null)
+            return Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so "
+                       + "add_to_selection cannot add another item; use select");
 
         var index = owner.IndexFromContainer(control);
         var label = LabelOf(control, peer);
         var was = owner.Selection.IsSelected(index);
         if (add) owner.Selection.Select(index);
         else owner.Selection.Deselect(index);
+        if (!add && owner.Selection.IsSelected(index))
+            return Err($"remove_from_selection did not clear '{label}'; try click with value 'ctrl'");
 
         var change = add
             ? was ? $"'{label}' was already selected" : $"added '{label}' to the selection"
