@@ -22,6 +22,8 @@ public interface IWindowManager
     /// box that asks about one window's content is shown over that window, which it then holds, as a person sees it there.
     /// </summary>
     Task<MessageBoxResult> MessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null, bool isProgramDialog = false);
+    /// <summary>Show a message box holding every desktop window until it is answered.</summary>
+    Task<MessageBoxResult> TaskModalMessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null);
     Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false);
     Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options);
     Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options);

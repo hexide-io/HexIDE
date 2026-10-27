@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "برش",
     "Str.Menu.Edit.Copy": "کپی",
     "Str.Menu.Edit.Paste": "چسباندن",
+    "Str.Menu.Edit.PasteAsComment": "چسباندن به‌صورت توضیح",
     "Str.Menu.Edit.PasteLink": "چسباندن پیوند",
     "Str.Menu.Edit.Remove": "حذف",
     "Str.Menu.Edit.Delete": "حذف",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "تعریف",
     "Str.Menu.View.Declaration": "اعلان",
     "Str.Menu.View.LastPosition": "آخرین موقعیت",
+    "Str.Tool.RecentEdits.Title": "ویرایش‌های اخیر",
     "Str.Menu.View.ObjectBrowser": "مرورگر اشیاء",
     "Str.Menu.View.ImmediateWindow": "پنجره فوری",
     "Str.Menu.View.LocalsWindow": "پنجره متغیرهای محلی",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "بازرس پروتکل...",
     "Str.Menu.AddIns": "افزونه‌ها",
     "Str.Menu.Window": "پنجره",
+    "Str.Menu.Window.ReopenClosed": "باز کردن دوبارهٔ پنجرهٔ بسته‌شده",
+    "Str.Menu.Window.RecentlyClosed": "پنجره‌های اخیراً بسته‌شده",
     "Str.Menu.Window.Split": "تقسیم",
     "Str.Menu.Window.ResetLayout": "بازنشانی چیدمان پنجره‌ها",
     "Str.Menu.Help": "راهنما",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "حذف",
     "Str.Designer.Context.BringToFront": "انتقال به جلو",
     "Str.Designer.Context.SendToBack": "انتقال به عقب",
+    "Str.Designer.PreviewForm": "پیش‌نمایش فرم",
     "Str.Designer.Context.ViewCode": "نمایش کد",
     "Str.Designer.Context.AlignToGrid": "تراز با شبکه",
     "Str.Designer.Context.Properties": "ویژگی‌ها",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
     "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی"
   }
 }

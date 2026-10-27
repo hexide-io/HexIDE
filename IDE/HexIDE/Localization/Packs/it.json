@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "Tag_lia",
     "Str.Menu.Edit.Copy": "_Copia",
     "Str.Menu.Edit.Paste": "_Incolla",
+    "Str.Menu.Edit.PasteAsComment": "Incolla come _commento",
     "Str.Menu.Edit.PasteLink": "Incolla colle_gamento",
     "Str.Menu.Edit.Remove": "Rimuovi",
     "Str.Menu.Edit.Delete": "_Elimina",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "_Definizione",
     "Str.Menu.View.Declaration": "Dichiara_zione",
     "Str.Menu.View.LastPosition": "Ultima posizio_ne",
+    "Str.Tool.RecentEdits.Title": "Modifiche recenti",
     "Str.Menu.View.ObjectBrowser": "Visualizzatore _oggetti",
     "Str.Menu.View.ImmediateWindow": "Finestra _immediata",
     "Str.Menu.View.LocalsWindow": "Finestra variabili _locali",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Ispettore protocollo...",
     "Str.Menu.AddIns": "_Componenti aggiuntivi",
     "Str.Menu.Window": "_Finestra",
+    "Str.Menu.Window.ReopenClosed": "Riapri finestra chiusa",
+    "Str.Menu.Window.RecentlyClosed": "Finestre chiuse di recente",
     "Str.Menu.Window.Split": "_Dividi",
     "Str.Menu.Window.ResetLayout": "_Reimposta layout finestre",
     "Str.Menu.Help": "_Guida",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "_Elimina",
     "Str.Designer.Context.BringToFront": "Porta in primo piano",
     "Str.Designer.Context.SendToBack": "Porta in secondo piano",
+    "Str.Designer.PreviewForm": "Anteprima modulo",
     "Str.Designer.Context.ViewCode": "Visualizza codice",
     "Str.Designer.Context.AlignToGrid": "Allinea alla griglia",
     "Str.Designer.Context.Properties": "Proprietà",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
     "Str.Dock.ScrollRight": "Scorri schede a destra",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento"
   }
 }

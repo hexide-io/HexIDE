@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "Αποκοπή",
     "Str.Menu.Edit.Copy": "Αντιγραφή",
     "Str.Menu.Edit.Paste": "Επικόλληση",
+    "Str.Menu.Edit.PasteAsComment": "Επικόλληση ως σχόλιο",
     "Str.Menu.Edit.PasteLink": "Επικόλληση σύνδεσης",
     "Str.Menu.Edit.Remove": "Κατάργηση",
     "Str.Menu.Edit.Delete": "Διαγραφή",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "Ορισμός",
     "Str.Menu.View.Declaration": "Δήλωση",
     "Str.Menu.View.LastPosition": "Τελευταία θέση",
+    "Str.Tool.RecentEdits.Title": "Πρόσφατες αλλαγές",
     "Str.Menu.View.ObjectBrowser": "Περιήγηση αντικειμένων",
     "Str.Menu.View.ImmediateWindow": "Παράθυρο άμεσης εκτέλεσης",
     "Str.Menu.View.LocalsWindow": "Παράθυρο τοπικών μεταβλητών",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Επιθεωρητής πρωτοκόλλου...",
     "Str.Menu.AddIns": "Πρόσθετα",
     "Str.Menu.Window": "Παράθυρο",
+    "Str.Menu.Window.ReopenClosed": "Επαναφορά κλεισμένου παραθύρου",
+    "Str.Menu.Window.RecentlyClosed": "Πρόσφατα κλεισμένα παράθυρα",
     "Str.Menu.Window.Split": "Διαίρεση",
     "Str.Menu.Window.ResetLayout": "Επαναφορά διάταξης παραθύρων",
     "Str.Menu.Help": "Βοήθεια",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "&Διαγραφή",
     "Str.Designer.Context.BringToFront": "Μεταφορά μπροστά",
     "Str.Designer.Context.SendToBack": "Μεταφορά πίσω",
+    "Str.Designer.PreviewForm": "Προεπισκόπηση φόρμας",
     "Str.Designer.Context.ViewCode": "Προβολή κώδικα",
     "Str.Designer.Context.AlignToGrid": "Στοίχιση στο πλέγμα",
     "Str.Designer.Context.Properties": "Ιδιότητες",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
   }
 }

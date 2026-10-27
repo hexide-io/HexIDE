@@ -58,6 +58,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     // ── Editor extras defaults ──────────────────────────────────
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
+    private bool _colorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
     private bool _isStickyScrollEnabled = SettingsDefaults.IsStickyScrollEnabled;
     private int _stickyScrollDepth = SettingsDefaults.StickyScrollDepth;
 
@@ -217,6 +218,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set { if (SetProperty(ref _isMinimapVisible, value)) Save(); }
     }
 
+    public bool ColorBracketsByDepth
+    {
+        get => _colorBracketsByDepth;
+        set { if (SetProperty(ref _colorBracketsByDepth, value)) Save(); }
+    }
+
     public bool IsStickyScrollEnabled
     {
         get => _isStickyScrollEnabled;
@@ -287,6 +294,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
+                ColorBracketsByDepth = _colorBracketsByDepth,
                 IsStickyScrollEnabled = _isStickyScrollEnabled,
                 StickyScrollDepth = _stickyScrollDepth,
                 Window = new SettingsData.WindowDataJson
@@ -360,6 +368,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
+            _colorBracketsByDepth = data.ColorBracketsByDepth;
             IsStickyScrollEnabled = data.IsStickyScrollEnabled;
             StickyScrollDepth = data.StickyScrollDepth;
             if (data.Window is { } w)
@@ -451,6 +460,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;
 
+        [JsonPropertyName("colorBracketsByDepth")]
+        public bool ColorBracketsByDepth { get; set; } = SettingsDefaults.ColorBracketsByDepth;
         [JsonPropertyName("isStickyScrollEnabled")]
         public bool IsStickyScrollEnabled { get; set; } = SettingsDefaults.IsStickyScrollEnabled;
 

@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "Cắ_t",
     "Str.Menu.Edit.Copy": "_Sao chép",
     "Str.Menu.Edit.Paste": "_Dán",
+    "Str.Menu.Edit.PasteAsComment": "Dán dưới dạng _chú thích",
     "Str.Menu.Edit.PasteLink": "Dán liên _kết",
     "Str.Menu.Edit.Remove": "Gỡ bỏ",
     "Str.Menu.Edit.Delete": "_Xóa",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "Đị_nh nghĩa",
     "Str.Menu.View.Declaration": "_Khai báo",
     "Str.Menu.View.LastPosition": "Vị trí _cuối",
+    "Str.Tool.RecentEdits.Title": "Chỉnh sửa gần đây",
     "Str.Menu.View.ObjectBrowser": "Trình duyệt đối _tượng",
     "Str.Menu.View.ImmediateWindow": "Cửa sổ _Immediate",
     "Str.Menu.View.LocalsWindow": "Cửa sổ _Locals",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Trình kiểm tra _giao thức...",
     "Str.Menu.AddIns": "_Phần bổ trợ",
     "Str.Menu.Window": "_Cửa sổ",
+    "Str.Menu.Window.ReopenClosed": "Mở lại cửa sổ đã đóng",
+    "Str.Menu.Window.RecentlyClosed": "Cửa sổ đã đóng gần đây",
     "Str.Menu.Window.Split": "_Chia tách",
     "Str.Menu.Window.ResetLayout": "Đặt _lại bố cục cửa sổ",
     "Str.Menu.Help": "Trợ _giúp",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "_Xóa",
     "Str.Designer.Context.BringToFront": "Đưa lên trước",
     "Str.Designer.Context.SendToBack": "Đưa ra sau",
+    "Str.Designer.PreviewForm": "Xem trước biểu mẫu",
     "Str.Designer.Context.ViewCode": "Xem mã",
     "Str.Designer.Context.AlignToGrid": "Căn theo lưới",
     "Str.Designer.Context.Properties": "Thuộc tính",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Đóng ngăn",
     "Str.Dock.ScrollLeft": "Cuộn thẻ sang trái",
     "Str.Dock.ScrollRight": "Cuộn thẻ sang phải",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Hiện đường dẫn thụt lề"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Hiện đường dẫn thụt lề",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Tô màu dấu ngoặc theo độ sâu lồng nhau"
   }
 }

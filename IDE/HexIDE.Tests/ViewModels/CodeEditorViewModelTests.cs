@@ -26,6 +26,7 @@ public class CodeEditorViewModelTests : IDisposable
     private readonly HexIDE.Debugging.IRunScope _runScope = Substitute.For<HexIDE.Debugging.IRunScope>();
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private CodeEditorViewModel? _sut;
+    private readonly HexIDE.Tools.RecentEditHistory recentEdits = new(new EventBus());
 
     public CodeEditorViewModelTests()
     {
@@ -42,13 +43,39 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits);
         return _sut;
     }
 
     public void Dispose()
     {
         _sut?.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void RecentEdits_RecordsModuleEditsAfterInitialization()
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.AddModule(module);
+        var vm = CreateSut().Initialize(module);
+        recentEdits.Entries.Should().BeEmpty();
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        recentEdits.Entries.Should().ContainSingle();
+        recentEdits.Entries[0].Document.Should().Be(DocumentIdentity.For(module));
+        recentEdits.Entries[0].Line.Should().Be(vm.Document.LineCount);
+    }
+
+    [AvaloniaFact]
+    public void RecentEdits_RecordsFormEditsAfterInitialization()
+    {
+        var form = TestHelpers.CreateForm();
+        form.Owner.AddForm(form);
+        var vm = CreateSut().Initialize(form);
+        recentEdits.Entries.Should().BeEmpty();
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        recentEdits.Entries.Should().ContainSingle();
+        recentEdits.Entries[0].Document.Should().Be(DocumentIdentity.For(form));
+        recentEdits.Entries[0].Preview.Should().EndWith("' edited");
     }
 
     [AvaloniaFact]
@@ -89,7 +116,7 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_OK_RequestsProjectEnd()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Ok);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
@@ -101,12 +128,12 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_Cancel_KeepsRunning()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Cancel);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
-        await _windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
+        await _windowManager.Received(1).TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
         reset.Should().BeFalse();
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }

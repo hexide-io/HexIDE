@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "_Kes",
     "Str.Menu.Edit.Copy": "_Kopyala",
     "Str.Menu.Edit.Paste": "_Yapıştır",
+    "Str.Menu.Edit.PasteAsComment": "_Yorum olarak yapıştır",
     "Str.Menu.Edit.PasteLink": "Bağ_lantı Yapıştır",
     "Str.Menu.Edit.Remove": "Kaldır",
     "Str.Menu.Edit.Delete": "_Sil",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "_Tanım",
     "Str.Menu.View.Declaration": "_Bildirim",
     "Str.Menu.View.LastPosition": "Son Konu_m",
+    "Str.Tool.RecentEdits.Title": "Son Düzenlemeler",
     "Str.Menu.View.ObjectBrowser": "_Nesne Tarayıcısı",
     "Str.Menu.View.ImmediateWindow": "_Anlık Pencere",
     "Str.Menu.View.LocalsWindow": "Yerel _Değişkenler Penceresi",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Protokol İnceleyicisi...",
     "Str.Menu.AddIns": "_Eklentiler",
     "Str.Menu.Window": "_Pencere",
+    "Str.Menu.Window.ReopenClosed": "Kapatılan Pencereyi Yeniden Aç",
+    "Str.Menu.Window.RecentlyClosed": "Son Kapatılan Pencereler",
     "Str.Menu.Window.Split": "_Böl",
     "Str.Menu.Window.ResetLayout": "Pencere _Düzenini Sıfırla",
     "Str.Menu.Help": "_Yardım",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "_Sil",
     "Str.Designer.Context.BringToFront": "Öne Getir",
     "Str.Designer.Context.SendToBack": "Arkaya Gönder",
+    "Str.Designer.PreviewForm": "Form Önizlemesi",
     "Str.Designer.Context.ViewCode": "Kodu Görüntüle",
     "Str.Designer.Context.AlignToGrid": "Izgaraya Hizala",
     "Str.Designer.Context.Properties": "Özellikler",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Paneli kapat",
     "Str.Dock.ScrollLeft": "Sekmeleri sola kaydır",
     "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
   }
 }

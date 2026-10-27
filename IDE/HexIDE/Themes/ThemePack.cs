@@ -50,6 +50,7 @@ internal static class ColorKeyMapping
             ["DockTitleBar"]            = ("DockTitleBarBrush",                          true),
             ["SelectionAdorner"]        = ("SelectionAdornerBrush",                      true),
             ["SelectionAdornerBorder"]  = ("SelectionAdornerBorderBrush",                true),
+            ["DesignerHiddenControlMask"] = ("DesignerHiddenControlMaskBrush",             true),
             ["FormGridPattern"]         = ("FormGridPatternBrush",                       true),
             ["ControlSpawnerPhantom"]   = ("ControlSpawnerPhantomBrush",                 true),
             ["RubberBandFill"]          = ("RubberBandFillBrush",                        true),
@@ -68,6 +69,10 @@ internal static class ColorKeyMapping
             ["ReadOnlyText"]            = ("ReadOnlyTextBrush",                           true),
             ["IndentGuide"] = ("IndentGuideBrush", true),
             ["ActiveIndentGuide"] = ("ActiveIndentGuideBrush", true),
+            ["BracketDepth1"] = ("BracketDepth1Brush", true),
+            ["BracketDepth2"] = ("BracketDepth2Brush", true),
+            ["BracketDepth3"] = ("BracketDepth3Brush", true),
+            ["BracketUnmatched"] = ("BracketUnmatchedBrush", true),
             // Accent colors stored as Color (not SolidColorBrush), matching Classic.axaml
             ["SystemAccentColor"]       = ("SystemAccentColor",                          false),
             ["SystemAccentColorLight1"] = ("SystemAccentColorLight1",                    false),

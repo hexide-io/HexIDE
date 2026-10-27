@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "剪切",
     "Str.Menu.Edit.Copy": "复制",
     "Str.Menu.Edit.Paste": "粘贴",
+    "Str.Menu.Edit.PasteAsComment": "粘贴为注释",
     "Str.Menu.Edit.PasteLink": "粘贴链接",
     "Str.Menu.Edit.Remove": "移除",
     "Str.Menu.Edit.Delete": "删除",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "定义",
     "Str.Menu.View.Declaration": "声明",
     "Str.Menu.View.LastPosition": "上一位置",
+    "Str.Tool.RecentEdits.Title": "最近编辑",
     "Str.Menu.View.ObjectBrowser": "对象浏览器",
     "Str.Menu.View.ImmediateWindow": "立即窗口",
     "Str.Menu.View.LocalsWindow": "本地窗口",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "协议检查器...",
     "Str.Menu.AddIns": "外接程序",
     "Str.Menu.Window": "窗口",
+    "Str.Menu.Window.ReopenClosed": "重新打开已关闭的窗口",
+    "Str.Menu.Window.RecentlyClosed": "最近关闭的窗口",
     "Str.Menu.Window.Split": "拆分",
     "Str.Menu.Window.ResetLayout": "重置窗口布局",
     "Str.Menu.Help": "帮助",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "删除",
     "Str.Designer.Context.BringToFront": "置于顶层",
     "Str.Designer.Context.SendToBack": "置于底层",
+    "Str.Designer.PreviewForm": "预览窗体",
     "Str.Designer.Context.ViewCode": "查看代码",
     "Str.Designer.Context.AlignToGrid": "对齐到网格",
     "Str.Designer.Context.Properties": "属性",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "关闭窗格",
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
     "Str.Dock.ScrollRight": "向右滚动选项卡",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
   }
 }

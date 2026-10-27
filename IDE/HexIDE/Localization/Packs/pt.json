@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "Cor_tar",
     "Str.Menu.Edit.Copy": "_Copiar",
     "Str.Menu.Edit.Paste": "Co_lar",
+    "Str.Menu.Edit.PasteAsComment": "Colar como _comentário",
     "Str.Menu.Edit.PasteLink": "Colar _Ligação",
     "Str.Menu.Edit.Remove": "Remover",
     "Str.Menu.Edit.Delete": "_Eliminar",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "_Definição",
     "Str.Menu.View.Declaration": "D_eclaração",
     "Str.Menu.View.LastPosition": "Última Posiçã_o",
+    "Str.Tool.RecentEdits.Title": "Edições recentes",
     "Str.Menu.View.ObjectBrowser": "Explorador de _Objetos",
     "Str.Menu.View.ImmediateWindow": "Janela _Imediata",
     "Str.Menu.View.LocalsWindow": "Janela de Locai_s",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspetor de Protocolo...",
     "Str.Menu.AddIns": "_Suplementos",
     "Str.Menu.Window": "_Janela",
+    "Str.Menu.Window.ReopenClosed": "Reabrir Janela Fechada",
+    "Str.Menu.Window.RecentlyClosed": "Janelas Fechadas Recentemente",
     "Str.Menu.Window.Split": "Di_vidir",
     "Str.Menu.Window.ResetLayout": "_Repor Esquema das Janelas",
     "Str.Menu.Help": "A_juda",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "_Eliminar",
     "Str.Designer.Context.BringToFront": "Trazer para a Frente",
     "Str.Designer.Context.SendToBack": "Enviar para Trás",
+    "Str.Designer.PreviewForm": "Pré-visualizar formulário",
     "Str.Designer.Context.ViewCode": "Ver Código",
     "Str.Designer.Context.AlignToGrid": "Alinhar à Grelha",
     "Str.Designer.Context.Properties": "Propriedades",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
     "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento"
   }
 }

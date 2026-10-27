@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "Вырезать",
     "Str.Menu.Edit.Copy": "Копировать",
     "Str.Menu.Edit.Paste": "Вставить",
+    "Str.Menu.Edit.PasteAsComment": "Вставить как комментарий",
     "Str.Menu.Edit.PasteLink": "Вставить связь",
     "Str.Menu.Edit.Remove": "Удалить",
     "Str.Menu.Edit.Delete": "Удалить",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "Определение",
     "Str.Menu.View.Declaration": "Объявление",
     "Str.Menu.View.LastPosition": "Последняя позиция",
+    "Str.Tool.RecentEdits.Title": "Последние изменения",
     "Str.Menu.View.ObjectBrowser": "Обозреватель объектов",
     "Str.Menu.View.ImmediateWindow": "Окно отладки",
     "Str.Menu.View.LocalsWindow": "Окно локальных переменных",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Инспектор протокола...",
     "Str.Menu.AddIns": "Надстройки",
     "Str.Menu.Window": "Окно",
+    "Str.Menu.Window.ReopenClosed": "Открыть закрытое окно",
+    "Str.Menu.Window.RecentlyClosed": "Недавно закрытые окна",
     "Str.Menu.Window.Split": "Разделить",
     "Str.Menu.Window.ResetLayout": "Сбросить расположение окон",
     "Str.Menu.Help": "Справка",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "Удалить",
     "Str.Designer.Context.BringToFront": "На передний план",
     "Str.Designer.Context.SendToBack": "На задний план",
+    "Str.Designer.PreviewForm": "Предпросмотр формы",
     "Str.Designer.Context.ViewCode": "Показать код",
     "Str.Designer.Context.AlignToGrid": "Выровнять по сетке",
     "Str.Designer.Context.Properties": "Свойства",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
     "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
   }
 }

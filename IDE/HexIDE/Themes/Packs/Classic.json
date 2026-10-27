@@ -5,6 +5,11 @@
   "colors": {
     "IndentGuide": "#E0E0E0",
     "ActiveIndentGuide": "#909090",
+    "BracketDepth1": "#74531F",
+    "BracketDepth2": "#0000B0",
+    "BracketDepth3": "#800080",
+    "BracketUnmatched": "#B00020",
+
     "AppWorkspace":              "#ABABAB",
     "Window":                   "#FFFFFF",
     "WindowText":               "#000000",
@@ -30,6 +35,7 @@
     "DockTitleBar":             "#BFCDDB",
     "SelectionAdorner":         "#2D6BC1",
     "SelectionAdornerBorder":   "#FFFFFF",
+    "DesignerHiddenControlMask": "#80FFFFFF",
     "FormGridPattern":          "#474747",
     "ControlSpawnerPhantom":    "#6C6959",
     "RubberBandFill":           "#1A2D6BC1",

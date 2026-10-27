@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "قص",
     "Str.Menu.Edit.Copy": "نسخ",
     "Str.Menu.Edit.Paste": "لصق",
+    "Str.Menu.Edit.PasteAsComment": "لصق كتعليق",
     "Str.Menu.Edit.PasteLink": "لصق ارتباط",
     "Str.Menu.Edit.Remove": "إزالة",
     "Str.Menu.Edit.Delete": "حذف",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "التعريف",
     "Str.Menu.View.Declaration": "الإعلان",
     "Str.Menu.View.LastPosition": "الموضع الأخير",
+    "Str.Tool.RecentEdits.Title": "التعديلات الأخيرة",
     "Str.Menu.View.ObjectBrowser": "مستعرض الكائنات",
     "Str.Menu.View.ImmediateWindow": "نافذة التنفيذ الفوري",
     "Str.Menu.View.LocalsWindow": "نافذة المتغيرات المحلية",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "فاحص البروتوكول...",
     "Str.Menu.AddIns": "الوظائف الإضافية",
     "Str.Menu.Window": "نافذة",
+    "Str.Menu.Window.ReopenClosed": "إعادة فتح النافذة المغلقة",
+    "Str.Menu.Window.RecentlyClosed": "النوافذ المغلقة مؤخرًا",
     "Str.Menu.Window.Split": "تقسيم",
     "Str.Menu.Window.ResetLayout": "إعادة تعيين تخطيط النوافذ",
     "Str.Menu.Help": "تعليمات",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "حذف",
     "Str.Designer.Context.BringToFront": "إحضار إلى المقدمة",
     "Str.Designer.Context.SendToBack": "إرسال إلى الخلف",
+    "Str.Designer.PreviewForm": "معاينة النموذج",
     "Str.Designer.Context.ViewCode": "عرض التعليمات البرمجية",
     "Str.Designer.Context.AlignToGrid": "محاذاة إلى الشبكة",
     "Str.Designer.Context.Properties": "الخصائص",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "إغلاق اللوحة",
     "Str.Dock.ScrollLeft": "تمرير علامات التبويب لليسار",
     "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
   }
 }

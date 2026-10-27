@@ -22,11 +22,22 @@ that the developer could not see them was a limitation of its code window, and t
 ## Requirements
 
 ### Requirement: Syntax keywords match regardless of case
-The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing. Standalone `End` and every `END_*` block terminator from the MIT lexer SHALL receive the `Keyword` colour in every theme.
 
 #### Scenario: Keywords differ from the definition's casing
 - **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
 - **THEN** each word receives its named keyword colour from the syntax definition
+
+#### Scenario: Block terminators use keyword blue
+- **WHEN** the editor highlights `End Sub`, `End If`, `End Function`, `End With` or `End Select` in any theme
+- **THEN** both words receive the theme's `Keyword` colour
+
+### Requirement: Syntax definition provenance and palette
+The VB6 syntax definition SHALL be authored under MIT from HexIDE's MIT lexer grammar, and SHALL use the named colours managed by `SyntaxHighlightingTheme`. Comments, strings, numbers, date literals, type suffixes and line continuations SHALL receive syntax colours.
+
+#### Scenario: Literal and punctuation highlighting
+- **WHEN** the editor highlights a string, number, `#1/2/2000#`, type suffix or line continuation outside a comment
+- **THEN** it applies the definition's corresponding named syntax colour
 
 ### Requirement: The code window SHALL hold the whole file
 The code window for a form, module, class, UserControl or PropertyPage SHALL hold the file's complete text.
@@ -421,6 +432,62 @@ The code window SHALL draw vertical guides at each complete indentation level, u
 - **THEN** open code windows stop drawing guides
 - **AND** the preference survives restarting the IDE
 
+### Requirement: Parentheses coloured by nesting depth
+The VB6 code editor SHALL colour matching parentheses with the same theme-defined foreground, cycling
+through the `BracketDepth1`, `BracketDepth2` and `BracketDepth3` theme palette entries by nesting depth. It SHALL mark unmatched parentheses with a separate theme
+foreground (`BracketUnmatched`), ignore parentheses inside lexer string and comment tokens, and offer a persisted Editor → General
+option to disable this colouring. Existing editors SHALL repaint when the text, palette or option changes.
+
+#### Scenario: Nested pairs and an unmatched parenthesis
+- **WHEN** the editor displays `(()) )`
+- **THEN** the outer pair uses the first palette entry and the inner pair uses the second
+- **AND** the final closing parenthesis uses the unmatched foreground
+
+#### Scenario: Colouring disabled
+- **WHEN** the user disables the nesting-depth option
+- **THEN** parentheses retain ordinary syntax colouring, including unmatched parentheses
+
+### Requirement: Recent edit locations
+The IDE SHALL provide a Recent Edits panel from the View menu, listing edited code locations newest first
+with the module, 1-based line and a text preview. Selecting a row SHALL navigate to that document and line
+without recording another edit. The list SHALL be session-only and contain at most 50 entries.
+
+An edit in the same document within 10 lines of the newest entry SHALL replace that entry; an edit further
+away or in another document SHALL add an entry. Locations SHALL follow inserted or removed text above
+them. Removing a whole tracked line SHALL drop its entry. Closing and reopening a code tab SHALL retain
+its entries; removing its document from the project or unloading the project SHALL drop them.
+
+#### Scenario: Nearby and distant edits
+- **WHEN** a developer edits a line 9 or 10 lines from the newest entry in the same document
+- **THEN** that entry is replaced by the new location
+- **WHEN** the distance is 11 lines, or the edit is in another document
+- **THEN** a new entry is added, evicting the oldest if the list exceeds 50
+
+#### Scenario: Returning to moved text after closing a tab
+- **WHEN** lines are inserted above a recorded location and its code tab is closed and reopened
+- **THEN** the row retains the moved line number and preview
+- **AND** selecting it opens that document at the moved line without adding an entry
+
+### Requirement: Paste as Comment
+The code window SHALL offer Paste as Comment in the Edit menu and expose `PasteAsCommentCommand`
+for keymap bindings. It SHALL replace the selection with the clipboard's lines, each prefixed with an
+apostrophe, continuing subsequent lines at the insertion line's leading indentation. The paste SHALL
+be one undo step and use the document's newline convention. Empty or unavailable clipboard text SHALL
+leave the document unchanged.
+
+When text remains on the line after a non-rectangular selection or caret, the paste SHALL end with a
+line break and the insertion line's leading indentation, keeping that text uncommented on its own line.
+
+#### Scenario: Keeping a snippet without compiling it
+- **WHEN** the developer pastes two clipboard lines as comments at an indented caret
+- **THEN** each inserted line begins with an apostrophe at that indentation
+- **AND** Undo restores the previous text in one step
+
+#### Scenario: Pasting before existing code
+- **WHEN** the developer pastes as comments with the caret before existing code on the same line
+- **THEN** a line break separates the last pasted comment from the existing code
+- **AND** the existing code remains uncommented at the insertion line's indentation
+- **AND** Undo restores the previous text in one step
 ### Requirement: Find scopes SHALL include project members and live buffers
 Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
 All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.

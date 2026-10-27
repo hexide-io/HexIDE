@@ -104,6 +104,7 @@
     "Str.Menu.Edit.Cut": "Co_uper",
     "Str.Menu.Edit.Copy": "_Copier",
     "Str.Menu.Edit.Paste": "Co_ller",
+    "Str.Menu.Edit.PasteAsComment": "Coller comme _commentaire",
     "Str.Menu.Edit.PasteLink": "Coller le _lien",
     "Str.Menu.Edit.Remove": "Supprimer",
     "Str.Menu.Edit.Delete": "_Effacer",
@@ -130,6 +131,7 @@
     "Str.Menu.View.Definition": "_Définition",
     "Str.Menu.View.Declaration": "Déclarat_ion",
     "Str.Menu.View.LastPosition": "Dernière positio_n",
+    "Str.Tool.RecentEdits.Title": "Modifications récentes",
     "Str.Menu.View.ObjectBrowser": "_Explorateur d'objets",
     "Str.Menu.View.ImmediateWindow": "Fenêtre _Exécution",
     "Str.Menu.View.LocalsWindow": "Fenêtre Variable_s locales",
@@ -208,6 +210,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspecteur de protocole...",
     "Str.Menu.AddIns": "_Modules complémentaires",
     "Str.Menu.Window": "_Fenêtre",
+    "Str.Menu.Window.ReopenClosed": "Rouvrir la fenêtre fermée",
+    "Str.Menu.Window.RecentlyClosed": "Fenêtres récemment fermées",
     "Str.Menu.Window.Split": "_Fractionner",
     "Str.Menu.Window.ResetLayout": "_Réinitialiser la disposition",
     "Str.Menu.Help": "_Aide",
@@ -357,6 +361,7 @@
     "Str.Designer.Context.Delete": "_Supprimer",
     "Str.Designer.Context.BringToFront": "Mettre au premier plan",
     "Str.Designer.Context.SendToBack": "Mettre à l'arrière-plan",
+    "Str.Designer.PreviewForm": "Aperçu du formulaire",
     "Str.Designer.Context.ViewCode": "Afficher le code",
     "Str.Designer.Context.AlignToGrid": "Aligner sur la grille",
     "Str.Designer.Context.Properties": "Propriétés",
@@ -894,6 +899,7 @@
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
     "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
-    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
   }
 }

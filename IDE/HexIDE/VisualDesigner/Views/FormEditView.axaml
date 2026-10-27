@@ -128,6 +128,13 @@
     </UserControl.Resources>
     <VisualLayerManager>
       <DockPanel>
+        <Button x:Name="PreviewFormButton"
+                DockPanel.Dock="Top"
+                HorizontalAlignment="Left"
+                Margin="8,5"
+                IsVisible="{CompiledBinding HasWindowFrame}"
+                Content="{DynamicResource Str.Designer.PreviewForm}"
+                Command="{CompiledBinding PreviewForm}" />
         <!-- Read-only banner. The design surface below is disabled rather than each mutation guarded:
              input that never arrives cannot mutate anything. Silent read-only would be worse than either
              option, so the reason is always on screen. -->
@@ -281,7 +288,13 @@
                                         <controls:ControlsContainer.ItemTemplate>
                                             <DataTemplate x:DataType="visualDesigner:ComponentInstanceViewModel">
                                                 <controls:ControlRenderer Component="{CompiledBinding .}"
-                                                                          />
+                                                                          Classes.runtimeHidden="{CompiledBinding !IsRuntimeVisible}">
+                                                    <controls:ControlRenderer.Styles>
+                                                        <Style Selector="controls|ControlRenderer.runtimeHidden">
+                                                            <Setter Property="OpacityMask" Value="{DynamicResource DesignerHiddenControlMaskBrush}" />
+                                                        </Style>
+                                                    </controls:ControlRenderer.Styles>
+                                                </controls:ControlRenderer>
                                             </DataTemplate>
                                         </controls:ControlsContainer.ItemTemplate>
                                         <controls:ControlsContainer.Styles>
