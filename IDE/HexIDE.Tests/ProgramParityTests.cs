@@ -64,14 +64,40 @@ public class ProgramParityTests
     [Fact]
     public async Task A_module_without_bare_statements_reaches_workspace_generation()
     {
+        await DryRun("""
+            {"modules":[{"name":"Module1","kind":"startup","bare":false,"source":"Dim n As Long","wrapped":"Dim n As Long\nPublic Sub HexDumpMain()\nEnd Sub\n"}],"printed":[],"lines":[],"locale":"en-US"}
+            """, (results, cases) =>
+        {
+            JsonNode.Parse(results[1])!["outcome"]!.GetValue<string>().Should().Be("dry-run");
+            File.ReadAllText(Path.Combine(cases, "00001", "Module1.bas"))
+                .ReplaceLineEndings("\n").Should().Contain("Public Sub HexDumpMain()\nEnd Sub\n");
+        });
+    }
+
+    [Fact]
+    public async Task A_startup_module_the_dump_could_not_wrap_is_counted_and_not_run()
+    {
+        // Running what is left would compare another engine's answer to a program HexIDE never ran (#2211).
+        await DryRun("""
+            {"modules":[{"name":"Module1","kind":"startup","source":"#ElseIf 1","notWrapped":"the source does not parse here"}],"printed":[],"lines":[],"locale":"en-US"}
+            """, (results, cases) =>
+        {
+            var result = JsonNode.Parse(results[1])!;
+            result["outcome"]!.GetValue<string>().Should().Be("not-wrapped");
+            result["notWrapped"]!.GetValue<string>().Should().Be("the source does not parse here");
+            Directory.Exists(Path.Combine(cases, "00001")).Should().BeFalse();
+        });
+    }
+
+    /// <summary>Runs the tool with <c>--dry-run</c> on a one-line dump, and checks its results and case folders.</summary>
+    private static async Task DryRun(string dumpLine, Action<string[], string> check)
+    {
         var dir = Path.Combine(Path.GetTempPath(), $"hexide-parity-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         try
         {
             var dump = Path.Combine(dir, "dump.jsonl");
-            await File.WriteAllTextAsync(dump, """
-                {"modules":[{"name":"Module1","kind":"startup","bare":false,"source":"Dim n As Long","wrapped":"Dim n As Long\nPublic Sub HexDumpMain()\nEnd Sub\n"}],"printed":[],"lines":[],"locale":"en-US"}
-                """, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(dump, dumpLine, TestContext.Current.CancellationToken);
             var start = new System.Diagnostics.ProcessStartInfo("dotnet") { UseShellExecute = false };
             start.ArgumentList.Add(typeof(Comparison).Assembly.Location);
             foreach (var arg in new[] { dump, "--dry-run", "--out", Path.Combine(dir, "out") })
@@ -79,10 +105,7 @@ public class ProgramParityTests
             using var process = System.Diagnostics.Process.Start(start)!;
             await process.WaitForExitAsync(TestContext.Current.CancellationToken);
             process.ExitCode.Should().Be(0);
-            var results = File.ReadAllLines(Path.Combine(dir, "out", "results.jsonl"));
-            JsonNode.Parse(results[1])!["outcome"]!.GetValue<string>().Should().Be("dry-run");
-            File.ReadAllText(Path.Combine(dir, "out", "cases", "00001", "Module1.bas"))
-                .ReplaceLineEndings("\n").Should().Contain("Public Sub HexDumpMain()\nEnd Sub\n");
+            check(File.ReadAllLines(Path.Combine(dir, "out", "results.jsonl")), Path.Combine(dir, "out", "cases"));
         }
         finally
         {
