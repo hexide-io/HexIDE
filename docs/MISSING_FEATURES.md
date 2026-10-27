@@ -148,7 +148,7 @@
 | Start | F5 | Done | Runs project via HexIDE interpreter in a new window |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; the toolbar buttons remain available with focus in the running form (#2179) |
-| End | — | Done | |
+| End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
 | Restart | Shift+F5 | Done | |
 | Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
 
