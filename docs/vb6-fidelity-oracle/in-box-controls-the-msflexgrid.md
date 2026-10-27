@@ -347,6 +347,55 @@ Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
 - **Appearance 0, BorderStyle 0 and ScrollBars 0** drew a flat grid with no border and no scroll bars, the cells running
   off the edge.
 
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
+  `corpus/inbox-controls/pending/msflexgrid/`.
+  - MSFlexGrid1 had every property off its default, its lines in reverse order.
+  - MSFlexGrid2 had only its position, extents and `_Version`.
+  - A third grid was double-clicked from the toolbox first.
+- **The read:** both forms were read back at run time, natively and as p-code. All four runs logged the same lines.
+
+**The double-clicked grid** is the bare block, 1500 × 750, centred on the 9600 × 7200 form:
+
+```
+   Begin MSFlexGridLib.MSFlexGrid MSFlexGrid3 
+      Height          =   750
+      Left            =   4050
+      TabIndex        =   2
+      Top             =   3225
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   1323
+      _Version        =   393216
+   End
+```
+
+**The order VB6 writes the lines in,** whatever order they were read in: the extender's, the extents and `_Version`, then
+
+```
+Rows, Cols, FixedRows, FixedCols, RowHeightMin, BackColor, ForeColor, BackColorFixed,
+ForeColorFixed, BackColorSel, ForeColorSel, BackColorBkg, GridColor, GridColorFixed,
+WordWrap, Redraw, AllowBigSelection, ScrollTrack, RightToLeft, TextStyle, TextStyleFixed,
+FocusRect, HighLight, FillStyle, GridLines, GridLinesFixed, ScrollBars, SelectionMode,
+MergeCells, AllowUserResizing, PictureType, BorderStyle, Appearance, MousePointer,
+GridLineWidth, FormatString, the Font block, OLEDropMode
+```
+
+- **Every property is saved under its own name, and only when off its default.** `FixedCols = 0` was written because the
+  default is 1.
+- **The font is a `BeginProperty Font` block.**
+- **Cell text is not saved.** The only text the file carries is FormatString, and there is no `.frx`.
+- **Loading applies FormatString to the loaded grid.**
+  - `<A|^B|>C|D` on 5 rows and 4 columns, FixedRows 2 and FixedCols 0, put `A` to `D` in row 0.
+  - It set ColAlignment and FixedAlignment to 1, 4, 7 and 9.
+  - The widths, 225 each, are measured in the grid's own font, Arial 9.75 bold.
+- **Row and Col start at the first non-fixed cell:** Row 2, Col 0.
+- **RowHeightMin 300 made every row 300.**
+- **`RightToLeft = -1` was written, but read False at run time.**
+- **The minimal block loads with the defaults** of group 1.
+
 ### In HexIDE
 
 HexIDE doesn't model the MSFlexGrid (#1099). The designer draws it as an empty box (#157), and running a form that holds one is refused, as for any control HexIDE can't create (#857).
