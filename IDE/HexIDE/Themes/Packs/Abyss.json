@@ -3,6 +3,11 @@
   "description": "VS Code Abyss theme — deep navy-black base with blue-tinted chrome and mid-blue accent",
   "themeVariant": "Dark",
   "colors": {
+    "BracketDepth1": "#D3B07C",
+    "BracketDepth2": "#7AA6F0",
+    "BracketDepth3": "#E58FE5",
+    "BracketUnmatched": "#FF8080",
+
     "AppWorkspace":            "#000C18",
     "Window":                  "#000C18",
     "WindowText":              "#88AACC",

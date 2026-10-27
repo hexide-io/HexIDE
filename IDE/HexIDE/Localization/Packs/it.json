@@ -2,8 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "_Definizione",
     "Str.Menu.View.Declaration": "Dichiara_zione",
     "Str.Menu.View.LastPosition": "Ultima posizio_ne",
+    "Str.Tool.RecentEdits.Title": "Modifiche recenti",
     "Str.Menu.View.ObjectBrowser": "Visualizzatore _oggetti",
     "Str.Menu.View.ImmediateWindow": "Finestra _immediata",
     "Str.Menu.View.LocalsWindow": "Finestra variabili _locali",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Elimina",
     "Str.Designer.Context.BringToFront": "Porta in primo piano",
     "Str.Designer.Context.SendToBack": "Porta in secondo piano",
+    "Str.Designer.PreviewForm": "Anteprima modulo",
     "Str.Designer.Context.ViewCode": "Visualizza codice",
     "Str.Designer.Context.AlignToGrid": "Allinea alla griglia",
     "Str.Designer.Context.Properties": "Proprietà",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Ingrandisci o ripristina pannello",
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
-    "Str.Dock.ScrollRight": "Scorri schede a destra"
+    "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate"
   }
 }

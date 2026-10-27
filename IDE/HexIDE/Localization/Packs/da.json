@@ -2,8 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "Dekl_aration",
     "Str.Menu.View.LastPosition": "Seneste positio_n",
+    "Str.Tool.RecentEdits.Title": "Seneste redigeringer",
     "Str.Menu.View.ObjectBrowser": "_Objektbrowser",
     "Str.Menu.View.ImmediateWindow": "_Kommandovindue",
     "Str.Menu.View.LocalsWindow": "Vindue for lokale _variabler",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Slet",
     "Str.Designer.Context.BringToFront": "Placér forrest",
     "Str.Designer.Context.SendToBack": "Placér bagest",
+    "Str.Designer.PreviewForm": "Forhåndsvis formular",
     "Str.Designer.Context.ViewCode": "Vis kode",
     "Str.Designer.Context.AlignToGrid": "Justér efter gitter",
     "Str.Designer.Context.Properties": "Egenskaber",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Maksimer eller gendan panel",
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
-    "Str.Dock.ScrollRight": "Rul faner til højre"
+    "Str.Dock.ScrollRight": "Rul faner til højre",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter"
   }
 }

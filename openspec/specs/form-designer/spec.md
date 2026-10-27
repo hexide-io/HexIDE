@@ -297,3 +297,20 @@ size (`add_control`) SHALL keep its own container hold and SHALL NOT add that pi
 #### Scenario: Drawing with the grid off
 - **WHEN** a tool drag spans 45 by 17 pixels with snapping disabled
 - **THEN** the preview and the placed rectangle both measure 46 by 18 pixels
+
+### Requirement: A form SHALL be previewable without running its code
+The form designer SHALL offer a Preview Form command that opens a live window using the runtime loader's
+layout, menus and tab settings, without starting the project or loading an interpreter. Control interaction,
+resizing and closing SHALL execute no VB event code and SHALL leave the designer's properties, selection,
+modified state and undo history unchanged. A UserControl or PropertyPage designer SHALL not offer this
+command. A form the runtime loader cannot create SHALL report its existing unsupported-control error.
+
+#### Scenario: Check a form's layout and interaction
+- **WHEN** Preview Form is invoked in a form designer
+- **THEN** a live form window opens with the current design, including unsaved edits
+- **AND** its controls accept interaction without executing the form's code or starting the project
+
+#### Scenario: Close after editing the preview
+- **WHEN** the developer edits a text box, resizes the preview and closes it
+- **THEN** those edits are discarded and the designer remains unchanged
+- **AND** no Load, Resize, Click, QueryUnload or other VB event procedure runs

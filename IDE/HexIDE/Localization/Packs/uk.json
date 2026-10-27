@@ -2,8 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "Визначення",
     "Str.Menu.View.Declaration": "Оголошення",
     "Str.Menu.View.LastPosition": "Остання позиція",
+    "Str.Tool.RecentEdits.Title": "Останні зміни",
     "Str.Menu.View.ObjectBrowser": "Браузер об'єктів",
     "Str.Menu.View.ImmediateWindow": "Вікно негайного виконання",
     "Str.Menu.View.LocalsWindow": "Вікно локальних змінних",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "Видалити",
     "Str.Designer.Context.BringToFront": "На передній план",
     "Str.Designer.Context.SendToBack": "На задній план",
+    "Str.Designer.PreviewForm": "Попередній перегляд форми",
     "Str.Designer.Context.ViewCode": "Переглянути код",
     "Str.Designer.Context.AlignToGrid": "Вирівняти за сіткою",
     "Str.Designer.Context.Properties": "Властивості",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Розгорнути або відновити панель",
     "Str.Dock.Close": "Закрити панель",
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
-    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч"
+    "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків"
   }
 }

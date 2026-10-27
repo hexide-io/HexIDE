@@ -2,8 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "Ορισμός",
     "Str.Menu.View.Declaration": "Δήλωση",
     "Str.Menu.View.LastPosition": "Τελευταία θέση",
+    "Str.Tool.RecentEdits.Title": "Πρόσφατες αλλαγές",
     "Str.Menu.View.ObjectBrowser": "Περιήγηση αντικειμένων",
     "Str.Menu.View.ImmediateWindow": "Παράθυρο άμεσης εκτέλεσης",
     "Str.Menu.View.LocalsWindow": "Παράθυρο τοπικών μεταβλητών",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "&Διαγραφή",
     "Str.Designer.Context.BringToFront": "Μεταφορά μπροστά",
     "Str.Designer.Context.SendToBack": "Μεταφορά πίσω",
+    "Str.Designer.PreviewForm": "Προεπισκόπηση φόρμας",
     "Str.Designer.Context.ViewCode": "Προβολή κώδικα",
     "Str.Designer.Context.AlignToGrid": "Στοίχιση στο πλέγμα",
     "Str.Designer.Context.Properties": "Ιδιότητες",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Μεγιστοποίηση ή επαναφορά παραθύρου",
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
-    "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά"
+    "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων"
   }
 }

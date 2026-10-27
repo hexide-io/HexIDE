@@ -2,8 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "D_eklaration",
     "Str.Menu.View.LastPosition": "Letzte Positio_n",
+    "Str.Tool.RecentEdits.Title": "Letzte Änderungen",
     "Str.Menu.View.ObjectBrowser": "_Objektkatalog",
     "Str.Menu.View.ImmediateWindow": "_Direktfenster",
     "Str.Menu.View.LocalsWindow": "Lokal-Fen_ster",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "_Löschen",
     "Str.Designer.Context.BringToFront": "In den Vordergrund",
     "Str.Designer.Context.SendToBack": "In den Hintergrund",
+    "Str.Designer.PreviewForm": "Formularvorschau",
     "Str.Designer.Context.ViewCode": "Code anzeigen",
     "Str.Designer.Context.AlignToGrid": "Am Raster ausrichten",
     "Str.Designer.Context.Properties": "Eigenschaften",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "Fenster maximieren oder wiederherstellen",
     "Str.Dock.Close": "Fenster schließen",
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
-    "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen"
+    "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen"
   }
 }

@@ -2,8 +2,7 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "परिभाषा",
     "Str.Menu.View.Declaration": "घोषणा",
     "Str.Menu.View.LastPosition": "अंतिम स्थिति",
+    "Str.Tool.RecentEdits.Title": "हाल के संपादन",
     "Str.Menu.View.ObjectBrowser": "ऑब्जेक्ट ब्राउज़र",
     "Str.Menu.View.ImmediateWindow": "तत्काल विंडो",
     "Str.Menu.View.LocalsWindow": "लोकल्स विंडो",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "हटाएँ",
     "Str.Designer.Context.BringToFront": "सबसे आगे लाएँ",
     "Str.Designer.Context.SendToBack": "सबसे पीछे भेजें",
+    "Str.Designer.PreviewForm": "फ़ॉर्म का पूर्वावलोकन",
     "Str.Designer.Context.ViewCode": "कोड देखें",
     "Str.Designer.Context.AlignToGrid": "ग्रिड से संरेखित करें",
     "Str.Designer.Context.Properties": "गुण",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "फलक बड़ा करें या पुनर्स्थापित करें",
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
-    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें"
+    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या"
   }
 }

@@ -2,8 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "정의",
     "Str.Menu.View.Declaration": "선언",
     "Str.Menu.View.LastPosition": "마지막 위치",
+    "Str.Tool.RecentEdits.Title": "최근 편집",
     "Str.Menu.View.ObjectBrowser": "개체 찾아보기",
     "Str.Menu.View.ImmediateWindow": "직접 실행 창",
     "Str.Menu.View.LocalsWindow": "지역 변수 창",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "삭제",
     "Str.Designer.Context.BringToFront": "맨 앞으로 가져오기",
     "Str.Designer.Context.SendToBack": "맨 뒤로 보내기",
+    "Str.Designer.PreviewForm": "폼 미리 보기",
     "Str.Designer.Context.ViewCode": "코드 보기",
     "Str.Designer.Context.AlignToGrid": "눈금에 맞춤",
     "Str.Designer.Context.Properties": "속성",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "창 최대화 또는 복원",
     "Str.Dock.Close": "창 닫기",
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
-    "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤"
+    "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수"
   }
 }

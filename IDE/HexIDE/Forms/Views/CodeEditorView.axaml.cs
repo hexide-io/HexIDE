@@ -36,6 +36,7 @@ public partial class CodeEditorView : UserControl
     private IDisposable? sub;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
+    private BracketDepthColorizer? _bracketDepthColorizer;
     private ReadOnlyRegionColorizer? _readOnlyColorizer;
     private ReadOnlyRegionLinks? _readOnlyLinks;
     private ReadOnlyRegionRedraw? _readOnlyRedraw;
@@ -300,6 +301,9 @@ public partial class CodeEditorView : UserControl
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
+
+            _bracketDepthColorizer = new BracketDepthColorizer(TextEditor, this, vm.Settings);
+            TextEditor.TextArea.TextView.LineTransformers.Add(_bracketDepthColorizer);
 
             // The header and each member's Attribute lines in the theme's read-only colour (#273 task 3.15).
             // Added before the diagnostics colorizer, so an error inside one still shows red; AvaloniaEdit
@@ -567,6 +571,13 @@ public partial class CodeEditorView : UserControl
 
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;
+        if (_bracketDepthColorizer is not null)
+        {
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_bracketDepthColorizer);
+            _bracketDepthColorizer.Dispose();
+            _bracketDepthColorizer = null;
+        }
+
         if (_readOnlyColorizer is not null)
         {
             TextEditor.TextArea.TextView.LineTransformers.Remove(_readOnlyColorizer);

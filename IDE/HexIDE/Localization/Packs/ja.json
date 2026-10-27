@@ -2,8 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 ビット",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 ビット",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "定義",
     "Str.Menu.View.Declaration": "宣言",
     "Str.Menu.View.LastPosition": "最後の位置",
+    "Str.Tool.RecentEdits.Title": "最近の編集",
     "Str.Menu.View.ObjectBrowser": "オブジェクトブラウザー",
     "Str.Menu.View.ImmediateWindow": "イミディエイトウィンドウ",
     "Str.Menu.View.LocalsWindow": "ローカルウィンドウ",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "削除",
     "Str.Designer.Context.BringToFront": "最前面へ移動",
     "Str.Designer.Context.SendToBack": "最背面へ移動",
+    "Str.Designer.PreviewForm": "フォームのプレビュー",
     "Str.Designer.Context.ViewCode": "コードの表示",
     "Str.Designer.Context.AlignToGrid": "グリッドに合わせる",
     "Str.Designer.Context.Properties": "プロパティ",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "ペインの最大化または元に戻す",
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
-    "Str.Dock.ScrollRight": "タブを右にスクロール"
+    "Str.Dock.ScrollRight": "タブを右にスクロール",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数"
   }
 }

@@ -85,6 +85,7 @@ public partial class MainViewViewModel : ObservableObject
     public LocalsToolViewModel Locals { get; }
     public WatchesToolViewModel Watches { get; }
     public CallStackToolViewModel CallStack { get; }
+    public RecentEditsToolViewModel RecentEdits { get; }
     public ProjectToolViewModel ProjectExplorer { get; }
     public ColorPaletteToolViewModel ColorPalette { get; }
     public ObjectBrowserToolViewModel ObjectBrowser { get; }
@@ -747,8 +748,10 @@ public partial class MainViewViewModel : ObservableObject
         IWindowStateService windowStateService,
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
+        RecentEditsToolViewModel recentEdits,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
+        RecentEdits = recentEdits;
         Personality = personalityService;
         AddinMenuService = addinMenuService;
         AddinCommandService = addinCommandService;
@@ -1656,6 +1659,8 @@ public partial class MainViewViewModel : ObservableObject
     public void OpenImmediateTool() => OpenOrActivateTool(Immediate, false);
     public void OpenLocalsTool() => OpenOrActivateTool(Locals, false);
     public void OpenWatchesTool() => OpenOrActivateTool(Watches, false);
+    public void OpenRecentEditsTool() => OpenOrActivateTool(RecentEdits, false);
+
     public void OpenCallStackTool() => OpenOrActivateTool(CallStack, false);
     public void OpenColorPaletteTool() => OpenOrActivateTool(ColorPalette, false);
     public void OpenObjectBrowserTool()

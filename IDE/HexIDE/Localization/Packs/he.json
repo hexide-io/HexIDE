@@ -2,8 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
@@ -130,6 +129,7 @@
     "Str.Menu.View.Definition": "הגדרה",
     "Str.Menu.View.Declaration": "הצהרה",
     "Str.Menu.View.LastPosition": "מיקום אחרון",
+    "Str.Tool.RecentEdits.Title": "עריכות אחרונות",
     "Str.Menu.View.ObjectBrowser": "דפדפן אובייקטים",
     "Str.Menu.View.ImmediateWindow": "חלון מיידי",
     "Str.Menu.View.LocalsWindow": "חלון משתנים מקומיים",
@@ -357,6 +357,7 @@
     "Str.Designer.Context.Delete": "מחק",
     "Str.Designer.Context.BringToFront": "הבא לחזית",
     "Str.Designer.Context.SendToBack": "שלח לאחור",
+    "Str.Designer.PreviewForm": "תצוגה מקדימה של טופס",
     "Str.Designer.Context.ViewCode": "הצג קוד",
     "Str.Designer.Context.AlignToGrid": "יישר לרשת",
     "Str.Designer.Context.Properties": "מאפיינים",
@@ -893,6 +894,8 @@
     "Str.Dock.MaximizeRestore": "הגדלה או שחזור החלונית",
     "Str.Dock.Close": "סגירת החלונית",
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
-    "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה"
+    "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות"
   }
 }
