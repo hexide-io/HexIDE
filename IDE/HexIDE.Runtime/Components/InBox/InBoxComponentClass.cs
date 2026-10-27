@@ -33,8 +33,8 @@ public abstract class InBoxComponentClass : ComponentBaseClass
 
     public override string VBTypeName => Library.TypeName(ControlClassName);
 
-    /// <summary>Every library that declares the control, each under whose type name a form may hold it.</summary>
-    public IEnumerable<RuntimeLibrary> Libraries =>
+    /// <summary>The libraries this implementation accepts, each under whose type name a form may hold it.</summary>
+    public virtual IEnumerable<RuntimeLibrary> Libraries =>
         ControlLibraries.All.Where(l => l.Controls.ContainsKey(ControlClassName));
 
     /// <summary>The control's own persisted properties, in the order it writes them.</summary>

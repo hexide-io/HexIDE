@@ -88,6 +88,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.ToolbarComponentClass.Instance,
     ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -144,8 +145,13 @@ public class FormDeserializer
         // what lets the writer put a preserved block back between the right two siblings.
         void LoadRecur(VBSerializedComponent serializedComponent, ComponentInstance? parent, int depth, int ordinal)
         {
-            if (!componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass) &&
-                (extraComponents == null || !extraComponents.TryGetValue(serializedComponent.Type, out componentClass)))
+            var known = componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass)
+                || extraComponents != null && extraComponents.TryGetValue(serializedComponent.Type, out componentClass);
+            // The designer carries Toolbar blocks verbatim; the runtime explicitly reads their property bags.
+            if (!known || componentClass is null || componentClass is Components.InBox.ToolbarComponentClass
+                && (extraComponents is null || !extraComponents.ContainsKey(serializedComponent.Type)
+                    || serializedComponent.SubComponents.Count != 0
+                    || serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))
             {
                 // Unknown component type — reconstruct raw text and preserve for round-trip.
                 //

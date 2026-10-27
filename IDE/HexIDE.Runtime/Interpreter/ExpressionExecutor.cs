@@ -1199,6 +1199,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is ToolbarItems toolbarItems)
+            return toolbarItems.Item(indices);
         if (value.Value is VbCollection items)
             return items.Default(indices);
         if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
@@ -1246,6 +1248,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
+        if (named && maybeGroup.Value is ToolbarItems toolbarItems)
+            return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
         if (named && maybeGroup.Value is VbCollection items)
         {
             if (dollar)
@@ -1418,6 +1422,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        if (variable.Value is VBToolbar toolbar)
+        {
+            VBToolbar.RefusePending(MemberName(member));
+            if (MemberName(member).Equals("Buttons", StringComparison.OrdinalIgnoreCase) && MemberArgs(member) is { } indexes)
+                return toolbar.Buttons.Item(await EvaluateCallArgs(indexes));
+        }
+        if (variable.Value is ToolbarItem button && MemberName(member).Equals("ButtonMenus", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } menuIndexes && button.TryGetProperty("ButtonMenus", out var menuCollection))
+            return ((ToolbarItems)menuCollection.Value!).Item(await EvaluateCallArgs(menuIndexes));
         if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
             && managed.TryGetProperty(MemberName(member), out var property))
             return property;
@@ -2188,6 +2201,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBToolbar => "MSComctlLib",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
