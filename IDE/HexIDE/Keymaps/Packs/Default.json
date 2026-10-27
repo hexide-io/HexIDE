@@ -2,6 +2,7 @@
   "name": "Default",
   "description": "Factory default keyboard shortcuts. This file documents the gestures declared in ApplicationCommands.cs. Applying 'Default' is a sentinel — the JSON is never loaded at runtime; the C# declarations are restored directly.",
   "bindings": {
+    "ReopenClosedDocumentCommand":               "Ctrl+Shift+T",
     "NewProjectCommand":                       "Ctrl+N",
     "OpenProjectCommand":                      "Ctrl+O",
     "SaveCommand":                             "Ctrl+S",

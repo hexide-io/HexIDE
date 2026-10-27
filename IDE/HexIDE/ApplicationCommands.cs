@@ -38,6 +38,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand OpenToolBoxCommand = new RoutedCommand(nameof(OpenToolBoxCommand));
     public static readonly RoutedCommand OpenDataViewCommand = new RoutedCommand(nameof(OpenDataViewCommand));
     public static readonly RoutedCommand OpenColorPaletteCommand = new RoutedCommand(nameof(OpenColorPaletteCommand));
+    public static readonly RoutedCommand ReopenClosedDocumentCommand = new RoutedCommand(nameof(ReopenClosedDocumentCommand), new KeyGesture(Key.T, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand ResetWindowLayoutCommand = new RoutedCommand(nameof(ResetWindowLayoutCommand));
     public static readonly RoutedCommand StartDefaultProjectCommand = new RoutedCommand(nameof(StartDefaultProjectCommand), new KeyGesture(Key.F5));
     public static readonly RoutedCommand StartDefaultProjectWithFullCompileCommand = new RoutedCommand(nameof(StartDefaultProjectWithFullCompileCommand), new KeyGesture(Key.F5, GetPlatformCommandKey()));

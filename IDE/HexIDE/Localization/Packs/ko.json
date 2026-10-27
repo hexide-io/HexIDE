@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "프로토콜 검사기...",
     "Str.Menu.AddIns": "추가 기능",
     "Str.Menu.Window": "창",
+    "Str.Menu.Window.ReopenClosed": "닫은 창 다시 열기",
+    "Str.Menu.Window.RecentlyClosed": "최근에 닫은 창",
     "Str.Menu.Window.Split": "분할",
     "Str.Menu.Window.ResetLayout": "창 레이아웃 재설정",
     "Str.Menu.Help": "도움말",

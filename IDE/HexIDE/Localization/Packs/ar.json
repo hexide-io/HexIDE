@@ -208,6 +208,8 @@
     "Str.Menu.Tools.ProtocolInspector": "فاحص البروتوكول...",
     "Str.Menu.AddIns": "الوظائف الإضافية",
     "Str.Menu.Window": "نافذة",
+    "Str.Menu.Window.ReopenClosed": "إعادة فتح النافذة المغلقة",
+    "Str.Menu.Window.RecentlyClosed": "النوافذ المغلقة مؤخرًا",
     "Str.Menu.Window.Split": "تقسيم",
     "Str.Menu.Window.ResetLayout": "إعادة تعيين تخطيط النوافذ",
     "Str.Menu.Help": "تعليمات",

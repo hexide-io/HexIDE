@@ -169,6 +169,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Protocol Inspector...",
     "Str.Menu.AddIns": "_Add-Ins",
     "Str.Menu.Window": "_Window",
+    "Str.Menu.Window.ReopenClosed": "Reopen Closed Window",
+    "Str.Menu.Window.RecentlyClosed": "Recently Closed Windows",
     "Str.Menu.Window.Split": "S_plit",
     "Str.Menu.Window.ResetLayout": "_Reset Window Layout",
     "Str.Menu.Help": "_Help",
