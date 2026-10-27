@@ -656,3 +656,19 @@ Categorized Properties rows SHALL expose an expand/collapse provider driven by t
 - **THEN** its open state and property visibility follow the requested state
 - **AND** repeating the action succeeds without toggling the state
 - **AND** inspection reports the current expansion state, including after using the category toggle
+
+### Requirement: press_key reads a chord written as one key
+`press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
+as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
+parts are not all modifiers SHALL be refused before anything is pressed, naming the part that is not one.
+
+#### Scenario: A chord written as one key
+
+- **WHEN** `press_key` is called with `key` `Ctrl+H` and no `modifiers`
+- **THEN** it presses H with Control
+- **AND** the reply says `'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'`
+
+#### Scenario: A chord with a part that is not a modifier
+
+- **WHEN** `press_key` is called with `key` `A+B`
+- **THEN** nothing is pressed, and the refusal says `A` is not a modifier
