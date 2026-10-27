@@ -33,7 +33,7 @@ public class CarriedCompanionRecordTests
     private static readonly byte[] Companion = [.. BadgeRecord, .. PictureRecord, .. ListImageRecord];
 
     // A PictureBox's Picture is modelled; its Badge is not, and sorts before it, so the order of the text and the
-    // order the writer reaches the two in differ. The ImageList is not modelled at all, so it is kept as a preserved
+    // order the writer reaches the two in differ. An unregistered ImageList class (#1083 models the real one) stays a preserved
     // block, and its picture sits two BeginProperty levels down, as Web Browser.frm's do.
     private const string Form =
         "VERSION 5.00\r\n" +
@@ -43,7 +43,7 @@ public class CarriedCompanionRecordTests
         "      Badge           =   \"Form1.frx\":0000\r\n" +
         "      Picture         =   \"Form1.frx\":0008\r\n" +
         "   End\r\n" +
-        "   Begin MSComctlLib.ImageList ImageList1 \r\n" +
+        "   Begin NoSuchLib.ImageList ImageList1 \r\n" +
         "      BeginProperty Images {2C247F25-8591-11D1-B16A-00C0F0283628} \r\n" +
         "         NumListImages   =   1\r\n" +
         "         BeginProperty ListImage1 {2C247F27-8591-11D1-B16A-00C0F0283628} \r\n" +

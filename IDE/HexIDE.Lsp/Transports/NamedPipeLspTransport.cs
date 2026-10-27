@@ -436,6 +436,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             string.IsNullOrEmpty(startInfo.WorkingDirectory) ? "<inherited>" : startInfo.WorkingDirectory);
 
         _job = new ChildProcessJob();
+        LaunchedServerGuard.Wrap(startInfo);
         var process = Process.Start(startInfo);
         if (process is null)
         {
@@ -533,7 +534,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         try
         {
             // A server may still be starting children after initialize answers (#313).
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            await process.WaitForExitAsync().WaitAsync(LaunchedServerGuard.ExitTimeout);
         }
         catch { /* grace period elapsed, or already gone */ }
 
@@ -541,7 +542,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         {
             if (!process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                LaunchedServerGuard.Kill(process);
                 await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
             }
         }

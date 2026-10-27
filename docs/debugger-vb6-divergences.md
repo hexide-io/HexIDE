@@ -347,31 +347,37 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
   is not re-measured.
 
-### D20. A step from a function's last statement skips `End Function`
+### D20. A step from a function's last statement skips `End Function` — FIXED
 - **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its
   header](vb6-fidelity-oracle/a-breakpoint-on-a-procedures-end-line-or-its-header.md)). From `F = 1`, a Function's
   last statement, Step Over stopped on `End Function`, and the next step stopped on the caller's next line, not on
   the calling line `x = F()` again. A Sub's `End Sub` behaved the same. Measured with Step Over (Shift+F8); `F = 1`
   calls nothing, so Step Into has nothing different to do there.
-- **HexIDE:** paused on `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to
-  the caller's next line without stopping on `End Function` (2026-09-22).
-- **Why:** the walk's gate runs before each statement of a body, and the `End` line isn't one, so there is nothing
-  to stop on.
-- **Status:** **bug.** It is the stepping side of D29, and the same stop position fixes both
-  ([#2172](https://github.com/hexide-io/HexIDE/issues/2172)). First recorded on
+- **HexIDE:** a called procedure's natural end now passes through the debugger gate before returning (#2172).
+  Entry procedures retain breakpoint-only End positions: startup stepping advances from Initialize's last
+  statement into Load's first statement, as required by #2172's supervisor review. Before that, paused on
+  `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to the caller's next line
+  without stopping on `End Function` (2026-09-22).
+- **Why it happened:** the walk's gate ran before each statement of a body, and the `End` line isn't one, so there
+  was nothing to stop on.
+- **Status:** **fixed** by [#2172](https://github.com/hexide-io/HexIDE/issues/2172); headless breakpoint and step
+  regression tests cover the boundary. It is the stepping side of D29. First recorded on
   [#656](https://github.com/hexide-io/HexIDE/issues/656).
 
-### D29. A breakpoint on a procedure's `End` line or its declaration line never pauses
+### D29. A breakpoint on a procedure's `End` line or its declaration line never pauses — FIXED
 - **VB6:** a breakpoint on `End Sub`, `End Function` or `End Property` pauses after the procedure's last statement,
   before it returns, with the `End` line highlighted. One on the declaration line, `Private Sub Helper2()`, pauses on
   entry, before the first statement of the body. F9 on a `Dim` line is refused with "Breakpoint not allowed on this
   line" (measured 2026-10-26, the same oracle section as D20).
-- **HexIDE:** accepts a breakpoint on either line, and the run never pauses there: `set_breakpoints` on Helper's
-  `End Sub`, then `run_project`, ran Helper to its end (#2172, found on a live run). The declaration line is read from
-  the code, which gates only before a statement, and wasn't run.
-- **Why:** as D20. Neither line is a statement of the body.
-- **Status:** **bug**, [#2172](https://github.com/hexide-io/HexIDE/issues/2172). Whether HexIDE pauses on a `Dim`
-  line, which VB6 won't take a breakpoint on, isn't checked.
+- **HexIDE:** Sub declarations and Sub/Function/Property Get natural ends now use the debugger gate,
+  retaining the callee's frame until continued (#2172). Before that, HexIDE accepted a breakpoint on either line
+  and the run never paused there: `set_breakpoints` on Helper's `End Sub`, then `run_project`, ran Helper to its
+  end (found on a live run).
+- **Why it happened:** as D20. Neither line is a statement of the body.
+- **Status:** **fixed** for these measured boundaries by [#2172](https://github.com/hexide-io/HexIDE/issues/2172).
+  Function/Property declaration stepping and breakpoints, Property Get end stepping, early Exit and Property
+  Let/Set boundaries remain unchanged pending measurement. The measured refusal of F9 on Dim is separate from
+  this fix, and whether HexIDE pauses on a `Dim` line isn't checked.
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
@@ -580,6 +586,22 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   reproduced live. It weighs holding the run's numbering until the run ends, re-numbering the run, which is
   hard, and treating a designer change during a run as the code window treats an edit, the likeliest, which
   waits on measuring what VB6 allows in break mode.
+
+---
+
+### D27. Watch context outside break mode (#2290)
+- **VB6:** module-wide watches cannot see procedure locals. An undefined name shows
+  `<Expression not defined in context>` with type `Empty`, including at design time and after End.
+  A valid but inactive context shows `<Out of context>` with type `Empty`.
+  [Measured table](vb6-fidelity-oracle/a-watch-and-its-context.md).
+- **HexIDE:** paused watches now respect the stored module/procedure scope and read a caller's frame.
+  Outside break mode all rows still show the localized out-of-context value with a blank type.
+- **Why:** design-time resolution needs collected declarations without a live interpreter frame; this first
+  slice changes evaluation of live frames only. The all-procedures placeholder still lacks a stored module
+  at design time and uses the paused module. Explicit module contexts are supported within that module.
+- **Status:** **partial**, #2290. Remaining: design-time/after-End resolution and context selection/storage.
+  Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
+  keep their previous behavior.
 
 ---
 

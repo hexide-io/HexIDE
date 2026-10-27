@@ -101,3 +101,40 @@ The LSP server's grammar (`VisualBasic6Parser.g4`) already grouped them as VB6 d
   executor, and both were changed with it: the pre-pass's Enum folder (`PrePass.TryFoldToDouble`) and the bounds of a
   module-level array (`ModuleLevelBounds`).
 
+### A minus sign before a literal is negation, and a literal's type comes from its digits (2026-10-27, #1073)
+
+**The probe:** one form whose program logs `TypeName` and `CStr` of each expression below, with `x` an Integer 5 and
+`y` a Double 2.5. Six one-construct projects cover what might overflow. Each project was built native and p-code. The
+program logged the same 56 lines both ways, and the compile probes failed or ran the same way both ways, except for the
+last two rows below.
+
+| Expression | vb6.exe |
+|---|---|
+| `-2 ^ 2`, `- 2 ^ 2`, `-(2) ^ 2` | Double -4 |
+| `(-2) ^ 2` | Double 4 |
+| `-2 ^ -2`, `-2 ^ 0.5`, `2 ^ -1` | Double -0.25, -1.4142135623731, 0.5 |
+| `-x ^ 2`, `x^-2` | Double -25, 0.04 |
+| `- -2`, `3 - -2`, `-2 * -2` | Integer 2, 5, 4 |
+| `-7 \ 2`, `10 Mod -3`, `-7 Mod 2` | Integer -3, 1, -1 |
+| `32767`, `-32767` | Integer |
+| **`-32768`**, `32768`, `-32769` | **Long** |
+| `2147483647`, `-2147483647` | Long |
+| **`-2147483648`**, `2147483648`, `-2147483649` | **Double** |
+| `-1.5`, `-1#`, `-1E3`, `-1D3`, `-0.0` | Double |
+| `-1.5!`, `-1!`, `-1.5E2!` | Single |
+| `-1@`, `-1&`, `-1%`, `-0` | Currency, Long, Integer, Integer |
+| `&H8000`, `-&H7FFF`, `-&O10`, `-&HFFFF` | Integer -32768, -32767, -8, 1 |
+| `-&H8000&` | Long -32768 |
+| `x-1`, `x - -1`, `x*-1`, `-x` | Integer 4, 6, -5, -5 |
+| `y-1`, `-y` | Double 1.5, -2.5 |
+| `Const C1 = -32768`, `Const C2 = -2 ^ 2`, `Const C5 = -1.5` | Long -32768, Double -4, Double -1.5 |
+| `Const C3 = -2147483648#` | Double |
+| `Const C4 As Integer = -32768`; `x = -32768` into an Integer | Integer -32768 |
+| `Const C7 = -32768 * -1` | Long 32768 |
+| `Const C6 = -&H8000`, `Const C8 As Integer = -32769` | compile error **"Overflow"** |
+| `v = -&H8000` in code, and `-h` for an Integer `h` holding `&H8000`, each under `On Error Resume Next` | native: no error, **Integer -32768**; p-code: **error 6**, `v` left Empty |
+
+So the sign is the negation operator, below `^`, and a literal's type is its digits' type before the sign applies. The
+digits 32768 are a Long, so `-32768` is a Long, though an Integer can hold it. The digits 2147483648 are a Double, so
+`-2147483648` is a Double. Negating the Integer -32768 overflows the Integer type. A constant expression refuses it as
+it compiles. In code, native code wraps to -32768 where p-code raises 6, and HexIDE follows p-code.

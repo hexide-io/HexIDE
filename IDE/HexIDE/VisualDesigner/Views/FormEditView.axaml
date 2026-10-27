@@ -108,7 +108,8 @@
                     <StackPanel>
                         <TextBlock Text="{CompiledBinding Name}" FontWeight="Bold" />
                         <TextBlock Text="{CompiledBinding TypeName}" />
-                        <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}" />
+                        <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}" IsVisible="{CompiledBinding !ViewOnly}" />
+                        <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.ViewOnly}" IsVisible="{CompiledBinding ViewOnly}" />
                     </StackPanel>
                 </ToolTip.Tip>
                 <!-- Transparent, so the whole box takes the press whatever the
@@ -119,6 +120,12 @@
                                    TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
                         <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}"
+                                   IsVisible="{CompiledBinding !ViewOnly}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                        <!-- A control HexIDE runs though the designer only carries it: a CommonDialog or a Toolbar (#2327). -->
+                        <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.ViewOnly}"
+                                   IsVisible="{CompiledBinding ViewOnly}"
                                    TextWrapping="Wrap"
                                    Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
                     </StackPanel>
@@ -328,10 +335,14 @@
                                             </ItemsPanelTemplate>
                                         </controls:ControlsContainer.ItemsPanel>
                                     </controls:ControlsContainer>
+                                    <!-- The ids put the draw preview and the rubber band in dump_visual_tree, which folds away an
+                                         unnamed wrapper, so a caller can read their bounds while a drag is held (#2231). -->
                                     <Canvas Name="NewControlSpawner"
+                                            AutomationProperties.AutomationId="NewControlSpawner"
                                             Background="Transparent"
                                             IsVisible="{CompiledBinding !ToolsBoxToolViewModel.IsCursorSelected}">
                                         <Border Name="NewControlSpawnerPhantom"
+                                                AutomationProperties.AutomationId="NewControlSpawnerPhantom"
                                                 BorderBrush="{DynamicResource ControlSpawnerPhantomBrush}"
                                                 IsVisible="False"
                                                 BorderThickness="2" />
@@ -368,6 +379,7 @@
                                     </ItemsControl>
                                     <Canvas x:Name="RubberBandCanvas" IsHitTestVisible="False">
                                         <Border x:Name="RubberBandRect"
+                                                AutomationProperties.AutomationId="RubberBandRect"
                                                 IsVisible="False"
                                                 BorderBrush="{DynamicResource SelectionAdornerBrush}"
                                                 Background="{DynamicResource RubberBandFillBrush}"

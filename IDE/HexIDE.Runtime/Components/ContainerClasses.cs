@@ -3,8 +3,7 @@ namespace HexIDE.Runtime.Components;
 /// <summary>
 /// Which component classes can hold other controls.
 ///
-/// The list is closed, and deliberately so. VB6 has exactly three container classes in a .frm — Form,
-/// PictureBox and Frame — plus the two other designer roots (UserControl, PropertyPage), which the
+/// The list is closed: Form, PictureBox, Frame and the in-box SSTab (#1090), plus the two other designer roots (UserControl, PropertyPage), which the
 /// deserializer already maps onto <see cref="FormComponentClass"/>. Nothing else is one: not a hosted
 /// UserControl placed on a form, and not a class an add-in registered, because HexIDE has no way to host
 /// arbitrary children inside a control it did not build.
@@ -17,5 +16,5 @@ namespace HexIDE.Runtime.Components;
 public static class ContainerClasses
 {
     public static bool IsContainer(IComponentClass componentClass) =>
-        componentClass is FormComponentClass or FrameComponentClass or PictureBoxComponentClass;
+        componentClass is FormComponentClass or FrameComponentClass or PictureBoxComponentClass or InBox.SSTabComponentClass;
 }

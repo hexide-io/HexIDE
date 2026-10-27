@@ -1,7 +1,7 @@
 ## In-box controls: the MSFlexGrid (2026-10-27, #1099)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with MSFLXGRD.OCX 6.01.9782.
+- **The software:** VB6 SP6 (6.00.9782), with MSFLXGRD.OCX 6.01.9782.
   - The form line is `Object = "{5E9E78A0-531B-11CF-91F6-C2863C385E30}#1.0#0"; "MSFLXGRD.OCX"`.
   - The block is `Begin MSFlexGridLib.MSFlexGrid`.
 - **The form:** written by hand, holding MSFlexGrid1 5000 × 3000 with only its position, extents and `_Version`, so
@@ -243,6 +243,317 @@ cell never given one,** not the grid's BackColor.
 - **Rows whose keys tie aren't kept in their order.** Each run started from the previous one's order, and tied keys
   came out swapped as often as not: in run 1, `B` (r4) came before `b` (r3).
 - **Col 2 with ColSel 1** keyed on columns 1 then 2, left to right, as Col 1 with ColSel 2 would.
+
+#### How ties resolve: the algorithm (2026-10-27)
+
+**The question.** The rows above whose keys tied came out in an order no simple rule gave. Is that order random, or a
+rule?
+
+**The probe:**
+- **Each row carried its identity.** Every row held its original number in a second column, in RowData and in its fixed
+  column's `h` number, so a row could be followed through a sort. All three always moved together.
+- **Every sort started from a freshly filled grid,** keyed on column 1 over all the non-fixed rows, and ran twice.
+- **The first run:** grids of 2, 3, 5, 8 and 17 rows, under Sorts 1 to 8, with five key patterns:
+  - all `k`;
+  - `a` and `b` alternating;
+  - `1, 2, 0` repeating;
+  - `a` and `A` alternating;
+  - `1`, `0` and `x` mixed.
+
+  Then Sort 9 on 2, 3, 5 and 8 rows, with four Compare handlers:
+  - `-1, 1, 0` in turn, whatever the rows;
+  - by row number, descending;
+  - always 0;
+  - by row number, ascending.
+
+  Every Compare's Row1, Row2, the rows at those positions, and the Cmp returned were logged.
+- **A held-out second run,** predicted before it was looked at:
+  - pseudo-random keys over four or five values;
+  - grids of 17, 33 and 100 rows under Sorts 1 to 8;
+  - a sub-range, rows 3 to 8 of 10;
+  - Sort 9 on 17 and 33 rows with a handler returning `1, -1, 1, 0, -1` in turn.
+- Native and p-code logged the same lines. **Every sort repeated exactly:** the order is a rule, not noise.
+
+**The rule fits every row of both runs exactly.** That is 200 orders in the first run and 72 in the second, the two
+sub-range sorts, and all 18 custom sorts Compare by Compare, 155 calls in the longest. Sort is a deterministic
+median-of-three quicksort, run after a check for a range already in order, with rows swapped in place as it goes:
+
+```
+sort(range):
+    for each adjacent pair (k, k+1) in the range:      ' the check: stop at the first pair out of order
+        if compare(k, k+1) > 0 then goto unsorted
+    return                                              ' already in order: nothing moves
+unsorted:
+    quicksort(first, last)
+
+quicksort(lo, hi):
+    if hi <= lo then return
+    mid = (lo + hi) \ 2
+    if compare(lo, mid) > 0 then swap lo, mid
+    if compare(lo, hi)  > 0 then swap lo, hi
+    if compare(mid, hi) > 0 then swap mid, hi
+    if hi - lo < 2 then return                          ' two rows: done
+    swap mid, hi - 1                                    ' the pivot waits at hi - 1
+    p = hi - 1:  i = lo:  j = p
+    do
+        do: i = i + 1: loop while compare(i, p) < 0
+        do: j = j - 1: loop while compare(j, p) > 0
+        if i >= j then exit do
+        swap i, j
+    loop
+    swap i, p
+    quicksort the smaller of (lo, i - 1) and (i + 1, hi) first, the left one when they are the same size
+    then the other
+```
+
+- **`compare(a, b)` of a row with itself is 0 and never reaches the Compare event.** That is why a two-row range logs
+  two Compares from quicksort, and a three-row range four.
+- **For Sorts 1 to 8, `compare` is that sort's ordering of the key columns.** Its descending sorts are the ascending
+  comparison negated, not the ascending result reversed: their tie orders differ.
+- **Rows whose keys are all equal never move**, at any size, because the first check finds no pair out of order. Nor
+  does a range already in order under the sort, Sort 9's included: a handler returning 0, or always the right sign,
+  is asked n - 1 times and nothing moves.
+- **With some keys different, ties are scrambled the way the partition leaves them.** For example, Sort 1 on `a1 b2 a3
+  b4 a5 b6 a7 b8` gives `a1 a7 a3 a5 b6 b4 b2 b8`, and Sort 2 gives `b4 b6 b8 b2 a3 a7 a5 a1`. Up to 5 rows the tie
+  orders happened to look stable; from 8 rows on they don't.
+- **Row and RowSel in either order give the same range.** Rows 3 to 8 sorted alone, and with Row 8 and RowSel 3, came out
+  the same, the rows outside untouched, as the rule predicts for that range.
+- **Row1 and Row2 in Compare are positions at the moment of the call, not original rows.** Rows have already moved by
+  the time later Compares arrive. A handler reading `TextMatrix(Row1, c)` sees the row now at Row1.
+
+**What the earlier probe saw is consistent with this.** Each of its runs started from the previous run's order, and
+tied keys "came out swapped as often as not". From a different starting order, the same partition leaves ties in a
+different order.
+
+### Events, with real input
+
+**The probe:**
+- A 30 × 6 grid holding `r,c` in every cell, one fixed row and column, run on the guest's console.
+- A driver clicked and typed for real and marked each action in the log, which recorded every event.
+- Native and p-code logged the same lines, mouse coordinates apart.
+
+| Action | Events, in order |
+|---|---|
+| Click cell 2,2, with 1,1 current | **LeaveCell (1,1), EnterCell (2,2), RowColChange, then MouseDown**, SelChange, MouseUp, Click |
+| Click the current cell again | MouseDown, MouseUp, Click |
+| Shift+click 4,3 | MouseDown, with RowSel and ColSel already 4 and 3, SelChange, MouseUp, Click. Row and Col stay |
+| Ctrl+click 3,1 | as a plain click. There is no multiple selection |
+| Drag from 1,1 to 3,2 | the cell change at the press, MouseDown, SelChange, MouseUp, Click: RowSel 3, ColSel 2 |
+| Click column heading 0,2 | Row 1, Col 2, RowColChange, MouseDown, then **RowSel 29: the whole column**. SelChange, MouseUp, Click |
+| Click row heading 3,0 | Row 3, **Col 1**, then ColSel 5: the whole row |
+| Click the corner, 0,0 | Row 1, Col 1, RowSel 29, ColSel 5: everything |
+| Double-click 2,3 | the cell change, MouseDown, SelChange, MouseUp, Click, **DblClick, SelChange, MouseUp** |
+| Right-click 5,2 | MouseDown and MouseUp with Button 2, then **Click**. The current cell doesn't move |
+| Drag a column border in the fixed row, AllowUserResizing 3 | **no event at all.** ColWidth(1) went from 960 to 1545 |
+
+- **The cell changes before MouseDown.** In MouseDown, Row and Col are already the clicked cell's, and MouseRow and
+  MouseCol are the cell under the pointer: 0 for a heading.
+- **Mouse X and Y are in twips.**
+- **Clicking a heading never makes the fixed cell current.** It moves to the first non-fixed cell of that column or row
+  and selects the whole column or row.
+- **With AllowBigSelection False, a heading click selects only that first cell:** RowSel 1, ColSel 3.
+- **SelectionMode 1 (by row)** keeps Col at 1, the first non-fixed column, and ColSel at the last.
+  - A click on 3,3 gave Row 3, Col 1, ColSel 5.
+  - Down raised SelChange twice, once for the new cell and once for the row.
+  - Right changed nothing but raised SelChange twice.
+- **SelectionMode 2 (by column)** keeps Row at 1 and RowSel at the last: a click on 2,2 gave Row 1, Col 2, RowSel 29.
+
+**The keyboard:**
+
+| Key | Effect |
+|---|---|
+| Down, Up, Left, Right | one cell. LeaveCell, **SelChange, EnterCell**, RowColChange: SelChange comes before EnterCell, unlike a click |
+| Right into a column not wholly shown | Scroll first, LeftCol 1 to 2 |
+| Home, End | the first and last non-fixed column of the row |
+| Ctrl+Home, Ctrl+End | cell 1,1 and the last cell, 29,5. Two Scroll events, rows then columns |
+| PageDown, from 1,1 | **Row 11, TopRow 2** |
+| PageUp | back to Row 1, TopRow 1 |
+| Shift+Down, Shift+Right | extend the selection. SelChange only |
+| Enter, a letter | KeyDown, KeyPress, KeyUp. Nothing moves, and nothing is edited |
+| Tab, Shift+Tab | move the focus out of the grid and back. The grid doesn't keep Tab |
+
+- **KeyDown isn't raised for the keys the grid moves on:** the arrows, Home, End and the Page keys.
+- **KeyUp was raised for some of them and not others.** Home, End, Ctrl+Home, Ctrl+End, PageUp, PageDown and the
+  Shift+arrows raised it; the plain arrows didn't. Native and p-code agreed on this, and no rule explains it.
+
+### Keyboard selection under each SelectionMode (2026-10-27)
+
+**The probe:**
+- **The grid:** the same 30 × 6 grid, rows 1 to 29 and columns 1 to 5 not fixed, 5000 × 3000 twips.
+- **The modes:** SelectionMode 0, 1 and 2, each with AllowBigSelection True and then False.
+- **The start:** before each group of keys, the program set the mode, TopRow and LeftCol 1, then **Row 3, Col 2, RowSel
+  3 and ColSel 2**, and gave the grid the focus.
+- **The input:** real keys from SendKeys on the guest's console. A Timer logged Row, Col, RowSel, ColSel, TopRow, LeftCol
+  and the count of SelChange events whenever they changed.
+- **The builds:** native and p-code logged the same lines. A first native run lost the Shift of one Shift+End to
+  SendKeys, and a second run matched p-code exactly.
+
+**AllowBigSelection made no difference to any key,** in any mode. It governs only a click on a heading, above.
+
+**Setting the selection from code isn't forced to the mode.** In modes 1 and 2 the start read RowSel 3 and ColSel 2, a
+single cell. The first key then widened it to the row or the column.
+
+**SelectionMode 0, free:**
+
+| Keys, from 3,2 | Row, Col | RowSel, ColSel | Scrolled |
+|---|---|---|---|
+| Shift+Down, twice | 3, 2 | 4, 2; then 5, 2 | |
+| Shift+Right | 3, 2 | 5, 3 | |
+| Shift+Up, three times | 3, 2 | 4, 3; 3, 3; **2, 3: past the anchor** | |
+| Shift+Left, twice | 3, 2 | 2, 2; **2, 1, the first non-fixed column** | |
+| Shift+Home; Shift+End; Shift+Home | 3, 2 | 3, 1; 3, 5; 3, 1 | LeftCol 3 at Shift+End, 1 again after |
+| Shift+PageDown; Shift+PageUp | 3, 2 | **13, 2: 10 rows on**; 3, 2 | TopRow 4; TopRow 3 |
+| Ctrl+Home | **1, 1** | 1, 1 | |
+| Ctrl+End | **29, 5** | 29, 5 | TopRow 20, LeftCol 3 |
+| Ctrl+Shift+End; Ctrl+Shift+Home | 3, 2 | **29, 5**; **1, 1** | TopRow 20, LeftCol 3; then 1, 1 |
+| Down; Right; Home; End | 4, 2; 4, 3; 4, 1; 4, 5 | the same: **a plain key collapses the selection** | LeftCol 3 at End |
+
+- **The anchor is Row and Col.** The Shift keys move only RowSel and ColSel, and Row and Col never moved.
+- **Each key that changed the selection raised one SelChange.**
+
+**SelectionMode 1, by row:**
+
+| Keys, from 3,2 | Row, Col | RowSel, ColSel | SelChange |
+|---|---|---|---|
+| Shift+Down, twice | 3, 2 | **4, 5**; 5, 5: the whole rows | one each |
+| Shift+Right | | nothing | none |
+| Shift+Up, three times | 3, 2 | 4, 5; 3, 5; 2, 5 | one each |
+| Shift+Left, twice | | nothing | none |
+| Shift+Home; Shift+End; Shift+Home | 3, 2 | 3, 5; then nothing; nothing | one, then none |
+| Shift+PageDown; Shift+PageUp | 3, 2 | 13, 5; 3, 5. TopRow 4; 3 | one each |
+| Ctrl+Home | **1, 2: Col stayed 2** | 1, 5 | **two** |
+| Ctrl+End | **29, 2** | 29, 5. TopRow 20, **LeftCol still 1** | two |
+| Ctrl+Shift+End; Ctrl+Shift+Home | 3, 2 | 29, 5, TopRow 20; 1, 5 | one each |
+| Down | 4, 2 | 4, 5 | two |
+| Right; Home; End | **4, 2: nothing moved** | 4, 5 | **two each** |
+
+- **Col never moved.** It stayed at 2, where the code put it, through Ctrl+Home and Ctrl+End. A click sets Col to 1, the
+  first non-fixed column, as measured above. A key doesn't.
+- **ColSel is always the last column,** and the grid never scrolled sideways.
+- **Left, Right, Home and End move nothing, with or without Shift.** Plain, they still raised SelChange twice.
+
+**SelectionMode 2, by column:**
+
+| Keys, from 3,2 | Row, Col | RowSel, ColSel | SelChange |
+|---|---|---|---|
+| Shift+Down | 3, 2 | **29, 2: the whole column** | one |
+| Shift+Down again; Shift+Up, three times | | nothing | none |
+| Shift+Right | 3, 2 | 29, 3 | one |
+| Shift+Left, twice | 3, 2 | 29, 2; 29, 1 | one each |
+| Shift+Home; Shift+End; Shift+Home | 3, 2 | 29, 1; 29, 5, LeftCol 3; 29, 1 | one each |
+| Shift+PageDown; Shift+PageUp | 3, 2 | 29, 2, **no scroll**; then nothing | one, then none |
+| Ctrl+Home | **3, 1: Row stayed 3** | 29, 1 | two |
+| Ctrl+End | **3, 5** | 29, 5. **TopRow still 1**, LeftCol 3 | two |
+| Ctrl+Shift+End; Ctrl+Shift+Home | 3, 2 | 29, 5, LeftCol 3; 29, 1 | one each |
+| Down | **3, 2: nothing moved** | 29, 2 | one |
+| Right; Home; End | 3, 3; 3, 1; 3, 5 | 29, 3; 29, 1; 29, 5 | two each |
+
+- **Row never moved.** It stayed at 3 through Ctrl+Home and Ctrl+End, and the grid never scrolled down.
+- **RowSel is always the last row.** Up, Down and the Page keys, with or without Shift, select nothing new.
+- **For the selection, mode 2 is mode 1 turned through a right angle.** The SelChange counts are as the tables give
+  them. This probe pressed no plain Up or Down in mode 2 after the selection had widened, so it doesn't show whether a
+  key that moves nothing raises two SelChanges here, as it does in mode 1.
+
+### Drawing
+
+Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
+- **The default grid:**
+  - Every cell is 64 × 16 pixels, 960 × 240 twips.
+  - The fixed cells are grey and raised.
+  - The rest of the control, past the last cell, is BackColorBkg's dark grey.
+  - A scroll bar shows only when its cells don't fit.
+- **Alignment:**
+  - 0 to 8 put the text left, centre or right, and top, middle or bottom, in threes: 0 left top, 4 centred, 8 right
+    bottom.
+  - **With FixedAlignment left at 9, a fixed row's cell follows its column's ColAlignment:** `a0` sat top left over
+    column 1, whose ColAlignment was 0.
+- **9, general:**
+  - Text is left and numbers right, middle.
+  - **The test is the first character:**
+    - right: `123`, `-4.5`, `1,5`, `1e3`, and **`12abc`**;
+    - left: `abc`, `$3`, ` 7` with a leading space, and `#1/1/2000#`.
+- **Text too wide is clipped at the cell's edge,** with no ellipsis, and doesn't run into the next cell.
+- **WordWrap True wraps a cell's text within it,** clipped at the cell's bottom.
+- **Changing the grid's Font.Size makes every row taller.** At 12 point the rows grew to fit, though CellFontSize 12 on
+  one cell didn't grow its row (group 1).
+- **Merging:**
+  - With MergeCells 1 (free), MergeCol(1) True, and column 1 holding `a`, `a`, `a`, `b`, `b`, rows 1 to 3 drew as one
+    cell with `a` centred in its height.
+  - Rows 4 and 5, with MergeRow True, merged across: `b`, `b`, `b` in row 4 drew as one cell over columns 1 to 3, and
+    `b`, `b`, `c` in row 5 merged columns 1 and 2.
+  - **With MergeCells 2 (restrict rows) and only MergeCol set, nothing merged.**
+- **GridLines:**
+  - 0 drew no lines between the non-fixed cells, the fixed cells keeping theirs.
+  - 2 (inset) and 3 (raised) draw 3D lines.
+  - GridLineWidth 3 thickens the lines.
+- **TextStyle** 1 and 2 draw the text raised or inset.
+- **A CellPicture is drawn in the cell with the text over it,** at CellPictureAlignment's place: top left by default,
+  centred at 4.
+- **The colours:**
+  - BackColor and ForeColor are the non-fixed cells';
+  - BackColorFixed and ForeColorFixed the fixed cells';
+  - BackColorBkg the empty area;
+  - GridColor and GridColorFixed the lines.
+- **The selection:**
+  - The current cell is never highlighted. It is drawn normally, with the focus rectangle, and the rest of the
+    selection in BackColorSel and ForeColorSel.
+  - FocusRect 2 draws a heavier rectangle.
+  - HighLight 0 draws no highlight.
+  - **HighLight 2, with the focus elsewhere, drew neither the highlight nor the focus rectangle.**
+- **The Cell properties draw per cell,** a fixed cell included: CellBackColor, CellForeColor, bold, italic, underline
+  and size.
+- **FixedRows and FixedCols 0** draw every cell white.
+- **Appearance 0, BorderStyle 0 and ScrollBars 0** drew a flat grid with no border and no scroll bars, the cells running
+  off the edge.
+
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
+  `corpus/inbox-controls/pending/msflexgrid/`.
+  - MSFlexGrid1 had every property off its default, its lines in reverse order.
+  - MSFlexGrid2 had only its position, extents and `_Version`.
+  - A third grid was double-clicked from the toolbox first.
+- **The read:** both forms were read back at run time, natively and as p-code. All four runs logged the same lines.
+
+**The double-clicked grid** is the bare block, 1500 × 750, centred on the 9600 × 7200 form:
+
+```
+   Begin MSFlexGridLib.MSFlexGrid MSFlexGrid3 
+      Height          =   750
+      Left            =   4050
+      TabIndex        =   2
+      Top             =   3225
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   1323
+      _Version        =   393216
+   End
+```
+
+**The order VB6 writes the lines in,** whatever order they were read in: the extender's, the extents and `_Version`, then
+
+```
+Rows, Cols, FixedRows, FixedCols, RowHeightMin, BackColor, ForeColor, BackColorFixed,
+ForeColorFixed, BackColorSel, ForeColorSel, BackColorBkg, GridColor, GridColorFixed,
+WordWrap, Redraw, AllowBigSelection, ScrollTrack, RightToLeft, TextStyle, TextStyleFixed,
+FocusRect, HighLight, FillStyle, GridLines, GridLinesFixed, ScrollBars, SelectionMode,
+MergeCells, AllowUserResizing, PictureType, BorderStyle, Appearance, MousePointer,
+GridLineWidth, FormatString, the Font block, OLEDropMode
+```
+
+- **Every property is saved under its own name, and only when off its default.** `FixedCols = 0` was written because the
+  default is 1.
+- **The font is a `BeginProperty Font` block.**
+- **Cell text is not saved.** The only text the file carries is FormatString, and there is no `.frx`.
+- **Loading applies FormatString to the loaded grid.**
+  - `<A|^B|>C|D` on 5 rows and 4 columns, FixedRows 2 and FixedCols 0, put `A` to `D` in row 0.
+  - It set ColAlignment and FixedAlignment to 1, 4, 7 and 9.
+  - The widths, 225 each, are measured in the grid's own font, Arial 9.75 bold.
+- **Row and Col start at the first non-fixed cell:** Row 2, Col 0.
+- **RowHeightMin 300 made every row 300.**
+- **`RightToLeft = -1` was written, but read False at run time.**
+- **The minimal block loads with the defaults** of group 1.
 
 ### In HexIDE
 

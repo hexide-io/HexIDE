@@ -182,7 +182,8 @@ public record InitializeParams(
     [property: JsonPropertyName("workspaceFolders")] WorkspaceFolder[]? WorkspaceFolders = null,
     // Appended, never inserted. This is a positional record with several construction sites and tests
     // asserting on it; an insert whose types line up compiles cleanly while landing a value in the wrong slot.
-    [property: JsonPropertyName("trace")] string? Trace = null);
+    [property: JsonPropertyName("trace")] string? Trace = null,
+    [property: JsonPropertyName("locale")] string? Locale = null);
 
 /// <summary>
 /// How much a server should say about its own work: the three values the protocol defines, and nothing else.
@@ -280,7 +281,13 @@ public record WorkspaceClientCapabilities(
     /// same trap as <c>save</c> and <c>codeLens</c> above, where declaring and using are two halves of one
     /// negotiation and shipping either alone produces silence rather than an error.
     /// </remarks>
-    [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null);
+    [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null,
+    [property: JsonPropertyName("fileOperations")] FileOperationsClientCapabilities? FileOperations = null);
+
+public record FileOperationsClientCapabilities(
+    [property: JsonPropertyName("didCreate")] bool DidCreate = true,
+    [property: JsonPropertyName("didRename")] bool DidRename = true,
+    [property: JsonPropertyName("didDelete")] bool DidDelete = true);
 
 /// <summary>One folder of a multi-root workspace, as the protocol spells it.</summary>
 public record WorkspaceFolder(
@@ -1103,3 +1110,11 @@ public record SemanticTokensRequests([property: JsonPropertyName("full")] bool F
 public record SemanticTokensParams([property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
 public record SemanticTokens([property: JsonPropertyName("data")] int[] Data);
 public record SemanticTokenResult(int[] Data, string[] TokenTypes);
+
+public record FileRename(
+    [property: JsonPropertyName("oldUri")] string OldUri,
+    [property: JsonPropertyName("newUri")] string NewUri);
+
+public record FileOperationUri([property: JsonPropertyName("uri")] string Uri);
+public record FileOperationParams([property: JsonPropertyName("files")] FileOperationUri[] Files);
+public record RenameFilesParams([property: JsonPropertyName("files")] FileRename[] Files);

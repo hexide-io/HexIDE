@@ -94,8 +94,24 @@ public class ProjectService : IProjectService
     /// A file joining the project that a kept line already names, because it failed to load, takes that
     /// line's place: kept as well, the project file would name it twice.
     /// </summary>
-    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath) =>
-        project.PreservedItemLines.RemoveAll(line => KeptLineNames(project, line, absolutePath));
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
+    {
+        for (var i = project.PreservedItemLines.Count - 1; i >= 0; i--)
+        {
+            if (!KeptLineNames(project, project.PreservedItemLines[i], absolutePath))
+                continue;
+            project.PreservedItemLines.RemoveAt(i);
+            // Slots follow the remaining lines' list indexes, not the removed line's position.
+            for (var j = i; j < project.PreservedItemLines.Count; j++)
+            {
+                if (project.PreservedItemLineSlots.TryGetValue(j + 1, out var slot))
+                    project.PreservedItemLineSlots[j] = slot;
+                else
+                    project.PreservedItemLineSlots.Remove(j);
+            }
+            project.PreservedItemLineSlots.Remove(project.PreservedItemLines.Count);
+        }
+    }
 
     /// <summary>
     /// Whether a line the project file keeps for a member names the file at <paramref name="absolutePath"/>, as the
@@ -615,8 +631,15 @@ public class ProjectService : IProjectService
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
+        {
+            var existed = File.Exists(destination.Path);
             if (Write(destination, announceSave, ownCommand, rewrites))
+            {
                 written.Add(destination);
+                if (announceSave && !existed && lspClient is not null)
+                    await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(destination.Path)).AbsoluteUri]);
+            }
+        }
 
         foreach (var destination in written)
         {
@@ -1332,7 +1355,11 @@ public class ProjectService : IProjectService
         // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a
         // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
-            Write(file, announceSave: true);
+        {
+            var existed = File.Exists(file.Path);
+            if (Write(file, announceSave: true) && !existed && lspClient is not null)
+                await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(file.Path)).AbsoluteUri]);
+        }
         if (lspClient is not null)
             await lspClient().WorkspaceChangedAsync();
     });

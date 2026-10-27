@@ -108,8 +108,10 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.HeightProperty, Layoutable.HeightProperty);
         // Not Visual.IsVisibleProperty: hiding a CONTAINER that way unrealises everything inside it, and an
         // unrealised control dispatches no events at all. See VBVisibility.
+        Register<Control, bool>(VBProperties.KeyPreviewProperty, AttachedProperties.GetKeyPreview, AttachedProperties.SetKeyPreview);
         Register<Control, bool>(VBProperties.VisibleProperty, VBVisibility.Get, VBVisibility.Set);
-        Register<Control, bool>(VBProperties.EnabledProperty, InputElement.IsEnabledProperty);
+        // A disabled container masks the read, but the setter keeps the control's own value (#2245, measured).
+        Register<Control, bool>(VBProperties.EnabledProperty, VBEnabled.Get, (c, value) => c.IsEnabled = value);
         Register<Control, object?>(VBProperties.TagProperty, Control.TagProperty);
         // ToolTipText, on the ten controls HexIDE runs that VB6 gives it, and on no other: a scroll bar, Shape, Line,
         // Timer, menu or form has none (measured, #1403). The tip shown is the value, and "" where none was given.
@@ -123,6 +125,7 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBPictureBox>();
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
+        RegisterToolTipText<VBStatusBar>();
         // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
         RegisterTabOrder<VBCommandButton>(tabStop: true);
         RegisterTabOrder<VBTextBox>(tabStop: true);
@@ -135,6 +138,8 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBStatusBar>(tabStop: false);
+        RegisterTabOrder<VBSSTab>(tabStop: true);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
         // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
@@ -537,15 +542,36 @@ public static class AvaloniaInteroperability
     /// <summary>Enumerate the VB6 properties readable on a live control (name → current value), NAME-SORTED — the
     /// Locals property surface (P8/D7). A property is included only when a registered binding applies to this
     /// control's type (the same rule <see cref="TryGet"/> uses); duplicates by name are collapsed.</summary>
-    public static IReadOnlyList<(string Name, Vb6Value Value)> ReadProperties(Control c)
+    /// <remarks>
+    /// A property whose read raises is listed with the raised error's own description and no value, rather than ending
+    /// the read. A Timer's Left and Top raise 393 when read, as VB6's do (#2069), so one Timer on a form
+    /// made expanding <c>Me</c> fail, in the Locals window and in get_locals alike (#2289).
+    /// </remarks>
+    public static IReadOnlyList<(string Name, Vb6Value Value, string? Error)> ReadProperties(Control c)
     {
-        var byName = new SortedDictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        var byName = new SortedDictionary<string, (Vb6Value Value, string? Error)>(StringComparer.OrdinalIgnoreCase);
         foreach (var property in bindingsByProperty.Keys)
-            if (!byName.ContainsKey(property.Name) && TryGet(c, property, out var value))
-                byName[property.Name] = value;
-        var list = new List<(string, Vb6Value)>(byName.Count);
+        {
+            if (byName.ContainsKey(property.Name))
+                continue;
+            try
+            {
+                if (TryGet(c, property, out var value))
+                    byName[property.Name] = (value, null);
+            }
+            catch (VBRunTimeException ex)
+            {
+                byName[property.Name] = (default, ex.Error.Description);
+            }
+            // Not a raise VB6 would make, but a fault in one getter shouldn't hide the rest, as a watch shows its message.
+            catch (Exception ex)
+            {
+                byName[property.Name] = (default, ex.Message.ReplaceLineEndings(" ").Trim());
+            }
+        }
+        var list = new List<(string, Vb6Value, string?)>(byName.Count);
         foreach (var kv in byName)
-            list.Add((kv.Key, kv.Value));
+            list.Add((kv.Key, kv.Value.Value, kv.Value.Error));
         return list;
     }
 

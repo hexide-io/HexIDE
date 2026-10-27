@@ -3,10 +3,14 @@
 This extends "The CommonDialog control" (2026-10-17), which measured the dialogs the Notepad demo uses, as p-code.
 The two agree where they overlap.
 
-**The probes.** VB6 6.00.8176 SP6, with COMDLG32.OCX 6.01.9782.
+**The probes.** VB6 SP6 (6.00.9782), with COMDLG32.OCX 6.01.9782.
 - **The control:** its form line is
   `Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "COMDLG32.OCX"`, and its block is
   `Begin MSComDlg.CommonDialog`.
+- **The library record:** the oracle VM's type-library dump already committed as
+  `IDE/HexIDE.Runtime/Interpreter/Data/comdlg32-constants.json` identifies the library as `MSComDlg`, with the
+  description `Microsoft Common Dialog Control 6.0`. Its 102 constants and this metadata came from
+  `scripts/dump-typelib-constants.ps1` against COMDLG32.OCX (#1148); these are existing dump results, not a new probe.
 - **The object-model program:** a Sub Main showing a form holding a CommonDialog. It drives the control late-bound
   under `On Error Resume Next`, logging each value with its `TypeName`, or the error.
 - **The dialogs program:** the same form, where each step opens a dialog and logs the properties after it returns.
@@ -81,7 +85,7 @@ The two agree where they overlap.
 
 | Assignment | Logged |
 |---|---|
-| Action 0, 7, 8, -1 | **380**. 1 to 6 open a dialog |
+| Action 0, 7, 8, -1 | **380**. 1 to 5 open the dialog of ShowOpen to ShowPrinter, and 6 is ShowHelp: see "Action 1 to 6" |
 | Flags | any Long, -1 and `&H7FFFFFFF` too |
 | FilterIndex -1 | **380**. 0 to 32767 are taken, 99 too |
 | MaxFileSize 0, -1 | **380** |
@@ -185,7 +189,41 @@ After the old dialog, CurDir read **`C:\HEXORACLE-CDFILES`**, in capitals.
 - **OK with cdlPDReturnDC, `&H100`:** hDC was a printer DC's handle, and Flags `&H100`.
 - **Copies 3 set beforehand came back as 1** from Microsoft Print to PDF.
 - **Cancel with CancelError True raises 32755.**
-- PrinterDefault was False throughout, so the guest's default printer was not changed. ShowHelp was not measured.
+- PrinterDefault was False throughout, so the guest's default printer was not changed.
+
+### Action 1 to 6
+
+**The probe:** one program setting `Action` to 2, 3, 4, 5 and 6 in turn, run on the guest's console, native and p-code.
+A driver answered each dialog with real keys, as for the ShowX rows above. The two builds logged the same lines.
+
+**Each value is the method of the same number, and writes back what that method does.**
+
+| Statement | Dialog | Written back |
+|---|---|---|
+| `Action = 1` | Open | as ShowOpen, above |
+| `Action = 2`, DefaultExt `txt`, typed `C:\hexoracle-cdfiles\saved2` | **Save As** | FileName `C:\hexoracle-cdfiles\saved2.txt`, FileTitle `saved2.txt`, Flags 0, and CurDir moved to the folder |
+| the same, cancelled, CancelError True | Save As | **32755**. FileName stayed empty, as set before the call, and FileTitle stayed `saved2.txt` from the call before |
+| `Action = 3`, cdlCCRGBInit, Color vbBlue, OK | **Color** | Color 16711680, Flags 1 |
+| `Action = 4`, cdlCFScreenFonts, Arial 12 bold, OK | **Font** | FontName Arial, FontSize 12, Bold True, Italic False, Flags 1 |
+| `Action = 5`, Flags 0, OK | **Print** | Copies 1, FromPage, ToPage, Min and Max 0, Orientation 1, Flags 0, hDC 0 |
+| the same, cancelled, CancelError True | Print | **32755**, the values unchanged |
+| `Action = 6` | **none of the program's own** | no error, for each case below |
+
+**Action 6 is ShowHelp, and on Windows 10 it hands off to the system.**
+- **Every call returned at once with no error, ShowHelp's own included:**
+  - HelpFile empty with HelpCommand 0;
+  - HelpFile empty with HelpCommand 3, cdlHelpContents;
+  - HelpFile a file that doesn't exist, with HelpCommand 3;
+  - then HelpCommand 2, cdlHelpQuit;
+  - and `ShowHelp` itself with the missing file and HelpCommand 3.
+- **Nothing opened in the program.** Instead, Windows started `HelpPane.exe` in the console session. That started
+  `OpenWith.exe`, which showed "You'll need a new app to open this ms-contact-support link".
+  - It happened in the native run and again in the p-code run.
+  - Left on screen, that box took the keystrokes meant for the next program's Save As dialog.
+- **Which call started it isn't separated:** the five calls ran within a quarter of a second. It is Windows 10's
+  replacement for the old Help engine answering, not anything the control does itself. On a Windows that still has
+  WinHelp, the result would be different.
+- After the calls, Flags, HelpFile and HelpCommand read back as they were set.
 
 ### The saved files
 
@@ -197,7 +235,7 @@ After the old dialog, CurDir read **`C:\HEXORACLE-CDFILES`**, in capitals.
   - The third had its defaults written out.
   - A second save of the same form also had a fourth CommonDialog double-clicked from the toolbox.
 - **The run-time read:** an EXE read every property back from VB6's save, natively and as p-code.
-- **The corpus:** VB6's save is in `corpus/inbox-controls/pending/commondialog/`.
+- **The corpus:** VB6's save is in `corpus/inbox-controls/saved/commondialog/`.
 
 **Double-clicked onto a 6000×4500-twip form,** VB6 writes:
 
@@ -239,4 +277,18 @@ PrinterDefault, ToPage, Orientation
 
 ### In HexIDE
 
-HexIDE runs ShowOpen, ShowSave and ShowFont through the IDE's own dialogs, and keeps the control's block in the file as it was read. The oracle's "The CommonDialog control" (2026-10-17) has what it does and what it refuses. What this entry adds has not been checked against it (#1084). For one: that entry left `cdlOFNExtensionDifferent` unmeasured and HexIDE doesn't set it, and here Windows set it on every pick whose extension differed from DefaultExt, an empty DefaultExt included.
+ShowOpen, ShowSave and ShowFont run through the host (#1148). The scalar object-model slice of #1084
+adds the measured defaults and assignment checks; hDC reads remain refused because no native printer DC is owned.
+The control now loads through the MSComDlg library record and its component class, with own file properties carried
+verbatim. Color reads preserve VarType 19 and the unsigned value; assigning -1 overflows. Unmeasured unsigned numeric
+conversions remain refused. Single-file Open/Save now add PathMustExist even on Cancel, set ExtensionDifferent for an extension differing from
+DefaultExt (including an empty one), complete DefaultExt or a simple selected Save filter extension, and raise 20476
+when Open returns a path exceeding MaxFileSize. An unavailable selected filter or an unmeasured complex filter completion
+is refused. Save buffer errors, exact buffer-fit boundaries, extension casing and resetting an existing ExtensionDifferent bit remain
+unmeasured; their previous behavior is unchanged. Multi-select now passes every picked path through both hosts and formats the measured same-folder results above.
+Cross-folder selections and old-format paths with spaces are refused because their encoding is unmeasured.
+Action 1–6 now dispatches to the corresponding Show methods, awaiting their results; integral writes 0, 7, 8 and -1 raise 380. Non-integral assignment conversions remain refused. ShowHelp returns for the measured commands 0, 2 and 3; other commands are refused. ShowColor and ShowPrinter remain refused at their method entry points.
+The old native dialog appearance and uppercase CurDir side effect, the remaining dialogs and their return
+semantics remain outstanding. The measured CommonDialog save now round-trips byte for byte in the saved corpus lane;
+explicit own-property defaults are omitted in the measured order, with six separate font lines and no Font block.
+ShowHelp does not start HelpPane.exe as Windows 10 does: the supervisor directed HexIDE to return without launching it (#1084).

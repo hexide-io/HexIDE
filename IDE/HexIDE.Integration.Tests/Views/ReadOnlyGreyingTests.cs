@@ -76,6 +76,33 @@ public class ReadOnlyGreyingTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    // Dispatcher jobs leave their captured context on the thread, including an earlier test's TestContext (#2346).
+    private static void RunJobsKeepingContext()
+    {
+        var context = ExecutionContext.Capture();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
+    }
+
+    [AvaloniaFact]
+    public void DrainingJobsKeepsTheTestsExecutionContext()
+    {
+        var marker = new AsyncLocal<string> { Value = "queued job" };
+        Dispatcher.UIThread.Post(() => marker.Value.Should().Be("queued job"));
+        marker.Value = "current test";
+
+        RunJobsKeepingContext();
+
+        marker.Value.Should().Be("current test");
+    }
+
     /// <summary>A fold-label brush no theme and no library default uses.</summary>
     private static readonly IBrush Unset = new SolidColorBrush(Color.Parse("#123456"));
 
@@ -125,7 +152,7 @@ public class ReadOnlyGreyingTests : IDisposable
         {
             themes.Apply("Classic");
             Application.Current!.Resources.MergedDictionaries.Remove(classic);
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
         });
     }
 
@@ -145,7 +172,7 @@ public class ReadOnlyGreyingTests : IDisposable
         {
             for (var i = 0; i < classic.Count; i++)
                 merged.Insert(Math.Min(at[i], merged.Count), classic[i]);
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
         });
     }
 
@@ -192,11 +219,11 @@ public class ReadOnlyGreyingTests : IDisposable
         var window = new Window { Width = 1200, Height = 800 };
         windows.Add(window);
         window.Show();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         var view = new CodeEditorView { DataContext = vm };
         window.Content = view;
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         return view.FindControl<TextEditor>("TextEditor")!;
     }
 
@@ -222,7 +249,7 @@ public class ReadOnlyGreyingTests : IDisposable
     {
         var folding = (FoldingManager)editor.TextArea.TextView.GetService(typeof(FoldingManager))!;
         folding.GetFoldingsAt(0).Single().IsFolded = false;
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
     }
 
     /// <summary>The colour each element with text on the 1-based <paramref name="line"/> was drawn in.</summary>
@@ -264,7 +291,7 @@ public class ReadOnlyGreyingTests : IDisposable
         selector!.SelectedIndex.Should().Be(0);
         selector.SelectedIndex = target;
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         grey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
         foreach (var line in new[] { 2, 4, 6 })
@@ -287,7 +314,7 @@ public class ReadOnlyGreyingTests : IDisposable
         ((CodeEditorView)windows.Last().Content!).FindControl<ComboBox>("ConditionalTargetCombo")!.SelectedIndex.Should().Be(0);
         selector.SelectedIndex.Should().Be(target, "the view belongs to its own window");
         themes.Apply(target == 1 ? "Abyss" : "Dark");
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         var switchedGrey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         switchedGrey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
         ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
@@ -306,12 +333,91 @@ public class ReadOnlyGreyingTests : IDisposable
         selector.Should().NotBeNull();
         selector!.SelectedIndex = target;
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, active ? "Debug.Print 32" : "Debug.Print 64"))
             .Should().OnlyContain(c => c == grey);
         ColoursOn(editor, LineOf(editor, active ? "Debug.Print 64" : "Debug.Print 32"))
             .Should().Contain(c => c != grey);
+    }
+
+    [AvaloniaFact]
+    public async Task OpeningACodeWindowRequestsFoldsOnlyOnce()
+    {
+        Show(OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If Win64 Then\nDebug.Print 64\n#End If\n"));
+
+        await Task.Delay(650, TestContext.Current.CancellationToken);
+        RunJobsKeepingContext();
+
+        lsp.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(ILspClient.RequestFoldingRangesAsync))
+            .Should().Be(1, "opening requests folds immediately; attaching the document must not schedule a second request");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(3, false)]
+    [InlineData(4, true)]
+    public async Task TwinBasicTargetsUseMeasuredConstantsWithoutChangingExecution(int target, bool win64)
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If CBool(Win32) Then\nDebug.Print 101\n#Else\nDebug.Print 102\n#End If\n" +
+            "#If Win64 Then\nDebug.Print 201\n#Else\nDebug.Print 202\n#End If\n" +
+            "#If TWINBASIC_BUILD > 0 Then\nDebug.Print 301\n#Else\nDebug.Print 302\n#End If\n");
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().Contain(c => c != grey);
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        RunJobsKeepingContext();
+        lsp.ClearReceivedCalls();
+        selector.SelectedIndex = target;
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        RunJobsKeepingContext();
+        selector.SelectedIndex.Should().Be(target);
+        ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, "Debug.Print 102")).Should().Contain(c => c != grey);
+        ColoursOn(editor, LineOf(editor, win64 ? "Debug.Print 202" : "Debug.Print 201"))
+            .Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, win64 ? "Debug.Print 201" : "Debug.Print 202"))
+            .Should().Contain(c => c != grey);
+        foreach (var text in new[] { "Debug.Print 301", "Debug.Print 302" })
+            ColoursOn(editor, LineOf(editor, text)).Should().Contain(c => c != grey);
+        CompilationConstants.ForProject(vm.ModuleDefinition!.Owner).BuiltIns.Should().BeSameAs(CompilationConstants.Vb6BuiltIns);
+        lsp.ReceivedCalls().Select(call => call.GetMethodInfo().Name).Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(VBProjectType.EXE, "Standard EXE")]
+    [InlineData(VBProjectType.OleDll, "ActiveX DLL")]
+    [InlineData(VBProjectType.Control, "ActiveX Control")]
+    [InlineData(VBProjectType.OleExe, null)]
+    public async Task TwinBasicBuildTypeUsesOnlyMeasuredProjectNames(VBProjectType type, string? buildType)
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets",
+            "#If TWINBASIC_BUILD_TYPE = \"Standard EXE\" Then\nDebug.Print 101\n#Else\nDebug.Print 102\n#End If\n");
+        vm.ModuleDefinition!.Owner.ProjectType = type;
+        if (buildType is not null) vm.ReplaceBody(vm.BufferBody.Replace("Standard EXE", buildType));
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
+        selector.SelectedIndex = 3;
+        selector.SelectedIndex.Should().Be(3);
+        await Task.Delay(350, TestContext.Current.CancellationToken);
+        RunJobsKeepingContext();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        if (buildType is null)
+        {
+            ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().Contain(c => c != grey);
+            ColoursOn(editor, LineOf(editor, "Debug.Print 102")).Should().Contain(c => c != grey);
+        }
+        else
+        {
+            ColoursOn(editor, LineOf(editor, "Debug.Print 102"))
+                .Should().OnlyContain(c => c == grey);
+            ColoursOn(editor, LineOf(editor, "Debug.Print 101"))
+                .Should().Contain(c => c != grey);
+        }
     }
 
     [AvaloniaFact]
@@ -321,24 +427,23 @@ public class ReadOnlyGreyingTests : IDisposable
         var editor = Show(vm);
         var view = (CodeEditorView)windows.Last().Content!;
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
 
         // A keystroke that keeps every line where it was must not flash the greying off while the next evaluation waits.
         var active = editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print 6"));
         editor.Document.Insert(active.EndOffset, "0");
-        Dispatcher.UIThread.RunJobs();
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
 
         // One that moves lines does clear it, since the old line numbers would grey the wrong text: here the #If line,
         // which now sits where the inactive branch was.
         editor.Document.Insert(0, "\n");
-        Dispatcher.UIThread.RunJobs();
+        // Read the synchronous redraw before pumping can run the debounce timer.
         ColoursOn(editor, LineOf(editor, "#If VBA7 Then")).Should().Contain(c => c != grey);
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
     }
 
@@ -353,17 +458,17 @@ public class ReadOnlyGreyingTests : IDisposable
         selector!.IsVisible.Should().BeFalse();
         vm.ReplaceBody("#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         selector.IsVisible.Should().BeTrue();
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
         vm.ReplaceBody("#If VBA7 Then\nDebug.Print 7\n");
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
         vm.ReplaceBody("Debug.Print 6\n");
         await Task.Delay(350, TestContext.Current.CancellationToken);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         selector.IsVisible.Should().BeFalse();
     }
 
@@ -460,7 +565,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "and the declaration before it is code");
 
         run.IsFolded = false;
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, declaration).Should().NotContain(ClassicGrey, "expanded, the declaration is code");
         ColoursOn(editor, declaration + 1).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "and each run line grey");
         ColoursOn(editor, declaration + 2).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);
@@ -490,7 +595,7 @@ public class ReadOnlyGreyingTests : IDisposable
         ExpandRuns(vm, "Halt");
         var editor = Show(vm);
         editor.TextArea.Focus();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         var orphan = editor.Document.GetLineByNumber(LineOf(editor, "Attribute Go.VB_Description"));
         var described = editor.Document.GetLineByNumber(LineOf(editor, "Attribute Halt.VB_Description"));
@@ -533,7 +638,7 @@ public class ReadOnlyGreyingTests : IDisposable
         ExpandRuns(vm, "Halt", "Alarm");
         var editor = Show(vm);
         editor.TextArea.Focus();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         var sections = editor.TextArea.ReadOnlySectionProvider;
         var alarm = LineOf(editor, "Attribute Alarm");
         var halt = LineOf(editor, "Attribute Halt");
@@ -549,7 +654,7 @@ public class ReadOnlyGreyingTests : IDisposable
         LinksOn(editor, halt).Should().ContainSingle("and its address is a link again");
 
         editor.Document.Remove(editor.Document.GetLineByNumber(halt - 1).Offset, 1);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, halt).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "uncommented, it is the procedure's again");
         LinksOn(editor, halt).Should().BeEmpty();
 
@@ -562,7 +667,7 @@ public class ReadOnlyGreyingTests : IDisposable
         ColoursOn(editor, alarm).Should().NotContain(ClassicGrey);
 
         editor.Document.Remove(declaration.Offset + "Public Clock As Timer, Alarm".Length, 1);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, alarm).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "named again, it is the variable's");
     }
 
@@ -596,7 +701,7 @@ public class ReadOnlyGreyingTests : IDisposable
         editor.Document.Remove(editor.Document.GetLineByNumber(go - 1).Offset, 1);
         editor.Document.Insert(editor.Document.GetLineByNumber(halt - 1).Offset, "'");
         editor.Document.EndUpdate();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         vm.ReadOnlyRegionsNow.Should().HaveCount(count, "the premise: as many regions as before, in another place");
         ColoursOn(editor, halt).Should().NotBeEmpty().And.NotContain(ClassicGrey, "Halt's run is an orphan now");
@@ -624,7 +729,7 @@ public class ReadOnlyGreyingTests : IDisposable
         var count = vm.ReadOnlyRegionsNow.Count;
 
         editor.Document.Insert(editor.Document.GetLineByNumber(first - 1).EndOffset, " _");
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         vm.ReadOnlyRegionsNow.Should().HaveCount(count, "the premise: the run is still a region, one line shorter");
         ColoursOn(editor, first).Should().NotBeEmpty().And.NotContain(ClassicGrey, "its first line is the declaration's now");
@@ -654,7 +759,7 @@ public class ReadOnlyGreyingTests : IDisposable
 
         var statement = editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print"));
         editor.Document.Remove(statement.Offset, statement.TotalLength);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         vm.ReadOnlyRegionsNow.Should().HaveCount(count, "the premise: one region, grown");
         // The orphan's first line is next to the deletion, and AvaloniaEdit rebuilds it by itself; its last is not.
@@ -685,11 +790,11 @@ public class ReadOnlyGreyingTests : IDisposable
         ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: the run is Tally's, renamed");
 
         editor.Document.Insert(editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print")).Offset, "    Dim Count As Long\r\n");
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, run).Should().NotBeEmpty().And.NotContain(ClassicGrey, "Count is declared now, so the run is no rename's");
 
         editor.Document.UndoStack.Undo();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "undone, it is Tally's again");
     }
 
@@ -697,7 +802,7 @@ public class ReadOnlyGreyingTests : IDisposable
     private static void TypeText(TextEditor editor, string text)
     {
         editor.TextArea.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text });
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
     }
 
     [AvaloniaFact]
@@ -714,7 +819,7 @@ public class ReadOnlyGreyingTests : IDisposable
         lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             lsp, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [new Diagnostic(
                 new LspRange(new Position(2, 3), new Position(2, 10)), "not a property", DiagnosticSeverity.Error)]));
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         var colours = ColoursOn(editor, 3);
         colours.Should().Contain(Colors.Red, "the error's text is red");
@@ -778,7 +883,7 @@ public class ReadOnlyGreyingTests : IDisposable
         ColoursOn(editor, 2).Should().AllBeEquivalentTo(ClassicGrey);
 
         themes.Apply("Dark");
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         ColoursOn(editor, 2).Should().AllBeEquivalentTo(DarkGrey);
         FoldLabelColour.Should().Be(DarkGrey);
@@ -792,14 +897,14 @@ public class ReadOnlyGreyingTests : IDisposable
         var themes = new ThemeService();
         using var _ = TheIdesThemes(themes);
         themes.Apply("Dark");
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         var editor = Show(OpenForm());
         ExpandHeader(editor);
         ColoursOn(editor, 2).Should().AllBeEquivalentTo(DarkGrey);
         var variant = Application.Current!.ActualThemeVariant;
 
         themes.Apply("Abyss");
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
 
         Application.Current.ActualThemeVariant.Should().Be(variant, "the test is of a switch that changes no variant");
         ColoursOn(editor, 2).Should().AllBeEquivalentTo(AbyssGrey);
@@ -818,11 +923,11 @@ public class ReadOnlyGreyingTests : IDisposable
     {
         var overriding = new ResourceDictionary { [ReadOnlyTextKey] = new SolidColorBrush(colour) };
         Application.Current!.Resources.MergedDictionaries.Add(overriding);
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         return new Restore(() =>
         {
             Application.Current!.Resources.MergedDictionaries.Remove(overriding);
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
         });
     }
 
@@ -865,7 +970,7 @@ public class ReadOnlyGreyingTests : IDisposable
             var window = new Window { Content = view, Width = 900, Height = 700 };
             windows.Add(window);
             window.Show();
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
             var textView = view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView;
             FoldLabelColour.Should().Be(ClassicGrey, "the carried file set the fold labels' colour from the theme on opening");
             textView.EnsureVisualLines();
@@ -899,7 +1004,7 @@ public class ReadOnlyGreyingTests : IDisposable
         var window = new Window { Content = view, Width = 900, Height = 700 };
         windows.Add(window);
         window.Show();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         FoldLabelColour.Should().Be(ClassicGrey, "the inspector set the fold labels' colour from the theme on opening");
 
         var textView = body.TextArea.TextView;

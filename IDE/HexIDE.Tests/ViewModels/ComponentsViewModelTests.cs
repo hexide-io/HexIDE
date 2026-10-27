@@ -44,7 +44,11 @@ public class ComponentsViewModelTests
     {
         var vm = new ComponentsViewModel(Project(form1UsesMsComctl: true, Ocx6));
 
-        vm.Controls.Select(c => (c.Name, c.Location, c.IsSelected)).Should().Equal(
+        // Keep these measured registry descriptions independent of later library additions.
+        vm.Controls.Where(c => c.Library == ControlLibraries.ComctlLib || c.Library == ControlLibraries.MSComctlLib
+                || c.Library == ControlLibraries.MSComDlg)
+            .Select(c => (c.Name, c.Location, c.IsSelected)).Should().Equal(
+            ("Microsoft Common Dialog Control 6.0", "COMDLG32.OCX", false),
             ("Microsoft Windows Common Controls 5.0 (SP2)", "COMCTL32.OCX", false),
             ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true));
         vm.Controls.Should().OnlyContain(c => c.CanChange);

@@ -87,13 +87,19 @@ code block), or an array of marked strings (#2022). Legacy forms are normalized 
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
 
+`initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
+System default uses the localization service's system resolution; pseudo-locales send `en`.
+A language change takes effect on the next connection: reconnect the server to send the new locale.
+Changing the UI language does not automatically restart servers (#2210).
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
-tree and waits up to two seconds for termination before disposing its process handle (#2023). Its
+tree and waits up to two seconds for termination before disposing its process handle (#2023).
+Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
 exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
@@ -150,10 +156,18 @@ too (#360). The current rumdl fixture indexes only with a workspace root, so the
 
 ## Request failure logging
 
+Hover also logs at debug why it returned no result: no RPC connection, initialization still
+incomplete, `hoverProvider` unavailable, or a server reply of `null` (#2302).
+Exceptions retain the failure/supersession logging below. These diagnostics contain no document
+content and do not change the nullable hover API. The notification-flood regression includes the
+client log and whether the server received hover in its failure message; the original intermittent
+null result has not been reproduced or attributed to a cause.
+
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
-that method's warning available for a later genuine failure (#723).
+that method's warning available for a later genuine failure (#723). Document diagnostic pulls instead
+retry ContentModified and retriggerable ServerCancelled replies as described below (#2209).
 
 Every outbound request has a 30-second local deadline, using the same named default as `initialize`
 (#486). This is a consistency choice, not a measured server response budget. A shorter caller token stops
@@ -170,8 +184,10 @@ it for good. Then the connection is disposed, which ends the stuck writes (#1221
 
 `FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
 reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
-requests the client does not support. Each scenario asserts what a user would see. It is an in-process
-server over raw frames, so it proves nothing about interoperability: that stays with the foreign servers.
+requests the client does not support. Each scenario asserts what a user would see. Lost-connection scenarios
+wait separately for the stopped client and its warning, since the warning may be logged after `IsRunning`
+clears (#2244). It is an in-process server over raw frames, so it proves nothing about interoperability:
+that stays with the foreign servers.
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
@@ -588,6 +604,11 @@ of no change and no save, so those asks never reach it. Asking only about docume
 leave it no way to give diagnostics at all, which is why
 [#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
 
+A document pull answered `-32801` (ContentModified), or `-32802` (ServerCancelled) unless
+`data.retriggerRequest` is `false`, is retried after 250 ms, doubling to a 4-second cap (#2209).
+Each attempt is a separate request in the protocol inspector. A change, close, newer pull or connection
+replacement stops the old retry loop; a changed document gets its own fresh pull.
+
 The close of a pulled document clears its marks under the same gate that checks and publishes answers.
 The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
 publication was the close's clear, observed before the reopen answer had arrived because the test mistook
@@ -705,11 +726,16 @@ IDE shutdown. On Windows, both stdio and launched pipe servers are assigned to t
 their subsequent descendants even when HexIDE is killed without shutdown or disposal. Assignment
 failure fails the connection and tears down the launched process; externally owned pipe servers
 are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
-are outside this guarantee. On Linux and macOS, `{pid}` remains cooperative: servers that ignore
-it can still outlive a crash. The decided `HexIDE.ProcessWatchdog` follow-up is not implemented yet.
-The lifetime test helper is launched with its own dependencies and runtime configuration;
-its stdio and pipe readiness checks run on Linux too. The assertion that killing its owner
-ends the server and child remains Windows-only.
+are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
+in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
+after an unclean IDE exit, or when the server exits on its own, it sends SIGTERM to the group,
+then SIGKILL after two seconds. For a server that exits on its own, the guard leaves the server's
+group before SIGKILL so it can preserve the server's exit code. Normal shutdown still attempts the
+protocol first; a guard left after the transport's grace period is terminated with its group. Externally owned
+pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
+The lifetime tests kill the owner without disposal and check both server and child on Windows,
+Linux and macOS; Unix clean-exit tests also check children that accept or ignore SIGTERM and the
+server's exit code. The helper runs with its own dependencies and runtime configuration.
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
@@ -752,6 +778,15 @@ Body redaction remains textual, including for a body the client cannot decode. I
 structural JSON pass nor a sweep for occurrences of the project name. **A name a server echoes back in
 its own fields is outside this fix** and may survive export; review the preview before sharing it.
 
+The shared body rule also replaces plain absolute drive-letter, UNC and Unix paths in prose (#2205),
+using the same segment mapping as `LocalPath`. Before that pass, the user profile and temp roots are
+replaced literally with `<home>` and `<temp>`; Language Servers reports also register every open project
+and connection workspace root as `<workspace>`. Longest roots win, including slash, backslash, Windows
+case variants and percent-encoded URI spellings, so spaces in these roots cannot disclose an account name.
+Quoted paths can contain spaces; remaining unquoted paths stop at whitespace and prose punctuation. Language Servers reports apply this rule to failure details and
+configuration problems as well as capabilities. Relative paths and unquoted paths containing spaces outside the known roots are
+ambiguous in prose and are outside this guarantee; review reports before sharing.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline
@@ -792,6 +827,10 @@ advertises the capability supplies the single answer (registration order breaks 
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
 
+The editor flushes its debounced document change before requesting completion (for both letters and
+advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+On-type formatting is not implemented.
+
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
 with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
@@ -799,7 +838,9 @@ order breaking ties; its detail and insertion text stay intact. Advertised trigg
 for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
 route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
 `textDocument/completion` inspector note record that it was answered after the popup opened. The
-underlying request keeps its normal cancellation and 30-second deadline.
+underlying request keeps its normal cancellation and 30-second deadline. The popup delay and
+arrival timestamps share an injectable `TimeProvider` (the system clock by default), so budget tests
+advance time explicitly rather than waiting on the runner’s clock (#2200).
 
 Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
 Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
@@ -845,6 +886,10 @@ id, exit code, outstanding request names (including requests abandoned when the 
 the conversation, rather than waiting out a diagnostics timeout. A clean exit or an exit on another
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
+
+The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
+warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
+does not mean the independent stderr reader has finished recording those lines.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
@@ -900,7 +945,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 32 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 33 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -968,7 +1013,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 3 of 21
+### `workspace/*` — 4 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -980,7 +1025,7 @@ than inferred.
 | ○ | `workspace/didChangeConfiguration` | → |  |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
 | ○ | `workspace/didChangeWorkspaceFolders` | → |  |
-| ○ | `workspace/didCreateFiles` | → |  |
+| ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
 | ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
@@ -1102,6 +1147,34 @@ that, which is CI.
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
 
+### File-operation notifications (#2248)
+
+`VBLspClient` has explicit `DidCreateFilesAsync`, `DidRenameFilesAsync` and `DidDeleteFilesAsync`
+entry points for successfully completed disk operations. Each connection reads
+`workspace.fileOperations.didCreate`, `didRename` or `didDelete` from the server's initialize reply
+and sends only matching files. Filters support URI schemes, file/folder selection, glob alternatives,
+character ranges and `ignoreCase`; rename matches either URI. Empty matching batches send nothing.
+These are notifications and carry no request id. Wire tests read the frames and use a shutdown response
+as a barrier when asserting silence.
+
+The registry fans out to every running server whose operation filter matches, regardless of its document
+language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
+notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
+it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
+receiving matching notifications. File events do not start servers. Initialize advertises the three
+notification capabilities.
+First saves and Save As to a destination that does not exist report creation after the write succeeds;
+ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
+reports no rename. Save Project and SaveProjectToDirectory use the same creation rule. Failed writes,
+including I/O and access-denied failures, send no creation notification; a wire test checks silence
+after a shutdown barrier.
+
+Disk rename and Remove-with-delete hooks remain outstanding: explorer name changes currently leave
+paths unchanged, and Remove only detaches a member. Neither is a disk event. The generated rename/delete
+rows remain ○ until IDE actions perform those disk operations; their explicit protocol senders and
+registry routes are ready.
+`willCreate`, `willRename` and `willDelete` remain outside the issue's scope.
+
 ### What the shape of that table says
 
 Three clusters account for nearly all of the gap:
@@ -1178,7 +1251,9 @@ all three would be confidently wrong two-thirds of the time.
 Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
 The client prepares it before launching the server, once per workspace project, behind the
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
-per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
+The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
+task before checking the generated file and provider call count.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in
