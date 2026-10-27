@@ -819,7 +819,9 @@ order breaking ties; its detail and insertion text stay intact. Advertised trigg
 for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
 route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
 `textDocument/completion` inspector note record that it was answered after the popup opened. The
-underlying request keeps its normal cancellation and 30-second deadline.
+underlying request keeps its normal cancellation and 30-second deadline. The popup delay and
+arrival timestamps share an injectable `TimeProvider` (the system clock by default), so budget tests
+advance time explicitly rather than waiting on the runner’s clock (#2200).
 
 Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
 Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
