@@ -175,6 +175,7 @@
 | Tile Vertically | — | Done | Publishes rearrange event; MDI host responds |
 | Cascade | — | Done | Publishes rearrange event; MDI host responds |
 | Arrange Icons | — | Stub | MenuItem present, no Command binding |
+| Tool-window layout persistence | — | Partial | Split topology, tabs and proportions round-trip across restart, including late add-in slots and their ancestor proportions (#2295). Repeated close/show cycles preserve sizing and restore a closed split member to its own dock. Unrecognized docks retain the home-region fallback (#2277). Headless layout checked; live rendering verification pending |
 | Reset Window Layout | — | Done | **HexIDE addition** (not in VB6) — rebuilds the default tool-window layout, keeping open documents; open add-in tools return to the default right column and closed add-in tools stay closed (#50). See [ide-state-persistence](../openspec/specs/ide-state-persistence/spec.md) Phase 4 |
 | Window list | — | Done | Dynamic items from `MdiWindowManager.Windows` |
 
