@@ -252,6 +252,8 @@
     "Str.Toolbox.Tab.General": "Ĝenerala",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabeta",
     "Str.Tool.Properties.Tab.Categorized": "Laŭkategoria",
+    "Str.Tool.Project.MissingFile": "Mankanta dosiero",
+    "Str.Tool.Project.Unsupported": "Nesubtenata",
     "Str.Tool.Project.Toolbar.ViewCode": "Vidi Kodon",
     "Str.Tool.Project.Toolbar.ViewObject": "Vidi Objekton",
     "Str.Tool.Project.Menu.SetAsStartUp": "Agordi kiel Komencan",

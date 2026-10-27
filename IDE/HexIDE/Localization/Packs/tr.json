@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Genel",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabetik",
     "Str.Tool.Properties.Tab.Categorized": "Kategorize",
+    "Str.Tool.Project.MissingFile": "Dosya eksik",
+    "Str.Tool.Project.Unsupported": "Desteklenmiyor",
     "Str.Tool.Project.Toolbar.ViewCode": "Kodu Görüntüle",
     "Str.Tool.Project.Toolbar.ViewObject": "Nesneyi Görüntüle",
     "Str.Tool.Project.Menu.SetAsStartUp": "Başlangıç Olarak Ayarla",
