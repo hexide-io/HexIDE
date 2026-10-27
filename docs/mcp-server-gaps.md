@@ -749,3 +749,32 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
   `isReadOnly` for the value pattern.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
+
+## Properties category rows refused expand/collapse (#1967 — fixed)
+
+**Symptom.** With Categorized Properties showing, `interact {"target":"…/List[CategorizedProperties]/Pane[PART_ScrollViewer]/ListItem[Appearance]","action":"collapse","window":"ide"}` refused with `element does not support 'collapse'`.
+
+**Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
+
+**Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
+
+## A drag can't stop before its release, and the designer's preview and grab handles were not in the tree
+
+**Symptom (2026-10-26, Windows, #2216's live check).** `click` with `to` presses, raises its held moves and releases in
+one call, so nothing that shows only while the button is down can be seen: the designer's draw preview
+(`NewControlSpawnerPhantom`), the rubber band, a control's outline while it moves or resizes, Dock's drop targets, and a
+running form's MouseMove with a button held. `dump_visual_tree {"window":"ide","match":"NewControlSpawner","interactiveOnly":false}`
+answered `Nothing matches 'NewControlSpawner'.`, though a drag's reply named `Canvas[NewControlSpawner]`. On 2026-10-27,
+#2232's live check found a selected control's grab handles missing too: `match "Resize"` found nothing, though a move
+drag's reply named `'ResizeAdorner'` as the pointer capturer.
+
+**Workaround.** Check only where a control lands. For a resize, press at a guessed point on the control's edge.
+
+**Part 1, fixed (#2231).** The preview, its canvas, the rubber band, the resize adorner and its eight handles carry
+AutomationIds, and the control view lists an adorner under the element it adorns. A handle is
+`…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]`, and `inspect_element` reads the preview's bounds.
+
+**Part 2, open.** `click … to x,y hold` and a `release` verb, so a drag can stop before its release and finish in a
+later call. Decided on the issue: an idle hold is abandoned (Escape, then a release where the press started), not
+released where it is, and each surface's outcome is measured and stated.
+[#2231](https://github.com/hexide-io/HexIDE/issues/2231).

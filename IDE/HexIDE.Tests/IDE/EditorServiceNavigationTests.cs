@@ -53,6 +53,16 @@ public class EditorServiceNavigationTests
         return project;
     }
 
+    [Theory]
+    [InlineData("untitled:P/Module1.bas", "Module1")]
+    [InlineData("untitled:P/Form1.frm", "Form1")]
+    public void RenameRefusalNamesLoadedMembersWithoutOpeningThem(string uri, string name)
+    {
+        ProjectWith(moduleName: "Module1", formName: "Form1");
+        Sut().DocumentNameForUri(uri).Should().Be(name);
+        _dock.DidNotReceive().TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>());
+    }
+
     [Fact]
     public void TheUntitledUriTheIdeMintsResolvesToItsModule()
     {

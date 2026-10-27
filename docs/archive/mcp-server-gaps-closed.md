@@ -9,6 +9,96 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `set_window_state` with no window manager said the window manager hadn't confirmed, and to re-read — **CLOSED** (#2185, 2026-10-27)
+
+**Symptom (2026-10-26, openSUSE Leap 16 VM, Xvfb `:99` with no window manager, #1755's live check).**
+`set_window_state {"state":"Minimized"}` answered `"error":"The window manager has not confirmed the requested change."`
+with a note to re-read with `get_window_state`, and `Maximized` the same. Nothing would ever confirm either, and
+re-reading showed `Normal` every time. Nothing said that minimize and maximize couldn't work on that display while a
+restore with a position and size could.
+
+**Fixed (#2185).** When a minimize or maximize goes unconfirmed, HexIDE reads the X11 root window's
+`_NET_SUPPORTING_WM_CHECK`, which a window manager sets (`X11WindowManager`, libX11 through `LibraryImport`, in the
+DEBUG-only server). With none there, the reply says `No window manager is running on this display, so nothing will
+apply Minimized.`, explains why, and says Normal with x, y, width and height still works. A window manager that is
+there but slow, a display that can't be read, another platform, and an unconfirmed restore all keep the old text.
+Guarded by `WindowStateUnconfirmedTests`.
+
+**Live (2026-10-27, a Debug build of the fix under WSL, Ubuntu 26.04, headless `claude -p` through the hexide tools).**
+
+- On Xvfb `:99`, where `xprop -root _NET_SUPPORTING_WM_CHECK` finds no such atom, Minimized and Maximized each
+  answered with the new text, and `get_window_state` agreed with the reply's `window` field. A Normal with
+  `x 40, y 30, 900×640` was confirmed.
+- On WSLg's `:0`, whose root window carries `_NET_SUPPORTING_WM_CHECK`, the same build kept the old text for an
+  unconfirmed Minimized, and confirmed Maximized and the same Normal.
+
+## `set_ide_language`'s Keep didn't save the language — **CLOSED** (#2268, 2026-10-27)
+
+**Symptom (2026-10-27, rdcore's live check).** `set_ide_language` opened the confirmation gate, and Keep was pressed on
+it. The IDE stayed in the new language for the session, and the next start came back in the one saved before, *System
+default*. The reply said only that the gate "reverts on its own unless Keep is pressed", which a caller reads as Keep
+being the whole of confirming.
+
+**Cause.** The gate's Keep only leaves the language applied. The Options page saves it when the dialog closes with OK
+(`LanguagePageViewModel.SaveToSettings`), and the tool has no OK to press. The localization spec's *Confirming the
+change* says a confirmed language persists across restarts.
+
+**Fixed (#2268).** The tool saves the language to `ActiveLanguage` when its gate closes on Keep. Revert or the countdown
+saves nothing. It saves in the tool and not in the gate service, because there Cancel in Options still takes back a
+kept language. The reply says what Keep and Revert will do. Asking for the language already in use opens no gate, and
+the reply now says so, where before it claimed a gate was open. Guarded by `SetIdeLanguageSavesTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools, in the session's
+own profile).**
+
+- `set_ide_language {"id":"fr"}` replied `Switching to French ('fr'). A confirmation gate is open: Keep saves French
+  for later starts, as OK in Options does, and Revert or its countdown goes back to 'system' and saves nothing. …`.
+- `interact` invoked `Conserver  /  Keep`. The profile's `settings.json` then held `"activeLanguage": "fr"`.
+- After `shutdown_ide` and a relaunch, the menu bar and status bar were French from the start.
+- `set_ide_language {"id":"fr"}` then replied `French ('fr') is already the IDE's language, so no confirmation gate
+  was opened. It is saved for later starts.`, and no dialog was open.
+- The check also found the Properties description staying in English after the live switch, which is #2270.
+
+---
+
+## Every designer drag's reply said "nothing was docked" — **CLOSED** (#2232, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's and #2217's live checks).** All 18 drags on the form designer, moving, resizing
+and drawing controls, ended their replies with a sentence about Dock, though none of them involved it:
+`interact {"target":"…/List[ControlsContainer]/ListItem[Command1]","action":"click","value":"5,8 to 5,56","window":"ide"}`
+→ `dragged the left button at (5, 8) on 'ControlItem', … (pointer capturer); Dock's layout is unchanged, so nothing was
+docked: …`. Each drag did what it should. A first-time caller reads "nothing was docked" as the drag having failed.
+
+**Cause.** #2175 added the clause for every drag pressed inside a `DockControl`, and the designer is inside one.
+
+**Fixed (#2232).** The reply says what Dock moved whenever it moved something. It says the layout is unchanged only for a
+drag pressed on one of Dock's drag areas (`DockProperties.IsDragArea`: a tab, a tool window's title strip), which is
+where Dock itself starts a drag. Any other drag says nothing about Dock. Guarded by `DragDockTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Moving Command1 by `5,8 to 45,58`, and drawing a TextBox with the toolbox's Text tool, replied without the clause.
+- Properties dragged along its own title strip still said the layout was unchanged, and dragged onto the Project dock
+  said `Dock moved 'Properties' from a dock of its own to the dock with 'Project Group - Group1'`.
+
+## `press_key` refused a chord written as one key as an unknown key — **CLOSED** (#2189, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2030's live check, Sonnet).**
+`press_key {"target":"…/Custom[Root]/None[TextEditor]","key":"Ctrl+H","window":"ide"}` answered
+`unknown key 'Ctrl+H' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)`. `H` was never the problem:
+modifiers go in their own parameter, and the refusal didn't say so. The caller gave up on the keyboard and opened
+Replace from the Edit menu.
+
+**Fixed (#2189).** A `key` with a `+` between two parts is read as its last part, with the parts before it as
+modifiers added to any `modifiers` given, and the reply says so: `pressed Control+H …; 'Ctrl+H' was read as key 'H'
+with modifiers 'Ctrl'`. A leading part that is not a modifier is refused naming it, and an unknown last part is named
+in the chord. Combined modifiers now read `Control+Shift+End`, not `Control, Shift+End`. Guarded by
+`UiAutomationDriverTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** `Ctrl+H` in
+the code window opened Replace, as `H` with `Ctrl` does. `A+B` and `Ctrl+Nope` were refused naming the wrong part, and
+`Shift+End` with `Ctrl` replied `pressed Control+Shift+End …, added to 'Ctrl'`.
+
 ## Keyboard `type_text` counted a prompt-raising key as typed — **CLOSED** (#2035, 2026-10-26)
 
 **Symptom (2026-10-26, Windows, #1975's live check).** Keyboard `type_text` of `xyz` into the code window

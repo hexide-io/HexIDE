@@ -142,6 +142,14 @@ async Task<JsonObject> RunCase(int index, JsonObject record)
         result["excludedFor"] = new JsonArray(effects.Select(e => (JsonNode?)e).ToArray());
         return result;
     }
+    // The dump could not move the startup module's statements into an entry procedure without changing the program, so
+    // there is nothing faithful to run (#2211).
+    if (startup["notWrapped"]?.GetValue<string>() is { } refused)
+    {
+        result["outcome"] = "not-wrapped";
+        result["notWrapped"] = refused;
+        return result;
+    }
 
     var dir = Path.Combine(outDir, "cases", index.ToString("D5"));
     Directory.CreateDirectory(dir);

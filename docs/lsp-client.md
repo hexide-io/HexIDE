@@ -63,10 +63,34 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
+are normalized to a complete list (`isIncomplete: false`); list objects retain their supplied flag.
+The editor receives the items from either shape; it does not currently use `isIncomplete`.
+Malformed replies follow the request-failure warning path.
+
+The #2204 result-union audit used the pinned LSP metamodel. Among implemented requests,
+`definition` and `declaration` already normalize single locations, location arrays and location-link
+arrays; `documentSymbol` and `workspace/symbol` already normalize both symbol shapes. Hover's
+nested content union is handled by its converter. Diagnostic reports are read by `kind`, and
+`workspace/executeCommand` retains arbitrary JSON. Folding ranges, semantic tokens (full), signature
+help, highlights, rename, formatting and code lenses accept their single non-null result shape or
+`null`. Resolve requests have a single result shape.
+
+`textDocument/codeAction` (including its mixed Command/CodeAction array) and the other unimplemented
+request methods remain outside this fix. Nested signature-help unions also remain outstanding:
+signature/parameter documentation accepts only strings, and parameter labels only strings rather
+than offset pairs. These need separate changes and wire tests; this audit does not claim full
+coverage of unions inside every result member.
+
 Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
+
+`initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
+System default uses the localization service's system resolution; pseudo-locales send `en`.
+A language change takes effect on the next connection: reconnect the server to send the new locale.
+Changing the UI language does not automatically restart servers (#2210).
 
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
@@ -134,7 +158,8 @@ too (#360). The current rumdl fixture indexes only with a workspace root, so the
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
-that method's warning available for a later genuine failure (#723).
+that method's warning available for a later genuine failure (#723). Document diagnostic pulls instead
+retry ContentModified and retriggerable ServerCancelled replies as described below (#2209).
 
 Every outbound request has a 30-second local deadline, using the same named default as `initialize`
 (#486). This is a consistency choice, not a measured server response budget. A shorter caller token stops
@@ -151,8 +176,10 @@ it for good. Then the connection is disposed, which ends the stuck writes (#1221
 
 `FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
 reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
-requests the client does not support. Each scenario asserts what a user would see. It is an in-process
-server over raw frames, so it proves nothing about interoperability: that stays with the foreign servers.
+requests the client does not support. Each scenario asserts what a user would see. Lost-connection scenarios
+wait separately for the stopped client and its warning, since the warning may be logged after `IsRunning`
+clears (#2244). It is an in-process server over raw frames, so it proves nothing about interoperability:
+that stays with the foreign servers.
 
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
@@ -475,11 +502,10 @@ server is expected to keep off them — the bundled one does, by the rule in
   (`-32800`, `-32801`) stay silent. A successful `null` result still means no change required (#1015).
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
-- **A rename's edits to other documents are dropped.** The code window applies the edits for its own
-  document and discards the rest without saying so
-  ([#1024](https://github.com/hexide-io/HexIDE/issues/1024)). No server attached to a code window sends
-  more than one document's edits today; one that binds names would, and naming a saved member by its file
-  is what lets such a server name it.
+- **A rename reaching other documents is refused as a whole** (#1024). Non-empty edits under
+  any other URI leave the buffer unchanged, including an answer editing only other documents.
+  The refusal names loaded members using the navigation URI rule, and otherwise shows the URI.
+  Empty edit lists under other URIs do not prevent a single-document rename.
 
 ---
 
@@ -569,6 +595,11 @@ to be open before it is asked about. Such a server is asked on open and when it 
 of no change and no save, so those asks never reach it. Asking only about documents that had been sent would
 leave it no way to give diagnostics at all, which is why
 [#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
+
+A document pull answered `-32801` (ContentModified), or `-32802` (ServerCancelled) unless
+`data.retriggerRequest` is `false`, is retried after 250 ms, doubling to a 4-second cap (#2209).
+Each attempt is a separate request in the protocol inspector. A change, close, newer pull or connection
+replacement stops the old retry loop; a changed document gets its own fresh pull.
 
 The close of a pulled document clears its marks under the same gate that checks and publishes answers.
 The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
@@ -734,6 +765,15 @@ Body redaction remains textual, including for a body the client cannot decode. I
 structural JSON pass nor a sweep for occurrences of the project name. **A name a server echoes back in
 its own fields is outside this fix** and may survive export; review the preview before sharing it.
 
+The shared body rule also replaces plain absolute drive-letter, UNC and Unix paths in prose (#2205),
+using the same segment mapping as `LocalPath`. Before that pass, the user profile and temp roots are
+replaced literally with `<home>` and `<temp>`; Language Servers reports also register every open project
+and connection workspace root as `<workspace>`. Longest roots win, including slash, backslash, Windows
+case variants and percent-encoded URI spellings, so spaces in these roots cannot disclose an account name.
+Quoted paths can contain spaces; remaining unquoted paths stop at whitespace and prose punctuation. Language Servers reports apply this rule to failure details and
+configuration problems as well as capabilities. Relative paths and unquoted paths containing spaces outside the known roots are
+ambiguous in prose and are outside this guarantee; review reports before sharing.
+
 ### A request and its answer are one row and two bodies
 
 A response completes its request's entry rather than making one of its own. That is right for a timeline
@@ -774,6 +814,10 @@ advertises the capability supplies the single answer (registration order breaks 
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
 
+The editor flushes its debounced document change before requesting completion (for both letters and
+advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+On-type formatting is not implemented.
+
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
 with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
@@ -781,7 +825,9 @@ order breaking ties; its detail and insertion text stay intact. Advertised trigg
 for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
 route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
 `textDocument/completion` inspector note record that it was answered after the popup opened. The
-underlying request keeps its normal cancellation and 30-second deadline.
+underlying request keeps its normal cancellation and 30-second deadline. The popup delay and
+arrival timestamps share an injectable `TimeProvider` (the system clock by default), so budget tests
+advance time explicitly rather than waiting on the runner’s clock (#2200).
 
 Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
 Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
@@ -940,7 +986,7 @@ than inferred.
 | ○ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
-| ✅ | `textDocument/rename` | → |  |
+| ✅ | `textDocument/rename` | → | Answers editing other documents are refused whole (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
@@ -1115,7 +1161,6 @@ Three clusters account for nearly all of the gap:
 |---|---|---|
 | Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
 
 ---

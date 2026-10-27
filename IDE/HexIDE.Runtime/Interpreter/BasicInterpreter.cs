@@ -256,6 +256,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return NewUdt(def, 0);
     }
 
+    internal Vb6Value NewUdtArray(UdtTypeDef def, IReadOnlyList<(int, int)>? bounds, bool dynamic = true)
+        => NewUdtArray(def, bounds, dynamic, 0);
+
+    private Vb6Value NewUdtArray(UdtTypeDef def, IReadOnlyList<(int, int)>? bounds, bool dynamic, int depth)
+    {
+        Vb6Value MakeElement() => Vb6Value.NewUdt(NewUdt(def, depth));
+        var type = new Vb6Value.ValueType(Vb6Value.ValueType.UserDefinedType, true);
+        var array = bounds is null ? VBArray.Unallocated(Vb6Value.ValueType.UserDefinedType, MakeElement)
+            : new VBArray(Vb6Value.ValueType.UserDefinedType, bounds, MakeElement);
+        array.IsDynamic = dynamic;
+        return new Vb6Value(type).WithArray(array);
+    }
+
     private VbUdt NewUdt(string typeName, int depth)
     {
         if (!Types.TryGetValue(typeName, out var def))
@@ -274,6 +287,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            if (f.IsArray)
+            {
+                if (f.UdtTypeName is { } nestedType && Types.TryGetValue(nestedType, out var nestedDef))
+                    fields[f.Name] = NewUdtArray(nestedDef, f.Bounds, f.Bounds is null, depth + 1);
+                else
+                {
+                    var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
+                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#178)"));
+                    var arrayType = new Vb6Value.ValueType(elementType, true);
+                    fields[f.Name] = f.Bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, f.Bounds);
+                    ((VBArray)fields[f.Name].Value!).IsDynamic = f.Bounds is null;
+                }
+                continue;
+            }
             if (f.AutoNewClass is { } made)
             {
                 if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
@@ -329,7 +356,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var field in bag.EnumerateFields())
                 if (field.Value.Value is VbUdt nested) HoldFields(nested);
+                else if (field.Value.Value is VBArray array) HoldArray(array);
                 else AddRef(field.Value);
+        }
+
+        void HoldArray(VBArray array)
+        {
+            foreach (var element in array.EnumerateElements())
+                if (element.Value is VbUdt nested) HoldFields(nested);
+                else if (element.Value is VBArray inner) HoldArray(inner);
+                else AddRef(element);
         }
     }
 
@@ -1320,7 +1356,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (proc.Parameters.Count == 0 && args.Count > 0 && !proc.ReturnsVariant && !proc.ReturnsObject)
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
 
-        var callee = (baseEnv ?? owner.ModuleEnv).Clone();
+        var callee = (baseEnv ?? owner.ModuleEnv).CreateProcedureScope();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by
         // BindParameters) then the body's own Dim locals (appended by the StatementExecutor in declaration order).
         // NOT the return-name (its hold transfers to the caller) and NOT ByRef params (they alias the caller slot).

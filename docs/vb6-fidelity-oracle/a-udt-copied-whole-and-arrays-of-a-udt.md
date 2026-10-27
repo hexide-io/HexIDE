@@ -81,8 +81,20 @@ Each is a compile error from `/make`, the same in both builds:
 
 So passing an element ByVal can't arise: a UDT parameter is always ByRef.
 
-### What HexIDE did
+### What HexIDE did before #178
 
 `Dim arr(3) As T` was accepted and the array held the wrong thing, failing at the first element access. The
 whole-element store, `arr(1) = u`, puts the value into the array without copying it, so once arrays of a UDT work,
 `arr(1)` and `u` would be one value, where VB6 keeps two. Fixing both is #178.
+
+### What HexIDE does now
+
+`UdtArrayTests` exercises the measured allocation, copy, resize, reset, ByRef and For Each results.
+Array fields use [the measured array-variable store rule](a-let-into-an-array-variable.md), including
+String-to-Byte() conversion. Fixed-length strings, nonliteral or inverted Type-field bounds, and array
+fields declared As New retain their refusal. This change does not alter the pre-existing acceptance of
+ByVal UDT parameters or UDT-to-Variant assignments; those compile-time restrictions remain divergences.
+
+Get/Put of UDT arrays and of Types containing array fields remain explicitly refused: their record-file
+layout is not established by these copy probes. Four Linux-runnable guard cases in `UdtArrayTests` keep
+that serialization boundary from disappearing as runtime allocation is enabled.

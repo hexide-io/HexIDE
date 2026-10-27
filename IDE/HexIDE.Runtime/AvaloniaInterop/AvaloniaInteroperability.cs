@@ -157,6 +157,14 @@ public static class AvaloniaInteroperability
         Register<VBOptionButton, VBAppearance>(VBProperties.AppearanceProperty, VBOptionButton.AppearanceProperty);
         Register<VBOptionButton, bool>(VBProperties.OptionValueProperty, VBOptionButton.ValueProperty);
 
+        Register<VBCommandButton, bool>(VBProperties.CommandValueProperty, _ => false, (button, value) =>
+        {
+            // Only the True assignment is measured (#2065); keep refusing False until it is measured.
+            if (!value)
+                throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "Value");
+            button.ExecuteSub(ComponentBaseClass.ClickEvent);
+        });
+
         Register<VBLabel, string, string?>(VBProperties.CaptionProperty, VBLabel.TextProperty, x => x, x => x ?? "");
         Register<VBCheckBox, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBOptionButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");

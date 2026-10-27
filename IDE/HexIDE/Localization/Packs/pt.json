@@ -2,10 +2,14 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
+    "Str.Designer.ShowTabOrder": "Mostrar ordem de tabulação (riscado: TabStop desativado)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Ver compilação condicional como",
     "Str.Tool.Properties.ExportPicture": "Exportar imagem...",
     "Str.LspArtifact.Title": "Ficheiros da área de trabalho",
@@ -366,6 +370,7 @@
     "Str.Designer.Context.Properties": "Propriedades",
     "Str.CodeEditor.FileNotSaved.Banner": "Este ficheiro não será guardado — o HexIDE ainda não consegue reproduzi-lo fielmente, pelo que guardá-lo iria alterá-lo. O seu código faz parte do ficheiro, por isso a escrita nesta janela é recusada.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "O nome não foi mudado, porque isso alteraria o cabeçalho deste ficheiro ou as linhas Attribute de um membro, que são geridos pelo IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "A alteração do nome não foi efetuada porque também modifica outros documentos: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A linha {0} faz parte do cabeçalho deste ficheiro ou das linhas Attribute de um membro, que nunca são executadas, pelo que não pode receber um ponto de interrupção nem um marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserir Ficheiro",
     "Str.CodeEditor.Dialog.RenamePrompt": "Novo nome:",
@@ -898,7 +903,11 @@
     "Str.Dock.Close": "Fechar painel",
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
     "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados"
+    "Str.PropDesc.ImageWidth": "A largura das imagens.",
+    "Str.PropDesc.ImageHeight": "A altura das imagens.",
+    "Str.PropDesc.MaskColor": "A cor dos pixels transparentes.",
+    "Str.PropDesc.UseMaskColor": "Se a cor da máscara é usada.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento"
   }
 }

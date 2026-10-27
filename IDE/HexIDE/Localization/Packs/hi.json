@@ -2,10 +2,14 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें",
+    "Str.Designer.ShowTabOrder": "टैब क्रम दिखाएँ (कटा हुआ: TabStop बंद)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-बिट",
     "Str.CodeEditor.ViewAs.Tooltip": "सशर्त संकलन इस रूप में देखें",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.LspArtifact.Title": "कार्यस्थान फ़ाइलें",
@@ -366,6 +370,7 @@
     "Str.Designer.Context.Properties": "गुण",
     "Str.CodeEditor.FileNotSaved.Banner": "यह फ़ाइल सहेजी नहीं जाएगी — HexIDE अभी इसे हूबहू पुनः नहीं बना सकता, इसलिए इसे सहेजने पर यह बदल जाएगी। इसका कोड भी फ़ाइल का हिस्सा है, अतः इस विंडो में टाइप करना अस्वीकार किया जाता है।",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "नाम नहीं बदला गया, क्योंकि इससे इस फ़ाइल का हेडर या किसी सदस्य की Attribute पंक्तियाँ बदल जातीं, जिन्हें IDE संभालता है।",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "नाम नहीं बदला गया क्योंकि इससे अन्य दस्तावेज़ भी संपादित होते हैं: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "पंक्ति {0} इस फ़ाइल के हेडर या किसी सदस्य की Attribute पंक्तियों का हिस्सा है, जो कभी नहीं चलतीं, इसलिए उस पर ब्रेकपॉइंट या बुकमार्क नहीं लगाया जा सकता।",
     "Str.CodeEditor.Dialog.InsertFileTitle": "फ़ाइल सम्मिलित करें",
     "Str.CodeEditor.Dialog.RenamePrompt": "नया नाम:",
@@ -898,7 +903,11 @@
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
     "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या"
+    "Str.PropDesc.ImageWidth": "चित्रों की चौड़ाई।",
+    "Str.PropDesc.ImageHeight": "चित्रों की ऊँचाई।",
+    "Str.PropDesc.MaskColor": "पारदर्शी पिक्सेल का रंग।",
+    "Str.PropDesc.UseMaskColor": "क्या मास्क रंग का उपयोग करना है।",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
   }
 }

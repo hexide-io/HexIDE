@@ -2,10 +2,14 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
+    "Str.Designer.ShowTabOrder": "Afficher l’ordre de tabulation (barré : TabStop désactivé)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Afficher la compilation conditionnelle pour",
     "Str.Tool.Properties.ExportPicture": "Exporter l’image...",
     "Str.LspArtifact.Title": "Fichiers de l’espace de travail",
@@ -366,6 +370,7 @@
     "Str.Designer.Context.Properties": "Propriétés",
     "Str.CodeEditor.FileNotSaved.Banner": "Ce fichier ne sera pas enregistré — HexIDE ne sait pas encore le reproduire fidèlement ; l'enregistrer le modifierait. Son code fait partie du fichier : la saisie dans cette fenêtre est donc refusée.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Le renommage n'a pas été effectué, car il modifierait l'en-tête de ce fichier ou les lignes Attribute d'un membre, que gère l'IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Le renommage n’a pas été effectué car il modifie aussi d’autres documents : {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La ligne {0} fait partie de l'en-tête de ce fichier ou des lignes Attribute d'un membre, qui ne s'exécutent jamais : on ne peut donc y placer ni point d'arrêt ni signet.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insérer un fichier",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nouveau nom :",
@@ -898,7 +903,11 @@
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
     "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés"
+    "Str.PropDesc.ImageWidth": "La largeur des images.",
+    "Str.PropDesc.ImageHeight": "La hauteur des images.",
+    "Str.PropDesc.MaskColor": "La couleur des pixels transparents.",
+    "Str.PropDesc.UseMaskColor": "Indique si la couleur du masque est utilisée.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
   }
 }

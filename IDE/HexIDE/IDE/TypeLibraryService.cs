@@ -27,21 +27,31 @@ public class TypeLibraryService : ITypeLibraryService
 
         return string.IsNullOrEmpty(reference.LibPath)
             ? Task.Run(() => LoadByGuid(key), cancellationToken)
-            : Task.Run(() => LoadByPath(key, reference.LibPath!), cancellationToken);
+            : Task.Run(() => LoadByPath(key, reference.LibPath!, reference.Name), cancellationToken);
     }
 
-    private TypeLibInfo? LoadByPath((string Guid, string Version) key, string libPath)
+    internal Func<string, bool> FileExists { get; set; } = File.Exists;
+    internal Func<string, TypeLibInfo?> Read { get; set; } = TypeLibReader.Read;
+
+    internal TypeLibInfo? LoadByPath((string Guid, string Version) key, string libPath, string? name = null)
     {
         if (_cache.TryGetValue(key, out var cached)) return cached;
 
-        if (!File.Exists(libPath))
+        if (!TypeLibReader.IsLocalPath(libPath))
+        {
+            Log.Warning("TypeLibraryService: refused non-local library path for reference {Reference}: {Path}", name ?? key.Guid, libPath);
+            _cache[key] = null;
+            return null;
+        }
+
+        if (!FileExists(libPath))
         {
             Log.Debug("TypeLibraryService: library file not found: {Path}", libPath);
             _cache[key] = null;
             return null;
         }
 
-        var info = TypeLibReader.Read(libPath);
+        var info = Read(libPath);
         if (info == null)
             Log.Debug("TypeLibraryService: TypeLibReader returned null for {Path}", libPath);
 

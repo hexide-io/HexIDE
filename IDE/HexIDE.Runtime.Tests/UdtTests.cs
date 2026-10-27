@@ -4,8 +4,8 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Interpreter-advanced Phase 2 — user-defined types (Type…End Type). The defining property is VALUE semantics:
-/// copy-on-assign at Let/ByVal/return, ByRef aliases, nested-field navigation. Arrays-of/in UDTs and
-/// fixed-length strings are deferred (spec walls).
+/// copy-on-assign at Let/ByVal/return, ByRef aliases, nested-field navigation. Array coverage lives in UdtArrayTests;
+/// fixed-length strings remain deferred.
 /// </summary>
 public class UdtTests : BaseVBTestFixture
 {

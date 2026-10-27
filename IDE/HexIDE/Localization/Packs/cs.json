@@ -2,10 +2,14 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.Designer.ShowTabOrder": "Zobrazit pořadí tabulátoru (přeškrtnuté: TabStop vypnuto)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32bitové",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64bitové",
     "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.LspArtifact.Title": "Soubory pracovního prostoru",
@@ -366,6 +370,7 @@
     "Str.Designer.Context.Properties": "Vlastnosti",
     "Str.CodeEditor.FileNotSaved.Banner": "Tento soubor nebude uložen — HexIDE jej zatím nedokáže věrně reprodukovat, takže uložení by jej změnilo. Jeho kód je součástí souboru, proto se psaní v tomto okně odmítá.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Přejmenování nebylo provedeno, protože by změnilo záhlaví tohoto souboru nebo řádky Attribute některého člena, které spravuje IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Přejmenování nebylo provedeno, protože upravuje i jiné dokumenty: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Řádek {0} patří do záhlaví tohoto souboru nebo k řádkům Attribute některého člena, které se nikdy nespouštějí, takže na něj nelze umístit zarážku ani záložku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vložit soubor",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nový název:",
@@ -898,7 +903,11 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví"
+    "Str.PropDesc.ImageWidth": "Šířka obrázků.",
+    "Str.PropDesc.ImageHeight": "Výška obrázků.",
+    "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
+    "Str.PropDesc.UseMaskColor": "Zda použít barvu masky.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }
 }

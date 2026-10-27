@@ -2,10 +2,14 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
+    "Str.Designer.ShowTabOrder": "Vis tabulatorrekkefølge (overstreket: TabStop av)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antall festede overskrifter",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som",
     "Str.Tool.Properties.ExportPicture": "Eksporter bilde...",
     "Str.LspArtifact.Title": "Arbeidsområdefiler",
@@ -366,6 +370,7 @@
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne filen blir ikke lagret — HexIDE kan ennå ikke gjengi den nøyaktig, så den ville bli endret om den ble lagret. Koden er en del av filen, så skriving i dette vinduet avvises.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Navnet ble ikke endret, fordi det ville endre filens header eller et medlems Attribute-linjer, som IDE-et vedlikeholder.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Navneendringen ble ikke utført fordi den også endrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldri kjøres, så det kan ikke settes et bruddpunkt eller et bokmerke der.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Sett inn fil",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nytt navn:",
@@ -898,7 +903,11 @@
     "Str.Dock.Close": "Lukk panel",
     "Str.Dock.ScrollLeft": "Rull faner til venstre",
     "Str.Dock.ScrollRight": "Rull faner til høyre",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antall festede overskrifter"
+    "Str.PropDesc.ImageWidth": "Bredden på bildene.",
+    "Str.PropDesc.ImageHeight": "Høyden på bildene.",
+    "Str.PropDesc.MaskColor": "Fargen på gjennomsiktige piksler.",
+    "Str.PropDesc.UseMaskColor": "Om maskefargen brukes.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis innrykkslinjer",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
   }
 }

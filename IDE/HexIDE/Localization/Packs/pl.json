@@ -2,10 +2,14 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
+    "Str.Designer.ShowTabOrder": "Pokaż kolejność tabulacji (przekreślone: TabStop wyłączone)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bitowy",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitowy",
     "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako",
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
     "Str.LspArtifact.Title": "Pliki obszaru roboczego",
@@ -366,6 +370,7 @@
     "Str.Designer.Context.Properties": "Właściwości",
     "Str.CodeEditor.FileNotSaved.Banner": "Ten plik nie zostanie zapisany — HexIDE nie potrafi go jeszcze wiernie odtworzyć, więc zapisanie go wprowadziłoby w nim zmiany. Jego kod jest częścią pliku, dlatego pisanie w tym oknie jest odrzucane.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Nie zmieniono nazwy, ponieważ zmieniłoby to nagłówek tego pliku lub wiersze Attribute jednej ze składowych, którymi zarządza IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Nie zmieniono nazwy, ponieważ zmiana edytuje także inne dokumenty: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Wiersz {0} należy do nagłówka tego pliku lub do wierszy Attribute jednej ze składowych, które nigdy nie są wykonywane, więc nie można w nim ustawić punktu przerwania ani zakładki.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Wstaw plik",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nowa nazwa:",
@@ -898,7 +903,11 @@
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
     "Str.Dock.ScrollRight": "Przewiń karty w prawo",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków"
+    "Str.PropDesc.ImageWidth": "Szerokość obrazów.",
+    "Str.PropDesc.ImageHeight": "Wysokość obrazów.",
+    "Str.PropDesc.MaskColor": "Kolor przezroczystych pikseli.",
+    "Str.PropDesc.UseMaskColor": "Czy używać koloru maski.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia"
   }
 }

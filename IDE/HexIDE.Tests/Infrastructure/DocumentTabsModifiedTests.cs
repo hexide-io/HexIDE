@@ -34,7 +34,7 @@ public sealed class DocumentTabsModifiedTests : IDisposable
         var projects = Substitute.For<IProjectManager>();
         projects.LoadedProjects.Returns([project]);
         context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         tools = new HexIdeTools(context);
     }
 
