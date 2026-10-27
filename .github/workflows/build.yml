@@ -18,14 +18,15 @@ concurrency:
 # The fewest tests each suite may run and still pass (#1448). One run of the Integration suite went green after 978 of its
 # 1682 tests and said nothing about it: no warning, no skip, exit code 0. That is the fail-open shape the foreign-server
 # fixture exists to prevent, one level up. Microsoft.Testing.Platform's --minimum-expected-tests turns a short run into a
-# failure. Each floor is about 90% of its suite when it was set, so adding tests never needs an edit here, and a run that
-# loses a tenth of a suite fails. Raise a floor once its suite has grown well past it.
+# failure. The four main-suite floors are about 95% of totals measured on main c9d5ef1e under WSL,
+# 2026-10-26 (#883). Theory rows are counted by execution, not discovery. Raise floors as suites grow.
+# The async test-context lifetime fix is separate: https://github.com/hexide-io/HexIDE/issues/2194.
 env:
-  MIN_TESTS_RUNTIME: 3300       # 3659 when set
+  MIN_TESTS_RUNTIME: 5849       # 6157 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_TWINBASIC: 200      # 226
-  MIN_TESTS_IDE: 2900           # 3212
-  MIN_TESTS_INTEGRATION: 1500   # 1682
-  MIN_TESTS_LSP_SERVER: 320     # 362
+  MIN_TESTS_IDE: 4042           # 4255 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_INTEGRATION: 2503   # 2635 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_LSP_SERVER: 528     # 556 measured; catches short runs; raise to 95% of a new full total.
 
 jobs:
   # ── May the build jobs be skipped for this pull request? ──────────────────────────────────────────
@@ -210,7 +211,8 @@ jobs:
         id: translations
         if: github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
         continue-on-error: true
-        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey"
+        # This step intentionally runs one test; a missing discovery result must still fail (#883).
+        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests 1
 
       # A step that fails under continue-on-error still shows the job as green, so the summary page would
       # say nothing. The annotation is what makes the result visible on the pull request itself.
@@ -537,6 +539,9 @@ jobs:
             fi
             bash scripts/check-secrets.sh "$base" "$PUSH_HEAD"
           fi
+
+      - name: Self-test WSL test-count arguments
+        run: bash scripts/test-linux.selftest.sh
 
       # Before the guard, not after: this asks whether the guard can still SEE an untracked
       # file. Three of its scans could not, while its header said they could (#437), and CI
