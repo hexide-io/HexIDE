@@ -9,6 +9,7 @@ namespace HexIDE.Runtime.Components;
 public class FormComponentClass : ComponentBaseClass
 {
     public FormComponentClass() : base([CaptionProperty,
+    MousePointerProperty,
     BackColorProperty,
     // A form or a UserControl saved with Enabled = False runs disabled (#1101). Undeclared, the saved line was dropped.
     EnabledProperty,
@@ -60,6 +61,7 @@ public class FormComponentClass : ComponentBaseClass
         var form = new VBFormRuntime()
         {
             Title = instance.GetPropertyOrDefault(CaptionProperty),
+            [AttachedProperties.MousePointerProperty] = instance.GetPropertyOrDefault(MousePointerProperty),
             Width = instance.GetPropertyOrDefault(WidthProperty),
             Height = instance.GetPropertyOrDefault(HeightProperty) + (menuBar ? VBLoader.MenuBarHeight : 0),
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),

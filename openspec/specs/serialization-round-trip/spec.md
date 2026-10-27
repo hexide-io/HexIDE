@@ -802,3 +802,16 @@ SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273)
 - **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
 - **THEN** their model values are 0, 9, 1033, 3082 and 3081
 - **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively
+
+
+### Requirement: Intrinsic MousePointer zero SHALL be omitted on save
+For the form and supported intrinsic controls with MousePointer, the writer SHALL omit a value of 0
+and write a nonzero value, matching the measured VB6 IDE save (#1970).
+
+#### Scenario: Explicit Default is saved
+- **WHEN** a form or supported intrinsic control has an explicit MousePointer = 0
+- **THEN** saving removes that line
+
+#### Scenario: Arrow is saved
+- **WHEN** a form or supported intrinsic control has MousePointer = 1
+- **THEN** saving keeps the value and its Arrow comment

@@ -295,6 +295,11 @@ public class FormSerializer
                  || prop == VBProperties.VisibleProperty))
                 continue;
 
+            // VB6 removes an explicit Default on save (#1970).
+            if (prop == VBProperties.MousePointerProperty
+                && instance.GetPropertyOrDefault(VBProperties.MousePointerProperty) == VBCursorType.Default)
+                continue;
+
             if (prop == VBProperties.IntervalProperty && instance.BaseClass is TimerComponentClass
                 && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;

@@ -274,7 +274,7 @@
 | Bring to Front / Send to Back | Done | |
 | Center Horizontally / Vertically | Done | Single control only |
 | Double-click → open event handler | Done | Generates handler stub; opens code editor. Handler searches start after the header (#711), so designer properties naming a handler do not intercept navigation or stub generation. A match in a member's `Attribute` line can still take the caret there ([#702](https://github.com/hexide-io/HexIDE/issues/702)) |
-| Properties grid integration | Done | Bidirectional; all property types |
+| Properties grid integration | Done | Bidirectional; all property types. MousePointer defaults to 0 - Default on the form and supported intrinsic controls; saving omits 0 (#1970) |
 | Color picker (via Color Palette) | Done | |
 | Font picker (via Property grid) | Done | An uninstalled current family is listed and selected without substituting a rendering fallback (#912) |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |

@@ -62,7 +62,8 @@ public class ControlLocalsTests
 
         var left = props.Single(p => p.Name == "Left");
         left.Error.Should().Be("Get not supported at runtime");
-        props.Where(p => p.Name is not ("Left" or "Top")).Should().OnlyContain(p => p.Error == null);
+        props.Single(p => p.Name == "MousePointer").Error.Should().Be("Object doesn't support this property or method");
+        props.Where(p => p.Name is not ("Left" or "Top" or "MousePointer")).Should().OnlyContain(p => p.Error == null);
     }
 
     // A program's read of a scroll bar's colour is refused (#801), but that refusal is the interpreter's, not the read
