@@ -226,6 +226,10 @@ public partial class MainViewViewModel : ObservableObject
         private readonly Dictionary<string, ToolLayoutState> deferredTools = new();
         private readonly Dictionary<string, int> savedOrders = new();
         private readonly Dictionary<string, ToolLayoutState> lastPlacements = new();
+        private sealed record DockSlot(IDock Parent, IDockable Child, int Index,
+            (IDockable Dock, double Proportion)[] Siblings);
+        private readonly Dictionary<string, List<DockSlot>> closedSlots = new();
+        private readonly Dictionary<IDockable, double> restoredProportions = new();
         private IRootDock? liveLayout;
         private readonly Dictionary<string, IToolDock> pendingToolDocks = new();
         private readonly Dictionary<IToolDock, DockLayoutNode> pendingToolGroups = new();
@@ -310,7 +314,23 @@ public partial class MainViewViewModel : ObservableObject
         public override void CloseDockable(IDockable dockable)
         {
             if (liveLayout != null)
+            {
                 CaptureManifest(liveLayout);
+                foreach (var (key, tool) in toolsByKey)
+                    if (ReferenceEquals(tool, dockable) || FindContainer(dockable, tool) != null)
+                    {
+                        var path = new List<DockSlot>();
+                        IDockable child = tool;
+                        while (FindContainer(liveLayout, child) is { } parent && parent is not IRootDock)
+                        {
+                            path.Add(new DockSlot(parent, child, parent.VisibleDockables!.IndexOf(child),
+                                parent.VisibleDockables.Where(d => d is not IProportionalDockSplitter)
+                                    .Select(d => (d, d.Proportion)).ToArray()));
+                            child = parent;
+                        }
+                        closedSlots[key] = path;
+                    }
+            }
             base.CloseDockable(dockable);
             LayoutChanged?.Invoke();
         }
@@ -334,6 +354,8 @@ public partial class MainViewViewModel : ObservableObject
 
         private IRootDock BuildLayout(LayoutManifest m, IDocumentDock? reuseDocument)
         {
+            closedSlots.Clear();
+            restoredProportions.Clear();
             pendingToolDocks.Clear();
             pendingToolGroups.Clear();
             leftProportion = m.LeftProportion;
@@ -540,6 +562,7 @@ public partial class MainViewViewModel : ObservableObject
                     VisibleDockables = CreateList(Interleave(node.Children.Select(RestoreTopology).OfType<IDockable>().ToList())),
                 };
             dock.Proportion = node.Proportion ?? double.NaN;
+            restoredProportions[dock] = dock.Proportion;
             dock.Context = node.Context;
             dock.ActiveDockable = node.ActiveTool is { } activeKey && toolsByKey.TryGetValue(activeKey, out var active)
                 && dock.VisibleDockables?.Contains(active) == true ? active : dock.VisibleDockables?.FirstOrDefault();
@@ -718,6 +741,31 @@ public partial class MainViewViewModel : ObservableObject
             if (tool is AddinToolWindowViewModel)
                 toolsByKey["addin:" + tool.Id] = tool;
             var key = KeyOf(tool);
+            if (key != null && closedSlots.Remove(key, out var path) && path.Count > 0)
+            {
+                foreach (var slot in path.AsEnumerable().Reverse())
+                {
+                    var list = slot.Parent.VisibleDockables ??= CreateList<IDockable>();
+                    if (!list.Contains(slot.Child))
+                    {
+                        var index = Math.Min(slot.Index, list.Count);
+                        if (slot.Parent is IProportionalDock && list.Count > 0)
+                        {
+                            list.Insert(index, new ProportionalDockSplitter());
+                            if (index == list.Count - 1) index++;
+                        }
+                        list.Insert(index, slot.Child);
+                    }
+                    foreach (var (sibling, siblingProportion) in slot.Siblings)
+                        ApplyProportion(sibling, siblingProportion);
+                    slot.Parent.ActiveDockable = slot.Child;
+                }
+                InitDockable(path[^1].Parent, path[^1].Parent.Owner);
+                SetFocusedDockable((IDock)tool.Owner!, tool);
+                RefreshLayout(layout);
+                LayoutChanged?.Invoke();
+                return;
+            }
             if (key != null && pendingToolDocks.Remove(key, out var pending) && FindContainer(layout, pending) != null)
             {
                 pending.VisibleDockables ??= CreateList<IDockable>();
@@ -730,8 +778,16 @@ public partial class MainViewViewModel : ObservableObject
                 if (!pendingToolDocks.Values.Contains(pending))
                     pendingToolGroups.Remove(pending);
                 // The first layout pass can collapse an empty add-in slot before registration.
-                pending.Proportion = group.Proportion ?? double.NaN;
+                IDockable branch = pending;
+                while (FindContainer(layout, branch) is { } parent)
+                {
+                    foreach (var sibling in parent.VisibleDockables ?? CreateList<IDockable>())
+                        if (restoredProportions.TryGetValue(sibling, out var savedProportion))
+                            ApplyProportion(sibling, savedProportion);
+                    branch = parent;
+                }
                 InitDockable(pending, pending.Owner);
+                RefreshLayout(layout);
                 LayoutChanged?.Invoke();
                 return;
             }
@@ -775,7 +831,41 @@ public partial class MainViewViewModel : ObservableObject
                 }
             }
 
+            RefreshLayout(layout);
             LayoutChanged?.Invoke();
+        }
+
+        // Recreate the proportional presenters: Dock keeps local sizing values on them which
+        // override later model updates. The document dock and its tab collection stay intact.
+        private void RefreshLayout(IRootDock layout)
+        {
+            if (layout.DefaultDockable is IDock main)
+                main.VisibleDockables = CreateList(main.VisibleDockables?.ToArray() ?? []);
+        }
+
+        // Dock prefers its cached collapsed share during layout, even after Proportion changes.
+        private static void ApplyProportion(IDockable dock, double proportion)
+        {
+            dock.Proportion = proportion;
+            dock.CollapsedProportion = proportion;
+        }
+
+        // Reserve the closed tool's share of a stack that has since expanded to fill its space.
+        private static void ReserveProportion(IDock container, double proportion)
+        {
+            var siblings = container.VisibleDockables?.Where(d => d is not IProportionalDockSplitter).ToArray() ?? [];
+            if (proportion <= 0 || proportion >= 1 || double.IsNaN(proportion))
+                return;
+            if (siblings.Any(d => double.IsNaN(d.Proportion)))
+            {
+                foreach (var sibling in siblings)
+                    ApplyProportion(sibling, sibling.Proportion);
+                return;
+            }
+            var total = siblings.Sum(d => d.Proportion);
+            if (total > 0)
+                foreach (var sibling in siblings)
+                    ApplyProportion(sibling, sibling.Proportion * (1 - proportion) / total);
         }
 
         // Insert a single-tool dock into a stack at its home-order position, with a separating splitter.
@@ -845,6 +935,7 @@ public partial class MainViewViewModel : ObservableObject
             left.Proportion = leftProportion;
             left.VisibleDockables = CreateList<IDockable>();
             main.VisibleDockables ??= CreateList<IDockable>();
+            ReserveProportion(main, left.Proportion);
             main.VisibleDockables.Insert(0, new ProportionalDockSplitter());
             main.VisibleDockables.Insert(0, left);
             return left;

@@ -4,9 +4,6 @@
 Define what the IDE remembers about itself between sessions: window geometry and the arrangement of tool
 windows.
 
-Repeated close/show sizing and restoring a closed member of a split are known defects tracked in
-[#2295](https://github.com/hexide-io/HexIDE/issues/2295); the requirements below describe the intended behavior.
-
 The default layout is a guess, and it is wrong for most people — a window sized for the smallest reasonable
 screen, panels at proportions nobody chose. Anyone who works in the IDE for an afternoon adjusts it, and an
 IDE that discards that adjustment every launch is asking them to do it again daily until they stop
@@ -46,6 +43,8 @@ they can read it.
 #### Scenario: Showing a closed tool again
 - **WHEN** a resized tool is closed and shown again, including after restarting the IDE
 - **THEN** its last recorded region and dock proportion are restored
+- **AND** repeated close/show cycles preserve the allocated size
+- **AND** showing a closed member of a split during the session restores its own dock in that split
 
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted
@@ -55,7 +54,7 @@ they can read it.
 - **WHEN** tool docks are arranged side by side or stacked, including nested splits, and the IDE restarts
 - **THEN** their split orientations, proportions, tab groups and active tool tabs are restored
 - **AND** older manifests without a split tree still restore through their recorded regions
-- **AND** a tool that registers after layout initialization receives its saved dock proportion when it registers
+- **AND** a tool that registers after layout initialization receives its saved dock and ancestor proportions when it registers
 
 #### Scenario: A live tool in an unrecognized dock arrangement
 - **WHEN** a tool is still in the live layout tree but its dock cannot be mapped to a persisted region

@@ -1,3 +1,4 @@
+using Avalonia.VisualTree;
 using System.Linq;
 using Dock.Model.Core;
 using Dock.Model.Controls;
@@ -20,7 +21,7 @@ namespace HexIDE.Tests.ViewModels;
 
 public class DockFactoryTests
 {
-    private static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null)
+    private static (MainViewViewModel.DockFactory factory, ImmediateToolViewModel immediate) CreateFactory(LayoutManifest? manifest = null, ToolBoxToolViewModel? toolbox = null)
     {
         var docDock = Substitute.For<IDocumentDockService>();
         var eventBus = Substitute.For<IEventBus>();
@@ -32,7 +33,7 @@ public class DockFactoryTests
         loc.ActiveLanguage.Returns("en");
 
         // ToolBoxToolViewModel loads Avalonia bitmaps in its ctor; bypass since the tree never renders.
-        var toolBox = (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
+        var toolBox = toolbox ?? (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
         var properties = new PropertiesToolViewModel(docDock, eventBus, windowManager, loc);
         var formLayout = new FormLayoutToolViewModel(docDock, eventBus, loc);
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
@@ -69,7 +70,110 @@ public class DockFactoryTests
         return (factory, immediate);
     }
 
+    private static void LayoutWindow(Avalonia.Controls.Window window)
+    {
+        var context = System.Threading.ExecutionContext.Capture();
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+        }
+        finally { System.Threading.ExecutionContext.Restore(context!); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ClosedLeftDock_RepeatedLayoutCyclesKeepItsWidth(bool restart)
+    {
+        Avalonia.Application.Current!.Styles.Add(new Avalonia.Themes.Simple.SimpleTheme());
+        Avalonia.Application.Current.Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var main = (IDock)root.DefaultDockable!;
+        var left = (IToolDock)main.VisibleDockables![0];
+        var tool = (Tool)left.VisibleDockables![0];
+        tool.CanClose = true;
+        left.Proportion = 0.14;
+        var host = new Dock.Avalonia.Controls.DockControl { Layout = root };
+        var window = new Avalonia.Controls.Window { Content = host, Width = 1000, Height = 700 };
+        window.Show();
+        try
+        {
+            LayoutWindow(window);
+            double Width() => host.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>()
+                .Single(c => ReferenceEquals(c.DataContext, tool.Owner)).Bounds.Width;
+            var expected = Width();
+            expected.Should().BeGreaterThan(0);
+            for (var cycle = 0; cycle < 4; cycle++)
+            {
+                factory.CloseDockable(tool);
+                factory.CaptureManifest(root).Tools.Single(t => t.Key == "toolbox").Open.Should().BeFalse();
+                LayoutWindow(window);
+                if (restart)
+                {
+                    var saved = factory.CaptureManifest(root);
+                    (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)),
+                        (ToolBoxToolViewModel)tool);
+                    root = factory.CreateLayout();
+                    factory.InitLayout(root);
+                    host.Layout = root;
+                    LayoutWindow(window);
+                }
+                factory.PlaceTool(root, tool, rightFallback: false);
+                LayoutWindow(window);
+                Width().Should().BeApproximately(expected, 0.01);
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ClosedSplitMember_ReturnsToItsOwnDock(bool addin, bool closeContainer)
+    {
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        Tool tool = immediate;
+        if (addin)
+        {
+            var extra = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+            factory.RegisterAddinTool(root, extra);
+            tool = extra;
+        }
+        (tool.Owner as IDock)?.VisibleDockables?.Remove(tool);
+        var main = (IDock)root.DefaultDockable!;
+        var left = main.VisibleDockables![0];
+        left.Proportion = 0.4;
+        var dock = factory.CreateToolDock();
+        dock.Proportion = 0.6;
+        dock.VisibleDockables = factory.CreateList<IDockable>(tool);
+        var split = new ProportionalDock
+        {
+            Proportion = 0.25,
+            VisibleDockables = factory.CreateList(left, new ProportionalDockSplitter(), dock),
+        };
+        main.VisibleDockables[0] = split;
+        factory.InitLayout(root);
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            factory.CloseDockable(closeContainer ? dock : tool);
+            factory.PlaceTool(root, tool, rightFallback: false);
+            tool.Owner.Should().BeSameAs(dock);
+            dock.ActiveDockable.Should().BeSameAs(tool);
+            main.VisibleDockables[0].Should().BeSameAs(split);
+            split.VisibleDockables.Should().Equal(left, split.VisibleDockables![1], dock);
+            dock.Proportion.Should().Be(0.6);
+            left.Proportion.Should().Be(0.4);
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData(Dock.Model.Core.Orientation.Horizontal, false, false)]
     [InlineData(Dock.Model.Core.Orientation.Vertical, false, false)]
     [InlineData(Dock.Model.Core.Orientation.Horizontal, true, false)]
@@ -147,8 +251,29 @@ public class DockFactoryTests
             if (nested)
                 pendingSlot = ((IProportionalDock)pendingSlot).VisibleDockables!.Single();
             pendingSlot.Proportion = 0;
+            pendingSplit.Proportion = 0;
             var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
-            restoredFactory.RegisterAddinTool(restoredRoot, tool);
+            if (!nested)
+            {
+                Avalonia.Application.Current!.Styles.Add(new Avalonia.Themes.Simple.SimpleTheme());
+                Avalonia.Application.Current.Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
+                var host = new Dock.Avalonia.Controls.DockControl { Layout = restoredRoot };
+                var window = new Avalonia.Controls.Window { Content = host, Width = 1000, Height = 700 };
+                window.Show();
+                try
+                {
+                    LayoutWindow(window);
+                    restoredFactory.RegisterAddinTool(restoredRoot, tool);
+                    LayoutWindow(window);
+                    var chrome = host.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>()
+                        .Single(c => ReferenceEquals(c.DataContext, tool.Owner));
+                    chrome.Bounds.Width.Should().BeGreaterThan(0);
+                    chrome.Bounds.Height.Should().BeGreaterThan(0);
+                }
+                finally { window.Close(); }
+            }
+            else
+                restoredFactory.RegisterAddinTool(restoredRoot, tool);
             restoredTool = tool;
         }
         var restoredMain = (Dock.Model.Controls.IProportionalDock)restoredRoot.DefaultDockable!;
