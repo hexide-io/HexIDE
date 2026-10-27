@@ -27,6 +27,8 @@ namespace HexIDE.Runtime.Debugging;
 /// </summary>
 public sealed class DebugController : IDebugController
 {
+    public bool CanBreak { get; init; } = true;
+
     private const long YieldIntervalMs = 15;   // time-slice: yield the UI thread at least this often so Ctrl+Break lands
 
     private readonly Dictionary<string, HashSet<int>> _breakpoints = new(StringComparer.OrdinalIgnoreCase);

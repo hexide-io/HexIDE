@@ -903,13 +903,14 @@ public class VBLoader
     /// anything runs.
     /// </summary>
     /// <param name="startupWindow">The startup form's window, or null for a program that starts at Sub Main.</param>
-    public static Task RunMadeProgram(ProjectDefinition project, CancellationToken token, out VBFormRuntime? startupWindow)
+    public static Task RunMadeProgram(ProjectDefinition project, CancellationToken token, out VBFormRuntime? startupWindow,
+        Debugging.IDebugController? debugController = null)
     {
         if (!project.StartsAtSubMain)
         {
             startupWindow = null;
             var form = project.StartupForm ?? throw new VBCompileErrorException(BasicInterpreter.NoStartupObject);
-            var run = RunForm(form, token, out var window);
+            var run = RunForm(form, token, out var window, debugController);
             startupWindow = window;
             return run;
         }
@@ -917,7 +918,7 @@ public class VBLoader
         // closed when the run ends so a box still open goes with it, as one over a form does.
         startupWindow = null;
         var owner = new Window();
-        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController: null, OpenWindow);
+        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController, OpenWindow);
         program.Interpreter.FindStartupSubMain();
         return RunThenClose(RunSubMain(program, token), owner);
 

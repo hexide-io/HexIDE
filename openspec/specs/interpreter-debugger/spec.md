@@ -401,3 +401,19 @@ Initialize's last statement into Load's first statement.
 - **AND** a step from its last statement pauses on Load's first statement
 - **WHEN** the form has no Form_Initialize
 - **THEN** the initial step pauses on Load's first statement
+
+### Requirement: A made program surfaces fatal errors
+The standalone host SHALL apply the same event boundary when deciding whether a run-time error is unhandled. It SHALL
+show a warning box titled with the program's name, containing the run-time error number and description, with OK only.
+Nothing in the program, including Timers, SHALL run behind it. Dismissal SHALL exit the process without QueryUnload,
+Unload or Terminate. Compile errors and faults SHALL also be reported; an unimplemented construct SHALL be identified
+as such and an engine fault SHALL report Internal error (51).
+
+#### Scenario: A sink fails in a made program
+- **WHEN** a RaiseEvent sink leaves a run-time error unhandled
+- **THEN** the warning box appears before any handler in the raiser can catch it
+- **AND** dismissal exits the program without running that handler or unload and terminate events
+
+#### Scenario: Startup or event failure
+- **WHEN** Sub Main or an event procedure leaves a run-time error unhandled
+- **THEN** the host shows the fatal warning and holds execution until dismissal
