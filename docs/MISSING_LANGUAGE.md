@@ -1303,7 +1303,7 @@ signature help and the Object Browser, not the completion popup.
 as well as after Show (4 for the default-edged 80-pixel tree, 12 for the 200-pixel tree).
 Saved Appearance/BorderStyle choose the measured 0/1/2/3-pixel edge, drawing and pointer origin.
 MouseDown, MouseMove and MouseUp report client-area twips, subtracting that edge.
-Scrolling (#2359) remains unmeasured and not implemented; label editing follows in #2360.
+Scrolling (#2359) remains unmeasured and not implemented; label editing is implemented for visible nodes (#2360).
 `TreeNodes.cs` supplies the hierarchy model and `TreeNodeAutomation.cs` now exposes
 its collection and node identities to the interpreter. Injected collections can be built and walked from VB6:
 Add (including named arguments), Item/default indexing, Count, Remove and Clear; node Text/default Text,
@@ -1316,14 +1316,14 @@ SelectedItem, PathSeparator and SingleSel. Deferred root sorting runs at the nex
 Runtime drawing now follows expansion and sibling order, Style/LineStyle, Indentation, checkboxes, Bold and HideSelection.
 Mouse input now dispatches NodeClick, NodeCheck, Expand/Collapse, Click and DblClick; focus selects the first node,
 and the measured keyboard navigation, Enter ordering and SingleSel sequence are bound. Expanded and EnsureVisible
-raise expansion events; other code mutations stay silent. Native form persistence now preserves the measured owned-property order and values, including HIMETRIC Indentation, Font, ImageList references and OLE settings. These carried values have no designer editors; runtime bindings remain scoped as above. Remaining node members and label editing remain outstanding. No language-name inventory status or count changes yet.
+raise expansion events; other code mutations stay silent. Native form persistence now preserves the measured owned-property order and values, including HIMETRIC Indentation, Font, ImageList references and OLE settings. These carried values have no designer editors; runtime bindings remain scoped as above. Remaining node members remain outstanding. No language-name inventory status or count changes yet.
 Native handles remain unimplemented; no handle value is fabricated.
 
 | TreeView member or edge | Outstanding work |
 |---|---|
 | Sorting outside the measured character repertoire | Not implemented: The model refuses sorting text outside the oracle word comparer’s measured character table with `NotImplementedException`, rather than using the text comparer's unmeasured fallback. Other locales remain unmeasured. |
-| Remaining control members | Not implemented: HitTest, DropHighlight, FullRowSelect, HotTracking, Scroll, BorderStyle, Appearance, Enabled, Font, MousePointer, MouseIcon, OLEDragMode, OLEDropMode and control methods remain refused. Label editing remains outstanding. Saved own properties are carried faithfully, not new runtime bindings. The unmeasured ComctlLib (5.0) TreeView remains refused. |
-| Label editing and other keys | Not implemented: StartLabelEdit, BeforeLabelEdit/AfterLabelEdit and automatic label editing remain refused/unavailable. Keyboard dispatch covers the measured navigation keys, Enter, Space and the measured A/Q/R keys; other keys keep their existing behaviour. |
+| Remaining control members | Not implemented: HitTest, DropHighlight, FullRowSelect, HotTracking, Scroll, BorderStyle, Appearance, Enabled, Font, MousePointer, MouseIcon, OLEDragMode, OLEDropMode and other control methods remain refused. Saved own properties are carried faithfully, not new runtime bindings. The unmeasured ComctlLib (5.0) TreeView remains refused. |
+| Label editing and other keys | Partial (#2360): StartLabelEdit opens a shared editor in either LabelEdit mode, with cancellable BeforeLabelEdit/AfterLabelEdit and mutable NewString committed after the event returns. No selection is a no-op. Automatic mode edits an already-selected label one host double-click time after MouseUp; a double-click cancels it and manual-mode clicks never edit. Commit-before-click ordering and focus ordering for suspending handlers remain outstanding; invisible selected-node positioning and restarting an active edit are unmeasured and refuse with NotImplementedException. Keyboard dispatch covers the measured navigation keys, Enter, Space and the measured A/Q/R keys and F2 KeyDown 113; other keys keep their existing behaviour. |
 | Designer preview | Not implemented: the four measured Sample Node placeholders, Font rendering and bound icons remain unavailable; the runtime tree is still used for the designer preview. |
 | Error descriptions | The number-only model still supplies its existing blank descriptions. Description binding remains for the rest of A2, including the recorded cycle message; no VB6 expectations are pinned for those blanks. |
 | Node Tag assignments, ForeColor and BackColor | Not implemented: Tag reads its measured empty default and Set to a control raises 35700; other Tag assignments remain unmeasured and refused. Colour binding remains, including the measured late-bound unsigned colour type. |

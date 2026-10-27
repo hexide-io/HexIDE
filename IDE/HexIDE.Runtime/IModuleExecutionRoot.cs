@@ -6,6 +6,10 @@ namespace HexIDE.Runtime;
 
 public interface IModuleExecutionRoot
 {
+    // An editing event must return its ByRef arguments before the owner places or commits the editor.
+    System.Threading.Tasks.Task ExecuteEditEventAsync(string name, IList<Vb6Value> args) =>
+        throw new NotImplementedException();
+
     // args carries a control-array event's leading `Index As Integer` (null for a parameterless handler).
     void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null);
 
