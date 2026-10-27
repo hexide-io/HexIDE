@@ -196,7 +196,9 @@ public static class UiAutomationDriver
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
                 window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
+                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null,
+            peer.GetProvider<IExpandCollapseProvider>() is { } expansion
+                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
     }
 
     /// <summary>
@@ -506,8 +508,13 @@ public static class UiAutomationDriver
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
                            ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
-                           : " Target the copy that shows, or make it show first; invoke_command and set_property act on "
+                           : shows is false && CollapsedPropertyCategoryHolding(control) is { } category
+                               ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                               : " Make it show first; invoke_command and set_property act on "
                              + "its view model and still work"));
+
+        if (norm is "click" or "invoke" && DisabledPressRefusal(control) is { } disabled)
+            return Err(disabled);
 
         AutomationPeer peer;
         try { peer = ControlAutomationPeer.CreatePeerForElement(control); }
@@ -753,6 +760,27 @@ public static class UiAutomationDriver
         {
             return Err($"action '{norm}' threw: {ex.Message}");
         }
+    }
+
+    // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
+    // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
+    private static string? DisabledPressRefusal(Control control)
+    {
+        var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
+        var open = OpenDialogs.Among(OpenWindows());
+        var blocking = open.Where(d => OpenDialogs.Blocks(d, window)).ToList();
+        if (blocking.FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d))) is { } dialog)
+        {
+            foreach (var blocked in blocking)
+                OpenDialogs.NamedInReply(blocked);
+            return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
+                   + "No person could click or invoke it, so nothing was pressed or invoked. Answer the dialog first: "
+                   + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
+        }
+        return !control.IsEffectivelyEnabled || window is { IsEffectivelyEnabled: false }
+            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could click or invoke it, so "
+              + "nothing was pressed or invoked. Wait until it is enabled before trying again"
+            : null;
     }
 
     /// <summary>
@@ -4635,7 +4663,8 @@ public record UiNodeDetail(
     // The value pattern's writability, independent of the range pattern's flag. Null without that pattern.
     bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    WindowFrameState? Frame = null);
+    WindowFrameState? Frame = null,
+    string? ExpandCollapseState = null);
 
 /// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

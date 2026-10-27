@@ -2,7 +2,9 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности",
+    "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-разрядная",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-разрядная",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "Свойства",
     "Str.CodeEditor.FileNotSaved.Banner": "Этот файл не будет сохранён — HexIDE пока не может воспроизвести его в точности, поэтому сохранение изменило бы его. Его код — часть файла, так что ввод в этом окне отклоняется.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Переименование не выполнено, так как оно изменило бы заголовок этого файла или строки Attribute одного из членов, которыми управляет IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Переименование не выполнено, поскольку оно также изменяет другие документы: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Строка {0} относится к заголовку этого файла или к строкам Attribute одного из членов, которые никогда не выполняются, поэтому на ней нельзя поставить точку останова или закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставить файл",
     "Str.CodeEditor.Dialog.RenamePrompt": "Новое имя:",
@@ -898,7 +901,6 @@
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
     "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
   }
 }

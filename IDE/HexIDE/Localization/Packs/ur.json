@@ -2,7 +2,9 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
+    "Str.Designer.ShowTabOrder": "ٹیب کی ترتیب دکھائیں (کٹا ہوا: TabStop بند)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "خصوصیات",
     "Str.CodeEditor.FileNotSaved.Banner": "یہ فائل محفوظ نہیں کی جائے گی — HexIDE ابھی اسے ہو بہو دوبارہ تیار نہیں کر سکتا، اس لیے اسے محفوظ کرنے سے یہ بدل جائے گی۔ اس کا کوڈ بھی فائل کا حصہ ہے، چنانچہ اس ونڈو میں ٹائپ کرنا مسترد کیا جاتا ہے۔",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "نام تبدیل نہیں کیا گیا، کیونکہ اس سے اس فائل کا ہیڈر یا کسی رکن کی Attribute لائنیں بدل جاتیں، جنہیں IDE سنبھالتا ہے۔",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "نام تبدیل نہیں کیا گیا کیونکہ اس سے دوسری دستاویزات میں بھی ترمیم ہوتی ہے: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "لائن {0} اس فائل کے ہیڈر یا کسی رکن کی Attribute لائنوں کا حصہ ہے، جو کبھی نہیں چلتیں، اس لیے اس پر بریک پوائنٹ یا بُک مارک نہیں لگایا جا سکتا۔",
     "Str.CodeEditor.Dialog.InsertFileTitle": "فائل داخل کریں",
     "Str.CodeEditor.Dialog.RenamePrompt": "نیا نام:",
@@ -898,7 +901,6 @@
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
     "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
   }
 }
