@@ -41,7 +41,10 @@ public class ActiveDocumentDumpTests
         var main = (MainView)window.Content!;
         main.DataContext = composition.Root;
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
-        form.UpdateComponents([.. form.Components, .. Enumerable.Range(1, 26).Select(i =>
+        // Enough that the whole tree is over the budget, with room left once it is fitted: the active document is kept
+        // whole, so every node added to the IDE eats into that room. 26 left about 330 characters, and the designer's own
+        // hidden draw preview and rubber band took them (#2231).
+        form.UpdateComponents([.. form.Components, .. Enumerable.Range(1, 20).Select(i =>
             new ComponentInstance(CommandButtonComponentClass.Instance, "Command" + i)
                 .SetProperty(VBProperties.WidthProperty, 100d)
                 .SetProperty(VBProperties.HeightProperty, 30d))]);
@@ -59,7 +62,7 @@ public class ActiveDocumentDumpTests
             path.Should().NotBeNull();
             var (fitted, note) = HexIdeTools.FitToReply(tree, path);
             var json = JsonSerializer.Serialize(fitted, ReplyJson.Options);
-            foreach (var i in Enumerable.Range(1, 26))
+            foreach (var i in Enumerable.Range(1, 20))
                 Flat(fitted).Should().Contain(n => n.Name == "Command" + i);
             json.Length.Should().BeLessThanOrEqualTo(HexIdeTools.TreeCharacterBudget);
             note.Should().Contain("active document");
