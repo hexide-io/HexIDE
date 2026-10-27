@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "Klipp _ut",
     "Str.Menu.Edit.Copy": "_Kopier",
     "Str.Menu.Edit.Paste": "_Lim inn",
+    "Str.Menu.Edit.PasteAsComment": "Lim inn som _kommentar",
     "Str.Menu.Edit.PasteLink": "Lim inn _kobling",
     "Str.Menu.Edit.Remove": "Fjern",
     "Str.Menu.Edit.Delete": "_Slett",

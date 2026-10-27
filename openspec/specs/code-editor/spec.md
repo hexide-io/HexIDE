@@ -443,6 +443,26 @@ its entries; removing its document from the project or unloading the project SHA
 - **THEN** the row retains the moved line number and preview
 - **AND** selecting it opens that document at the moved line without adding an entry
 
+### Requirement: Paste as Comment
+The code window SHALL offer Paste as Comment in the Edit menu and expose `PasteAsCommentCommand`
+for keymap bindings. It SHALL replace the selection with the clipboard's lines, each prefixed with an
+apostrophe, continuing subsequent lines at the insertion line's leading indentation. The paste SHALL
+be one undo step and use the document's newline convention. Empty or unavailable clipboard text SHALL
+leave the document unchanged.
+
+When text remains on the line after a non-rectangular selection or caret, the paste SHALL end with a
+line break and the insertion line's leading indentation, keeping that text uncommented on its own line.
+
+#### Scenario: Keeping a snippet without compiling it
+- **WHEN** the developer pastes two clipboard lines as comments at an indented caret
+- **THEN** each inserted line begins with an apostrophe at that indentation
+- **AND** Undo restores the previous text in one step
+
+#### Scenario: Pasting before existing code
+- **WHEN** the developer pastes as comments with the caret before existing code on the same line
+- **THEN** a line break separates the last pasted comment from the existing code
+- **AND** the existing code remains uncommented at the insertion line's indentation
+- **AND** Undo restores the previous text in one step
 ### Requirement: Find scopes SHALL include project members and live buffers
 Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
 All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.

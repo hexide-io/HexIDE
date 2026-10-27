@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "잘라내기",
     "Str.Menu.Edit.Copy": "복사",
     "Str.Menu.Edit.Paste": "붙여넣기",
+    "Str.Menu.Edit.PasteAsComment": "주석으로 붙여넣기",
     "Str.Menu.Edit.PasteLink": "연결하여 붙여넣기",
     "Str.Menu.Edit.Remove": "제거",
     "Str.Menu.Edit.Delete": "삭제",

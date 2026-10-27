@@ -50,6 +50,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand CutCommand = new RoutedCommand(nameof(CutCommand), new KeyGesture(Key.X, GetPlatformCommandKey()));
     public static readonly RoutedCommand CopyCommand = new RoutedCommand(nameof(CopyCommand), new KeyGesture(Key.C, GetPlatformCommandKey()));
     public static readonly RoutedCommand PasteCommand = new RoutedCommand(nameof(PasteCommand), new KeyGesture(Key.V, GetPlatformCommandKey()));
+    public static readonly RoutedCommand PasteAsCommentCommand = new RoutedCommand(nameof(PasteAsCommentCommand));
     public static readonly RoutedCommand PasteLinkCommand = new RoutedCommand(nameof(PasteLinkCommand));
     public static readonly RoutedCommand RemoveCommand = new RoutedCommand(nameof(RemoveCommand));
     public static readonly RoutedCommand DeleteCommand = new RoutedCommand(nameof(DeleteCommand), new KeyGesture(Key.Delete));

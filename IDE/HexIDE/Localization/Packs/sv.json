@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "Klipp u_t",
     "Str.Menu.Edit.Copy": "_Kopiera",
     "Str.Menu.Edit.Paste": "Klistra _in",
+    "Str.Menu.Edit.PasteAsComment": "Klistra in som _kommentar",
     "Str.Menu.Edit.PasteLink": "Klistra in län_k",
     "Str.Menu.Edit.Remove": "Ta bort",
     "Str.Menu.Edit.Delete": "_Radera",

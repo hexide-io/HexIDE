@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "_Leikkaa",
     "Str.Menu.Edit.Copy": "_Kopioi",
     "Str.Menu.Edit.Paste": "L_iitä",
+    "Str.Menu.Edit.PasteAsComment": "Liitä _kommenttina",
     "Str.Menu.Edit.PasteLink": "Liitä lin_kki",
     "Str.Menu.Edit.Remove": "Poista",
     "Str.Menu.Edit.Delete": "_Poista",

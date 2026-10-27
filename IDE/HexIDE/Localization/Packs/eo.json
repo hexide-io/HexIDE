@@ -64,6 +64,7 @@
     "Str.Menu.Edit.Cut": "El_tondi",
     "Str.Menu.Edit.Copy": "_Kopii",
     "Str.Menu.Edit.Paste": "_Alglui",
+    "Str.Menu.Edit.PasteAsComment": "Alglui kiel _komenton",
     "Str.Menu.Edit.PasteLink": "Alglui _Ligilon",
     "Str.Menu.Edit.Remove": "Depreni",
     "Str.Menu.Edit.Delete": "_Forigi",

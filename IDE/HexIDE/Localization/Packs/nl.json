@@ -103,6 +103,7 @@
     "Str.Menu.Edit.Cut": "K_nippen",
     "Str.Menu.Edit.Copy": "_Kopiëren",
     "Str.Menu.Edit.Paste": "_Plakken",
+    "Str.Menu.Edit.PasteAsComment": "Als _commentaar plakken",
     "Str.Menu.Edit.PasteLink": "Koppeling pla_kken",
     "Str.Menu.Edit.Remove": "Verwijderen",
     "Str.Menu.Edit.Delete": "_Verwijderen",

@@ -64,6 +64,7 @@
     "Str.Menu.Edit.Cut": "Cu_t",
     "Str.Menu.Edit.Copy": "_Copy",
     "Str.Menu.Edit.Paste": "_Paste",
+    "Str.Menu.Edit.PasteAsComment": "Paste as _Comment",
     "Str.Menu.Edit.PasteLink": "Paste Lin_k",
     "Str.Menu.Edit.Remove": "Remove",
     "Str.Menu.Edit.Delete": "_Delete",
