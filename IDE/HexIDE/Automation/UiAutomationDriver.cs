@@ -4083,7 +4083,7 @@ public static class UiAutomationDriver
     /// <summary>A control named the way a caller would recognise it: type plus whatever identity it carries.</summary>
     private static string Describe(Control control)
     {
-        var id = control.Name ?? (control as StyledElement)?.Name;
+        var id = NullIfEmpty(control.Name) ?? NullIfEmpty(AutomationProperties.GetAutomationId(control));
         return string.IsNullOrEmpty(id) ? control.GetType().Name : $"{control.GetType().Name}[{id}]";
     }
 
