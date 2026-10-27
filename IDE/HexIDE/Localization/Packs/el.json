@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
   }
 }

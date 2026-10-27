@@ -901,6 +901,7 @@
     "Str.Dock.Close": "סגירת החלונית",
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
     "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "הצג קווי הנחיה להזחה",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
   }
 }

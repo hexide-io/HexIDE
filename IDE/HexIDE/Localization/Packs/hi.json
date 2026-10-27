@@ -901,6 +901,7 @@
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
     "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
   }
 }

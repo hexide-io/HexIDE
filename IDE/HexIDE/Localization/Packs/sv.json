@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
     "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
   }
 }

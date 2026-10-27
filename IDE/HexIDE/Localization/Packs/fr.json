@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
     "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
   }
 }
