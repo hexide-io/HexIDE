@@ -184,6 +184,56 @@ After the old dialog, CurDir read **`C:\HEXORACLE-CDFILES`**, in capitals.
 - **Cancel with CancelError True raises 32755.**
 - PrinterDefault was False throughout, so the guest's default printer was not changed. ShowHelp was not measured.
 
+### The saved files
+
+**The programs.**
+- **The save:** a form of three CommonDialogs, written by hand, opened in VB6's IDE, and saved there once the form had
+  been dirtied with a comment.
+  - The first had every property off its default, its lines in reverse order.
+  - The second had only its position and `_Version`.
+  - The third had its defaults written out.
+  - A second save of the same form also had a fourth CommonDialog double-clicked from the toolbox.
+- **The run-time read:** an EXE read every property back from VB6's save, natively and as p-code.
+- **The corpus:** VB6's save is in `corpus/inbox-controls/pending/commondialog/`.
+
+**Double-clicked onto a 6000×4500-twip form,** VB6 writes:
+
+```
+   Begin MSComDlg.CommonDialog CommonDialog4 
+      Left            =   2760
+      Top             =   2010
+      _ExtentX        =   847
+      _ExtentY        =   847
+      _Version        =   393216
+   End
+```
+
+- The control is centred: the icon is 480 twips square, 847 HIMETRIC.
+- **The double-clicked control was written first,** ahead of the three already on the form.
+
+**The order VB6 writes the lines in,** whatever order they were read in: Left and Top; `_ExtentX`, `_ExtentY` and
+`_Version`; then
+
+```
+CancelError, Color, Copies, DefaultExt, DialogTitle, FileName, Filter, FilterIndex, Flags,
+FontBold, FontItalic, FontName, FontSize, FontStrikeThru, FontUnderLine, FromPage,
+HelpCommand, HelpContext, HelpFile, HelpKey, InitDir, Max, Min, MaxFileSize,
+PrinterDefault, ToPage, Orientation
+```
+
+- **The order is alphabetical, apart from three lines:**
+  - MaxFileSize comes after Min;
+  - ToPage comes after PrinterDefault;
+  - Orientation comes last.
+- **Every property is saved under its own name, and only when off its default.** The third CommonDialog, with FontSize
+  8, MaxFileSize 260, Copies 1, Orientation 1, PrinterDefault True, CancelError False and Flags 0 written out, was saved
+  as the minimal block.
+- **There is no Font block.** The font is the six Font lines.
+- **A block missing a line loads the defaults** listed under Defaults: MaxFileSize 260, FontSize 8, Copies 1,
+  Orientation 1, PrinterDefault True. The minimal block read back exactly as the third did.
+- **Read back at run time,** every value written in the first came back as written: Flags 524800, FilterIndex 2,
+  MaxFileSize 1024, FontName Arial, and the rest.
+
 ### In HexIDE
 
 A CommonDialog is left out at run time (#857), so `ShowOpen` does nothing (#1084).
