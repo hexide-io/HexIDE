@@ -2216,6 +2216,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Controls are an Object, and Controls is not a Collection.
         if (operand.Value is Avalonia.Controls.Control control)
         {
+            if (interpreter.ControlClassFor(targetName) is { } controlClass)
+                return new Vb6Value(control is VBProgressBar progress
+                    && controlClass.Equals(progress.Library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase));
             var className = VB6BuiltIns.ControlTypeName(control);
             // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
             var library = control switch
