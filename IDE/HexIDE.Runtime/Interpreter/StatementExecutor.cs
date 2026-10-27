@@ -2040,6 +2040,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
+            // `F% = 7` inside `Function F%()` sets the return in VB6 (measured, #740). It is an assignment through a type
+            // character, which is #739's: until then it is refused, rather than writing a variable named `F%` and leaving the
+            // Function to return its type's default.
+            if (varOrProcCall.typeHint() is not null
+                && string.Equals(currentEnv.ReturnName, varOrProcCall.ambiguousIdentifier().GetText(), StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException(
+                    $"`{varOrProcCall.GetText()} = …`, a Function's return assigned through its type character, is not implemented (#739)");
             // `c!key = x`: a Collection's item is read-only (measured, #1471, #1492). No other default member takes it yet.
             if (varOrProcCall.dictionaryCallStmt() is { } bang)
             {
