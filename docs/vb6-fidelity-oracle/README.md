@@ -672,3 +672,6 @@ added afterwards.
 - [A reference's path, and the line order a save writes (2026-10-27, #2274)](a-references-path-and-the-line-order-a-save-writes.md#a-references-path-and-the-line-order-a-save-writes-2026-10-27-2274)
 - [In-box controls: the Slider (2026-10-27, #1091)](in-box-controls-the-slider.md#in-box-controls-the-slider-2026-10-27-1091)
 - [In-box controls: the UpDown (2026-10-27, #1093)](in-box-controls-the-updown.md#in-box-controls-the-updown-2026-10-27-1093)
+- [In-box controls: the DTPicker (2026-10-27, #1094)](in-box-controls-the-dtpicker.md#in-box-controls-the-dtpicker-2026-10-27-1094)
+- [What a Timer has at run time (2026-10-27, #801)](what-a-timer-has-at-run-time.md#what-a-timer-has-at-run-time-2026-10-27-801)
+- [A watch and its context, in the IDE's Watches window (2026-10-27, #2290)](a-watch-and-its-context.md#a-watch-and-its-context-in-the-ides-watches-window-2026-10-27-2290)

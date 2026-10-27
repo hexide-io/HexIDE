@@ -877,6 +877,10 @@ the conversation, rather than waiting out a diagnostics timeout. A clean exit or
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
 
+The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
+warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
+does not mean the independent stderr reader has finished recording those lines.
+
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
 mitigation rather than keeping the whole thing: a serialization failure is now recorded as a never-sent

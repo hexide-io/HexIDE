@@ -4,7 +4,7 @@
 in MSCOMCTL.OCX with the ProgressBar, so its library record, its `Object=` line and the run of lines VB6 writes are
 those of [In-box controls: the ProgressBar](in-box-controls-the-progressbar.md). This entry covers what is its own.
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782 registered in the oracle VM, its design-time licence
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782 registered in the oracle VM, its design-time licence
 included.
 - **Run time:** a Sub Main loads a form holding two ImageLists and an AutoRedraw PictureBox. It drives the ImageList
   late-bound under `On Error Resume Next`, logging each value with its `TypeName`, or the error number and its text.
