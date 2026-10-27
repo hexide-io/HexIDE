@@ -249,7 +249,7 @@ VB6's save of the hand-written form:
   ```
 
   Built and run, the saved form gave the first panel a Picture of Type 1 and the second one of Type 3, each 423×423
-  HIMETRIC. VB6's save is `corpus/inbox-controls/pending/statusbar-picture`.
+  HIMETRIC. VB6's save is `corpus/inbox-controls/saved/statusbar-picture`.
 - **The bar's own properties come after the extents and before `_Version`.** A second bar was kept as written:
 
   ```

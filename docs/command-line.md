@@ -1,8 +1,9 @@
 # Command line
 
-HexIDE runs with no arguments and opens its startup dialog. Everything below is optional, and exists to
-skip a step you would otherwise take by hand, or to turn on something that has to be on before the IDE
-finishes starting.
+HexIDE runs with no arguments and opens its startup dialog. Desktop startup runs when the main window
+opens, even on an X display without a window manager to activate it (#1964). Everything below is optional,
+and exists to skip a step you would otherwise take by hand, or to turn on something that has to be on before
+the IDE finishes starting.
 
 ```text
 HexIDE.Desktop [options] [<project>.vbp | <group>.vbg | <project>.twinproj]

@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Mostra ordine di tabulazione (barrato: TabStop disattivato)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Tag_lia",
     "Str.Menu.Edit.Copy": "_Copia",
     "Str.Menu.Edit.Paste": "_Incolla",
+    "Str.Menu.Edit.PasteAsComment": "Incolla come _commento",
     "Str.Menu.Edit.PasteLink": "Incolla colle_gamento",
     "Str.Menu.Edit.Remove": "Rimuovi",
     "Str.Menu.Edit.Delete": "_Elimina",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definizione",
     "Str.Menu.View.Declaration": "Dichiara_zione",
     "Str.Menu.View.LastPosition": "Ultima posizio_ne",
+    "Str.Tool.RecentEdits.Title": "Modifiche recenti",
     "Str.Menu.View.ObjectBrowser": "Visualizzatore _oggetti",
     "Str.Menu.View.ImmediateWindow": "Finestra _immediata",
     "Str.Menu.View.LocalsWindow": "Finestra variabili _locali",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Ispettore protocollo...",
     "Str.Menu.AddIns": "_Componenti aggiuntivi",
     "Str.Menu.Window": "_Finestra",
+    "Str.Menu.Window.ReopenClosed": "Riapri finestra chiusa",
+    "Str.Menu.Window.RecentlyClosed": "Finestre chiuse di recente",
     "Str.Menu.Window.Split": "_Dividi",
     "Str.Menu.Window.ResetLayout": "_Reimposta layout finestre",
     "Str.Menu.Help": "_Guida",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "_Elimina",
     "Str.Designer.Context.BringToFront": "Porta in primo piano",
     "Str.Designer.Context.SendToBack": "Porta in secondo piano",
+    "Str.Designer.PreviewForm": "Anteprima modulo",
     "Str.Designer.Context.ViewCode": "Visualizza codice",
     "Str.Designer.Context.AlignToGrid": "Allinea alla griglia",
     "Str.Designer.Context.Properties": "Proprietà",
     "Str.CodeEditor.FileNotSaved.Banner": "Questo file non verrà salvato — HexIDE non è ancora in grado di riprodurlo fedelmente, quindi salvarlo lo altererebbe. Il suo codice fa parte del file, perciò la digitazione in questa finestra viene rifiutata.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "La ridenominazione non è stata applicata perché modificherebbe l'intestazione di questo file o le righe Attribute di un membro, che sono gestite dall'IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "La ridenominazione non è stata eseguita perché modifica anche altri documenti: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La riga {0} fa parte dell'intestazione di questo file o delle righe Attribute di un membro, che non vengono mai eseguite, quindi non vi si può impostare un punto di interruzione né un segnalibro.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserisci file",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nuovo nome:",
@@ -895,6 +902,7 @@
     "Str.Dock.MaximizeRestore": "Ingrandisci o ripristina pannello",
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
-    "Str.Dock.ScrollRight": "Scorri schede a destra"
+    "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento"
   }
 }

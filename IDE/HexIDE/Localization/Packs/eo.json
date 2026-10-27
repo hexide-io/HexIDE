@@ -2,6 +2,7 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Montri tabordon (trastrekita: TabStop malŝaltita)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -65,6 +66,7 @@
     "Str.Menu.Edit.Cut": "El_tondi",
     "Str.Menu.Edit.Copy": "_Kopii",
     "Str.Menu.Edit.Paste": "_Alglui",
+    "Str.Menu.Edit.PasteAsComment": "Alglui kiel _komenton",
     "Str.Menu.Edit.PasteLink": "Alglui _Ligilon",
     "Str.Menu.Edit.Remove": "Depreni",
     "Str.Menu.Edit.Delete": "_Forigi",
@@ -91,6 +93,7 @@
     "Str.Menu.View.Definition": "_Difino",
     "Str.Menu.View.Declaration": "D_eklaro",
     "Str.Menu.View.LastPosition": "Lasta _Pozicio",
+    "Str.Tool.RecentEdits.Title": "Lastatempaj redaktoj",
     "Str.Menu.View.ObjectBrowser": "_Objekta Foliumilo",
     "Str.Menu.View.ImmediateWindow": "_Tuja Fenestro",
     "Str.Menu.View.LocalsWindow": "Fenestro de _Lokaj Variabloj",
@@ -169,6 +172,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokola _Inspektilo...",
     "Str.Menu.AddIns": "_Aldonaĵoj",
     "Str.Menu.Window": "_Fenestro",
+    "Str.Menu.Window.ReopenClosed": "Remalfermi fermitan fenestron",
+    "Str.Menu.Window.RecentlyClosed": "Lastatempe fermitaj fenestroj",
     "Str.Menu.Window.Split": "_Dividi",
     "Str.Menu.Window.ResetLayout": "_Restarigi Fenestran Aranĝon",
     "Str.Menu.Help": "_Helpo",
@@ -318,11 +323,13 @@
     "Str.Designer.Context.Delete": "_Forigi",
     "Str.Designer.Context.BringToFront": "Venigi Antaŭen",
     "Str.Designer.Context.SendToBack": "Sendi Malantaŭen",
+    "Str.Designer.PreviewForm": "Antaŭrigardi formularon",
     "Str.Designer.Context.ViewCode": "Vidi Kodon",
     "Str.Designer.Context.AlignToGrid": "Ĝisrandigi al Krado",
     "Str.Designer.Context.Properties": "Ecoj",
     "Str.CodeEditor.FileNotSaved.Banner": "Ĉi tiu dosiero ne estos konservita — HexIDE ankoraŭ ne povas fidele reprodukti ĝin, do konservi ĝin ŝanĝus ĝin. Ĝia kodo estas parto de la dosiero, tial tajpado en ĉi tiu fenestro estas rifuzata.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "La alinomo ne estis farita, ĉar ĝi ŝanĝus la kapon de ĉi tiu dosiero aŭ la Attribute-liniojn de membro, kiujn la IDE prizorgas.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "La alinomo ne estis farita, ĉar ĝi ankaŭ ŝanĝas aliajn dokumentojn: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linio {0} apartenas al la kapo de ĉi tiu dosiero aŭ al la Attribute-linioj de membro, kiuj neniam ruliĝas, do oni ne povas meti tie rompopunkton aŭ legosignon.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Enmeti Dosieron",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nova nomo:",
@@ -895,6 +902,7 @@
     "Str.Dock.MaximizeRestore": "Maksimumigi aŭ restarigi panelon",
     "Str.Dock.Close": "Fermi panelon",
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
-    "Str.Dock.ScrollRight": "Rulumi langetojn dekstren"
+    "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
   }
 }

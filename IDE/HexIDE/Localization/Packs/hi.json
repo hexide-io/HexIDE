@@ -2,6 +2,7 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "टैब क्रम दिखाएँ (कटा हुआ: TabStop बंद)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "स्क्रॉल करते समय स्थिर शीर्षक",
     "Str.Options.EditorGeneral.Display.StickyDepth": "पिन किए गए शीर्षकों की अधिकतम संख्या",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "काटें",
     "Str.Menu.Edit.Copy": "कॉपी करें",
     "Str.Menu.Edit.Paste": "पेस्ट करें",
+    "Str.Menu.Edit.PasteAsComment": "टिप्पणी के रूप में चिपकाएँ",
     "Str.Menu.Edit.PasteLink": "लिंक पेस्ट करें",
     "Str.Menu.Edit.Remove": "हटाएँ",
     "Str.Menu.Edit.Delete": "मिटाएँ",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "परिभाषा",
     "Str.Menu.View.Declaration": "घोषणा",
     "Str.Menu.View.LastPosition": "अंतिम स्थिति",
+    "Str.Tool.RecentEdits.Title": "हाल के संपादन",
     "Str.Menu.View.ObjectBrowser": "ऑब्जेक्ट ब्राउज़र",
     "Str.Menu.View.ImmediateWindow": "तत्काल विंडो",
     "Str.Menu.View.LocalsWindow": "लोकल्स विंडो",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "प्रोटोकॉल इंस्पेक्टर...",
     "Str.Menu.AddIns": "ऐड-इन",
     "Str.Menu.Window": "विंडो",
+    "Str.Menu.Window.ReopenClosed": "बंद विंडो फिर खोलें",
+    "Str.Menu.Window.RecentlyClosed": "हाल ही में बंद विंडो",
     "Str.Menu.Window.Split": "विभाजित करें",
     "Str.Menu.Window.ResetLayout": "विंडो लेआउट रीसेट करें",
     "Str.Menu.Help": "सहायता",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "हटाएँ",
     "Str.Designer.Context.BringToFront": "सबसे आगे लाएँ",
     "Str.Designer.Context.SendToBack": "सबसे पीछे भेजें",
+    "Str.Designer.PreviewForm": "फ़ॉर्म का पूर्वावलोकन",
     "Str.Designer.Context.ViewCode": "कोड देखें",
     "Str.Designer.Context.AlignToGrid": "ग्रिड से संरेखित करें",
     "Str.Designer.Context.Properties": "गुण",
     "Str.CodeEditor.FileNotSaved.Banner": "यह फ़ाइल सहेजी नहीं जाएगी — HexIDE अभी इसे हूबहू पुनः नहीं बना सकता, इसलिए इसे सहेजने पर यह बदल जाएगी। इसका कोड भी फ़ाइल का हिस्सा है, अतः इस विंडो में टाइप करना अस्वीकार किया जाता है।",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "नाम नहीं बदला गया, क्योंकि इससे इस फ़ाइल का हेडर या किसी सदस्य की Attribute पंक्तियाँ बदल जातीं, जिन्हें IDE संभालता है।",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "नाम नहीं बदला गया क्योंकि इससे अन्य दस्तावेज़ भी संपादित होते हैं: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "पंक्ति {0} इस फ़ाइल के हेडर या किसी सदस्य की Attribute पंक्तियों का हिस्सा है, जो कभी नहीं चलतीं, इसलिए उस पर ब्रेकपॉइंट या बुकमार्क नहीं लगाया जा सकता।",
     "Str.CodeEditor.Dialog.InsertFileTitle": "फ़ाइल सम्मिलित करें",
     "Str.CodeEditor.Dialog.RenamePrompt": "नया नाम:",
@@ -895,6 +902,7 @@
     "Str.Dock.MaximizeRestore": "फलक बड़ा करें या पुनर्स्थापित करें",
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
-    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें"
+    "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
   }
 }

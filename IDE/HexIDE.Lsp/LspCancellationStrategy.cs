@@ -68,6 +68,19 @@ internal sealed class RequestCancellation(ConversationLog? log, string? connecti
 {
     internal static readonly AsyncLocal<RequestCancellation?> Current = new();
     internal ConversationOutcome Outcome = ConversationOutcome.Cancelled;
+    private RequestId? _id;
+
+    internal void Observe(RequestId id) => _id = id;
+
+    internal void DropAnswer(Exception exception)
+    {
+        if (log is null || connectionId is null || _id is not { } id) return;
+        var correlation = id.Number is { } number
+            ? number.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : id.String;
+        try { log.DropAnswer(connectionId, correlation!, $"answer dropped: {exception.Message}"); }
+        catch (Exception) { /* recording must not replace the original failure */ }
+    }
 
     internal void Record(RequestId id)
     {
