@@ -194,6 +194,117 @@ disabled container" has them, and HexIDE reads a child's own value (#2245).
   - with tab 2 showing, `Tabs = 2` moved Tab to 0, with Click, then raised 380;
   - so did `Tabs = 1` with tab 1 showing.
 
+### Events, with real input
+
+**The probe:** VB6's saved form, run on the guest's console. A driver clicked and typed for real, and marked each action
+in the log, which also recorded every event the SSTab and its children raised. Native and p-code logged the same lines,
+apart from the window's position.
+
+| Action | Events |
+|---|---|
+| Click a tab's caption | MouseDown (Tab still the old one), **Click(PreviousTab)**, MouseUp (Tab the new one) |
+| Click the showing tab's caption | MouseDown, MouseUp. No Click |
+| Double-click a tab's caption | MouseDown, Click, MouseUp, DblClick, MouseUp |
+| Click the page, below the tabs | MouseDown, MouseUp. **No Click**: Click means the tab changed |
+| Right-click a caption | MouseDown and MouseUp with Button 2. The tab doesn't change |
+| Click a disabled tab's caption | MouseDown, MouseUp. The tab doesn't change, but the SSTab takes the focus |
+
+- **Mouse X and Y are in twips:** 840 and 135 for a point 56 and 9 pixels into the SSTab.
+- **Clicking a caption gives the SSTab the focus, even a disabled tab's.** With the focus in Text1, a click on disabled
+  tab 0's caption raised SSTab1_GotFocus.
+
+**The keyboard, with the focus on the SSTab:**
+- **Right and Left change the tab, wrapping:**
+  - Right from tab 2 went to tab 0, and Left from tab 1 to tab 0;
+  - with tab 0 disabled, Left from tab 1 did nothing. It neither skipped to tab 2 nor wrapped.
+- **Ctrl+Tab goes to the next tab and Ctrl+Shift+Tab to the previous one.**
+- **Home, End, Up and Down do nothing** but raise KeyDown and KeyUp.
+- A plain letter raises KeyDown, KeyPress and KeyUp, and doesn't change the tab, even the letter of a caption's access
+  key.
+
+**With the focus in a control on the page:**
+- **Ctrl+Tab, Ctrl+Shift+Tab and Ctrl+PageDown do nothing.** Text1 got the KeyDown and the tab didn't change.
+- **Alt and a caption's access key change to that tab and move the focus to the SSTab.** With TabCaption(2) `&Third`
+  and the focus in Text1, Alt+T raised Click(PreviousTab 1), then SSTab1_GotFocus.
+
+**The Tab key skips the controls on hidden tabs,** since the SSTab has set their TabStop to False. From Text1 on the
+showing tab, Tab went on through the form to the SSTab itself (TabIndex 0), then straight back to Text1, past Command1
+(TabIndex 1) on hidden tab 0.
+
+### Drawing
+
+Screenshots of VB6's saved form in each state, on Windows 10 at 96 dpi. A note on what they show, for an implementation
+to match:
+
+- **Style 0 (tabbed dialog):**
+  - The tabs share the width equally.
+  - The showing tab is raised, joined to the page, and **its caption is bold**.
+  - The page has a raised edge with a dark shadow right and below.
+- **Style 1 (property page):**
+  - Each tab is as wide as its caption.
+  - The tabs are packed from the left.
+  - **The showing tab's caption isn't bold.**
+- **Several rows:** with five tabs and three to a row, the row holding the showing tab is in front, next to the page.
+  - The other row is behind it, set a few pixels to the right.
+  - The page edge shows a second card's edge behind it.
+  - **Showing a tab in the back row brings that row to the front** in both Styles. With Tab 4 showing, the row of tabs
+    3 and 4 was in front and tabs 0 to 2 behind.
+- **TabOrientation:**
+  - Bottom puts the strip below the page.
+  - Left and Right stand the tabs on end. **The captions aren't turned:** they're drawn across the strip, clipped to its
+    thickness, so `Tab 1` showed as `Ta` on the left, and nothing legible on the right.
+- **TabHeight 600:** a caption too long for its tab wraps onto a second line inside it, with WordWrap True. At the
+  default height, the second line is clipped. The same caption with WordWrap False wasn't captured.
+- **TabMaxWidth 900:**
+  - in Style 0, every tab is 900 twips wide, packed from the left, rather than sharing the width;
+  - in Style 1, the tabs look as they do without it, the captions being narrower than 900.
+- **A TabPicture is drawn left of the caption,** small. `Set Picture = icon` set the showing tab's TabPicture:
+  TabPicture(1) then had the same handle as Picture.
+- **BackColor isn't the page's colour.** BackColor yellow showed only in the small corners behind the tabs' rounded
+  ends; the page and the tabs kept the button face colour. ForeColor is the captions' colour, and Font their font, on
+  every tab.
+- **Enabled False** greys every caption, the showing tab's too.
+- **A hidden tab leaves a gap.** With tab 1 hidden, tabs 0 and 2 kept their third of the width each, packed left, and the
+  last third was empty.
+- **The focus rectangle** is a dotted box round the showing tab's caption, while the SSTab has the focus. With
+  ShowFocusRect False there is none.
+
+### Layout: the SSTab moves its children when the strip moves
+
+**Changing the tab strip's thickness or side moves the SSTab's children with the page,** hidden tabs' children too.
+Measured on fresh forms, natively and as p-code. The strip's thickness is Rows × TabHeight, TabHeight rounded to whole
+pixels: 295 twips is 20 pixels, so 300 twips a row.
+
+| Change | Command1 (Left, Top), tab 0 | Text1 (Left, Top), tab 1 |
+|---|---|---|
+| As loaded, 3 tabs, 1 row, strip on top | -74670, 630 | 480, 1230 |
+| Tabs = 4 or 5, 2 rows | -74670, **930** | 480, **1530** |
+| Tabs = 7, 3 rows | -74670, 1230 | 480, 1830 |
+| Tabs = 10, 4 rows | -74670, 1530 | 480, 2130 |
+| Tabs = 3 again, 1 row | -74670, 630 | 480, 1230 |
+| TabOrientation = 1, strip at the bottom | -74670, **330** | 480, **930** |
+| TabOrientation = 2, strip on the left | **-74370**, 330 | **780**, 930 |
+| TabOrientation = 3, strip on the right | -74670, 330 | 480, 930 |
+| TabOrientation = 0 again | -74670, 630 | 480, 1230 |
+| TabHeight 600, then Tabs = 5 | -74670, **1230**: 2 rows of 600 | 480, 1830 |
+| ... then TabOrientation = 1 | -74670, **30** | 480, 630 |
+
+- **Changing Tabs moves only the controls some tab has recorded.**
+  - A Frame just moved into the SSTab didn't move with Tabs = 5.
+  - Neither did Text1, once moved off the page on its own tab and so recorded nowhere.
+  - Label1, once recorded for a tab, moved with the rest.
+  - A control recorded for a tab and then moved to the form didn't move.
+- **Changing TabOrientation moves every child,** recorded or not: the Frame moved up with the rest.
+- **These change the rows or the strip and move nothing:**
+  - **TabsPerRow:** at 7 tabs, TabsPerRow 2, 1, 4 and 7 changed Rows to 4, 7, 2 and 1, and every control stayed at the
+    3-row position;
+  - **TabVisible**, though Rows changed;
+  - **TabHeight**, 600, 1000 or 150;
+  - Style, Font.Size, Width and Height.
+
+  So after those, the strip can cover the controls under it, or leave a gap.
+- **The move is applied whatever the control's position.** Text1 at Top 0 went to 300 with Tabs = 5, and back to 0.
+
 ### In HexIDE
 
 An SSTab is left out at run time (#857), and the designer doesn't model it (#1090).
