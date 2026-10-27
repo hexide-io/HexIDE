@@ -1253,6 +1253,19 @@ that made `vbNewLine` and `vbTab` read as the largest cliff in this inventory, w
 | `vbUseCompareOption` | Supported | **Not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in vb6.exe, "Method or data member not found", and HexIDE refuses it in the same words. The bare form is an undeclared Variant, `Empty`, in both. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** it was rated Dies, which counted a faithful refusal as a gap. | VB6InBoxLibraries.cs |
 | `vbVerticalTab` | Supported | Member of the `VBA.Constants` module. `Chr(11)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbVerticalTab`, as `VBA.Constants.vbVerticalTab` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until then, long after it resolved. | VB6InBoxLibraries.cs |
 
+## Keyboard events (outside the baseline inventory)
+
+Issue #2325 delivers TextBox keyboard events and Form KeyPreview for the measured
+key codes. This is not the complete keyboard-input implementation.
+
+| Member | Status | Detail | Source |
+|---|---|---|---|
+| TextBox.KeyDown / KeyUp | Partial | #2325: k/K, Ctrl+A, Alt+X, Backspace, Delete, Left, F2 and modifier keys deliver KeyCode and Shift through the existing event queue, with a control-array Index where present. Other key codes retain today's behavior. Form KeyPreview interleaves form first; Form KeyCode = 0 suppresses only the control KeyDown. Nonzero KeyCode replacements are unmeasured; the control retains its original key code. | TextBoxKeyEvents.cs |
+| TextBox.KeyPress / Form.KeyPreview | Partial | #2325: KeyPress precedes Change; writable KeyAscii suppresses or replaces the character in either handler. Ctrl+A delivers 1 and Backspace 8. Non-ASCII conversion is unmeasured and retains existing input behavior. | TextBoxKeyEvents.cs; VBTextBox.cs |
+| TextBox.KeyPress non-ASCII replacement | Dies | #2325: ANSI conversion was not measured. A handler returning a KeyAscii outside ASCII is refused as not implemented; incoming non-ASCII text retains the existing input path. | VBTextBox.cs |
+| Form, ListBox and CommandButton keyboard events | Silently wrong | #2325 remaining measured work: default/cancel/navigation arbitration, empty-form events and list/button ordering. | VBLoader.cs |
+| CheckBox, OptionButton, ComboBox, scroll bars, PictureBox and UserControl keyboard events | Silently wrong | #2325 probe explicitly did not measure these controls. No keyboard behavior is inferred from TextBox; implementation and explicit not-implemented member refusals remain pending. | AttachedEvents.cs |
+
 ## StatusBar control members (outside the baseline inventory)
 
 The baseline counts above do not enumerate common-control members. **#1087 parts A/B** implement the
@@ -1305,11 +1318,11 @@ signature help and the Object Browser, not the completion popup.
 ## Not yet enumerated
 
 The sweep behind this document did not reach everything, and a coverage document that implies otherwise is
-worse than one that says where it stops. Known holes, none of which have rows anywhere above:
+worse than one that says where it stops. Known holes in the baseline inventory:
 
 | Area | Missing |
 |---|---|
-| **The entire event surface** | Not one VB6 event is listed — no `Form_Load`, `Form_Unload`, `Form_QueryUnload`, `Form_Resize`, `Form_Paint`, no `_Click`, `_Change`, `_KeyPress`, `_MouseDown`. |
+| **The event surface** | The baseline does not list `Form_Load`, `Form_Unload`, `Form_QueryUnload`, `Form_Resize`, `Form_Paint`, `_Click`, `_Change` or `_MouseDown`. #2325 adds a separate keyboard-events table above, outside the baseline counts. |
 | In-box classes | **#2062:** a .frm control without its own Font block receives a load-time copy of the form font, including inside nested Frames/PictureBoxes; explicit blocks stay intact. `FontName`/`FontSize` read that copy. Designer rendering and UserControl contents remain unmeasured. `Form`, `MDIForm`, `UserControl`, `Menu`, `VBControlExtender`, `StdFont`, `StdPicture` — the classes the enumerated members hang off. |
 | Extender methods | `Move`, `ZOrder`, `SetFocus`, `Refresh`, `Show`, `Hide`, `PopupMenu`, `Arrange`, `ShowWhatsThis`. Not enumerated, though `Move` on a control runs since #1071 (oracle, "Move, ScaleWidth and ScaleHeight") and on a form since #1569 (oracle, "A form's Move"), `SetFocus` since #1061 (oracle, "SetFocus"), and `ZOrder` on a control since #1503 (oracle, "What ZOrder does at run time"). |
 | Graphics methods | `Point`, `PaintPicture`, `TextWidth`, `TextHeight`, `ScaleX`, `ScaleY` (and `Line` appears only as a statement, not in its graphics form). |

@@ -10,6 +10,7 @@ date functions; graphics) should extend it the same way.
 > **Why this matters:** the oracle repeatedly overturned "documented" assumptions. Building from memory / the
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
+- [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
 
 ---

@@ -8,3 +8,6 @@ The #2062 brief's measured load-time font inheritance is recorded in
 
 The #178 issue comments' measured whole-record copy and array behavior is recorded in
 [A UDT copied whole, and arrays of a UDT](vb6-fidelity-oracle/a-udt-copied-whole-and-arrays-of-a-udt.md).
+
+The #2325 comments’ measured keyboard input is recorded in
+[Key events](vb6-fidelity-oracle/key-events.md).
