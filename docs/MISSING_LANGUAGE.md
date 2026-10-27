@@ -1326,3 +1326,28 @@ Two known drift hazards, both live:
 2. `IDE/HexIDE.Runtime/README.md` carries a walls table that has already gone stale at least once
    (it listed `Implements` as permanently out of scope after it had been implemented).
 
+
+## SSTab implementation staging (#1090)
+
+SSTab is registered as a runtime container. Saved blocks load their page lists and flags; programs can switch
+their pages, change captions and tab counts, use indexed enabled/visible flags, and observe the
+position-based page engine and TabStop changes. Click reports PreviousTab after movement. The inert
+default member reads zero and ignores Let assignments. The runtime now draws the basic tab strip and page,
+including rows, active captions, Style, orientation, wrapping and focus indication; drawing does not inset
+the child host or change the measured position-based page engine. Appearance/picture binding and the saved-state
+designer preview remain for later slices. Mouse captions, focused arrow/Ctrl+Tab navigation and Alt caption
+mnemonics now switch pages, with measured mouse ordering and focus. The in-box language inventory counts above
+are unchanged: external-control members are tracked separately here.
+
+| Member | Status | Detail |
+|---|---|---|
+| `TabDlg.SSTab.Tabs` (zero or negative, empty control) | **Dies** | The oracle did not separate the empty-control range from refusal for recorded children. Explicitly not implemented; no VB6 value is guessed. |
+| SSTab numeric, Boolean and caption coercions | **Dies** | Only numeric values (whole numbers for integer properties), actual Booleans and actual Strings are accepted. Null, string-to-number, fractional integer and overflow conversions are unmeasured and explicitly refused. Saved scalar coercions also refuse beyond integers, 0/-1 Boolean flags and String captions. |
+| SSTab `Picture`, `TabPicture`, `BackColor`, `ForeColor`, `Font`, `MousePointer`, `MouseIcon`, `OLEDropMode` | **Dies** | Declared members explicitly refuse as not implemented pending the remaining object-model slice. Bad TabPicture indexes still raise measured error 381. |
+| SSTab `hWnd`, `OLEDrag`, `AboutBox` | **Dies** | Declared members explicitly refuse as not implemented; no native handle is fabricated. |
+| SSTab explicit `[_Tab]` spelling | **Won't load** | The existing grammar rejects bracketed identifiers beginning with underscore. The implicit default member works; explicit spelling is left for grammar work. |
+| SSTab `TabHeight` / `TabMaxWidth` in non-twip containers | **Dies** | The pixel sample reads 33 for 500 twips; generic control geometry would return a fractional pixel value. The full conversion/rounding rule is not recorded, so these dimensions explicitly refuse outside twips. |
+| SSTab missing saved extent basis | **Dies** | Default extents for a loaded instance without extents are unmeasured; writing that case explicitly refuses rather than borrowing the double-clicked designer size. |
+| SSTab saved own properties and page lists | **Partial** | Loads counts, captions, style/orientation, HIMETRIC dimensions, WordWrap/ShowFocusRect and page lists. ControlEnabled suppresses listed TabStops; missing/true tab-zero flags reproduce the measured load quirk. Saved TabEnabled/TabVisible and Control(i).Enabled do not alter runtime flags. Positions are trusted. Appearance, pictures and drag members remain explicitly unimplemented as above; the writer carries these saved values and companion records in measured order, always emitting TabHeight in HIMETRIC. Both saved corpus forms round-trip exactly. Forms stay read-only until designer edits can maintain page membership. |
+| SSTab saved HIMETRIC rounding beyond recorded samples | **Dies** | Only 0, 520 → 295 twips, 900 → 510 and 1500 → 850 are recorded. Other saved dimensions explicitly refuse pending a measured conversion/rounding rule. |
+| SSTab saved references to array elements or unresolved children | **Dies** | Only measured plain child names resolve. Unresolved references explicitly refuse rather than guessing membership. |

@@ -88,6 +88,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.SSTabComponentClass.Instance,
     ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -550,6 +551,14 @@ public class FormDeserializer
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+
+            if (componentClass is Components.InBox.SSTabComponentClass)
+            {
+                instance.SetProperty(Components.InBox.SSTabSavedState.Property,
+                    new Components.InBox.SSTabSavedState(serializedComponent.Properties));
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
+                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
+            }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
             if (parent is not null && rootComponent.Type == "VB.Form" &&
