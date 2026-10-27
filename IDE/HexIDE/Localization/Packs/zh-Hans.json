@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
     "Str.Dock.ScrollRight": "向右滚动选项卡",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
+    "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）"
   }
 }

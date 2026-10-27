@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
     "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
+    "Str.Designer.ShowTabOrder": "Mostrar ordem de tabulação (riscado: TabStop desativado)"
   }
 }

@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Desplazar pestañas a la izquierda",
     "Str.Dock.ScrollRight": "Desplazar pestañas a la derecha",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guías de sangría",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorear paréntesis por profundidad de anidamiento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorear paréntesis por profundidad de anidamiento",
+    "Str.Designer.ShowTabOrder": "Mostrar orden de tabulación (tachado: TabStop desactivado)"
   }
 }

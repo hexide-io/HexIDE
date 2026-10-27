@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Tabbladen naar links schuiven",
     "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)"
   }
 }

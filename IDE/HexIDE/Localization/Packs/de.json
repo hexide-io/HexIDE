@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
     "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
+    "Str.Designer.ShowTabOrder": "Tabulatorreihenfolge anzeigen (durchgestrichen: TabStop aus)"
   }
 }

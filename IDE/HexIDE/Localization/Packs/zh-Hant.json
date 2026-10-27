@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
     "Str.Dock.ScrollRight": "向右捲動索引標籤",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "顯示縮排參考線",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色",
+    "Str.Designer.ShowTabOrder": "顯示 Tab 順序（刪除線：TabStop 關閉）"
   }
 }

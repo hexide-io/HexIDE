@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "تمرير علامات التبويب لليسار",
     "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
+    "Str.Designer.ShowTabOrder": "إظهار ترتيب التنقل (المشطوب: TabStop معطل)"
   }
 }

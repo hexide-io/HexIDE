@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
     "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
+    "Str.Designer.ShowTabOrder": "ٹیب کی ترتیب دکھائیں (کٹا ہوا: TabStop بند)"
   }
 }

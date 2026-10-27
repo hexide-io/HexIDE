@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Sekmeleri sola kaydır",
     "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir",
+    "Str.Designer.ShowTabOrder": "Sekme sırasını göster (üstü çizili: TabStop kapalı)"
   }
 }

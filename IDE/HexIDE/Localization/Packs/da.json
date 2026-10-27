@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
     "Str.Dock.ScrollRight": "Rul faner til højre",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis indrykningslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
+    "Str.Designer.ShowTabOrder": "Vis tabulatorrækkefølge (overstreget: TabStop fra)"
   }
 }

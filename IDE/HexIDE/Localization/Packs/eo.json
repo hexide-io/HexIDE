@@ -901,6 +901,7 @@
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
     "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
+    "Str.Designer.ShowTabOrder": "Montri tabordon (trastrekita: TabStop malŝaltita)"
   }
 }
