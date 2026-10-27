@@ -751,7 +751,8 @@ centre returned the harness window.
 - **One divergence from the screen.** The 1-pixel border down the sides and along the bottom comes out black, about
   3,000 pixels of the 604×497 image, where the screen draws it in the border colour. Windows 11 draws that border
   outside the window's own pixels.
-- **Still not checked:** a tool window, and the refusal for a minimized window.
+- **Still not checked:** a tool window, and the refusal for a minimized window. No tool minimizes a running form
+  (#2357).
 
 ## No tool says which control has the focus, and `press_key` moves it there
 
