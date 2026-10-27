@@ -179,7 +179,8 @@ recorded for tab 1 as well as tab 0:
 
 **Enabled, inside a disabled container:** with `SSTab1.Enabled = False`, every child read Enabled False. Their windows
 stayed enabled, and the SSTab's own window was disabled. Enabling the SSTab again, each child read its own value: Text1,
-disabled beforehand, stayed False. **A Frame does the same:** with Frame1.Enabled False, its CheckBox read Enabled False.
+disabled beforehand, stayed False. **A Frame and a PictureBox do the same.** The oracle's "A control's Enabled inside a
+disabled container" has them, and HexIDE reads a child's own value (#2245).
 
 **Reducing Tabs:**
 - **Tabs can't go below a tab holding controls.** It is refused with 380, and "holding" means the controls the SSTab last
