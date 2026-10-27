@@ -941,6 +941,19 @@ at that moment, so a modifier key's own down reports itself held and its up does
 - **WHEN** `type_text` types K in keyboard mode
 - **THEN** Shift's own KeyDown comes before K's and its KeyUp after K's, and the reply says so
 
+### Requirement: press_key SHALL type the character a key types
+`press_key` SHALL send the character a key types, as text of its own between the key's KeyDown and KeyUp, as a
+platform sends a person's press. It SHALL send none with Ctrl, Alt or Meta held, and none for a control character,
+which no platform sends as text. In a code window the key SHALL be judged as typing is. The reply SHALL say what was typed.
+
+#### Scenario: Shift+K on a running TextBox
+- **WHEN** `press_key` presses K with Shift on a TextBox that logs its key events
+- **THEN** they run KeyDown 16, KeyDown 75, KeyPress 75, KeyUp 75, KeyUp 16, and the TextBox holds K
+
+#### Scenario: A command chord
+- **WHEN** `press_key` presses A with Ctrl
+- **THEN** no text is sent, and a running TextBox's KeyPress is the 1 its runtime makes from the KeyDown
+
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
 as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading

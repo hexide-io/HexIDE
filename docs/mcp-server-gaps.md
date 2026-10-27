@@ -736,15 +736,3 @@ Right. That is a call per keystroke, and a wrapped line or a refused key misplac
 **Suggested fix.** Place the caret in the carried-file editor, an AvaloniaEdit `TextEditor` like the code window's, with
 `CaretPlacement.Place` and the same rules, and read it back in the note. If a carried file must be treated differently,
 open it and say so, rather than refuse and open nothing. [#2403](https://github.com/hexide-io/HexIDE/issues/2403).
-
-## `press_key` with a character key types nothing
-
-**Symptom (2026-10-27, Windows, #2422's live check).** `press_key {"target":"Window/Edit[Text1]","key":"K",
-"modifiers":"Shift","window":"Form1"}` on a running TextBox logged `D16/1 D75/1 U75/1 U16/0`: no KeyPress, and no
-text. The oracle puts KeyPress 75 between the KeyDown and KeyUp, and a person's press types K. The reply, `pressed
-Shift+K`, does not say nothing was typed. The raw key events carry no text, which a platform sends separately.
-
-**Workaround.** `type_text` with `mode: "keyboard"`, which logged `D16/1 D75/1 P75 U75/1 U16/0`.
-
-**Suggested fix.** Type the key's character between its KeyDown and KeyUp when it types one, as `type_text` does; or
-say in the reply that nothing was typed and name `type_text`. [#2428](https://github.com/hexide-io/HexIDE/issues/2428).
