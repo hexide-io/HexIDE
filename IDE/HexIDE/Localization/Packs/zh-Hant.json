@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位元",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位元",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 位元",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 位元",
     "Str.CodeEditor.ViewAs.Tooltip": "條件式編譯檢視目標",
     "Str.Tool.Properties.ExportPicture": "匯出圖片...",
     "Str.LspArtifact.Title": "工作區檔案",
@@ -903,6 +905,10 @@
     "Str.Dock.Close": "關閉窗格",
     "Str.Dock.ScrollLeft": "向左捲動索引標籤",
     "Str.Dock.ScrollRight": "向右捲動索引標籤",
+    "Str.PropDesc.ImageWidth": "影像的寬度。",
+    "Str.PropDesc.ImageHeight": "影像的高度。",
+    "Str.PropDesc.MaskColor": "透明像素使用的色彩。",
+    "Str.PropDesc.UseMaskColor": "是否使用遮罩色彩。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "顯示縮排參考線",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色"
   }

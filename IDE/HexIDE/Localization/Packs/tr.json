@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Koşullu derlemeyi şu hedef için göster",
     "Str.Tool.Properties.ExportPicture": "Resmi dışa aktar...",
     "Str.LspArtifact.Title": "Çalışma alanı dosyaları",
@@ -903,6 +905,10 @@
     "Str.Dock.Close": "Paneli kapat",
     "Str.Dock.ScrollLeft": "Sekmeleri sola kaydır",
     "Str.Dock.ScrollRight": "Sekmeleri sağa kaydır",
+    "Str.PropDesc.ImageWidth": "Görüntülerin genişliği.",
+    "Str.PropDesc.ImageHeight": "Görüntülerin yüksekliği.",
+    "Str.PropDesc.MaskColor": "Saydam piksellerin rengi.",
+    "Str.PropDesc.UseMaskColor": "Maske renginin kullanılıp kullanılmayacağı.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
   }

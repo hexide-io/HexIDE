@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-розрядна",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-розрядна",
     "Str.CodeEditor.ViewAs.Tooltip": "Показати умовну компіляцію для",
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
     "Str.LspArtifact.Title": "Файли робочої області",
@@ -903,6 +905,10 @@
     "Str.Dock.Close": "Закрити панель",
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
     "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
+    "Str.PropDesc.ImageWidth": "Ширина зображень.",
+    "Str.PropDesc.ImageHeight": "Висота зображень.",
+    "Str.PropDesc.MaskColor": "Колір прозорих пікселів.",
+    "Str.PropDesc.UseMaskColor": "Чи використовувати колір маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показувати напрямні відступів",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення"
   }

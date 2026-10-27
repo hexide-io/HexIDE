@@ -161,6 +161,31 @@ public class UserControlSaveRoundTripTests : IDisposable
     }
 
     [Fact]
+    public async Task Adding_a_middle_kept_member_preserves_the_other_lines_slots()
+    {
+        var vbp = Path.Join(dir, "Test.vbp");
+        var original = "Type=Exe\r\nForm=Before.frm\r\nObject=before\r\nForm=Restored.frm\r\nObject=after\r\nForm=After.frm\r\nStartup=\"Sub Main\"\r\nName=\"Test\"\r\n";
+        File.WriteAllText(vbp, original);
+        var svc = MakeService(out var project);
+        await svc.OpenProject(vbp);
+
+        var path = Path.Join(dir, "Restored.frm");
+        var form = new FormDefinition(project(), FormComponentClass.Instance, "Restored");
+        var (frm, _) = new FormSerializer().Serialize(form, "Restored.frm");
+        File.WriteAllText(path, frm);
+        (await svc.AddExistingForm(project(), path)).Document.Should().NotBeNull();
+        await svc.SaveProject(project(), saveAs: false);
+
+        var saved = await File.ReadAllTextAsync(vbp, TestContext.Current.CancellationToken);
+        saved.ReplaceLineEndings("\n").Should().Be(original.ReplaceLineEndings("\n"));
+        project().PreservedItemLineSlots.Should().BeEquivalentTo(new System.Collections.Generic.Dictionary<int, int>
+        {
+            [0] = 1,
+            [1] = 3,
+        });
+    }
+
+    [Fact]
     public async Task Saving_a_loaded_UserControl_writes_the_visual_header_exactly_once()
     {
         var vbp = WriteProject("Public Sub Hello()\r\nEnd Sub\r\n");

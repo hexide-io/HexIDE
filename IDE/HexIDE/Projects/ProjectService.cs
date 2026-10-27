@@ -96,20 +96,21 @@ public class ProjectService : IProjectService
     /// </summary>
     private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
     {
-        var keptIndex = 0;
-        for (var index = 0; index < project.PreservedItemLines.Count; index++)
+        for (var i = project.PreservedItemLines.Count - 1; i >= 0; i--)
         {
-            var line = project.PreservedItemLines[index];
-            var hasSlot = project.PreservedItemLineSlots.Remove(index, out var slot);
-            if (KeptLineNames(project, line, absolutePath))
+            if (!KeptLineNames(project, project.PreservedItemLines[i], absolutePath))
                 continue;
-
-            project.PreservedItemLines[keptIndex] = line;
-            if (hasSlot)
-                project.PreservedItemLineSlots[keptIndex] = slot;
-            keptIndex++;
+            project.PreservedItemLines.RemoveAt(i);
+            // Slots follow the remaining lines' list indexes, not the removed line's position.
+            for (var j = i; j < project.PreservedItemLines.Count; j++)
+            {
+                if (project.PreservedItemLineSlots.TryGetValue(j + 1, out var slot))
+                    project.PreservedItemLineSlots[j] = slot;
+                else
+                    project.PreservedItemLineSlots.Remove(j);
+            }
+            project.PreservedItemLineSlots.Remove(project.PreservedItemLines.Count);
         }
-        project.PreservedItemLines.RemoveRange(keptIndex, project.PreservedItemLines.Count - keptIndex);
     }
 
     /// <summary>

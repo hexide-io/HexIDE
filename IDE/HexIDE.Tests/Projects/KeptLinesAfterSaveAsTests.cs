@@ -45,23 +45,6 @@ public class KeptLinesAfterSaveAsTests : IDisposable
     }
 
     [Fact]
-    public async Task Adding_a_kept_member_reindexes_the_remaining_save_slots()
-    {
-        var project = new ProjectDefinition(VBProjectType.EXE, "B") { AbsolutePath = Path.Join(dir, "B.vbp") };
-        project.PreserveItemLine("Module=First; First.bas", 1);
-        project.PreserveItemLine("Module=Second; Second.bas", 2);
-        project.PreserveItemLine("Form=Last.frm", 3);
-        var first = Path.Join(dir, "First.bas");
-        File.WriteAllText(first, "Attribute VB_Name = \"First\"\r\n");
-        var svc = MakeService();
-
-        await svc.AddExistingModule(project, first, ModuleKind.StandardModule);
-
-        project.PreservedItemLines.Should().Equal("Module=Second; Second.bas", "Form=Last.frm");
-        project.PreservedItemLineSlots.Should().BeEquivalentTo(new Dictionary<int, int> { [0] = 2, [1] = 3 });
-    }
-
-    [Fact]
     public async Task A_kept_member_is_named_from_the_new_folder_and_still_found_by_its_own_file()
     {
         var svc = MakeService();

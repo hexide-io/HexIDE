@@ -26,7 +26,7 @@ namespace HexIDE.Tests.LspClient;
 /// answer can be dictated, which is the only way to ask the question.
 /// </para>
 /// </summary>
-public class PullDiagnosticsReportKindTests : IAsyncDisposable
+public partial class PullDiagnosticsReportKindTests : IAsyncDisposable
 {
     private const string Uri = "file:///c:/proj/sample.py";
 
@@ -771,7 +771,7 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
             "not offering to answer is a complete answer, not a shortfall to be reported");
     }
 
-    private VBLspClient ClientTalkingTo(object server)
+    private VBLspClient ClientTalkingTo(object server, HexIDE.Conversations.ConversationLog? capture = null)
     {
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
@@ -791,7 +791,8 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
                         clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
             });
 
-        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6,
+            capture: capture, connectionId: "scripted.pull");
         _clients.Add(client);
         return client;
     }

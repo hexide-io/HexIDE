@@ -73,6 +73,12 @@ with nothing to hold them, a copy that arrives empty.
 #### Scenario: Disabling a container
 - **WHEN** a container is disabled
 - **THEN** nothing it holds responds to the user
+- **AND** a contained control's Enabled reads False, including through nested containers and Me.Controls
+
+#### Scenario: Assigning Enabled inside a disabled container
+- **WHEN** a program assigns a contained control's Enabled while a container above it is disabled
+- **THEN** its Enabled still reads False
+- **AND** once its containers are enabled it reads its own assigned value
 
 ### Requirement: A contained control SHALL remain editable in its own right
 A control inside a container SHALL be selectable, movable, resizable, renameable and deletable on its own,

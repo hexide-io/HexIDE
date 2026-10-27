@@ -1054,6 +1054,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return target.Value switch
         {
             VbCollection items => items.Default([new Vb6Value(key)]),
+            ImageListImages images => images.Item(new Vb6Value(key)),
             FormControls controls => controls.Item([new Vb6Value(key)]),
             VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form =>
                 await interpreter.Loading((Form: form, Key: key),
@@ -1201,6 +1202,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (value.Value is VbCollection items)
             return items.Default(indices);
+        if (value.Value is ImageListImages images)
+            return images.Item(indices[0]);
         if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
@@ -1252,6 +1255,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on a Collection is not implemented (#742)");
             return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(items, "Item", argsCtx)));
         }
+        if (named && maybeGroup.Value is ImageListImages images)
+            return images.Item((await EvaluateCallArgs(argsCtx))[0]);
         // A form's Controls held in a variable, `o(1)` (#1060).
         if (named && maybeGroup.Value is FormControls heldControls)
         {
@@ -1421,7 +1426,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
             && managed.TryGetProperty(MemberName(member), out var property))
             return property;
-        if (variable.Value is ICSharpAsyncProxy proxy)
+        if (variable.Value is VBImageList && MemberName(member).ToLowerInvariant() is "name" or "tag" or "parent" or "object")
+        {
+            // These four are the invisible control's extender, answered by the shared control bindings.
+        }
+        else if (variable.Value is ICSharpAsyncProxy proxy)
             return await AsBound(variable, MemberName(member), async () =>
                 await interpreter.CallProxy(proxy, MemberName(member), await EvaluateMemberArgs(proxy, MemberName(member), MemberArgs(member)))
                     ?? throw new VBSubOrFunctionNotDefinedException(MemberName(member)));
@@ -1548,8 +1557,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>
     /// Fold every remaining member onto a value, left to right.
     ///
-    /// A UDT hands the rest of the chain to <see cref="GetUdtField"/>, which already walked its own bags.
-    /// Everything else resolves a step at a time — so a chain may change kind as it goes (an object field
+    /// A UDT hands the rest of the chain to <see cref="GetUdtField"/> to walk its owned fields and indices.
+    /// Other members resolve a step at a time — so a chain may change kind as it goes (an object field
     /// holding a UDT, a UDT field holding an object) without any step needing to know what follows it.
     /// </summary>
     internal async Task<Vb6Value> ResolveMemberChain(
@@ -1559,8 +1568,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         for (var i = from; i < members.Length; i++)
         {
             if (current.Value is VbUdt)
-                return await interpreter.Loading((Root: current, Members: members[i..], Context: ctx),
-                    static s => (Vb6Value)GetUdtField(s.Root, s.Members, s.Context)!);
+                return await GetUdtField(current, members[i..], ctx);
             // A member reached through a Variant is late-bound, and its result is a Variant's whatever the member is
             // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
             // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
@@ -1778,7 +1786,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // Read a UDT field chain (`e.City`, `e.Address.City`) — navigate owned bags, returning the final field's
     // value (a nested-UDT field returns the live reference; the immediate consumer, a Let/ByVal, deep-copies it).
-    private static object? GetUdtField(Vb6Value root, VB6Parser.ICS_S_MemberCallContext[] members, Antlr4.Runtime.ParserRuleContext ctx)
+    private async Task<Vb6Value> GetUdtField(Vb6Value root, VB6Parser.ICS_S_MemberCallContext[] members, Antlr4.Runtime.ParserRuleContext ctx)
     {
         var current = root;
         foreach (var m in members)
@@ -1786,8 +1794,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (current.Value is not VbUdt bag)
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch, "Member access on a non-UDT value");
             var fieldName = MemberName(m);
-            if (!bag.TryGet(fieldName, out current))
-                throw new VBRunTimeException(ctx, VBStandardError.MethodOrDataMemberNotFound, fieldName);
+            current = await interpreter.Loading((Bag: bag, Name: fieldName, Context: ctx),
+                static s => s.Bag.TryGet(s.Name, out var value) ? value
+                    : throw new VBRunTimeException(s.Context, VBStandardError.MethodOrDataMemberNotFound, s.Name));
+            if (MemberArgs(m) is { } args)
+                current = IndexResult(current, await EvaluateCallArgs(args), ctx);
         }
         return current;
     }
@@ -1810,6 +1821,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     private async Task<Vb6Value> ResolveMemberIndexed(Vb6Value current, VB6Parser.ICS_S_MemberCallContext member,
         Antlr4.Runtime.ParserRuleContext ctx)
     {
+        if (current.Value is VBImageList && member.iCS_S_VariableOrProcedureCall()?.dictionaryCallStmt() is { } imageBang)
+            return await Bang(await ResolveOneMember(current, member, ctx), imageBang);
         if (member.iCS_S_ProcedureOrArrayCall() is not { } call || ParenGroups(call) is not { Count: > 1 } groups)
             return await ResolveOneMember(current, member, ctx);
         var later = new LaterGroups(this, groups, ctx);
@@ -2188,6 +2201,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBImageList => "MSComctlLib",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)

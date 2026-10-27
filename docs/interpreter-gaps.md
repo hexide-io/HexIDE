@@ -220,9 +220,12 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
   Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
   no coercion at all.
-- **Arrays OF a UDT, and array fields inside a UDT** — two independent slices. Arrays of a UDT are refused
-  at declaration with a message naming the type (#181), rather than accepted as an unusable array (#178).
-  Array fields inside a UDT remain unsupported.
+- **Arrays OF a UDT, and array fields inside a UDT** — implemented (#178): elements own their fields,
+  assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
+  Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
+  fixed-length strings and array fields As New remain refused. Get/Put of UDT arrays and Types containing array
+  fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
+  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** (string-justify form) — read, measure, pad, write back; the shape already running for
   `Mid`. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
@@ -241,10 +244,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ### Found while auditing — bugs, not classification
 
-- **`a(1) = b` for a UDT array** calls `SetValue` with no `CopyIfValueType`, unlike every other UDT value
-  boundary — a silent wrong answer waiting for arrays-of-UDT to land.
-- **`t.arr(3) = 5` discards the index**, so it would overwrite the whole array slot; the `MemberHasArgs`
-  guard is applied in the Object branch and not the `VbUdt` branch.
+- **UDT array stores and indexed fields (#178)** — fixed: whole-element stores use `CopyForStore` (already
+  present before #178), array fields are included in deep copies, and indexed field writes retain their subscripts.
 - **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
   boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
   implemented." in place of the construct's name.

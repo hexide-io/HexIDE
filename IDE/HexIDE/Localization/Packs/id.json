@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Lihat kompilasi bersyarat sebagai",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
     "Str.LspArtifact.Title": "Berkas ruang kerja",
@@ -903,6 +905,10 @@
     "Str.Dock.Close": "Tutup panel",
     "Str.Dock.ScrollLeft": "Gulir tab ke kiri",
     "Str.Dock.ScrollRight": "Gulir tab ke kanan",
+    "Str.PropDesc.ImageWidth": "Lebar gambar.",
+    "Str.PropDesc.ImageHeight": "Tinggi gambar.",
+    "Str.PropDesc.MaskColor": "Warna piksel transparan.",
+    "Str.PropDesc.UseMaskColor": "Apakah warna masker digunakan.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Tampilkan panduan indentasi",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan"
   }
