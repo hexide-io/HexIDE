@@ -512,7 +512,9 @@ public static class UiAutomationDriver
         if (norm is not ("invokecommand" or "setproperty" or "release") && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } verb
             && Shows(control) is not true and var shows)
             return Err(NotShowingRefusal(control, verb, shows)
-                       + (verb == "scroll"
+                       + (shows is false && Safe(() => ShowingCopyHint(control), null) is { } copyHint
+                           ? copyHint
+                           : verb == "scroll"
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
                            ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
@@ -811,6 +813,38 @@ public static class UiAutomationDriver
               + $"No person could be sure of reaching it, so '{verb}' was refused and nothing was done."
             : "is not showing: it or a container is hidden, which dump_visual_tree marks \"isHidden\": true. "
               + $"No person could reach it, so '{verb}' was refused and nothing was done.");
+
+    private static string? ShowingCopyHint(Control control)
+    {
+        if (TopLevel.GetTopLevel(control) is not Window window) return null;
+        var label = LabelOf(control);
+        var id = NullIfEmpty(AutomationProperties.GetAutomationId(control));
+        var paths = new List<string>();
+        Walk(window, "Window");
+        return paths.Count switch
+        {
+            0 => null,
+            1 => $" a showing copy is at '{paths[0]}'; target that",
+            _ => $" {paths.Count} showing copies are in this window; first paths: "
+                 + string.Join(", ", paths.Take(3).Select(p => $"'{p}'")) + "; target the one you want",
+        };
+
+        void Walk(Control parent, string path)
+        {
+            var children = new List<MeaningfulChild>();
+            CollectMeaningfulChildren(parent, children);
+            foreach (var child in children)
+            {
+                var candidate = child.Control;
+                var childPath = path + "/" + BestSegment(child, children);
+                if (candidate.GetType() == control.GetType() && Shows(candidate) is true
+                    && (LabelOf(candidate) == label
+                        || id is not null && AutomationProperties.GetAutomationId(candidate) == id))
+                    paths.Add(childPath);
+                Walk(candidate, childPath);
+            }
+        }
+    }
 
     /// <summary>
     /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.
