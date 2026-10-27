@@ -12,6 +12,7 @@ date functions; graphics) should extend it the same way.
 
 - [A UserControl's focus and access keys](usercontrol-focus-and-keys.md) — #1631 part B, SP6 native and p-code, real keystrokes.
 - [A UserControl’s extender members at run time](usercontrol-extender-members.md) — #1631 part A, SP6 native and p-code; includes the supervisor’s handle decision.
+- [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
 
 ---
@@ -637,6 +638,7 @@ added afterwards.
 - [A standard module's Property procedures (2026-10-27, #977)](a-standard-modules-property-procedures.md#a-standard-modules-property-procedures-2026-10-27-977)
 - [A control's Font object (2026-10-27, #934)](a-controls-font-object.md#a-controls-font-object-2026-10-27-934)
 - [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
+- [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
 - [A D exponent in a source literal (2026-10-23, #1611)](a-d-exponent-in-a-source-literal.md#a-d-exponent-in-a-source-literal-2026-10-23-1611)
 - [GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)](getsetting-savesetting-deletesetting-and-getallsettings.md#getsetting-savesetting-deletesetting-and-getallsettings-2026-10-23-1562)
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)
