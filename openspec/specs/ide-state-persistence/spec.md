@@ -38,6 +38,7 @@ they can read it.
 - **WHEN** the IDE starts without recorded state or resets its window layout
 - **THEN** the Toolbox is open in the left region
 - **AND** closing and reopening it returns it to that region and records it as open for restart
+- **AND** the recreated left dock is nonempty and receives visible layout space
 
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted

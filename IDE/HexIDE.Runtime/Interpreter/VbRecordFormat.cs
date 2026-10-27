@@ -237,13 +237,13 @@ internal static class VbRecordFormat
     private static void WriteElements(Writer w, VBArray array)
     {
         var element = array.ElementType;
+        if (element == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
         {
             var value = array.GetValue(index);
-            if (element == Vb6Value.ValueType.UserDefinedType && value.Value is not VbUdt)
-                throw new NotImplementedException("Put of an array of a user-defined Type is not implemented: its elements are not made yet (#178)");
             if (value.Value is VbUdt udt)
                 WriteUdt(w, udt);
             else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
@@ -258,6 +258,8 @@ internal static class VbRecordFormat
     {
         foreach (var (name, value) in udt.EnumerateFields())
         {
+            if (value.Value is VBArray)
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             if (value.Value is VbUdt nested)
                 WriteUdt(w, nested);
             else if (udt.IsVariantField(name))
@@ -466,13 +468,13 @@ internal static class VbRecordFormat
     public static void ReadElementsInto(IRecordSource source, VBArray array)
     {
         var element = array.ElementType;
+        if (element == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
         {
             var current = array.GetValue(index);
-            if (element == Vb6Value.ValueType.UserDefinedType && current.Value is not VbUdt)
-                throw new NotImplementedException("Get of an array of a user-defined Type is not implemented: its elements are not made yet (#178)");
             try
             {
                 if (current.Value is VbUdt udt)
@@ -500,6 +502,8 @@ internal static class VbRecordFormat
     {
         foreach (var (name, current) in udt.EnumerateFields().ToList())
         {
+            if (current.Value is VBArray)
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             try
             {
                 if (current.Value is VbUdt nested)
