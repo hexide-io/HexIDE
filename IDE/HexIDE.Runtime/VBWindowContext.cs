@@ -223,15 +223,20 @@ public class VBWindowContext : IModuleExecutionRoot
     /// A size setter also reports while hidden (#1570), inside the assignment; Show still raises its own Resize.
     /// And a Move to the size the form has raises none in VB6 (measured).
     /// </summary>
-    public void WindowResized(bool sizeSet = false)
+    public void WindowResized(bool sizeSet = false, bool paintGrowth = false)
     {
         if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
         var now = view.Extent;
         if (now == resizedAt)
             return;
+        // Mixed growth and shrinkage was not measured; keep its existing lack of Paint (#2389).
+        var grew = now.Size.Width >= resizedAt.Size.Width && now.Size.Height >= resizedAt.Size.Height
+            && (now.Size.Width > resizedAt.Size.Width || now.Size.Height > resizedAt.Size.Height);
         resizedAt = now;
         ExecuteSub("Form_Resize");
+        if (paintGrowth && grew)
+            ExecuteSub("Form_Paint");
     }
 
     /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>

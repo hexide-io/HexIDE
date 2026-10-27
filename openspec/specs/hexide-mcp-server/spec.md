@@ -513,7 +513,19 @@ to a disabled window or one under a modal dialog.
 
 #### Scenario: Minimizing a running form
 - **WHEN** `set_window_state` minimizes `window: "Form1"` and then restores it
-- **THEN** the form's Resize runs for each, as it does for its minimize and restore boxes, and the reply names `Form1`
+- **THEN** exactly one Resize runs for each, with the new state and settled client size, as for its caption buttons
+- **AND** Paint follows restoring from minimized, with no Activate, Deactivate, GotFocus or LostFocus
+- **AND** the reply names `Form1`
+
+#### Scenario: Maximizing and restoring a running form
+- **WHEN** `set_window_state` maximizes `window: "Form1"` and then restores it
+- **THEN** each change raises exactly one Resize with the final state and client size
+- **AND** Paint follows maximizing, but not restoring from maximized
+
+#### Scenario: Resizing a running form
+- **WHEN** a person drags a running form's border or corner with window contents shown while dragging
+- **THEN** each move raises one Resize, followed by Paint when the client grows
+- **AND** releasing the border raises neither event
 
 #### Scenario: A Fixed Dialog
 - **WHEN** `set_window_state` asks a Fixed Dialog form to minimize, or to take a new width

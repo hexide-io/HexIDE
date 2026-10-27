@@ -306,7 +306,10 @@ public static class AvaloniaInteroperability
                 // first, so one VB6 refuses is still refused.
                 if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
                     return true;
-                prop.SetUntyped(control, converted);
+                // A VB size assignment raises Resize inside the setter; native window notifications settle together (#2389).
+                using (control is VBFormRuntime runtime && (ReferenceEquals(property, VBProperties.WidthProperty)
+                    || ReferenceEquals(property, VBProperties.HeightProperty)) ? runtime.ResizeOnce() : null)
+                    prop.SetUntyped(control, converted);
                 // VB6 resets BackColor with a Label's Appearance (measured, #796).
                 if (control is VBLabel label && ReferenceEquals(property, VBProperties.AppearanceProperty))
                     label.BackColor = VBColor.FromSystemColor(label.Appearance == VBAppearance._3D

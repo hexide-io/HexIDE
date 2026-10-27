@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -55,7 +56,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
-    // While a Move sets the size, Width and Height change in turn and Resize waits for both (#1569).
+    // VB size setters raise inside their scope; Move holds both Width and Height together (#1569, #2389).
     private int resizingOnce;
     private bool resizePending;
 
@@ -102,11 +103,27 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         }
     }
 
+    private bool windowResizePending;
+
+    // State and client-size notifications describe one window change (#2389). Wait for layout to settle, but drain
+    // before the next input, so a border drag still raises Resize for each move rather than only at its end.
+    private void QueueWindowResize()
+    {
+        if (windowResizePending)
+            return;
+        windowResizePending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            windowResizePending = false;
+            windowContext.WindowResized(paintGrowth: true);
+        }, DispatcherPriority.Loaded);
+    }
+
     protected override void OnResized(WindowResizedEventArgs e)
     {
         base.OnResized(e);
         sized |= IsVisible;
-        windowContext.WindowResized();
+        QueueWindowResize();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -122,11 +139,18 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
             sized = false;
             if (resizingOnce > 0)
                 resizePending = true;
+            else if (IsVisible)
+                QueueWindowResize();
             else
                 windowContext.WindowResized(sizeSet: true);
         }
         else if (change.Property == WindowStateProperty)
-            windowContext.WindowResized();
+        {
+            if (WindowState == WindowState.Minimized)
+                windowContext.WindowResized();
+            else
+                QueueWindowResize();
+        }
     }
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
