@@ -165,6 +165,101 @@ Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
 - **TickFrequency 3 on 0 to 20** drew 8 ticks: 0, 3, 6, 9, 12, 15, 18 and 20.
 - **The focus** is a dotted rectangle round the whole control.
 
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
+  `corpus/inbox-controls/pending/slider/`.
+  - Slider1 had every property off its default, Text included, with its lines in reverse order.
+  - Slider2 had only its position, extents and `_Version`.
+  - Slider3 was upright: `Orientation = 1`, 675 wide and 3000 high, Value 4.
+  - Slider4 had `Value = 6` and nothing else.
+  - A fifth was double-clicked from the toolbox.
+- **The read:** the hand-written form and VB6's save were read back at run time, natively and as p-code. All four runs
+  logged the same values, apart from the fifth Slider, which only the save holds.
+- **Single lines:** seven more hand-written projects, one Slider each, each with one questionable line or pair.
+- **The Properties window:** in later passes over VB6's save, values were set there and the form saved again. Those saves
+  are described below, not kept.
+
+**VB6's block, as it wrote it:**
+
+```
+   Begin MSComctlLib.Slider Slider1 
+      Height          =   675
+      Left            =   120
+      TabIndex        =   0
+      Top             =   120
+      Width           =   4500
+      _ExtentX        =   7938
+      _ExtentY        =   1191
+      _Version        =   393216
+      BorderStyle     =   1
+      MousePointer    =   2
+      Enabled         =   0   'False
+      OLEDropMode     =   1
+      LargeChange     =   10
+      SmallChange     =   2
+      Min             =   -5
+      Max             =   50
+      SelectRange     =   -1  'True
+      SelStart        =   3
+      SelLength       =   12
+      TickStyle       =   2
+      TickFrequency   =   5
+      Value           =   30
+      TextPosition    =   1
+   End
+```
+
+- **The order is VB6's, whatever order the lines were read in.**
+  - **`_Version` comes straight after the extents**, as the MSFlexGrid's does and the TabStrip's doesn't.
+  - Then BorderStyle, MousePointer, Enabled, OLEDropMode, LargeChange, SmallChange, Min, Max, SelectRange, SelStart,
+    SelLength, TickStyle, TickFrequency, Value, TextPosition.
+  - Slider3's are `Orientation = 1` then `Value = 4`, after `_Version`.
+- **Each property is written only when off its default.** Slider2 and the double-clicked Slider hold only the extender's
+  lines, the extents and `_Version`. The double-clicked one is 1500 × 675.
+- **`Value = 30` read before `Max = 50` loaded as 30.** The control reads its properties in its own order, not the file's.
+- **Text isn't saved.** The hand-written `Text = "the tip"` loaded nothing, and VB6's save left it out.
+  - Text isn't in the Properties window.
+  - The window lists (About), (Custom), (Name), BorderStyle, CausesValidation, DragIcon, DragMode, Enabled, Height,
+    HelpContextID, Index, LargeChange, Left, Max, Min, MouseIcon, MousePointer, OLEDropMode, Orientation, SelectRange,
+    SelLength, SelStart, SmallChange, TabIndex, TabStop, Tag, TextPosition, TickFrequency, TickStyle, ToolTipText,
+    Top, Value, Visible, WhatsThisHelpID and Width.
+- **There is no `.frx`.** None of these Sliders had a MouseIcon, so where one goes isn't measured.
+
+**When SelStart is written.** With SelectRange False, SelStart reads as Value, but a file's Value doesn't make VB6 write
+it:
+- Slider4, read with `Value = 6` and saved untouched, came back as `Value = 6` alone.
+- **A Value set in the Properties window is saved with a SelStart beside it.**
+  - Slider2's Value set to 6 there was saved as `SelStart = 6` then `Value = 6`.
+  - Slider4's Value typed as 699 and then pulled down by a Max of 3 was saved as `Max = 3`, `SelStart = 3`, `Value = 3`.
+
+**The Properties window**, on VB6's save:
+
+| Done there | Result |
+|---|---|
+| Slider2's Orientation stepped to 1 | **Height and Width swapped, and the extents with them**: 675 × 4500, `_ExtentX = 1191`, `_ExtentY = 7938`, then `Orientation = 1` |
+| Value typed as 699 | **10, with no message**: clamped, as from code |
+| Value typed as -2 | 0, with no message |
+| Max typed as 0, with Min 0 | **"Invalid property value"**, and Max stayed 10 |
+| Max typed as 3, with Value 10 | Max 3, and **Value pulled down to 3** |
+
+**What a line read from the file does.** Each was read back at run time, native and p-code alike, and each project built
+and ran without an error:
+
+| Hand-written | Loaded as |
+|---|---|
+| `Max = 50`, `Value = 99` | **Value 50**: clamped, silently |
+| **`Min = 10`, `Max = 10`** | **Min 10, Max 10**, which code refuses with 380. GetNumTicks 2 |
+| **`Min = 20`**, Max left at 10 | **Min 20, Max 10, Value 20**: Min above Max. GetNumTicks 2 |
+| SelectRange False, `Value = 6`, `SelStart = 2`, `SelLength = 3` | Value 6, **SelStart 6, SelLength 0**: the file's selection ignored |
+| SelectRange True, `SelStart = 8`, `SelLength = 10` | SelStart 8, **SelLength 2**: cut at Max, as from code |
+| `TickStyle = 7` | **TickStyle 0**, silently |
+| `Orientation = 1` with a 4500 × 675 extent | Orientation 1, **still 4500 wide and 675 high**: a file's Orientation swaps nothing |
+
+So a file can hold a range no assignment can make. Min equal to or above Max loads, and a reader that checks the range
+as the setters do would refuse a form VB6 runs.
+
 ### In HexIDE
 
 HexIDE doesn't model the Slider (#1091). The designer draws it as an empty box (#157). Running a form that holds one is
