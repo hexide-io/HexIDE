@@ -323,7 +323,8 @@ in MS Sans Serif and 31 in Tahoma, where `Alpha` needs 11.
 
 **This reconciles the 510.2362 above.** The first probes in this entry ran in session 0, not on a logged-on desktop.
 There `Alpha` made a button 34 pixels wide, which is its 27 pixels in an 8-point font plus the same 7. So the caption
-font is the system's: Segoe UI 9 on the Windows 10 desktop, an 8-point font in session 0. A reader on another
+font is the system's: Segoe UI 9 on the Windows 10 desktop, an 8-point font in session 0. **That is inferred from the
+fit,** not measured again in session 0. A reader on another
 configuration should measure the caption in the system's font, not in a fixed one.
 
 **With TextAlignment 1, captions to the right:** a button is **the caption's width in Segoe UI 9 plus 27 pixels, and at
@@ -356,8 +357,26 @@ buttons of 55 each, at Left 0, 55, 110 and 165, or four of 75 with TextAlignment
 
 **Captions with special characters:**
 - **`&File` drew as "File" with the F underlined, but was measured with the ampersand,** at 35 rather than `File`'s 25.
-- **A tab drew as nothing,** "Tabx", but took width: 40.
-- **A line break drew as nothing too.** `Two` vbCrLf `lines` drew "Twolines" on one line, 62 wide.
+  That fits the rule: `&File` is 28 pixels in Segoe UI 9.
+- **A tab and a line break drew as nothing,** "Tabx" and "Twolines", on one line.
+- **Neither fits the rule through the form's TextWidth.** TextWidth expands a tab to a tab stop and measures a broken
+  caption by its widest line, so `Tab` vbTab `x` read 54 and `Two` vbCrLf `lines` 24, where the buttons were 40 and 62.
+- **Measured against the same captions with the characters left out:**
+
+  | Caption | Segoe UI 9 | Button |
+  |---|---|---|
+  | `Tabx` | 24 | 32 |
+  | `Tab` vbTab `x` | | **40**: 8 more |
+  | `Twolines` | 45 | 53 |
+  | `Two` vbCrLf `lines` | | **62**: 9 more |
+  | `Two` vbLf `lines` | | **61**: 8 more |
+  | `Two` vbCr `lines` | | **54**: 1 more |
+
+  **So the bar measures a caption on one line, with each control character taking a width of its own:** about 8
+  pixels for a tab or a line feed, and 1 for a carriage return. That is measured, not explained.
+- **`Tabx` and `Twolines` came out one pixel above the rule,** 32 and 53 where 31 and 52 were expected. The eight
+  captions in the first table fit it exactly. Rounding in the TextWidth comparison may account for it. An
+  implementation that measures with the system font itself, rather than through TextWidth, should land within a pixel.
 
 **Styles, on a flat bar, with the caption `Alpha`:**
 - default and check: 38;

@@ -3828,6 +3828,29 @@ public static class UiAutomationDriver
     /// move went through the window's input, as a real one does, or was raised on the control.</summary>
     public readonly record struct HoverLanding(Control Receiver, Point Point, bool ThroughWindowInput = false);
 
+    // The ToolTip a control's tip is shown in. Avalonia keeps it in an internal attached property, which has no public
+    // reader; null if a later Avalonia renames it, and the reply then gives no bounds.
+    private static readonly AvaloniaProperty? ToolTipInstanceProperty =
+        typeof(ToolTip).GetField("ToolTipProperty", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) as AvaloniaProperty;
+
+    /// <summary>
+    /// Where the tip open on <paramref name="owner"/> is, in <paramref name="window"/>'s device-independent units from its
+    /// top-left; null when it isn't showing in a popup, or can't be reached.
+    /// </summary>
+    /// <remarks>
+    /// Measured where the tip is, not predicted from its placement, so a caller can compare it with the point hovered: the
+    /// tip closes when the hover ends, before any snapshot could show it (#1303). On a desktop it is a window of its own, so
+    /// its position comes from the screen.
+    /// </remarks>
+    public static Rect? OpenTipBounds(Control owner, Visual window)
+    {
+        if (ToolTipInstanceProperty is null || !ToolTip.GetIsOpen(owner)
+            || owner.GetValue(ToolTipInstanceProperty) is not ToolTip { IsEffectivelyVisible: true } tip
+            || TopLevel.GetTopLevel(tip) is null)
+            return null;
+        return Safe<Rect?>(() => new Rect(window.PointToClient(tip.PointToScreen(default)), tip.Bounds.Size), null);
+    }
+
     /// <inheritdoc cref="Hover(Control, double?, double?)"/>
     /// <param name="controlPath">The path <paramref name="control"/> was resolved from. When the pointer goes to
     /// an editor under it, the reply gives that editor's path from this one.</param>
@@ -5111,6 +5134,10 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<Task<InteractOutcome>>? NextClick = null,
     [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null,
+    // Where a tip hover saw open was: x, y, width, height in the window's device-independent units from its top-left, as
+    // inspect_element's boundingRect is (#1303). Absent from every other reply.
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double[]? TipBounds = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);
