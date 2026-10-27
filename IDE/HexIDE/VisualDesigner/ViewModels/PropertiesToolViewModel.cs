@@ -42,7 +42,7 @@ public partial class PropertiesToolViewModel : Tool
         localization.GetPropertyDescription(propertyClass.Name) ?? propertyClass.Description;
 
     /// <summary>Localized property-grid category header (key <c>Str.PropCategory.{category}</c>),
-    /// falling back to the English enum name. Refreshes on next selection (like descriptions).</summary>
+    /// falling back to the English enum name.</summary>
     internal string ResolveCategoryHeader(PropertyCategory category)
     {
         var key = $"Str.PropCategory.{category}";
@@ -79,6 +79,13 @@ public partial class PropertiesToolViewModel : Tool
         this.windowManager = windowManager;
         this.localization = localization;
         localization.BindTitle(this, "Str.Tool.Properties.Title");
+        localization.LanguageChanged += () =>
+        {
+            foreach (var property in Properties)
+                property.RefreshDescription();
+            foreach (var category in CategorizedProperties.OfType<PropertyCategoryViewModel>())
+                category.RefreshHeader();
+        };
         CanPin = false;
         CanClose = true;
 
@@ -378,7 +385,6 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
     {
         this.parent = parent;
         this.category = category;
-        Header = parent.ResolveCategoryHeader(category);
     }
 
     private void OnIsExpandedChanged()
@@ -390,7 +396,13 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
         }
     }
 
-    public string Header { get; }
+    public string Header => parent.ResolveCategoryHeader(category);
+
+    internal void RefreshHeader()
+    {
+        OnPropertyChanged(nameof(Header));
+        OnPropertyChanged(nameof(AccessibleName));
+    }
 
     internal PropertyCategory Category => category;
 
@@ -410,7 +422,6 @@ public partial class PropertyViewModel : BasePropertyViewModel
         Name = propertyClass.Name;
         this.value = value;
         ExportPictureCommand = new AsyncRelayCommand(() => parent.ExportPictureAsync(PropertyClass, Value), () => CanExportPicture);
-        Description = parent.ResolvePropertyDescription(propertyClass);
     }
 
     public void OnValueChanged()
@@ -429,7 +440,9 @@ public partial class PropertyViewModel : BasePropertyViewModel
 
     public override string AccessibleName => Name;
     [Notify] private object? value;
-    public string Description { get; }
+    public string Description => parent.ResolvePropertyDescription(PropertyClass);
+
+    internal void RefreshDescription() => OnPropertyChanged(nameof(Description));
     public PropertyClass PropertyClass { get; }
 
     public void UpdateValueNoRaise(object? newValue)

@@ -72,6 +72,8 @@ public partial class VB6BuiltIns
     // Measured (#840): TypeName(Err) is "ErrObject" and TypeName(App) is "App", which neither class's own name gives.
     private static string InBoxTypeName(ICSharpProxy px) => px switch
     {
+        ToolbarItems items => items.TypeName,
+        ToolbarItem item => item.TypeName,
         VbErr => "ErrObject",
         VbApp => "App",
         VbClipboard => "Clipboard",
@@ -82,6 +84,8 @@ public partial class VB6BuiltIns
         ImageListImages => "IImages",
         ImageListImage => "IImage",
         ImageListPictureObject => "Picture",
+        Components.InBox.TreeNodes => "INodes",
+        Components.InBox.TreeNode => "INode",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         // So is a form's Controls: measured, `TypeName(Controls)` and `TypeName(Me.Controls)` (#1060).

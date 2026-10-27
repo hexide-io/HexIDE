@@ -360,6 +360,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "De här formulären sparades inte, eftersom HexIDE ännu inte kan återge dem exakt:\n\n{0}\n\nFilerna på disken är oförändrade. Att spara dem skulle ändra formulären omärkligt — Visual Basic 6 öppnar resultaten utan att klaga, och det är just det som gör skadan lätt att missa — så HexIDE låter dem vara i stället för att skada dem.",
     "Str.Designer.ReadOnly.Banner": "Skrivskyddad — HexIDE kan ännu inte återge det här formuläret exakt, så det skulle ändras om det sparades. Du kan visa och köra det, men ändringar sparas inte.",
     "Str.Designer.Unmodelled.NotSupported": "Stöds inte i HexIDE",
+    "Str.Designer.Unmodelled.ViewOnly": "Endast visning i designern",
     "Str.Designer.Context.Cut": "Klipp _ut",
     "Str.Designer.Context.Copy": "_Kopiera",
     "Str.Designer.Context.Paste": "Klistra _in",

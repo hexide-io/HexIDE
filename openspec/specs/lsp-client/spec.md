@@ -265,7 +265,8 @@ teardown SHALL close only its connection. A launched pipe server SHALL get two s
 its remaining process tree is killed, including during bring-up. Both messages
 SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
-handle. The process exit code SHALL remain observable in the conversation during client stop.
+handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
+group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
 
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
@@ -277,8 +278,9 @@ start suspended.
 On Linux and macOS, stdio and launched pipe servers SHALL run under `HexIDE.LspGuard`, which
 SHALL create its own process group before starting the server with inherited stdin, stdout and stderr.
 Every 500 ms the guard SHALL check whether its parent has changed. On reparenting it SHALL send
-SIGTERM to its group and, after two seconds, SIGKILL. It SHALL preserve the server's exit code when
-the server exits on its own. After the normal transport grace period, a remaining guard SHALL be
+SIGTERM to its group and, after two seconds, SIGKILL. When the server exits on its own, it SHALL
+perform the same group cleanup, leaving the group before SIGKILL to preserve the server's exit code.
+After the normal transport grace period, a remaining guard SHALL be
 terminated with its group. Externally owned servers SHALL NOT be guarded. Descendants that leave
 the group are outside this guarantee.
 
@@ -300,6 +302,12 @@ still goes away.
 - **WHEN** the IDE shuts down
 - **THEN** an initialized server owned by HexIDE is asked to shut down and its process is ended
 - **AND** an externally owned pipe server is left running
+
+#### Scenario: A Unix server exits cleanly with a child still running
+- **GIVEN** a launched server has spawned a child in the guard's process group
+- **WHEN** the server exits on its own
+- **THEN** the guard sends SIGTERM to the group and SIGKILL after two seconds
+- **AND** a child that ignores SIGTERM is ended, and the guard preserves the server's exit code
 
 #### Scenario: A server never answers shutdown
 - **WHEN** the server receives `shutdown` but never answers it

@@ -899,6 +899,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     && !interpreter.TryResolveProcedure(hinted, currentModule, out _, out _)
                     && await EvaluateFunction(hinted, []) is { } bareResult)
                     return DollarResult(bareResult, varOrProcCall);
+                // The program's own Function read bare, `F% + 1` for `Function F%()`: the character must be its return type
+                // (measured, #740).
+                if (!env.TryGetVariableLocation(hinted, out _)
+                    && interpreter.TryResolveProcedure(hinted, currentModule, out _, out var hintedProc) && hintedProc.IsFunction)
+                {
+                    RefuseMismatchedCharacter(hintedProc, hint);
+                    if (await interpreter.CallProcedure(hinted, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } hintedResult)
+                        return hintedResult;
+                }
                 throw new NotImplementedException("Type hint is not supported");
             }
             if (varOrProcCall.dictionaryCallStmt() != null)
@@ -1076,6 +1085,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     private const string TypeCharacterMismatch = "Type-declaration character does not match declared data type";
 
+    // A character on a call to the program's own Function, `F&()` for `Function F%()`, must be the one its return type is
+    // declared by: a mismatch, or one on a Variant Function, is VB6's compile error (measured, #740).
+    private static void RefuseMismatchedCharacter(ProcedureInfo procedure, VB6Parser.TypeHintContext hint)
+    {
+        if (procedure.ReturnsVariant || procedure.ReturnType != BaseTypeMapper.Map(hint))
+            throw new VBCompileErrorException(TypeCharacterMismatch);
+    }
+
+    // The name is the program's own Function, and no variable in scope hides it but the Function's own return slot, so that
+    // `RI%(n - 1)` inside `RI%` is a recursive call.
+    private bool CallsOwnFunction(string name)
+        => interpreter.TryResolveProcedure(name, currentModule, out _, out var procedure) && procedure.IsFunction
+           && (!env.TryGetVariableLocation(name, out _) || string.Equals(env.ReturnName, name, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -1200,8 +1223,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is ToolbarItems toolbarItems)
+            return toolbarItems.Item(indices);
         if (value.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(indices));
+        if (value.Value is Components.InBox.TreeNodes nodes)
+            return nodes.Default(indices);
         if (value.Value is VbCollection items)
             return items.Default(indices);
         if (value.Value is ImageListImages images)
@@ -1235,22 +1262,32 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A type-declaration character on the call (#742). `$` is the one a program reaches first, the library's string
         // functions written `Trim$` and `Left$` (#1071). The name is looked up without it by the ordinary search, and the
         // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The other characters still
-        // stop the run.
+        // stop the run, except on the program's own Function, where each is checked against its return type (measured, #740).
+        var name = procOrArrayCall.ambiguousIdentifier().GetText();
         var dollar = false;
+        VB6Parser.TypeHintContext? ownHint = null;
         if (procOrArrayCall.typeHint() is { } hint)
         {
-            if (hint.GetText() != "$")
+            if (hint.GetText() == "$")
+                dollar = true;
+            else if (CallsOwnFunction(name))
+                ownHint = hint;
+            else
                 throw new NotImplementedException($"the type-declaration character {hint.GetText()} on a call is not implemented (#742)");
-            dollar = true;
         }
-
-        var name = procOrArrayCall.ambiguousIdentifier().GetText();
 
         // A control array indexed by element (`Command1(i)`) — the shared name resolves to a ControlArrayGroup
         // value; return the element control. A missing element is Err 340 (oracle-verified against vb6.exe).
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
+        if (named && maybeGroup.Value is ToolbarItems toolbarItems)
+            return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
+        if (named && maybeGroup.Value is Components.InBox.TreeNodes nodes)
+        {
+            if (dollar) throw new NotImplementedException();
+            return nodes.Default(await EvaluateCallArgs(argsCtx));
+        }
         if (named && maybeGroup.Value is VbCollection items)
         {
             if (dollar)
@@ -1318,6 +1355,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // takes no index, and reaches a default member where it does (`Controls(0)`), which HexIDE has none of yet.
         if (FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember))
         {
+            if (ownHint is not null)
+                throw new NotImplementedException($"{name}{ownHint.GetText()} on a member of the form is not implemented (#742)");
             var formArgs = await EvaluateCallArgs(argsCtx);
             // `Left$("abc", 1)` in a form's code is VBA's Left$, a String, as `Left("abc", 1)` is VBA's Left (measured).
             if (dollar && !FormMembers.CallIsVbas(name, formArgs.Count))
@@ -1340,6 +1379,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // with no As clause, is the mismatch (measured, TU_01 and TV_01).
             if (dollar && (procedure.ReturnType != Vb6Value.ValueType.String || procedure.ReturnsVariant))
                 throw new VBCompileErrorException(TypeCharacterMismatch);
+            if (ownHint is not null)
+                RefuseMismatchedCharacter(procedure, ownHint);
             if (IndexesItsResult(procedure, argsCtx))
             {
                 var index = await EvaluateCallArgs(argsCtx, beforeLast);
@@ -1427,6 +1468,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        if (variable.Value is VBToolbar toolbar)
+        {
+            VBToolbar.RefusePending(MemberName(member));
+            if (MemberName(member).Equals("Buttons", StringComparison.OrdinalIgnoreCase) && MemberArgs(member) is { } indexes)
+                return toolbar.Buttons.Item(await EvaluateCallArgs(indexes));
+        }
+        if (variable.Value is ToolbarItem button && MemberName(member).Equals("ButtonMenus", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } menuIndexes && button.TryGetProperty("ButtonMenus", out var menuCollection))
+            return ((ToolbarItems)menuCollection.Value!).Item(await EvaluateCallArgs(menuIndexes));
         if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
             && managed.TryGetProperty(MemberName(member), out var property))
             return property;
@@ -1508,6 +1558,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
+        {
+            if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
+            return new Vb6Value(capacityTree.GetVisibleCount());
+        }
+
+        if (variable.Value is VBTreeView treeView && MemberName(member).Equals("Nodes", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } nodeIndexes)
+            return treeView.Nodes.Default(await EvaluateCallArgs(nodeIndexes));
+
+        if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
+            && MemberArgs(member) is { } tabIndexes)
+            return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
+
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
         {
@@ -1533,6 +1597,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
              ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
             return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+
+        if (AvaloniaInterop.SSTabMembers.TryGet(control, memberIdentifier, out var tabValue))
+            return tabValue;
 
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -2203,12 +2270,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Controls are an Object, and Controls is not a Collection.
         if (operand.Value is Avalonia.Controls.Control control)
         {
+            if (interpreter.ControlClassFor(targetName) is { } controlClass)
+                return new Vb6Value(control is VBProgressBar progress
+                    && controlClass.Equals(progress.Library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase));
             var className = VB6BuiltIns.ControlTypeName(control);
             // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
             var library = control switch
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
                 _ => "VB",

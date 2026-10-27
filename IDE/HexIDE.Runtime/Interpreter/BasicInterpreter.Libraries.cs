@@ -7,6 +7,20 @@ public partial class BasicInterpreter
     private readonly Dictionary<LibraryClass, LibraryObject> libraryGlobals = new();
     private readonly List<LibraryObject> libraryCreationOrder = new();
 
+    internal string? ControlClassFor(string name)
+    {
+        // Reference= class precedence against Object= is unmeasured; retain the existing library-class lookup.
+        if (LibraryClassFor(name) is not null)
+            return null;
+        // ProgressBar is the first implemented control in these libraries. The project's Object= order wins (#2265).
+        foreach (var library in BuiltIns.ControlLibraries)
+            if (library.Controls.ContainsKey("ProgressBar")
+                && (name.Equals("ProgressBar", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals(library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase)))
+                return library.TypeName("ProgressBar");
+        return null;
+    }
+
     internal LibraryClass? LibraryClassFor(string name)
     {
         if (Modules.TryGet(name, out var module) && module.Kind == InterpreterModuleKind.Class)

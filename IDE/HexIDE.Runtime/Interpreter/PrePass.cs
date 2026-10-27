@@ -804,7 +804,14 @@ public class PrePass : VB6BaseVisitor<object?>
         // A complexType return (`As Employee`) is the generic UDT ValueType here; the concrete name is carried
         // separately so the return slot can be seeded with a real UDT at call time.
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
-        var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
+        // `Function F%()` returns an Integer, and `& ! # @ $` a Long, Single, Double, Currency and String, ahead of a DefType
+        // for the name's letter. A character and an As clause together are VB6's compile error (measured, #740).
+        var hint = context.typeHint();
+        if (hint is not null && context.asTypeClause() is not null)
+            throw new VBCompileErrorException("Expected: end of statement");
+        var (returnType, returnsVariant, returnsObject) = hint is not null
+            ? (BaseTypeMapper.Map(hint), false, false)
+            : ReturnOf(context.asTypeClause(), name);
         DeclareModuleName(name);
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, true, ParseParams(context.argList()),
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,

@@ -2040,6 +2040,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
+            // `F% = 7` inside `Function F%()` sets the return in VB6 (measured, #740). It is an assignment through a type
+            // character, which is #739's: until then it is refused, rather than writing a variable named `F%` and leaving the
+            // Function to return its type's default.
+            if (varOrProcCall.typeHint() is not null
+                && string.Equals(currentEnv.ReturnName, varOrProcCall.ambiguousIdentifier().GetText(), StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException(
+                    $"`{varOrProcCall.GetText()} = …`, a Function's return assigned through its type character, is not implemented (#739)");
             // `c!key = x`: a Collection's item is read-only (measured, #1471, #1492). No other default member takes it yet.
             if (varOrProcCall.dictionaryCallStmt() is { } bang)
             {
@@ -2072,6 +2079,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
+            if (oldLet.Value is VBSSTab)
+                return default;
+
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
             // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
             // Variant simply takes the value (#1493).
@@ -2079,6 +2089,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is ToolbarItem toolbarItem)
+                {
+                    toolbarItem.SetDefault(value);
+                    return default;
+                }
                 if (oldLet.Value is StatusBarPanel panel)
                 {
                     panel.SetText(value);
@@ -2249,6 +2264,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
+            if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(UdtFieldName(members[0]))
+                && members[0].iCS_S_ProcedureOrArrayCall() is { } tabItem && tabItem.argsCall().Length == 1)
+            {
+                SSTabMembers.WriteIndexed(tab, UdtFieldName(members[0]),
+                    await expressionExecutor.EvaluateCallArgs(tabItem.argsCall(0)), value);
+                return default;
+            }
+
             // A list's List(i) = text and a ListBox's Selected(i) = b, the control members here that take an index (#821,
             // #1395).
             if (variable.Value is Control listControl && ListMembers.IsList(listControl)
@@ -2295,6 +2318,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
                 };
 
+            if (members[0].iCS_S_ProcedureOrArrayCall() is { } toolbarCall && toolbarCall.argsCall().Length == 1)
+            {
+                ToolbarItems? collection = variable.Value switch
+                {
+                    VBToolbar bar when UdtFieldName(members[0]).Equals("Buttons", StringComparison.OrdinalIgnoreCase) => bar.Buttons,
+                    ToolbarItems items when UdtFieldName(members[0]).Equals("Item", StringComparison.OrdinalIgnoreCase) => items,
+                    ToolbarItem item when UdtFieldName(members[0]).Equals("ButtonMenus", StringComparison.OrdinalIgnoreCase)
+                        && item.TryGetProperty("ButtonMenus", out var menus) => (ToolbarItems)menus.Value!,
+                    _ => null,
+                };
+                if (collection is not null)
+                {
+                    ((ToolbarItem)collection.Item(await expressionExecutor.EvaluateCallArgs(toolbarCall.argsCall(0))).Value!).SetDefault(value);
+                    return default;
+                }
+            }
+
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
                 return default;
@@ -2310,6 +2350,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                  ?? ProgressBarMembers.TrySet(control, memberIdentifier, value)) is { } inBox)
                 return inBox ? default
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
+
+            if (SSTabMembers.TrySet(control, memberIdentifier, value))
+                return default;
 
             var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -2373,6 +2416,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A Collection's item is read-only: `c(1) = x` is 424 once the index is found (measured, #1471, #1492).
             if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection heldItems } held))
                 throw heldItems.ItemAssigned(held, indexes, VbCollection.ItemAssignment.Index);
+            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: ToolbarItems toolbarItems }))
+            {
+                ((ToolbarItem)toolbarItems.Item(indexes).Value!).SetDefault(value);
+                return default;
+            }
             if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: StatusBarPanels panels }))
             {
                 panels.Item(indexes).SetText(value);
@@ -3251,6 +3299,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBTreeView treeView
+                && membersCall.iCS_S_MemberCall().Length == 1
+                && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
+            {
+                treeView.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
+            }
+            if (setLead && target.Value is Components.InBox.TreeNode treeNode
+                && membersCall.iCS_S_MemberCall().Length == 1
+                && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
+            {
+                treeNode.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
+            }
+            if (setLead && target.Value is VBToolbar && membersCall.iCS_S_MemberCall().Length == 1)
+            {
+                var name = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+                VBToolbar.RefusePending(name);
+                if (name.Equals("Buttons", StringComparison.OrdinalIgnoreCase)) throw ToolbarItems.Error(383);
+            }
+            if (setLead && target.Value is ToolbarItem item && membersCall.iCS_S_MemberCall().Length == 1
+                && UdtFieldName(membersCall.iCS_S_MemberCall()[0]).Equals("Tag", StringComparison.OrdinalIgnoreCase))
+            {
+                item.TrySetProperty("Tag", value);
+                return default;
+            }
             if (setLead && target.Value is VBStatusBar or StatusBarPanel or StatusBarPanels)
             {
                 var parts = membersCall.iCS_S_MemberCall();
@@ -3737,6 +3811,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     {
                         value = Vb6Value.Nothing;
                         declaredClass = "Collection";
+                    }
+                    else if (!isArray && interpreter.ControlClassFor(ct.GetText()) is { } controlClass)
+                    {
+                        value = Vb6Value.Nothing;
+                        declaredClass = controlClass;
                     }
                     else if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
                     {
