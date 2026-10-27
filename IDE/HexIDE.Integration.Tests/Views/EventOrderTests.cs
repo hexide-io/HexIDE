@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
@@ -141,13 +142,40 @@ public class EventOrderTests
 
     private static void Pump()
     {
-        for (var i = 0; i < 20; i++)
-            Dispatcher.UIThread.RunJobs();
+        // Jobs restore their captured context onto this thread, including an earlier test's TestContext (#2194, #883).
+        var context = ExecutionContext.Capture();
+        try
+        {
+            for (var i = 0; i < 20; i++)
+                Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Pump_preserves_the_callers_execution_context()
+    {
+        var marker = new AsyncLocal<string?> { Value = "caller" };
+        var context = ExecutionContext.Capture()!;
+        ExecutionContext.Run(context, _ =>
+        {
+            marker.Value = "queued job";
+            Dispatcher.UIThread.Post(() => marker.Value.Should().Be("queued job"));
+        }, null);
+
+        Pump();
+
+        marker.Value.Should().Be("caller");
     }
 
     [AvaloniaFact]
     public async System.Threading.Tasks.Task A_Timer_without_Interval_stays_quiet_while_a_nonzero_Timer_ticks()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var form = Form.Replace("      Enabled         =   0   'False\r\n", "")
             .Replace("      Interval        =   1000\r\n", "")
             .Replace("End\r\nAttribute VB_Name", "   Begin VB.Timer Timer2 \r\n      Interval        =   100\r\n   End\r\nEnd\r\nAttribute VB_Name");
@@ -167,7 +195,7 @@ public class EventOrderTests
         var wait = System.Diagnostics.Stopwatch.StartNew();
         while (wait.Elapsed < TimeSpan.FromSeconds(1.5))
         {
-            await System.Threading.Tasks.Task.Delay(10, TestContext.Current.CancellationToken);
+            await System.Threading.Tasks.Task.Delay(10, cancellationToken);
             Pump();
         }
 

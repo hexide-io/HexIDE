@@ -196,7 +196,9 @@ public static class UiAutomationDriver
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
                 window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
+                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null,
+            peer.GetProvider<IExpandCollapseProvider>() is { } expansion
+                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
     }
 
     /// <summary>
@@ -506,8 +508,13 @@ public static class UiAutomationDriver
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
                            ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
-                           : " Target the copy that shows, or make it show first; invoke_command and set_property act on "
+                           : shows is false && CollapsedPropertyCategoryHolding(control) is { } category
+                               ? $" Make it show first, as a person would: 'toggle' the Button in '{category}', which holds it"
+                               : " Make it show first; invoke_command and set_property act on "
                              + "its view model and still work"));
+
+        if (norm is "click" or "invoke" && DisabledPressRefusal(control) is { } disabled)
+            return Err(disabled);
 
         AutomationPeer peer;
         try { peer = ControlAutomationPeer.CreatePeerForElement(control); }
@@ -753,6 +760,27 @@ public static class UiAutomationDriver
         {
             return Err($"action '{norm}' threw: {ex.Message}");
         }
+    }
+
+    // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
+    // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
+    private static string? DisabledPressRefusal(Control control)
+    {
+        var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
+        var open = OpenDialogs.Among(OpenWindows());
+        var blocking = open.Where(d => OpenDialogs.Blocks(d, window)).ToList();
+        if (blocking.FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d))) is { } dialog)
+        {
+            foreach (var blocked in blocking)
+                OpenDialogs.NamedInReply(blocked);
+            return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
+                   + "No person could click or invoke it, so nothing was pressed or invoked. Answer the dialog first: "
+                   + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
+        }
+        return !control.IsEffectivelyEnabled || window is { IsEffectivelyEnabled: false }
+            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could click or invoke it, so "
+              + "nothing was pressed or invoked. Wait until it is enabled before trying again"
+            : null;
     }
 
     /// <summary>
@@ -1613,6 +1641,10 @@ public static class UiAutomationDriver
         // as one that docked (#2175).
         var dockLayout = destination is null ? null : (hit as Visual)?.FindAncestorOfType<Dock.Avalonia.Controls.DockControl>()?.Layout;
         var placedBefore = dockLayout is null ? null : DockPlacement(dockLayout);
+        // Dock starts a drag only from what it marks as a drag area: a tab, a tool window's title strip. Anything else in its
+        // layout, a designer drag among them, could not have docked, and saying it had not read as a failure (#2232).
+        var pressedDockHandle = dockLayout is not null && (hit as Visual)?.GetSelfAndVisualAncestors()
+            .Any(Dock.Settings.DockProperties.GetIsDragArea) == true;
         // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
         // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
         if (destination is not null)
@@ -1667,7 +1699,7 @@ public static class UiAutomationDriver
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
-                var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!));
+                var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
                     + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
@@ -1730,9 +1762,10 @@ public static class UiAutomationDriver
         return placed;
     }
 
-    /// <summary>What a drag changed in a Dock layout, as a clause for its reply: what moved where, or that nothing did.</summary>
+    /// <summary>What a drag changed in a Dock layout, as a clause for its reply: what moved where, or, for a drag pressed on
+    /// one of Dock's drag areas (<paramref name="couldDock"/>), that nothing did. Otherwise nothing is said.</summary>
     private static string DockMoved(Dictionary<Dock.Model.Core.IDockable, DockPlace> before,
-        Dictionary<Dock.Model.Core.IDockable, DockPlace> after)
+        Dictionary<Dock.Model.Core.IDockable, DockPlace> after, bool couldDock)
     {
         var moved = new List<string>();
         foreach (var (dockable, now) in after)
@@ -1744,10 +1777,12 @@ public static class UiAutomationDriver
             else if (was.Index != now.Index)
                 moved.Add($"'{DockableName(dockable)}' within {At(now)}, from tab {was.Index + 1} to tab {now.Index + 1}");
         }
-        return moved.Count == 0
+        if (moved.Count > 0)
+            return "; Dock moved " + string.Join(", and ", moved);
+        return couldDock
             ? "; Dock's layout is unchanged, so nothing was docked: the release was not over one of Dock's drop targets, "
               + "or dropped what it dragged where it was"
-            : "; Dock moved " + string.Join(", and ", moved);
+            : "";
 
         static string At(DockPlace place) =>
             (place.Beside.Length == 0 ? "a dock of its own" : "the dock with " + string.Join(", ", place.Beside.Select(b => $"'{b}'")))
@@ -3175,9 +3210,24 @@ public static class UiAutomationDriver
         var mechanism = "keyboard"; // No input path has been used yet.
         try
         {
+            // A chord written as one key, as a person writes it, was refused as an unknown key, which sent the caller to the
+            // key names when 'H' was never the problem (#2189). Read it as the key and its modifiers, and say so.
+            var asWritten = key.Trim();
+            var chordRead = string.Empty;
+            if (ChordAsWritten(key) is { } written)
+            {
+                if (!TryParseModifiers(written.Modifiers, out _, out _))
+                    return new InteractOutcome(false, "keyboard", null,
+                        $"'{asWritten}' is not a key, and not a chord either: '{written.Modifiers}' is not a modifier. press_key presses "
+                        + "one key: pass it as 'key', and any of Ctrl, Shift, Alt and Meta as 'modifiers'");
+                chordRead = $"; '{asWritten}' was read as key '{written.Key}' with modifiers '{written.Modifiers}'"
+                            + (string.IsNullOrWhiteSpace(modifiers) ? "" : $", added to '{modifiers}'");
+                key = written.Key;
+                modifiers = string.IsNullOrWhiteSpace(modifiers) ? written.Modifiers : $"{modifiers}+{written.Modifiers}";
+            }
             if (!Enum.TryParse<Key>((key ?? string.Empty).Trim(), ignoreCase: true, out var parsedKey))
                 return new InteractOutcome(false, "keyboard", null,
-                    $"unknown key '{key}' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)");
+                    $"unknown key '{key}'{(chordRead.Length > 0 ? $" in '{asWritten}'" : "")} — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)");
             if (!TryParseModifiers(modifiers, out var mods, out var modError))
                 return new InteractOutcome(false, "keyboard", null, modError);
 
@@ -3245,12 +3295,13 @@ public static class UiAutomationDriver
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
             // nothing happens", and in each the answer was that the event went to a control other than the
             // one the caller meant — which the old reply had no way to say.
-            var chord = mods == KeyModifiers.None ? string.Empty : mods + "+";
+            // Flags print as "Control, Shift", which read as two presses (#2189).
+            var chord = mods == KeyModifiers.None ? string.Empty : mods.ToString().Replace(", ", "+") + "+";
             var changed = partial is not null && deletionArea is not null
                 ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
                   + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}", null);
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}{chordRead}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -3900,6 +3951,14 @@ public static class UiAutomationDriver
         $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into"
         + (control is ComboBox { IsEditable: false }
             ? "; it is a dropdown that is not editable: 'expand' it, then 'select' its item by text" : "");
+
+    // "Ctrl+H" as its key and modifiers, or null for a key with no '+' between two parts. "Ctrl++" presses '+'.
+    private static (string Key, string Modifiers)? ChordAsWritten(string? key)
+    {
+        var text = (key ?? string.Empty).Trim();
+        var split = text.EndsWith('+') ? text.Length - 2 : text.LastIndexOf('+');
+        return split > 0 && text[split] == '+' ? (text[(split + 1)..].Trim(), text[..split].Trim()) : null;
+    }
 
     private static bool TryParseModifiers(string? modifiers, out KeyModifiers result, out string? error)
     {
@@ -4658,7 +4717,8 @@ public record UiNodeDetail(
     // The value pattern's writability, independent of the range pattern's flag. Null without that pattern.
     bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    WindowFrameState? Frame = null);
+    WindowFrameState? Frame = null,
+    string? ExpandCollapseState = null);
 
 /// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

@@ -197,6 +197,14 @@ already built.
    bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, the Immediate output lines,
    `VbLocale.Current.Name`, and the error if it raised one. Even a startup module with no bare statements gains an empty `HexDumpMain`.
 
+   **A module the dump can't rewrite faithfully has no rewritten text, and `notWrapped` says why (#2211).**
+   - The rewrite reads the interpreter's parse tree. The interpreter parses only after conditional compilation is
+     applied, so the grammar can't read every directive VB6 accepts.
+   - Directive lines are masked for the rewrite's parse, so a directive inside a procedure goes with it. One at module
+     level can't be moved into `HexDumpMain` apart from the statements it governs, so it is refused.
+   - Every rewrite must hold the source's tokens. Where the source doesn't parse, they must also stay in the source's
+     order, since a recovered parse can drop or misplace code without saying so.
+
    ```text
    HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test IDE/HexIDE.Runtime.Tests/
    ```
@@ -228,6 +236,7 @@ Older dumps without lines fall back to individual items; regenerate them for sta
 | `locale-differs` | recorded locale differs from en-US | runs under en-US; not compared |
 | `timeout` / `launch-failed` | | ran past `--timeout`, or the session failed |
 | `excluded` | not compared | not started: the program would act outside its own process |
+| `not-wrapped` | not compared | not started: the dump couldn't rewrite the startup module without changing it, as its `notWrapped` says |
 
 RDCore runs each program for real, on the machine running the tool, so a program that would act outside its own
 process is left out before anything starts, and `summary.json` counts each reason. The tool reads every module token

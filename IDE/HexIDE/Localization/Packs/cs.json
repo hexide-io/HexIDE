@@ -2,7 +2,9 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.Designer.ShowTabOrder": "Zobrazit pořadí tabulátoru (přeškrtnuté: TabStop vypnuto)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
@@ -103,6 +105,7 @@
     "Str.Menu.Edit.Cut": "_Vyjmout",
     "Str.Menu.Edit.Copy": "_Kopírovat",
     "Str.Menu.Edit.Paste": "V_ložit",
+    "Str.Menu.Edit.PasteAsComment": "Vložit jako _komentář",
     "Str.Menu.Edit.PasteLink": "Vložit _odkaz",
     "Str.Menu.Edit.Remove": "Odebrat",
     "Str.Menu.Edit.Delete": "_Smazat",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspektor protokolu...",
     "Str.Menu.AddIns": "_Doplňky",
     "Str.Menu.Window": "_Okno",
+    "Str.Menu.Window.ReopenClosed": "Znovu otevřít zavřené okno",
+    "Str.Menu.Window.RecentlyClosed": "Nedávno zavřená okna",
     "Str.Menu.Window.Split": "_Rozdělit",
     "Str.Menu.Window.ResetLayout": "O_bnovit rozložení oken",
     "Str.Menu.Help": "_Nápověda",
@@ -363,6 +368,7 @@
     "Str.Designer.Context.Properties": "Vlastnosti",
     "Str.CodeEditor.FileNotSaved.Banner": "Tento soubor nebude uložen — HexIDE jej zatím nedokáže věrně reprodukovat, takže uložení by jej změnilo. Jeho kód je součástí souboru, proto se psaní v tomto okně odmítá.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Přejmenování nebylo provedeno, protože by změnilo záhlaví tohoto souboru nebo řádky Attribute některého člena, které spravuje IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Přejmenování nebylo provedeno, protože upravuje i jiné dokumenty: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Řádek {0} patří do záhlaví tohoto souboru nebo k řádkům Attribute některého člena, které se nikdy nespouštějí, takže na něj nelze umístit zarážku ani záložku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vložit soubor",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nový název:",
@@ -895,7 +901,7 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }
 }

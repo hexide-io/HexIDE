@@ -56,6 +56,31 @@ That is all most changes need. Some areas need more, and
 [Advanced setup](#advanced-setup) covers them: checking VB6's actual behaviour, the third-party language
 servers the test suite drives, and reproducing CI's Linux failures on Windows.
 
+## Scan staged changes for secrets
+
+Install [gitleaks](https://github.com/gitleaks/gitleaks#installing) (MIT; CI pins v8.30.1), then enable
+this clone's pre-commit hook from the repository root:
+
+```sh
+git config core.hooksPath scripts/hooks
+```
+
+If you already use a hooks directory, have its `pre-commit` invoke
+`bash scripts/pre-commit-secrets.sh` instead. The hook scans the index, including partially staged files,
+with default gitleaks rules and redacted output. A finding blocks the commit. Missing gitleaks also blocks
+the commit and explicitly says the changes were **not scanned**. Run the same check manually with
+`bash scripts/pre-commit-secrets.sh`.
+
+CI scans every commit in the pull request's base-to-head range, so deleting a token in a later commit
+does not clear the finding: remove it from the branch's history, and revoke any real exposed credential.
+CI verifies the downloaded scanner against a pinned publisher checksum. New-branch pushes scan from
+the merge base with `origin/main`; unavailable history fails with a `NOT scanned` message.
+
+`.gitleaks.toml` extends the upstream rules. It currently needs no fixture exceptions; any future exception
+must identify the specific fixture and explain why it is safe, without broad path exclusions. Inline
+`gitleaks:allow` comments are ignored by both scans. To exercise the guard, run
+`bash scripts/check-secrets.selftest.sh` with gitleaks installed.
+
 ## Conventions
 
 - **Architecture boundary — CST, not AST.** HexIDE's own in-process language tooling is *syntactic*: it

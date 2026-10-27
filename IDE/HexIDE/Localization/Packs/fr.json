@@ -2,7 +2,9 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
+    "Str.Designer.ShowTabOrder": "Afficher l’ordre de tabulation (barré : TabStop désactivé)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
@@ -103,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Co_uper",
     "Str.Menu.Edit.Copy": "_Copier",
     "Str.Menu.Edit.Paste": "Co_ller",
+    "Str.Menu.Edit.PasteAsComment": "Coller comme _commentaire",
     "Str.Menu.Edit.PasteLink": "Coller le _lien",
     "Str.Menu.Edit.Remove": "Supprimer",
     "Str.Menu.Edit.Delete": "_Effacer",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "_Inspecteur de protocole...",
     "Str.Menu.AddIns": "_Modules complémentaires",
     "Str.Menu.Window": "_Fenêtre",
+    "Str.Menu.Window.ReopenClosed": "Rouvrir la fenêtre fermée",
+    "Str.Menu.Window.RecentlyClosed": "Fenêtres récemment fermées",
     "Str.Menu.Window.Split": "_Fractionner",
     "Str.Menu.Window.ResetLayout": "_Réinitialiser la disposition",
     "Str.Menu.Help": "_Aide",
@@ -363,6 +368,7 @@
     "Str.Designer.Context.Properties": "Propriétés",
     "Str.CodeEditor.FileNotSaved.Banner": "Ce fichier ne sera pas enregistré — HexIDE ne sait pas encore le reproduire fidèlement ; l'enregistrer le modifierait. Son code fait partie du fichier : la saisie dans cette fenêtre est donc refusée.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Le renommage n'a pas été effectué, car il modifierait l'en-tête de ce fichier ou les lignes Attribute d'un membre, que gère l'IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Le renommage n’a pas été effectué car il modifie aussi d’autres documents : {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La ligne {0} fait partie de l'en-tête de ce fichier ou des lignes Attribute d'un membre, qui ne s'exécutent jamais : on ne peut donc y placer ni point d'arrêt ni signet.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insérer un fichier",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nouveau nom :",
@@ -895,7 +901,7 @@
     "Str.Dock.Close": "Fermer le volet",
     "Str.Dock.ScrollLeft": "Faire défiler les onglets vers la gauche",
     "Str.Dock.ScrollRight": "Faire défiler les onglets vers la droite",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
   }
 }
