@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Components.InBox;
 public sealed class TabStripComponentClass : InBoxComponentClass
 {
     private TabStripComponentClass() : base([VBProperties.TabIndexProperty, VBProperties.TabStopProperty], [],
-        [ClickEvent, BeforeClickEvent, MouseDownEvent, MouseUpEvent]) { }
+        [ClickEvent, BeforeClickEvent, MouseDownEvent, MouseUpEvent, GotFocusEvent, LostFocusEvent]) { }
 
     public static readonly EventClass BeforeClickEvent = new("BeforeClick", new EventClassArgument("Cancel", "Integer"));
     public static TabStripComponentClass Instance { get; } = new();
@@ -50,6 +50,8 @@ public sealed class TabStripComponentClass : InBoxComponentClass
         new("OLEDrag", MemberKind.Method, Both, IsFrmProperty: false, Implemented: false),
         new("BeforeClick", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
         new("Click", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
+        new("GotFocus", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
+        new("LostFocus", MemberKind.Event, Both, IsFrmProperty: false, Implemented: true),
         new("KeyDown", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
         new("KeyPress", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
         new("KeyUp", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
@@ -64,19 +66,24 @@ public sealed class TabStripComponentClass : InBoxComponentClass
         new("OLEDragDrop", MemberKind.Event, Both, IsFrmProperty: false, Implemented: false),
     ];
 
-    protected override Control InstantiateInternal(ComponentInstance instance)
+    public override Control InstantiateForDesigner(ComponentInstance instance) => Create(instance, designer: true);
+
+    protected override Control InstantiateInternal(ComponentInstance instance) => Create(instance, designer: false);
+
+    private static Control Create(ComponentInstance instance, bool designer)
     {
         // Saved fields outside the measured property bag must not be silently ignored.
         foreach (var property in instance.UnknownRawProperties)
-            if (property.Name is not ("_ExtentX" or "_ExtentY" or "_Version") && !TabStripPersistence.OwnLine(property.Name))
+            if (!designer && property.Name is not ("_ExtentX" or "_ExtentY" or "_Version") && !TabStripPersistence.OwnLine(property.Name))
                 throw new NotImplementedException($"Loading TabStrip {property.Name} is not implemented (#1089)");
         var strip = new VBTabStrip();
         if (instance.GetPropertyOrDefault(TabStripPersistence.SavedProperty) is { } saved)
         {
             foreach (var name in new[] { "ImageList", "Font" })
-                if (saved.Properties.ContainsKey(name))
+                if (!designer && saved.Properties.ContainsKey(name))
                     throw new NotImplementedException($"Loading TabStrip {name} is not implemented (#1089)");
-            TabStripPersistence.Load(strip, saved);
+            if (!designer || TabStripPersistence.CanWrite(saved))
+                TabStripPersistence.Load(strip, saved, designer);
         }
         return strip;
     }

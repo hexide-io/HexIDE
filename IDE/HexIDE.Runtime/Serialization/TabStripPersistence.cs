@@ -131,7 +131,7 @@ internal static class TabStripPersistence
             vb.WriteProperty("OLEDropMode", typeof(int), drop);
     }
 
-    internal static void Load(VBTabStrip strip, VBSerializedComponent saved)
+    internal static void Load(VBTabStrip strip, VBSerializedComponent saved, bool designer = false)
     {
         if (!CanWrite(saved))
             throw TabStripMembers.Refused("Tabs");
@@ -150,7 +150,7 @@ internal static class TabStripPersistence
             for (var i = 1; i <= count; i++)
             {
                 var tab = tabs.GetValueOrDefault($"Tab{i}") as Dictionary<string, object> ?? [];
-                if (tab.GetValueOrDefault("ImageVarType") is 8 || tab.GetValueOrDefault("ImageIndex") is int image && image != 0)
+                if (!designer && (tab.GetValueOrDefault("ImageVarType") is 8 || tab.GetValueOrDefault("ImageIndex") is int image && image != 0))
                     throw TabStripMembers.Refused("Tab.Image");
                 var added = strip.Model.Add(caption: tab.GetValueOrDefault("Caption") as string ?? "", key: tab.GetValueOrDefault("Key") as string ?? "");
                 var wrapper = strip.Tabs.Wrap(added);

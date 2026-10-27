@@ -217,6 +217,23 @@ and loaded blocks lacking measured extents SHALL keep the designer read-only.
 - **WHEN** a saved TabStrip requires ImageList, Font or tab-image runtime loading
 - **THEN** it reports the not-implemented error rather than silently dropping those properties
 
+#### Scenario: Designer preview of runtime-only properties
+
+- **WHEN** a saved TabStrip with ImageList, Font or tab images is opened in the designer
+- **THEN** preview creation does not raise a runtime not-implemented error
+- **AND** those properties remain carried and view-only, with runtime refusal unchanged
+
+### Requirement: TabStrip focus events
+
+An MSComctlLib.TabStrip SHALL declare and raise GotFocus and LostFocus when it gains and loses focus.
+Mnemonic focus acquisition SHALL raise GotFocus before BeforeClick and Click.
+
+#### Scenario: Mnemonic from another control
+
+- **WHEN** focus is in a TextBox and an Alt caption mnemonic selects a TabStrip tab
+- **THEN** the TabStrip raises GotFocus, BeforeClick and Click in that order
+- **AND** moving focus back to the TextBox raises LostFocus
+
 ### Requirement: SSTab page bookkeeping preserves observable positions
 The SSTab runtime container SHALL move children by 75000 twips rather than changing their Visible or
 Enabled values. Interpreter Tab assignments SHALL use this page engine (#1090).

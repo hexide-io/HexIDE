@@ -23,6 +23,8 @@ public sealed class VBTabStrip : Control
         ["TabMinWidth"] = new(566.9291f), ["MultiRow"] = new(false), ["HotTracking"] = new(false), ["MultiSelect"] = new(false),
         ["Separators"] = new(false), ["ShowTips"] = new(true),
     };
+    static VBTabStrip() => AttachedEvents.AttachFocusEvents<VBTabStrip>();
+
     public VBTabStrip()
     {
         Tabs = new TabStripTabs(this);

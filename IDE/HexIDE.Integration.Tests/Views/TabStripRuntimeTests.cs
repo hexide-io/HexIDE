@@ -1,9 +1,15 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
+using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.Components.InBox;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -29,6 +35,42 @@ public class TabStripRuntimeTests
         var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
         var values = await ContainerRuntimeHarness.Run(ctx, env, "On Error Resume Next\n" + code + "\n");
         return values.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture) ?? "").ToArray();
+    }
+
+    [AvaloniaFact]
+    public void Every_saved_TabStrip_opens_for_the_designer()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "corpus")))
+            directory = directory.Parent;
+        var paths = Directory.GetFiles(Path.Join(directory!.FullName,
+            "corpus", "inbox-controls", "saved", "tabstrip"), "*.frm");
+        paths.Should().NotBeEmpty();
+        foreach (var path in paths)
+        {
+            var source = Vb6TextFile.ReadAllText(path);
+            var project = new ProjectDefinition(VBProjectType.EXE, "P");
+            var form = new FormDeserializer().Deserialize(project, source, new Sink())!;
+            foreach (var instance in form.Components.Where(c => c.BaseClass is TabStripComponentClass))
+            {
+                var component = (TabStripComponentClass)instance.BaseClass;
+                component.InstantiateForDesigner(instance).Should().BeOfType<VBTabStrip>();
+            }
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("      ImageList = \"ImageList1\"")]
+    [InlineData("      BeginProperty Font\n         Name = \"Arial\"\n         Size = 12\n      EndProperty")]
+    public void Runtime_only_properties_do_not_refuse_designer_preview(string property)
+    {
+        var source = Form.Replace("   End", property + "\n   End", StringComparison.Ordinal);
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, source, new Sink())!;
+        var instance = form.Components.Single(c => c.BaseClass is TabStripComponentClass);
+        TabStripComponentClass.Instance.InstantiateForDesigner(instance).Should().BeOfType<VBTabStrip>();
+        Action run = () => TabStripComponentClass.Instance.Instantiate(instance);
+        run.Should().Throw<NotImplementedException>();
     }
 
     [AvaloniaFact]
@@ -119,13 +161,13 @@ public class TabStripRuntimeTests
     {
         var (root, _, _, _) = ContainerRuntimeHarness.Spawn(Form);
         root.Should().NotBeNull();
-        var form = new HexIDE.Runtime.Serialization.FormDeserializer().Deserialize(
-            new HexIDE.Runtime.ProjectElements.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "Test"),
+        var form = new FormDeserializer().Deserialize(
+            new ProjectDefinition(VBProjectType.EXE, "Test"),
             Form, new Sink())!;
         form.CanSaveFaithfully.Should().BeFalse();
     }
 
-    private sealed class Sink : HexIDE.Runtime.Serialization.IDeserializeErrorSink
+    private sealed class Sink : IDeserializeErrorSink
     {
         public void LogError(string message) { }
     }

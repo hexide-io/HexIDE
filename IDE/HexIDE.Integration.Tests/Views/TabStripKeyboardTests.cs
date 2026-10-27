@@ -22,7 +22,7 @@ public class TabStripKeyboardTests
         public void LogError(string message) { }
     }
 
-    internal static Window Open(bool cancel = false, bool mouse = false, bool multi = false)
+    internal static Window Open(bool cancel = false, bool mouse = false, bool multi = false, bool focus = false)
     {
         var source = $$"""
             VERSION 5.00
@@ -72,6 +72,14 @@ public class TabStripKeyboardTests
                 Text1.Text = Text1.Text & "FormClick"
             End Sub
             """ : "")}}
+            {{(focus ? """
+            Private Sub TabStrip1_GotFocus()
+                Text1.Text = Text1.Text & "Got"
+            End Sub
+            Private Sub TabStrip1_LostFocus()
+                Text1.Text = Text1.Text & "Lost"
+            End Sub
+            """ : "")}}
             Private Sub TabStrip1_Click()
                 Text1.Text = Text1.Text & "Click" & TabStrip1.SelectedItem.Index
             End Sub
@@ -82,6 +90,26 @@ public class TabStripKeyboardTests
         VBLoader.RunForm(form, CancellationToken.None, out var window);
         Dispatcher.UIThread.RunJobs();
         return window;
+    }
+
+    [AvaloniaFact]
+    public void Mnemonic_raises_GotFocus_before_selection_and_leaving_raises_LostFocus()
+    {
+        var window = Open(focus: true);
+        try
+        {
+            var text = window.GetVisualDescendants().OfType<VBTextBox>().Single();
+            text.Focus();
+            Dispatcher.UIThread.RunJobs();
+            text.Text = "";
+            UiAutomationDriver.PressKey(text, "D", "Alt").Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            text.Text.Should().Be("GotBefore1Click4");
+            text.Focus();
+            Dispatcher.UIThread.RunJobs();
+            text.Text.Should().Be("GotBefore1Click4Lost");
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTheory]
