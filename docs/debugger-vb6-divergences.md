@@ -349,15 +349,14 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
   is not re-measured.
 
-### D20. A step from a function's last statement skips `End Function` — UNMEASURED
-- **VB6:** not measured. Whether F8 stops on `End Function` / `End Sub` before returning to the caller needs the
-  oracle.
-- **HexIDE:** paused on `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to
-  the caller's next line without stopping on `End Function` (2026-09-22).
-- **Why:** unknown until VB6's behaviour is measured; if VB6 stops there, the walk has no statement to stop on
-  for the `End` line.
-- **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
-  divergence until the oracle says VB6 stops there.
+### D20. A step from a function's last statement skips `End Function` — FIXED
+- **VB6:** Step Over from the last statement stops on `End Sub` / `End Function`; the next step
+  stops on the caller's next line, including an assignment from a Function. Measured in VB6 SP6 on
+  the oracle VM, recorded in [#2172](https://github.com/hexide-io/HexIDE/issues/2172).
+- **HexIDE:** a called procedure's natural end now passes through the debugger gate before returning (#2172).
+  Entry procedures retain breakpoint-only End positions: startup stepping advances from Initialize's last
+  statement into Load's first statement, as required by #2172's supervisor review.
+- **Status:** **fixed**; headless breakpoint and step regression tests cover the boundary.
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
@@ -578,3 +577,13 @@ item — VB6's watch-based Break-When-True/Changed shipped in P6b). Tracked in
 compiled backend over DAP. *(Landed since this list was written: Watches + Break-When-True/Changed + Data Tips (P6), Run To Cursor
 + Set Next Statement + Immediate assignment/Set (P7), the Locals property/control surface incl. the form-`Me` +
 child-control tree (P8 + D7 residual-1/3, D7 now RESOLVED).)*
+
+### D29. Procedure declaration and End-line breakpoints never fire — FIXED
+- **VB6:** a breakpoint on a Sub declaration pauses before its body; breakpoints on `End Sub`,
+  `End Function` and `End Property` pause after the last statement, before returning. Measured in
+  VB6 6.00.8176 SP6 on the oracle VM; probe and observations recorded in
+  [#2172](https://github.com/hexide-io/HexIDE/issues/2172).
+- **HexIDE:** Sub declarations and Sub/Function/Property Get natural ends now use the debugger gate,
+  retaining the callee's frame until continued.
+- **Status:** **fixed** for these measured boundaries. Function/Property declaration stepping and breakpoints, Property Get end stepping, early Exit and Property Let/Set boundaries
+  remain unchanged pending measurement. The measured refusal of F9 on Dim is separate from this fix.
