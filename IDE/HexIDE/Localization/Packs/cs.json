@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }
 }

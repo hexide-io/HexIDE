@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
     "Str.Dock.ScrollRight": "Przewiń karty w prawo",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia"
   }
 }

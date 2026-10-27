@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
     "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
   }
 }

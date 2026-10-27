@@ -127,6 +127,8 @@ public interface ISettingsService : INotifyPropertyChanged
     bool IsMinimapVisible { get; set; }
     bool ColorBracketsByDepth { get; set; }
 
+    bool ShowIndentGuides { get; set; }
+
     /// <summary>Pin enclosing block headers above the code while scrolling.</summary>
     bool IsStickyScrollEnabled { get; set; }
 

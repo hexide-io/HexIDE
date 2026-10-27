@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Đóng ngăn",
     "Str.Dock.ScrollLeft": "Cuộn thẻ sang trái",
     "Str.Dock.ScrollRight": "Cuộn thẻ sang phải",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Hiện đường dẫn thụt lề",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Tô màu dấu ngoặc theo độ sâu lồng nhau"
   }
 }
