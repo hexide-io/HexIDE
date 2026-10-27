@@ -1200,6 +1200,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is Components.InBox.TabStripTabs tabs)
+        {
+            if (indices.Count != 1)
+                throw AvaloniaInterop.TabStripMembers.Refused("Tabs index arguments");
+            return tabs.Item(indices[0]);
+        }
         if (value.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(indices));
         if (value.Value is VbCollection items)
@@ -1250,6 +1256,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // value; return the element control. A missing element is Err 340 (oracle-verified against vb6.exe).
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
+        if (named && maybeGroup.Value is Components.InBox.TabStripTabs tabs)
+        {
+            var indices = await EvaluateCallArgs(argsCtx);
+            if (indices.Count != 1)
+                throw AvaloniaInterop.TabStripMembers.Refused("Tabs index arguments");
+            return tabs.Item(indices[0]);
+        }
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
         if (named && maybeGroup.Value is VbCollection items)
         {
@@ -1427,6 +1440,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        if (variable.Value is VBTabStrip strip && AvaloniaInterop.TabStripMembers.IsOwn(MemberName(member)))
+            return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
             && managed.TryGetProperty(MemberName(member), out var property))
             return property;

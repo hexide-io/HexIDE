@@ -15,6 +15,13 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
+        {
+            if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))
+                throw TabStripMembers.Refused(method);
+            strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
+            return Vb6Value.Nothing;
+        }
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
         // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
         // is 438 late-bound (measured).
