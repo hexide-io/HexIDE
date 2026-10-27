@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Visualizza compilazione condizionale come",
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
     "Str.LspArtifact.Title": "File dell’area di lavoro",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
     "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.PropDesc.ImageWidth": "La larghezza delle immagini.",
+    "Str.PropDesc.ImageHeight": "L’altezza delle immagini.",
+    "Str.PropDesc.MaskColor": "Il colore dei pixel trasparenti.",
+    "Str.PropDesc.UseMaskColor": "Indica se usare il colore della maschera.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento"
   }

@@ -1,6 +1,7 @@
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Dock.Model.Core;
+using Dock.Model.Controls;
+using System.Runtime.CompilerServices;
 using Dock.Model.Mvvm.Controls;
 using HexIDE;
 using HexIDE.IDE;
@@ -147,6 +148,29 @@ public class DockFactoryTests
         var imm = factory.CaptureManifest(root).Tools.Single(t => t.Key == "immediate");
         imm.Open.Should().BeTrue();
         imm.Region.Should().Be(DockRegion.Bottom);
+    }
+
+    [Fact]
+    public void PlaceTool_ReopensToolbox_InNonemptyLeftDock()
+    {
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var main = (IDock)root.DefaultDockable!;
+        var original = main.VisibleDockables!.OfType<IToolDock>().Single(d => d.Alignment == Alignment.Left);
+        var toolbox = (Dock.Model.Mvvm.Controls.Tool)original.ActiveDockable!;
+        toolbox.CanClose = true;
+        factory.CloseDockable(toolbox);
+        main.VisibleDockables!.OfType<IToolDock>().Should().NotContain(d => d.Alignment == Alignment.Left);
+
+        factory.PlaceTool(root, toolbox, rightFallback: false);
+
+        var left = main.VisibleDockables!.OfType<IToolDock>().Single(d => d.Alignment == Alignment.Left);
+        left.VisibleDockables.Should().ContainSingle().Which.Should().BeSameAs(toolbox);
+        left.ActiveDockable.Should().BeSameAs(toolbox);
+        left.Proportion.Should().BeGreaterThan(0);
+        left.IsEmpty.Should().BeFalse();
+        toolbox.Owner.Should().BeSameAs(left);
     }
 
     [Fact]

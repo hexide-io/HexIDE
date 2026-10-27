@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-разрядная",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-разрядная",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-разрядная",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-разрядная",
     "Str.CodeEditor.ViewAs.Tooltip": "Показать условную компиляцию для",
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
     "Str.LspArtifact.Title": "Файлы рабочей области",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
     "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
+    "Str.PropDesc.ImageWidth": "Ширина изображений.",
+    "Str.PropDesc.ImageHeight": "Высота изображений.",
+    "Str.PropDesc.MaskColor": "Цвет прозрачных пикселей.",
+    "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
   }

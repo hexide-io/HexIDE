@@ -190,6 +190,14 @@ weigh, because a message count tells them nothing about how much of their source
 - **WHEN** a client and a server referred to one document by two spellings
 - **THEN** the two spellings remain distinguishable in the exported capture
 
+#### Scenario: Absolute paths in diagnostic prose
+- **WHEN** an exported body or Language Servers report detail or configuration problem contains a plain absolute drive-letter, UNC or Unix path
+- **THEN** redaction SHALL apply the local-path segment mapping, preserving separators
+- **AND** quoted paths SHALL support spaces, while unquoted paths end at whitespace or prose punctuation
+- **AND** before matching prose paths, redaction SHALL replace the user profile and temp roots literally with fixed tokens; Language Servers reports SHALL also register each open project and connection workspace root
+- **AND** longest roots SHALL win, supporting either separator, Windows case variants, trailing separators and percent-encoded URI spellings
+- **AND** relative paths and ambiguous unquoted paths containing spaces outside these roots remain outside this guarantee
+
 #### Scenario: A client-supplied workspace folder name
 - **WHEN** HexIDE initializes a language server with pseudonymisation enabled
 - **THEN** it SHALL send each workspace folder's name as the same session pseudonym used for that folder's URI segment in an export

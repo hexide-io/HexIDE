@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bits",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Voorwaardelijke compilatie weergeven als",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
     "Str.LspArtifact.Title": "Werkruimtebestanden",
@@ -901,6 +903,10 @@
     "Str.Dock.Close": "Paneel sluiten",
     "Str.Dock.ScrollLeft": "Tabbladen naar links schuiven",
     "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven",
+    "Str.PropDesc.ImageWidth": "De breedte van de afbeeldingen.",
+    "Str.PropDesc.ImageHeight": "De hoogte van de afbeeldingen.",
+    "Str.PropDesc.MaskColor": "De kleur voor transparante pixels.",
+    "Str.PropDesc.UseMaskColor": "Of de maskerkleur wordt gebruikt.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
   }
