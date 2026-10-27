@@ -5,7 +5,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using AvaloniaEdit;
-using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
 using HexIDE.IDE;
 
@@ -36,16 +35,16 @@ internal sealed class IndentGuideRenderer : IBackgroundRenderer, IDisposable
 
     internal readonly record struct Guide(int Line, int Column, bool Active);
 
-    internal static IReadOnlyList<Guide> GetGuides(TextDocument document, int tabWidth, int caretLine, bool enabled)
+    internal static IReadOnlyList<Guide> GetGuides(IReadOnlyList<string> lines, int tabWidth, int caretLine, bool enabled)
     {
         var result = new List<Guide>();
         if (!enabled) return result;
         tabWidth = Math.Max(1, tabWidth);
-        var indents = new int[document.LineCount];
-        var blank = new bool[document.LineCount];
-        foreach (var line in document.Lines)
+        var indents = new int[lines.Count];
+        var blank = new bool[lines.Count];
+        for (int i = 0; i < lines.Count; i++)
         {
-            var text = document.GetText(line);
+            var text = lines[i];
             int column = 0, index = 0;
             for (; index < text.Length; index++)
             {
@@ -53,8 +52,8 @@ internal sealed class IndentGuideRenderer : IBackgroundRenderer, IDisposable
                 else if (text[index] == '\t') column += tabWidth - column % tabWidth;
                 else break;
             }
-            indents[line.LineNumber - 1] = column;
-            blank[line.LineNumber - 1] = index == text.Length;
+            indents[i] = column;
+            blank[i] = index == text.Length;
         }
         // Empty lines continue only the indentation shared by their surrounding code.
         int previous = 0;
@@ -83,7 +82,8 @@ internal sealed class IndentGuideRenderer : IBackgroundRenderer, IDisposable
     public void Draw(TextView textView, DrawingContext drawingContext)
     {
         if (!textView.VisualLinesValid || !_settings.ShowIndentGuides) return;
-        var guides = GetGuides(_editor.Document, _settings.TabWidth, _editor.TextArea.Caret.Line, true);
+        var lines = _editor.Document.Lines.Select(line => _editor.Document.GetText(line)).ToArray();
+        var guides = GetGuides(lines, _settings.TabWidth, _editor.TextArea.Caret.Line, true);
         var byLine = guides.ToLookup(g => g.Line);
         var normal = _editor.FindResource("IndentGuideBrush") as IBrush;
         var active = _editor.FindResource("ActiveIndentGuideBrush") as IBrush;
