@@ -24,6 +24,20 @@ the caller how to find and answer it first. Otherwise it SHALL say the target mu
 - **THEN** nothing is pressed or invoked
 - **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
 
+### Requirement: Removing a selected list or tree item SHALL report the resulting selection
+`interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
+report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
+If the control keeps the item selected, it SHALL refuse and suggest `click` with `value: "ctrl"`.
+A single-selection list's `add_to_selection` refusal SHALL name that verb and point to `select`.
+
+#### Scenario: Clearing a watch row
+- **WHEN** `remove_from_selection` targets the selected Watches tree row
+- **THEN** the tree has no selected item and the reply says nothing is selected now
+
+#### Scenario: Removing an unselected row
+- **WHEN** the target list or tree row is not selected
+- **THEN** the selection remains unchanged and the reply says the target was not selected
+
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
 and target, describe the dialog and where it opened, warn that the key may not have landed, and state
@@ -47,6 +61,16 @@ available. The reply reports a request, not confirmation of process exit.
 #### Scenario: A close is cancelled
 - **WHEN** shutdown is requested but the IDE stays open
 - **THEN** the automation server and its context remain available
+
+### Requirement: The embedded host SHALL leave process signals to the IDE
+The embedded web host SHALL use a lifetime that installs no process signal handlers. On Unix, a Debug
+IDE started with `--server-port` SHALL handle SIGTERM by dispatching the forced `shutdown_ide` cleanup
+and main-window close to the UI thread. Its signal registration SHALL be disposed at desktop exit.
+
+#### Scenario: A supervisor terminates an automation IDE
+- **WHEN** the IDE receives SIGTERM on Unix
+- **THEN** it stops the running project and closes remaining dialogs before closing the main window
+- **AND** the web host does not independently stop and leave a live IDE without automation
 
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
 On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
@@ -537,20 +561,21 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
 
-### Requirement: Integral argument overflow explains the accepted range
+### Requirement: Integral argument overflow explains the storage limit
 The server SHALL refuse an integral argument outside its parameter's storage range with the argument
-name, supplied value, whether it is too large or too small, and the accepted whole-number range.
+name, supplied value, and whether it is larger or smaller than any whole number the argument can hold,
+including the exceeded storage limit. It SHALL NOT present the storage range as the parameter's accepted range.
 It SHALL include the parameter's declared guidance where available, and SHALL NOT expose serializer
 locations or .NET type names for that overflow. Nothing in the tool SHALL run for the refused call.
 
 #### Scenario: Hover dwell exceeds the integer range
 - **WHEN** hover receives dwellMs 3000000000
-- **THEN** the refusal names dwellMs and the whole-number range -2147483648 to 2147483647
+- **THEN** the refusal names dwellMs and says it is larger than any whole number the argument can hold (2147483647)
 - **AND** includes the declared 0 to 10000 ms dwell guidance
 
 #### Scenario: A long integer is below its minimum
 - **WHEN** an argument for a long integer parameter is -9223372036854775809
-- **THEN** the refusal says it is too small and gives -9223372036854775808 to 9223372036854775807
+- **THEN** the refusal says it is smaller than any whole number the argument can hold (-9223372036854775808)
 
 ### Requirement: Visual-tree match replies SHALL explain unselected contents
 A `dump_visual_tree` match reply SHALL name unselected document tabs when searching the IDE window,

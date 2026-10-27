@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
@@ -16,6 +17,9 @@ internal static class IdeServer
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
+        // The IDE owns the process. ConsoleLifetime would swallow SIGTERM and stop only the server.
+        builder.Services.RemoveAll<IHostLifetime>();
+        builder.Services.AddSingleton<IHostLifetime, IdeServerLifetime>();
 
         // Listen on loopback and ONLY loopback, stated as an endpoint rather than as a URL.
         //
@@ -97,4 +101,10 @@ internal sealed class IdeServerStartException(int port, Exception inner)
     : Exception($"The automation server could not start on port {port}.", inner)
 {
     public int Port { get; } = port;
+}
+
+internal sealed class IdeServerLifetime : IHostLifetime
+{
+    public Task WaitForStartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
