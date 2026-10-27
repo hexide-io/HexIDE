@@ -333,7 +333,7 @@ public sealed class VBLspClient : ILspClient
         if (_transport.Unobservable is { Length: > 0 } unobservable)
             Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
-        var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
+        var rpc = new LspJsonRpc(handler, new LspNotificationReceiver(this));
         var cancellation = new LspCancellationStrategy(rpc, _logger);
         rpc.CancellationStrategy = cancellation;
         rpc.AddLocalRpcTarget(cancellation);
@@ -1070,15 +1070,33 @@ public sealed class VBLspClient : ILspClient
             ServerCapabilities.DiagnosticIdentifier(_capabilities?.Value),
             previousResultId);
 
+        var connection = Volatile.Read(ref _connection);
+        _openDocuments.TryGetValue(uri, out var document);
+        var delay = 250;
         JsonElement? raw;
-        try
+        while (true)
         {
-            raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
-        }
-        catch (Exception ex)
-        {
-            WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
-            return;
+            try
+            {
+                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
+                break;
+            }
+            catch (RemoteInvocationException ex) when (ShouldRetryDiagnostic(ex))
+            {
+                await Task.Delay(delay);
+                delay = Math.Min(delay * 2, 4000);
+                // A fresh pull owns a newer generation. A close/reopen or reconnect must not revive this one.
+                if (!_initialized || !ReferenceEquals(rpc, _rpc)
+                    || connection != Volatile.Read(ref _connection)
+                    || !_openDocuments.TryGetValue(uri, out var current) || current != document
+                    || !_pullGeneration.TryGetValue(uri, out var latest) || latest != generation)
+                    return;
+            }
+            catch (Exception ex)
+            {
+                WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
+                return;
+            }
         }
 
         // Checked and published under one gate, or a newer answer can publish between the two and this one land
@@ -1099,6 +1117,20 @@ public sealed class VBLspClient : ILspClient
             ApplyDiagnosticReport(uri, raw);
         }
     }
+
+    private sealed class LspJsonRpc(IJsonRpcMessageHandler handler, object target) : JsonRpc(handler, target)
+    {
+        // The default CommonErrorData discards LSP's retriggerRequest field.
+        protected override Type? GetErrorDetailsDataType(StreamJsonRpc.Protocol.JsonRpcError error) =>
+            error.Error?.Code == (StreamJsonRpc.Protocol.JsonRpcErrorCode)(-32802) ? typeof(JsonElement) : base.GetErrorDetailsDataType(error);
+    }
+
+    private static bool ShouldRetryDiagnostic(RemoteInvocationException ex) =>
+        ex.ErrorCode == -32801
+        || (ex.ErrorCode == -32802
+            && !(ex.ErrorData is JsonElement { ValueKind: JsonValueKind.Object } data
+                && data.TryGetProperty("retriggerRequest", out var retrigger)
+                && retrigger.ValueKind == JsonValueKind.False));
 
     /// <summary>
     /// Reads one diagnostic report and publishes what it means.

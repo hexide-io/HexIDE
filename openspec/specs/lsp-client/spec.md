@@ -883,9 +883,14 @@ A server that does not advertise the capability SHALL NOT be reported as deficie
 complete and correct answer — it publishes instead — and treating the absence as a missing feature would
 blame every conformant publishing server for the way it conforms.
 
-The client SHALL ask when a document is opened, after it changes, and when it is saved. It SHALL NOT
-introduce pacing of its own for this: the edit stream is already coalesced before it reaches the client, and
+The client SHALL ask when a document is opened, after it changes, and when it is saved. For these triggers
+it SHALL NOT introduce pacing of its own: the edit stream is already coalesced before it reaches the client, and
 a second authority over the same question would answer it differently.
+
+A document pull answered ContentModified (`-32801`) or ServerCancelled (`-32802`) SHALL be retried,
+unless ServerCancelled carries `data.retriggerRequest: false`. Retries SHALL wait 250 ms initially,
+doubling to a 4-second cap, and SHALL stop when the document closes, changes, a newer pull supersedes them,
+or the connection is replaced. Each retry SHALL be recorded as its own protocol request.
 
 A server MAY additionally ask to be asked again, and the client SHALL honour that by re-requesting every
 open document. It is the only means such a server has of reporting a change that is not a document — its
@@ -905,6 +910,18 @@ derived from a configuration that no longer exists, with no event that would eve
 #### Scenario: The document changes
 - **WHEN** an open document is edited
 - **THEN** the client asks again, and the answer replaces what that server last said about the document
+
+#### Scenario: A diagnostic pull is temporarily unavailable
+- **WHEN** a document pull is answered ContentModified and the document remains open and unchanged
+- **THEN** the client asks again after back-off and publishes the successful report
+
+#### Scenario: The server refuses a diagnostic retry
+- **WHEN** a document pull is answered ServerCancelled with `data.retriggerRequest: false`
+- **THEN** the client does not retry that request
+
+#### Scenario: The document closes during diagnostic back-off
+- **WHEN** the document closes before a retry is sent
+- **THEN** that retry is not sent
 
 #### Scenario: The server says its answers are stale
 - **WHEN** such a server asks for diagnostics to be refreshed
