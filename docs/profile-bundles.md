@@ -76,7 +76,7 @@ successor narrowed placement to a CLR type, which made the foreign-command case 
 | Surface | Data-driven today? | Effort to get there | The one fact that decides it |
 |---|---|---|---|
 | **Key bindings** | Partly | S–M | A JSON keymap system already ships — loader, command registry, Options UI, live rebinding, conflict scan, its own openspec capability. |
-| **Theme packs** | Partly | S | The pack format exists and is already JSON. Only the *discovery* is missing. |
+| **Theme packs** | Yes | S | JSON packs in the active user-data directory’s `themes` folder are discovered at launch and loaded on selection (#413). |
 | **Language packs** | Partly | M | Embedded packs already take a disk-backed override layer with change notification and validation. |
 | **Settings / per-user paths** | Partly | S | `UserDataPath` is a single computed seam that nine of the ten per-user files already funnel through. |
 | **Toolbars** | Not at all | M in-tree, L shippable | 55 buttons and one toggle, each an independently authored AXAML block in one file. |
@@ -207,7 +207,7 @@ contradictions still want their `## Purpose` notes, the second half of that rule
 
 | Where | Divergence | Issue |
 |---|---|---|
-| `specs/theme-packs` | Requires a user theme with "no code change and no rebuild". Packs are compiled resources behind a hard-coded array; both are required. | [#413](https://github.com/hexide-io/HexIDE/issues/413) |
+| `specs/theme-packs` | Resolved: disk packs are discovered without code changes or rebuilding. | [#413](https://github.com/hexide-io/HexIDE/issues/413) |
 | `specs/keymap-packs` | Resolved: user JSON packs are discovered from disk alongside the two built-in choices. | [#414](https://github.com/hexide-io/HexIDE/issues/414) |
 | `specs/ide-personalities` | States a personality controls toolbar buttons. No toolbar button is gated on personality anywhere. | [#419](https://github.com/hexide-io/HexIDE/issues/419) |
 | `specs/icon-system` | A **Requirement**, not just the Purpose, says icons "SHALL be original vector geometries". They are Fluent UI System Icons — MIT, recorded in `THIRD-PARTY-NOTICES.md`, and the VB6-extracted artwork the clause was written against is gone. The licence position is sound; the word "original" is what is false. | [#420](https://github.com/hexide-io/HexIDE/issues/420) |
