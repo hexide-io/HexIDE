@@ -1,11 +1,11 @@
 ## In-box controls: the TabStrip (2026-10-27, #1089)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with MSCOMCTL.OCX, on Windows 10 at 96 dpi.
+- **The software:** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX, on Windows 10 at 96 dpi.
   - The form line is `Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.OCX"`.
   - The block is `Begin MSComctlLib.TabStrip`, `_Version` 393216.
 - **The form:** written by hand. It held TabStrip1 at Left 120, Top 120, 5000 × 3000, with only its position, extents
-  and `_Version`, and VB6's saved three-image ImageList from `corpus/inbox-controls/pending/imagelist/three/`.
+  and `_Version`, and VB6's saved three-image ImageList from `corpus/inbox-controls/saved/imagelist/three/`.
 - **The programs:** each ran in a Sub Main and logged each value with its `TypeName`.
   - Every error was read straight after its statement, before any helper ran.
   - Questions that earlier statements could disturb each ran on a fresh instance of the form.

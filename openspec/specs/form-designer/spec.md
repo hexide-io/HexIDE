@@ -289,6 +289,22 @@ write failure SHALL be reported to the user.
 - **GIVEN** an opaque OCX block contains an image
 - **THEN** the Properties window offers no export for that property bag
 
+### Requirement: A tool drag preview SHALL match the control placed on release
+The designer SHALL use the same rectangle and container calculation for a tool drag's preview and placement.
+The calculation SHALL snap the corners to the nearest lines of the grid measured from the client origin of
+the innermost container under the press, hold the rectangle to that container, and include the extra pixel
+past the far corner. With the grid off, the extra pixel SHALL still be included. Placement with an explicit
+size (`add_control`) SHALL keep its own container hold and SHALL NOT add that pixel.
+
+#### Scenario: Drawing inside a bordered PictureBox
+- **WHEN** a tool drag begins inside a PictureBox nested in a Frame and moves beyond the PictureBox
+- **THEN** the preview uses the PictureBox's grid and container limits
+- **AND** releasing at the same point places a control with that rectangle in the PictureBox
+
+#### Scenario: Drawing with the grid off
+- **WHEN** a tool drag spans 45 by 17 pixels with snapping disabled
+- **THEN** the preview and the placed rectangle both measure 46 by 18 pixels
+
 ### Requirement: The designer SHALL offer a read-only tab-order overlay
 The designer SHALL offer a toggle, initially off, that draws each modelled control's existing `TabIndex` over its
 canvas position. Controls without that property SHALL have no badge. A badge SHALL be crossed out with a diagonal slash when the control

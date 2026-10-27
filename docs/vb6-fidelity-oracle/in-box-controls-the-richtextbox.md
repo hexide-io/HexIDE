@@ -1,7 +1,7 @@
 ## In-box controls: the RichTextBox (2026-10-27, #1100)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with RICHTX32.OCX 6.01.9782, on Windows 10.
+- **The software:** VB6 SP6 (6.00.9782), with RICHTX32.OCX 6.01.9782, on Windows 10.
   - The form line is `Object = "{3B7C8863-D78F-101B-B9B5-04021C009402}#1.2#0"; "RICHTX32.OCX"`.
   - The block is `Begin RichTextLib.RichTextBox`, `_Version` 393217.
 - **The form:** written by hand, holding RichTextBox1 5000 × 3000 with only its position, extents and `_Version`.
@@ -235,6 +235,94 @@ each action in the log, which recorded every event. Native and p-code logged the
 
 - **Assigning Text at load raised Change** before the form's code ran on.
 - **Mouse X and Y are in twips.**
+
+### Keyboard selection: where the endpoints land (2026-10-27)
+
+**The probe:**
+- **The form:** RichTextBox1, a hand-written minimal block 8700 twips wide so that no line wraps, and Text1, a
+  MultiLine TextBox the same size, for comparison.
+- **The text,** with SelStart's positions:
+
+  | Positions | Text |
+  |---|---|
+  | 0 to 39 | `Hello, world. Foo-bar baz! it's 3.14 (x)` |
+  | 40, 41 | a line break, vbCrLf |
+  | 42, 43 | an empty line's break |
+  | 44 to 61 | `Second line, here.` |
+  | 62, 63 | a break |
+  | 64 to 66 | `End` |
+
+  Both controls read Len(Text) 67, with CR and LF at 40 to 43 and 62 to 63.
+- **The input.** Each case placed the caret, or a selection, from code, then pressed real keys with keybd_event. SelStart
+  and SelLength were read after each key.
+- **The builds.** Native and p-code logged the same lines.
+
+**A paragraph break is one step, two positions.** Shift+Right from 40 gave 40+2, 40+4, then 40+5, in both controls.
+Shift+Left from 44 came back the same way.
+
+| From | Keys | RichTextBox | TextBox |
+|---|---|---|---|
+| 0 | Shift+Right; Shift+Left | 0+1; 0+0 | the same |
+| 5 | Shift+Left twice | 4+1, 3+2 | the same |
+| 9 | Shift+Home | 0+9 | the same |
+| 9 | **Shift+End**, then again | **9+33, to 42: past the line's break** | **9+31, to 40: before it** |
+| 9 | Shift+Home then Shift+End | 0+9, then 9+33 | 0+9, then 9+31 |
+| 3 | **Shift+Down** three times | **3+41, 3+61, 3+66** | **3+39, 3+41, 3+61** |
+| 3 | Shift+Down then Shift+Up | 3+41, then 0+3 | 3+39, then 0+3 |
+| 3 | **Shift+Up, on the first line** | **0+3, to the start** | **3+0, no change** |
+| 66 | **Shift+Down, on the last line** | **66+3, to 69** | **66+0, no change** |
+| 67, the end | **Shift+Right** | **67+2, to 69** | **67+0** |
+| 67 | Shift+Home | 64+3 | the same |
+
+- **A RichTextBox extending to the end of a line takes in the line's break.**
+  - Shift+End stopped at 42, not 40.
+  - Shift+Down onto the empty line went to 44.
+  - At the end of the text, a selection went two positions past Len(Text), to 69. **SelStart + SelLength can exceed
+    Len(Text) by 2.** That is the hidden break after the last line.
+- **Up and Down, after an empty line:** in both controls, the next Down went to the start of the next line, not back to
+  the column the caret started in.
+- **Shift+Up on the first line, and Shift+Down on the last,** extend to the start and to the end in the RichTextBox. The
+  TextBox does nothing.
+
+**Which end moves:**
+
+| Selection | Keys | RichTextBox | TextBox |
+|---|---|---|---|
+| **7+5 set by code** | Shift+Left; Shift+Right | 7+4; 7+6: **the end at 12 moves** | the same |
+| 7+5 made by Shift+Left from 12 | Shift+Right; Shift+Left | 8+4; 6+6: the end at 7 moves | the same |
+| 7+5 by code | **Left** | **7+0: collapses to its start** | **11+0: one left of the end at 12** |
+| 7+5 by code | **Right** | **12+0: collapses to its end** | **13+0: one right of 12** |
+| 7+5 made backwards | **Left** | **7+0** | **6+0: one left of the end at 7** |
+| 7+5 by code | **Ctrl+Right** | **12+0: collapses, and goes no further** | **14+0: a word on from 12** |
+| 7+5 by code | Ctrl+Shift+Right | 7+7 | the same |
+
+**So a selection set by code has its moving end at SelStart + SelLength.** Plain Left and Right collapse a
+RichTextBox's selection to the side pressed. A TextBox moves its caret one position from the moving end.
+
+**Ctrl+Right and Ctrl+Left: where the caret stops,** walked from each end until it stopped moving:
+
+| Walk | RichTextBox | TextBox |
+|---|---|---|
+| Ctrl+Right from 0 | 5, 7, 12, 14, 17, 18, 22, 25, 27, 32, 33, 34, 37, 38, 39, 40, 42, 44, 51, 55, 57, 61, 62, 64, 67 | 7, 14, 18, 22, 27, 32, 37, 40, 42, 44, 51, 57, 62, 64, 67 |
+| Ctrl+Left from 67 | 64, 62, 61, 57, 55, 51, 44, 42, 40, 39, 38, 37, 34, 33, 32, 27, 25, 22, 18, 17, 14, 12, 7, 5, 0 | 64, 62, 57, 51, 44, 42, 40, 37, 32, 27, 22, 18, 14, 7, 0 |
+| Ctrl+Right from 16, inside `Foo` | 17, then as above | 18, then as above |
+
+- **The RichTextBox stops at each run of punctuation as a word of its own:**
+  - `Hello` stops at 5, before the comma, then at 7;
+  - `world.` at 12, before the full stop;
+  - `Foo-bar` at 17, before the hyphen, then at 18;
+  - `baz!` at 25;
+  - `3.14` at 32, 33 and 34;
+  - `(x)` at 37, 38 and 39.
+
+  **The apostrophe in `it's` is not a break.**
+- **The TextBox stops only at the start of each word.** A comma, full stop or bracket goes with the word before it, and
+  so does a hyphen: `Foo-` then `bar`.
+- **In both, a word takes the spaces after it.** The stop is at the next word's first character.
+- **In both, the end of a line is a stop:** 40, then the empty line at 42, then 44. Ctrl+Right from 40 doesn't go
+  straight to 44.
+- **Ctrl+Shift with the arrows stops at the same places,** extending from the anchor. From 0: 0+5, 0+7, 0+12. From 40
+  leftwards: 39+1, 38+2, 37+3.
 
 ### Drawing
 

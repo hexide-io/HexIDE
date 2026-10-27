@@ -76,12 +76,46 @@ public class StatusBarDrawingAndEventsTests : WindowTestFixture
         recorder.Calls.Should().BeEmpty();
     }
 
-    private static VBStatusBar DrawingBar(Func<long, bool>? keys = null)
+    private static VBStatusBar DrawingBar(Func<long, bool>? keys = null) => Arranged(new VBStatusBar(keys ?? (_ => false)));
+
+    private static VBStatusBar Arranged(VBStatusBar bar)
     {
-        var bar = new VBStatusBar(keys ?? (_ => false)) { Width = 400, Height = 25, FontSize = 11 };
+        bar.Width = 400;
+        bar.Height = 25;
+        bar.FontSize = 11;
         bar.Measure(new Size(400, 25));
         bar.Arrange(new Rect(0, 0, 400, 25));
         return bar;
+    }
+
+    // The keyboard a bar reads by default prefers a state automation set, so a key panel's on state can be live-checked
+    // on Windows, where press_key can't change the toggle the bar reads (#2296).
+    [AvaloniaTheory]
+    [InlineData(1, LockKey.CapsLock)]
+    [InlineData(2, LockKey.NumLock)]
+    [InlineData(3, LockKey.Insert)]
+    [InlineData(4, LockKey.ScrollLock)]
+    public void A_key_panel_follows_a_lock_key_set_by_automation(int style, LockKey key)
+    {
+        var bar = Arranged(new VBStatusBar());
+        var panel = bar.Panels.Items[0];
+        panel.TrySetProperty("Text", new Vb6Value("Own text"));
+        var enabledText = Draw(bar);
+        panel.TrySetProperty("Style", new Vb6Value(style));
+        try
+        {
+            LockKeys.SetOverride(key, true);
+            Draw(bar).Should().Equal(enabledText, "a key set on draws its text as an enabled panel does");
+            LockKeys.SetOverride(key, false);
+            var off = Draw(bar);
+            off.Should().NotEqual(enabledText, "a key set off draws its text greyed");
+            LockKeys.SetOverride(key, null);
+            Draw(bar).Should().Equal(LockKeys.Keyboard(key) == true ? enabledText : off, "cleared, it reads the keyboard again");
+        }
+        finally
+        {
+            LockKeys.SetOverride(key, null);
+        }
     }
 
     private static byte[] Draw(VBStatusBar bar)
