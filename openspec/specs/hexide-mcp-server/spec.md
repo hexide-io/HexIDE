@@ -14,16 +14,6 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
-### Requirement: Click and invoke SHALL refuse disabled targets with the reason
-`interact` SHALL refuse `click` and `invoke` before sending input to a disabled target or a target in a
-disabled window. When a modal dialog blocks that window, the refusal SHALL identify the dialog and tell
-the caller how to find and answer it first. Otherwise it SHALL say the target must be enabled first.
-
-#### Scenario: A reset prompt disables the running form
-- **WHEN** a caller clicks or invokes a button in the form while a modal reset prompt disables it
-- **THEN** nothing is pressed or invoked
-- **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
-
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
 and target, describe the dialog and where it opened, warn that the key may not have landed, and state
@@ -639,6 +629,26 @@ pressing.
 
 - **WHEN** a drag in Dock's layout releases where no drop target is
 - **THEN** the reply says the layout is unchanged, so nothing was docked
+
+### Requirement: Disabled interaction targets explain their refusal
+The server SHALL refuse `interact` provider and pointer actions on an effectively disabled target before
+acting, naming the control, `"isEnabled": false`, and the refused action, and stating that nothing was
+done. The refusal SHALL name the disabling container when enablement is inherited. When a modal dialog
+blocks the window, it SHALL name the dialog and direct the caller to find and answer it first. Reflection
+actions `invoke_command` and `set_property` SHALL continue to act on the view model.
+
+#### Scenario: Invoking a disabled toolbar button
+- **WHEN** `interact` invokes a showing button disabled directly or through its container
+- **THEN** the reply explains that it is disabled and nothing was done, without reporting an exception
+
+#### Scenario: A disabled Frame contains an enabled button
+- **WHEN** a caller acts on a button whose Frame disables it
+- **THEN** the refusal names the Frame and the action, and nothing is done
+
+#### Scenario: A reset prompt disables the running form
+- **WHEN** a caller acts on a control while a modal reset prompt disables its window
+- **THEN** the refusal names the blocking dialog and directs the caller to answer it
+- **AND** nothing is done
 
 ### Requirement: Properties category expansion
 

@@ -284,7 +284,7 @@ public class ProgramWaitTests
         {
             var watch = run.Watch();
             run.Named("Text1").Focus();
-            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "typed");
+            var outcome = SetTextForWait(run.Named("Text1"), "typed");
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
 
             outcome.Detail.Should().Contain("still running Command1_Click"
@@ -578,7 +578,7 @@ public class ProgramWaitTests
                 watch = run.Watch()!;
             }
             watch.Pump.IsIdle.Should().BeFalse();
-            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "done");
+            var outcome = SetTextForWait(run.Named("Text1"), "done");
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
             outcome.Detail.Should().NotContain("'HexIDE'");
@@ -745,6 +745,13 @@ public class ProgramWaitTests
     {
         control.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         return new InteractOutcome(true, "test-event", "Raised Click", null);
+    }
+
+    // Like ClickForWait, arrange a programmatic change while a modal dialog blocks input.
+    private static InteractOutcome SetTextForWait(Control control, string text)
+    {
+        ((TextBox)control).Text = text;
+        return new InteractOutcome(true, "test-event", "Set Text", null);
     }
 
     // An error dialog an earlier call left open over the form, and a MsgBox this click raised: the wait names the MsgBox,
