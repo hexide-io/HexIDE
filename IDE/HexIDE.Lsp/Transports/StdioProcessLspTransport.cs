@@ -75,7 +75,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
     {
         var serverInfo = _serverInfo;
 
-        // The server is launched directly. There used to be an interposed debug proxy here, reached by
+        // There used to be an interposed debug proxy here, reached by
         // setting VB6_LSP_DEBUG_PROXY=1, which relaunched the server underneath a byte-forwarding process
         // that logged every frame to its own stderr. The protocol inspector reads the same traffic from
         // inside this client and reads strictly more of it — see docs/lsp-client.md.
@@ -179,6 +179,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         try
         {
             _job = new ChildProcessJob();
+            LaunchedServerGuard.Wrap(_process.StartInfo);
             _process.Start();
             _job.Assign(_process);
             _process.BeginErrorReadLine();
@@ -204,7 +205,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             LastFailure =
                 $"could not start '{fileName}' (cwd: {(string.IsNullOrEmpty(cwd) ? "<inherited>" : cwd)}): {ex.Message}";
             _process.Exited -= OnProcessExited;
-            try { _process.Kill(entireProcessTree: true); } catch { /* not started, or already gone */ }
+            try { LaunchedServerGuard.Kill(_process); } catch { /* not started, or already gone */ }
             _job?.Dispose();
             _job = null;
             try { _process.WaitForExit(2000); } catch { /* not started, or already gone */ }
@@ -301,7 +302,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         }
         catch (TimeoutException)
         {
-            try { process.Kill(entireProcessTree: true); } catch { /* already gone */ }
+            try { LaunchedServerGuard.Kill(process); } catch { /* already gone */ }
             try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)); } catch { /* best effort */ }
         }
         lock (_exitGate)

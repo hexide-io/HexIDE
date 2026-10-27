@@ -272,7 +272,15 @@ On Windows, each stdio or launched pipe server SHALL be assigned immediately aft
 assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
 the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
 assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
-start suspended. Unix crash teardown remains cooperative pending the watchdog part of #406.
+start suspended.
+
+On Linux and macOS, stdio and launched pipe servers SHALL run under `HexIDE.LspGuard`, which
+SHALL create its own process group before starting the server with inherited stdin, stdout and stderr.
+Every 500 ms the guard SHALL check whether its parent has changed. On reparenting it SHALL send
+SIGTERM to its group and, after two seconds, SIGKILL. It SHALL preserve the server's exit code when
+the server exits on its own. After the normal transport grace period, a remaining guard SHALL be
+terminated with its group. Externally owned servers SHALL NOT be guarded. Descendants that leave
+the group are outside this guarantee.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
@@ -282,6 +290,11 @@ still goes away.
 - **GIVEN** a launched stdio or pipe server has been assigned to the job and then spawned a child
 - **WHEN** the IDE process is killed without disposing the transport
 - **THEN** the OS ends both the server and its child by closing the IDE's job handle
+
+#### Scenario: The Unix IDE is killed without shutdown
+- **GIVEN** a launched stdio or pipe server and its child remain in the guard's process group
+- **WHEN** the IDE is killed without disposing the transport
+- **THEN** the guard detects reparenting and terminates the group, escalating after two seconds
 
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
