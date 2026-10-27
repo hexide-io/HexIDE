@@ -2,7 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
@@ -898,7 +899,7 @@
     "Str.Dock.Close": "Paneel sluiten",
     "Str.Dock.ScrollLeft": "Tabbladen naar links schuiven",
     "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
   }
 }

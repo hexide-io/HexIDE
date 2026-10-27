@@ -2,7 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antall festede overskrifter",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
@@ -898,7 +899,7 @@
     "Str.Dock.Close": "Lukk panel",
     "Str.Dock.ScrollLeft": "Rull faner til venstre",
     "Str.Dock.ScrollRight": "Rull faner til høyre",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antall festede overskrifter"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis innrykkslinjer",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
   }
 }

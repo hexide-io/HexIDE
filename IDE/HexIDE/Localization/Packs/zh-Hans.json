@@ -2,7 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位",
@@ -898,7 +899,7 @@
     "Str.Dock.Close": "关闭窗格",
     "Str.Dock.ScrollLeft": "向左滚动选项卡",
     "Str.Dock.ScrollRight": "向右滚动选项卡",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
   }
 }

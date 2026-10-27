@@ -2,7 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
@@ -898,7 +899,7 @@
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
   }
 }
