@@ -2584,6 +2584,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         if (!raised.Success || landing is not { } at) return raised;
         var hovered = at.Receiver;
+        // The real mouse, or another hover running at the same time, takes the tip, and only the window's input says so (#2376).
+        var watch = at.ThroughWindowInput
+            ? await Dispatcher.UIThread.InvokeAsync(() =>
+                TopLevel.GetTopLevel(hovered) is { } top && at.Receiver.TranslatePoint(at.Point, top) is { } point
+                    ? new UiAutomationDriver.ForeignPointerWatch(top, point) : null)
+            : null;
+        string? moved = null;
 
         // POLLED. A tip opens after a dwell, and the move raised on the control in the fallback never set the pointer
         // over anything, so Avalonia closed the editor's tip again shortly after it opened: looking once when the dwell
@@ -2633,6 +2640,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
         finally
         {
+            if (watch is not null)
+                moved = await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    var what = watch.Moved;
+                    watch.Dispose();
+                    return what;
+                });
             // The pointer then leaves, closing the tip, so the next action finds the window with nothing over it: a tip
             // left open covered what a click was aimed at, and the click's press, raised on the control, never closed it.
             if (at.ThroughWindowInput)
@@ -2648,15 +2662,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     TipBounds = [Round(where.Bounds.X), Round(where.Bounds.Y), Round(where.Bounds.Width), Round(where.Bounds.Height)],
                 };
 
-        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms";
+        // Said as a fact when input the hover did not send moved the pointer during the watch, whether or not a tip is
+        // declared: quick info and Auto Data Tips declare none, and missed the same way (#2376). Not for a disabled target,
+        // which opened none to take, and whose reply already says why.
+        var took = enabled ? moved : null;
+        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")");
         return raised with
         {
             Detail = declared is null
                 ? unopened
                 : unopened
-                  + (!at.ThroughWindowInput
+                  + (took is not null ? string.Empty
+                      : !at.ThroughWindowInput
                       ? " (the move was raised on the control, which Avalonia's ToolTipService never sees)"
-                      : enabled ? " (its ToolTip.ShowDelay may be longer than the watch, or a real pointer moved over the window and took the tip)" : string.Empty)
+                      : enabled ? " (its ToolTip.ShowDelay may be longer than the watch)" : string.Empty)
                   + "; declared tip: " + declared,
         };
     }

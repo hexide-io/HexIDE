@@ -553,6 +553,20 @@ report `isKeyboardFocusable` false for such a control.
 - **WHEN** `press_key` presses Down on Options → Language's region combo while it is disabled
 - **THEN** the reply is a refusal saying the combo is disabled and nothing was done, and no key reaches it
 
+### Requirement: hover SHALL say what took the tip when input it did not send moved the pointer
+When no tip opens during `hover`'s watch and pointer input it did not send reached the window meanwhile, the reply SHALL
+say so as the cause: the real mouse, or another hover running at the same time, with where the pointer went and the control
+it is over. It SHALL say to move the real mouse off the window, or to hover one control at a time. It SHALL NOT offer either
+cause when no such input came, and SHALL NOT count routed pointer events a tool raises on a control, which cannot move a tip.
+
+#### Scenario: The real mouse resting over the window
+- **WHEN** the real mouse moves the pointer onto another control during the watch, and no tip opens
+- **THEN** the reply names the real mouse, where the pointer went and what it is over, and says to move the mouse off the window
+
+#### Scenario: Two hovers at once
+- **WHEN** another hover moves the pointer elsewhere during the watch, and no tip opens
+- **THEN** the reply names the other hover, not the real mouse, and says to hover one control at a time
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
