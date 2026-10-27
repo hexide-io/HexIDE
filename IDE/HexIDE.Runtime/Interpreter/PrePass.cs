@@ -284,8 +284,10 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (subStmt.WITHEVENTS() != null)
                     continue;
                 DeclareModuleName(subStmt.ambiguousIdentifier().GetText());
-                if (subStmt.typeHint() != null)
-                    throw new NotImplementedException("DIM type hints not implemented");
+                // `Dim s$` is `Dim s As String`, typed when the Dim runs (DeclareLocal); with an As clause as well it is
+                // VB6's compile error (measured, #742).
+                if (subStmt.typeHint() != null && subStmt.asTypeClause() != null)
+                    throw new VBCompileErrorException("Expected: end of statement");
                 bool isArray = false;
                 List<(int, int)>? dimensions = null;
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
@@ -687,11 +689,13 @@ public class PrePass : VB6BaseVisitor<object?>
         // (`As Node`) carries its concrete name so the return slot seeds a real UDT / Nothing (see RunProcedure).
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, accessor: "Get");
-        if (context.typeHint() != null)
-            throw new NotImplementedException("Type-hinted Property Get is not supported");
         var args = ParseParams(context.argList());
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
-        var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
+        // `Property Get P$()` returns a String, as a Function's character declares its return. Unlike a Function's, it
+        // compiles beside an As clause too, and the As clause is the type: `Q$() As Long` returns a Long (measured, #742).
+        var (returnType, returnsVariant, returnsObject) = context.typeHint() is { } hint && context.asTypeClause() is null
+            ? (BaseTypeMapper.Map(hint), false, false)
+            : ReturnOf(context.asTypeClause(), name);
         GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
@@ -835,9 +839,14 @@ public class PrePass : VB6BaseVisitor<object?>
             return result;
         foreach (var arg in argList.arg())
         {
-            // With no As clause, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given 2.6,
-            // holds an Integer 3). DefObj makes it an `As Object`.
-            var defaultType = arg.asTypeClause() is null ? DefaultTypeOf(arg.ambiguousIdentifier().GetText()) : null;
+            // `Sub F(n%)` is `Sub F(n As Integer)`, and an As clause beside the character is VB6's compile error (measured,
+            // #742). With neither, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given
+            // 2.6, holds an Integer 3). DefObj makes it an `As Object`.
+            var hint = arg.typeHint();
+            if (hint is not null && arg.asTypeClause() is not null)
+                throw new VBCompileErrorException("Expected: list separator or )");
+            var defaultType = hint is not null ? BaseTypeMapper.Map(hint)
+                : arg.asTypeClause() is null ? DefaultTypeOf(arg.ambiguousIdentifier().GetText()) : null;
             var defaultScalar = defaultType == Vb6Value.ValueType.Object ? null : defaultType;
             result.Add(new ParamInfo(
                 arg.ambiguousIdentifier().GetText(),

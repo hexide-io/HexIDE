@@ -630,6 +630,7 @@ added afterwards.
 - [GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)](getsetting-savesetting-deletesetting-and-getallsettings.md#getsetting-savesetting-deletesetting-and-getallsettings-2026-10-23-1562)
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)
 - [LOF, Loc, Seek and the Input function (2026-10-23, #1645)](lof-loc-seek-and-the-input-function.md#lof-loc-seek-and-the-input-function-2026-10-23-1645)
+- [A declaration written with a type character (2026-10-27, #2409)](a-declaration-written-with-a-type-character.md#a-declaration-written-with-a-type-character-2026-10-27-2409)
 - [A numeric literal ending in its point (2026-10-23, #1615)](a-numeric-literal-ending-in-its-point.md#a-numeric-literal-ending-in-its-point-2026-10-23-1615)
 - [Random and Binary files, Get, Put and Len (2026-10-24, #1646)](random-and-binary-files-get-put-and-len.md#random-and-binary-files-get-put-and-len-2026-10-24-1646)
 - [Unknown library statement calls (#867)](unknown-library-statement-calls.md#unknown-library-statement-calls-867)

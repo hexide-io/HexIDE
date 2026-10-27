@@ -3527,6 +3527,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // whose type and fixedness stay the slot's (measured, #970).
             var variant = located && (currentEnv.VariantParameters.Contains(variableName)
                 || !declaredArray && interpreter.ExecutionContext.State.IsVariant(redimLoc));
+            // `ReDim x%(3)` names the array `x`, whose elements must be the character's type: an Integer array's may be
+            // redimensioned so, and a Long array's is VB6's compile error (measured, #742).
+            if (varOrProcCall?.typeHint() is { } redimHint && declaredArray
+                && (value.Value as VBArray)?.ElementType != BaseTypeMapper.Map(redimHint))
+                throw new VBCompileErrorException("Type-declaration character does not match declared data type");
             Vb6Value.ValueType type = redim.asTypeClause() != null ? ExtractArrayType(redim.asTypeClause())
                 : declaredArray || value.Type.IsArray ? value.Type
                 : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
@@ -3707,8 +3712,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         {
             {
-                if (subStmt.typeHint() != null)
-                    throw new NotImplementedException("DIM type hints not implemented");
+                // `Dim s$` is `Dim s As String`, below; with an As clause as well it is VB6's compile error (measured, #742).
+                if (subStmt.typeHint() != null && subStmt.asTypeClause() != null)
+                    throw new VBCompileErrorException("Expected: end of statement");
                 // A Dim allocates its local exactly once per activation; a re-executed Dim (inside a loop) keeps the
                 // existing value. The first Dim rebinds the name to a fresh slot, so it still shadows a module var.
                 if (!declaredLocals.Add(subStmt.ambiguousIdentifier().GetText()))
@@ -3817,9 +3823,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 else
                 {
-                    // With no As clause the type is the DefType's for the name's letter, if one covers it (measured, #169).
-                    // DefObj's is an Object slot, Nothing until Set, as `As Object` makes.
-                    var defaultType = asType is null ? currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) : null;
+                    // With no As clause the type is the type character's, `Dim n%` an Integer (measured, #742), or else the
+                    // DefType's for the name's letter, if one covers it (measured, #169). DefObj's is an Object slot, Nothing
+                    // until Set, as `As Object` makes.
+                    var defaultType = subStmt.typeHint() is { } hint ? BaseTypeMapper.Map(hint)
+                        : asType is null ? currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) : null;
                     if (isArray && defaultType == Vb6Value.ValueType.Object)
                         throw new NotImplementedException("An array of objects is not implemented (#1482)");
                     var type = defaultType is not null
