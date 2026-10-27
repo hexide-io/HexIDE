@@ -463,4 +463,4 @@ change of tab.
 
 ### In HexIDE
 
-An SSTab is left out at run time (#857), and the designer doesn't model it (#1090).
+HexIDE doesn't model the SSTab (#1090). The designer draws it as an empty box (#157), and running a form that holds one is refused, as for any control HexIDE can't create (#857).
