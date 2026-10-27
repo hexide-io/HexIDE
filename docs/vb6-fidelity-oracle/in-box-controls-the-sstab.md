@@ -254,7 +254,8 @@ to match:
   - Left and Right stand the tabs on end. **The captions aren't turned:** they're drawn across the strip, clipped to its
     thickness, so `Tab 1` showed as `Ta` on the left, and nothing legible on the right.
 - **TabHeight 600:** a caption too long for its tab wraps onto a second line inside it, with WordWrap True. At the
-  default height, the second line is clipped. The same caption with WordWrap False wasn't captured.
+  default height, the second line is clipped. **With WordWrap False it stays on one line, centred, and clipped at both
+  ends:** `uch longer caption tha`.
 - **TabMaxWidth 900:**
   - in Style 0, every tab is 900 twips wide, packed from the left, rather than sharing the width;
   - in Style 1, the tabs look as they do without it, the captions being narrower than 900.
