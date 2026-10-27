@@ -26,8 +26,9 @@ different form. This is the case the refusal gate still exists for.
 `Treeview Listview Splitter.frm` has a two-element `lblTitle` array living entirely inside one `picTitles`
 — so a control array spans containers, and containment cannot be keyed by name.
 
-**Whether `TabDlg.SSTab` is a container is unresolved.** It is the commonest third-party container in real
-VB6 code, and the probe was blocked by an OCX registry failure. So is `MDIForm`, which appears nowhere in
+**`TabDlg.SSTab` is a container** (measured 2026-10-27, #1090). Every tab's controls are written nested in its
+block, and those on tabs not showing are written 75000 twips to the left. The oracle's "In-box controls: the SSTab"
+has the file and the run-time rules. Whether `MDIForm` is a container is unresolved: it appears nowhere in
 the corpus.
 
 ## Coordinates and units
