@@ -360,6 +360,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Estos formularios no se guardaron porque HexIDE todavía no puede reproducirlos con fidelidad:\n\n{0}\n\nSus archivos en disco no han cambiado. Guardarlos alteraría los formularios de forma silenciosa — Visual Basic 6 abre los resultados sin protestar, y por eso el daño pasa fácilmente desapercibido — así que HexIDE los deja intactos en lugar de dañarlos.",
     "Str.Designer.ReadOnly.Banner": "Solo lectura — HexIDE todavía no puede reproducir este formulario con fidelidad, así que guardarlo lo alteraría. Puede verlo y ejecutarlo, pero los cambios no se guardarán.",
     "Str.Designer.Unmodelled.NotSupported": "No compatible con HexIDE",
+    "Str.Designer.Unmodelled.ViewOnly": "Solo visualización en el diseñador",
     "Str.Designer.Context.Cut": "Cor_tar",
     "Str.Designer.Context.Copy": "_Copiar",
     "Str.Designer.Context.Paste": "_Pegar",

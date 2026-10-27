@@ -3,7 +3,7 @@ namespace HexIDE.Runtime.Components;
 /// <summary>
 /// Which component classes can hold other controls.
 ///
-/// Form, PictureBox and Frame hold controls, as do the designer roots mapped onto FormComponentClass.
+/// Form, PictureBox, Frame and the in-box SSTab (#1090) hold controls, as do the designer roots mapped onto FormComponentClass.
 /// A project UserControl can carry placed children; its runtime ControlContainer setting determines whether
 /// a program may move another control into it (#1631).
 ///
@@ -15,5 +15,6 @@ namespace HexIDE.Runtime.Components;
 public static class ContainerClasses
 {
     public static bool IsContainer(IComponentClass componentClass) =>
-        componentClass is FormComponentClass or FrameComponentClass or PictureBoxComponentClass or UserControlComponentClass;
+        componentClass is FormComponentClass or FrameComponentClass or PictureBoxComponentClass or UserControlComponentClass
+            or InBox.SSTabComponentClass;
 }

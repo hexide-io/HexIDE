@@ -360,6 +360,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "Ces feuilles n'ont pas été enregistrées, car HexIDE ne sait pas encore les reproduire fidèlement :\n\n{0}\n\nLeurs fichiers sur le disque sont inchangés. Les enregistrer modifierait silencieusement les feuilles — Visual Basic 6 ouvre les résultats sans protester, ce qui rend les dégâts difficiles à repérer — HexIDE les laisse donc intactes plutôt que de les endommager.",
     "Str.Designer.ReadOnly.Banner": "Lecture seule — HexIDE ne sait pas encore reproduire cette feuille fidèlement ; l'enregistrer la modifierait. Vous pouvez la consulter et l'exécuter, mais les modifications ne seront pas enregistrées.",
     "Str.Designer.Unmodelled.NotSupported": "Non pris en charge dans HexIDE",
+    "Str.Designer.Unmodelled.ViewOnly": "En lecture seule dans le concepteur",
     "Str.Designer.Context.Cut": "Co_uper",
     "Str.Designer.Context.Copy": "_Copier",
     "Str.Designer.Context.Paste": "Co_ller",

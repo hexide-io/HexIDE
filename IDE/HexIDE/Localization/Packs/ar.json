@@ -360,6 +360,7 @@
     "Str.Dialog.UnfaithfulSave.Body.Many": "لم يتم حفظ هذه النماذج، لأن HexIDE لا يستطيع حتى الآن إعادة إنتاجها بأمانة:\n\n{0}\n\nملفاتها على القرص لم تتغيّر. حفظها سيغيّر النماذج بصمت — إذ يفتح Visual Basic 6 الملفات الناتجة دون أي اعتراض، وهذا ما يجعل من السهل أن يمرّ التلف دون أن يُلاحَظ — لذا يتركها HexIDE دون تغيير بدلاً من إتلافها.",
     "Str.Designer.ReadOnly.Banner": "للقراءة فقط — لا يستطيع HexIDE حتى الآن إعادة إنتاج هذا النموذج بأمانة، لذا فإن حفظه سيغيّره. يمكنك عرضه وتشغيله، لكن لن يتم حفظ التغييرات.",
     "Str.Designer.Unmodelled.NotSupported": "غير مدعوم في HexIDE",
+    "Str.Designer.Unmodelled.ViewOnly": "للعرض فقط في المصمم",
     "Str.Designer.Context.Cut": "قص",
     "Str.Designer.Context.Copy": "نسخ",
     "Str.Designer.Context.Paste": "لصق",

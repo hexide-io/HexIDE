@@ -98,7 +98,8 @@ Before an initialize reply, neither message is sent. An externally owned pipe se
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
-tree and waits up to two seconds for termination before disposing its process handle (#2023). Its
+tree and waits up to two seconds for termination before disposing its process handle (#2023).
+Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
 exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
@@ -154,6 +155,13 @@ test records inbound method names during a workspace session and checks that pro
 too (#360). The current rumdl fixture indexes only with a workspace root, so the test supplies one.
 
 ## Request failure logging
+
+Hover also logs at debug why it returned no result: no RPC connection, initialization still
+incomplete, `hoverProvider` unavailable, or a server reply of `null` (#2302).
+Exceptions retain the failure/supersession logging below. These diagnostics contain no document
+content and do not change the nullable hover API. The notification-flood regression includes the
+client log and whether the server received hover in its failure message; the original intermittent
+null result has not been reproduced or attributed to a cause.
 
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
@@ -720,12 +728,14 @@ failure fails the connection and tears down the launched process; externally own
 are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
 are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
 in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
-after an unclean IDE exit it sends SIGTERM to the group, then SIGKILL after two seconds.
-The guard preserves the server's exit code. Normal shutdown still attempts the protocol first;
-a guard left after the transport's grace period is terminated with its group. Externally owned
+after an unclean IDE exit, or when the server exits on its own, it sends SIGTERM to the group,
+then SIGKILL after two seconds. For a server that exits on its own, the guard leaves the server's
+group before SIGKILL so it can preserve the server's exit code. Normal shutdown still attempts the
+protocol first; a guard left after the transport's grace period is terminated with its group. Externally owned
 pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
 The lifetime tests kill the owner without disposal and check both server and child on Windows,
-Linux and macOS; the helper runs with its own dependencies and runtime configuration.
+Linux and macOS; Unix clean-exit tests also check children that accept or ignore SIGTERM and the
+server's exit code. The helper runs with its own dependencies and runtime configuration.
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
@@ -876,6 +886,10 @@ id, exit code, outstanding request names (including requests abandoned when the 
 the conversation, rather than waiting out a diagnostics timeout. A clean exit or an exit on another
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
+
+The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
+warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
+does not mean the independent stderr reader has finished recording those lines.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
@@ -1209,7 +1223,9 @@ all three would be confidently wrong two-thirds of the time.
 Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
 The client prepares it before launching the server, once per workspace project, behind the
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
-per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
+The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
+task before checking the generated file and provider call count.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in

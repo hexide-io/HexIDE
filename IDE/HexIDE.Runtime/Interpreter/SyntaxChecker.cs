@@ -21,13 +21,10 @@ public partial class SyntaxChecker : IAntlrErrorListener<IToken>, IAntlrErrorLis
     {
         var inputStream = new AntlrInputStream(new StringReader(code));
         var lexer = new VB6Lexer(inputStream);
-        var commonTokenStream = new CommonTokenStream(lexer);
-        var parser = new VB6Parser(commonTokenStream);
-
         lexer.RemoveErrorListeners();
-        parser.RemoveErrorListeners();
-
         lexer.AddErrorListener(this);
+        var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+        parser.RemoveErrorListeners();
         parser.AddErrorListener(this);
         parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
 

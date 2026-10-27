@@ -67,6 +67,16 @@ subset — and the developer discovers which parts by finding out what stopped w
 - **WHEN** a file contains a component of a type the IDE has no model for
 - **THEN** the component is written back in place rather than dropped
 
+#### Scenario: VB6's saved Toolbar form (#1088)
+- **WHEN** the form in `corpus/inbox-controls/saved/toolbar` is saved, including after a form-caption edit
+- **THEN** its carried Toolbar blocks retain `ToolTips`, BorderStyle after `_Version`, HIMETRIC ButtonWidth/ButtonHeight,
+  twips placeholder widths and nested ButtonMenus verbatim, and its ImageList companion retains every byte
+- **AND** the separate runtime loader reads designed top-level Toolbar button/menu bags under their measured names,
+  retaining numeric image indexes without ImageList binding; designer editing/rewriting of these bags remains unsupported
+- **AND** carried Toolbars SHALL remain view-only, excluded from the Properties component list, including their own
+  scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
+  SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
+
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
@@ -801,3 +811,14 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
+
+### Requirement: Reference locales SHALL use hexadecimal
+
+The project reader SHALL interpret a reference's LCID as hexadecimal, accepting either case. The writer
+SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273).
+
+#### Scenario: Reading and saving reference locales
+
+- **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
+- **THEN** their model values are 0, 9, 1033, 3082 and 3081
+- **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively

@@ -213,4 +213,46 @@ public class MenuPathTests
         hidden.Command.Should().BeNull();
         hidden.Error.Should().Be("'Go to github repo' is in the menu bar but hidden in this IDE, so it was not invoked.");
     }
+
+    // #2140 gives a saved layout a TextBlock header, so an underscore in its name is not an access key, and names the item
+    // for automation. Read by its ToString, the header was its type's name: the item couldn't be reached, and a miss
+    // listed "Avalonia.Controls.TextBlock" (#2321).
+    [AvaloniaFact]
+    public void An_item_whose_header_is_a_control_is_reached_and_listed_by_what_it_shows()
+    {
+        var named = new MenuItem { Header = new TextBlock { Text = "My_Layout" } };
+        Avalonia.Automation.AutomationProperties.SetName(named, "My_Layout");
+        var unnamed = new MenuItem { Header = new TextBlock { Text = "Beta" } };
+        var command = new Recorder();
+        named.Items.Add(new MenuItem { Header = "_Switch", Command = command });
+        var bar = new[] { new MenuItem { Header = "_Window", Items = { new MenuItem { Header = "Panel Layouts", Items = { named, unnamed } } } } };
+
+        MenuPath.Resolve(bar, "Window/Panel Layouts/My_Layout/Switch").Command.Should().BeSameAs(command);
+        MenuPath.Resolve(bar, "Window/Panel Layouts/Beta").Item.Should().BeSameAs(unnamed);
+        MenuPath.Resolve(bar, "Window/Panel Layouts/Gamma").Error
+            .Should().Be("No item 'Gamma' in menu 'Panel Layouts'. It holds: My_Layout, Beta");
+    }
+
+    // Window → Panel Layouts holds a placeholder until SubmenuOpened fills it. In a session where nothing had opened it, the
+    // path read the placeholder and found "no items" (#2321). Opening it raises the event, so the path does too.
+    [AvaloniaFact]
+    public void A_submenu_filled_when_it_opens_is_filled_before_it_is_read()
+    {
+        var command = new Recorder();
+        var layouts = new MenuItem { Header = "Panel Layouts", Items = { new MenuItem { Header = "(none)", IsEnabled = false } } };
+        var opened = 0;
+        layouts.SubmenuOpened += (_, _) =>
+        {
+            opened++;
+            layouts.Items.Clear();
+            layouts.Items.Add(new MenuItem { Header = "Full Editor", Command = command });
+        };
+        var bar = new[] { new MenuItem { Header = "_Window", Items = { layouts } } };
+
+        var found = MenuPath.Resolve(bar, "Window/Panel Layouts/Full Editor");
+
+        found.Error.Should().BeNull();
+        found.Command.Should().BeSameAs(command);
+        opened.Should().Be(1);
+    }
 }

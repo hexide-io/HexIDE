@@ -10,7 +10,7 @@ public class NamedPipeShutdownTests
     [Theory]
     [InlineData(1, true)]
     [InlineData(5, false)]
-    public async Task TeardownDuringBringUpGivesTheLaunchedServerTwoSecondsToExit(
+    public async Task TeardownDuringBringUpGivesTheLaunchedServerTimeToExit(
         int seconds, bool exitsNaturally)
     {
         var marker = Path.Combine(Path.GetTempPath(), $"hexide-{Guid.NewGuid():N}.txt");
@@ -30,7 +30,8 @@ public class NamedPipeShutdownTests
             if (!exitsNaturally)
             {
                 elapsed.Elapsed.Should().BeGreaterThan(TimeSpan.FromSeconds(2));
-                elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(4));
+                elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(
+                    OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() ? 6 : 4));
                 await Task.Delay(TimeSpan.FromSeconds(seconds), TestContext.Current.CancellationToken);
             }
             File.Exists(marker).Should().Be(exitsNaturally,
