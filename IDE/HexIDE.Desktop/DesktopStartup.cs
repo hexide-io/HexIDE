@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using HexIDE.Addins;
 #if DEBUG
 using System.Threading;
+using System.Runtime.InteropServices;
 using HexIDE.Desktop.Server;   // MCP server — DEBUG-only (compiled out of Release)
 #endif
 using HexIDE.Bookmarks;
@@ -79,6 +80,16 @@ internal static class DesktopStartup
 
             var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService, setup.SettingsService);
             var cts = new CancellationTokenSource();
+            var termination = OperatingSystem.IsWindows() ? null :
+                PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
+                {
+                    signal.Cancel = true;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        IdeShutdown.Prepare(ctx, force: true);
+                        IdeShutdown.CloseMainWindow();
+                    });
+                });
 
             desktop.MainWindow!.Opened += (_, _) =>
                 _ = Task.Run(async () =>
@@ -119,6 +130,7 @@ internal static class DesktopStartup
             // ShutdownRequested can be cancelled. Keep automation available while any window survives.
             desktop.Exit += (_, _) =>
             {
+                termination?.Dispose();
                 ctx.Dispose();
                 cts.Cancel();
             };

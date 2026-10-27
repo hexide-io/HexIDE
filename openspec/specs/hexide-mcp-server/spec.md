@@ -48,6 +48,16 @@ available. The reply reports a request, not confirmation of process exit.
 - **WHEN** shutdown is requested but the IDE stays open
 - **THEN** the automation server and its context remain available
 
+### Requirement: The embedded host SHALL leave process signals to the IDE
+The embedded web host SHALL use a lifetime that installs no process signal handlers. On Unix, a Debug
+IDE started with `--server-port` SHALL handle SIGTERM by dispatching the forced `shutdown_ide` cleanup
+and main-window close to the UI thread. Its signal registration SHALL be disposed at desktop exit.
+
+#### Scenario: A supervisor terminates an automation IDE
+- **WHEN** the IDE receives SIGTERM on Unix
+- **THEN** it stops the running project and closes remaining dialogs before closing the main window
+- **AND** the web host does not independently stop and leave a live IDE without automation
+
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
 On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
 so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
