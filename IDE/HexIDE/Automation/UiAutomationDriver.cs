@@ -1725,6 +1725,8 @@ public static class UiAutomationDriver
             catch (Exception ex) { moveFailed ??= ex; }
         }))];
         List<Action>? moves = destination is null ? null : MovesBetween(inWindow, releasePoint);
+        // Where the second press of a double click went, when not where the first did.
+        var secondLanding = "";
         InteractOutcome Release(bool second)
         {
             try
@@ -1745,7 +1747,7 @@ public static class UiAutomationDriver
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{(second ? secondLanding : "")}"
                     + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
@@ -1761,14 +1763,23 @@ public static class UiAutomationDriver
             finally { pointer.Capture(null); }
         }
 
+        // A person's second press lands where the first did, on whatever is there by then. A control that rebuilds its visuals
+        // on a click, as a Toolbar rebuilds its buttons on each release, has replaced what the first press landed on, and
+        // requiring that to be still attached sent no second click at all (#2324).
         InteractOutcome SecondPress()
         {
-            if (!control.IsEffectivelyVisible || !topLevel.IsVisible || TopLevel.GetTopLevel(control) != topLevel
-                || TopLevel.GetTopLevel(hit) != topLevel)
-                return Fail($"clicked {pressed}; the second click was not sent because the target is hidden or closed, or detached");
-            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+            if (!topLevel.IsVisible)
+                return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
+            if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
+                return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+            again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
                 new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
-            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}; the release is still to come",
+            if (!ReferenceEquals(again, hit))
+                secondLanding = again is Control replacement
+                    ? $"; the first click replaced what it landed on, so the second press went to '{Describe(replacement)}'"
+                      + $"{AddressOf(topLevel, "Window", replacement)}, which is at that point now"
+                    : $"; the first click replaced what it landed on, so the second press went to the '{again.GetType().Name}' now at that point";
+            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}{secondLanding}; the release is still to come",
                 null, Release: () => Release(second: true));
         }
 
