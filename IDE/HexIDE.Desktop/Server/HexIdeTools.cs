@@ -2066,7 +2066,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [("pseudo", "Pseudo (LTR)"), ("pseudo-rtl", "Pseudo (RTL)")];
 
     [McpServerTool(Name = "set_ide_language")]
-    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
+    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does; Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
     public async Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
     {
         // Checked first against what the Language page offers, languages and their regions. An unknown id used
@@ -2090,11 +2090,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // Checked and started in one step on the UI thread, so nothing can open a gate in between. The switch
         // marks its gate pending before its first await, then returns here at once, leaving the modal gate
         // open for take_snapshot to capture (awaiting it would block until the gate resolved).
-        var pending = await Dispatcher.UIThread.InvokeAsync(() =>
+        var (pending, previous) = await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (ctx.LanguageSwitch.PendingLanguage is { } open) return open;
-            _ = ctx.LanguageSwitch.SwitchWithGateAsync(match);
-            return null;
+            if (ctx.LanguageSwitch.PendingLanguage is { } open) return (open, (string?)null);
+            var before = ctx.LanguageSwitch.ActiveLanguage;
+            _ = SaveIfKeptAsync(ctx.LanguageSwitch.SwitchWithGateAsync(match), match);
+            return ((string?)null, before);
         });
         if (pending is not null)
             return new MutateResult(false,
@@ -2109,9 +2110,31 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         .Select(x => $"{x.Language.DisplayName} ({x.Region!.DisplayName})")
                         .FirstOrDefault()
                     ?? match;
+        if (string.Equals(previous, match, StringComparison.OrdinalIgnoreCase))
+            return new MutateResult(true, null,
+                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. It is saved "
+                + "for later starts.");
         return new MutateResult(true, null,
-            $"Switching to {shown} ('{match}'). A confirmation gate is open, and it reverts on its own unless "
-            + "Keep is pressed; take_snapshot captures it. Another switch is refused until it closes.");
+            $"Switching to {shown} ('{match}'). A confirmation gate is open: Keep saves {shown} for later starts, as "
+            + $"OK in Options does, and Revert or its countdown goes back to '{previous}' and saves nothing. "
+            + "take_snapshot captures it. Another switch is refused until it closes.");
+    }
+
+    // The Options page saves its language only when the dialog closes with OK, so a gate this tool opens, which no
+    // Options dialog stands behind, kept its language for the session and lost it at the next start (#2268). Saved
+    // here and not in the switch service, because there Cancel in Options still takes back a kept language.
+    private async Task SaveIfKeptAsync(Task<bool> switching, string id)
+    {
+        try
+        {
+            if (!await switching) return;
+            ctx.Settings.ActiveLanguage = id;
+            ctx.Settings.Save();
+        }
+        catch (Exception e)
+        {
+            Serilog.Log.Warning(e, "set_ide_language: '{Id}' was kept but could not be saved", id);
+        }
     }
 
     [McpServerTool(Name = "take_snapshot")]
