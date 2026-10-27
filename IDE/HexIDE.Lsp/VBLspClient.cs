@@ -1897,8 +1897,9 @@ public sealed class VBLspClient : ILspClient
             // object omits the member; JSON null on the wire is not equivalent to absence.
             //
             // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
-            // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
-            // that we never shut it down, and any supervisor reads every clean exit as a crash.
+            // shutdown preceded exit; LSP specifies 1 otherwise, but measured ruff returns 2 (#491).
+            // A server that refuses ours reports that we never shut it down, and any supervisor reads
+            // every clean exit as a crash.
             // See hexide-io/HexIDE#312.
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
