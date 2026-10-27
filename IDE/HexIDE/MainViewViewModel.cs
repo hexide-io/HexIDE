@@ -145,6 +145,8 @@ public partial class MainViewViewModel : ObservableObject
 
     private void UpdateRunState()
     {
+        // Break is bound directly so a running form's focus cannot divert it from the IDE (#2179).
+        BreakProjectCommand.RaiseCanExecutedChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(WindowTitle));
         if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
@@ -563,7 +565,9 @@ public partial class MainViewViewModel : ObservableObject
             }
 
             Log.Debug("DockFactory: tool {Key} in an unrecognized dock; snapping to its default region", KeyOf(tool));
-            return null;
+            return KeyOf(tool) is { } key && Home.TryGetValue(key, out var home)
+                ? (home.Region, home.Order, home.Proportion)
+                : null;
         }
 
         // The IDock that directly contains 'target' in the live tree, or null if not present.
@@ -804,8 +808,7 @@ public partial class MainViewViewModel : ObservableObject
         addinToolWindowService.ShowRequested    += tool => OpenOrActivateTool(tool, true);
         addinToolWindowService.ToolUnregistered += tool =>
         {
-            var parent = FindDock<IDockable>(x => ReferenceEquals(x, tool))?.Owner as IDock;
-            if (parent is not null) dockFactory.CloseDockable(parent);
+            if (IsToolInLayout(tool)) CloseTool(tool);
         };
         this.windowManager = windowManager;
         this.projectService = projectService;
@@ -1882,9 +1885,14 @@ public partial class MainViewViewModel : ObservableObject
         };
     }
 
-    public string? SetToolWindowVisible(string name, bool visible)
+    /// <summary>
+    /// Shows or hides the tool window <paramref name="name"/> names, as its View menu item and its tab's close button do.
+    /// The error, or a note saying what it is now and naming any other tool window that opened or closed with it.
+    /// </summary>
+    public (string? Error, string? Note) SetToolWindowVisible(string name, bool visible)
     {
-        var (tool, right) = CanonicalToolWindowName(name) switch
+        var canonical = CanonicalToolWindowName(name);
+        var (tool, right) = canonical switch
         {
             "Toolbox"      => ((Tool?)ToolBox,        true),
             "Properties"   => (Properties,             true),
@@ -1897,37 +1905,45 @@ public partial class MainViewViewModel : ObservableObject
             _              => (null,                   false)
         };
 
+        var title = canonical;
         if (tool is null)
         {
             var addinTool = _addinToolWindowService.Tools.FirstOrDefault(t =>
                 string.Equals(t.Title, name, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(t.Id, name, StringComparison.OrdinalIgnoreCase));
-            if (addinTool is not null) { tool = addinTool; right = true; }
+            if (addinTool is not null) { tool = addinTool; right = true; title = addinTool.Title; }
         }
 
         if (tool is null)
         {
             var addins = _addinToolWindowService.Tools.Select(t => t.Title).ToList();
-            return $"Unknown tool window '{name}'. Built in: {string.Join(", ", ToolWindowNames)}"
+            return ($"Unknown tool window '{name}'. Built in: {string.Join(", ", ToolWindowNames)}"
                    + (addins.Count > 0 ? $". From add-ins: {string.Join(", ", addins)}" : "")
-                   + ". The View menu's names, such as 'Immediate Window' or 'Project Explorer', work too.";
+                   + ". The View menu's names, such as 'Immediate Window' or 'Project Explorer', work too.", null);
         }
 
+        var before = GetToolWindows();
         var inLayout = IsToolInLayout(tool);
 
         if (visible && !inLayout)
             OpenOrActivateTool(tool, right);
         else if (!visible && inLayout)
-        {
-            // Close the parent ToolDock (which holds exactly this one tool)
-            var parent = FindDock<IDockable>(x => ReferenceEquals(x, tool))?.Owner as IDock;
-            if (parent is not null)
-                dockFactory.CloseDockable(parent);
-        }
+            CloseTool(tool);
 
-        return null;
+        if (IsToolInLayout(tool) != visible)
+            return ($"{title} could not be {(visible ? "shown" : "hidden")}: it is still {(visible ? "hidden" : "shown")}.", null);
+        var others = GetToolWindows()
+            .Where(t => t.Name != title && before.Any(b => b.Name == t.Name && b.Visible != t.Visible))
+            .Select(t => $"{t.Name} {(t.Visible ? "opened" : "closed")} with it")
+            .ToList();
+        return (null, $"{title} is now {(visible ? "shown" : "hidden")}{(inLayout == visible ? ", as it was already" : "")}"
+                      + (others.Count > 0 ? $"; {string.Join(", ", others)}" : "") + ".");
     }
 
     private bool IsToolInLayout(Tool tool) =>
         FindDock<IDockable>(x => ReferenceEquals(x, tool)) is not null;
+
+    // The tool alone, as its tab's close button closes it: its dock goes only when it is left empty. Closing the dock
+    // instead hid every tool tabbed beside it, once drags could put several in one (#2362).
+    private void CloseTool(Tool tool) => dockFactory.CloseDockable(tool);
 }

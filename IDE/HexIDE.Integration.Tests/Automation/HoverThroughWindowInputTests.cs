@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -173,6 +174,77 @@ public class HoverThroughWindowInputTests
 
     // A hover through the window moves the window's pointer on, so the control the last hover left it over is told it has
     // gone, as it would be by a real pointer.
+    // The real mouse, resting over the window, gets moves from the platform as windows change around it, and the tip goes
+    // with them; another hover running at the same time moves the pointer too. The reply said no tip opened and could not
+    // say why (#2376). The headless platform's mouse stands in for the real one.
+    [AvaloniaFact]
+    public void Input_the_hover_did_not_send_is_named_for_whose_it_was()
+    {
+        var first = TippedButton("First", "First tip");
+        var second = TippedButton("Second", "Second tip");
+        second.Name = "Second";
+        var window = Show(new StackPanel { Children = { first, second } });
+        try
+        {
+            UiAutomationDriver.Hover(first, null, null, null, out var landing).Success.Should().BeTrue();
+            var point = landing!.Value.Receiver.TranslatePoint(landing.Value.Point, window)!.Value;
+
+            using (var watch = new UiAutomationDriver.ForeignPointerWatch(window, point))
+            {
+                UiAutomationDriver.Hover(first, null, null, null, out _);
+                second.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, second,
+                    new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true), window, new Point(200, 60), 0,
+                    new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other), KeyModifiers.None));
+                watch.Moved.Should().BeNull("the hover's own move, and a routed move as click raises, cannot take the tip");
+            }
+
+            using (var watch = new UiAutomationDriver.ForeignPointerWatch(window, point))
+            {
+                UiAutomationDriver.Hover(second, null, null, null, out _);
+                watch.Moved.Should().Be("another hover moved the pointer to (200, 60) in the window, over Button[Second], "
+                    + "during the watch, and the tip went with it. Hover one control at a time");
+            }
+
+            using (var watch = new UiAutomationDriver.ForeignPointerWatch(window, point))
+            {
+                UiAutomationDriver.EndHover(second);
+                watch.Moved.Should().Be("another hover ended during the watch, taking the pointer out of the window, and the "
+                    + "tip went with it. Hover one control at a time");
+            }
+
+            using (var watch = new UiAutomationDriver.ForeignPointerWatch(window, point))
+            {
+                window.MouseMove(new Point(200, 60));
+                watch.Moved.Should().Be("the real mouse moved the pointer to (200, 60) in the window, over Button[Second], "
+                    + "during the watch, and the tip went with it, as it would for a person: one resting over the window is "
+                    + "sent such moves as windows change around it. Move it off the window and hover again");
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    // #1303 asks that the same control hovered twice reports its tip both times. It does, here and live; the live misses
+    // were the real mouse, resting over the window, taking the tip (#2376).
+    [AvaloniaFact]
+    public async Task Hovering_the_same_control_twice_opens_its_tip_twice()
+    {
+        var button = TippedButton("Add", "Add Form");
+        var window = Show(new StackPanel { Children = { button } });
+        try
+        {
+            for (var round = 1; round <= 2; round++)
+            {
+                UiAutomationDriver.Hover(button, null, null, null, out _).Success.Should().BeTrue();
+                await Settle(100);
+                ToolTip.GetIsOpen(button).Should().BeTrue($"hover {round} should open the tip");
+                UiAutomationDriver.EndHover(button);
+                await Settle(50);
+                ToolTip.GetIsOpen(button).Should().BeFalse($"the end of hover {round} should close it");
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_hover_moves_the_pointer_off_the_control_the_last_one_left_it_over()
     {

@@ -14,8 +14,11 @@ public enum UnfaithfulSaveCause
 {
     None = 0,
 
+    /// <summary>SSTab page lists cannot yet be regenerated after designer edits (#1090).</summary>
+    SSTabPageMetadata = 1 << 2,
+
     /// <summary>A registered control whose faithful writer is not implemented yet.</summary>
-    UnimplementedControlPersistence = 1 << 2,
+    UnimplementedControlPersistence = 1 << 3,
 
     /// <summary>
     /// A control sits inside a container and HexIDE would write it as a sibling of that container, so the

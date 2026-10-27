@@ -183,6 +183,27 @@ public class HeldButtonTests : IDisposable
         HeldButton.TakeNote().Should().EndWith("The designer recorded nothing, so nothing was placed, moved or resized.");
     }
 
+    // A move snaps its offset, not the control's position, so even a control off the grid, as one loaded from a file may
+    // be, ends where it began. A resize is different: it returns the size to the grid, which the live check measured.
+    [AvaloniaFact]
+    public async Task An_abandoned_move_of_a_control_off_the_grid_puts_it_back_where_it_was()
+    {
+        using var designer = DesignerOverlayTreeTests.Shown();
+        (await Act(Spawner(designer), "click", "20,20 to 100,60")).Success.Should().BeTrue();
+        var placed = designer.Model.Components.Last(c => c != designer.Model.Form);
+        placed.Left = 27;
+        placed.Top = 29;
+        DesignerOverlayTreeTests.Settle(designer.Window);
+        var before = Placed(designer);
+        var item = designer.View.GetVisualDescendants().OfType<ControlItem>().Single();
+
+        (await Act(item, "click", "10,10 to 50,40 hold")).Success.Should().BeTrue();
+        await UiAutomationDriver.AbandonHeldAsync();
+
+        Placed(designer).Should().Be(before);
+        HeldButton.TakeNote().Should().EndWith("The designer recorded nothing, so nothing was placed, moved or resized.");
+    }
+
     [AvaloniaFact]
     public async Task An_abandoned_dock_drag_docks_nothing_and_says_so()
     {

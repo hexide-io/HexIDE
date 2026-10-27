@@ -1,6 +1,6 @@
 ## In-box controls: the TreeView (2026-10-27, #1086)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md).
 - **The program:** a Sub Main showing a 6000×4500-twip form holding:
   - a 5000×3000-twip TreeView with VB6's double-clicked property lines;
@@ -161,8 +161,8 @@ The ListView's colour properties read blank through the same late-bound helper, 
 
 - **A new node is collapsed.** The nodes under a collapsed node read Visible False.
 - **Expanded = True on a node with no children** is taken. It read True, before a DoEvents and after.
-- **EnsureVisible expands every collapsed ancestor and returns False.** It returned False for a node already visible
-  too, in every call made.
+- **EnsureVisible expands every collapsed ancestor.** In this probe it returned False every time, for a node already
+  visible too, but every node here was in view. **It returns True when it has to scroll:** see "Scrolling" below.
 - **Collapsing a node leaves its children's Expanded as it was.** A grandchild read Visible False until the node was
   expanded again.
 - **A node added under an expanded node** is Visible at once.
@@ -321,6 +321,203 @@ Typing a letter, `q`, `a` or `r`, raised KeyDown and KeyUp and nothing else.
   - setting Selected, Set SelectedItem, Checked or Text;
   - setting Sorted;
   - Add, Remove or Clear.
+
+### Label editing, in full (2026-10-27, #2360)
+
+**The probe:**
+- **The form:** TreeView1 (Style 7, nodes `Node 1` to `Node 5`), a Report-view ListView1 beside it, and Text1, in that
+  tab order.
+- **The input:** real clicks, double-clicks and keys from a driver on the guest's console. Each case set the tree up
+  afresh with Node 2 selected and the focus on the tree.
+- **What was logged:** every event, with its time. A Timer logged the edit box from `TVM_GETEDITCONTROL` whenever it
+  changed: its rectangle in the tree's client coordinates, its text, the label's rectangle from `TVM_GETITEMRECT`, the
+  selected node's Text, and the active control.
+- **The builds:** native and p-code logged the same lines, times and window handles aside. The ListView behaved the
+  same way throughout, as its own entry records.
+
+**What starts an edit:**
+
+| Action | Result |
+|---|---|
+| **Click the selected node's label**, LabelEdit 0 | MouseDown, NodeClick, MouseUp, then **BeforeLabelEdit 500 to 520 ms after MouseUp**. GetDoubleClickTime was 500 |
+| Click an unselected label, then click it again | the first selects it, with no edit. The second edits it |
+| **Double-click the selected label** | MouseDown, NodeClick, MouseUp, DblClick, MouseUp, and **no edit** |
+| **Click the selected label, LabelEdit 1, manual** | MouseDown, NodeClick, MouseUp, and **no BeforeLabelEdit and no edit**, waited for 1.8 s. A key typed then raised the tree's KeyDown |
+| LabelEdit 1: click an unselected label, then click it again | the first selects it. The second raises NodeClick again, and no edit |
+| LabelEdit 1: double-click the selected label | as with LabelEdit 0: DblClick, and no edit |
+| **F2** | **nothing but KeyDown 113**, with LabelEdit 0 or 1 |
+| StartLabelEdit, LabelEdit 0 or 1 | BeforeLabelEdit before StartLabelEdit returns, then the edit box |
+| StartLabelEdit with no node selected | nothing, and no error |
+| `Cancel = True` in BeforeLabelEdit | no edit box. A key typed then raised the tree's KeyDown |
+
+**In BeforeLabelEdit:**
+- Cancel is an Integer, 0.
+- **The edit box already exists, holding the label's text,** at 0,0 and 0 × 0. It is placed after the event returns.
+
+**The edit box:**
+
+| When | Edit box, in the tree's client coordinates | The label |
+|---|---|---|
+| opened on `Node 2` | **-2,15, 53 × 17**, with the text all selected | 0,16, 39 × 16 |
+| after typing `abc` | **-2,13, 36 × 21** | unchanged |
+| after typing 30 characters | -2,13, **177 × 21**, past the label's width | unchanged |
+
+- **The box starts 2 pixels left of the label and 1 above it,** wider than the text, and is drawn with a single dark
+  line.
+- **After the first key it is 4 pixels taller and 2 pixels higher,** and from then on it follows the text's width.
+  That is measured, not explained.
+
+**What Text reads during the edit: the old text.** The selected node's Text read `Node 2` while the box held `xyz`,
+inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
+
+**What ends an edit:**
+
+| Action | AfterLabelEdit | Then |
+|---|---|---|
+| Enter, the text changed | yes, NewString the box's text, a String | the node takes NewString |
+| Esc | **no** | the old text |
+| **Click another node's label** | **yes, before that click's MouseDown** | the edit is kept, and the click goes on to select the node it hit |
+| **Click Text1** | **yes**, before Text1's GotFocus | the edit is kept |
+| **Tab** | yes | the edit is kept, and **the focus moves to the next control in tab order**, ListView1 |
+| Click Text1, the text unchanged | **no** | the focus moves |
+| `NewString = "Changed"` in AfterLabelEdit | | **the node takes `Changed`**, not what was typed |
+| `Cancel = True` in AfterLabelEdit | | the old text |
+
+- **Leaving the edit keeps what was typed,** by any route but Esc.
+- **NewString is the text the node will take.** A handler can change it.
+
+### Scrolling (2026-10-27, #2359)
+
+**The probe:**
+- **The tree:** TreeView1, 2400 × 1200 twips (160 × 80 pixels), Style 7, Appearance 1, no ImageList, in a shown form.
+- **The nodes:** roots `Node 01` to `Node 30`, keyed `k01` to `k30`, unless a case says otherwise.
+- **The input:** a driver on the guest's console pressed real keys with SendKeys and keybd_event, and turned the wheel
+  with mouse_event over the tree's centre.
+- **What was logged:** after each action, a Timer logged:
+  - the selected node;
+  - the nodes in the top and bottom rows, by HitTest;
+  - `GetScrollPos` on each bar, and whether the window had WS_VSCROLL and WS_HSCROLL;
+  - the client size and GetVisibleCount.
+- **The window:** `TreeView1.hWnd` is the tree itself, of class `TreeView20WndClass`, with no SysTreeView32 child.
+- **The builds:** native and p-code logged the same lines.
+
+**The sizes:**
+- **Every row is 16 pixels high,** from `TVM_GETITEMHEIGHT`.
+- **The client area is 156 × 76** inside the 160 × 80 tree.
+- **GetVisibleCount is 4: the rows that fit whole.** 76 / 16 is 4.75, and the fifth row is drawn cut off at the bottom.
+- **Each bar is 17 pixels,** SM_CXVSCROLL and SM_CYHSCROLL at 96 dpi:
+  - the vertical bar took the client width from 156 to 139;
+  - the horizontal bar took the height from 76 to 59, and GetVisibleCount from 4 to 3.
+
+**When the bars appear,** adding nodes one at a time with Scroll True:
+
+| Nodes | Vertical bar | Horizontal bar | GetVisibleCount |
+|---|---|---|---|
+| 1 to 4 | no | no | 4 |
+| **5**, the fifth only partly in view | **yes** | no | 4 |
+| 7, then a node of 30 W's added | yes | **yes**, the node being wider than the client | 3 |
+| the long node removed | yes | no | 4 |
+| down to 4 nodes again | **no** | no | 4 |
+| 4 nodes and the long one | yes: the horizontal bar left room for only 3 | yes | 3 |
+| a long node with 3 nodes in all | no | yes | 3 |
+
+- **The vertical bar appears as soon as the rows exceed GetVisibleCount,** a row partly in view counting as out of it.
+- **The bars come and go as nodes are added, removed, expanded and collapsed.** Expanding a root with 8 children,
+  from code or the keyboard, added the vertical bar, and collapsing it took the bar away.
+
+**The keyboard, with Scroll True:**
+
+| From | Key | Selected | Top row |
+|---|---|---|---|
+| k01 selected, at the top | Down, three times | k02, k03, k04 | k01: no scroll |
+| k04, the last whole row | **Down** | k05 | **k02: one row, so k05 is the last whole row** |
+| | Down, twice more | k06, k07 | k03, k04 |
+| k07, the last whole row | **PageDown** | **k10: 3 on**, GetVisibleCount less 1 | **k07: scrolled 3**, k10 the last whole row |
+| | PageDown, twice more | k13, k16 | k10, k13 |
+| | **End** | k30 | **k27**: the end of the list in the last whole row |
+| k30, the last node | Down | nothing | nothing |
+| k30 | **PageUp** | **k27**, the top row | k27: no scroll |
+| k27, the top row | PageUp | k24 | k24: scrolled 3 |
+| k24, the top row | Up | k23 | k23: one row |
+| | Home | k01 | k01 |
+| k01, the first node | Up | nothing | nothing |
+| **k01, at the top** | **PageDown** | **k04, the last whole row** | k01: **no scroll** |
+
+- **Down and Up scroll one row** when the selection leaves the whole rows.
+- **PageDown moves to the last whole row** if the selection isn't there already. If it is, PageDown moves on by
+  GetVisibleCount less 1 and scrolls so the selection is the last whole row again. **PageUp mirrors it** with the top
+  row.
+- **The scroll position is the index of the top row.** The most it reached with 30 nodes was 26, 30 less GetVisibleCount.
+- **Expanding with the keyboard doesn't scroll:**
+  - Right on a collapsed root, numpad + and numpad * expanded it, with the root still the top row;
+  - numpad - and Left collapsed it;
+  - **Right on a node with no children did nothing.**
+- After numpad * opened Root 1's 8 children, End selected Root 2 and scrolled to position 6, Root 2 the last whole
+  row.
+
+**Selecting from code scrolls too:**
+- `Set SelectedItem = k25`, with k10 at the top, scrolled so k25 was the last whole row, k22 at the top.
+- `k02.Selected = True` then scrolled up so k02 was the top row.
+
+**EnsureVisible**, called in this order, each call starting where the one before left the tree:
+
+| Call | Returned | Top row after |
+|---|---|---|
+| k20 | **True** | **k17: k20 the last whole row** |
+| k05 | True | **k05: k05 the top row** |
+| k30 | True | k27 |
+| k01 | True | k01 |
+| k12 | True | k09 |
+| k13 | True | k10: one row |
+| **k10, already the top row** | **False** | k10: no scroll |
+| c8, under a collapsed Root 1 | | Root 1 expanded, and position 5: c8 the last whole row |
+
+- **EnsureVisible scrolls as little as it can.** A node below the view goes to the last whole row, and one above it to
+  the top row.
+- **It returns True when it scrolled,** and False when the node was already in view.
+
+**The wheel:**
+- **One notch scrolls 3 rows,** the system's setting. Two notches down gave top rows k04 and k07, one up gave k04
+  again, and three more down gave k13.
+- **The selection doesn't move.** k01 stayed selected throughout, scrolled out of view.
+- **The wheel stops at the ends:** 20 notches down gave position 26, and 20 up gave 0.
+- **With only the horizontal bar, the wheel scrolls sideways:** one notch down moved the horizontal position from 0 to
+  15.
+
+**Horizontally:**
+- **Selecting the long node, with Down, didn't scroll sideways.** The horizontal position stayed 0, its text cut off at
+  the right.
+- Right and Left on that node did nothing.
+
+**Scroll False:**
+- **No bar is ever shown,** even with 30 nodes or the long one. The client stayed 156 × 76, and GetVisibleCount 4.
+- **The keyboard still moves the selection, out of sight.** Down six times selected k07, PageDown k10 and End k30, with
+  k01 still the top row and the scroll position 0. Home came back to k01.
+- **EnsureVisible returns False for every node and scrolls nothing.** Setting SelectedItem or Selected scrolls nothing.
+- **The wheel does nothing.**
+
+### GetVisibleCount, the edge, and Form_Load (2026-10-27)
+
+**The probe:**
+- **The trees:** eight TreeViews from hand-written blocks, 2400 twips wide and 1200 or 3000 high. Each height came with
+  the four pairs of Appearance and BorderStyle.
+- **The reads:** GetVisibleCount, and the window and client sizes from GetWindowRect and GetClientRect. They were read in
+  Form_Load, before the form was shown, then after Show, then once 30 nodes were added.
+- **The builds:** native and p-code logged the same lines.
+
+| Appearance, BorderStyle | Edge, each side | 160 × 80 tree: client, GetVisibleCount | 160 × 200 tree: client, GetVisibleCount |
+|---|---|---|---|
+| **1, 0: the defaults** | **2 px**, the sunken 3D edge | 156 × 76, **4** | 156 × 196, **12** |
+| 1, 1 | **3 px**: the 3D edge and a line inside it | 154 × 74, 4 | 154 × 194, 12 |
+| **0, 0: flat, no border** | **none** | 160 × 80, **5** | 160 × 200, 12 |
+| 0, 1: flat, single line | 1 px | 158 × 78, 4 | 158 × 198, 12 |
+
+- **GetVisibleCount is the client height divided by the 16-pixel row, rounded down.** 76 / 16 is 4.75, so 4. 80 / 16
+  is 5. 200 / 16 is 12.5, so 12.
+- **Form_Load reads the same as the shown form.** Every value, sizes included, was the same before Show as after it.
+- **It doesn't depend on the nodes.** With no nodes and with 30 it was the same. The vertical bar took 17 pixels off
+  the client width and nothing off the height.
+- **It's a Long** in every case.
 
 ### Drawing
 
