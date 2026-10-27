@@ -1618,6 +1618,10 @@ public static class UiAutomationDriver
         // as one that docked (#2175).
         var dockLayout = destination is null ? null : (hit as Visual)?.FindAncestorOfType<Dock.Avalonia.Controls.DockControl>()?.Layout;
         var placedBefore = dockLayout is null ? null : DockPlacement(dockLayout);
+        // Dock starts a drag only from what it marks as a drag area: a tab, a tool window's title strip. Anything else in its
+        // layout, a designer drag among them, could not have docked, and saying it had not read as a failure (#2232).
+        var pressedDockHandle = dockLayout is not null && (hit as Visual)?.GetSelfAndVisualAncestors()
+            .Any(Dock.Settings.DockProperties.GetIsDragArea) == true;
         // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
         // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
         if (destination is not null)
@@ -1672,7 +1676,7 @@ public static class UiAutomationDriver
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
-                var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!));
+                var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
                 var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}"
                     + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
@@ -1735,9 +1739,10 @@ public static class UiAutomationDriver
         return placed;
     }
 
-    /// <summary>What a drag changed in a Dock layout, as a clause for its reply: what moved where, or that nothing did.</summary>
+    /// <summary>What a drag changed in a Dock layout, as a clause for its reply: what moved where, or, for a drag pressed on
+    /// one of Dock's drag areas (<paramref name="couldDock"/>), that nothing did. Otherwise nothing is said.</summary>
     private static string DockMoved(Dictionary<Dock.Model.Core.IDockable, DockPlace> before,
-        Dictionary<Dock.Model.Core.IDockable, DockPlace> after)
+        Dictionary<Dock.Model.Core.IDockable, DockPlace> after, bool couldDock)
     {
         var moved = new List<string>();
         foreach (var (dockable, now) in after)
@@ -1749,10 +1754,12 @@ public static class UiAutomationDriver
             else if (was.Index != now.Index)
                 moved.Add($"'{DockableName(dockable)}' within {At(now)}, from tab {was.Index + 1} to tab {now.Index + 1}");
         }
-        return moved.Count == 0
+        if (moved.Count > 0)
+            return "; Dock moved " + string.Join(", and ", moved);
+        return couldDock
             ? "; Dock's layout is unchanged, so nothing was docked: the release was not over one of Dock's drop targets, "
               + "or dropped what it dragged where it was"
-            : "; Dock moved " + string.Join(", and ", moved);
+            : "";
 
         static string At(DockPlace place) =>
             (place.Beside.Length == 0 ? "a dock of its own" : "the dock with " + string.Join(", ", place.Beside.Select(b => $"'{b}'")))
