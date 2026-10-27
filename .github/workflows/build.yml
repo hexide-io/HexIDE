@@ -436,6 +436,22 @@ jobs:
           path: IDE/**/TestResults/**
           retention-days: 7
 
+  # A job skipped before matrix expansion reports its literal matrix expression, not the required
+  # platform check names (#2382). Expand those names on Ubuntu when the real builds are skipped.
+  build-ide-desktop-docs:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}
+    name: build-ide (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: windows }
+          - { name: macos }
+    steps:
+      - name: Report the skipped build
+        run: echo 'Build skipped for a docs-only change.'
+
   build-lsp-server:
     needs: changes
     # Runs unless `changes` affirmatively said skip. A status-check function is required
