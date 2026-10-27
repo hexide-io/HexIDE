@@ -441,8 +441,14 @@ public sealed class DebugController : IDebugController
         // A dispatch (event-handler chain) returned to idle without the armed step ever breaking. Disarm it so a
         // leftover Step Into/Over/Out can't fire on the NEXT, unrelated event handler. Only while Running — never
         // disturb a step armed for a chain that is currently paused mid-flight (Paused), nor after Stop (Stopped).
-        if (_state == DebugState.Running)
-            _stepMode = StepMode.None;
+        if (_state != DebugState.Running || _stepMode == StepMode.None)
+            return;
+        _stepMode = StepMode.None;
+        var rg = _resumeGate;
+        _resumeGate = null;
+        // No next Stopped will move the amber bar: leave break mode and release frozen events as Continue does.
+        Continued?.Invoke();
+        rg?.TrySetResult();
     }
 
     public void Stop()
