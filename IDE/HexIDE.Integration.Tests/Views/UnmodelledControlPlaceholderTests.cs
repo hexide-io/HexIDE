@@ -220,9 +220,9 @@ public class UnmodelledControlPlaceholderTests
         finally { window.Close(); }
     }
 
-    // #2327: HexIDE runs a top-level Toolbar and a CommonDialog, though the designer only carries their blocks, so their
-    // boxes say they are view-only here. A Toolbar in a control array is still refused at run time, as is a class HexIDE
-    // has never heard of, and theirs say they are not supported.
+    // #2327: HexIDE runs a top-level Toolbar, though the designer only carries its block, so its box says it is view-only
+    // here. A Toolbar in a control array is still refused at run time, as is a class HexIDE has never heard of, and theirs
+    // say they are not supported. The CommonDialog is a modelled control now (#1084), so it has no placeholder box.
     private const string RunningForm =
         "VERSION 5.00\r\n" +
         "Object = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"\r\n" +
@@ -273,7 +273,7 @@ public class UnmodelledControlPlaceholderTests
         var vm = Designer(out _, RunningForm);
         vm.UnmodelledControls.ToDictionary(c => c.Name, c => c.ViewOnly).Should().BeEquivalentTo(new Dictionary<string, bool>
         {
-            ["Toolbar1"] = true, ["CommonDialog1"] = true, ["Bars"] = false, ["Gauge1"] = false,
+            ["Toolbar1"] = true, ["Bars"] = false, ["Gauge1"] = false,
         });
 
         var view = new FormEditView { DataContext = vm };
@@ -292,7 +292,7 @@ public class UnmodelledControlPlaceholderTests
                     .Where(text => text.IsEffectivelyVisible).Select(text => text.Text).Last());
             says.Should().BeEquivalentTo(new Dictionary<string, string?>
             {
-                ["Toolbar1"] = "View-only", ["CommonDialog1"] = "View-only", ["Bars"] = "Not supported", ["Gauge1"] = "Not supported",
+                ["Toolbar1"] = "View-only", ["Bars"] = "Not supported", ["Gauge1"] = "Not supported",
             });
         }
         finally { window.Close(); }

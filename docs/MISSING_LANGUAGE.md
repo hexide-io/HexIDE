@@ -1395,3 +1395,37 @@ are unchanged: external-control members are tracked separately here.
 | SSTab saved own properties and page lists | **Partial** | Loads counts, captions, style/orientation, HIMETRIC dimensions, WordWrap/ShowFocusRect and page lists. ControlEnabled suppresses listed TabStops; missing/true tab-zero flags reproduce the measured load quirk. Saved TabEnabled/TabVisible and Control(i).Enabled do not alter runtime flags. Positions are trusted. Appearance, pictures and drag members remain explicitly unimplemented as above; the writer carries these saved values and companion records in measured order, always emitting TabHeight in HIMETRIC. Both saved corpus forms round-trip exactly. Forms stay read-only until designer edits can maintain page membership. |
 | SSTab saved HIMETRIC rounding beyond recorded samples | **Dies** | Only 0, 520 → 295 twips, 900 → 510 and 1500 → 850 are recorded. Other saved dimensions explicitly refuse pending a measured conversion/rounding rule. |
 | SSTab saved references to array elements or unresolved children | **Dies** | Only measured plain child names resolve. Unresolved references explicitly refuse rather than guessing membership. |
+
+### MSComDlg.CommonDialog — runtime control model (#1084)
+
+These require MSComDlg and are outside the intrinsic-name counts above. The scalar object-model slice implements
+MaxFileSize, Copies, FromPage, ToPage, Min, Max, Orientation, HelpCommand, HelpFile, HelpKey, PrinterDefault,
+FontUnderline and FontStrikethru, with the measured defaults and assignment checks. FilterIndex rejects negative
+values; FileTitle and hDC reject writes with 383. See the oracle's
+[in-box CommonDialog measurements](vb6-fidelity-oracle/in-box-controls-the-commondialog.md).
+
+| Member | Status | Detail |
+|---|---|---|
+| `CommonDialog` saved properties | Supported | The VB6-saved four-control form round-trips byte for byte in `corpus/inbox-controls/saved/commondialog/`. Own lines keep their measured order and individual names (no Font block); explicit defaults are omitted. Missing lines retain the measured runtime defaults; HelpContext runtime assignment remains refused as listed below. Existing designer insertion places a new control before its peers. |
+| `CommonDialog` single-file dialog results | Partial | Open adds PathMustExist for FileMustExist even on Cancel; picks report ExtensionDifferent, complete DefaultExt (or a simple selected Save filter extension), and Open rejects a path longer than MaxFileSize with 20476. CancelError remains 32755 and leaves file properties alone. Save buffer errors, exact buffer-fit boundaries, extension casing and resetting an already-set ExtensionDifferent bit are unmeasured and retain previous behavior. |
+| `CommonDialog.ShowOpen` multi-select | Partial | AllowMultiselect enables multiple picks through both hosts. Explorer returns the folder without a trailing separator followed by NUL-separated names; the old format returns a trailing folder separator and space-separated names. FileTitle is empty for several picks; an Explorer single pick retains the plain path, title and measured ExtensionDifferent flag. |
+| `CommonDialog.ShowOpen` unmeasured multi-select shapes | Dies | Non-local additional selections in the standalone host, selections spanning folders, and old-format names or folders containing spaces are refused as not implemented: their VB6 encodings are unmeasured. Native old-dialog appearance and its uppercase CurDir side effect remain unavailable; this slice implements the measured return strings only. |
+| `CommonDialog.ShowSave` extension from an unavailable filter | Dies | Refused as not implemented when a name needs an extension but the host cannot identify the selected filter among several. Non-simple filter patterns are also refused on this path: their extension-completion rules are unmeasured. |
+| `CommonDialog.hDC` read | Dies | Refused as not implemented: the measured initial nonzero printer handle has no native counterpart in this runtime. |
+| `CommonDialog.Action` | Partial | Explicit reads raise 394; a Let of the control reads this write-only default member and raises 394 too. Integer/Long Action 1–6 dispatches to ShowOpen, ShowSave, ShowColor, ShowFont, ShowPrinter and ShowHelp respectively, awaiting each method and retaining its CancelError behavior; measured invalid writes 0, 7, 8 and -1 raise 380. |
+| `CommonDialog.Action` unmeasured writes | Dies | Other unmeasured values and assignment conversions remain refused. Action 3 and 5 reach ShowColor and ShowPrinter, which remain not implemented. Implicit default-member writes retain their previous behavior. |
+| `CommonDialog.ShowHelp` | Partial | Returns without error for measured HelpCommand 0, 2 and 3, with or without HelpFile, including through Action 6. Other commands are refused as not implemented. No external help application is launched. |
+| `CommonDialog.ShowColor`, `CommonDialog.ShowPrinter` | Dies | Refused as not implemented, including through Action 3 and 5: host dialogs and measured writeback remain outstanding. |
+| `CommonDialog.ShowFont` effects | Partial | Font name, size, bold and italic use the existing host dialog, including with Flags 0. Underline, strikeout and Color writeback remain outstanding; existing behavior is unchanged. |
+| `CommonDialog.HelpContext` | Dies | Still refused as not implemented; only its default is measured, not its assignment conversion. |
+| `CommonDialog` control arrays / contained controls | Dies | Remain refused as not implemented; registration does not extend the measured scalar control to these unmeasured cases. |
+| `CommonDialog.Color` numeric conversions | Dies | Unsigned Automation Long reads have VarType 19 and preserve the measured value (including `&H80000005`); numeric use and declared-scalar conversion are refused pending measurements. Variant storage and VarType work. TypeName and IsNumeric retain their previous behavior; their CommonDialog results are unmeasured. |
+
+Runtime Left/Top reads raise 393 and writes raise 382; reads of Visible, Width, Height, Enabled and hWnd raise 438.
+FontName ignores a missing face and keeps an accepted name's spelling, using the existing cross-platform font-name
+policy. Empty FontName assignments, unavailable faces loaded from files, and unmeasured extender assignments and
+conversions retain their previous behavior; VarType/Is* default-member inspection is also unchanged. Library/component
+registration now uses the MSComDlg library record and a component class, without a loader text-block special case.
+Color reads carry VarType 19 and the measured unsigned value; assigning integral -1 raises 6. Unmeasured
+assignment conversions retain the previous coercion. Dialog return semantics are part B;
+file persistence is part C (now measured).
