@@ -129,6 +129,170 @@ A day outside the range is 35773. A time outside it on the boundary day is ignor
 - `CalendarBackColor = vbRed` read back 255.
 - MousePointer 99 is taken and 100 is 380.
 
+### Events, with real input
+
+**The probe:**
+- **The setup.** The form above started with Value 3 February 2001 10:20:30.
+- **The logging.** The program logged every DTPicker event with Value at that moment.
+- **The input.** A driver on the guest's console clicked and typed for real.
+- **The F keys.** The form took them through KeyPreview, set up the next step, and logged Value and the focused control.
+- **The locale.** It is en-GB, so the short date reads dd/mm/yyyy and the first field is the day.
+- **The builds.** Native and p-code logged the same 149 lines.
+
+| Action | Events, in order |
+|---|---|
+| Click the day field, with Text1 focused | MouseDown, **then GotFocus**, MouseUp, Click |
+| Up arrow, the day selected | KeyDown 38, Change with 4 February, KeyUp. No KeyPress |
+| Right arrow | KeyDown, KeyUp. The month is selected, with no Change |
+| Type 1, then 5, into the month | KeyDown, KeyPress and KeyUp for each. The field shows `15`, with **no Change**: Value is still February |
+| Down arrow | Change with **4 January**. The typed 15 is dropped, and the month it replaced is lowered |
+| Type 9 | KeyDown, KeyPress, KeyUp. **No Change for the 1.5 seconds before the next key.** Change with 4 September came as that key, F6, reached the control |
+| F4 | KeyDown 115, DropDown. No KeyUp |
+| Right arrow, with the calendar down | Change with 5 September, at once. No key events: the calendar has the keys |
+| Enter | CloseUp, then KeyUp 13 |
+| Alt+Down | KeyDown 18 and KeyDown 40, each with Shift 4, then DropDown |
+| Escape | CloseUp, then KeyUp 27 |
+| Click the dropdown button | MouseDown, DropDown. **No MouseUp and no Click** |
+| Click the form, away from the calendar | CloseUp, and nothing else |
+| On 31 January, click the month, Up arrow | MouseDown, MouseUp, Click, then Change with **28 February**: the day is clamped |
+| MaxDate 5 February, Value 3 February: click the day, Up arrow three times | Change with 4, Change with 5, then **Change again with Value still 5 February**. The field stays at `05` |
+| CheckBox True, from code, then click the box | MouseDown, **Change with Value Null**, MouseUp, Click |
+| Up arrow, unchecked | KeyDown, KeyUp. No Change, and Value stays Null |
+| Click the box again | MouseDown, Change with the date it had (3 February 10:20:30), MouseUp, Click |
+| Space | KeyDown, KeyPress 32, Change with Null, KeyUp. Space toggles the box |
+| UpDown True, from code: click the up arrow, then the down arrow | Change with 4 February, then with 3 February. **No mouse events and no Click** |
+| Format 2, Time: click the hour, Up arrow | MouseDown, MouseUp, Click, then Change with 11:20:30 |
+| Double-click the field | MouseDown, MouseUp, Click, DblClick. **No second MouseUp** |
+| Right-click | MouseDown and MouseUp with Button 2, **then Click** |
+| Escape, with nothing dropped down | KeyDown, KeyPress 27, KeyUp |
+| Tab | LostFocus |
+
+- **A typed digit waits.** It shows in the field but isn't Value until something commits it. That was the next key here,
+  and an arrow key drops a value that isn't a valid month. Whether a longer pause commits it is unmeasured.
+- **Every step of a field raises Change**, whether it comes from the keyboard, the calendar, the spin buttons or the
+  checkbox. At MaxDate the Up arrow still raises Change, with Value unchanged.
+- **Setting CheckBox, UpDown or Format to a new value while the control has the focus raises LostFocus, then GotFocus**,
+  once for each property set. Setting Format to the value it already had raised neither.
+- **The dropdown button raises DropDown at MouseDown**, with no MouseUp and no Click. The spin buttons raise only Change.
+- **A right-click on the field raises Click.**
+
+### Drawing
+
+These are screenshots at 96 dpi, without visual styles, since a VB6 program carries no manifest:
+- **Format 1, Short Date,** reads `03/02/2001` in a sunken white field, with the dropdown button at the right.
+- **The selected field** is drawn white on blue. A typed value that isn't yet Value shows there too, such as `15` in the
+  month.
+- **The calendar drops down below the control's left edge:**
+  - a header with `September 2001` in bold, between two arrow buttons;
+  - day names from Mon to Sun in pale grey;
+  - six weeks, with the trailing days of the months on either side in grey and the selected day shaded;
+  - `Today: 27/10/2026` at the foot, beside a red circle.
+
+  While the calendar is down, the form's caption is drawn inactive.
+- **CheckBox True, unchecked,** draws a box at the left, with a focus rectangle while it has the focus, and the date
+  greyed.
+- **UpDown True** draws two stacked spin buttons in place of the dropdown button.
+- **Format 2, Time,** reads `11:20:30`, in 24-hour time. It **draws spin buttons although UpDown had just been set to
+  False**.
+
+### The saved files
+
+**The passes,** each in VB6's IDE on the guest's console:
+1. **Pass 1:** a hand-written form with Text1 and two minimal DTPickers, with only their position, extents and
+   `_Version`.
+   - DTPicker2 was selected and its Properties window read, page by page.
+   - A third DTPicker was double-clicked from the toolbox.
+   - The form was dirtied with a comment and saved. VB6's save is `corpus/inbox-controls/pending/dtpicker-added/`.
+2. **Pass 2:** DTPicker1's properties were set in the Properties window. Its results aren't used; see the end of this
+   section.
+3. **Pass 3:** seven blocks were written by hand, each with its lines in reverse of VB6's order, then opened and saved
+   untouched. VB6's save is `corpus/inbox-controls/pending/dtpicker/`.
+   - **The read:** the hand-written form and VB6's save of it were then read at run time, natively and as p-code.
+   - **The builds:** the two logged the same values, apart from the moment the form loaded.
+   - **No load log:** VB6 wrote none, so every line was taken.
+
+**VB6's blocks, as it wrote them in pass 3:**
+
+```
+   Begin MSComCtl2.DTPicker DTPicker4 
+      Height          =   375
+      Left            =   3000
+      TabIndex        =   3
+      Top             =   1920
+      Width           =   2400
+      _ExtentX        =   4233
+      _ExtentY        =   661
+      _Version        =   393216
+      MousePointer    =   11
+      Enabled         =   0   'False
+      OLEDropMode     =   1
+      CalendarBackColor=   255
+      CalendarForeColor=   65280
+      CalendarTitleBackColor=   16711680
+      CalendarTitleForeColor=   65535
+      CalendarTrailingForeColor=   8421504
+      CheckBox        =   -1  'True
+      Format          =   110100481
+      UpDown          =   -1  'True
+      CurrentDate     =   36494
+   End
+   Begin MSComCtl2.DTPicker DTPicker3 
+      …the same lines as far as _Version…
+      CustomFormat    =   "dd MMM yyyy"
+      Format          =   110100483
+      CurrentDate     =   40000.25
+      MaxDate         =   47848
+      MinDate         =   36526
+   End
+```
+
+DTPicker7's `BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851}` block came straight after `_Version`, before
+Format. The order among the other lines is unmeasured, because no block had both.
+
+**The order:**
+1. the extents and `_Version`;
+2. MousePointer, Enabled, OLEDropMode;
+3. the five calendar colours;
+4. CheckBox, CustomFormat, Format, UpDown;
+5. CurrentDate, MaxDate, MinDate.
+
+**What the lines hold:**
+- **Every block gets a `Format` and a `CurrentDate` line, even a minimal one.** Nothing else is written at its
+  default.
+- **Format's low 16 bits are Format, and its high 16 bits changed from one IDE session to the next.** Format 1 was
+  written as 111345665 in pass 1, 111280129 in pass 2 and 110100481 in pass 3, which is `&H6A3`, `&H6A2` and `&H690`
+  above the 1.
+  - A hand-written `Format = 2`, and pass 1's 111345665, were both taken, and rewritten with the session's high word.
+  - At run time Format read the low word: 0, 1 or 3.
+  - **What the high word is resisted explanation.**
+- **CurrentDate is Value, as a Date serial,** such as `40000.25`, which read back as 2009-07-06 06:00:00.
+  - **A block with no CurrentDate was saved as `36494`, 1999-11-30, in every pass.** That held for every block whose
+    Value nothing in the IDE had read.
+  - In pass 1, DTPicker2's Properties window had been shown. It saved `46322.4454861111`, the moment it was read on
+    2026-10-27.
+  - The DTPicker double-clicked from the toolbox saved `46322`: that day, with no time.
+- **So opening and saving a form changes a minimal block's Value at run time.** The hand-written block read the moment
+  the form loaded, as in group 1. VB6's save of the same block read 1999-11-30.
+- **MaxDate and MinDate are Date serials,** written only off their defaults.
+- **CustomFormat is written whenever it isn't empty,** under Format 2 as well as 3.
+- **The colours are decimal Longs.**
+- **The calendar colours' names, of 17 characters and more, are followed straight by `=`,** as in
+  `CalendarBackColor=   255`. Shorter names are padded to 16 columns. A name of exactly 16 is unmeasured.
+- **Every value read back at run time as written:** Format's low word, CustomFormat, the dates, CheckBox, UpDown, the
+  colours, Enabled, MousePointer, OLEDropMode and the font (Arial 12, bold and italic, from Weight 700 and Italic True).
+
+**Double-clicked from the toolbox,** a DTPicker is **1500 × 750**, with extents 2646 and 1323. It was centred on the
+9600 × 7200 form, at 4050, 3225. VB6 wrote it first in the file, before Text1, as it did the UpDown added the same way.
+
+**Pass 2, which isn't used.** Setting properties through the Properties window was unreliable:
+- **CustomFormat:** the text typed for it never reached its row.
+- **MaxDate:** typing `31/12/2030` into its row showed that date in both the MaxDate and MinDate rows. The save then had
+  `MinDate = 47848` and no MaxDate line.
+- **Value:** typing a date below that MinDate raised 35773, "A date was specified that does not fall within the MinDate
+  and MaxDate properties."
+
+That pass's blocks are not in the corpus. Pass 3's hand-written lines are what this section rests on.
+
 ### In HexIDE
 
 HexIDE doesn't know MSCOMCT2.OCX. `ControlLibraries` lists only MSCOMCTL.OCX and COMCTL32.OCX, so nothing maps a

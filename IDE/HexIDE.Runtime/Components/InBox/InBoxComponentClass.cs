@@ -23,7 +23,8 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     }
 
     /// <summary>The in-box controls HexIDE implements (#1082), which the toolbox offers from each library declaring one.</summary>
-    public static IReadOnlyList<InBoxComponentClass> Implemented => [ProgressBarComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance];
+    public static IReadOnlyList<InBoxComponentClass> Implemented =>
+        [ProgressBarComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance, SSTabComponentClass.Instance];
 
     /// <summary>The control's class name, as its libraries declare it: <c>ProgressBar</c>.</summary>
     public abstract string ControlClassName { get; }

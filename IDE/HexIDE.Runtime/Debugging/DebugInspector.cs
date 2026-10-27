@@ -176,8 +176,7 @@ public static class DebugInspector
             nodes.Add(new DebugNode("Me", formObj.ClassName, formObj.ClassName, () =>
             {
                 var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(instanceWindow))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                kids.AddRange(PropertyNodes(instanceWindow));
                 var ancestors = NewAncestorSet();
                 ancestors.Add(formObj);
                 kids.AddRange(EnvChildren(baseEnv, ctx, ancestors, 1, selfName));
@@ -308,8 +307,7 @@ public static class DebugInspector
             return new DebugNode(name, FormatValue(value), type, () =>
             {
                 var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(control))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                kids.AddRange(PropertyNodes(control));
                 return kids;
             });
 
@@ -387,6 +385,14 @@ public static class DebugInspector
         }
         return list;
     }
+
+    // A live control's or form's properties, name-sorted. One whose read raises shows the raised error's own description
+    // in angle brackets, with no type, and the rest are still listed (#2289). The angle brackets are VB6's own, for a member
+    // its Locals lists whose read raises (measured on #2289). Which members are listed, and an error row's type, are #2329.
+    private static IEnumerable<DebugNode> PropertyNodes(Control control) =>
+        AvaloniaInteroperability.ReadProperties(control).Select(p => p.Error is { } error
+            ? new DebugNode(p.Name, $"<{error}>", string.Empty)
+            : new DebugNode(p.Name, FormatValue(p.Value), VB6BuiltIns.DebugTypeName(p.Value)));
 
     // The Value-column text for a leaf value, following VB6 Locals conventions (approximation — see D9).
     private static string FormatValue(Vb6Value v)
