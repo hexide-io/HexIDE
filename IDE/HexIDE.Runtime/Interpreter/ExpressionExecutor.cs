@@ -1200,6 +1200,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is ToolbarItems toolbarItems)
+            return toolbarItems.Item(indices);
+        if (value.Value is StatusBarPanels panels)
+            return new Vb6Value(panels.Item(indices));
         if (value.Value is VbCollection items)
             return items.Default(indices);
         if (value.Value is ImageListImages images)
@@ -1249,12 +1253,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
+        if (named && maybeGroup.Value is ToolbarItems toolbarItems)
+            return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
         if (named && maybeGroup.Value is VbCollection items)
         {
             if (dollar)
                 throw new NotImplementedException($"{name}$ on a Collection is not implemented (#742)");
             return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(items, "Item", argsCtx)));
         }
+        if (named && maybeGroup.Value is StatusBarPanels panels)
+            return new Vb6Value(panels.Item(await EvaluateCallArgs(argsCtx)));
         if (named && maybeGroup.Value is ImageListImages images)
             return images.Item((await EvaluateCallArgs(argsCtx))[0]);
         // A form's Controls held in a variable, `o(1)` (#1060).
@@ -1423,9 +1431,21 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        if (variable.Value is VBToolbar toolbar)
+        {
+            VBToolbar.RefusePending(MemberName(member));
+            if (MemberName(member).Equals("Buttons", StringComparison.OrdinalIgnoreCase) && MemberArgs(member) is { } indexes)
+                return toolbar.Buttons.Item(await EvaluateCallArgs(indexes));
+        }
+        if (variable.Value is ToolbarItem button && MemberName(member).Equals("ButtonMenus", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } menuIndexes && button.TryGetProperty("ButtonMenus", out var menuCollection))
+            return ((ToolbarItems)menuCollection.Value!).Item(await EvaluateCallArgs(menuIndexes));
         if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
             && managed.TryGetProperty(MemberName(member), out var property))
             return property;
+        if (variable.Value is BuiltinControls.VBStatusBar statusBar && MemberName(member).Equals("Panels", StringComparison.OrdinalIgnoreCase))
+            return MemberArgs(member) is { } panelArgs
+                ? new Vb6Value(statusBar.Panels.Item(await EvaluateCallArgs(panelArgs))) : new Vb6Value(statusBar.Panels);
         if (variable.Value is VBImageList && MemberName(member).ToLowerInvariant() is "name" or "tag" or "parent" or "object")
         {
             // These four are the invisible control's extender, answered by the shared control bindings.
@@ -1523,7 +1543,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         VBProps.RefuseIfRemoved(control);
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
-        if (AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out var inBoxValue) is { } inBox)
+        if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
+             ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
             return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
 
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
@@ -2201,6 +2222,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBToolbar => "MSComctlLib",
+                VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
                 _ => "VB",
             };

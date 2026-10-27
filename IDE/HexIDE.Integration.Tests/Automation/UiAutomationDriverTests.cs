@@ -231,7 +231,7 @@ public class UiAutomationDriverTests
             var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
             error.Should().BeNull();
             UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing")
-                .And.NotContain("copy that shows");
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             clicks.Should().Be(0);
         }
         finally { window.Close(); }
@@ -442,7 +442,7 @@ public class UiAutomationDriverTests
             var refused = UiAutomationDriver.Interact(target, "select", byPath ? null : "BackColor");
             refused.Success.Should().BeFalse();
             refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it")
-                .And.NotContain("copy that shows");
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             list.SelectedItem.Should().BeNull();
             category.IsExpanded.Should().BeFalse();
 
@@ -505,6 +505,49 @@ public class UiAutomationDriverTests
                     ? Avalonia.Automation.ExpandCollapseState.Collapsed : Avalonia.Automation.ExpandCollapseState.Expanded);
             ControlAutomationPeer.CreatePeerForElement(list.ContainerFromIndex(1)!)!
                 .GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>().Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("invoke", false, 1)]
+    [InlineData("click", true, 1)]
+    [InlineData("invoke", false, 5)]
+    public void Interact_HiddenCopy_NamesShowingPaths(string action, bool byId, int count)
+    {
+        var clicks = 0;
+        var hidden = new Button { Content = "Approve" };
+        hidden.Click += (_, _) => clicks++;
+        AutomationProperties.SetAutomationId(hidden, "approval");
+        var panel = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { hidden } } } };
+        var shown = Enumerable.Range(0, count).Select(i => new Button { Content = byId ? "Continue" : "Approve" }).ToArray();
+        foreach (var button in shown)
+        {
+            if (byId) AutomationProperties.SetAutomationId(button, "approval");
+            button.Click += (_, _) => clicks++;
+            panel.Children.Add(button);
+        }
+        panel.Children.Add(new TextBlock { Text = "Approve" });
+        panel.Children.Add(new Button { Content = "Reject" });
+        var window = new Window { Content = panel, Width = 300, Height = 400 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var result = UiAutomationDriver.Interact(hidden, action, null);
+            result.Success.Should().BeFalse();
+            if (count == 1)
+                result.Error.Should().Contain($"a showing copy is at '{UiAutomationDriver.PathWithin(window, "Window", shown[0])}'; target that");
+            else
+            {
+                result.Error.Should().Contain("5 showing copies");
+                foreach (var button in shown.Take(3))
+                    result.Error.Should().Contain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+                foreach (var button in shown.Skip(3))
+                    result.Error.Should().NotContain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+            }
+            result.Error.Should().NotContain("Make it show first");
+            clicks.Should().Be(0);
         }
         finally { window.Close(); }
     }

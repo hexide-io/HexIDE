@@ -1,7 +1,7 @@
 ## In-box controls: the MSFlexGrid (2026-10-27, #1099)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with MSFLXGRD.OCX 6.01.9782.
+- **The software:** VB6 SP6 (6.00.9782), with MSFLXGRD.OCX 6.01.9782.
   - The form line is `Object = "{5E9E78A0-531B-11CF-91F6-C2863C385E30}#1.0#0"; "MSFLXGRD.OCX"`.
   - The block is `Begin MSFlexGridLib.MSFlexGrid`.
 - **The form:** written by hand, holding MSFlexGrid1 5000 × 3000 with only its position, extents and `_Version`, so
@@ -243,6 +243,87 @@ cell never given one,** not the grid's BackColor.
 - **Rows whose keys tie aren't kept in their order.** Each run started from the previous one's order, and tied keys
   came out swapped as often as not: in run 1, `B` (r4) came before `b` (r3).
 - **Col 2 with ColSel 1** keyed on columns 1 then 2, left to right, as Col 1 with ColSel 2 would.
+
+#### How ties resolve: the algorithm (2026-10-27)
+
+**The question.** The rows above whose keys tied came out in an order no simple rule gave. Is that order random, or a
+rule?
+
+**The probe:**
+- **Each row carried its identity.** Every row held its original number in a second column, in RowData and in its fixed
+  column's `h` number, so a row could be followed through a sort. All three always moved together.
+- **Every sort started from a freshly filled grid,** keyed on column 1 over all the non-fixed rows, and ran twice.
+- **The first run:** grids of 2, 3, 5, 8 and 17 rows, under Sorts 1 to 8, with five key patterns:
+  - all `k`;
+  - `a` and `b` alternating;
+  - `1, 2, 0` repeating;
+  - `a` and `A` alternating;
+  - `1`, `0` and `x` mixed.
+
+  Then Sort 9 on 2, 3, 5 and 8 rows, with four Compare handlers:
+  - `-1, 1, 0` in turn, whatever the rows;
+  - by row number, descending;
+  - always 0;
+  - by row number, ascending.
+
+  Every Compare's Row1, Row2, the rows at those positions, and the Cmp returned were logged.
+- **A held-out second run,** predicted before it was looked at:
+  - pseudo-random keys over four or five values;
+  - grids of 17, 33 and 100 rows under Sorts 1 to 8;
+  - a sub-range, rows 3 to 8 of 10;
+  - Sort 9 on 17 and 33 rows with a handler returning `1, -1, 1, 0, -1` in turn.
+- Native and p-code logged the same lines. **Every sort repeated exactly:** the order is a rule, not noise.
+
+**The rule fits every row of both runs exactly.** That is 200 orders in the first run and 72 in the second, the two
+sub-range sorts, and all 18 custom sorts Compare by Compare, 155 calls in the longest. Sort is a deterministic
+median-of-three quicksort, run after a check for a range already in order, with rows swapped in place as it goes:
+
+```
+sort(range):
+    for each adjacent pair (k, k+1) in the range:      ' the check: stop at the first pair out of order
+        if compare(k, k+1) > 0 then goto unsorted
+    return                                              ' already in order: nothing moves
+unsorted:
+    quicksort(first, last)
+
+quicksort(lo, hi):
+    if hi <= lo then return
+    mid = (lo + hi) \ 2
+    if compare(lo, mid) > 0 then swap lo, mid
+    if compare(lo, hi)  > 0 then swap lo, hi
+    if compare(mid, hi) > 0 then swap mid, hi
+    if hi - lo < 2 then return                          ' two rows: done
+    swap mid, hi - 1                                    ' the pivot waits at hi - 1
+    p = hi - 1:  i = lo:  j = p
+    do
+        do: i = i + 1: loop while compare(i, p) < 0
+        do: j = j - 1: loop while compare(j, p) > 0
+        if i >= j then exit do
+        swap i, j
+    loop
+    swap i, p
+    quicksort the smaller of (lo, i - 1) and (i + 1, hi) first, the left one when they are the same size
+    then the other
+```
+
+- **`compare(a, b)` of a row with itself is 0 and never reaches the Compare event.** That is why a two-row range logs
+  two Compares from quicksort, and a three-row range four.
+- **For Sorts 1 to 8, `compare` is that sort's ordering of the key columns.** Its descending sorts are the ascending
+  comparison negated, not the ascending result reversed: their tie orders differ.
+- **Rows whose keys are all equal never move**, at any size, because the first check finds no pair out of order. Nor
+  does a range already in order under the sort, Sort 9's included: a handler returning 0, or always the right sign,
+  is asked n - 1 times and nothing moves.
+- **With some keys different, ties are scrambled the way the partition leaves them.** For example, Sort 1 on `a1 b2 a3
+  b4 a5 b6 a7 b8` gives `a1 a7 a3 a5 b6 b4 b2 b8`, and Sort 2 gives `b4 b6 b8 b2 a3 a7 a5 a1`. Up to 5 rows the tie
+  orders happened to look stable; from 8 rows on they don't.
+- **Row and RowSel in either order give the same range.** Rows 3 to 8 sorted alone, and with Row 8 and RowSel 3, came out
+  the same, the rows outside untouched, as the rule predicts for that range.
+- **Row1 and Row2 in Compare are positions at the moment of the call, not original rows.** Rows have already moved by
+  the time later Compares arrive. A handler reading `TextMatrix(Row1, c)` sees the row now at Row1.
+
+**What the earlier probe saw is consistent with this.** Each of its runs started from the previous run's order, and
+tied keys "came out swapped as often as not". From a different starting order, the same partition leaves ties in a
+different order.
 
 ### Events, with real input
 
