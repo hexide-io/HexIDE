@@ -56,6 +56,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
     private bool _colorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
     private bool _isStickyScrollEnabled = SettingsDefaults.IsStickyScrollEnabled;
@@ -205,6 +206,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras properties ────────────────────────────────
 
+    public bool ShowIndentGuides
+    {
+        get => _showIndentGuides;
+        set => SetProperty(ref _showIndentGuides, value);
+    }
+
     public bool IsMinimapVisible
     {
         get => _isMinimapVisible;
@@ -285,6 +292,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsEditToolbarVisible = _isEditToolbarVisible,
                 IsDebugToolbarVisible = _isDebugToolbarVisible,
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
+                ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
                 ColorBracketsByDepth = _colorBracketsByDepth,
                 IsStickyScrollEnabled = _isStickyScrollEnabled,
@@ -358,6 +366,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isEditToolbarVisible = data.IsEditToolbarVisible;
             _isDebugToolbarVisible = data.IsDebugToolbarVisible;
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
+            ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
             _colorBracketsByDepth = data.ColorBracketsByDepth;
             IsStickyScrollEnabled = data.IsStickyScrollEnabled;
@@ -444,6 +453,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("isFormEditorToolbarVisible")]
         public bool IsFormEditorToolbarVisible { get; set; } = SettingsDefaults.IsFormEditorToolbarVisible;
+
+        [JsonPropertyName("showIndentGuides")]
+        public bool ShowIndentGuides { get; set; } = SettingsDefaults.ShowIndentGuides;
 
         [JsonPropertyName("isMinimapVisible")]
         public bool IsMinimapVisible { get; set; } = SettingsDefaults.IsMinimapVisible;

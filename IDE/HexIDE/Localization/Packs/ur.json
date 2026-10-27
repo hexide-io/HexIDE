@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 بٹ",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 بٹ",
     "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.LspArtifact.Title": "کام کی جگہ کی فائلیں",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "عمومی",
     "Str.Tool.Properties.Tab.Alphabetic": "حروفِ تہجی کے لحاظ سے",
     "Str.Tool.Properties.Tab.Categorized": "زمرہ بندی شدہ",
+    "Str.Tool.Project.MissingFile": "فائل موجود نہیں",
+    "Str.Tool.Project.Unsupported": "غیر معاون",
     "Str.Tool.Project.Toolbar.ViewCode": "کوڈ دیکھیں",
     "Str.Tool.Project.Toolbar.ViewObject": "آبجیکٹ دیکھیں",
     "Str.Tool.Project.Menu.SetAsStartUp": "بطور اسٹارٹ اپ مقرر کریں",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "آیا یہ مینو کھلی MDI چائلڈ ونڈوز کی فہرست دکھائے۔",
     "Str.PropDesc.Locked": "آیا کنٹرول کے مواد میں ترمیم کی جا سکے۔",
     "Str.PropDesc.MultiSelect": "آیا ایک سے زیادہ آئٹم منتخب کیے جا سکیں، اور کیسے۔",
+    "Str.PropDesc.SimpleText": "سادہ انداز میں دکھایا جانے والا متن۔",
+    "Str.PropDesc.ShowTips": "آیا پینل ٹول ٹپس دکھائی جائیں۔",
     "Str.PropDesc.Style": "کنٹرول کیسے بنایا جاتا ہے اور یہ کیسے برتاؤ کرتا ہے۔",
     "Str.PropDesc.StartUpPosition": "فارم پہلی بار کھلنے پر اسکرین پر کہاں رکھا جائے۔",
     "Str.PropDesc.ShowInTaskbar": "آیا فارم ٹاسک بار میں ظاہر ہو۔",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
     "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.PropDesc.ImageWidth": "تصاویر کی چوڑائی۔",
+    "Str.PropDesc.ImageHeight": "تصاویر کی اونچائی۔",
+    "Str.PropDesc.MaskColor": "شفاف پکسلز کا رنگ۔",
+    "Str.PropDesc.UseMaskColor": "آیا ماسک کا رنگ استعمال کرنا ہے۔",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
   }
 }

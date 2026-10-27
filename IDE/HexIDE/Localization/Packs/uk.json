@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-розрядна",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-розрядна",
     "Str.CodeEditor.ViewAs.Tooltip": "Показати умовну компіляцію для",
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
     "Str.LspArtifact.Title": "Файли робочої області",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Загальні",
     "Str.Tool.Properties.Tab.Alphabetic": "За алфавітом",
     "Str.Tool.Properties.Tab.Categorized": "За категоріями",
+    "Str.Tool.Project.MissingFile": "Файл відсутній",
+    "Str.Tool.Project.Unsupported": "Не підтримується",
     "Str.Tool.Project.Toolbar.ViewCode": "Переглянути код",
     "Str.Tool.Project.Toolbar.ViewObject": "Переглянути об'єкт",
     "Str.Tool.Project.Menu.SetAsStartUp": "Зробити стартовим",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Чи перелічує це меню відкриті дочірні вікна MDI.",
     "Str.PropDesc.Locked": "Чи можна редагувати вміст елемента.",
     "Str.PropDesc.MultiSelect": "Чи можна вибрати більше ніж один елемент і яким чином.",
+    "Str.PropDesc.SimpleText": "Текст, що відображається у простому стилі.",
+    "Str.PropDesc.ShowTips": "Чи показувати підказки панелей.",
     "Str.PropDesc.Style": "Як елемент відображається і як він поводиться.",
     "Str.PropDesc.StartUpPosition": "Де на екрані розміщується форма при першому відкритті.",
     "Str.PropDesc.ShowInTaskbar": "Чи з'являється форма на панелі завдань.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Закрити панель",
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
     "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
+    "Str.PropDesc.ImageWidth": "Ширина зображень.",
+    "Str.PropDesc.ImageHeight": "Висота зображень.",
+    "Str.PropDesc.MaskColor": "Колір прозорих пікселів.",
+    "Str.PropDesc.UseMaskColor": "Чи використовувати колір маски.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показувати напрямні відступів",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення"
   }
 }

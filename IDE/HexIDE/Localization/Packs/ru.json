@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-разрядная",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-разрядная",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-разрядная",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-разрядная",
     "Str.CodeEditor.ViewAs.Tooltip": "Показать условную компиляцию для",
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
     "Str.LspArtifact.Title": "Файлы рабочей области",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Общие",
     "Str.Tool.Properties.Tab.Alphabetic": "По алфавиту",
     "Str.Tool.Properties.Tab.Categorized": "По категориям",
+    "Str.Tool.Project.MissingFile": "Файл отсутствует",
+    "Str.Tool.Project.Unsupported": "Не поддерживается",
     "Str.Tool.Project.Toolbar.ViewCode": "Показать код",
     "Str.Tool.Project.Toolbar.ViewObject": "Показать объект",
     "Str.Tool.Project.Menu.SetAsStartUp": "Назначить запускаемым",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Перечисляет ли меню открытые дочерние окна MDI.",
     "Str.PropDesc.Locked": "Можно ли редактировать содержимое элемента.",
     "Str.PropDesc.MultiSelect": "Можно ли выбрать несколько элементов и каким образом.",
+    "Str.PropDesc.SimpleText": "Текст, отображаемый в простом стиле.",
+    "Str.PropDesc.ShowTips": "Показывать ли всплывающие подсказки панелей.",
     "Str.PropDesc.Style": "Как элемент отображается и как он себя ведёт.",
     "Str.PropDesc.StartUpPosition": "Положение формы на экране при первом открытии.",
     "Str.PropDesc.ShowInTaskbar": "Отображается ли форма на панели задач.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Закрыть панель",
     "Str.Dock.ScrollLeft": "Прокрутить вкладки влево",
     "Str.Dock.ScrollRight": "Прокрутить вкладки вправо",
+    "Str.PropDesc.ImageWidth": "Ширина изображений.",
+    "Str.PropDesc.ImageHeight": "Высота изображений.",
+    "Str.PropDesc.MaskColor": "Цвет прозрачных пикселей.",
+    "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
   }
 }

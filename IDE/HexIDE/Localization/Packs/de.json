@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-Bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-Bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Bedingte Kompilierung anzeigen als",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.LspArtifact.Title": "Arbeitsbereichsdateien",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Allgemein",
     "Str.Tool.Properties.Tab.Alphabetic": "Alphabetisch",
     "Str.Tool.Properties.Tab.Categorized": "Nach Kategorien",
+    "Str.Tool.Project.MissingFile": "Datei fehlt",
+    "Str.Tool.Project.Unsupported": "Nicht unterstützt",
     "Str.Tool.Project.Toolbar.ViewCode": "Code anzeigen",
     "Str.Tool.Project.Toolbar.ViewObject": "Objekt anzeigen",
     "Str.Tool.Project.Menu.SetAsStartUp": "Als Startobjekt festlegen",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Ob dieses Menü die geöffneten MDI-Unterfenster auflistet.",
     "Str.PropDesc.Locked": "Ob der Inhalt des Steuerelements bearbeitet werden kann.",
     "Str.PropDesc.MultiSelect": "Ob mehr als ein Element ausgewählt werden kann, und wie.",
+    "Str.PropDesc.SimpleText": "Der im einfachen Stil angezeigte Text.",
+    "Str.PropDesc.ShowTips": "Ob QuickInfos für Bereiche angezeigt werden.",
     "Str.PropDesc.Style": "Wie das Steuerelement gezeichnet wird und wie es sich verhält.",
     "Str.PropDesc.StartUpPosition": "Wo das Formular beim ersten Öffnen auf dem Bildschirm platziert wird.",
     "Str.PropDesc.ShowInTaskbar": "Ob das Formular in der Taskleiste angezeigt wird.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Fenster schließen",
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
     "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
+    "Str.PropDesc.ImageWidth": "Die Breite der Bilder.",
+    "Str.PropDesc.ImageHeight": "Die Höhe der Bilder.",
+    "Str.PropDesc.MaskColor": "Die Farbe für transparente Pixel.",
+    "Str.PropDesc.UseMaskColor": "Ob die Maskenfarbe verwendet wird.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
   }
 }

@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitars",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitars",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bitars",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitars",
     "Str.CodeEditor.ViewAs.Tooltip": "Visa villkorlig kompilering som",
     "Str.Tool.Properties.ExportPicture": "Exportera bild...",
     "Str.LspArtifact.Title": "Arbetsytefiler",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Allmänt",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabetisk",
     "Str.Tool.Properties.Tab.Categorized": "Kategoriserad",
+    "Str.Tool.Project.MissingFile": "Fil saknas",
+    "Str.Tool.Project.Unsupported": "Stöds inte",
     "Str.Tool.Project.Toolbar.ViewCode": "Visa kod",
     "Str.Tool.Project.Toolbar.ViewObject": "Visa objekt",
     "Str.Tool.Project.Menu.SetAsStartUp": "Ange som start",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Om menyn listar de öppna MDI-underfönstren.",
     "Str.PropDesc.Locked": "Om kontrollens innehåll kan redigeras.",
     "Str.PropDesc.MultiSelect": "Om mer än ett objekt kan markeras, och hur.",
+    "Str.PropDesc.SimpleText": "Texten som visas i enkel stil.",
+    "Str.PropDesc.ShowTips": "Om panelernas verktygstips visas.",
     "Str.PropDesc.Style": "Hur kontrollen ritas och hur den beter sig.",
     "Str.PropDesc.StartUpPosition": "Var formuläret placeras på skärmen när det öppnas första gången.",
     "Str.PropDesc.ShowInTaskbar": "Om formuläret visas i aktivitetsfältet.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
     "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.PropDesc.ImageWidth": "Bildernas bredd.",
+    "Str.PropDesc.ImageHeight": "Bildernas höjd.",
+    "Str.PropDesc.MaskColor": "Färgen för genomskinliga pixlar.",
+    "Str.PropDesc.UseMaskColor": "Om maskfärgen används.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
   }
 }

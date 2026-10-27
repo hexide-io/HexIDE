@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-बिट",
     "Str.CodeEditor.ViewAs.Tooltip": "सशर्त संकलन इस रूप में देखें",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.LspArtifact.Title": "कार्यस्थान फ़ाइलें",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "सामान्य",
     "Str.Tool.Properties.Tab.Alphabetic": "वर्णानुक्रम",
     "Str.Tool.Properties.Tab.Categorized": "श्रेणीबद्ध",
+    "Str.Tool.Project.MissingFile": "फ़ाइल अनुपलब्ध",
+    "Str.Tool.Project.Unsupported": "असमर्थित",
     "Str.Tool.Project.Toolbar.ViewCode": "कोड देखें",
     "Str.Tool.Project.Toolbar.ViewObject": "ऑब्जेक्ट देखें",
     "Str.Tool.Project.Menu.SetAsStartUp": "स्टार्ट अप के रूप में सेट करें",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "यह मेनू खुली MDI चाइल्ड विंडो सूचीबद्ध करे या नहीं।",
     "Str.PropDesc.Locked": "कंट्रोल की सामग्री संपादित की जा सके या नहीं।",
     "Str.PropDesc.MultiSelect": "एक से अधिक आइटम चुने जा सकें या नहीं, और कैसे।",
+    "Str.PropDesc.SimpleText": "सरल शैली में प्रदर्शित पाठ।",
+    "Str.PropDesc.ShowTips": "क्या पैनल टूलटिप दिखाई जाएँ।",
     "Str.PropDesc.Style": "कंट्रोल कैसे बनाया जाता है और वह कैसे व्यवहार करता है।",
     "Str.PropDesc.StartUpPosition": "फ़ॉर्म पहली बार खुलने पर स्क्रीन पर कहाँ रखा जाए।",
     "Str.PropDesc.ShowInTaskbar": "फ़ॉर्म टास्कबार में दिखे या नहीं।",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
     "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.PropDesc.ImageWidth": "चित्रों की चौड़ाई।",
+    "Str.PropDesc.ImageHeight": "चित्रों की ऊँचाई।",
+    "Str.PropDesc.MaskColor": "पारदर्शी पिक्सेल का रंग।",
+    "Str.PropDesc.UseMaskColor": "क्या मास्क रंग का उपयोग करना है।",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
   }
 }

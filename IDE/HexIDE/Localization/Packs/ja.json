@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 ビット",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 ビット",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 ビット",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 ビット",
     "Str.CodeEditor.ViewAs.Tooltip": "条件付きコンパイルの表示対象",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
     "Str.LspArtifact.Title": "ワークスペースのファイル",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "全般",
     "Str.Tool.Properties.Tab.Alphabetic": "アルファベット順",
     "Str.Tool.Properties.Tab.Categorized": "カテゴリ別",
+    "Str.Tool.Project.MissingFile": "ファイルがありません",
+    "Str.Tool.Project.Unsupported": "未対応",
     "Str.Tool.Project.Toolbar.ViewCode": "コードの表示",
     "Str.Tool.Project.Toolbar.ViewObject": "オブジェクトの表示",
     "Str.Tool.Project.Menu.SetAsStartUp": "スタートアップに設定",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "このメニューに開いている MDI 子ウィンドウを一覧表示するかどうか。",
     "Str.PropDesc.Locked": "コントロールの内容を編集できるかどうか。",
     "Str.PropDesc.MultiSelect": "複数の項目を選択できるかどうか、およびその方法。",
+    "Str.PropDesc.SimpleText": "シンプルスタイルで表示するテキスト。",
+    "Str.PropDesc.ShowTips": "パネルのツールヒントを表示するかどうか。",
     "Str.PropDesc.Style": "コントロールの描画方法と動作。",
     "Str.PropDesc.StartUpPosition": "フォームが最初に開くときの画面上の表示位置。",
     "Str.PropDesc.ShowInTaskbar": "フォームをタスクバーに表示するかどうか。",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
     "Str.Dock.ScrollRight": "タブを右にスクロール",
+    "Str.PropDesc.ImageWidth": "画像の幅。",
+    "Str.PropDesc.ImageHeight": "画像の高さ。",
+    "Str.PropDesc.MaskColor": "透明ピクセルに使用する色。",
+    "Str.PropDesc.UseMaskColor": "マスク色を使用するかどうか。",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
   }
 }

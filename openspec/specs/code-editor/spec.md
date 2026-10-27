@@ -418,6 +418,20 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Indentation guides
+
+The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.
+
+#### Scenario: Nested indentation
+- **WHEN** the caret enters a nested indented block
+- **THEN** that block's guide is emphasised throughout its contiguous indentation run
+- **AND** equally indented blocks elsewhere retain the normal guide colour
+
+#### Scenario: Guides disabled
+- **WHEN** Show indent guides is turned off and options are applied
+- **THEN** open code windows stop drawing guides
+- **AND** the preference survives restarting the IDE
+
 ### Requirement: Parentheses coloured by nesting depth
 The VB6 code editor SHALL colour matching parentheses with the same theme-defined foreground, cycling
 through the `BracketDepth1`, `BracketDepth2` and `BracketDepth3` theme palette entries by nesting depth. It SHALL mark unmatched parentheses with a separate theme
@@ -562,8 +576,9 @@ was SHALL keep the greying until the next evaluation, and an edit that adds or r
 
 ### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
 A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
-VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit and twinBASIC 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
 The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+Changing the selection SHALL NOT send language-server requests or notifications.
 VBA's constants are not measured, since there is no VBA oracle.
 
 #### Scenario: Previewing a VBA branch
@@ -571,3 +586,11 @@ VBA's constants are not measured, since there is no VBA oracle.
 - **THEN** the default VB6 view greys the VBA7 branch
 - **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
 - **THEN** the view greys the Else branch instead, without changing what F5 runs
+
+
+#### Scenario: Previewing a twinBASIC branch
+- **WHEN** the developer chooses twinBASIC 32-bit or twinBASIC 64-bit
+- **THEN** greying uses the measured twinBASIC built-ins for that bitness and function calls read zero
+- **AND** the build number is unknown, so conditions depending on it remain ungreyed
+- **AND** the build type is "Standard EXE", "ActiveX DLL" or "ActiveX Control" for the corresponding VB6 project type; otherwise it is unknown and conditions depending on it remain ungreyed
+- **AND** execution and language-server diagnostics retain their own constants

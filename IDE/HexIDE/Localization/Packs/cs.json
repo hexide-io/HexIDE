@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32bitové",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64bitové",
     "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.LspArtifact.Title": "Soubory pracovního prostoru",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Obecné",
     "Str.Tool.Properties.Tab.Alphabetic": "Abecedně",
     "Str.Tool.Properties.Tab.Categorized": "Podle kategorií",
+    "Str.Tool.Project.MissingFile": "Chybějící soubor",
+    "Str.Tool.Project.Unsupported": "Nepodporováno",
     "Str.Tool.Project.Toolbar.ViewCode": "Zobrazit kód",
     "Str.Tool.Project.Toolbar.ViewObject": "Zobrazit objekt",
     "Str.Tool.Project.Menu.SetAsStartUp": "Nastavit jako spouštěcí",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Zda tato nabídka zobrazuje otevřená podřízená okna MDI.",
     "Str.PropDesc.Locked": "Zda lze obsah prvku upravovat.",
     "Str.PropDesc.MultiSelect": "Zda lze vybrat více než jednu položku a jakým způsobem.",
+    "Str.PropDesc.SimpleText": "Text zobrazený v jednoduchém stylu.",
+    "Str.PropDesc.ShowTips": "Zda se zobrazují popisky panelů.",
     "Str.PropDesc.Style": "Jak je prvek vykreslen a jak se chová.",
     "Str.PropDesc.StartUpPosition": "Kde se formulář na obrazovce umístí při prvním otevření.",
     "Str.PropDesc.ShowInTaskbar": "Zda se formulář zobrazí na hlavním panelu.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
+    "Str.PropDesc.ImageWidth": "Šířka obrázků.",
+    "Str.PropDesc.ImageHeight": "Výška obrázků.",
+    "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
+    "Str.PropDesc.UseMaskColor": "Zda použít barvu masky.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }
 }

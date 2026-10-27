@@ -649,6 +649,8 @@ added afterwards.
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
+
+- [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
 - [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
@@ -663,3 +665,10 @@ added afterwards.
 - [In-box controls: the SSTab (2026-10-27, #1090)](in-box-controls-the-sstab.md#in-box-controls-the-sstab-2026-10-27-1090)
 - [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
+- [In-box controls: the RichTextBox (2026-10-27, #1100)](in-box-controls-the-richtextbox.md#in-box-controls-the-richtextbox-2026-10-27-1100)
+- [In-box controls: the TabStrip (2026-10-27, #1089)](in-box-controls-the-tabstrip.md#in-box-controls-the-tabstrip-2026-10-27-1089)
+- [In-box classes: a bare name binds to the first library (2026-10-27, #2265)](in-box-classes-a-bare-name-binds-to-the-first-library.md#in-box-classes-a-bare-name-binds-to-the-first-library-2026-10-27-2265)
+- [A reference's LCID is lowercase hex, unpadded (2026-10-27, #2273)](a-references-lcid-is-lowercase-hex.md#a-references-lcid-is-lowercase-hex-unpadded-2026-10-27-2273)
+- [A reference's path, and the line order a save writes (2026-10-27, #2274)](a-references-path-and-the-line-order-a-save-writes.md#a-references-path-and-the-line-order-a-save-writes-2026-10-27-2274)
+- [In-box controls: the Slider (2026-10-27, #1091)](in-box-controls-the-slider.md#in-box-controls-the-slider-2026-10-27-1091)
+- [In-box controls: the UpDown (2026-10-27, #1093)](in-box-controls-the-updown.md#in-box-controls-the-updown-2026-10-27-1093)

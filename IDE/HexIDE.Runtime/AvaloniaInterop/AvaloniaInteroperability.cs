@@ -109,7 +109,8 @@ public static class AvaloniaInteroperability
         // Not Visual.IsVisibleProperty: hiding a CONTAINER that way unrealises everything inside it, and an
         // unrealised control dispatches no events at all. See VBVisibility.
         Register<Control, bool>(VBProperties.VisibleProperty, VBVisibility.Get, VBVisibility.Set);
-        Register<Control, bool>(VBProperties.EnabledProperty, InputElement.IsEnabledProperty);
+        // A disabled container masks the read, but the setter keeps the control's own value (#2245, measured).
+        Register<Control, bool>(VBProperties.EnabledProperty, VBEnabled.Get, (c, value) => c.IsEnabled = value);
         Register<Control, object?>(VBProperties.TagProperty, Control.TagProperty);
         // ToolTipText, on the ten controls HexIDE runs that VB6 gives it, and on no other: a scroll bar, Shape, Line,
         // Timer, menu or form has none (measured, #1403). The tip shown is the value, and "" where none was given.
@@ -123,6 +124,7 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBPictureBox>();
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
+        RegisterToolTipText<VBStatusBar>();
         // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
         RegisterTabOrder<VBCommandButton>(tabStop: true);
         RegisterTabOrder<VBTextBox>(tabStop: true);
@@ -135,6 +137,7 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBStatusBar>(tabStop: false);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
         // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);

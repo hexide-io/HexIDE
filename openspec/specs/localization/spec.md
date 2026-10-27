@@ -158,6 +158,11 @@ mistake self-correcting.
 - **WHEN** the user confirms the new language
 - **THEN** it is kept and persists across restarts
 
+#### Scenario: Confirming a change an automation client asked for
+- **WHEN** `set_ide_language` opens the confirmation and Keep is pressed, with no Options dialog behind it
+- **THEN** the language persists across restarts, as it does when confirmed in Options and closed with OK
+- **AND** Revert, or the confirmation timing out, saves nothing
+
 ### Requirement: Text direction SHALL follow the pack, but the design surface SHALL NOT mirror
 A pack SHALL be able to declare a right-to-left direction, which SHALL apply to the IDE's own chrome
 including dialogs. The form design surface SHALL remain left-to-right regardless of the interface language.

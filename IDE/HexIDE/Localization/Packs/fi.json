@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bittinen",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bittinen",
     "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.LspArtifact.Title": "Työtilan tiedostot",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Yleiset",
     "Str.Tool.Properties.Tab.Alphabetic": "Aakkosellinen",
     "Str.Tool.Properties.Tab.Categorized": "Luokiteltu",
+    "Str.Tool.Project.MissingFile": "Puuttuva tiedosto",
+    "Str.Tool.Project.Unsupported": "Ei tuettu",
     "Str.Tool.Project.Toolbar.ViewCode": "Näytä koodi",
     "Str.Tool.Project.Toolbar.ViewObject": "Näytä objekti",
     "Str.Tool.Project.Menu.SetAsStartUp": "Aseta käynnistyskohteeksi",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Luetteleeko tämä valikko avoimet MDI-aliikkunat.",
     "Str.PropDesc.Locked": "Voiko ohjausobjektin sisältöä muokata.",
     "Str.PropDesc.MultiSelect": "Voiko valita useamman kuin yhden kohteen, ja miten.",
+    "Str.PropDesc.SimpleText": "Yksinkertaisessa tyylissä näytettävä teksti.",
+    "Str.PropDesc.ShowTips": "Näytetäänkö paneelien työkaluvihjeet.",
     "Str.PropDesc.Style": "Miten ohjausobjekti piirretään ja miten se toimii.",
     "Str.PropDesc.StartUpPosition": "Lomakkeen sijainti näytöllä sen ensimmäistä kertaa avautuessa.",
     "Str.PropDesc.ShowInTaskbar": "Näkyykö lomake tehtäväpalkissa.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
     "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
+    "Str.PropDesc.ImageWidth": "Kuvien leveys.",
+    "Str.PropDesc.ImageHeight": "Kuvien korkeus.",
+    "Str.PropDesc.MaskColor": "Läpinäkyvien pikselien väri.",
+    "Str.PropDesc.UseMaskColor": "Käytetäänkö maskin väriä.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Näytä sisennysohjaimet",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
   }
 }

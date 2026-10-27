@@ -38,7 +38,7 @@ public class FormControlsSummaryTests
         dock.OpenDocuments.Returns([]);
         // Only these services are used by this read-only tool; the context also subscribes to diagnostics.
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
 
         foreach (var name in new string?[] { null, "Control1" })

@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Visualizza compilazione condizionale come",
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
     "Str.LspArtifact.Title": "File dell’area di lavoro",
@@ -289,6 +291,8 @@
     "Str.Toolbox.Tab.General": "Generale",
     "Str.Tool.Properties.Tab.Alphabetic": "Alfabetico",
     "Str.Tool.Properties.Tab.Categorized": "Per categoria",
+    "Str.Tool.Project.MissingFile": "File mancante",
+    "Str.Tool.Project.Unsupported": "Non supportato",
     "Str.Tool.Project.Toolbar.ViewCode": "Visualizza codice",
     "Str.Tool.Project.Toolbar.ViewObject": "Visualizza oggetto",
     "Str.Tool.Project.Menu.SetAsStartUp": "Imposta come avvio",
@@ -633,6 +637,8 @@
     "Str.PropDesc.WindowList": "Se questo menu elenca le finestre figlie MDI aperte.",
     "Str.PropDesc.Locked": "Se il contenuto del controllo può essere modificato.",
     "Str.PropDesc.MultiSelect": "Se è possibile selezionare più di un elemento, e come.",
+    "Str.PropDesc.SimpleText": "Il testo visualizzato nello stile semplice.",
+    "Str.PropDesc.ShowTips": "Indica se vengono mostrati i suggerimenti dei pannelli.",
     "Str.PropDesc.Style": "Come viene disegnato il controllo e come si comporta.",
     "Str.PropDesc.StartUpPosition": "Dove viene posizionato il form sullo schermo alla prima apertura.",
     "Str.PropDesc.ShowInTaskbar": "Se il form appare nella barra delle applicazioni.",
@@ -901,6 +907,11 @@
     "Str.Dock.Close": "Chiudi pannello",
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
     "Str.Dock.ScrollRight": "Scorri schede a destra",
+    "Str.PropDesc.ImageWidth": "La larghezza delle immagini.",
+    "Str.PropDesc.ImageHeight": "L’altezza delle immagini.",
+    "Str.PropDesc.MaskColor": "Il colore dei pixel trasparenti.",
+    "Str.PropDesc.UseMaskColor": "Indica se usare il colore della maschera.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento"
   }
 }
