@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "La forma del puntatore mostrata quando il mouse è sopra l'oggetto.",
     "Str.PropDesc.RightToLeft": "Se testo e layout sono speculari per le lingue da destra a sinistra.",
     "Str.PropDesc.ToolTipText": "Il tooltip mostrato quando il puntatore si ferma sul controllo.",
+    "Str.PropDesc.HelpContextID": "Il numero di contesto dell’argomento della guida dell’oggetto.",
     "Str.PropDesc.WhatsThisHelpID": "Un numero di contesto che collega l'oggetto a un argomento della Guida.",
     "Str.PropDesc.Font": "Il tipo di carattere usato per il testo dell'oggetto.",
     "Str.PropDesc.Alignment": "Come è allineato il testo del controllo (o la didascalia di una CheckBox o OptionButton).",

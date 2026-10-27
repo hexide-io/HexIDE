@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "شكل المؤشر المعروض عندما يكون الماوس فوق الكائن.",
     "Str.PropDesc.RightToLeft": "ما إذا كان النص والتخطيط معكوسين للغات التي تُكتب من اليمين إلى اليسار.",
     "Str.PropDesc.ToolTipText": "تلميح الأداة المعروض عند استقرار المؤشر على عنصر التحكم.",
+    "Str.PropDesc.HelpContextID": "رقم سياق موضوع المساعدة الخاص بالكائن.",
     "Str.PropDesc.WhatsThisHelpID": "رقم سياقي يربط الكائن بموضوع تعليمات.",
     "Str.PropDesc.Font": "الخط المستخدم لنص الكائن.",
     "Str.PropDesc.Alignment": "كيفية محاذاة نص عنصر التحكم (أو عنوان CheckBox أو OptionButton).",

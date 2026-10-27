@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "Die Zeigerform, die angezeigt wird, während sich die Maus über dem Objekt befindet.",
     "Str.PropDesc.RightToLeft": "Ob Text und Layout für Rechts-nach-links-Sprachen gespiegelt werden.",
     "Str.PropDesc.ToolTipText": "Der Tooltip, der angezeigt wird, wenn der Zeiger auf dem Steuerelement ruht.",
+    "Str.PropDesc.HelpContextID": "Die Kontextnummer des Hilfethemas des Objekts.",
     "Str.PropDesc.WhatsThisHelpID": "Eine Kontextnummer, die das Objekt mit einem Hilfethema verknüpft.",
     "Str.PropDesc.Font": "Die Schriftart für den Text des Objekts.",
     "Str.PropDesc.Alignment": "Die Ausrichtung des Textes im Steuerelement (bzw. der Beschriftung einer CheckBox oder eines OptionButton).",

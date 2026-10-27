@@ -886,7 +886,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
+        {
+            UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
+        }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
 
@@ -2305,6 +2308,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Every member of a control Controls.Remove took out is 735 (measured, #1556).
             VBProps.RefuseIfRemoved(control);
 
+            UserControlMembers.Check(variable, memberIdentifier);
+            if (UserControlMembers.TrySet(control, memberIdentifier, value))
+                return default;
+
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
             if ((StatusBarMembers.TrySet(control, memberIdentifier, value)
                  ?? ProgressBarMembers.TrySet(control, memberIdentifier, value)) is { } inBox)
@@ -3251,6 +3258,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is Control setControl && membersCall.iCS_S_MemberCall() is { Length: 1 } setMembers)
+            {
+                var member = UdtFieldName(setMembers[0]);
+                UserControlMembers.Check(target, member);
+                if (UserControlContainers.TrySet(setControl, member, value))
+                    return ControlFlow.Nothing;
+            }
             if (setLead && target.Value is VBStatusBar or StatusBarPanel or StatusBarPanels)
             {
                 var parts = membersCall.iCS_S_MemberCall();
@@ -4259,6 +4273,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
+            UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
         else

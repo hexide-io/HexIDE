@@ -590,6 +590,7 @@
     "Str.PropDesc.MousePointer": "Forma indicis dum mus supra obiectum est ostensa.",
     "Str.PropDesc.RightToLeft": "Utrum textus et dispositio pro linguis a dextra ad sinistram speculentur.",
     "Str.PropDesc.ToolTipText": "Notula ostensa cum index super moderamine quiescit.",
+    "Str.PropDesc.HelpContextID": "Numerus contextus argumenti auxilii obiecti.",
     "Str.PropDesc.WhatsThisHelpID": "Numerus contextus qui obiectum cum themate auxilii nectit.",
     "Str.PropDesc.Font": "Character pro textu obiecti adhibitus.",
     "Str.PropDesc.Alignment": "Quomodo textus moderaminis ordinatur (vel titulus CheckBox aut OptionButton).",

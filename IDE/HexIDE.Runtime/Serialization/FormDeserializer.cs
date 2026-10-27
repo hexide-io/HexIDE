@@ -641,6 +641,13 @@ public class FormDeserializer
                 $"it references companion binary content HexIDE cannot re-emit "
                 + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
 
+        // Rendering also serves dirty checks; only the save path may refuse missing extents (#1631).
+        if (components.Any(c => c.BaseClass is UserControlComponentClass uc && uc.Setting("InvisibleAtRuntime")
+            && (!c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase))
+                || !c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)))))
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.MissingUserControlExtents,
+                "it contains an invisible UserControl without both recorded extents; saving its size is not implemented");
+
         form.UpdateCode(code);
         form.UpdateComponents(components);
         if (rootComponent.Type != "VB.Form")

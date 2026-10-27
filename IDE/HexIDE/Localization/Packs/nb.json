@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "Pekerformen som vises når musen er over objektet.",
     "Str.PropDesc.RightToLeft": "Om tekst og oppsett speiles for høyre-til-venstre-språk.",
     "Str.PropDesc.ToolTipText": "Verktøytipset som vises når pekeren hviler på kontrollen.",
+    "Str.PropDesc.HelpContextID": "Kontekstnummeret til objektets hjelpeemne.",
     "Str.PropDesc.WhatsThisHelpID": "Et kontekstnummer som knytter objektet til et hjelpeemne.",
     "Str.PropDesc.Font": "Skriften som brukes for objektets tekst.",
     "Str.PropDesc.Alignment": "Hvordan kontrollens tekst justeres (eller tittelteksten til en CheckBox eller OptionButton).",

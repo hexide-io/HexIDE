@@ -61,6 +61,8 @@ public partial class VB6BuiltIns
     /// <summary>A control's class, as TypeName gives it and TypeOf matches it: <c>TextBox</c>, <c>CommonDialog</c>.</summary>
     internal static string ControlTypeName(Control control) => control switch
     {
+        // Preserve the old hosted Canvas name: #1631 did not measure a UserControl's TypeName.
+        HexIDE.Runtime.BuiltinControls.VBUserControl => nameof(Canvas),
         // A menu's separator is a Menu to a program, as every menu is (#1126).
         HexIDE.Runtime.BuiltinControls.VBMenuSeparator => "Menu",
         // One class draws both scroll bars, which VB6 names by their direction (measured, #1556): it was "ScrollBar", and

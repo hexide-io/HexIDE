@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "Форма вказівника, коли миша над об'єктом.",
     "Str.PropDesc.RightToLeft": "Чи дзеркалиться текст і розкладка для мов із написанням справа наліво.",
     "Str.PropDesc.ToolTipText": "Підказка, що з'являється, коли вказівник зупиняється на елементі.",
+    "Str.PropDesc.HelpContextID": "Номер контексту розділу довідки об’єкта.",
     "Str.PropDesc.WhatsThisHelpID": "Контекстний номер, що пов'язує об'єкт із розділом довідки.",
     "Str.PropDesc.Font": "Шрифт тексту об'єкта.",
     "Str.PropDesc.Alignment": "Вирівнювання тексту елемента (або підпису CheckBox чи OptionButton).",

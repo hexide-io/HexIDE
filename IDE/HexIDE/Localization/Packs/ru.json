@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "Форма указателя при наведении мыши на объект.",
     "Str.PropDesc.RightToLeft": "Зеркально ли отображаются текст и разметка для языков с письмом справа налево.",
     "Str.PropDesc.ToolTipText": "Всплывающая подсказка при наведении указателя на элемент.",
+    "Str.PropDesc.HelpContextID": "Номер контекста раздела справки объекта.",
     "Str.PropDesc.WhatsThisHelpID": "Числовой код контекста, связывающий объект с разделом справки.",
     "Str.PropDesc.Font": "Шрифт текста объекта.",
     "Str.PropDesc.Alignment": "Выравнивание текста элемента (или подписи CheckBox либо OptionButton).",

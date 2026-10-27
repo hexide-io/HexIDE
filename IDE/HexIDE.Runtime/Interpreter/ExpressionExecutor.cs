@@ -1529,6 +1529,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
 
+        AvaloniaInterop.UserControlMembers.Check(variable, memberIdentifier, reading: true);
+        if (AvaloniaInterop.UserControlMembers.TryGet(control, memberIdentifier, out var userControlValue))
+            return userControlValue;
+
+        if (AvaloniaInterop.UserControlContainers.TryGet(control, memberIdentifier, out var containerValue))
+            return containerValue;
+
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
              ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)

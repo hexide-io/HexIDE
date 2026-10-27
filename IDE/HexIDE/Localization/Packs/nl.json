@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "De vorm van de aanwijzer wanneer de muis boven het object staat.",
     "Str.PropDesc.RightToLeft": "Of tekst en indeling worden gespiegeld voor talen die van rechts naar links lopen.",
     "Str.PropDesc.ToolTipText": "De knopinfo die verschijnt wanneer de aanwijzer op het besturingselement rust.",
+    "Str.PropDesc.HelpContextID": "Het contextnummer van het Help-onderwerp van het object.",
     "Str.PropDesc.WhatsThisHelpID": "Een contextnummer dat het object aan een Help-onderwerp koppelt.",
     "Str.PropDesc.Font": "Het lettertype voor de tekst van het object.",
     "Str.PropDesc.Alignment": "De uitlijning van de tekst van het besturingselement (of het bijschrift van een CheckBox of OptionButton).",

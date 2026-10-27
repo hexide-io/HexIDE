@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "滑鼠移至物件上時所顯示的指標形狀。",
     "Str.PropDesc.RightToLeft": "是否為由右至左的語言鏡射文字與版面。",
     "Str.PropDesc.ToolTipText": "指標停留在控制項上時顯示的工具提示。",
+    "Str.PropDesc.HelpContextID": "物件說明主題的內容編號。",
     "Str.PropDesc.WhatsThisHelpID": "將物件連結至說明主題的內容編號。",
     "Str.PropDesc.Font": "物件文字所使用的字型。",
     "Str.PropDesc.Alignment": "控制項文字（或 CheckBox、OptionButton 標題）的對齊方式。",

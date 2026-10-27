@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "La forme du pointeur affichée lorsque la souris survole l'objet.",
     "Str.PropDesc.RightToLeft": "Indique si le texte et la disposition sont inversés pour les langues de droite à gauche.",
     "Str.PropDesc.ToolTipText": "L'info-bulle affichée lorsque le pointeur s'arrête sur le contrôle.",
+    "Str.PropDesc.HelpContextID": "Le numéro de contexte de la rubrique d’aide de l’objet.",
     "Str.PropDesc.WhatsThisHelpID": "Un numéro de contexte reliant l'objet à une rubrique d'aide.",
     "Str.PropDesc.Font": "La police utilisée pour le texte de l'objet.",
     "Str.PropDesc.Alignment": "L'alignement du texte du contrôle (ou de la légende d'une CheckBox ou d'un OptionButton).",
