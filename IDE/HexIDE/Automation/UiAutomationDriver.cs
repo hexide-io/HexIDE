@@ -182,7 +182,8 @@ public static class UiAutomationDriver
             control.DataContext?.GetType().Name,
             providers,
             Safe(() => peer.IsEnabled(), true),
-            Safe(() => peer.IsKeyboardFocusable(), false),
+            // The peer answers for Focusable alone, so a disabled combo read as focusable, as if a key could reach it (#2366).
+            Safe(() => peer.IsKeyboardFocusable(), false) && control.IsEffectivelyEnabled,
             control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
@@ -777,7 +778,9 @@ public static class UiAutomationDriver
 
     // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
-    private static string? DisabledPressRefusal(Control control)
+    // 'action' is what no person could do to it, and 'done' what was therefore not done: press_key refuses with it too,
+    // since its routed fallback pressed a key on a disabled control and reported success (#2366).
+    private static string? DisabledPressRefusal(Control control, string action = "click or invoke it", string done = "pressed or invoked")
     {
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
         var open = OpenDialogs.Among(OpenWindows());
@@ -787,12 +790,12 @@ public static class UiAutomationDriver
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
             return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
-                   + "No person could click or invoke it, so nothing was pressed or invoked. Answer the dialog first: "
+                   + $"No person could {action}, so nothing was {done}. Answer the dialog first: "
                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
         }
         return !control.IsEffectivelyEnabled || window is { IsEffectivelyEnabled: false }
-            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could click or invoke it, so "
-              + "nothing was pressed or invoked. Wait until it is enabled before trying again"
+            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could {action}, so "
+              + $"nothing was {done}. Wait until it is enabled before trying again"
             : null;
     }
 
@@ -3511,6 +3514,10 @@ public static class UiAutomationDriver
 
             if (KeysTakenBy(target, Describe(target), "pressed") is { } held)
                 return new InteractOutcome(false, "keyboard", null, held);
+            // A disabled control can't take focus, so the routed fallback below pressed the key on it all the same and
+            // reported success, where interact's click and invoke refuse it (#2366).
+            if (DisabledPressRefusal(target, "press a key on it", "pressed") is { } disabled)
+                return new InteractOutcome(false, "keyboard", null, disabled);
             var deletionArea = AreaOf(target);
             var selectionDelete = parsedKey is Key.Delete or Key.Back
                 && mods is KeyModifiers.None or KeyModifiers.Control;

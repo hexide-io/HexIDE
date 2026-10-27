@@ -537,6 +537,15 @@ text has not appeared yet SHALL be read again until it does or the dwell ends.
 - **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
 - **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
 
+### Requirement: press_key SHALL refuse a disabled control
+`press_key` SHALL refuse a target that is not effectively enabled, saying it is disabled and that nothing was pressed,
+as `interact`'s `click` and `invoke` refuse it, and SHALL NOT raise the key on it by any route. `inspect_element` SHALL
+report `isKeyboardFocusable` false for such a control.
+
+#### Scenario: The disabled region combo in Options
+- **WHEN** `press_key` presses Down on Options → Language's region combo while it is disabled
+- **THEN** the reply is a refusal saying the combo is disabled and nothing was pressed, and no key reaches it
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
