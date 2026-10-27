@@ -291,6 +291,8 @@
     "Str.Toolbox.Tab.General": "일반",
     "Str.Tool.Properties.Tab.Alphabetic": "사전순",
     "Str.Tool.Properties.Tab.Categorized": "범주별",
+    "Str.Tool.Project.MissingFile": "파일 없음",
+    "Str.Tool.Project.Unsupported": "지원되지 않음",
     "Str.Tool.Project.Toolbar.ViewCode": "코드 보기",
     "Str.Tool.Project.Toolbar.ViewObject": "개체 보기",
     "Str.Tool.Project.Menu.SetAsStartUp": "시작 항목으로 설정",

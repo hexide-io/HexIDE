@@ -418,7 +418,8 @@ public static class DebugInspector
     // as a module's variable, and it is not one.
     private static bool IsFormName(ModuleExecutionContext ctx, ExecutionEnvironment env, string name)
         => env.TryGetVariableLocation(name, out var location)
-           && ctx.State[location].Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
+           && ctx.State.TryRead(location, out var value)
+           && value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
            && string.Equals(form.ClassName, name, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSelfRef(string name, string? selfName)

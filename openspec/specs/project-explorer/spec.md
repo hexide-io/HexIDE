@@ -57,7 +57,7 @@ project as the root while still telling the truth about the file.
 - **THEN** it appears at the tree's root, with its relative location shown in the caption
 
 ### Requirement: Opening a member from the tree SHALL open it appropriately
-Activating a member in the tree SHALL open it — code-only members in the code editor, and members with a
+Activating a loaded member in the tree SHALL open it — code-only members in the code editor, and members with a
 visual definition on the design surface.
 
 The tree is the primary way into a project's files, so the gesture has to land somewhere useful. Choosing
@@ -221,6 +221,26 @@ open into yet.
 #### Scenario: Expansion survives activation
 - **WHEN** the developer activates an expanded project in the tree
 - **THEN** the project opens and remains expanded
+
+### Requirement: Preserved items SHALL remain visible
+The tree SHALL include the project's preserved item lines alongside loaded members, using the directory
+in which those lines were read to resolve their paths. Missing files SHALL have a missing-file overlay
+and localized label; unsupported UserDocuments SHALL have a distinct unsupported overlay and localized
+label. Both markers SHALL appear when an unsupported item's file is also missing. The original line
+SHALL remain visible, and showing or activating it SHALL NOT load, edit or discard the preserved item.
+
+#### Scenario: A missing form or module
+- **WHEN** a declared form, standard module, class, UserControl or PropertyPage has no file on disk
+- **THEN** its line is preserved without creating a live member, and its entry appears in the tree with the missing-file marker
+- **AND** saving the project SHALL NOT create an empty member file
+
+#### Scenario: An unsupported UserDocument
+- **WHEN** a UserDocument entry is preserved rather than loaded
+- **THEN** its entry appears with the unsupported marker, and also the missing-file marker if absent
+
+#### Scenario: Save As leaves a preserved member at its original location
+- **WHEN** a project is saved in a different directory
+- **THEN** the preserved node still resolves against its original directory and is placed relative to the new project anchor
 
 ### Requirement: Selecting a module SHALL offer its name in the Properties window
 Selecting a standard module, class module, UserControl or PropertyPage SHALL show a single `(Name)` row.

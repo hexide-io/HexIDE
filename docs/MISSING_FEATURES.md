@@ -215,7 +215,7 @@
 | Properties | Done | Opens/focuses tool window |
 | Form Layout | Done | Opens Form Layout tool window with live form position thumbnail |
 | Object Browser | Partial | Opens Object Browser document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24) |
-| ToolBox | Done | |
+| ToolBox | Done | Remains open after restart when a far-left dock drop nests its dock; live tools in unrecognized arrangements restore in their home region (#2239) |
 | Data View | Stub | Button present; no Data View window |
 | Position display (twips) | Done | Shows selected component position |
 | Size display (twips) | Done | Shows selected component size |
@@ -301,6 +301,7 @@
 | Feature | Status | Notes |
 |---|---|---|
 | Project / Forms / Modules tree | Changed | VB6's type-grouped view deliberately replaced by an always-on filesystem hierarchy (muscle-memory override, 2026-06-12) — see [project-explorer](../openspec/specs/project-explorer/spec.md) |
+| Missing / unsupported project items | Done | Preserved `.vbp` items appear in the filesystem tree, with missing-file and unsupported-UserDocument overlays (#44); missing forms, modules, classes, UserControls and PropertyPages remain preserved on save without creating empty files |
 | View Code | Done | |
 | View Object | Done | |
 | Set as Startup Project | Done | |
