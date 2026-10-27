@@ -839,7 +839,7 @@ missing.
 | `In` | Partial | Only occurrence in VB6 is `For Each x In coll` (VB6.g4); the grammar consumes it and VisitForEachStmt evaluates the following valueStmt as the collection. Same arrays-only restriction as… | StatementExecutor.cs |
 | `Is (Select Case comparison prefix)` | Partial | `sC_CondExpr : IS WS? comparisonOperator WS? valueStmt # caseCondExprIs` is handled for six operators — `<`, `<=`, `>`, `>=`, `=`, `<>` — via `value.TryCompareTo(val)` /… | StatementExecutor.cs |
 | `New` | Partial | **#1107:** a managed class in a referenced library can be constructed bare or library-qualified, separately from its GlobalMultiUse implicit instance.  **[#435](https://github.com/hexide-io/HexIDE/issues/435):** `Dim o As New C1` and `Dim c As New Collection`, at procedure and module level and as a class field, hold Nothing until the first use makes the object, as vb6.exe does; every use counts, `o Is Nothing` (always False) and `TypeName(o)` among them, and after `Set o = Nothing` the next use makes another (measured). **#850:** `New` holds the object while `Class_Initialize` runs, so a method it calls on itself no longer terminates the object mid-construction. **#1488:** a Type's field `As New C1` now makes its object on first use, and a Type copy shares it. **Not yet:** an array `As New` ([#1482](https://github.com/hexide-io/HexIDE/issues/1482)), `With New`, and `New` of a form. | ExpressionExecutor.cs, StatementExecutor.cs, BasicInterpreter.cs |
-| `Next` | Partial | **#841:** reads an integral numeric For counter back after the body before adding the step, honouring body increments and resets; see `For...Next`. Closes forNextStmt and forEachStmt; also the `Resume Next` / `On Error Resume Next` modifier (StatementExecutor.cs). Loop restriction: the grammar is `NEXT (WS ambiguousIdentifier… | VB6.g4 |
+| `Next` | Partial | **#2393, fixed:** one Next closes several loops, `Next j, i`, run as `Next j: Next i` for For and For Each loops alike, as vb6.exe runs it (measured); a module using it used to fail to load. Its names are not checked against the open loops, so `Next i, j`, vb6.exe's "Invalid Next control variable reference", runs. **#841:** reads an integral numeric For counter back after the body before adding the step, honouring body increments and resets; see `For...Next`. Closes forNextStmt and forEachStmt; also the `Resume Next` / `On Error Resume Next` modifier (StatementExecutor.cs). Loop restriction: the grammar is `NEXT (WS ambiguousIdentifier… | VB6.g4 |
 | `On` | Partial | `On Error ...` is fully wired (VisitOnErrorStmt, StatementExecutor.cs). The two computed-branch forms are not: VisitOnGoToStmt throws "OnGoTo not implemented" and VisitOnGoSubStmt… | StatementExecutor.cs |
 | `Private` | Partial | **#2121:** scalar assignment through `Me.` to an explicitly Private class field is refused with "Method or data member not found" when executed (measured). Other private-member forms remain unchanged. **[#880](https://github.com/hexide-io/HexIDE/issues/880):** a module's Private variable, module-level `Dim` and `Private Const` are not visible bare from another module, where its Public ones are (measured). — Cross-module procedure resolution also skips other modules' Private procedures (`if (m.PrePass.Procedures.TryGetValue(name, out var p) && !p.IsPrivate)`). NOT… | BasicInterpreter.cs, PrePass.cs, VbInterface.cs |
 | `Rem` | Partial | Handled purely in the lexer, on the hidden channel. Takes NO separator — `Rem`, `Rem:`, `Rem=1`, `Rem'x`, `Rem"x"` and a bare `Rem` are all comments, measured against vb6.exe against a reference that says a space is required. Guarded by REMTAIL so `RemX = 5` stays an assignment. A trailing `_` extends the remark onto the next line, which is faithful (vb6.exe reports "Expected End Sub" when it swallows one). Remaining divergence: `Rem` is a STATEMENT in VB6 and so needs a separator after a preceding statement, while HexIDE accepts `x = 1 Rem foo` — a missing error, not a wrong value. | VB6.g4 |
@@ -1297,6 +1297,41 @@ served from a different list (`VbKeywords.All`), and none of the thirteen appear
 signature help and the Object Browser, not the completion popup.
 
 ## Not yet enumerated
+
+**TreeView (#1086):** Rows draw and accept pointer hits at the measured 16-pixel height;
+`GetVisibleCount` returns complete client-row capacity as a Long, before layout and in Form_Load
+as well as after Show (4 for the default-edged 80-pixel tree, 12 for the 200-pixel tree).
+Saved Appearance/BorderStyle choose the measured 0/1/2/3-pixel edge, drawing and pointer origin.
+MouseDown, MouseMove and MouseUp report client-area twips, subtracting that edge.
+Scrolling (#2359) remains unmeasured and not implemented; label editing follows in #2360.
+`TreeNodes.cs` supplies the hierarchy model and `TreeNodeAutomation.cs` now exposes
+its collection and node identities to the interpreter. Injected collections can be built and walked from VB6:
+Add (including named arguments), Item/default indexing, Count, Remove and Clear; node Text/default Text,
+Key, Index, Children, FullPath, navigation, Parent moves, Expanded, Selected, Checked, Bold, Sorted and EnsureVisible.
+Node Text accepts the measured Integer-to-string conversion; Tag reads empty and refuses Set to a control with 35700.
+Count, Index and Children retain their Integer wrapping. Root/child sorting still uses the measured en-GB
+word repertoire. MSComctlLib.TreeView forms now run: the control owns its Nodes collection and exposes Style,
+LineStyle, Indentation (whole HIMETRIC exposed as twips), LabelEdit, HideSelection, Checkboxes, Sorted,
+SelectedItem, PathSeparator and SingleSel. Deferred root sorting runs at the next dispatcher turn.
+Runtime drawing now follows expansion and sibling order, Style/LineStyle, Indentation, checkboxes, Bold and HideSelection.
+Mouse input now dispatches NodeClick, NodeCheck, Expand/Collapse, Click and DblClick; focus selects the first node,
+and the measured keyboard navigation, Enter ordering and SingleSel sequence are bound. Expanded and EnsureVisible
+raise expansion events; other code mutations stay silent. Native form persistence now preserves the measured owned-property order and values, including HIMETRIC Indentation, Font, ImageList references and OLE settings. These carried values have no designer editors; runtime bindings remain scoped as above. Remaining node members and label editing remain outstanding. No language-name inventory status or count changes yet.
+Native handles remain unimplemented; no handle value is fabricated.
+
+| TreeView member or edge | Outstanding work |
+|---|---|
+| Sorting outside the measured character repertoire | Not implemented: The model refuses sorting text outside the oracle word comparer’s measured character table with `NotImplementedException`, rather than using the text comparer's unmeasured fallback. Other locales remain unmeasured. |
+| Remaining control members | Not implemented: HitTest, DropHighlight, FullRowSelect, HotTracking, Scroll, BorderStyle, Appearance, Enabled, Font, MousePointer, MouseIcon, OLEDragMode, OLEDropMode and control methods remain refused. Label editing remains outstanding. Saved own properties are carried faithfully, not new runtime bindings. The unmeasured ComctlLib (5.0) TreeView remains refused. |
+| Label editing and other keys | Not implemented: StartLabelEdit, BeforeLabelEdit/AfterLabelEdit and automatic label editing remain refused/unavailable. Keyboard dispatch covers the measured navigation keys, Enter, Space and the measured A/Q/R keys; other keys keep their existing behaviour. |
+| Designer preview | Not implemented: the four measured Sample Node placeholders, Font rendering and bound icons remain unavailable; the runtime tree is still used for the designer preview. |
+| Error descriptions | The number-only model still supplies its existing blank descriptions. Description binding remains for the rest of A2, including the recorded cycle message; no VB6 expectations are pinned for those blanks. |
+| Node Tag assignments, ForeColor and BackColor | Not implemented: Tag reads its measured empty default and Set to a control raises 35700; other Tag assignments remain unmeasured and refused. Colour binding remains, including the measured late-bound unsigned colour type. |
+| ImageList binding and node images | Not implemented: Await #1083 and the runtime member binding; no image value is fabricated. Add with an image and no bound ImageList raises measured 35613. |
+| Remaining automation conversions and call shapes | Control choices accept integral numeric values, Indentation accepts numeric values, flags accept Booleans and PathSeparator accepts strings. Other control conversions, fractional choices and midpoint/non-finite Indentation conversion refuse with `NotImplementedException`. Not implemented: numeric indexes (Integer, Long and Double), Integer/Long relationships, string Key/Text and Boolean flags are bound. Integer node Text assignment now uses the measured string conversion (`Text = 42`). Other conversions and unsupported argument counts refuse with `NotImplementedException`; unmeasured results and errors are not guessed. |
+| Native handles (`hWnd`, `CreateDragImage`) | Not implemented: Await the native-handle decision under #1081; no handle value is fabricated. |
+
+These preparatory binding entries are outside the language-name inventory; its counts have not moved.
 
 The sweep behind this document did not reach everything, and a coverage document that implies otherwise is
 worse than one that says where it stops. Known holes, none of which have rows anywhere above:

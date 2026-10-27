@@ -125,6 +125,8 @@ public class FormSerializer
             vb.EndSortedProperties();
             if (inBox is not null)
                 WriteOwnProperties(vb, component, inBox, citations);
+            if (component.BaseClass is TreeViewComponentClass)
+                TreeViewPersistence.Write(vb, component, citations);
             WriteChildren(component, ChildrenOf(component));
             vb.End();
         }
@@ -350,6 +352,8 @@ public class FormSerializer
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)
         {
+            if (instance.BaseClass is TreeViewComponentClass && TreeViewPersistence.IsOwn(raw.Name))
+                continue;
             if (inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
                 || inBox is not null && IsOwnRunLine(inBox, raw.Name))
                 continue;

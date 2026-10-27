@@ -933,6 +933,12 @@ widening visibility to `public` just for a test. When a new test project needs r
   English caller-selection test's drain changed its context to idle in 8 of 12 seeded runs; all 12
   passed, so that measurement does not reproduce the cleanup exception or establish the link to #883.
   `InteractClickTests` records the same trap for `CultureInfo.CurrentCulture`.
+  `CultureGuardAttribute` checks the current thread's culture and UI culture and both default thread
+  cultures after every Integration test against the host values captured at assembly startup (#2322),
+  naming the test that left them behind. Its entry check remains a backstop. This does not inspect other
+  threads or dispatcher operations that have not run yet; the actual leaker behind #2322 is still unknown.
+  xUnit restores test-body execution contexts before the exit hook, so the regression tests invoke the
+  hook while their deliberate leak is still active; setup leaks that survive to the hook fail the test.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
   All five test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
