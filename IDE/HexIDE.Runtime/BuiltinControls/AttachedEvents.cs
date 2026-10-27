@@ -71,7 +71,7 @@ public static class AttachedEvents
     /// Avalonia registered first, so MouseUp follows it there. A control whose Click this class raises on release must
     /// attach the mouse events before its Click, so MouseUp comes first.</para>
     /// </remarks>
-    public static void AttachMouse<T>(DblClick dblClick = DblClick.None) where T : Control
+    public static void AttachMouse<T>(DblClick dblClick = DblClick.None, bool raiseDoubleClick = true) where T : Control
     {
         InputElement.PointerPressedEvent.AddClassHandler<T>((control, e) =>
         {
@@ -83,7 +83,7 @@ public static class AttachedEvents
                 SecondPresses.Remove(control);
             if (!second || dblClick == DblClick.AfterMouseDown)
                 RaiseMouse(control, e, ComponentBaseClass.MouseDownEvent);
-            if (second)
+            if (second && raiseDoubleClick)
                 control.ExecuteSub(ComponentBaseClass.DblClickEvent);
         }, handledEventsToo: true);
         InputElement.PointerReleasedEvent.AddClassHandler<T>(

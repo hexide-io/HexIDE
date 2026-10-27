@@ -1287,6 +1287,35 @@ signature help and the Object Browser, not the completion popup.
 
 ## Not yet enumerated
 
+**TreeView (#1086):** `TreeNodes.cs` supplies the hierarchy model and `TreeNodeAutomation.cs` now exposes
+its collection and node identities to the interpreter. Injected collections can be built and walked from VB6:
+Add (including named arguments), Item/default indexing, Count, Remove and Clear; node Text/default Text,
+Key, Index, Children, FullPath, navigation, Parent moves, Expanded, Selected, Checked, Bold, Sorted and EnsureVisible.
+Node Text accepts the measured Integer-to-string conversion; Tag reads empty and refuses Set to a control with 35700.
+Count, Index and Children retain their Integer wrapping. Root/child sorting still uses the measured en-GB
+word repertoire. MSComctlLib.TreeView forms now run: the control owns its Nodes collection and exposes Style,
+LineStyle, Indentation (whole HIMETRIC exposed as twips), LabelEdit, HideSelection, Checkboxes, Sorted,
+SelectedItem, PathSeparator and SingleSel. Deferred root sorting runs at the next dispatcher turn.
+Runtime drawing now follows expansion and sibling order, Style/LineStyle, Indentation, checkboxes, Bold and HideSelection.
+Mouse input now dispatches NodeClick, NodeCheck, Expand/Collapse, Click and DblClick; focus selects the first node,
+and the measured keyboard navigation, Enter ordering and SingleSel sequence are bound. Expanded and EnsureVisible
+raise expansion events; other code mutations stay silent. Native form persistence now preserves the measured owned-property order and values, including HIMETRIC Indentation, Font, ImageList references and OLE settings. These carried values have no designer editors; runtime bindings remain scoped as above. Remaining node members and label editing remain outstanding. No language-name inventory status or count changes yet.
+Native handles remain unimplemented; no handle value is fabricated.
+
+| TreeView member or edge | Outstanding work |
+|---|---|
+| Sorting outside the measured character repertoire | Not implemented: The model refuses sorting text outside the oracle word comparer’s measured character table with `NotImplementedException`, rather than using the text comparer's unmeasured fallback. Other locales remain unmeasured. |
+| Remaining control members | Not implemented: HitTest, GetVisibleCount, DropHighlight, FullRowSelect, HotTracking, Scroll, BorderStyle, Appearance, Enabled, Font, MousePointer, MouseIcon, OLEDragMode, OLEDropMode and control methods remain refused. Label editing remains outstanding. Saved own properties are carried faithfully, not new runtime bindings. The unmeasured ComctlLib (5.0) TreeView remains refused. |
+| Label editing and other keys | Not implemented: StartLabelEdit, BeforeLabelEdit/AfterLabelEdit and automatic label editing remain refused/unavailable. Keyboard dispatch covers the measured navigation keys, Enter, Space and the measured A/Q/R keys; other keys keep their existing behaviour. |
+| Designer preview | Not implemented: the four measured Sample Node placeholders, Font rendering and bound icons remain unavailable; the runtime tree is still used for the designer preview. |
+| Error descriptions | The number-only model still supplies its existing blank descriptions. Description binding remains for the rest of A2, including the recorded cycle message; no VB6 expectations are pinned for those blanks. |
+| Node Tag assignments, ForeColor and BackColor | Not implemented: Tag reads its measured empty default and Set to a control raises 35700; other Tag assignments remain unmeasured and refused. Colour binding remains, including the measured late-bound unsigned colour type. |
+| ImageList binding and node images | Not implemented: Await #1083 and the runtime member binding; no image value is fabricated. Add with an image and no bound ImageList raises measured 35613. |
+| Remaining automation conversions and call shapes | Control choices accept integral numeric values, Indentation accepts numeric values, flags accept Booleans and PathSeparator accepts strings. Other control conversions, fractional choices and midpoint/non-finite Indentation conversion refuse with `NotImplementedException`. Not implemented: numeric indexes (Integer, Long and Double), Integer/Long relationships, string Key/Text and Boolean flags are bound. Integer node Text assignment now uses the measured string conversion (`Text = 42`). Other conversions and unsupported argument counts refuse with `NotImplementedException`; unmeasured results and errors are not guessed. |
+| Native handles (`hWnd`, `CreateDragImage`) | Not implemented: Await the native-handle decision under #1081; no handle value is fabricated. |
+
+These preparatory binding entries are outside the language-name inventory; its counts have not moved.
+
 The sweep behind this document did not reach everything, and a coverage document that implies otherwise is
 worse than one that says where it stops. Known holes, none of which have rows anywhere above:
 

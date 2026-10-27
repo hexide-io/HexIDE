@@ -28,6 +28,7 @@ public class FormDeserializer
         TextBoxComponentClass.Instance,
         TimerComponentClass.Instance,
         VScrollBarComponentClass.Instance,
+        Components.InBox.TreeViewComponentClass.Instance,
     ];
 
     private static Dictionary<string, ComponentBaseClass> componentsByTypeNames;
@@ -550,6 +551,13 @@ public class FormDeserializer
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            else if (componentClass is Components.InBox.TreeViewComponentClass)
+            {
+                instance.SetProperty(Components.InBox.InBoxComponentClass.LoadedTypeNameProperty, serializedComponent.Type);
+                instance.SetProperty(Components.InBox.InBoxComponentClass.ExtentBasisProperty,
+                    new Components.InBox.InBoxComponentClass.ExtentBasis(
+                        instance.GetPropertyOrDefault(VBProperties.WidthProperty), instance.GetPropertyOrDefault(VBProperties.HeightProperty)));
+            }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
             if (parent is not null && rootComponent.Type == "VB.Form" &&

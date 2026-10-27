@@ -1199,6 +1199,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is Components.InBox.TreeNodes nodes)
+            return nodes.Default(indices);
         if (value.Value is VbCollection items)
             return items.Default(indices);
         if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
@@ -1246,6 +1248,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
+        if (named && maybeGroup.Value is Components.InBox.TreeNodes nodes)
+        {
+            if (dollar) throw new NotImplementedException();
+            return nodes.Default(await EvaluateCallArgs(argsCtx));
+        }
         if (named && maybeGroup.Value is VbCollection items)
         {
             if (dollar)
@@ -1491,6 +1498,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
+
+        if (variable.Value is VBTreeView treeView && MemberName(member).Equals("Nodes", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } nodeIndexes)
+            return treeView.Nodes.Default(await EvaluateCallArgs(nodeIndexes));
 
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)

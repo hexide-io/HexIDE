@@ -3210,6 +3210,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBTreeView treeView
+                && membersCall.iCS_S_MemberCall().Length == 1
+                && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
+            {
+                treeView.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
+            }
+            if (setLead && target.Value is Components.InBox.TreeNode treeNode
+                && membersCall.iCS_S_MemberCall().Length == 1
+                && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
+            {
+                treeNode.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
+            }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             if (membersCall.iCS_S_MemberCall().Length != 1)

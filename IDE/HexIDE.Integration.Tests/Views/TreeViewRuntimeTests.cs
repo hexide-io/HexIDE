@@ -1,0 +1,164 @@
+using System;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Serialization;
+
+namespace HexIDE.Integration.Tests.Views;
+
+// The control-binding slice of #1086; expectations are the oracle's measured TreeView rows.
+public class TreeViewRuntimeTests
+{
+    private const string Form = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           ClientHeight = 3015
+           ClientWidth = 4560
+           Begin MSComctlLib.TreeView TreeView1
+              Height = 1500
+              Width = 1500
+              Style = 7
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    private static async Task<string[]> Run(string code, string? form = null)
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form ?? Form);
+        using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
+        {
+            var values = await ContainerRuntimeHarness.Run(ctx, env, code);
+            return values.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture) ?? "").ToArray();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_can_build_and_walk_its_tree()
+    {
+        var printed = await Run("""
+            Dim r As Object, c As Object
+            Set r = TreeView1.Nodes.Add(, , "r", "root")
+            Set c = TreeView1.Nodes.Add("r", 4, "c", "child")
+            Debug.Print TreeView1.Nodes.Count, TreeView1.Nodes("c").Parent.Text
+            Debug.Print c.FullPath, TreeView1.Nodes.Item(2).Text
+            Debug.Print TreeView1.SelectedItem Is Nothing
+            """);
+        printed.Should().Equal("2", "root", "root\\child", "child", "True");
+    }
+
+    [AvaloniaFact]
+    public async Task Own_properties_read_write_and_indentation_stores_whole_himetric()
+    {
+        FormDeserializer.TryGetComponentClass("MSComctlLib.TreeView", out var component).Should().BeTrue();
+        var fresh = (ICSharpPropertyBag)component!.Instantiate(new ComponentInstance(component, "TreeView1"));
+        fresh.TryGetProperty("Style", out var style).Should().BeTrue();
+        style.Value.Should().Be(7L);
+
+        var printed = await Run("""
+            Debug.Print TreeView1.Style, TreeView1.LineStyle, TreeView1.LabelEdit, TreeView1.HideSelection
+            Debug.Print TreeView1.Sorted, TreeView1.Checkboxes, TreeView1.PathSeparator
+            Debug.Print TreeView1.Indentation
+            TreeView1.Style = 3
+            TreeView1.LineStyle = 1
+            TreeView1.LabelEdit = 1
+            TreeView1.HideSelection = False
+            TreeView1.PathSeparator = "ab"
+            TreeView1.Indentation = 100
+            Debug.Print TreeView1.Style, TreeView1.LineStyle, TreeView1.LabelEdit, TreeView1.HideSelection
+            Debug.Print TreeView1.PathSeparator, TreeView1.Indentation
+            """);
+        printed[..7].Should().Equal("7", "0", "0", "True", "False", "False", "\\");
+        float.Parse(printed[7], CultureInfo.InvariantCulture).Should().BeApproximately(566.9291f, 0.0001f);
+        printed[8..13].Should().Equal("3", "1", "1", "False", "ab");
+        float.Parse(printed[13], CultureInfo.InvariantCulture).Should().BeApproximately(99.77953f, 0.00001f);
+    }
+
+    [AvaloniaFact]
+    public async Task Selection_checkbox_reset_path_and_root_sort_reach_the_owned_model()
+    {
+        var printed = await Run("""
+            Dim b As Object, a As Object, c As Object
+            Set b = TreeView1.Nodes.Add(, , "b", "b")
+            Set a = TreeView1.Nodes.Add(, , "a", "a")
+            Set c = TreeView1.Nodes.Add("b", 4, "c", "c")
+            Set TreeView1.SelectedItem = c
+            Debug.Print TreeView1.SelectedItem Is c, c.Selected
+            Set TreeView1.SelectedItem = Nothing
+            Debug.Print TreeView1.SelectedItem Is Nothing, c.Selected
+            c.Checked = True
+            TreeView1.Checkboxes = True
+            Debug.Print c.Checked
+            c.Checked = True
+            TreeView1.Checkboxes = False
+            Debug.Print c.Checked
+            TreeView1.Checkboxes = True
+            Debug.Print c.Checked
+            TreeView1.PathSeparator = "/"
+            TreeView1.Sorted = True
+            Debug.Print b.Root.Text, c.FullPath, TreeView1.Sorted
+            """);
+        printed.Should().Equal("True", "True", "True", "False", "False", "True", "False", "a", "b/c", "True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Style", "8")]
+    [InlineData("Style", "-1")]
+    [InlineData("LineStyle", "2")]
+    [InlineData("LineStyle", "-1")]
+    [InlineData("LabelEdit", "2")]
+    [InlineData("LabelEdit", "-1")]
+    [InlineData("Indentation", "-1")]
+    public async Task Invalid_choices_raise_380_and_leave_the_property(string property, string value)
+    {
+        var printed = await Run($"On Error Resume Next\r\nDim old: old = TreeView1.{property}\r\nTreeView1.{property} = {value}\r\nDebug.Print Err.Number, TreeView1.{property} = old");
+        printed.Should().Equal("380", "True");
+    }
+
+    [AvaloniaFact]
+    public async Task Missing_style_loads_as_zero_and_carried_properties_initialize_the_binding()
+    {
+        var printed = await Run("Debug.Print TreeView1.Style, TreeView1.LineStyle, TreeView1.PathSeparator, TreeView1.HideSelection, TreeView1.Indentation",
+            Form.Replace("Style = 7", "LineStyle = 1\nPathSeparator = \"/\"\nHideSelection = 0\nIndentation = 529"));
+        printed[..4].Should().Equal("0", "1", "/", "False");
+        float.Parse(printed[4], CultureInfo.InvariantCulture).Should().BeApproximately(299.9055f, 0.0001f);
+    }
+
+    [AvaloniaFact]
+    public async Task Sorted_roots_wait_until_the_dispatcher_turn()
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var before = await ContainerRuntimeHarness.Run(ctx, env, """
+            Dim b As Object, a As Object
+            Set b = TreeView1.Nodes.Add(, , "b", "b")
+            TreeView1.Sorted = True
+            Set a = TreeView1.Nodes.Add(, , "a", "a")
+            Debug.Print b.Root.Text
+            """);
+        before.Single().Value.Should().Be("b");
+        Dispatcher.UIThread.RunJobs();
+        var printed = await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print b.Root.Text");
+        printed.Single().Value.Should().Be("a");
+    }
+
+    [AvaloniaFact]
+    public async Task Nodes_is_a_read_only_object_property()
+    {
+        var printed = await Run("On Error Resume Next\r\nSet TreeView1.Nodes = Nothing\r\nDebug.Print Err.Number");
+        printed.Should().Equal("383");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Debug.Print TreeView1.ImageList")]
+    [InlineData("Debug.Print TreeView1.HitTest(-1, -1)")]
+    [InlineData("TreeView1.FullRowSelect = True")]
+    public async Task Later_slices_still_refuse_unimplemented_members(string code)
+    {
+        Func<Task> act = () => Run(code);
+        await act.Should().ThrowAsync<NotImplementedException>();
+    }
+}
