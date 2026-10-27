@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 位",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 位",
     "Str.CodeEditor.ViewAs.Tooltip": "条件编译查看目标",
     "Str.Tool.Properties.ExportPicture": "导出图片...",
     "Str.LspArtifact.Title": "工作区文件",

@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32비트",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64비트",
     "Str.CodeEditor.ViewAs.Tooltip": "조건부 컴파일 표시 대상",
     "Str.Tool.Properties.ExportPicture": "그림 내보내기...",
     "Str.LspArtifact.Title": "작업 영역 파일",

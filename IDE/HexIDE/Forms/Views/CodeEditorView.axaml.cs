@@ -667,7 +667,8 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
-        if (DataContext is not CodeEditorViewModel vm) return;
+        // Binding the document before attach is covered by the initial folding request on attach.
+        if (_foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
         // expanded for half a second, or for good were the request to fail. A member's run is the same, and one
         // an edit turns into an orphan has to lose its fold now rather than when a server next answers (task 4.3).

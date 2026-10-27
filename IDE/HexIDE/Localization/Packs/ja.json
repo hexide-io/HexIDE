@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 ビット",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 ビット",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 ビット",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 ビット",
     "Str.CodeEditor.ViewAs.Tooltip": "条件付きコンパイルの表示対象",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
     "Str.LspArtifact.Title": "ワークスペースのファイル",

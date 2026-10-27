@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bita",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bita",
     "Str.CodeEditor.ViewAs.Tooltip": "Montri kondiĉan kompiladon kiel",
     "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
     "Str.LspArtifact.Title": "Laborspacaj dosieroj",

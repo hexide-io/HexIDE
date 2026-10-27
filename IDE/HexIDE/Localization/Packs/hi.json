@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-बिट",
     "Str.CodeEditor.ViewAs.Tooltip": "सशर्त संकलन इस रूप में देखें",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.LspArtifact.Title": "कार्यस्थान फ़ाइलें",

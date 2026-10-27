@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 بٹ",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 بٹ",
     "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.LspArtifact.Title": "کام کی جگہ کی فائلیں",

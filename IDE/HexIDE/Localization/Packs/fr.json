@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bits",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Afficher la compilation conditionnelle pour",
     "Str.Tool.Properties.ExportPicture": "Exporter l’image...",
     "Str.LspArtifact.Title": "Fichiers de l’espace de travail",

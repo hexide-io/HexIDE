@@ -5,6 +5,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-Bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-Bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Bedingte Kompilierung anzeigen als",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.LspArtifact.Title": "Arbeitsbereichsdateien",
