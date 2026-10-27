@@ -444,8 +444,11 @@ window and an empty caption. It SHALL retain `activeDialog` with its previous me
 ### Requirement: Window mutations await platform confirmation
 `set_window_state` SHALL wait at most one second per phase for the requested state and for requested geometry
 notifications, return observed window values, and report an unconfirmed request with `success: false` and a
-note directing the caller to `get_window_state`. Geometry SHALL follow a confirmed restore, and off-screen
-validation SHALL precede any mutation. Omitted coordinates SHALL retain the restored position.
+note directing the caller to `get_window_state`. On an X11 display whose root window has no
+`_NET_SUPPORTING_WM_CHECK`, an unconfirmed Minimized or Maximized SHALL instead say that no window manager is
+running, so nothing will apply it, and that Normal with a position and size still works. Geometry SHALL follow a
+confirmed restore, and off-screen validation SHALL precede any mutation. Omitted coordinates SHALL retain the
+restored position.
 
 #### Scenario: A window manager applies changes asynchronously
 - **WHEN** the platform confirms a state or geometry change after a dispatcher layout pass
@@ -454,6 +457,10 @@ validation SHALL precede any mutation. Omitted coordinates SHALL retain the rest
 #### Scenario: No window manager applies the request
 - **WHEN** the requested state remains unconfirmed at the deadline
 - **THEN** the reply reports failure, the observed window, and how to re-read its state
+
+#### Scenario: An X11 display with no window manager
+- **WHEN** a Minimized or Maximized request goes unconfirmed on an X11 display with no window manager
+- **THEN** the reply says no window manager is running, so nothing will apply it, and does not direct the caller to re-read
 
 ### Requirement: Snapshot coordinates include popup overhang
 
