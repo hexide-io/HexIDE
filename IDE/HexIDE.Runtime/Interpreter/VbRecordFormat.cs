@@ -127,7 +127,7 @@ internal static class VbRecordFormat
         else if (type == Vb6Value.ValueType.Currency)
             w.I64(decimal.ToInt64(Convert.ToDecimal(typed.Value, CultureInfo.InvariantCulture) * 10000m));
         else if (type == Vb6Value.ValueType.Date)
-            w.Double(((DateTime)typed.Value!).ToOADate());
+            w.Double(((VbDate)typed.Value!).Serial);
         else if (type == Vb6Value.ValueType.Boolean)
             w.U16((bool)typed.Value! ? 0xFFFF : 0);
         else if (type == Vb6Value.ValueType.Byte)
@@ -237,13 +237,13 @@ internal static class VbRecordFormat
     private static void WriteElements(Writer w, VBArray array)
     {
         var element = array.ElementType;
+        if (element == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
         {
             var value = array.GetValue(index);
-            if (element == Vb6Value.ValueType.UserDefinedType && value.Value is not VbUdt)
-                throw new NotImplementedException("Put of an array of a user-defined Type is not implemented: its elements are not made yet (#178)");
             if (value.Value is VbUdt udt)
                 WriteUdt(w, udt);
             else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
@@ -258,6 +258,8 @@ internal static class VbRecordFormat
     {
         foreach (var (name, value) in udt.EnumerateFields())
         {
+            if (value.Value is VBArray)
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             if (value.Value is VbUdt nested)
                 WriteUdt(w, nested);
             else if (udt.IsVariantField(name))
@@ -357,15 +359,10 @@ internal static class VbRecordFormat
     // a HexIDE Date can hold, it is refused rather than read as some other date.
     private static Vb6Value ToDate(double serial)
     {
-        try
-        {
-            return new Vb6Value(DateTime.FromOADate(serial));
-        }
-        catch (ArgumentException)
-        {
-            throw new NotImplementedException(
-                $"Get of a Date whose serial is {serial.ToString(CultureInfo.InvariantCulture)} is not implemented: it is outside the years 100 to 9999");
-        }
+        if (VbDate.InRange(serial))
+            return new Vb6Value(new VbDate(serial));
+        throw new NotImplementedException(
+            $"Get of a Date whose serial is {serial.ToString(CultureInfo.InvariantCulture)} is not implemented: it is outside the years 100 to 9999");
     }
 
     /// <summary>
@@ -471,13 +468,13 @@ internal static class VbRecordFormat
     public static void ReadElementsInto(IRecordSource source, VBArray array)
     {
         var element = array.ElementType;
+        if (element == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
         {
             var current = array.GetValue(index);
-            if (element == Vb6Value.ValueType.UserDefinedType && current.Value is not VbUdt)
-                throw new NotImplementedException("Get of an array of a user-defined Type is not implemented: its elements are not made yet (#178)");
             try
             {
                 if (current.Value is VbUdt udt)
@@ -505,6 +502,8 @@ internal static class VbRecordFormat
     {
         foreach (var (name, current) in udt.EnumerateFields().ToList())
         {
+            if (current.Value is VBArray)
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             try
             {
                 if (current.Value is VbUdt nested)

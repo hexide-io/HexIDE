@@ -10,8 +10,15 @@
                 <DataTemplate x:DataType="vm:WorkspaceArtifactGrant">
                     <StackPanel Margin="0,4" Spacing="4">
                         <TextBlock Text="{CompiledBinding Server}" FontWeight="Bold" />
+                        <!-- Consent covers one file and its provider, so two grants for one server and workspace differ here. -->
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    IsVisible="{CompiledBinding File, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{CompiledBinding File}" />
+                            <TextBlock Text="{CompiledBinding Provider}" Opacity="0.75" />
+                        </StackPanel>
                         <TextBlock Text="{CompiledBinding Workspace}" TextWrapping="Wrap" />
                         <Button Content="{DynamicResource Str.LspArtifact.Reset}"
+                                AutomationProperties.Name="{CompiledBinding ResetName}"
                                 Command="{CompiledBinding $parent[ItemsControl].((vm:WorkspaceArtifactPageViewModel)DataContext).ResetCommand}"
                                 CommandParameter="{CompiledBinding}" HorizontalAlignment="Left" />
                     </StackPanel>

@@ -183,6 +183,13 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
         session.Start();
     }
 
+    public async Task<DocumentSymbol[]> RequestSearchSymbolsAsync()
+    {
+        if (session is not { IsOpen: true } open) return [];
+        await open.FlushAsync();
+        return await lspClient.RequestDocumentSymbolsAsync(open.Uri);
+    }
+
     /// <summary>
     /// Folding ranges for this document, from whichever attached server serves it.
     /// </summary>

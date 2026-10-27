@@ -42,14 +42,12 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Which windows the prompt holds (measured, #1329):**
   - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
     and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
-  - **HexIDE:** the code window's own window owns it (#1298), and only that window is disabled. With the code window
-    docked, that is the IDE's main window, while the running form keeps running and taking clicks. With the IDE
-    minimized, the fallback owner is the running form, and the IDE stays enabled. Linux, docked, agrees: the prompt is
-    over the IDE's main window and the running form takes clicks. Minimized was not reachable there under Xvfb with
-    no window manager, and macOS is unchecked.
-  - **The difference:** HexIDE can't hold the whole IDE and program together while it asks in run mode. A modal over
-    one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
-    IDE's windows further, currently hides it instead (#1361).
+  - **HexIDE (#1366):** the code window's own window owns it when visible and not minimized (#1298), with the
+    running form as the fallback. `WindowManager` now disables all desktop windows for the prompt's lifetime and
+    restores their enabled states afterwards. Headless tests cover both owners and Yes/No; native enabled-state
+    verification on the running IDE remains required.
+  - **Remaining differences:** ownership still differs from VB6, and the program isn't paused for the prompt in
+    run mode, so Timers keep firing. Floating a code window currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
   prompt (OK = reset + keep the edit; Cancel = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
@@ -285,11 +283,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **HexIDE:** the Call Stack is a **dockable tool window** (a `Document`/tool pane, not a modal dialog), and each
   frame carries a right-aligned **Line** column (the 1-based statement line of that activation, counted from the
   top of the file: D25). Current frame is marked with an arrow; there are no Show/Close buttons (the dock owns
-  close; double-click-to-navigate is a later nice-to-have).
+  close; selection or double-click navigates to the calling statement).
 - **Why:** a non-modal, always-available pane fits the dock-based IDE better than a modal dialog, and the interpreter
   *does* track a per-frame current line, so surfacing it is a cheap, useful modern-additive (muscle-memory:
   recognisable list, plus more info). Project name is omitted (single-project interpreter).
 - **Status:** **by design** (additive evolution). User-recognisable; strictly more information than VB6's list.
+
+Caller navigation (#1866): selecting or double-clicking a built-in caller now opens its calling statement and
+marks it with a green gutter triangle, leaving the current statement unchanged. This matches the behaviour
+recorded in #1866; the dockable pane uses selection/double-click rather than VB6's modal **Show** button.
 
 ### D17. The Call Stack is anchored at the paused frame; a frozen re-entrant event's frames are excluded
 - **VB6:** its own break-mode call-stack presentation for re-entrant (event-during-event) situations.
@@ -345,15 +347,31 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
   is not re-measured.
 
-### D20. A step from a function's last statement skips `End Function` — UNMEASURED
-- **VB6:** not measured. Whether F8 stops on `End Function` / `End Sub` before returning to the caller needs the
-  oracle.
+### D20. A step from a function's last statement skips `End Function`
+- **VB6:** stops there (measured 2026-10-26, #2172; the oracle's [A breakpoint on a procedure's End line or its
+  header](vb6-fidelity-oracle/a-breakpoint-on-a-procedures-end-line-or-its-header.md)). From `F = 1`, a Function's
+  last statement, Step Over stopped on `End Function`, and the next step stopped on the caller's next line, not on
+  the calling line `x = F()` again. A Sub's `End Sub` behaved the same. Measured with Step Over (Shift+F8); `F = 1`
+  calls nothing, so Step Into has nothing different to do there.
 - **HexIDE:** paused on `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to
   the caller's next line without stopping on `End Function` (2026-09-22).
-- **Why:** unknown until VB6's behaviour is measured; if VB6 stops there, the walk has no statement to stop on
-  for the `End` line.
-- **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
-  divergence until the oracle says VB6 stops there.
+- **Why:** the walk's gate runs before each statement of a body, and the `End` line isn't one, so there is nothing
+  to stop on.
+- **Status:** **bug.** It is the stepping side of D29, and the same stop position fixes both
+  ([#2172](https://github.com/hexide-io/HexIDE/issues/2172)). First recorded on
+  [#656](https://github.com/hexide-io/HexIDE/issues/656).
+
+### D29. A breakpoint on a procedure's `End` line or its declaration line never pauses
+- **VB6:** a breakpoint on `End Sub`, `End Function` or `End Property` pauses after the procedure's last statement,
+  before it returns, with the `End` line highlighted. One on the declaration line, `Private Sub Helper2()`, pauses on
+  entry, before the first statement of the body. F9 on a `Dim` line is refused with "Breakpoint not allowed on this
+  line" (measured 2026-10-26, the same oracle section as D20).
+- **HexIDE:** accepts a breakpoint on either line, and the run never pauses there: `set_breakpoints` on Helper's
+  `End Sub`, then `run_project`, ran Helper to its end (#2172, found on a live run). The declaration line is read from
+  the code, which gates only before a statement, and wasn't run.
+- **Why:** as D20. Neither line is a statement of the body.
+- **Status:** **bug**, [#2172](https://github.com/hexide-io/HexIDE/issues/2172). Whether HexIDE pauses on a `Dim`
+  line, which VB6 won't take a breakpoint on, isn't checked.
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event

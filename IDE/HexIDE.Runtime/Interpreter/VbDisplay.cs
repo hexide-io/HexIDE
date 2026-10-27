@@ -49,7 +49,7 @@ public static class VbDisplay
         float f => Floating(f, 7, culture),
         double d => Floating(d, 15, culture),
         decimal m => Exact(m, culture),
-        DateTime dt => Date(dt, culture),
+        VbDate dt => Date(dt.Instant, culture),
         // The integer types have no separator to take from the locale, only a sign, which is always ASCII.
         byte or short or int or long => ((IFormattable)value.Value).ToString(null, CultureInfo.InvariantCulture),
         _ => value.Value.ToString() ?? "",
@@ -153,7 +153,8 @@ public static class VbDisplay
     /// <summary>
     /// A Date in the locale's short date and long time, leaving out a midnight time and the zero date: a date only
     /// (<c>02/01/2003</c>), a time only (<c>10:30:00</c>, and <c>00:00:00</c> for the zero date at midnight), or both.
-    /// A year below 1000 is not padded (<c>01/01/100</c>, measured).
+    /// A year below 1000 is not padded (<c>01/01/100</c>, measured). It is shown to the second, as VB6 rounds it
+    /// (VbDate.Instant, #783): 12:00:00.6 is <c>12:00:01</c>, and 23:59:59.6 the next day at midnight, so the date alone.
     /// </summary>
     private static string Date(DateTime value, CultureInfo culture)
     {

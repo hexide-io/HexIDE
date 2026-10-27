@@ -611,6 +611,36 @@ bytes are valid UTF-8.
 - **WHEN** its project is opened on a Windows-1252 host
 - **THEN** the module reads `Ã©`, not `é`
 
+### Requirement: A project SHALL record UTF-8 that detection cannot infer
+
+When saving a project, a source member retained as UTF-8 without a byte-order mark whose text has no
+character above U+00FF SHALL have a `path=utf-8` entry in a trailing `[HexIDE]` section of the `.vbp`.
+The path SHALL be the path used by the member's project item line, including after Save As. No entry
+SHALL be written for a member with a BOM, a character above U+00FF, or another encoding. Other tools'
+trailing sections SHALL be preserved, and the section SHALL follow every standard project key.
+
+A fresh open SHALL try that project's record after the encoding last read in and before the host's code
+page. The record SHALL apply only if strict decoding and encoding reproduce the bytes. A shared member
+SHALL follow the record of the project being opened. Source bytes SHALL NOT gain a BOM for this purpose.
+Whether VB6's File → Save Project retains the section is unmeasured; `/make` accepting trailing sections
+does not establish save behaviour.
+
+#### Scenario: An edit removes the UTF-8 signature
+- **GIVEN** a BOM-less UTF-8 module holding `' café 日本`
+- **WHEN** its code becomes `' café` and the project is saved and freshly opened
+- **THEN** its `.vbp` records its member path as `utf-8` and the module reads as `' café`
+- **AND** its file remains UTF-8 without a BOM
+
+#### Scenario: Detection becomes sufficient again
+- **GIVEN** a member with an encoding record
+- **WHEN** a character above U+00FF is added and the project is saved
+- **THEN** the redundant record is removed
+
+#### Scenario: An external editor replaces the recorded file with ANSI
+- **GIVEN** a member recorded as UTF-8 whose bytes no longer decode strictly as UTF-8
+- **WHEN** the project is freshly opened
+- **THEN** decoding continues to the host's code page and the byte-for-byte fallback as before
+
 ### Requirement: An edit the file's encoding cannot hold SHALL be refused the same way on every save path
 
 When a document holds a character its encoding cannot represent, the IDE SHALL refuse to save it rather than
@@ -652,6 +682,33 @@ being anchored to slots; adding or removing an item may therefore shift them.
 - **GIVEN** two `Form=` lines, the first naming a missing file and the second a loaded form
 - **WHEN** the project is saved, including to another folder
 - **THEN** the missing form's line remains first and both paths name the same files from the destination
+
+#### Scenario: A middle kept member joins the live project
+
+- **GIVEN** three kept member lines with recorded source slots
+- **WHEN** the middle member's file is restored, added to the project and the project is saved
+- **THEN** the other kept lines retain their own source slots and the restored member is named once
+
+### Requirement: Missing control Font blocks inherit a load-time copy of the form font
+
+When loading a `VB.Form` with a declared Font, the deserializer SHALL give each font-bearing
+control without its own Font block a value copy of that form font, regardless of container depth.
+An explicit control Font block SHALL remain authoritative. Subsequent changes to the form font
+SHALL leave those control copies unchanged (measured for #2062; see
+[the oracle](../../../docs/vb6-fidelity-oracle/form-font-inheritance.md)).
+
+#### Scenario: A nested control omits its Font block
+
+- **GIVEN** a form declaring Arial 12, a PictureBox declaring Courier New 9.75, and a Frame inside it without a Font block
+- **WHEN** the form is loaded
+- **THEN** the Frame and its CommandButton without a Font block have Arial 12
+- **AND** the PictureBox retains Courier New 9.75
+
+#### Scenario: The form font changes after loading
+
+- **GIVEN** Command1 and Command2 inherited Arial from Form1 on load
+- **WHEN** Form1's font name becomes Tahoma
+- **THEN** both controls still read Arial
 
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
@@ -710,3 +767,17 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
+
+### Requirement: MSComctlLib ImageList picture persistence
+
+The serializer SHALL preserve the measured MSComctlLib.ImageList format: extender properties, extents, BackColor,
+ImageWidth, ImageHeight, MaskColor, UseMaskColor, _Version, then Images. BackColor and MaskColor SHALL be written even
+at their defaults; the other own properties SHALL be omitted at their defaults. Each ListImage SHALL write Picture,
+then Key (including an empty Key), then a nonempty Object.Tag padded as Tag. Picture records SHALL retain the
+StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
+
+#### Scenario: VB6's ImageList saves round-trip
+
+- **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
+- **THEN** the form text and companion bytes match VB6's saved files
+- **AND** each saved image is available to the running program in index order with its Key, Tag and Picture

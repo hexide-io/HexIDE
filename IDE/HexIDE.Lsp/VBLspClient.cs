@@ -174,12 +174,13 @@ public sealed class VBLspClient : ILspClient
     /// The session redactor for names this client supplies. URI fields stay real so the server can use
     /// them; folder display names are assigned their export pseudonym before they reach the wire.
     /// </param>
+    /// <param name="locale">Resolved UI language, read anew for each handshake.</param>
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
-        ConversationRedactor? workspaceNames = null)
+        ConversationRedactor? workspaceNames = null, Func<string>? locale = null)
     {
         _transport = transport;
         _logger = logger;
@@ -190,7 +191,10 @@ public sealed class VBLspClient : ILspClient
         _capture = capture;
         _connectionId = connectionId;
         _workspaceNames = workspaceNames;
+        _locale = locale ?? (() => "en");
     }
+
+    private readonly Func<string> _locale;
 
     /// <summary>
     /// Where this connection's conversation is recorded, and under what name. Null when nothing is
@@ -256,6 +260,11 @@ public sealed class VBLspClient : ILspClient
             _ = pending.ContinueWith(t => _ = t.Exception, CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            scope.DropAnswer(ex);
             throw;
         }
     }
@@ -324,7 +333,7 @@ public sealed class VBLspClient : ILspClient
         if (_transport.Unobservable is { Length: > 0 } unobservable)
             Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
-        var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
+        var rpc = new LspJsonRpc(handler, new LspNotificationReceiver(this));
         var cancellation = new LspCancellationStrategy(rpc, _logger);
         rpc.CancellationStrategy = cancellation;
         rpc.AddLocalRpcTarget(cancellation);
@@ -441,6 +450,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -534,6 +544,7 @@ public sealed class VBLspClient : ILspClient
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
             Trace: _trace,
+            Locale: _locale(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
@@ -557,9 +568,12 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
-                    // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
-                    // fold part-way along its closing line, and a fold read by whole lines then hides that line.
-                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true)),
+                    SemanticTokens: new SemanticTokensClientCapabilities(new(),
+                        ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+                         "parameter", "variable", "property", "enumMember", "event", "function", "method",
+                         "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
+                        ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true),
@@ -1056,15 +1070,33 @@ public sealed class VBLspClient : ILspClient
             ServerCapabilities.DiagnosticIdentifier(_capabilities?.Value),
             previousResultId);
 
+        var connection = Volatile.Read(ref _connection);
+        _openDocuments.TryGetValue(uri, out var document);
+        var delay = 250;
         JsonElement? raw;
-        try
+        while (true)
         {
-            raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
-        }
-        catch (Exception ex)
-        {
-            WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
-            return;
+            try
+            {
+                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
+                break;
+            }
+            catch (RemoteInvocationException ex) when (ShouldRetryDiagnostic(ex))
+            {
+                await Task.Delay(delay);
+                delay = Math.Min(delay * 2, 4000);
+                // A fresh pull owns a newer generation. A close/reopen or reconnect must not revive this one.
+                if (!_initialized || !ReferenceEquals(rpc, _rpc)
+                    || connection != Volatile.Read(ref _connection)
+                    || !_openDocuments.TryGetValue(uri, out var current) || current != document
+                    || !_pullGeneration.TryGetValue(uri, out var latest) || latest != generation)
+                    return;
+            }
+            catch (Exception ex)
+            {
+                WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
+                return;
+            }
         }
 
         // Checked and published under one gate, or a newer answer can publish between the two and this one land
@@ -1085,6 +1117,20 @@ public sealed class VBLspClient : ILspClient
             ApplyDiagnosticReport(uri, raw);
         }
     }
+
+    private sealed class LspJsonRpc(IJsonRpcMessageHandler handler, object target) : JsonRpc(handler, target)
+    {
+        // The default CommonErrorData discards LSP's retriggerRequest field.
+        protected override Type? GetErrorDetailsDataType(StreamJsonRpc.Protocol.JsonRpcError error) =>
+            error.Error?.Code == (StreamJsonRpc.Protocol.JsonRpcErrorCode)(-32802) ? typeof(JsonElement) : base.GetErrorDetailsDataType(error);
+    }
+
+    private static bool ShouldRetryDiagnostic(RemoteInvocationException ex) =>
+        ex.ErrorCode == -32801
+        || (ex.ErrorCode == -32802
+            && !(ex.ErrorData is JsonElement { ValueKind: JsonValueKind.Object } data
+                && data.TryGetProperty("retriggerRequest", out var retrigger)
+                && retrigger.ValueKind == JsonValueKind.False));
 
     /// <summary>
     /// Reads one diagnostic report and publishes what it means.
@@ -1369,6 +1415,31 @@ public sealed class VBLspClient : ILspClient
             ? new Position(line.GetInt32(), ch.GetInt32())
             : null;
 
+    public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        try
+        {
+            var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
+                .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
+            var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
+                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken);
+            if (result?.Data is not { Length: > 0 })
+            {
+                if (_semanticWarnings.TryAdd(uri, 0))
+                    _logger.LogDebug("[LSP] No semantic tokens for {Uri}; keeping lexical colours", uri);
+                return null;
+            }
+            return new SemanticTokenResult(result.Data, legend);
+        }
+        catch (Exception ex)
+        {
+            if (!cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
+                _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
+            return null;
+        }
+    }
+
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
@@ -1395,8 +1466,13 @@ public sealed class VBLspClient : ILspClient
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var result = await InvokeRequestAsync<CompletionList?>(_rpc,
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            var result = raw is not { } value || value.ValueKind == JsonValueKind.Null
+                ? null
+                : value.ValueKind == JsonValueKind.Array
+                    ? new CompletionList(false, value.Deserialize(LspJsonContext.Default.CompletionItemArray)!)
+                    : value.Deserialize(LspJsonContext.Default.CompletionList);
             onAnswer();
             return result?.Items ?? [];
         }
@@ -1407,7 +1483,7 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null)
     {
         if (_rpc is null || !_initialized || !CanServe("signatureHelpProvider")) return null;
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
@@ -1532,14 +1608,29 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
+    public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("renameProvider")) return null;
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
-            return await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
+            var edit = await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
                 "textDocument/rename", p, cancellationToken);
+            return edit is null ? null : new RenameResult(edit, null);
+        }
+        catch (RemoteInvocationException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (ex.ErrorCode is -32800 or -32801)
+            {
+                _logger.LogDebug(ex, "textDocument/rename was cancelled by the server");
+                return null;
+            }
+
+            if (ex.ErrorCode == -32803)
+                _logger.LogDebug(ex, "textDocument/rename refused: {Reason}", ex.Message);
+            else
+                WarnRequestFailedOnce("textDocument/rename", ex, cancellationToken);
+            return new RenameResult(null, ex.Message);
         }
         catch (Exception ex)
         {
@@ -1780,12 +1871,13 @@ public sealed class VBLspClient : ILspClient
         DisposeRpc();
 
         _transport.Closed -= OnTransportClosed;
-        _transport.Notice -= OnTransportNotice;
         await _transport.DisposeAsync();
+        _transport.Notice -= OnTransportNotice;
         _initialized = false;
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
@@ -1805,14 +1897,16 @@ public sealed class VBLspClient : ILspClient
         // The two directions are not interchangeable and ConversationDirection already says which is
         // which: Received is "a reply, a notification, a line of standard error", Local is "a process
         // starting". A stderr line arrived from the server; an exit code is something observed about it.
-        var (direction, kind) = notice.Kind == TransportNoticeKind.StandardError
-            ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
-            : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
+        var (direction, kind) = notice.Kind switch
+        {
+            TransportNoticeKind.StandardError => (ConversationDirection.Received, ConversationEntryKind.StandardError),
+            TransportNoticeKind.StandardOutput => (ConversationDirection.Received, ConversationEntryKind.StandardOutput),
+            _ => (ConversationDirection.Local, ConversationEntryKind.Lifecycle),
+        };
 
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
-        // went. A kill cannot arrive here: StopAsync unhooks this before it disposes the transport, and each
-        // transport unhooks its own exit handler before it kills.
+        // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
@@ -1821,6 +1915,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _semanticWarnings.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -2190,6 +2285,7 @@ public sealed class VBLspClient : ILspClient
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "semanticTokensProvider",
         "hoverProvider",
         "renameProvider",
         "signatureHelpProvider",
@@ -2365,6 +2461,7 @@ public sealed class VBLspClient : ILspClient
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _semanticWarnings = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _prioritySkips = new();
 
     /// <summary>Methods already reported as failing on this connection. Cleared wherever

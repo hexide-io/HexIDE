@@ -158,7 +158,8 @@ public static class ForegroundWindow
             return (control, error);
         // A path that is not one fails alike in every window, before any is looked in, so which window it was is no part
         // of why. These are the two such refusals Resolve makes.
-        if (error == "empty target path" || error.StartsWith("path must start with", StringComparison.Ordinal))
+        if (error.StartsWith(HexIDE.Automation.UiAutomationDriver.EmptyPath, StringComparison.Ordinal)
+            || error.StartsWith(HexIDE.Automation.UiAutomationDriver.NotFromWindow, StringComparison.Ordinal))
             return (null, error);
         // Probed against the IDE's own only on failure, and only read: it says whether "ide" would have reached it.
         var inMain = HexIDE.Automation.UiAutomationDriver.Resolve(mainWindow, path).control is not null;

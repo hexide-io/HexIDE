@@ -36,6 +36,7 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private readonly Dictionary<ProjectDefinition, OBLibraryViewModel> projectToLibrary = new();
     private OBLibraryViewModel? vbaLibrary;
+    private readonly OBLibraryViewModel allLibraries;
 
     public ObservableCollection<OBLibraryViewModel> Libraries { get; } = new();
 
@@ -74,7 +75,9 @@ public partial class ObjectBrowserToolViewModel : Document
     /// </remarks>
     [Notify] private string searchStatus = string.Empty;
 
-    public string MembersHeader => selectedClass != null ? $"Members of '{selectedClass.Name}'" : "Members";
+    public string MembersHeader => selectedClass != null
+        ? string.Format(localization.GetString("Str.Tool.ObjectBrowser.MembersOf"), selectedClass.Name)
+        : localization.GetString("Str.Tool.ObjectBrowser.Panel.Members");
 
     public string DescriptionSignature => selectedMember != null
         ? $"{selectedMember.KindGlyph} {selectedMember.Signature}"
@@ -115,6 +118,12 @@ public partial class ObjectBrowserToolViewModel : Document
         this.focusedProjectUtil = focusedProjectUtil;
         this.connections = connections;
         this.localization = localization;
+        allLibraries = new OBLibraryViewModel(localization.GetString("Str.Tool.ObjectBrowser.AllLibraries"));
+        localization.LanguageChanged += () =>
+        {
+            allLibraries.Name = localization.GetString("Str.Tool.ObjectBrowser.AllLibraries");
+            OnPropertyChanged(nameof(MembersHeader));
+        };
 
         SearchCommand = new DelegateCommand(Search);
         ClearSearchCommand = new DelegateCommand(() =>
@@ -144,7 +153,7 @@ public partial class ObjectBrowserToolViewModel : Document
                 else
                     LoadReferenceLibraryAsync(SelectedLibrary).ListenErrors();
             }
-            else if (SelectedLibrary == OBLibraryViewModel.AllLibraries
+            else if (SelectedLibrary == allLibraries
                      && vbaLibrary is { IsLoaded: false })
             {
                 // Load VBA eagerly when "All Libraries" is selected so built-ins appear.
@@ -157,7 +166,7 @@ public partial class ObjectBrowserToolViewModel : Document
         this.ObservePropertyChanged(x => x.SelectedSearchResult)
             .Subscribe(_ => GoToSearchResultCommand.RaiseCanExecutedChanged());
 
-        Libraries.Add(OBLibraryViewModel.AllLibraries);
+        Libraries.Add(allLibraries);
 
         foreach (var project in projectManager.LoadedProjects)
             AddProjectLibrary(project);
@@ -165,7 +174,7 @@ public partial class ObjectBrowserToolViewModel : Document
         AddVbLibrary(componentRegistry);
         AddVbaLibraryStub();
 
-        SelectedLibrary = OBLibraryViewModel.AllLibraries;
+        SelectedLibrary = allLibraries;
     }
 
     private void AddVbLibrary(IComponentRegistry componentRegistry)
@@ -241,7 +250,7 @@ public partial class ObjectBrowserToolViewModel : Document
                 lib.Classes.Add(globalsClass);
             }
 
-            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == OBLibraryViewModel.AllLibraries)
+            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
                 RebuildFilteredClasses();
         }
         catch (Exception ex)
@@ -395,8 +404,8 @@ public partial class ObjectBrowserToolViewModel : Document
             ? fl : null;
 
         var desired = Libraries
-            .OrderBy(l => l == OBLibraryViewModel.AllLibraries ? 0 : l == focused ? 1 : 2)
-            .ThenBy(l => l == OBLibraryViewModel.AllLibraries || l == focused
+            .OrderBy(l => l == allLibraries ? 0 : l == focused ? 1 : 2)
+            .ThenBy(l => l == allLibraries || l == focused
                 ? string.Empty : l.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -414,12 +423,12 @@ public partial class ObjectBrowserToolViewModel : Document
         FilteredClasses.Clear();
 
         IEnumerable<OBClassViewModel> source;
-        if (SelectedLibrary == null || SelectedLibrary == OBLibraryViewModel.AllLibraries)
+        if (SelectedLibrary == null || SelectedLibrary == allLibraries)
         {
             var all = new List<OBClassViewModel>();
             foreach (var lib in Libraries)
             {
-                if (lib == OBLibraryViewModel.AllLibraries) continue;
+                if (lib == allLibraries) continue;
                 all.AddRange(lib.Classes.Where(c => !c.IsStatus));
             }
             source = all;
@@ -599,7 +608,7 @@ public partial class ObjectBrowserToolViewModel : Document
                     string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
             }
 
-            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == OBLibraryViewModel.AllLibraries)
+            if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
                 RebuildFilteredClasses();
         }
         catch (Exception ex)

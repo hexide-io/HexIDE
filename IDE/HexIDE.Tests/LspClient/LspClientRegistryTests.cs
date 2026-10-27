@@ -59,6 +59,86 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Fact]
+    public async Task SignatureHelpSkipsEmptyAnswers()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        first.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new SignatureHelp([]));
+        var answer = new SignatureHelp([new SignatureInformation("Second()")]);
+        second.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(answer);
+        var sut = Registry(Registration("first", first, priority: 10), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+            TestContext.Current.CancellationToken)).Should().BeSameAs(answer);
+    }
+
+    [Theory]
+    [InlineData("(")]
+    [InlineData(",")]
+    public async Task SignatureHelpRoutesTypedTriggers(string trigger)
+    {
+        var first = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":["("]}}""");
+        var second = FakeServer(capabilitiesJson: """{"signatureHelpProvider":{"triggerCharacters":[","]}}""");
+        var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+            TestContext.Current.CancellationToken, trigger);
+
+        await (trigger == "(" ? first : second).Received(1).RequestSignatureHelpAsync(
+            Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await (trigger == "(" ? second : first).DidNotReceive().RequestSignatureHelpAsync(
+            Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SignatureHelpAsksConcurrentlyAndKeepsPriorityForExplicitInvocation()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var secondAsked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var answer = new SignatureHelp([new SignatureInformation("First()")]);
+        first.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(async _ => { await secondAsked.Task; return (SignatureHelp?)answer; });
+        second.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { secondAsked.TrySetResult(); return new SignatureHelp([new SignatureInformation("Second()")]); });
+        var sut = Registry(Registration("second", second), Registration("first", first, priority: 10));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        try
+        {
+            (await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+                TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken)).Should().BeSameAs(answer);
+        }
+        finally { secondAsked.TrySetResult(); }
+    }
+
+    [Fact]
+    public async Task SignatureHelpIgnoresServerExceedingSharedBudget()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var gate = new TaskCompletionSource<SignatureHelp?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        first.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(_ => gate.Task);
+        var answer = new SignatureHelp([new SignatureInformation("Second()")]);
+        second.RequestSignatureHelpAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(answer);
+        var sut = Registry(Registration("first", first, priority: 10), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        try
+        {
+            (await sut.RequestSignatureHelpAsync(Vb6Doc, new Position(0, 0),
+                TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken)).Should().BeSameAs(answer);
+        }
+        finally { gate.TrySetResult(null); }
+    }
+
     [Theory]
     [InlineData("foldingRangeProvider")]
     [InlineData("documentSymbolProvider")]
@@ -126,10 +206,10 @@ public class LspClientRegistryTests
     public async Task ProgressRetainsItsServerIdentityAndStopForwardsItsEnd()
     {
         var server = FakeServer();
-        await using var sut = Registry(Registration("vb6", server));
+        await using var sut = Registry(Registration("vb6", server) with { DisplayName = "VB tools" });
         await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
-        var received = new List<(object? Sender, string Kind)>();
-        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind));
+        var received = new List<(object? Sender, string Kind, string? Name)>();
+        sut.ProgressReceived += (sender, p) => received.Add((sender, p.Value.Kind, p.ServerDisplayName));
         var token = JsonSerializer.SerializeToElement("index");
         server.ProgressReceived += Raise.Event<EventHandler<ProgressParams>>(server,
             new ProgressParams(token, new WorkDoneProgressValue("begin", "indexing")));
@@ -141,6 +221,7 @@ public class LspClientRegistryTests
         });
         await sut.StopAsync();
         received.Select(p => p.Kind).Should().Equal("begin", "end");
+        received.Should().OnlyContain(p => p.Name == "VB tools");
         received.Should().OnlyContain(p => ReferenceEquals(p.Sender, server));
     }
 
@@ -249,19 +330,23 @@ public class LspClientRegistryTests
         slow.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns(late.Task);
         var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        var clock = new CompletionClock();
         var sut = new LspClientRegistry(
-            [Registration("slow", slow, priority: 10), Registration("fast", fast)], logger);
+            [Registration("slow", slow, priority: 10), Registration("fast", fast)], logger, timeProvider: clock);
         await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var started = System.Diagnostics.Stopwatch.StartNew();
         var pending = sut.RequestCompletionAsync(Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
         try
         {
-            var items = await pending.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
-            started.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(900));
+            clock.HasTimer.Should().BeTrue();
+            clock.Advance(TimeSpan.FromMilliseconds(999));
+            pending.IsCompleted.Should().BeFalse();
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            var items = await pending;
             items.Select(i => i.Label).Should().Equal("fast");
+            clock.Advance(TimeSpan.FromMilliseconds(1));
             late.SetResult([new CompletionItem("late", CompletionItemKind.Function)]);
-            await recorded.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+            await recorded.Task;
             slow.Received(1).NoteLateCompletion();
             fast.DidNotReceive().NoteLateCompletion();
             logger.ReceivedCalls().Should().Contain(call => call.GetMethodInfo().Name == "Log"
@@ -270,6 +355,37 @@ public class LspClientRegistryTests
             items.Select(i => i.Label).Should().Equal("fast");
         }
         finally { late.TrySetResult([]); }
+    }
+
+    // Only the one-shot timer used by this completion request is needed.
+    private sealed class CompletionClock : TimeProvider
+    {
+        private long _ticks;
+        private long _due;
+        private Action? _fire;
+        public bool HasTimer => _fire is not null;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => _ticks;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state,
+            TimeSpan dueTime, TimeSpan period)
+        {
+            period.Should().Be(Timeout.InfiniteTimeSpan);
+            _due = _ticks + dueTime.Ticks;
+            _fire = () => callback(state);
+            var timer = Substitute.For<ITimer>();
+            timer.When(t => t.Dispose()).Do(_ => _fire = null);
+            return timer;
+        }
+
+        public void Advance(TimeSpan elapsed)
+        {
+            _ticks += elapsed.Ticks;
+            if (_ticks < _due) return;
+            var fire = _fire;
+            _fire = null;
+            fire?.Invoke();
+        }
     }
 
     [Fact]
@@ -323,6 +439,23 @@ public class LspClientRegistryTests
         symbols.Select(s => s.Name).Should().BeEquivalentTo(["A"],
             "both servers describe the same document, so merging duplicates rather than adds");
         await second.DidNotReceive().RequestDocumentSymbolsAsync(Vb6Doc, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SemanticTokensUseTheHighestPriorityFullProviderAndKeepItsLegend()
+    {
+        var unsupported = FakeServer();
+        var first = FakeServer(capabilitiesJson: """{"semanticTokensProvider":{"full":true,"legend":{"tokenTypes":["class"]}}}""");
+        var second = FakeServer(capabilitiesJson: """{"semanticTokensProvider":{"full":true,"legend":{"tokenTypes":["keyword"]}}}""");
+        var expected = new SemanticTokenResult([0, 0, 1, 0, 0], ["class"]);
+        first.RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>()).Returns(expected);
+        var sut = Registry(Registration("unsupported", unsupported, priority: 10),
+            Registration("first", first, priority: 5), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "x", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSemanticTokensAsync(Vb6Doc, TestContext.Current.CancellationToken)).Should().BeSameAs(expected);
+        await unsupported.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
+        await second.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
     }
 
     [Fact]

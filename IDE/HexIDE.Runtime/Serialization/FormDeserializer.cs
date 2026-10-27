@@ -68,10 +68,27 @@ public class FormDeserializer
                 componentsByTypeNames[library.TypeName(inBox.ControlClassName)] = inBox;
     }
 
+    /// <summary>
+    /// The class a ProgID names, in any case, as <c>Controls.Add</c> takes one: <c>"vb.commandbutton"</c> is a CommandButton
+    /// (measured, #1556).
+    /// </summary>
+    internal static bool TryGetComponentClass(string progId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ComponentBaseClass? componentClass)
+    {
+        foreach (var (typeName, component) in componentsByTypeNames)
+            if (string.Equals(typeName, progId, StringComparison.OrdinalIgnoreCase))
+            {
+                componentClass = component;
+                return true;
+            }
+        componentClass = null;
+        return false;
+    }
+
     /// <summary>The in-box ActiveX controls HexIDE implements (#1082).</summary>
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.ImageListComponentClass.Instance,
     ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -534,6 +551,36 @@ public class FormDeserializer
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            if (componentClass is Components.InBox.ImageListComponentClass
+                && serializedComponent.Properties.TryGetValue("Images", out var imagesValue)
+                && imagesValue is Dictionary<string, object> imageProperties)
+            {
+                var pictures = new List<Components.InBox.ImageListPicture>();
+                foreach (var entry in imageProperties)
+                    if (entry.Value is Dictionary<string, object> image
+                        && image.TryGetValue("Picture", out var citation) && citation is string reference
+                        && frxBlobs is not null && FrxDeserializer.TryExtractBlob(reference, frxBlobs) is { } record)
+                    {
+                        pictures.Add(new Components.InBox.ImageListPicture(record,
+                            image.GetValueOrDefault("Key") as string ?? "",
+                            image.GetValueOrDefault("Object.Tag") as string ?? ""));
+                    }
+                // Unknown group members stay in the carried block, rather than disappearing on the next save.
+                var known = imageProperties.Keys.All(k => k == "NumListImages" || k.StartsWith("ListImage", StringComparison.Ordinal))
+                    && imageProperties.Values.OfType<Dictionary<string, object>>()
+                        .All(image => image.Keys.All(k => k is "Picture" or "Key" or "Object.Tag")
+                            && (!image.TryGetValue("Key", out var key) || key is string)
+                            && (!image.TryGetValue("Object.Tag", out var tag) || tag is string));
+                if (known && imageProperties.GetValueOrDefault("NumListImages") is int count && pictures.Count == count)
+                    instance.SetProperty(Components.InBox.ImageListComponentClass.PicturesProperty, pictures);
+            }
+
+            // A missing Font block takes a value copy of the form's font, never the container's (#2062).
+            if (parent is not null && rootComponent.Type == "VB.Form" &&
+                componentClass.Properties.Contains(VBProperties.FontProperty) &&
+                !serializedComponent.Properties.Keys.Any(k => k.Equals("Font", StringComparison.OrdinalIgnoreCase)) &&
+                components[0].TryGetProperty(VBProperties.FontProperty, out var formFont))
+                instance.SetProperty(VBProperties.FontProperty, formFont);
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);

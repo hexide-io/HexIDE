@@ -220,9 +220,12 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
   Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
   no coercion at all.
-- **Arrays OF a UDT, and array fields inside a UDT** — two independent slices. Arrays of a UDT are refused
-  at declaration with a message naming the type (#181), rather than accepted as an unusable array (#178).
-  Array fields inside a UDT remain unsupported.
+- **Arrays OF a UDT, and array fields inside a UDT** — implemented (#178): elements own their fields,
+  assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
+  Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
+  fixed-length strings and array fields As New remain refused. Get/Put of UDT arrays and Types containing array
+  fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
+  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 - **`LSet` / `RSet`** (string-justify form) — read, measure, pad, write back; the shape already running for
   `Mid`. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
@@ -241,10 +244,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ### Found while auditing — bugs, not classification
 
-- **`a(1) = b` for a UDT array** calls `SetValue` with no `CopyIfValueType`, unlike every other UDT value
-  boundary — a silent wrong answer waiting for arrays-of-UDT to land.
-- **`t.arr(3) = 5` discards the index**, so it would overwrite the whole array slot; the `MemberHasArgs`
-  guard is applied in the Object branch and not the `VbUdt` branch.
+- **UDT array stores and indexed fields (#178)** — fixed: whole-element stores use `CopyForStore` (already
+  present before #178), array fields are included in deep copies, and indexed field writes retain their subscripts.
 - **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
   boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
   implemented." in place of the construct's name.
@@ -264,7 +265,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   a non-letter → Invalid Procedure Call (5), an unavailable drive → Device Unavailable (68).)
 - ~~**Bitwise/logical And/Or/Xor/Not on Long or floating operands**~~ — **FIXED 2026-09-02 (#166)**, oracle-pinned. `TryUnpack<int>` had no Long/Single/Double rung, so any `&H…&` flag mask raised TypeMismatch. Replaced with a measured result-type ladder (`VbBitwise`): each operand reduces to 32 bits on its own terms rather than being coerced to a common type first, floats round half-to-even, and the result reports at the wider width floored at Integer — except that two Bytes stay **Byte** and two Booleans stay **Boolean**. `Not` keeps its operand's own width, so `Not CByte(5)` is **250**, an eight-bit complement, not -6. `Empty` is an Integer zero. **`Null` is measured but deliberately not implemented** — `Null Or 5` returns 5, which no per-bit three-valued rule predicts, so it is left to the Null-propagation row below rather than guessed. Table in `vb6-fidelity-oracle/bitwise-and--or--xor--not--the-result-type-ladder.md`.
 - ~~**Cross-module unqualified access to Public/Global variables & Consts**~~ — **FIXED 2026-10-14 ([#880](https://github.com/hexide-io/HexIDE/issues/880))**, oracle-pinned: each module sees the other standard modules' Public variables and Consts bare, behind its own names, and a name two modules export is "Ambiguous name detected" where it is used. Private ones stay invisible bare. Qualified scalar and array-element stores, object Set stores and array-element reads are also fixed (#1006, #965), using runtime module lookup; the issue measurements pin each form. What it said before: qualified `Module1.x` works; unqualified cross-module *variable* reads throw `VBVariableNotDefinedException` (the fallback resolves only cross-module Public procedures/intrinsics, not other modules' variable envs; each env isolated at BasicInterpreter.cs:227). VB6: Public standard-module vars are project-global. **Over-claimed** — interpreter-advanced Phase 1 + ROADMAP:166-168 record this precedence chain COMPLETE, but only procedures were implemented.
-- **Module/class member visibility enforcement (Private)** — Private IS enforced for module procedures (qualified + unqualified dispatch); the gaps are module-level *variable* visibility (PrePass.cs:74-76 "over-permissive") and class *instance* members (`obj.PrivateMethod`, ExpressionExecutor.cs:428-443). Both gaps documented as deferred divergences (interpreter-advanced Phase-4 + Phase-2, ROADMAP Phase 3). (Candidate overstated the total gap.)
+- **Module/class member visibility enforcement (Private)** — **#2121:** the measured scalar assignment `Me.mN = 5` to an explicitly Private class field is now refused with "Method or data member not found" at execution; other private-member forms remain unchanged pending measurements. Private IS enforced for module procedures (qualified + unqualified dispatch); the gaps are module-level *variable* visibility (PrePass.cs:74-76 "over-permissive") and class *instance* members (`obj.PrivateMethod`, ExpressionExecutor.cs:428-443). Both gaps documented as deferred divergences (interpreter-advanced Phase-4 + Phase-2, ROADMAP Phase 3). (Candidate overstated the total gap.)
 - **ReDim Preserve / non-simple targets / ReDim-as-declaration** — plain ReDim of a declared var works (`VisitRedimStmt`), but Preserve throws and non-simple/undeclared targets throw. VB6: Preserve keeps data (last dim only), and ReDim can declare. Undocumented.
   - **FIXED (#1459): ReDim Preserve** keeps the elements in range and changes only the last dimension's upper bound, with every
     refusal VB6 makes measured and matched; the oracle's "ReDim Preserve" has the rows. Non-simple targets and ReDim as a

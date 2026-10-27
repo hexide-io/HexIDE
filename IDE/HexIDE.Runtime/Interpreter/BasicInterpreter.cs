@@ -4,6 +4,8 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
+using Antlr4.Runtime.Misc;
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
@@ -105,6 +107,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args, bool compareText)
     {
+        if (name.Equals("CreateObject", StringComparison.OrdinalIgnoreCase) && args.Count == 1
+            && args[0].Value is string progId && progId.Contains('.') && LibraryClassFor(progId) is { } cls)
+            return NewLibraryObject(cls);
         if (Events is not { } events)
             return await BuiltIns.EvaluateBuiltInFunction(name, args, compareText);
         if (args.Count == 0 && string.Equals(name, "DoEvents", StringComparison.OrdinalIgnoreCase))
@@ -251,6 +256,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return NewUdt(def, 0);
     }
 
+    internal Vb6Value NewUdtArray(UdtTypeDef def, IReadOnlyList<(int, int)>? bounds, bool dynamic = true)
+        => NewUdtArray(def, bounds, dynamic, 0);
+
+    private Vb6Value NewUdtArray(UdtTypeDef def, IReadOnlyList<(int, int)>? bounds, bool dynamic, int depth)
+    {
+        Vb6Value MakeElement() => Vb6Value.NewUdt(NewUdt(def, depth));
+        var type = new Vb6Value.ValueType(Vb6Value.ValueType.UserDefinedType, true);
+        var array = bounds is null ? VBArray.Unallocated(Vb6Value.ValueType.UserDefinedType, MakeElement)
+            : new VBArray(Vb6Value.ValueType.UserDefinedType, bounds, MakeElement);
+        array.IsDynamic = dynamic;
+        return new Vb6Value(type).WithArray(array);
+    }
+
     private VbUdt NewUdt(string typeName, int depth)
     {
         if (!Types.TryGetValue(typeName, out var def))
@@ -269,6 +287,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            if (f.IsArray)
+            {
+                if (f.UdtTypeName is { } nestedType && Types.TryGetValue(nestedType, out var nestedDef))
+                    fields[f.Name] = NewUdtArray(nestedDef, f.Bounds, f.Bounds is null, depth + 1);
+                else
+                {
+                    var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
+                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#178)"));
+                    var arrayType = new Vb6Value.ValueType(elementType, true);
+                    fields[f.Name] = f.Bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, f.Bounds);
+                    ((VBArray)fields[f.Name].Value!).IsDynamic = f.Bounds is null;
+                }
+                continue;
+            }
             if (f.AutoNewClass is { } made)
             {
                 if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
@@ -324,7 +356,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var field in bag.EnumerateFields())
                 if (field.Value.Value is VbUdt nested) HoldFields(nested);
+                else if (field.Value.Value is VBArray array) HoldArray(array);
                 else AddRef(field.Value);
+        }
+
+        void HoldArray(VBArray array)
+        {
+            foreach (var element in array.EnumerateElements())
+                if (element.Value is VbUdt nested) HoldFields(nested);
+                else if (element.Value is VBArray inner) HoldArray(inner);
+                else AddRef(element);
         }
     }
 
@@ -399,7 +440,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <c>Set x = x</c> and aliased assignment can't transiently hit zero and self-terminate.</summary>
     public void AddRef(Vb6Value v)
     {
-        if (v.Value is VbObject o && !o.Terminated)
+        if (v.Value is LibraryObject host)
+            host.References++;
+        else if (v.Value is VbObject o && !o.Terminated)
             o.RefCount++;
         else if (v.Value is VbCollection c)
             c.RefCount++;
@@ -420,6 +463,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// is what terminates a local object array's objects at <c>End Sub</c>, as VB6 does (measured, #970).</summary>
     public async Task ReleaseRef(Vb6Value v)
     {
+        if (v.Value is LibraryObject host)
+        {
+            ReleaseLibraryObject(host);
+            return;
+        }
         if (v.Value is VbObject o && !o.Terminated)
         {
             o.RefCount--;
@@ -510,7 +558,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // it are released at the caller's statement end, after whatever stored the result has copied it.
     private static void AdoptReturn(Vb6Value? ret, Stack<List<Vb6Value>>? callerFrames)
     {
-        if (ret is { Value: VbObject or VBArray or VbCollection } r && callerFrames is { Count: > 0 })
+        if (ret is { Value: VbObject or VBArray or VbCollection or LibraryObject } r && callerFrames is { Count: > 0 })
             callerFrames.Peek().Add(r);
     }
 
@@ -521,7 +569,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// there is no active frame the object simply isn't tracked (leaks — the safe direction).</summary>
     public Vb6Value AdoptNewTemp(Vb6Value v, Stack<List<Vb6Value>> frames)
     {
-        if (v.Value is VbObject or VbCollection && frames.Count > 0)
+        if (v.Value is VbObject or VbCollection or LibraryObject && frames.Count > 0)
         {
             AddRef(v);
             frames.Peek().Add(v);
@@ -667,16 +715,43 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
-        // Reject pathological nesting as a compile error, not a crash, naming the module as a syntax error does.
-        parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
         parsingModule = moduleName;
         try
         {
-            return parser.startRule();
+            return ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
         }
         finally
         {
             parsingModule = null;
+        }
+    }
+
+    private T ParseWithFallback<T>(VB6Parser parser, Func<VB6Parser, T> parse,
+        bool bailOnError = false, bool requireEnd = false, string? moduleName = null)
+    {
+        parser.RemoveErrorListeners();
+        parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
+        parser.Interpreter.PredictionMode = PredictionMode.SLL;
+        parser.ErrorHandler = new BailErrorStrategy();
+        try
+        {
+            var tree = parse(parser);
+            // Standalone rules can accept a prefix under SLL; let LL decide the whole entry.
+            if (requireEnd && parser.CurrentToken.Type != TokenConstants.EOF)
+                throw new ParseCanceledException();
+            return tree;
+        }
+        catch (ParseCanceledException)
+        {
+            // SLL can mispredict call-versus-array syntax. Retry with LL and the original error policy.
+            parser.Reset();
+            parser.RemoveParseListeners();
+            parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
+            parser.Interpreter.PredictionMode = PredictionMode.LL;
+            parser.ErrorHandler = bailOnError ? new BailErrorStrategy() : new DefaultErrorStrategy();
+            if (!bailOnError)
+                parser.AddErrorListener(this);
+            return parse(parser);
         }
     }
 
@@ -694,8 +769,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
-        parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
-        var tree = parser.valueStmt();
+        var tree = ParseWithFallback(parser, p => p.valueStmt(), requireEnd: true);
         if (parser.CurrentToken.Type != Antlr4.Runtime.TokenConstants.EOF)
             throw new VBCompileErrorException($"Unexpected token '{parser.CurrentToken.Text}'");
         return tree;
@@ -713,11 +787,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
         parser.RemoveErrorListeners();
-        parser.AddParseListener(new ParseDepthGuard());
         parser.ErrorHandler = new Antlr4.Runtime.BailErrorStrategy();   // any syntax error → bail; we return null
         try
         {
-            var stmt = parser.blockStmt();
+            var stmt = ParseWithFallback(parser, p => p.blockStmt(), bailOnError: true, requireEnd: true);
             // Require the WHOLE line to be one statement — trailing tokens (`count + `) mean it isn't a clean one.
             return parser.CurrentToken.Type == Antlr4.Runtime.TokenConstants.EOF ? stmt : null;
         }
@@ -822,6 +895,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
+        }
+        finally
+        {
+            ReleaseLibraryGlobals();
         }
     }
 
@@ -1202,9 +1279,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return await RunProcedure(owner, proc, args, callerFrames: callerFrames);
         }
 
+        if (GlobalMember(name) is { } global)
+        {
+            var values = new List<Vb6Value>();
+            foreach (var arg in args) values.Add(arg.Value);
+            return await CallLibraryMember(global, name, values);
+        }
         var flat = await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         if (await CallBuiltIn(name, flat, currentModule.PrePass.OptionCompareText) is { } result)
-            return result;
+            return result.Value is LibraryObject && callerFrames is not null ? AdoptNewTemp(result, callerFrames) : result;
         if (!ignoreMissing)
             throw new VBCompileErrorException("Sub or Function not defined (" + name + ')');
         return null;
@@ -1273,7 +1356,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (proc.Parameters.Count == 0 && args.Count > 0 && !proc.ReturnsVariant && !proc.ReturnsObject)
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
 
-        var callee = (baseEnv ?? owner.ModuleEnv).Clone();
+        var callee = (baseEnv ?? owner.ModuleEnv).CreateProcedureScope();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by
         // BindParameters) then the body's own Dim locals (appended by the StatementExecutor in declaration order).
         // NOT the return-name (its hold transfers to the caller) and NOT ByRef params (they alias the caller slot).
@@ -1519,15 +1602,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             && TryResolveEnum(name, from, out _);
     }
 
-    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer, ControlLibrary, ControlLibraryContainer }
+    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer, RuntimeLibrary, ControlLibraryContainer }
 
     /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
     /// <see cref="QualifierKind.InBoxContainer"/>, the library or enum/module name as VB6 declares it —
     /// these levels SELECT rather than being stepped over, so the name has to survive classification.</param>
-    /// <param name="ControlLibrary">For <see cref="QualifierKind.ControlLibrary"/> and
+    /// <param name="RuntimeLibrary">For <see cref="QualifierKind.RuntimeLibrary"/> and
     /// <see cref="QualifierKind.ControlLibraryContainer"/>, the referenced control library (#1082).</param>
     public readonly record struct QualifierTarget(QualifierKind Kind, ModuleInfo? Module,
-        Dictionary<string, long>? EnumMembers, string? Name = null, Components.InBox.ControlLibrary? ControlLibrary = null);
+        Dictionary<string, long>? EnumMembers, string? Name = null, Components.InBox.RuntimeLibrary? RuntimeLibrary = null);
 
     /// <summary>Resolve a leading identifier as a namespace qualifier — a user module, an <c>Enum</c> type, or
     /// the <c>VBA</c>/<c>VB</c> libraries. The caller MUST check for a same-named variable first (it shadows the
@@ -1567,7 +1650,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         foreach (var library in BuiltIns.ControlLibraries)
             if (library.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-                return new QualifierTarget(QualifierKind.ControlLibrary, null, null, library.Name, library);
+                return new QualifierTarget(QualifierKind.RuntimeLibrary, null, null, library.Name, library);
         foreach (var library in BuiltIns.ControlLibraries)
             if (library.ContainerName(name) is { } container)
                 return new QualifierTarget(QualifierKind.ControlLibraryContainer, null, null, container, library);
@@ -1665,9 +1748,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit. A ByVal
                     // array is the callee's own copy, whose objects the copy holds, so it is released there too.
-                    if (stored.Value is VbObject or VBArray or VbCollection && callee.TryGetVariableLocation(p.Name, out var ploc))
+                    if (stored.Value is VbObject or VBArray or VbCollection or LibraryObject && callee.TryGetVariableLocation(p.Name, out var ploc))
                     {
-                        if (stored.Value is VbObject or VbCollection)
+                        if (stored.Value is VbObject or VbCollection or LibraryObject)
                             AddRef(stored);
                         ownedSlots.Add(ploc);
                     }

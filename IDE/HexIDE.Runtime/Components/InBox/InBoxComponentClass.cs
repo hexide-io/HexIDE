@@ -16,22 +16,25 @@ public abstract class InBoxComponentClass : ComponentBaseClass
 {
     /// <param name="extender">The extender's properties beyond the base's Name, Left, Top, Width, Height, Visible and Tag.</param>
     /// <param name="own">The control's own persisted properties, in the order it writes them.</param>
-    protected InBoxComponentClass(IReadOnlyList<PropertyClass> extender, IReadOnlyList<PropertyClass> own, IReadOnlyList<EventClass> events)
-        : base([.. extender, .. own], events)
+    protected InBoxComponentClass(IReadOnlyList<PropertyClass> extender, IReadOnlyList<PropertyClass> own, IReadOnlyList<EventClass> events, bool invisible = false)
+        : base([.. extender, .. own], events, hasBounds: !invisible, hasVisible: !invisible)
     {
         OwnProperties = own;
     }
+
+    /// <summary>The in-box controls HexIDE implements (#1082), which the toolbox offers from each library declaring one.</summary>
+    public static IReadOnlyList<InBoxComponentClass> Implemented => [ProgressBarComponentClass.Instance, ImageListComponentClass.Instance];
 
     /// <summary>The control's class name, as its libraries declare it: <c>ProgressBar</c>.</summary>
     public abstract string ControlClassName { get; }
 
     /// <summary>The newest library that declares it, whose type name a new one takes.</summary>
-    public virtual ControlLibrary Library => ControlLibraries.MSComctlLib;
+    public virtual RuntimeLibrary Library => ControlLibraries.MSComctlLib;
 
     public override string VBTypeName => Library.TypeName(ControlClassName);
 
-    /// <summary>Every library that declares the control, each under whose type name a form may hold it.</summary>
-    public IEnumerable<ControlLibrary> Libraries =>
+    /// <summary>Every library under whose type name HexIDE implements the control.</summary>
+    public virtual IEnumerable<RuntimeLibrary> Libraries =>
         ControlLibraries.All.Where(l => l.Controls.ContainsKey(ControlClassName));
 
     /// <summary>The control's own persisted properties, in the order it writes them.</summary>
@@ -61,7 +64,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
         instance.GetPropertyOrDefault(LoadedTypeNameProperty) ?? VBTypeName;
 
     /// <summary>The library <paramref name="instance"/> is in, by the type name it is written under.</summary>
-    public ControlLibrary LibraryOf(ComponentInstance instance) =>
+    public RuntimeLibrary LibraryOf(ComponentInstance instance) =>
         ControlLibraries.ForTypeName(TypeNameOf(instance)) ?? Library;
 
     /// <summary>The type name the instance was read under, where it was read: <c>ComctlLib.ProgressBar</c>.</summary>

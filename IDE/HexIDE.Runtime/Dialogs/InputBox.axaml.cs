@@ -6,6 +6,8 @@ namespace HexIDE.Runtime.Dialogs;
 
 public partial class InputBox : UserControl
 {
+    public bool IsProgramDialog { get; init; }
+
     public string Prompt { get; set; } = "";
     public string Text { get; set; } = "";
 

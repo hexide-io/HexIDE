@@ -107,6 +107,8 @@ public abstract class BaseVBTestFixture
             await run();
             return;
         }
+        int outputBefore;
+        lock (written) outputBefore = written.Length;
         int before;
         lock (debug) before = debug.Count;
         Exception? thrown = null;
@@ -123,7 +125,9 @@ public abstract class BaseVBTestFixture
         {
             List<Vb6Value> printed;
             lock (debug) printed = debug.Skip(before).ToList();
-            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, thrown);
+            string output;
+            lock (written) output = written.ToString(outputBefore, written.Length - outputBefore);
+            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, output, thrown);
         }
     }
 

@@ -10,6 +10,8 @@ date functions; graphics) should extend it the same way.
 > **Why this matters:** the oracle repeatedly overturned "documented" assumptions. Building from memory / the
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
+- [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
+
 ---
 
 ## The oracle
@@ -500,6 +502,7 @@ added afterwards.
 - [When a document gets a file, and what a dangling `Startup=` does (2026-09-20, #489)](when-a-document-gets-a-file-and-what-a-dangling-startup-does.md#when-a-document-gets-a-file-and-what-a-dangling-startup-does-2026-09-20-489)
 - [A type character on a name the program also declares: `Left$` beside a user `Left` (2026-10-11)](a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md#a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left-2026-10-11)
 - [A running program's locale is the user's regional settings (2026-10-12, #777)](a-running-programs-locale-is-the-users-regional-settings.md#a-running-programs-locale-is-the-users-regional-settings-2026-10-12-777)
+- [Fixed number masks beyond Decimal range (#2118)](format-of-a-number-beyond-decimals-range.md)
 - [Turning a number or a date into text (2026-10-12, #772, #771)](turning-a-number-or-a-date-into-text.md#turning-a-number-or-a-date-into-text-2026-10-12-772-771)
 - [A control where a value is wanted is its default member (2026-10-12, #790)](a-control-where-a-value-is-wanted-is-its-default-member.md#a-control-where-a-value-is-wanted-is-its-default-member-2026-10-12-790)
 - [A Label's colours, read back and painted (2026-10-12, #795)](a-labels-colours-read-back-and-painted.md#a-labels-colours-read-back-and-painted-2026-10-12-795)
@@ -580,6 +583,7 @@ added afterwards.
 - [Where the Format commands put a control (2026-10-22, #929, design-time)](where-the-format-commands-put-a-control.md#where-the-format-commands-put-a-control-2026-10-22-929-design-time)
 - [Named arguments (2026-10-22, #1465)](named-arguments.md#named-arguments-2026-10-22-1465)
 - [The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)](the-tabindex-a-new-or-pasted-control-takes.md#the-tabindex-a-new-or-pasted-control-takes-2026-10-22-925-design-time)
+- [Drawing a control into a Frame or PictureBox (2026-10-26, #2039, design-time)](drawing-a-control-into-a-frame-or-picturebox.md#drawing-a-control-into-a-frame-or-picturebox-2026-10-26-2039-design-time)
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
 - [As New (2026-10-22 and 23, #435)](as-new.md#as-new-2026-10-22-and-23-435)
 - [Where VB6's designer puts a control's block (2026-10-23, #1481, design-time)](where-vb6s-designer-puts-a-controls-block.md#where-vb6s-designer-puts-a-controls-block-2026-10-23-1481-design-time)
@@ -633,6 +637,37 @@ added afterwards.
 - [A For loop with a fraction (2026-10-24, #983)](a-for-loop-with-a-fraction.md#a-for-loop-with-a-fraction-2026-10-24-983)
 - [In-box controls: the ProgressBar (2026-10-25, #1082)](in-box-controls-the-progressbar.md#in-box-controls-the-progressbar-2026-10-25-1082)
 - [TabIndex and TabStop at run time (2026-10-26, #1974)](tabindex-and-tabstop-at-run-time.md#tabindex-and-tabstop-at-run-time-2026-10-26-1974)
+- [The Components dialog and an in-box library's lines (2026-10-26, #1103, design-time)](the-components-dialog-and-an-in-box-librarys-lines.md#the-components-dialog-and-an-in-box-librarys-lines-2026-10-26-1103-design-time)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
 - [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
 - [A form's Move (2026-10-26, #1569)](a-forms-move.md#a-forms-move-2026-10-26-1569)
+- [A date's fraction of a second (2026-10-26, #783)](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783)
+- [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
+- [Format's AMPM token (2026-10-26, #2040)](formats-ampm-token.md#formats-ampm-token-2026-10-26-2040)
+- [Format of a number beyond Decimal's range (2026-10-26, #2118)](format-of-a-number-beyond-decimals-range.md#format-of-a-number-beyond-decimals-range-2026-10-26-2118)
+- [A GlobalMultiUse class in a referenced library (2026-10-26, #1107)](a-globalmultiuse-class-in-a-referenced-library.md#a-globalmultiuse-class-in-a-referenced-library-2026-10-26-1107)
+- [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
+- [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
+- [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
+
+- [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
+- [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
+- [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
+- [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
+- [A UserControl's own properties at run time (2026-10-26, #1631)](a-usercontrols-own-properties-at-run-time.md#a-usercontrols-own-properties-at-run-time-2026-10-26-1631)
+- [A UserControl's own properties in the designer and the files (2026-10-26, #1631, design-time, IDE)](a-usercontrols-own-properties-in-the-designer-and-the-files.md#a-usercontrols-own-properties-in-the-designer-and-the-files-2026-10-26-1631-design-time-ide)
+- [In-box controls: the ImageList (2026-10-26, #1083)](in-box-controls-the-imagelist.md#in-box-controls-the-imagelist-2026-10-26-1083)
+- [In-box controls: the StatusBar (2026-10-26, #1087)](in-box-controls-the-statusbar.md#in-box-controls-the-statusbar-2026-10-26-1087)
+- [In-box controls: the Toolbar (2026-10-26, #1088)](in-box-controls-the-toolbar.md#in-box-controls-the-toolbar-2026-10-26-1088)
+- [In-box controls: the ListView (2026-10-26, #1085)](in-box-controls-the-listview.md#in-box-controls-the-listview-2026-10-26-1085)
+- [In-box controls: the TreeView (2026-10-27, #1086)](in-box-controls-the-treeview.md#in-box-controls-the-treeview-2026-10-27-1086)
+- [In-box controls: the CommonDialog (2026-10-27, #1084)](in-box-controls-the-commondialog.md#in-box-controls-the-commondialog-2026-10-27-1084)
+- [In-box controls: the SSTab (2026-10-27, #1090)](in-box-controls-the-sstab.md#in-box-controls-the-sstab-2026-10-27-1090)
+- [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
+- [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
+- [In-box controls: the RichTextBox (2026-10-27, #1100)](in-box-controls-the-richtextbox.md#in-box-controls-the-richtextbox-2026-10-27-1100)
+- [In-box controls: the TabStrip (2026-10-27, #1089)](in-box-controls-the-tabstrip.md#in-box-controls-the-tabstrip-2026-10-27-1089)
+- [In-box classes: a bare name binds to the first library (2026-10-27, #2265)](in-box-classes-a-bare-name-binds-to-the-first-library.md#in-box-classes-a-bare-name-binds-to-the-first-library-2026-10-27-2265)
+- [A reference's LCID is lowercase hex, unpadded (2026-10-27, #2273)](a-references-lcid-is-lowercase-hex.md#a-references-lcid-is-lowercase-hex-unpadded-2026-10-27-2273)
+- [A reference's path, and the line order a save writes (2026-10-27, #2274)](a-references-path-and-the-line-order-a-save-writes.md#a-references-path-and-the-line-order-a-save-writes-2026-10-27-2274)
+- [In-box controls: the Slider (2026-10-27, #1091)](in-box-controls-the-slider.md#in-box-controls-the-slider-2026-10-27-1091)

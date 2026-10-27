@@ -92,7 +92,7 @@ public static class VBProperties
     public static readonly PropertyClass<byte[]?> ItemDataProperty = new PropertyClass<byte[]?>("ItemData",
         "Per-item numeric values stored alongside a list control's items.", PropertyCategory.Misc);
 
-    public static PropertyClass<int> IntervalProperty = new PropertyClass<int>("Interval", "The delay, in milliseconds, between a Timer control's events.", PropertyCategory.Misc, defaultValue: 1000);
+    public static PropertyClass<int> IntervalProperty = new PropertyClass<int>("Interval", "The delay, in milliseconds, between a Timer control's events.", PropertyCategory.Misc, defaultValue: 0);
 
     public static readonly PropertyClass<string> TextProperty = new PropertyClass<string>("Text", "The text held by the control.", PropertyCategory.Misc, "");
 
@@ -190,6 +190,8 @@ public static class VBProperties
     /// option button, the boolean spelling, never <c>1  'Checked</c>.
     /// </summary>
     public static PropertyClass<bool> OptionValueProperty = new PropertyClass<bool>("Value", "Whether this option button is the selected one in its group.", PropertyCategory.Misc, false);
+
+    public static PropertyClass<bool> CommandValueProperty = new PropertyClass<bool>("Value", "Clicks the command button when set to True.", PropertyCategory.Misc, false);
 
     public static PropertyClass<bool> LockedProperty = new PropertyClass<bool>("Locked", "Whether the control's contents can be edited.", PropertyCategory.Behavior, false);
 

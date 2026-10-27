@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
 using Path = System.IO.Path;
 
@@ -81,6 +82,7 @@ public class ProjectSerializer
             AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
         }
 
+        var encodingPaths = new List<string>();
         foreach (var form in project.Forms)
         {
             if ((pathOf?.Invoke(form) ?? form.AbsolutePath) is not { } formPath)
@@ -88,6 +90,10 @@ public class ProjectSerializer
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, formPath));
             AddKnownLine($"{SerializedProject.FormKey}={relativePath}");
+            if (form.TextEncoding == Vb6TextEncoding.Utf8 &&
+                ProjectEncodingRecords.NeedsRecord(form.TextEncoding,
+                    new FormSerializer().Serialize(form, Path.GetFileName(formPath)).frmText))
+                encodingPaths.Add(relativePath);
         }
 
         foreach (var module in project.Modules)
@@ -96,6 +102,14 @@ public class ProjectSerializer
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, modulePath));
+            if (module.TextEncoding == Vb6TextEncoding.Utf8)
+            {
+                var text = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage && module.FormPart is { } designer
+                    ? new FormSerializer().Serialize(designer, module.Code, Path.GetFileName(modulePath)).frmText
+                    : ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader);
+                if (ProjectEncodingRecords.NeedsRecord(module.TextEncoding, text))
+                    encodingPaths.Add(relativePath);
+            }
             var key = module.Kind switch
             {
                 ModuleKind.ClassModule  => SerializedProject.ClassKey,
@@ -206,6 +220,12 @@ public class ProjectSerializer
         for (var i = 0; i < lines.Count; i++)
             if (slots[i] is null)
                 order.Insert(i == 0 ? 0 : order.IndexOf(i - 1) + 1, i);
+        // An Object= line the Components dialog added goes just after the last Form= line, where VB6's Save Project puts
+        // one (measured, #1103), or after Type= in a project with no form.
+        var afterForms = order.FindLastIndex(i => lines[i].Text.StartsWith(SerializedProject.FormKey + "=", StringComparison.OrdinalIgnoreCase)) + 1;
+        if (unknowns.Any(u => u.PositionHint == ProjectDefinition.AfterFormsHint))
+            unknowns = unknowns.Select(u => u.PositionHint == ProjectDefinition.AfterFormsHint ? (PositionHint: Math.Max(afterForms, 1), u.RawLine) : u)
+                .OrderBy(u => u.PositionHint).ToList();
         // Omitted package entries still count their slots, so unknown lines keep their neighbours (#750).
         foreach (var i in order)
             WriteKnownLine(lines[i].Text, lines[i].Omit);
@@ -215,10 +235,11 @@ public class ProjectSerializer
             writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
 
         // Append the extension tail (third-party [SectionName]...EOF content)
-        if (!string.IsNullOrEmpty(project.ExtensionTail))
+        var extensionTail = ProjectEncodingRecords.Write(project.ExtensionTail, encodingPaths);
+        if (!string.IsNullOrEmpty(extensionTail))
         {
             writer.WriteLine();
-            writer.Write(project.ExtensionTail);
+            writer.Write(extensionTail);
         }
 
         return writer.ToString();

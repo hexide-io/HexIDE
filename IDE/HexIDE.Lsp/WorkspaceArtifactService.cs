@@ -16,11 +16,13 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private readonly ILogger<WorkspaceArtifactService> _log;
     private readonly Dictionary<string, string> _hashes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, LanguageServerRegistration> _active = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _lastNote = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private CancellationTokenSource? _pending;
     private bool _disposed;
     private readonly string? _stateFile;
     private readonly ConversationLog? _capture;
+    private readonly IWorkspaceLibraryNames? _libraryNames;
     internal Action<Stream, byte[]> WriteContent { get; set; } = (stream, bytes) => stream.Write(bytes);
 
     /// <summary>Larger than any artefact a provider has reason to write, so a file over it is never HexIDE's.</summary>
@@ -28,7 +30,8 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     public WorkspaceArtifactService(IWorkspaceArtifactWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWorkspaceArtifactConsent consent,
-        ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null)
+        ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null,
+        IWorkspaceLibraryNames? libraryNames = null)
     {
         _workspace = workspace;
         _providers = providers;
@@ -36,6 +39,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         _log = log;
         _stateFile = stateFile;
         _capture = capture;
+        _libraryNames = libraryNames;
         try
         {
             if (stateFile is not null && File.Exists(stateFile))
@@ -49,6 +53,9 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     public async Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken)
     {
+        if (server.WorkspaceArtifactRefused)
+            Note(server, "Workspace artefact declaration refused, so no file is generated: see the configuration "
+                + "problems in Tools > Language Servers.");
         if (server.WorkspaceArtifact is not { } spec) return;
         await _gate.WaitAsync(cancellationToken);
         try
@@ -99,6 +106,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             _log.LogInformation("Workspace artefact {Path} denied for {Server}; launching without it.", target, server.Id);
             Note(server, $"Workspace artefact {spec.RelativePath} denied; launching without it.");
             return;
+        }
+        // Only now may the provider read past the snapshot. A library's name is read by loading the library, from a path
+        // the project file names, so a project nobody has allowed an artefact for must never get that far. The content
+        // above, made without it, only decided whether there is anything to describe.
+        if (_libraryNames is not null)
+        {
+            content = provider.Produce(project with { Settings = spec.Settings, LibraryNames = _libraryNames });
+            if (string.IsNullOrEmpty(content)) return;
         }
         // Consent may have held a modal open: recheck both the links and the content before writing.
         if (SafePath(project.WorkspaceRoot, spec.RelativePath) != target)
@@ -153,6 +168,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         }
         finally { File.Delete(temporary); }
         _hashes[target] = Convert.ToHexString(SHA256.HashData(bytes));
+        _lastNote.Remove(server.Id);
         SaveOwnership();
         // #456: regeneration deliberately sends no didChangeWatchedFiles in this phase.
     }
@@ -204,8 +220,18 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         catch (Exception ex) { _log.LogWarning(ex, "Could not save workspace artefact ownership."); }
     }
 
+    /// <summary>
+    /// Records a reason on the server's connection, once: the same reason again for the same server, with no write in
+    /// between, is the same news. The launch and the regeneration a project's load sets off straight after it would
+    /// otherwise each record it (#2073).
+    /// </summary>
     private void Note(LanguageServerRegistration server, string reason, bool fault = true)
     {
+        lock (_lastNote)
+        {
+            if (_lastNote.TryGetValue(server.Id, out var last) && last == reason) return;
+            _lastNote[server.Id] = reason;
+        }
         _capture?.Record(server.Id, ConversationDirection.Local, ConversationEntryKind.Note,
             null, null, 0, detail: reason, fault: fault);
     }

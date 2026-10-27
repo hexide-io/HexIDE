@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
@@ -94,10 +95,10 @@ public class EventOrderTests
     }
 
     /// <param name="timeSliceMs">The debugger's time slice: null for none, -1 to yield at every statement.</param>
-    private static Run Start(string code, long? timeSliceMs)
+    private static Run Start(string code, long? timeSliceMs, string? formSource = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, Form, new NullSink())!;
+        var form = new FormDeserializer().Deserialize(project, formSource ?? Form, new NullSink())!;
         form.UpdateCode(code.ReplaceLineEndings("\r\n"));
         project.AddForm(form);
 
@@ -141,8 +142,67 @@ public class EventOrderTests
 
     private static void Pump()
     {
-        for (var i = 0; i < 20; i++)
-            Dispatcher.UIThread.RunJobs();
+        // Jobs restore their captured context onto this thread, including an earlier test's TestContext (#2194, #883).
+        var context = ExecutionContext.Capture();
+        try
+        {
+            for (var i = 0; i < 20; i++)
+                Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Pump_preserves_the_callers_execution_context()
+    {
+        var marker = new AsyncLocal<string?> { Value = "caller" };
+        var context = ExecutionContext.Capture()!;
+        ExecutionContext.Run(context, _ =>
+        {
+            marker.Value = "queued job";
+            Dispatcher.UIThread.Post(() => marker.Value.Should().Be("queued job"));
+        }, null);
+
+        Pump();
+
+        marker.Value.Should().Be("caller");
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task A_Timer_without_Interval_stays_quiet_while_a_nonzero_Timer_ticks()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var form = Form.Replace("      Enabled         =   0   'False\r\n", "")
+            .Replace("      Interval        =   1000\r\n", "")
+            .Replace("End\r\nAttribute VB_Name", "   Begin VB.Timer Timer2 \r\n      Interval        =   100\r\n   End\r\nEnd\r\nAttribute VB_Name");
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print Timer1.Interval
+                Debug.Print Timer1.Enabled
+            End Sub
+            Private Sub Timer1_Timer()
+                Debug.Print "unexpected tick"
+            End Sub
+            Private Sub Timer2_Timer()
+                Debug.Print "tick"
+            End Sub
+            """, null, form);
+
+        var wait = System.Diagnostics.Stopwatch.StartNew();
+        while (wait.Elapsed < TimeSpan.FromSeconds(1.5))
+        {
+            await System.Threading.Tasks.Task.Delay(10, cancellationToken);
+            Pump();
+        }
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().NotContain("unexpected tick");
+        run.Printed.Should().Contain("tick");
+        run.Printed.Take(2).Select(line => line.Trim()).Should().Equal("0", "True");
     }
 
     [AvaloniaTheory]

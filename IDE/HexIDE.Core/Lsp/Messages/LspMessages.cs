@@ -182,7 +182,8 @@ public record InitializeParams(
     [property: JsonPropertyName("workspaceFolders")] WorkspaceFolder[]? WorkspaceFolders = null,
     // Appended, never inserted. This is a positional record with several construction sites and tests
     // asserting on it; an insert whose types line up compiles cleanly while landing a value in the wrong slot.
-    [property: JsonPropertyName("trace")] string? Trace = null);
+    [property: JsonPropertyName("trace")] string? Trace = null,
+    [property: JsonPropertyName("locale")] string? Locale = null);
 
 /// <summary>
 /// How much a server should say about its own work: the three values the protocol defines, and nothing else.
@@ -257,7 +258,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("diagnostic")] DiagnosticClientCapabilities? Diagnostic = null,
     // Appended, never inserted, for the reason on InitializeParams.Trace.
     [property: JsonPropertyName("documentSymbol")] DocumentSymbolClientCapabilities? DocumentSymbol = null,
-    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null);
+    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null,
+    [property: JsonPropertyName("semanticTokens")] SemanticTokensClientCapabilities? SemanticTokens = null);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -370,15 +372,10 @@ public record DocumentSymbolClientCapabilities(
     [property: JsonPropertyName("hierarchicalDocumentSymbolSupport")] bool HierarchicalDocumentSymbolSupport = false);
 
 /// <summary>
-/// Declares that the client folds a server's ranges by whole lines.
+/// Declares whether folding is limited to whole lines.
 /// </summary>
 /// <remarks>
-/// <b>True of the reader, not of the editor.</b> <c>Vb6FoldingAdapter.FromServer</c> reads a fold's lines and
-/// ignores its characters, so this says what the client does with a range today. A server that honours it ends a
-/// fold on the line before its closing line. One told nothing may end it part-way along that line instead: clangd
-/// ends each fold just before its closing brace, and read by whole lines the fold then hid the brace
-/// (hexide-io/HexIDE#1363). The editor can fold part-way along a line, so the change that makes the reader honour
-/// a fold's characters removes this declaration with it (hexide-io/HexIDE#1022).
+/// The client no longer advertises this type: it honours a fold's character offsets (hexide-io/HexIDE#1022).
 ///
 /// <para>
 /// <c>rangeLimit</c>, <c>foldingRangeKind</c> and <c>foldingRange.collapsedText</c> are absent: nothing here limits
@@ -489,6 +486,16 @@ public record ServerCapabilities(
     /// <summary>
     /// True when the server advertised support for a named capability, in either legal shape.
     /// </summary>
+    public static bool SupportsSemanticTokensFull(System.Text.Json.JsonElement? capabilities) =>
+        capabilities is { ValueKind: System.Text.Json.JsonValueKind.Object } caps
+        && caps.TryGetProperty("semanticTokensProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && provider.TryGetProperty("full", out var full) && IsEnabled(full)
+        && provider.TryGetProperty("legend", out var legend)
+        && legend.ValueKind == System.Text.Json.JsonValueKind.Object
+        && legend.TryGetProperty("tokenTypes", out var types)
+        && types.ValueKind == System.Text.Json.JsonValueKind.Array;
+
     public static bool Supports(System.Text.Json.JsonElement? capabilities, string capabilityName) =>
         capabilities is { } caps
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
@@ -848,8 +855,43 @@ public record MarkupContent(
 
 /// <summary>Hover response — null when there is nothing to show.</summary>
 public record HoverResult(
-    [property: JsonPropertyName("contents")] MarkupContent Contents,
+    [property: JsonPropertyName("contents"), JsonConverter(typeof(HoverContentsConverter))] MarkupContent Contents,
     [property: JsonPropertyName("range")]    Range? Range = null);
+
+/// <summary>Normalizes the three legal hover content shapes to the markup model used by the editor.</summary>
+public sealed class HoverContentsConverter : JsonConverter<MarkupContent>
+{
+    public override MarkupContent Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var contents = document.RootElement;
+        if (contents.ValueKind == JsonValueKind.Object && contents.TryGetProperty("kind", out var kind))
+            return new(kind.GetString()!, contents.GetProperty("value").GetString()!);
+
+        if (contents.ValueKind != JsonValueKind.Array)
+            return new("markdown", ReadMarkedString(contents));
+
+        var parts = new List<string>();
+        foreach (var part in contents.EnumerateArray())
+            parts.Add(ReadMarkedString(part));
+        return new("markdown", string.Join("\n\n", parts));
+    }
+
+    private static string ReadMarkedString(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString()!,
+        JsonValueKind.Object => $"```{value.GetProperty("language").GetString()}\n{value.GetProperty("value").GetString()}\n```",
+        _ => throw new JsonException("Expected a marked string.")
+    };
+
+    public override void Write(Utf8JsonWriter writer, MarkupContent value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("kind", value.Kind);
+        writer.WriteString("value", value.Value);
+        writer.WriteEndObject();
+    }
+}
 
 /// <summary>A location inside a resource, such as a line inside a text file.</summary>
 public record Location(
@@ -959,8 +1001,54 @@ public record SignatureHelpParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
     [property: JsonPropertyName("position")]     Position Position);
 
+[JsonConverter(typeof(ParameterLabelConverter))]
+public readonly record struct ParameterLabel(string? Text, int Start = 0, int End = 0)
+{
+    public static implicit operator ParameterLabel(string text) => new(text);
+
+    public (int Start, int Length)? RangeIn(string signature)
+    {
+        if (Text is { } text)
+        {
+            var start = signature.IndexOf(text, StringComparison.OrdinalIgnoreCase);
+            return start < 0 ? null : (start, text.Length);
+        }
+        return Start >= 0 && End >= Start && End <= signature.Length ? (Start, End - Start) : null;
+    }
+
+    public string TextIn(string signature) => Text ?? (RangeIn(signature) is { } range
+        ? signature.Substring(range.Start, range.Length) : string.Empty);
+}
+
+public sealed class ParameterLabelConverter : JsonConverter<ParameterLabel>
+{
+    public override ParameterLabel Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String) return new(reader.GetString()!);
+        using var document = JsonDocument.ParseValue(ref reader);
+        var value = document.RootElement;
+        if (value.ValueKind == JsonValueKind.Array && value.GetArrayLength() == 2
+            && value[0].TryGetInt32(out var start) && value[1].TryGetInt32(out var end)
+            && start >= 0 && end >= start)
+            return new(null, start, end);
+        throw new JsonException("Expected a parameter label string or [start, end] offsets.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, ParameterLabel value, JsonSerializerOptions options)
+    {
+        if (value.Text is { } text) writer.WriteStringValue(text);
+        else
+        {
+            writer.WriteStartArray();
+            writer.WriteNumberValue(value.Start);
+            writer.WriteNumberValue(value.End);
+            writer.WriteEndArray();
+        }
+    }
+}
+
 public record ParameterInformation(
-    [property: JsonPropertyName("label")]         string Label,
+    [property: JsonPropertyName("label")]         ParameterLabel Label,
     [property: JsonPropertyName("documentation")] string? Documentation = null);
 
 public record SignatureInformation(
@@ -991,10 +1079,28 @@ public record WorkDoneProgressCreateParams(
 
 public record ProgressParams(
     [property: JsonPropertyName("token")] JsonElement Token,
-    [property: JsonPropertyName("value")] WorkDoneProgressValue Value);
+    [property: JsonPropertyName("value")] WorkDoneProgressValue Value)
+{
+    /// <summary>Local registration name, never part of the LSP wire message.</summary>
+    [JsonIgnore]
+    public string? ServerDisplayName { get; init; }
+}
 
 public record WorkDoneProgressValue(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("title")] string? Title = null,
     [property: JsonPropertyName("message")] string? Message = null,
     [property: JsonPropertyName("percentage")] uint? Percentage = null);
+
+public record SemanticTokensClientCapabilities(
+    [property: JsonPropertyName("requests")] SemanticTokensRequests Requests,
+    [property: JsonPropertyName("tokenTypes")] string[] TokenTypes,
+    [property: JsonPropertyName("tokenModifiers")] string[] TokenModifiers,
+    [property: JsonPropertyName("formats")] string[] Formats,
+    [property: JsonPropertyName("overlappingTokenSupport")] bool OverlappingTokenSupport = false,
+    [property: JsonPropertyName("multilineTokenSupport")] bool MultilineTokenSupport = false);
+
+public record SemanticTokensRequests([property: JsonPropertyName("full")] bool Full = true);
+public record SemanticTokensParams([property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
+public record SemanticTokens([property: JsonPropertyName("data")] int[] Data);
+public record SemanticTokenResult(int[] Data, string[] TokenTypes);

@@ -419,19 +419,15 @@ part of it.
 `invoke_menu_item {"path":"Project/Add Module"}` does the same for `Module3`. An untouched module loaded from
 disk reads `false`.
 
-**Since #273 task 3.18 the `content` half of that reply reads differently, and the defect does not.**
-`get_file_content` now returns a module's whole file, so a new `Helpers` answers with its one header line,
-`Attribute VB_Name = "Helpers"`, rather than `""`. `hasUnsavedChanges` still compares the code section with
-the model's, which did not change, so it still reads `true`. The `""` above is what was measured, before
-that change.
+**Resolved (#500, #597).** #489 measured that a new document has no file until it is saved, and #500
+removed the immediate write. The reply now correctly reports `hasUnsavedChanges: true` for a new
+form, module, class, UserControl or PropertyPage. `get_file_content`'s description explicitly says that
+a document with no file yet always has unsaved changes. Save Project asks where to write it; after
+saving, an untouched document reads `false`. No render baseline should be recorded at creation.
 
-**Workaround.** Read `hasUnsavedChanges` on a document added in this session as "new", not as "edited".
-
-**Suggested fix.** Undecided, and filed as needs-decision:
-[#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
-document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
-description.
-
+`WriteAtSaveTests.A_new_member_has_unsaved_changes_until_its_first_save` covers the transition for all
+five document kinds, in both saved and unsaved projects. The calls above record the original symptom,
+before #500; they no longer describe a file written by `add_file`.
 
 
 ## The code window's gutters are not in the control tree, so a gutter click cannot be driven
@@ -529,6 +525,7 @@ then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterH
 **Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
 names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
 cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
+
 
 ## `set_window_state` replies with the window's state from before the change on Linux
 
@@ -653,20 +650,6 @@ reach 5123, and an IDE there serves both, since neither names itself.
 unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
 CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
 
-## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
-
-**Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
-control, moves with the button held, and a release somewhere else. `interact {"target":"<a Label on a running form>",
-"action":"click","value":"10,5"}` presses and releases at that one point, and `click`'s own remarks call a drag
-"beyond it". No other call raises a pointer press.
-
-**Workaround.** None through the surface. `MouseEventTests` drives the drags headlessly with `MouseDown`, `MouseMove`
-and `MouseUp`.
-
-**Suggested fix.** Let `click` take a release point, as in `10,5 to 200,30`: press on the target, move with the button
-held, release at the second point to whatever holds the pointer.
-[#1402](https://github.com/hexide-io/HexIDE/issues/1402).
-
 ## `press_key` with Alt and a letter never reaches a control's access key
 
 **Symptom (2026-10-23, #1390, Windows).** On a running form whose `cmdWide` is captioned `One &Wide`,
@@ -767,43 +750,31 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
 
-## `take_snapshot` of a running form leaves out its title bar without saying so
+## Properties category rows refused expand/collapse (#1967 — fixed)
 
-**Symptom (2026-10-26, #534's first-contact baseline, Windows).** The task was "Make Form1's title bar say Hello when
-the program starts, run it, and confirm it does". All three models took a snapshot to confirm it:
-- `take_snapshot {"window":"Form1"}` answered `{"path":"…","activeDialog":"Hello","width":456,"height":301,…}`.
-- The image is the form's client area, grey and empty, with no title bar.
-- Haiku 5.5 reported the PNG "came back blank". Sonnet 5.5 and Opus 5.5 worked out that only the client area was
-  captured, and took `activeDialog` as the confirmation.
+**Symptom.** With Categorized Properties showing, `interact {"target":"…/List[CategorizedProperties]/Pane[PART_ScrollViewer]/ListItem[Appearance]","action":"collapse","window":"ide"}` refused with `element does not support 'collapse'`.
 
-Neither the description nor the reply says the frame is left out, and the title of a running form, which is no dialog,
-comes back in a field named `activeDialog`.
+**Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
 
-**Workaround.** Read the title from `activeDialog`, or from the root `name` of `dump_visual_tree {"window":"auto",
-"maxDepth":1}`.
+**Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-**Suggested fix.** Say in the description and the reply that the image is the client area, and name the field after
-what it holds: the captured window's title. [#2078](https://github.com/hexide-io/HexIDE/issues/2078).
+## A drag can't stop before its release, and the designer's preview and grab handles were not in the tree
 
-## The `modalDialog` note lists a dialog's check boxes among its buttons
+**Symptom (2026-10-26, Windows, #2216's live check).** `click` with `to` presses, raises its held moves and releases in
+one call, so nothing that shows only while the button is down can be seen: the designer's draw preview
+(`NewControlSpawnerPhantom`), the rubber band, a control's outline while it moves or resizes, Dock's drop targets, and a
+running form's MouseMove with a button held. `dump_visual_tree {"window":"ide","match":"NewControlSpawner","interactiveOnly":false}`
+answered `Nothing matches 'NewControlSpawner'.`, though a drag's reply named `Canvas[NewControlSpawner]`. On 2026-10-27,
+#2232's live check found a selected control's grab handles missing too: `match "Resize"` found nothing, though a move
+drag's reply named `'ResizeAdorner'` as the pointer capturer.
 
-**Symptom (2026-10-26, #534's first-contact baseline, Windows).** `invoke_menu_item {"path":"Tools/Options"}`
-answered with `"modalDialog":"'Options' (Prompt for project/Reload files changed outside the IDE/Reset All/Restore
-Defaults/OK/Cancel), a modal dialog over 'Project1 - HexIDE [design]', …"`. The first two are check boxes on the page
-showing. They are not answers to the dialog. `OpenDialogs.DescriptionOf` takes every `Button`, and Avalonia's
-`CheckBox` and `RadioButton` derive from it.
+**Workaround.** Check only where a control lands. For a resize, press at a guessed point on the control's edge.
 
-**Workaround.** Dump the dialog to see which are buttons.
+**Part 1, fixed (#2231).** The preview, its canvas, the rubber band, the resize adorner and its eight handles carry
+AutomationIds, and the control view lists an adorner under the element it adorns. A handle is
+`…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]`, and `inspect_element` reads the preview's bounds.
 
-**Suggested fix.** Leave `ToggleButton`s out of the buttons. [#2079](https://github.com/hexide-io/HexIDE/issues/2079).
-
-## A path not starting with `Window` is refused without saying where paths come from
-
-**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
-snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
-and was refused with `path must start with 'Window' (got 'Editor')`. The refusal is accurate, but it doesn't name
-where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
-
-**Workaround.** `dump_visual_tree` with `match` gives the path.
-
-**Suggested fix.** End every path refusal with that next step. [#2080](https://github.com/hexide-io/HexIDE/issues/2080).
+**Part 2, open.** `click … to x,y hold` and a `release` verb, so a drag can stop before its release and finish in a
+later call. Decided on the issue: an idle hold is abandoned (Escape, then a release where the press started), not
+released where it is, and each surface's outcome is measured and stated.
+[#2231](https://github.com/hexide-io/HexIDE/issues/2231).

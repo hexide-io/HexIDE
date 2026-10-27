@@ -31,9 +31,9 @@ public partial class VB6BuiltIns
 
         var cc = VbLocale.Current;
         string fmtKey = fmt.Trim().ToLowerInvariant();
-        // Out-of-decimal-range / non-finite magnitudes can't feed the decimal engine; render them in scientific
-        // notation for the numeric named formats instead of throwing an uncatchable OverflowException (see
-        // OutOfDecimalRangeNumeric — "fixed"/"standard"/"currency" of such a value is an approximation of VB6).
+        // Standard shares the measured fixed-mask expansion; other named formats keep their existing path.
+        if (fmtKey == "standard" && OutOfDecimalRangeNumeric(v) != null)
+            return new Vb6Value(FormatNumericSections(v, "#,##0.00"));
         if (fmtKey is "general number" or "fixed" or "standard" or "percent" or "scientific" or "currency"
             && OutOfDecimalRangeNumeric(v) is { } sciNamed)
             return new Vb6Value(sciNamed);
@@ -48,7 +48,7 @@ public partial class VB6BuiltIns
             case "currency":       return new Vb6Value(FormatPlainNumeric(NumToDecimal(v),
                                         cc.NumberFormat.CurrencySymbol + "#,##0.00"));
             // Named date/time formats resolve through the current culture's patterns (locale-dependent).
-            case "general date":   return new Vb6Value(VbDisplay.ToText(new Vb6Value(AsDate(v))));
+            case "general date":   return new Vb6Value(VbDisplay.ToText(new Vb6Value(AsSerialDate(v))));
             case "long date":      return new Vb6Value(AsDate(v).ToString("D", cc));
             case "medium date":    return new Vb6Value(AsDate(v).ToString("dd-MMM-yy", cc));
             case "short date":     return new Vb6Value(AsDate(v).ToString("d", cc));
@@ -75,8 +75,8 @@ public partial class VB6BuiltIns
             return new Vb6Value(FormatString(AsStr(v), fmt));
 
         // A Date value, or any value under a date mask (a number is read as its OLE serial), formats as a date.
-        if (v.Value is DateTime dtv)
-            return new Vb6Value(FormatDate(dtv, fmt));
+        if (v.Value is VbDate dtv)
+            return new Vb6Value(FormatDate(dtv.Instant, fmt));
         if (IsDateMask(fmt))
             return new Vb6Value(FormatDate(AsDate(v), fmt));
 
@@ -96,14 +96,14 @@ public partial class VB6BuiltIns
         bool b => b ? "True" : "False",
         // With no mask, a Single, a Double and a Date come out exactly as CStr makes them (measured): 7 or 15
         // significant digits, E notation where CStr uses it, and a date without a midnight time (#772, #771).
-        float or double or DateTime => VbDisplay.ToText(v),
+        float or double or VbDate => VbDisplay.ToText(v),
         _ => GeneralNumber(v),
     };
 
     // ---- date/time ----
 
     // Custom date mask. Tokens (case-insensitive): d/dd/ddd/dddd, m/mm/mmm/mmmm, y/yy/yyyy, h/hh, n/nn, s/ss,
-    // w/ww, q, c, ttttt, plus AM/PM · am/pm · A/P · a/p. Pinned against vb6.exe: 'h' is 24-hour unless an AM/PM
+    // w/ww, q, c, ttttt, plus AMPM · AM/PM · am/pm · A/P · a/p. Pinned against vb6.exe: 'h' is 24-hour unless an AM/PM
     // token is present; 'm'/'mm' right after an 'h'/'hh' token means MINUTE (else month); 'n' is always minute;
     // 'w' uses the vbSunday base; 'y' alone is the day of the year.
     private static string FormatDate(DateTime dt, string mask)
@@ -118,6 +118,7 @@ public partial class VB6BuiltIns
             char c = mask[i];
             if (c == '"') { i++; while (i < mask.Length && mask[i] != '"') { sb.Append(mask[i]); i++; } i++; continue; }
             if (c == '\\') { i++; if (i < mask.Length) { sb.Append(mask[i]); i++; } continue; }
+            if (MatchAmPm(mask, i)) { sb.Append(dt.Hour < 12 ? dfi.AMDesignator : dfi.PMDesignator); i += 4; afterHour = false; continue; }
             if (Match(mask, i, "AM/PM")) { sb.Append(dt.Hour < 12 ? "AM" : "PM"); i += 5; afterHour = false; continue; }
             if (Match(mask, i, "am/pm")) { sb.Append(dt.Hour < 12 ? "am" : "pm"); i += 5; afterHour = false; continue; }
             if (Match(mask, i, "A/P")) { sb.Append(dt.Hour < 12 ? "A" : "P"); i += 3; afterHour = false; continue; }
@@ -160,7 +161,7 @@ public partial class VB6BuiltIns
                     sb.Append(((dt.Month - 1) / 3 + 1).ToString());
                     afterHour = false; break;
                 case 'c':
-                    sb.Append(VbDisplay.ToText(new Vb6Value(dt)));   // as General Date and CStr (measured)
+                    sb.Append(VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(dt))));   // as General Date and CStr (measured)
                     afterHour = false; break;
                 default:
                     sb.Append(c); i++; continue;   // literal char (separators etc.) — preserves afterHour
@@ -190,10 +191,13 @@ public partial class VB6BuiltIns
             char c = mask[i];
             if (c == '"') { i++; while (i < mask.Length && mask[i] != '"') i++; continue; }
             if (c == '\\') { i++; continue; }
-            if (Match(mask, i, "AM/PM") || Match(mask, i, "am/pm") || Match(mask, i, "A/P") || Match(mask, i, "a/p")) return true;
+            if (MatchAmPm(mask, i) || Match(mask, i, "AM/PM") || Match(mask, i, "am/pm") || Match(mask, i, "A/P") || Match(mask, i, "a/p")) return true;
         }
         return false;
     }
+
+    private static bool MatchAmPm(string s, int i) =>
+        s.AsSpan(i).StartsWith("AMPM", StringComparison.OrdinalIgnoreCase);
 
     private static bool Match(string s, int i, string tok) =>
         i + tok.Length <= s.Length && s.Substring(i, tok.Length) == tok;
@@ -293,7 +297,24 @@ public partial class VB6BuiltIns
     // absolute value; a section with no placeholder is a literal.
     private static string FormatNumericSections(Vb6Value v, string fmt)
     {
-        if (OutOfDecimalRangeNumeric(v) is { } sci) return sci;
+        if (OutOfDecimalRangeNumeric(v) is { } sci)
+        {
+            Vb6Value.TryNumericToDouble(v, out var number);
+            if (!double.IsFinite(number)) return sci;
+            var largeSections = SplitSections(fmt);
+            bool ownSign = number < 0 && largeSections.Count >= 2;
+            string largeSection = largeSections[ownSign ? 1 : 0];
+            // Preserve the scientific path and the unmeasured scaling-mask behaviour.
+            if (IsScientific(largeSection) || IndexOfUnquoted(largeSection, '%') >= 0) return sci;
+            int last = Math.Max(largeSection.LastIndexOf('0'), largeSection.LastIndexOf('#'));
+            if (last >= 0 && last + 1 < largeSection.Length && largeSection[last + 1] == ',') return sci;
+            if (!HasUnquotedPlaceholder(largeSection)) return sci;
+            string digits = Math.Abs(number).ToString("E14", CultureInfo.InvariantCulture);
+            int e = digits.IndexOf('E');
+            int exponent = int.Parse(digits.Substring(e + 1), CultureInfo.InvariantCulture);
+            digits = digits.Substring(0, e).Replace(".", "").PadRight(exponent + 1, '0');
+            return FormatPlainNumeric(number < 0 && !ownSign ? -1m : 1m, largeSection, digits);
+        }
         var sections = SplitSections(fmt);
         decimal val = NumToDecimal(v);
         string section;
@@ -311,7 +332,7 @@ public partial class VB6BuiltIns
         return IsScientific(section) ? FormatScientific(sv, section) : FormatPlainNumeric(sv, section);
     }
 
-    private static string FormatPlainNumeric(decimal value, string fmt)
+    private static string FormatPlainNumeric(decimal value, string fmt, string? expandedDigits = null)
     {
         var nf = VbLocale.Current.NumberFormat;
         if (fmt.IndexOf('%') >= 0) value *= 100m;
@@ -351,7 +372,7 @@ public partial class VB6BuiltIns
         int calcFrac = Math.Min(fracLen, 18);
         abs = Math.Round(abs, calcFrac, MidpointRounding.AwayFromZero);
         decimal truncated = Math.Truncate(abs);
-        string intDigits = (truncated == 0m ? "" : truncated.ToString("F0", CultureInfo.InvariantCulture))
+        string intDigits = (expandedDigits ?? (truncated == 0m ? "" : truncated.ToString("F0", CultureInfo.InvariantCulture)))
             .PadLeft(minInt, '0');
 
         string fracOut = "";
@@ -419,8 +440,7 @@ public partial class VB6BuiltIns
     // non-finite double — `(decimal)d` would throw an UNCATCHABLE OverflowException. VB6 doesn't error there: it
     // renders General Number / no-mask / Scientific in scientific notation (matched here via G15). Returns that
     // string for an out-of-range/non-finite value, or null when the value IS decimal-representable (the precise
-    // engine then handles it unchanged). NB: a *fixed* mask ("0.00") of such a value is fully EXPANDED by VB6 (its
-    // double-precision digit model) — HexIDE approximates that as scientific too (a documented divergence).
+    // engine then handles it unchanged). Fixed masks expand the 15 significant digits in FormatNumericSections.
     private static string? OutOfDecimalRangeNumeric(Vb6Value v)
     {
         if (!Vb6Value.TryNumericToDouble(v, out var d)) return null;
