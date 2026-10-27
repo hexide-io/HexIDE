@@ -293,8 +293,9 @@ public class WindowManager : IWindowManager
         // one stops the automation server answering at all. An armed answer replaces the question a person
         // would have answered, and nothing else: every line below the picker is the code a real click
         // reaches. Compiled out of a shipped build along with the server it exists for.
-        if (ScriptedFileDialogs.TryTake(out var scripted))
-            return scripted is null ? null : [scripted];
+        if (ScriptedFileDialogs.TryTake(options.AllowMultiple, out var scripted,
+                options.AllowMultiple ? "an Open picker" : "an Open picker that takes one file"))
+            return scripted;
 #endif
 
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime classic)
@@ -313,7 +314,8 @@ public class WindowManager : IWindowManager
     public async Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options)
     {
 #if DEBUG
-        if (ScriptedFileDialogs.TryTake(out var scripted)) return scripted;
+        if (ScriptedFileDialogs.TryTake(takesSeveral: false, out var scripted, "a save picker"))
+            return scripted?[0];
 #endif
 
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime classic)
