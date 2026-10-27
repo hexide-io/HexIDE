@@ -339,6 +339,21 @@ SHALL continue to accept a continuation between their words.
 - **WHEN** `Select _` is followed by `Case n` on the next physical line
 - **THEN** the interpreter executes a Select Case statement
 
+### Requirement: A declaration's type character SHALL be its As clause
+A `Dim`, `Private`, `Public` or `Static` declaration, a parameter, or a Property Get written with `%`, `&`, `!`, `#`,
+`@` or `$` after its name SHALL declare Integer, Long, Single, Double, Currency or String, as the As clause the
+character stands for would, arrays included. A variable or a parameter with an As clause as well SHALL raise VB6's
+compile error. A Property Get's As clause SHALL win over its character. These are measured in the oracle entry "A
+declaration written with a type character" (#2409).
+
+#### Scenario: A module-level declaration
+- **WHEN** a module declares `Dim n%, s$` and stores 7.5 into `n`
+- **THEN** the module loads, `s` is an empty String, and `n` is Integer 8
+
+#### Scenario: A parameter's character
+- **WHEN** `Sub TakeI(n%)` is called as `TakeI 2.6`
+- **THEN** `n` holds Integer 3
+
 ### Requirement: Expression execution SHALL guard available stack space
 The interpreter SHALL probe available host stack space during expression execution and raise trappable
 run-time error 28 (Out of stack space) before a long operator chain overflows the process stack.
