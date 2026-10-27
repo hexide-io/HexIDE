@@ -87,6 +87,11 @@ code block), or an array of marked strings (#2022). Legacy forms are normalized 
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
 existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
 
+`initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
+System default uses the localization service's system resolution; pseudo-locales send `en`.
+A language change takes effect on the next connection: reconnect the server to send the new locale.
+Changing the UI language does not automatically restart servers (#2210).
+
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
