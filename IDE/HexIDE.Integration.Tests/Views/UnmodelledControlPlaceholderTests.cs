@@ -220,6 +220,84 @@ public class UnmodelledControlPlaceholderTests
         finally { window.Close(); }
     }
 
+    // #2327: HexIDE runs a top-level Toolbar and a CommonDialog, though the designer only carries their blocks, so their
+    // boxes say they are view-only here. A Toolbar in a control array is still refused at run time, as is a class HexIDE
+    // has never heard of, and theirs say they are not supported.
+    private const string RunningForm =
+        "VERSION 5.00\r\n" +
+        "Object = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"\r\n" +
+        "Object = \"{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0\"; \"COMDLG32.OCX\"\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   ClientHeight    =   4500\r\n" +
+        "   ClientLeft      =   60\r\n" +
+        "   ClientTop       =   345\r\n" +
+        "   ClientWidth     =   6000\r\n" +
+        "   Begin MSComctlLib.Toolbar Toolbar1 \r\n" +
+        "      Align           =   1  'Align Top\r\n" +
+        "      Height          =   660\r\n" +
+        "      Left            =   0\r\n" +
+        "      TabIndex        =   0\r\n" +
+        "      Top             =   0\r\n" +
+        "      Width           =   6000\r\n" +
+        "      _Version        =   393216\r\n" +
+        "   End\r\n" +
+        "   Begin MSComctlLib.Toolbar Bars \r\n" +
+        "      Height          =   660\r\n" +
+        "      Index           =   0\r\n" +
+        "      Left            =   0\r\n" +
+        "      TabIndex        =   1\r\n" +
+        "      Top             =   1200\r\n" +
+        "      Width           =   6000\r\n" +
+        "      _Version        =   393216\r\n" +
+        "   End\r\n" +
+        "   Begin MSComDlg.CommonDialog CommonDialog1 \r\n" +
+        "      Left            =   600\r\n" +
+        "      Top             =   2400\r\n" +
+        "      _ExtentX        =   847\r\n" +
+        "      _ExtentY        =   847\r\n" +
+        "      _Version        =   393216\r\n" +
+        "   End\r\n" +
+        "   Begin NoSuchLib.Gauge Gauge1 \r\n" +
+        "      Height          =   300\r\n" +
+        "      Left            =   2400\r\n" +
+        "      TabIndex        =   2\r\n" +
+        "      Top             =   2400\r\n" +
+        "      Width           =   2400\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n";
+
+    [AvaloniaFact]
+    public void A_control_HexIDE_runs_says_view_only_and_any_other_says_not_supported()
+    {
+        var vm = Designer(out _, RunningForm);
+        vm.UnmodelledControls.ToDictionary(c => c.Name, c => c.ViewOnly).Should().BeEquivalentTo(new Dictionary<string, bool>
+        {
+            ["Toolbar1"] = true, ["CommonDialog1"] = true, ["Bars"] = false, ["Gauge1"] = false,
+        });
+
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Resources["Str.Designer.Unmodelled.NotSupported"] = "Not supported";
+        window.Resources["Str.Designer.Unmodelled.ViewOnly"] = "View-only";
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            // What each box says under its class name: the last line it shows.
+            var canvas = view.GetVisualDescendants().OfType<HexIDE.Controls.DesignerCanvas>().Single();
+            var says = canvas.GetVisualChildren().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                .SelectMany(p => p.GetVisualDescendants().OfType<Classic.Avalonia.Theme.ClassicBorderDecorator>().Take(1))
+                .ToDictionary(box => AutomationProperties.GetName(box)!, box => box.GetVisualDescendants().OfType<TextBlock>()
+                    .Where(text => text.IsEffectivelyVisible).Select(text => text.Text).Last());
+            says.Should().BeEquivalentTo(new Dictionary<string, string?>
+            {
+                ["Toolbar1"] = "View-only", ["CommonDialog1"] = "View-only", ["Bars"] = "Not supported", ["Gauge1"] = "Not supported",
+            });
+        }
+        finally { window.Close(); }
+    }
+
     // Whether the point inside the box is the box's to take, nothing drawn over it there.
     private static bool Topmost(Window window, Visual box, Point inside)
     {

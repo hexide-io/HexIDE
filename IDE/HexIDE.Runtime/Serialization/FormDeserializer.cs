@@ -93,6 +93,16 @@ public class FormDeserializer
         Components.InBox.ToolbarComponentClass.Instance,
     ];
 
+    /// <summary>
+    /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
+    /// that holds no controls and is no control array's element (#1088). Loading one warns of nothing, and the designer's
+    /// box says it is view-only there rather than unsupported. A nested or arrayed Toolbar is still refused at run time.
+    /// </summary>
+    public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
+        type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
+        || !holdsControls && !inArray && componentsByTypeNames.TryGetValue(type, out var known)
+            && known is Components.InBox.ToolbarComponentClass;
+
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
         IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents = null)
@@ -178,9 +188,10 @@ public class FormDeserializer
                 // FormComponentClass — so parent is never null here.
                 parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines),
                     subtreeRecords.Count > 0 ? subtreeRecords : null);
-                // A CommonDialog is kept the same way, but it runs (#1084) and saves byte for byte, so there is nothing to
-                // warn of: the warning used to tell the user, as the project opened, that a control which works did not.
-                if (!serializedComponent.Type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
+                // A control HexIDE runs is kept the same way and saves byte for byte, so there is nothing to warn of: the
+                // warning used to tell the user, as the project opened, that a control which works did not (#1084, #2327).
+                if (!RunsWhenCarried(serializedComponent.Type, serializedComponent.SubComponents.Count != 0,
+                        serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))
                     errorSink.LogError("Str.ProjectLoad.UnknownControl", "Class {0} of control {1} is not a supported control class — preserved as unknown.", serializedComponent.Type, serializedComponent.Name);
 
                 // No depth contribution. The block is recorded on the component it was read from, indented
