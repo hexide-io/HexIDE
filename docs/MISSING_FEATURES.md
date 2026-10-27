@@ -73,7 +73,7 @@
 | Object Browser | — | Partial | Two-panel browser implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), Back/Forward, Go-to-Definition, LSP member loading, description panel; pre-launch gaps: Unicode placeholder icons pending bitmap replacement (#11), plus three behavioural defects — member list cached so later edits do not appear, double-click opens the containing file rather than the member definition, Escape does not close (#24) |
 | Immediate Window | Ctrl+G | Done (Phase 4 + P7c) | Editable buffer; `?expr`/`Print expr`/bare expr evaluates against the paused frame. A `?` line prints as `Debug.Print` does, ` 5 ` for 5 and lists with `;` and `,`, as VB6's Immediate window was measured to (#1386); a bare **assignment or `Set` now EXECUTES** and mutates the frame (`count = 5` assigns, `?count = 5` compares — P7c); user Sub/Function calls still rejected (deadlock-prone — D14–D15); Debug.Print output lands here; MCP `evaluate` |
 | Locals Window | — | Done (Phase 3 + P8) | Expandable tree (Expression/Value/Type) of the paused frame; UDT/array/object drill-in, cycle+depth guarded; a **live control expands to its VB6 property surface** (P8, D7) and tree **expansion is preserved across a break** (D10); native `TreeView` (TreeDataGrid is commercially licensed in 12.x); MCP `get_locals`. Residual: form `Me`/child-control-tree/proxy expansion (D7) |
-| Watch Window | — | Done (P6a) | Watches window (Expression/Value/Type/Context, expandable tree), re-evaluates each watch on every break, blanks on continue; Add/Edit/Delete + the three VB6 watch types; MCP `add_watch`/`get_watches` |
+| Watch Window | — | Partial | Watches window (Expression/Value/Type/Context, expandable tree), Add/Edit/Delete and the three VB6 watch types; MCP `add_watch`/`get_watches`. #2290 fixes paused scope resolution; design-time/after-End resolution and module selection/storage remain (D27). |
 | Call Stack… | Ctrl+L | Done (Phase 5) | Dockable Call Stack tool window; lists the running activation chain (Module.Procedure + Line, current frame arrowed) from `IDebugController.GetCallStack()`; rebuilt on each break, cleared on Continue; selecting a caller opens its calling statement with a green gutter triangle; MCP `get_call_stack`. Additive vs VB6's modal list — D16–D17 |
 | Project Explorer | Ctrl+R | Done | Menu item enabled; opens/focuses Project Explorer tool window |
 | Properties Window | F4 | Done | Selecting a module, class, UserControl or PropertyPage in Project Explorer offers `(Name)` with project naming checks; renaming keeps the designer root and `VB_Name` together and leaves the filename unchanged (#493) |
@@ -148,7 +148,7 @@
 | Start | F5 | Done | Runs project via HexIDE interpreter in a new window |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; the toolbar buttons remain available with focus in the running form (#2179) |
-| End | — | Done | |
+| End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
 | Restart | Shift+F5 | Done | |
 | Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
 
@@ -396,7 +396,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Watch expression list | Done | Expandable Expression/Value/Type/Context rows, re-evaluated each break; native debugger P6a; MCP `get_watches` |
+| Watch expression list | Partial | Expandable Expression/Value/Type/Context rows, re-evaluated each break; native debugger P6a; MCP `get_watches`. #2290: paused watches respect module/procedure scope, including caller frames and the measured context messages (`Empty` type). Design-time and after-End name resolution and module selection/storage remain; see debugger divergence D27. |
 | Add watch from editor selection | Done | Quick Watch (Shift+F9) opens the Add Watch dialog pre-filled with the identifier under the caret; native debugger P6a |
 
 ---

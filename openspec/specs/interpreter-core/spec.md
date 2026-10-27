@@ -371,6 +371,21 @@ SHALL continue to accept a continuation between their words.
 - **WHEN** `Select _` is followed by `Case n` on the next physical line
 - **THEN** the interpreter executes a Select Case statement
 
+### Requirement: A declaration's type character SHALL be its As clause
+A `Dim`, `Private`, `Public` or `Static` declaration, a parameter, or a Property Get written with `%`, `&`, `!`, `#`,
+`@` or `$` after its name SHALL declare Integer, Long, Single, Double, Currency or String, as the As clause the
+character stands for would, arrays included. A variable or a parameter with an As clause as well SHALL raise VB6's
+compile error. A Property Get's As clause SHALL win over its character. These are measured in the oracle entry "A
+declaration written with a type character" (#2409).
+
+#### Scenario: A module-level declaration
+- **WHEN** a module declares `Dim n%, s$` and stores 7.5 into `n`
+- **THEN** the module loads, `s` is an empty String, and `n` is Integer 8
+
+#### Scenario: A parameter's character
+- **WHEN** `Sub TakeI(n%)` is called as `TakeI 2.6`
+- **THEN** `n` holds Integer 3
+
 ### Requirement: Expression execution SHALL guard available stack space
 The interpreter SHALL probe available host stack space during expression execution and raise trappable
 run-time error 28 (Out of stack space) before a long operator chain overflows the process stack.
@@ -448,3 +463,34 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 #### Scenario: A retained debugger frame
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
+
+### Requirement: Assignment targets with type characters
+
+The interpreter SHALL resolve an unqualified scalar assignment target with `$`, `%`, `&`, `!`, `#` or `@`
+by its bare name. It SHALL check the character against the slot's declared type, raising
+"Type-declaration character does not match declared data type" when they disagree, including a Variant.
+Without Option Explicit, a first assignment through a character SHALL create a variable of that type.
+A For counter, and the name on its Next, written with `%`, `&`, `!`, `#` or `@` SHALL name the variable of the
+bare name in the same way, at any scope. These behaviours are measured in the oracle's 2026-10-11 assignment
+probes and its 2026-10-27 entry "A For counter written with a type character" (#739).
+
+#### Scenario: A suffixed assignment reaches a declared variable
+
+- **WHEN** a String variable `s` is assigned through `s$ = "x"`
+- **THEN** a bare read of `s` returns `"x"`, at module level or locally, with or without Option Explicit
+
+#### Scenario: An implicit suffixed target has the character's type
+
+- **WHEN** an undeclared name is first assigned as `k% = 3` without Option Explicit
+- **THEN** a bare read of `k` returns Integer 3
+
+#### Scenario: A counter through its character uses the declared variable
+
+- **WHEN** a variable `c` declared As Long, locally, in the module or as another module's Public, is the counter of
+  `For c& = 1 To 2` closed by `Next` or `Next c&`
+- **THEN** the body reads 1 and 2 through the bare `c`, and a bare read after the loop returns Long 3
+
+#### Scenario: A counter character the declared type contradicts
+
+- **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
+- **THEN** the statement raises "Type-declaration character does not match declared data type"
