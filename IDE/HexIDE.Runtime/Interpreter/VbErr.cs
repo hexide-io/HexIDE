@@ -14,7 +14,7 @@ public interface ICSharpPropertyBag
 /// arrive through <see cref="ICSharpProxy.Call"/>; the <c>Number</c>/<c>Description</c>/<c>Source</c> properties
 /// through <see cref="ICSharpPropertyBag"/>. The block-level error trap re-populates it via <see cref="Capture"/>.
 /// </summary>
-public class VbErr : ICSharpProxy, ICSharpPropertyBag
+public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpPropertyBag
 {
     public long Number { get; set; }
 
@@ -45,10 +45,10 @@ public class VbErr : ICSharpProxy, ICSharpPropertyBag
         Source = "";
     }
 
-    /// <summary>Populate from a trapped runtime error (called by the On Error Resume Next block trap and, later,
-    /// the GoTo-handler driver). Source is left as-is — VB6 sets it to the project name, which we don't model.</summary>
+    /// <summary>Populate from a trapped error, keeping its raising project or explicit Raise source (#1483).</summary>
     public void Capture(VBRunTimeException ex)
     {
+        Source = ex.VbSource ?? projectName?.Invoke() ?? "";
         Number = ex.Error.ErrNo;
         Description = ex.Error.Description ?? "";
     }
@@ -60,8 +60,10 @@ public class VbErr : ICSharpProxy, ICSharpPropertyBag
         Number = number;
         if (source != null)
             Source = source;
+        else if (Source.Length == 0)
+            Source = projectName?.Invoke() ?? "";
         Description = description ?? (descriptionSet ? Description : StandardDescription(number));
-        throw new VBRunTimeException(new VBStandardError((int)number, Description));
+        throw new VBRunTimeException(new VBStandardError((int)number, Description)) { VbSource = Source };
     }
 
     public void Call(string method, List<Vb6Value> args)
