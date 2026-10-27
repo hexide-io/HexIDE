@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "Om denne menu viser de åbne MDI-underordnede vinduer.",
     "Str.PropDesc.Locked": "Om kontrolelementets indhold kan redigeres.",
     "Str.PropDesc.MultiSelect": "Om der kan vælges mere end ét element, og hvordan.",
+    "Str.PropDesc.SimpleText": "Teksten, der vises i enkel stil.",
+    "Str.PropDesc.ShowTips": "Om panelernes værktøjstip vises.",
     "Str.PropDesc.Style": "Hvordan kontrolelementet tegnes, og hvordan det opfører sig.",
     "Str.PropDesc.StartUpPosition": "Hvor formularen placeres på skærmen, når den åbnes første gang.",
     "Str.PropDesc.ShowInTaskbar": "Om formularen vises på proceslinjen.",

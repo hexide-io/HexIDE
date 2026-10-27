@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "Om denne menyen viser de åpne underordnede MDI-vinduene.",
     "Str.PropDesc.Locked": "Om innholdet i kontrollen kan redigeres.",
     "Str.PropDesc.MultiSelect": "Om mer enn ett element kan velges, og hvordan.",
+    "Str.PropDesc.SimpleText": "Teksten som vises i enkel stil.",
+    "Str.PropDesc.ShowTips": "Om verktøytips for paneler vises.",
     "Str.PropDesc.Style": "Hvordan kontrollen tegnes, og hvordan den oppfører seg.",
     "Str.PropDesc.StartUpPosition": "Hvor skjemaet plasseres på skjermen når det åpnes første gang.",
     "Str.PropDesc.ShowInTaskbar": "Om skjemaet vises på oppgavelinjen.",

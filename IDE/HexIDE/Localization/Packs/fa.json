@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "اینکه این منو پنجره‌های فرزند MDI باز را فهرست کند.",
     "Str.PropDesc.Locked": "اینکه محتوای کنترل قابل ویرایش باشد.",
     "Str.PropDesc.MultiSelect": "اینکه بیش از یک مورد قابل انتخاب باشد، و چگونه.",
+    "Str.PropDesc.SimpleText": "متن نمایش داده‌شده در سبک ساده.",
+    "Str.PropDesc.ShowTips": "آیا راهنمای ابزار پنل‌ها نمایش داده شود.",
     "Str.PropDesc.Style": "اینکه کنترل چگونه رسم می‌شود و چگونه رفتار می‌کند.",
     "Str.PropDesc.StartUpPosition": "محل قرارگیری فرم روی صفحه هنگام نخستین باز شدن.",
     "Str.PropDesc.ShowInTaskbar": "اینکه فرم در نوار وظیفه ظاهر شود.",

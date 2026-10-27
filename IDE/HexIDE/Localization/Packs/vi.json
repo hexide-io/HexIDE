@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "Trình đơn này có liệt kê các cửa sổ con MDI đang mở hay không.",
     "Str.PropDesc.Locked": "Nội dung của điều khiển có thể chỉnh sửa hay không.",
     "Str.PropDesc.MultiSelect": "Có thể chọn nhiều mục hay không, và chọn như thế nào.",
+    "Str.PropDesc.SimpleText": "Văn bản hiển thị ở kiểu đơn giản.",
+    "Str.PropDesc.ShowTips": "Có hiển thị chú giải công cụ của bảng hay không.",
     "Str.PropDesc.Style": "Cách điều khiển được vẽ và cách nó hoạt động.",
     "Str.PropDesc.StartUpPosition": "Vị trí đặt biểu mẫu trên màn hình khi mở lần đầu.",
     "Str.PropDesc.ShowInTaskbar": "Biểu mẫu có xuất hiện trên thanh tác vụ hay không.",
