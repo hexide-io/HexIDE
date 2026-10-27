@@ -583,7 +583,7 @@ inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
   - The third had its defaults written out.
 - **The run-time reads:** EXEs read every property back, natively and as p-code, from the form as written and from
   VB6's save of it. The two reads agreed.
-- **The corpus:** VB6's save is in `corpus/inbox-controls/pending/treeview/`.
+- **The corpus:** VB6's save is in `corpus/inbox-controls/saved/treeview/`.
 
 **Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
 
@@ -650,4 +650,8 @@ Saved again, that block came back with `Appearance = 1` and nothing else.
 
 ### In HexIDE
 
-A form holding a TreeView is refused at load, as any in-box control HexIDE doesn't model is (#1086).
+MSComctlLib.TreeView forms run with the hierarchy model and scoped control bindings: Nodes, Style, LineStyle,
+Indentation, LabelEdit, HideSelection, Checkboxes, Sorted, SelectedItem and PathSeparator. Runtime drawing
+now follows visible hierarchy order, Style/LineStyle decorations, Indentation, checkboxes, Bold and label
+selection. Measured mouse, focus and keyboard events are bound. The measured native file writer now preserves the saved form and companion byte for byte; owned values without modelled writers stay unavailable for designer editing. Remaining runtime members, ImageList binding, label editing and the sample-node designer preview are later slices (#1086). The 5.0 control
+remains refused; its behaviour has not been measured here.

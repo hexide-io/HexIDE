@@ -1227,6 +1227,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return toolbarItems.Item(indices);
         if (value.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(indices));
+        if (value.Value is Components.InBox.TreeNodes nodes)
+            return nodes.Default(indices);
         if (value.Value is VbCollection items)
             return items.Default(indices);
         if (value.Value is ImageListImages images)
@@ -1281,6 +1283,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
         if (named && maybeGroup.Value is ToolbarItems toolbarItems)
             return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
+        if (named && maybeGroup.Value is Components.InBox.TreeNodes nodes)
+        {
+            if (dollar) throw new NotImplementedException();
+            return nodes.Default(await EvaluateCallArgs(argsCtx));
+        }
         if (named && maybeGroup.Value is VbCollection items)
         {
             if (dollar)
@@ -1550,6 +1557,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
+
+        if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
+        {
+            if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
+            return new Vb6Value(capacityTree.GetVisibleCount());
+        }
+
+        if (variable.Value is VBTreeView treeView && MemberName(member).Equals("Nodes", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } nodeIndexes)
+            return treeView.Nodes.Default(await EvaluateCallArgs(nodeIndexes));
 
         if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
             && MemberArgs(member) is { } tabIndexes)
