@@ -80,6 +80,11 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
         _events = events;
     }
 
+    public string OutputText => _capture.Output.Text(Id) is { Length: > 0 } text
+        ? text : _localization.GetString("Str.Tool.LanguageServers.OutputEmpty");
+
+    internal void OutputChanged() => OnPropertyChanged(nameof(OutputText));
+
     /// <summary>
     /// Opens the protocol inspector on this server's traffic alone.
     /// </summary>

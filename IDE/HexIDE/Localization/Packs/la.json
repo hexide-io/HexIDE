@@ -654,6 +654,8 @@
     "Str.Tool.Immediate.Title": "Immediata",
     "Str.Tool.Immediate.BreakModeOnly": "Aestimatio tantum in modo intermissionis praesto est.",
     "Str.Tool.Locals.Title": "Localia",
+    "Str.Tool.LanguageServers.Output": "Exitus",
+    "Str.Tool.LanguageServers.OutputEmpty": "Nihil adhuc receptum est.",
     "Str.Tool.LanguageServers.Title": "Servitores Linguarum et Depurationis",
     "Str.Tool.ProtocolInspector.Title": "Inspector Protocolli",
     "Str.Tool.ProtocolInspector.Server": "Servitor",

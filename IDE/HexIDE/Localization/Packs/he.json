@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "מיידי",
     "Str.Tool.Immediate.BreakModeOnly": "הערכה זמינה רק במצב עצירה.",
     "Str.Tool.Locals.Title": "משתנים מקומיים",
+    "Str.Tool.LanguageServers.Output": "פלט",
+    "Str.Tool.LanguageServers.OutputEmpty": "טרם התקבל פלט.",
     "Str.Tool.LanguageServers.Title": "שרתי שפה וניפוי שגיאות",
     "Str.Tool.ProtocolInspector.Title": "בוחן פרוטוקול",
     "Str.Tool.ProtocolInspector.Server": "שרת",

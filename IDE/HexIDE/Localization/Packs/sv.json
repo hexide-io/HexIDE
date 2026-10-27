@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Direktfönster",
     "Str.Tool.Immediate.BreakModeOnly": "Utvärdering är endast tillgänglig i brytläge.",
     "Str.Tool.Locals.Title": "Lokala",
+    "Str.Tool.LanguageServers.Output": "Utdata",
+    "Str.Tool.LanguageServers.OutputEmpty": "Inga utdata har tagits emot ännu.",
     "Str.Tool.LanguageServers.Title": "Språk- och felsökningsservrar",
     "Str.Tool.ProtocolInspector.Title": "Protokollinspektör",
     "Str.Tool.ProtocolInspector.Server": "Server",

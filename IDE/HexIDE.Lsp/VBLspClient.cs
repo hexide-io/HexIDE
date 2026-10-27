@@ -1907,6 +1907,8 @@ public sealed class VBLspClient : ILspClient
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
         // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
+        if (notice.Kind == TransportNoticeKind.StandardError && _connectionId is { } id)
+            _capture?.Output.Append(id, "stderr", notice.Text);
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
@@ -2022,19 +2024,15 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
-        /// The server's own log output. Log is retained at Information; Debug goes to Trace.
-        ///
-        /// <para>
-        /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
-        /// can be voluble on it. Putting that in front of a user would trade one bad experience for
-        /// another. The log is where someone goes when features are missing, which is exactly the moment
-        /// this matters.
-        /// </para>
+        /// The server's own log output, also retained for the live per-server output view.
+        /// Log is retained at Information; Debug goes to Trace.
         /// </summary>
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnLogMessage(LogMessageParams p)
         {
             _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
+            if (_client._connectionId is { } id)
+                _client._capture?.Output.Append(id, $"window/logMessage ({(int)p.Type})", p.Message);
             _client.RaiseMessageLogged(p);
         }
 

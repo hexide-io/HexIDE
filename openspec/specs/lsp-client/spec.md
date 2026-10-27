@@ -872,6 +872,14 @@ upward is worse than one that does not recognise the value at all.
 - **WHEN** a server reports a problem with its own setup
 - **THEN** that report reaches a surface the developer can read, rather than only a discarded log level
 
+#### Scenario: Per-server output remains readable without capture
+- **WHEN** a server sends `window/logMessage` or stderr, or HexIDE records a workspace-generation note
+- **THEN** the Language & Debug Servers view SHALL show that output on the corresponding server's card as it arrives
+- **AND** log messages SHALL retain their numeric protocol type, including unknown types
+- **AND** output received before opening the view SHALL remain available without arming protocol capture
+- **AND** each server SHALL retain at most its latest 65,536 characters, indicating discarded text with an ellipsis
+- **AND** the server's protocol inspector SHALL remain one action away
+
 #### Scenario: Running commentary reaches the default log
 - **WHEN** a server sends `window/logMessage` with type 4 (Log)
 - **THEN** the client SHALL write it at Information so the default log retains it

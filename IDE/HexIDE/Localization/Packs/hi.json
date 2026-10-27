@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "तत्काल",
     "Str.Tool.Immediate.BreakModeOnly": "मूल्यांकन केवल ब्रेक मोड में उपलब्ध है।",
     "Str.Tool.Locals.Title": "स्थानीय",
+    "Str.Tool.LanguageServers.Output": "आउटपुट",
+    "Str.Tool.LanguageServers.OutputEmpty": "अभी तक कोई आउटपुट प्राप्त नहीं हुआ।",
     "Str.Tool.LanguageServers.Title": "भाषा और डिबग सर्वर",
     "Str.Tool.ProtocolInspector.Title": "प्रोटोकॉल इंस्पेक्टर",
     "Str.Tool.ProtocolInspector.Server": "सर्वर",

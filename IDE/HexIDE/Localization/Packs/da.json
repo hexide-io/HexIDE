@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Kommandovindue",
     "Str.Tool.Immediate.BreakModeOnly": "Evaluering er kun tilgængelig i break-tilstand.",
     "Str.Tool.Locals.Title": "Lokale",
+    "Str.Tool.LanguageServers.Output": "Output",
+    "Str.Tool.LanguageServers.OutputEmpty": "Intet output modtaget endnu.",
     "Str.Tool.LanguageServers.Title": "Sprog- og fejlfindingsservere",
     "Str.Tool.ProtocolInspector.Title": "Protokolinspektør",
     "Str.Tool.ProtocolInspector.Server": "Server",

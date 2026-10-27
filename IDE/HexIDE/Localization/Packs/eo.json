@@ -654,6 +654,8 @@
     "Str.Tool.Immediate.Title": "Tuja",
     "Str.Tool.Immediate.BreakModeOnly": "Taksado disponeblas nur en paŭzreĝimo.",
     "Str.Tool.Locals.Title": "Lokaj variabloj",
+    "Str.Tool.LanguageServers.Output": "Eligo",
+    "Str.Tool.LanguageServers.OutputEmpty": "Ankoraŭ neniu eligo ricevita.",
     "Str.Tool.LanguageServers.Title": "Lingvaj kaj sencimigaj serviloj",
     "Str.Tool.ProtocolInspector.Title": "Protokola Inspektilo",
     "Str.Tool.ProtocolInspector.Server": "Servilo",

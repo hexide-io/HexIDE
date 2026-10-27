@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Окно отладки",
     "Str.Tool.Immediate.BreakModeOnly": "Вычисление доступно только в режиме останова.",
     "Str.Tool.Locals.Title": "Локальные переменные",
+    "Str.Tool.LanguageServers.Output": "Вывод",
+    "Str.Tool.LanguageServers.OutputEmpty": "Вывод пока не получен.",
     "Str.Tool.LanguageServers.Title": "Языковые и отладочные серверы",
     "Str.Tool.ProtocolInspector.Title": "Инспектор протокола",
     "Str.Tool.ProtocolInspector.Server": "Сервер",

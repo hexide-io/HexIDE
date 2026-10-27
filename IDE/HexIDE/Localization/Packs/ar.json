@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "نافذة التنفيذ المباشر",
     "Str.Tool.Immediate.BreakModeOnly": "التقييم متاح فقط في وضع الإيقاف المؤقت.",
     "Str.Tool.Locals.Title": "المتغيرات المحلية",
+    "Str.Tool.LanguageServers.Output": "المخرجات",
+    "Str.Tool.LanguageServers.OutputEmpty": "لم يتم استلام أي مخرجات بعد.",
     "Str.Tool.LanguageServers.Title": "خوادم اللغات وتصحيح الأخطاء",
     "Str.Tool.ProtocolInspector.Title": "فاحص البروتوكول",
     "Str.Tool.ProtocolInspector.Server": "الخادم",

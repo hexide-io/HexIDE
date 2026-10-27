@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Anında",
     "Str.Tool.Immediate.BreakModeOnly": "Değerlendirme yalnızca kesme modunda kullanılabilir.",
     "Str.Tool.Locals.Title": "Yereller",
+    "Str.Tool.LanguageServers.Output": "Çıktı",
+    "Str.Tool.LanguageServers.OutputEmpty": "Henüz çıktı alınmadı.",
     "Str.Tool.LanguageServers.Title": "Dil ve Hata Ayıklama Sunucuları",
     "Str.Tool.ProtocolInspector.Title": "Protokol İnceleyicisi",
     "Str.Tool.ProtocolInspector.Server": "Sunucu",

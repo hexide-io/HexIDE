@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Direct",
     "Str.Tool.Immediate.BreakModeOnly": "Evaluatie is alleen beschikbaar in de onderbrekingsmodus.",
     "Str.Tool.Locals.Title": "Lokale variabelen",
+    "Str.Tool.LanguageServers.Output": "Uitvoer",
+    "Str.Tool.LanguageServers.OutputEmpty": "Nog geen uitvoer ontvangen.",
     "Str.Tool.LanguageServers.Title": "Taal- en foutopsporingsservers",
     "Str.Tool.ProtocolInspector.Title": "Protocolinspector",
     "Str.Tool.ProtocolInspector.Server": "Server",

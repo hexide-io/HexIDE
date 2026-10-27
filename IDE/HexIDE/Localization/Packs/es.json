@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Inmediato",
     "Str.Tool.Immediate.BreakModeOnly": "La evaluación solo está disponible en modo de interrupción.",
     "Str.Tool.Locals.Title": "Variables locales",
+    "Str.Tool.LanguageServers.Output": "Salida",
+    "Str.Tool.LanguageServers.OutputEmpty": "Aún no se ha recibido ninguna salida.",
     "Str.Tool.LanguageServers.Title": "Servidores de lenguaje y depuración",
     "Str.Tool.ProtocolInspector.Title": "Inspector de protocolo",
     "Str.Tool.ProtocolInspector.Server": "Servidor",
