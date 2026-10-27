@@ -322,6 +322,70 @@ Typing a letter, `q`, `a` or `r`, raised KeyDown and KeyUp and nothing else.
   - setting Sorted;
   - Add, Remove or Clear.
 
+### Label editing, in full (2026-10-27, #2360)
+
+**The probe:**
+- **The form:** TreeView1 (Style 7, nodes `Node 1` to `Node 5`), a Report-view ListView1 beside it, and Text1, in that
+  tab order.
+- **The input:** real clicks, double-clicks and keys from a driver on the guest's console. Each case set the tree up
+  afresh with Node 2 selected and the focus on the tree.
+- **What was logged:** every event, with its time. A Timer logged the edit box from `TVM_GETEDITCONTROL` whenever it
+  changed: its rectangle in the tree's client coordinates, its text, the label's rectangle from `TVM_GETITEMRECT`, the
+  selected node's Text, and the active control.
+- **The builds:** native and p-code logged the same lines, times and window handles aside. The ListView behaved the
+  same way throughout, as its own entry records.
+
+**What starts an edit:**
+
+| Action | Result |
+|---|---|
+| **Click the selected node's label**, LabelEdit 0 | MouseDown, NodeClick, MouseUp, then **BeforeLabelEdit 500 to 520 ms after MouseUp**. GetDoubleClickTime was 500 |
+| Click an unselected label, then click it again | the first selects it, with no edit. The second edits it |
+| **Double-click the selected label** | MouseDown, NodeClick, MouseUp, DblClick, MouseUp, and **no edit** |
+| **Click the selected label, LabelEdit 1, manual** | MouseDown, NodeClick, MouseUp, and **no BeforeLabelEdit and no edit**, waited for 1.8 s. A key typed then raised the tree's KeyDown |
+| LabelEdit 1: click an unselected label, then click it again | the first selects it. The second raises NodeClick again, and no edit |
+| LabelEdit 1: double-click the selected label | as with LabelEdit 0: DblClick, and no edit |
+| **F2** | **nothing but KeyDown 113**, with LabelEdit 0 or 1 |
+| StartLabelEdit, LabelEdit 0 or 1 | BeforeLabelEdit before StartLabelEdit returns, then the edit box |
+| StartLabelEdit with no node selected | nothing, and no error |
+| `Cancel = True` in BeforeLabelEdit | no edit box. A key typed then raised the tree's KeyDown |
+
+**In BeforeLabelEdit:**
+- Cancel is an Integer, 0.
+- **The edit box already exists, holding the label's text,** at 0,0 and 0 × 0. It is placed after the event returns.
+
+**The edit box:**
+
+| When | Edit box, in the tree's client coordinates | The label |
+|---|---|---|
+| opened on `Node 2` | **-2,15, 53 × 17**, with the text all selected | 0,16, 39 × 16 |
+| after typing `abc` | **-2,13, 36 × 21** | unchanged |
+| after typing 30 characters | -2,13, **177 × 21**, past the label's width | unchanged |
+
+- **The box starts 2 pixels left of the label and 1 above it,** wider than the text, and is drawn with a single dark
+  line.
+- **After the first key it is 4 pixels taller and 2 pixels higher,** and from then on it follows the text's width.
+  That is measured, not explained.
+
+**What Text reads during the edit: the old text.** The selected node's Text read `Node 2` while the box held `xyz`,
+inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
+
+**What ends an edit:**
+
+| Action | AfterLabelEdit | Then |
+|---|---|---|
+| Enter, the text changed | yes, NewString the box's text, a String | the node takes NewString |
+| Esc | **no** | the old text |
+| **Click another node's label** | **yes, before that click's MouseDown** | the edit is kept, and the click goes on to select the node it hit |
+| **Click Text1** | **yes**, before Text1's GotFocus | the edit is kept |
+| **Tab** | yes | the edit is kept, and **the focus moves to the next control in tab order**, ListView1 |
+| Click Text1, the text unchanged | **no** | the focus moves |
+| `NewString = "Changed"` in AfterLabelEdit | | **the node takes `Changed`**, not what was typed |
+| `Cancel = True` in AfterLabelEdit | | the old text |
+
+- **Leaving the edit keeps what was typed,** by any route but Esc.
+- **NewString is the text the node will take.** A handler can change it.
+
 ### Scrolling (2026-10-27, #2359)
 
 **The probe:**
