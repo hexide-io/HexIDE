@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Designer.ShowTabOrder": "Visa tabbordning (överstruket: TabStop av)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "Klipp u_t",
     "Str.Menu.Edit.Copy": "_Kopiera",
     "Str.Menu.Edit.Paste": "Klistra _in",
+    "Str.Menu.Edit.PasteAsComment": "Klistra in som _kommentar",
     "Str.Menu.Edit.PasteLink": "Klistra in län_k",
     "Str.Menu.Edit.Remove": "Ta bort",
     "Str.Menu.Edit.Delete": "_Radera",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Declaration": "D_eklaration",
     "Str.Menu.View.LastPosition": "Senaste positio_n",
+    "Str.Tool.RecentEdits.Title": "Senaste redigeringar",
     "Str.Menu.View.ObjectBrowser": "_Objektbläddrare",
     "Str.Menu.View.ImmediateWindow": "_Direktfönster",
     "Str.Menu.View.LocalsWindow": "_Lokala fönster",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "Protokoll_inspektör...",
     "Str.Menu.AddIns": "_Tillägg",
     "Str.Menu.Window": "_Fönster",
+    "Str.Menu.Window.ReopenClosed": "Öppna stängt fönster igen",
+    "Str.Menu.Window.RecentlyClosed": "Nyligen stängda fönster",
     "Str.Menu.Window.Split": "_Dela",
     "Str.Menu.Window.ResetLayout": "_Återställ fönsterlayout",
     "Str.Menu.Help": "_Hjälp",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "_Ta bort",
     "Str.Designer.Context.BringToFront": "Flytta längst fram",
     "Str.Designer.Context.SendToBack": "Flytta längst bak",
+    "Str.Designer.PreviewForm": "Förhandsvisa formulär",
     "Str.Designer.Context.ViewCode": "Visa kod",
     "Str.Designer.Context.AlignToGrid": "Justera mot rutnät",
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Den här filen sparas inte — HexIDE kan ännu inte återge den exakt, så den skulle ändras om den sparades. Koden är en del av filen, därför avvisas inmatning i det här fönstret.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Namnbytet genomfördes inte eftersom det skulle ändra filens huvud eller en medlems Attribute-rader, som IDE:n underhåller.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Namnbytet genomfördes inte eftersom det också ändrar andra dokument: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rad {0} hör till filens huvud eller till en medlems Attribute-rader, som aldrig körs, så det går inte att sätta en brytpunkt eller ett bokmärke där.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Infoga fil",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nytt namn:",
@@ -893,6 +900,7 @@
     "Str.Dock.MaximizeRestore": "Maximera eller återställ panel",
     "Str.Dock.Close": "Stäng panel",
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
-    "Str.Dock.ScrollRight": "Rulla flikar åt höger"
+    "Str.Dock.ScrollRight": "Rulla flikar åt höger",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
   }
 }

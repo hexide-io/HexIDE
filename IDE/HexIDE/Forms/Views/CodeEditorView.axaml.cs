@@ -36,6 +36,7 @@ public partial class CodeEditorView : UserControl
     private IDisposable? sub;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
+    private BracketDepthColorizer? _bracketDepthColorizer;
     private ReadOnlyRegionColorizer? _readOnlyColorizer;
     private ReadOnlyRegionLinks? _readOnlyLinks;
     private ReadOnlyRegionRedraw? _readOnlyRedraw;
@@ -104,6 +105,7 @@ public partial class CodeEditorView : UserControl
     public DelegateCommand Cut { get; }
     public DelegateCommand Delete { get; }
     public DelegateCommand Paste { get; }
+    public DelegateCommand PasteAsComment { get; }
     public DelegateCommand Find { get; }
     public DelegateCommand Replace { get; }
     public DelegateCommand SelectAll { get; }
@@ -160,6 +162,7 @@ public partial class CodeEditorView : UserControl
             else
                 TextEditor.Paste();
         }, () => true);
+        PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
         {
@@ -300,6 +303,9 @@ public partial class CodeEditorView : UserControl
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
+
+            _bracketDepthColorizer = new BracketDepthColorizer(TextEditor, this, vm.Settings);
+            TextEditor.TextArea.TextView.LineTransformers.Add(_bracketDepthColorizer);
 
             // The header and each member's Attribute lines in the theme's read-only colour (#273 task 3.15).
             // Added before the diagnostics colorizer, so an error inside one still shows red; AvaloniaEdit
@@ -567,6 +573,13 @@ public partial class CodeEditorView : UserControl
 
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;
+        if (_bracketDepthColorizer is not null)
+        {
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_bracketDepthColorizer);
+            _bracketDepthColorizer.Dispose();
+            _bracketDepthColorizer = null;
+        }
+
         if (_readOnlyColorizer is not null)
         {
             TextEditor.TextArea.TextView.LineTransformers.Remove(_readOnlyColorizer);
@@ -747,7 +760,7 @@ public partial class CodeEditorView : UserControl
     /// </para>
     /// <para>
     /// <b>A run's section the manager paired keeps its live state</b>; only one it made new takes the state
-    /// remembered for the run's key. Pairing is by start alone (MidLineFoldBehaviourTests), and a section paired is
+    /// remembered for the run's key. A section still paired with a run is
     /// the very fold the developer is looking at, whose key an edit to the declaration may just have changed. A new
     /// section is also made expanded when the caret is inside it or at its end, as it is when a developer types a
     /// run in under its declaration: folded, the line being typed would vanish under the caret.
@@ -764,24 +777,32 @@ public partial class CodeEditorView : UserControl
         ObserveOwnFolds(vm);
 
         var shown = new List<NewFolding>();
-        var runSections = new HashSet<FoldingSection>();
+        var runSections = new Dictionary<FoldingSection, bool>();
         foreach (var section in manager.AllFoldings)
         {
             if (ReferenceEquals(section.Tag, RunFoldTag))
-                runSections.Add(section);
+                runSections[section] = section.IsFolded;
             else if (server is null && !ReferenceEquals(section.Tag, HeaderFoldTag))
                 shown.Add(new NewFolding(section.StartOffset, section.EndOffset) { Name = section.Title });
         }
 
+        var previousHeader = HeaderSection();
         var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
+        var freshHeader = previousHeader is null || header is null
+                          || previousHeader.StartOffset != header.StartOffset || previousHeader.EndOffset != header.EndOffset;
         var runs = vm.MemberRunsNow;
         var own = Vb6FoldingAdapter.MemberRuns(runs);
         if (header is not null)
             own.Insert(0, header);
-        manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
+        Vb6FoldingAdapter.Update(manager, Vb6FoldingAdapter.Merge(own, server ?? shown));
+        foreach (var section in manager.AllFoldings)
+        {
+            if (ReferenceEquals(section.Tag, RunFoldTag) || ReferenceEquals(section.Tag, HeaderFoldTag))
+                section.Tag = null;
+        }
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
-        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there. A new
+        // top of the file; other folds can share its start, so the end must match too. A new
         // one is left open over a caret inside it, as navigating to a header line in a document not yet open puts it
         // there before the folds exist, which would fold it away under the caret (#700 review).
         var caret = TextEditor.TextArea.Caret.Offset;
@@ -790,17 +811,18 @@ public partial class CodeEditorView : UserControl
             foreach (var section in manager.GetFoldingsAt(header.StartOffset))
             {
                 if (section.EndOffset != header.EndOffset) continue;
-                var fresh = !ReferenceEquals(section.Tag, HeaderFoldTag);
                 section.Tag = HeaderFoldTag;
                 section.IsFolded = !vm.HeaderFoldExpanded
-                                   && !(fresh && section.StartOffset < caret && caret <= section.EndOffset);
+                                   && !(freshHeader && section.StartOffset < caret && caret <= section.EndOffset);
             }
         }
 
         foreach (var run in runs)
         {
             if (run.Key is not { } key || RunSection(run) is not { } section) continue;
-            if (!runSections.Contains(section))
+            if (runSections.TryGetValue(section, out var folded))
+                section.IsFolded = folded;
+            else
             {
                 var caretInside = section.StartOffset < caret && caret <= section.EndOffset;
                 section.IsFolded = !caretInside && !vm.ExpandedMemberRuns.Contains(key);
@@ -2098,6 +2120,47 @@ public partial class CodeEditorView : UserControl
         area.Caret.BringCaretToView();
     }
 
+    private async Task PasteAsCommentAsync()
+    {
+        var text = await ClipboardTextAsync();
+        if (string.IsNullOrEmpty(text))
+            return;
+        AskBeforeClipboardEdit(paste: true);
+        InsertAsComment(text);
+    }
+
+    internal void InsertAsComment(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+        var area = TextEditor.TextArea;
+        var line = area.Document.GetLineByOffset(TextEditor.SelectionStart);
+        var prefix = area.Document.GetText(line.Offset, TextEditor.SelectionStart - line.Offset);
+        var indentation = new string(prefix.TakeWhile(c => c is ' ' or '\t').ToArray());
+        var newline = TextUtilities.GetNewLineFromDocument(area.Document, line.LineNumber);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var continuationIndent = area.Selection is RectangleSelection { IsEmpty: false } ? "" : indentation;
+        var commented = "'" + string.Join(newline + continuationIndent + "'", lines);
+        if (EditedSpan() is var (selectionOffset, selectionLength)
+            && selectionOffset + selectionLength < area.Document.GetLineByOffset(selectionOffset + selectionLength).EndOffset)
+            commented += newline + indentation;
+        using (area.Document.RunUpdate())
+        {
+            if (area.Selection is RectangleSelection { IsEmpty: false } box)
+                WriteOverBox(area, box, commented);
+            else if (DataContext is CodeEditorViewModel vm
+                && EditedSpan() is var (offset, length)
+                && vm.InsertLineBreakPastRun(offset, length, commented) is { } placed)
+            {
+                area.ClearSelection();
+                area.Caret.Offset = placed.End;
+            }
+            else
+                area.Selection.ReplaceSelectionWithText(commented);
+        }
+        area.Caret.BringCaretToView();
+    }
+
     /// <summary>The clipboard's text, or null when there is none or it cannot be read.</summary>
     private async Task<string?> ClipboardTextAsync()
     {
@@ -2460,17 +2523,7 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // A plain dictionary lookup compares ordinally, and `Changes` is keyed by whatever URI the
-                // SERVER chose to write. A normalised drive letter therefore matches nothing and rename
-                // applies NOTHING — silently, and indistinguishably from a rename the server declined.
-                // Worse than the definition case above, because there is no second branch to fall into.
-                var docUri = vm.GetDocumentUriPublic();
-                var textEdits = edit.Changes
-                    .FirstOrDefault(c => HexIDE.Lsp.LspDocumentUri.AreSame(c.Key, docUri)).Value;
-                if (textEdits is null) return;
-
-                // Through the guarded path, which refuses a rename reaching the header as a whole (#273 3.9).
-                if (vm.ApplyRename(textEdits, oldName) is { } refusal)
+                if (vm.ApplyRename(edit, oldName) is { } refusal)
                     _ = vm.ShowRefusalAsync(refusal);
             });
         }
@@ -2581,14 +2634,10 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             if (sig.Parameters is null || sig.Parameters.Length == 0 || activeParam >= sig.Parameters.Length)
                 return sig.Label;
 
-            // Highlight the active parameter in the label by surrounding it with brackets
-            var paramLabel = sig.Parameters[activeParam].Label;
             var label = sig.Label;
-            var idx = label.IndexOf(paramLabel, StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) return label;
-
-            // Build a TextBlock-like string; AvaloniaEdit accepts plain strings here
-            return label[..idx] + "[" + label.Substring(idx, paramLabel.Length) + "]" + label[(idx + paramLabel.Length)..];
+            if (sig.Parameters[activeParam].Label.RangeIn(label) is not { } range) return label;
+            return label[..range.Start] + "[" + label.Substring(range.Start, range.Length)
+                + "]" + label[(range.Start + range.Length)..];
         }
     }
 
@@ -2602,8 +2651,8 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             {
                 var p = sig.Parameters[activeParam];
                 if (p.Documentation is not null)
-                    return $"{p.Label}: {p.Documentation}";
-                return p.Label;
+                    return $"{p.Label.TextIn(sig.Label)}: {p.Documentation}";
+                return p.Label.TextIn(sig.Label);
             }
             return sig.Documentation;
         }
