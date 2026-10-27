@@ -2597,14 +2597,10 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             if (sig.Parameters is null || sig.Parameters.Length == 0 || activeParam >= sig.Parameters.Length)
                 return sig.Label;
 
-            // Highlight the active parameter in the label by surrounding it with brackets
-            var paramLabel = sig.Parameters[activeParam].Label;
             var label = sig.Label;
-            var idx = label.IndexOf(paramLabel, StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) return label;
-
-            // Build a TextBlock-like string; AvaloniaEdit accepts plain strings here
-            return label[..idx] + "[" + label.Substring(idx, paramLabel.Length) + "]" + label[(idx + paramLabel.Length)..];
+            if (sig.Parameters[activeParam].Label.RangeIn(label) is not { } range) return label;
+            return label[..range.Start] + "[" + label.Substring(range.Start, range.Length)
+                + "]" + label[(range.Start + range.Length)..];
         }
     }
 
@@ -2618,8 +2614,8 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             {
                 var p = sig.Parameters[activeParam];
                 if (p.Documentation is not null)
-                    return $"{p.Label}: {p.Documentation}";
-                return p.Label;
+                    return $"{p.Label.TextIn(sig.Label)}: {p.Documentation}";
+                return p.Label.TextIn(sig.Label);
             }
             return sig.Documentation;
         }

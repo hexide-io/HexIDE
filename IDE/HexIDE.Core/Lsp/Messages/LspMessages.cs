@@ -1000,8 +1000,54 @@ public record SignatureHelpParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
     [property: JsonPropertyName("position")]     Position Position);
 
+[JsonConverter(typeof(ParameterLabelConverter))]
+public readonly record struct ParameterLabel(string? Text, int Start = 0, int End = 0)
+{
+    public static implicit operator ParameterLabel(string text) => new(text);
+
+    public (int Start, int Length)? RangeIn(string signature)
+    {
+        if (Text is { } text)
+        {
+            var start = signature.IndexOf(text, StringComparison.OrdinalIgnoreCase);
+            return start < 0 ? null : (start, text.Length);
+        }
+        return Start >= 0 && End >= Start && End <= signature.Length ? (Start, End - Start) : null;
+    }
+
+    public string TextIn(string signature) => Text ?? (RangeIn(signature) is { } range
+        ? signature.Substring(range.Start, range.Length) : string.Empty);
+}
+
+public sealed class ParameterLabelConverter : JsonConverter<ParameterLabel>
+{
+    public override ParameterLabel Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String) return new(reader.GetString()!);
+        using var document = JsonDocument.ParseValue(ref reader);
+        var value = document.RootElement;
+        if (value.ValueKind == JsonValueKind.Array && value.GetArrayLength() == 2
+            && value[0].TryGetInt32(out var start) && value[1].TryGetInt32(out var end)
+            && start >= 0 && end >= start)
+            return new(null, start, end);
+        throw new JsonException("Expected a parameter label string or [start, end] offsets.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, ParameterLabel value, JsonSerializerOptions options)
+    {
+        if (value.Text is { } text) writer.WriteStringValue(text);
+        else
+        {
+            writer.WriteStartArray();
+            writer.WriteNumberValue(value.Start);
+            writer.WriteNumberValue(value.End);
+            writer.WriteEndArray();
+        }
+    }
+}
+
 public record ParameterInformation(
-    [property: JsonPropertyName("label")]         string Label,
+    [property: JsonPropertyName("label")]         ParameterLabel Label,
     [property: JsonPropertyName("documentation")] string? Documentation = null);
 
 public record SignatureInformation(

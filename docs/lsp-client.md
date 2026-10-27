@@ -17,6 +17,12 @@ the test suite drives, see [`foreign-language-servers.md`](./foreign-language-se
 A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
 the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
+Signature help accepts parameter labels as strings or UTF-16 offset pairs into the signature label.
+The popup highlights the exact offset range and uses its text for parameter documentation. String labels
+retain their existing first-match highlighting. An offset outside the signature has no highlight.
+If deferred result deserialization fails, the protocol inspector marks the exchange Failed with an
+“answer dropped” detail and retains any captured reply body (#2186).
+
 ---
 
 ## The design claim this document is accountable to
