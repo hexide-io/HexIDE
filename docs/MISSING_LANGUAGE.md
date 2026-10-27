@@ -1097,7 +1097,7 @@ missing.
 | `App.Path` | Supported | Read via VbApp.TryGetProperty; the folder containing the .vbp, no trailing separator. | VbApp.cs |
 | `App.PrevInstance` | Supported | Read via VbApp.TryGetProperty; hardwired to False. | VbApp.cs |
 | `App.Revision` | Supported | Read via VbApp.TryGetProperty from the .vbp MajorVer/MinorVer/RevisionVer keys. | VbApp.cs |
-| `App.Title` | Supported | Read at VbApp.cs and WRITTEN at VbApp.cs - the only App member with a setter. Also fills an omitted MsgBox/InputBox caption via TitleOrNull (VbApp.cs). | VbApp.cs |
+| `App.Title` | Supported | **#2413:** `Title=` without quotes, otherwise the saved .vbp filename without extension (measured under F5 and compiled p-code); the unmeasured unsaved case retains the project Name fallback. Read at VbApp.cs and WRITTEN at VbApp.cs - the only App member with a setter. Also fills an omitted MsgBox/InputBox caption via TitleOrNull (VbApp.cs). | VbApp.cs |
 | `Err.Clear` | Supported | VbErr.Call dispatches `case "clear"` (case-insensitive on the method name) to Clear(), which zeroes Number and empties Description and Source. Covered by… | VbErr.cs |
 | `Err.Description` | Supported | Read via TryGetProperty case "description" (VbErr.cs), written via TrySetProperty (VbErr.cs). A trapped runtime error populates it from VBStandardError.Description in Capture (VbErr.cs)… | VbErr.cs |
 | `Err.Number` | Supported | Read as a VB6 Long (VbErr.cs comment: "VB6 Err.Number is a Long"), assignable via TrySetProperty (VbErr.cs). Populated by Capture on a trapped VBRunTimeException. Measured: `Err.Number = 42… | VbErr.cs |
