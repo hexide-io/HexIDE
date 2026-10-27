@@ -27,15 +27,16 @@ disabled while the language combo shows the system default.
 no person's keyboard could do, and reported that as success. `inspect_element` took `isKeyboardFocusable` from the
 automation peer, which answers for `Focusable` alone.
 
-**Fixed (#2366).** `press_key` refuses a target that isn't effectively enabled, with the refusal `interact` gives
-(`DisabledPressRefusal`, worded for a key). A modal dialog over the window was already refused, by `KeysTakenBy`.
+**Fixed (#2366).** `press_key` refuses a target that isn't effectively enabled, with the refusal `interact` gives every
+verb since #2223 (`DisabledInteractionRefusal`), which names a container that disables it. A modal dialog over the window was already refused, by `KeysTakenBy`.
 `isKeyboardFocusable` is false for a control that isn't effectively enabled. `PressKeyDisabledTests` covers a disabled
 combo, a disabled container and the focusable read; each fails with its half of the fix removed.
 
 **Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** On the same
 combo, `inspect_element` gave `"isEnabled": false` and `"isKeyboardFocusable": false`, and the same `press_key` answered
-`{"success":false,"mechanism":"keyboard","error":"'ComboBox' is disabled (possibly by its container or window). No
-person could press a key on it, so nothing was pressed. Wait until it is enabled before trying again"}`.
+`{"success":false,"mechanism":"keyboard","error":"'ComboBox' is disabled (\"isEnabled\": false). No person could use
+it, so 'press_key' was refused and nothing was done. Wait until it is enabled before trying again; inspect_element
+reports its current state"}`.
 
 ---
 

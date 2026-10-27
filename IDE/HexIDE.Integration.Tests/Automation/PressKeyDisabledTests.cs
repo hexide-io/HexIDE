@@ -35,8 +35,8 @@ public class PressKeyDisabledTests
             var outcome = UiAutomationDriver.PressKey(disabled, "Down", null);
 
             outcome.Success.Should().BeFalse();
-            outcome.Error.Should().Contain("is disabled (possibly by its container or window)")
-                .And.Contain("No person could press a key on it, so nothing was pressed");
+            outcome.Error.Should().Contain("is disabled (\"isEnabled\": false). No person could use it, so 'press_key' was "
+                + "refused and nothing was done. Wait until it is enabled before trying again");
             keys.Should().Be(0);
         }
         finally { window.Close(); }
@@ -53,6 +53,7 @@ public class PressKeyDisabledTests
             var outcome = UiAutomationDriver.PressKey(off, "A", null);
 
             outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("Its container 'StackPanel[Off]'").And.Contain("'press_key' was refused and nothing was done");
             keys.Should().Be(0);
             inOff.Text.Should().BeNullOrEmpty();
         }
