@@ -322,6 +322,26 @@ Typing a letter, `q`, `a` or `r`, raised KeyDown and KeyUp and nothing else.
   - setting Sorted;
   - Add, Remove or Clear.
 
+### Mouse coordinates: from the client area (2026-10-27)
+
+**The probe:** a TreeView and a ListView with their default edges, and one of each with Appearance 0 and BorderStyle 0,
+flat and borderless, each 2400 × 1500 twips. A driver on the guest's console clicked each at 21,21 and at 40,30
+pixels from its outer top-left corner, from GetWindowRect. Native and p-code logged the same events, apart from where
+the pointer rested when the program started.
+
+| Control | Edge, each side, from GetClientRect | Click 21,21 px in: X, Y | Click 40,30 px in: X, Y |
+|---|---|---|---|
+| TreeView, Appearance 1, BorderStyle 0: the defaults | 2 px | **285, 285** | 570, 420 |
+| TreeView, Appearance 0, BorderStyle 0 | none | **315, 315** | 600, 450 |
+| ListView, Appearance 1, BorderStyle 1: its defaults | **3 px** | **270, 270** | 555, 405 |
+| ListView, Appearance 0, BorderStyle 0 | none | 315, 315 | 600, 450 |
+
+- **X and Y are measured from the client area, inside the edge,** in twips at 15 a pixel. A click 21 pixels in from
+  the outer corner of a default TreeView is 19 pixels into its client, 285 twips. On a flat one it is 315.
+- **MouseDown, MouseMove and MouseUp all report the same point** for a click.
+- The ListView's default edge is 3 pixels, where the TreeView's is 2: the ListView's defaults are BorderStyle 1 with
+  Appearance 1, the 3D edge and a line inside it.
+
 ### Label editing, in full (2026-10-27, #2360)
 
 **The probe:**
