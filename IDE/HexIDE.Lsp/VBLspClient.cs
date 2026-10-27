@@ -258,6 +258,11 @@ public sealed class VBLspClient : ILspClient
                 TaskScheduler.Default);
             throw;
         }
+        catch (Exception ex)
+        {
+            scope.DropAnswer(ex);
+            throw;
+        }
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -558,9 +563,6 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
-                    // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
-                    // fold part-way along its closing line, and a fold read by whole lines then hides that line.
-                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
@@ -1459,8 +1461,13 @@ public sealed class VBLspClient : ILspClient
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            var result = await InvokeRequestAsync<CompletionList?>(_rpc,
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
                 "textDocument/completion", p, cancellationToken);
+            var result = raw is not { } value || value.ValueKind == JsonValueKind.Null
+                ? null
+                : value.ValueKind == JsonValueKind.Array
+                    ? new CompletionList(false, value.Deserialize(LspJsonContext.Default.CompletionItemArray)!)
+                    : value.Deserialize(LspJsonContext.Default.CompletionList);
             onAnswer();
             return result?.Items ?? [];
         }

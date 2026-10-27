@@ -35,8 +35,9 @@ public class ToolDescriptionEnumTests
         new[] { "HexIDE", "HexIDE.Core", "HexIDE.Runtime" }
             .Select(Assembly.Load)
             .SelectMany(a => a.GetTypes())
-            // inspect_element renders these Avalonia window enums as names too.
-            .Concat([typeof(Avalonia.Controls.WindowDecorations), typeof(Avalonia.Controls.WindowState)])
+            // inspect_element renders these Avalonia enums as names too.
+            .Concat([typeof(Avalonia.Controls.WindowDecorations), typeof(Avalonia.Controls.WindowState),
+                typeof(Avalonia.Automation.ExpandCollapseState)])
             .Where(t => t.IsEnum)
             .GroupBy(t => t.Name)
             .ToDictionary(g => g.Key, g => g.ToList()));

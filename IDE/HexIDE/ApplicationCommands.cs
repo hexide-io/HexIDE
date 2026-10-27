@@ -38,6 +38,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand OpenToolBoxCommand = new RoutedCommand(nameof(OpenToolBoxCommand));
     public static readonly RoutedCommand OpenDataViewCommand = new RoutedCommand(nameof(OpenDataViewCommand));
     public static readonly RoutedCommand OpenColorPaletteCommand = new RoutedCommand(nameof(OpenColorPaletteCommand));
+    public static readonly RoutedCommand ReopenClosedDocumentCommand = new RoutedCommand(nameof(ReopenClosedDocumentCommand), new KeyGesture(Key.T, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand ResetWindowLayoutCommand = new RoutedCommand(nameof(ResetWindowLayoutCommand));
     public static readonly RoutedCommand StartDefaultProjectCommand = new RoutedCommand(nameof(StartDefaultProjectCommand), new KeyGesture(Key.F5));
     public static readonly RoutedCommand StartDefaultProjectWithFullCompileCommand = new RoutedCommand(nameof(StartDefaultProjectWithFullCompileCommand), new KeyGesture(Key.F5, GetPlatformCommandKey()));
@@ -49,6 +50,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand CutCommand = new RoutedCommand(nameof(CutCommand), new KeyGesture(Key.X, GetPlatformCommandKey()));
     public static readonly RoutedCommand CopyCommand = new RoutedCommand(nameof(CopyCommand), new KeyGesture(Key.C, GetPlatformCommandKey()));
     public static readonly RoutedCommand PasteCommand = new RoutedCommand(nameof(PasteCommand), new KeyGesture(Key.V, GetPlatformCommandKey()));
+    public static readonly RoutedCommand PasteAsCommentCommand = new RoutedCommand(nameof(PasteAsCommentCommand));
     public static readonly RoutedCommand PasteLinkCommand = new RoutedCommand(nameof(PasteLinkCommand));
     public static readonly RoutedCommand RemoveCommand = new RoutedCommand(nameof(RemoveCommand));
     public static readonly RoutedCommand DeleteCommand = new RoutedCommand(nameof(DeleteCommand), new KeyGesture(Key.Delete));
