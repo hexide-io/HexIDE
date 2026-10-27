@@ -9,6 +9,111 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## 7. `hover`'s move through the window's input was measured headless only — **CLOSED** (#1303, 2026-10-27)
+
+**The gap (narrowed 2026-10-21).** `hover` sends its move through the window's own input, so a declared `ToolTip.Tip`
+opens (#1265). That was shown headless only. Not yet run against the IDE: that a toolbar button reports `tip: Add Form`;
+where the tip is placed, now that the move updates the pointer position Avalonia tracks; that quick info and Auto Data
+Tips still open on Windows and Linux, the same identifier twice in a row; that a real mouse behaves normally after a
+hover ends; and that a disabled toolbar button says it is disabled.
+
+**Placement needed a change to measure (#1303).** A tip closes when the hover ends, before any snapshot could show it,
+so "a snapshot taken during the watch" could never be taken. `hover` now reads where an open tip is while it is open:
+`tipBounds` gives x, y, width and height in the window's device-independent units, as `inspect_element`'s `boundingRect`
+does, and `detail` gives its offset from the point hovered. `TipPlacementTests` covers both.
+
+**Measured (2026-10-27, headless `claude -p` through the hexide tools, on a Debug build of #1303's branch).** On Windows
+at 150%, and on Linux under WSLg (Ubuntu 26.04, X11). The project's Form1 held `Dim count As Integer`, `count = 42`,
+`Stop`.
+
+- **Toolbar tip.** `hover` on `…/Button[Standard.AddForm]`, whose `boundingRect` is `[23.3, 26, 22, 22]`, answered
+  `hovered (11, 11) through the window's input; tip: Add Form (its top-left 0.3 left of and 19.7 below the point
+  hovered)` with `"tipBounds":[34,56.7,63.3,22.7]` on Windows. On Linux the offset was 0 right and 20 below, with
+  `[34,54,68,20]`. Each was the same three times running.
+- **Placement.** The tip opens about 20 below the point hovered, as Avalonia places a tip at the pointer, not at the
+  real pointer's last position, as the old route did (the archived gap "7. A declarative `ToolTip.Tip` cannot be made to
+  open").
+  - A test harness then moved the real mouse to the same point. A screen capture showed its tip at about (34.7, 58.7)
+    in the window, where `tipBounds` put it.
+  - Quick info at the caret on `count` gave `tip: count As Integer (its top-left 0.5 left of and 19.4 below the point
+    hovered)`, `[108.7,224,98.7,22.7]`.
+- **Quick info and Auto Data Tips, on both systems.** Each was hovered three times running: quick info in design mode
+  (`count As Integer`), and Auto Data Tips paused at `Stop` (`count = 42`). All twelve reported their tip.
+  - With the real cursor resting over the IDE's window, a second toolbar hover and a first Auto Data Tip reported no
+    tip. Windows' real mouse moves put Avalonia's pointer back under the cursor, and the tip went with it, as it does
+    for a person.
+  - The reply can't say that was the cause: #2376.
+- **The real mouse afterwards.** A harness moved the real cursor onto Add Form, then Add Project, then over the
+  designer. Screen captures showed each button's tip and hover highlight, and nothing left behind once the cursor
+  moved away.
+- **A disabled toolbar button.** `hover` on `Standard.End`, and on `Standard.Break`, in design mode answered `hovered
+  (11, 11) through the window's input; the target is disabled, so it takes no pointer input and shows a tip only when
+  it sets ToolTip.ShowOnDisabled; no tip opened within 1500ms; declared tip: End` (and `Break`).
+
+**Also found.** On Linux, the project named on the command line by its absolute path wasn't opened, because a
+positional argument starting with `/` is taken for a flag: #2375.
+
+---
+
+## `set_tool_window_visible` hid every tool tabbed with the one it was asked to hide — **CLOSED** (#2362, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2351's live check).** With AI Chat and the Toolbox tabbed together in the left dock,
+`set_tool_window_visible {"name":"AI Chat","visible":false}` answered `{"success":true,"note":"AI Chat is now hidden."}`,
+and `get_tool_windows {}` then gave both `"Toolbox"` and `"AI Chat"` as `visible: false`. A person closing AI Chat's tab
+closes only AI Chat.
+
+**Workaround.** Close the tool with its own tab's close button through `interact`, or hide only tools alone in their dock.
+
+**Cause.** `MainViewViewModel.SetToolWindowVisible` closed the tool's parent dock, on the assumption that a dock holds
+exactly one tool. Since #2239 and #2277 a drag can put several tools in one dock as tabs. An add-in tool window
+unregistering closed its parent dock the same way.
+
+**Fixed (#2362).** Both close the tool itself, as its tab's close button does; its dock goes only when it is left
+empty. The reply names the window as `get_tool_windows` does, says when it was already in the state asked for, and
+names any other tool window that opened or closed with it. Two tests in `MainViewViewModelTests` tab Properties
+with the Toolbox, hide Properties and show it again; both fail with the dock closed instead.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** The session's
+saved layout put the Toolbox and Properties on the left, which builds them as two tabs of one dock; `dump_visual_tree`
+showed `…/TitleBar[Toolbox]/Pane[Toolbox]/Tab[PART_TabStrip]/…/TabItem[Properties]`.
+
+- `set_tool_window_visible {"name":"Properties","visible":false}` answered `{"success":true,"note":"Properties is now
+  hidden."}`. `get_tool_windows` then gave Toolbox `visible: true` and Properties `visible: false`, and the snapshot
+  showed the Toolbox filling the left panel with no tab strip.
+- `{"name":"Properties Window","visible":true}` answered `Properties is now shown.`, and both were visible again.
+- The same call with `"Properties"` answered `Properties is now shown, as it was already.`
+
+## `press_key` reported success on a disabled control — **CLOSED** (#2366, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #623's measurement on main at 759df134).** Options → Language's region combo is
+disabled while the language combo shows the system default.
+
+- `inspect_element {"target":"Window/Custom/Custom/ComboBox[#1]","window":"Options"}` gave `"isEnabled": false` and
+  `"isKeyboardFocusable": true`.
+- `press_key {"target":"Window/Custom/Custom/ComboBox[#1]","key":"Down","window":"Options"}` answered
+  `{"success":true,"mechanism":"routed-key","detail":"pressed Down"}`.
+
+`interact`'s `click` and `invoke` refuse the same control.
+
+**Workaround.** Read `isEnabled` with `inspect_element` before pressing.
+
+**Cause.** A disabled control can't take focus, so `PressKey` fell back to raising the key as a routed event on it, which
+no person's keyboard could do, and reported that as success. `inspect_element` took `isKeyboardFocusable` from the
+automation peer, which answers for `Focusable` alone.
+
+**Fixed (#2366).** `press_key` refuses a target that isn't effectively enabled, with the refusal `interact` gives every
+verb since #2223 (`DisabledInteractionRefusal`), which names a container that disables it. A modal dialog over the window was already refused, by `KeysTakenBy`.
+`isKeyboardFocusable` is false for a control that isn't effectively enabled. `PressKeyDisabledTests` covers a disabled
+combo, a disabled container and the focusable read; each fails with its half of the fix removed.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** On the same
+combo, `inspect_element` gave `"isEnabled": false` and `"isKeyboardFocusable": false`, and the same `press_key` answered
+`{"success":false,"mechanism":"keyboard","error":"'ComboBox' is disabled (\"isEnabled\": false). No person could use
+it, so 'press_key' was refused and nothing was done. Wait until it is enabled before trying again; inspect_element
+reports its current state"}`.
+
+---
+
 ## A running Toolbar's dropdown menu, open, was in neither the dump nor the snapshot — **CLOSED** (#2323, 2026-10-27)
 
 **Symptom (2026-10-27, Windows at 150%, #2309's live check).** A click on a dropdown's arrow,
@@ -64,6 +169,28 @@ the hexide tools).**
 - In a fresh session, with no menu opened by hand, `Window/Panel Layouts/Full Editor` answered `Invoked 'Full Editor'.`
 - After saving a layout named Beta, a miss in Panel Layouts listed `Save Layout As…, Full Editor, Beta`.
 - `Window/Panel Layouts/Beta/Switch` answered `Invoked 'Switch'.`
+
+## `hover` reported a tooltip that is a control by its type name — **CLOSED** (#2336, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2309's re-check).** `hover` on the designer's box for a carried control,
+`…/List[ControlsContainer]/Pane[Toolbar1]`, answered `hovered (200, 22) through the window's input; tip:
+Avalonia.Controls.StackPanel`. The box's tip is a StackPanel of three text blocks, the control's name, its class and
+"Not supported in HexIDE" (`FormEditView.axaml`, `CarriedControlBox`). A person sees those; the reply read as an answer
+and wasn't one.
+
+**Cause.** `hover` read a tip by its `ToString`, for an open tip and a declared one alike, and a control's is its type's
+name.
+
+**Fixed (#2336).** `UiAutomationDriver.TipText` reads a string as it is, and a control by the text of its visible text
+blocks, in order, joined with ` / `. Anything that gives only a type name is reported as having no text to read. The
+fix's first live run answered `tip: a StackPanel with no text to read`: the tip counts as open a moment before its
+blocks have bound their text, and the first poll caught it then. So a tip read with no text keeps `hover` polling, and
+is reported only if no text comes before the dwell ends. `TipTextTests` covers the reading, and fails with control
+tips read by `ToString` again. The poll is guarded only by the live run below.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).** The
+project's Form1 held a Toolbar, which main carries. Three `hover`s on its designer box each answered `tip: Toolbar1 /
+MSComctlLib.Toolbar / Not supported in HexIDE`.
 
 ---
 
@@ -5119,6 +5246,12 @@ and report an `itemCount` for a list or dropdown, which counts its items whether
 > rows. Guarded by `InspectItemCountTests` (a ComboBox closed and open, a ListBox, a TabControl, a menu and a button) and
 > `InspectElementDescriptionTests`.
 
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1287 said it was checked live without saying how, so it was checked again. A project
+> with Form1 and a module holding `Sub Main`, in Project ▸ Properties: `inspect_element` on the Startup Object
+> dropdown, `Window/Custom/Tab/ComboBox[#1]`, closed, gave `"selectionItems":["Form1"],"value":"Form1","itemCount":2`.
+> On the dialog's tab control, `Window/Custom/Tab`, it gave `"selectionItems":["General"]` and `"itemCount":5`.
+
 ## `get_bookmarks` did not say its lines count from 1 (#1261)
 
 **Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
@@ -5175,6 +5308,13 @@ dialog.
 > own, or "in a window of its own". It records the dialog as named, so the reply's note of open dialogs does not name it
 > a second time. `type_text`'s `mode` description says so. Guarded by `TypeKeysTests`.
 
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1291 said it was checked live without saying how, so it was checked again, with Form1
+> running and the caret on a blank line of its code. `type_text {"text":"abcdef","mode":"keyboard"}` into the code
+> window answered `key 1 of 6 was sent to TextEditor and raised 'HexIDE' (a message box: "This action will reset your
+> project, proceed anyway?", OK/Cancel) over the window; that key may not have landed. Nothing after it was sent.`
+> The IDE had the focus, so the prompt opened over its own window. Cancel left the line blank.
+
 ## `invoke` on a running form's menu item read the tick before the program's Click ran (#1255)
 
 `interact invoke` on a menu item adds "(now ticked)" or "(now unticked)" when the tick moved, read straight after
@@ -5194,6 +5334,13 @@ the tick moved, so a reply with none read as "it did not move".
 > Exit would run. It says the program sets the tick in the item's Click, and where to read it. Guarded by
 > `ProgramWaitTests`, with handlers that tick, untick, do both and do neither, and the click alone on an item whose Click
 > ticks it at once.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1289 said it was checked live without saying how, so it was checked again, on a running
+> form whose Game menu holds a control array, Beginner (ticked), Intermediate and Expert, and whose Click ticks the one
+> clicked. After `expand` on `Window/Menu/MenuItem[mnuGame]`, `invoke` on `…/MenuItem[mnuLevel(1)]` answered `invoked
+> MenuItem 'Intermediate' and closed the menu, as a click does; the program ticked 'Intermediate' and unticked
+> 'Beginner'`. `inspect_element` then gave Intermediate `"toggleState":true` and Beginner `"toggleState":false`.
 
 ## An action that started a DoEvents loop was replied to at its first DoEvents, with no note (#1254)
 
@@ -5215,6 +5362,12 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > replies at once. The wait note in the `interact`, `type_text` and `press_key` descriptions says a loop running before
 > the action, or a Timer's, is not waited for. Guarded by `ProgramWaitTests`, with no time slice so that `DoEvents` is
 > the loop's only yield.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1294 said it was checked live without saying how, so it was checked again, on a running
+> form whose Command1_Click counts Text1 from 1 to 200 with a `DoEvents` each pass, then sets it to "done". `interact
+> {"target":"Window/Button[Command1]","action":"invoke","window":"Form1"}` answered `invoked Button 'Loop'`, with no
+> note, and `inspect_element` on `Window/Edit[Text1]` straight after gave `"value":"done"`.
 
 ## `select` and `type_text` applied #1069's not-showing rule unevenly (#1256)
 
@@ -5239,6 +5392,13 @@ Three paths still acted on, or gave advice from, rows and template parts that do
 >   select its item.
 >
 > Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1293 said it was checked live without saying how, so it was checked again, with Form1
+> selected in the designer. `type_text {"text":"x"}` on the Properties window's
+> `…/Tab[TabProperties]/List[AlphabeticProperties]` answered `'ListBox[AlphabeticProperties]' holds 10 text boxes that
+> show, so which one to type into is not clear; nothing was typed. Address the one you mean: …`, naming each, and the
+> form kept its name. Keyboard `type_text` into the Immediate window still typed: `typed 5 key(s) into TextEditor`.
 
 ## inspect_element named a templated dropdown's selection by its view model's type (#1288)
 

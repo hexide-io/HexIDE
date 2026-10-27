@@ -182,7 +182,8 @@ public static class UiAutomationDriver
             control.DataContext?.GetType().Name,
             providers,
             Safe(() => peer.IsEnabled(), true),
-            Safe(() => peer.IsKeyboardFocusable(), false),
+            // The peer answers for Focusable alone, so a disabled combo read as focusable, as if a key could reach it (#2366).
+            Safe(() => peer.IsKeyboardFocusable(), false) && control.IsEffectivelyEnabled,
             control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
@@ -523,7 +524,9 @@ public static class UiAutomationDriver
                                : " Make it show first; invoke_command and set_property act on "
                              + "its view model and still work"));
 
-        if (norm is "click" or "invoke" && DisabledPressRefusal(control) is { } disabled)
+        if (norm is not ("invokecommand" or "setproperty")
+            && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } disabledVerb
+            && DisabledInteractionRefusal(control, disabledVerb) is { } disabled)
             return Err(disabled);
 
         AutomationPeer peer;
@@ -777,7 +780,9 @@ public static class UiAutomationDriver
 
     // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
-    private static string? DisabledPressRefusal(Control control)
+    // press_key refuses with it too, since its routed fallback pressed a key on a disabled control and reported
+    // success (#2366).
+    private static string? DisabledInteractionRefusal(Control control, string verb)
     {
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
         var open = OpenDialogs.Among(OpenWindows());
@@ -787,13 +792,21 @@ public static class UiAutomationDriver
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
             return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
-                   + "No person could click or invoke it, so nothing was pressed or invoked. Answer the dialog first: "
+                   + $"No person could use it, so '{verb}' was refused and nothing was done. Answer the dialog first: "
                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
         }
-        return !control.IsEffectivelyEnabled || window is { IsEffectivelyEnabled: false }
-            ? $"'{Describe(control)}' is disabled (possibly by its container or window). No person could click or invoke it, so "
-              + "nothing was pressed or invoked. Wait until it is enabled before trying again"
-            : null;
+        if (control.IsEffectivelyEnabled && window is not { IsEffectivelyEnabled: false })
+            return null;
+
+        var container = control.GetVisualAncestors().OfType<Control>()
+            .Concat(control.GetLogicalAncestors().OfType<Control>())
+            .FirstOrDefault(c => !c.IsEnabled);
+        var cause = control.IsEnabled && container is not null
+            ? $" Its container '{Describe(container)}'{(window is null ? string.Empty : AddressOf(window, "Window", container))} disables it."
+            : string.Empty;
+        return $"'{Describe(control)}' is disabled (\"isEnabled\": false).{cause} "
+               + $"No person could use it, so '{verb}' was refused and nothing was done. "
+               + "Wait until it is enabled before trying again; inspect_element reports its current state";
     }
 
     /// <summary>
@@ -3511,6 +3524,10 @@ public static class UiAutomationDriver
 
             if (KeysTakenBy(target, Describe(target), "pressed") is { } held)
                 return new InteractOutcome(false, "keyboard", null, held);
+            // A disabled control can't take focus, so the routed fallback below pressed the key on it all the same and
+            // reported success, where interact's click and invoke refuse it (#2366).
+            if (DisabledInteractionRefusal(target, "press_key") is { } disabled)
+                return new InteractOutcome(false, "keyboard", null, disabled);
             var deletionArea = AreaOf(target);
             var selectionDelete = parsedKey is Key.Delete or Key.Back
                 && mods is KeyModifiers.None or KeyModifiers.Control;
@@ -3811,6 +3828,29 @@ public static class UiAutomationDriver
     /// move went through the window's input, as a real one does, or was raised on the control.</summary>
     public readonly record struct HoverLanding(Control Receiver, Point Point, bool ThroughWindowInput = false);
 
+    // The ToolTip a control's tip is shown in. Avalonia keeps it in an internal attached property, which has no public
+    // reader; null if a later Avalonia renames it, and the reply then gives no bounds.
+    private static readonly AvaloniaProperty? ToolTipInstanceProperty =
+        typeof(ToolTip).GetField("ToolTipProperty", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) as AvaloniaProperty;
+
+    /// <summary>
+    /// Where the tip open on <paramref name="owner"/> is, in <paramref name="window"/>'s device-independent units from its
+    /// top-left; null when it isn't showing in a popup, or can't be reached.
+    /// </summary>
+    /// <remarks>
+    /// Measured where the tip is, not predicted from its placement, so a caller can compare it with the point hovered: the
+    /// tip closes when the hover ends, before any snapshot could show it (#1303). On a desktop it is a window of its own, so
+    /// its position comes from the screen.
+    /// </remarks>
+    public static Rect? OpenTipBounds(Control owner, Visual window)
+    {
+        if (ToolTipInstanceProperty is null || !ToolTip.GetIsOpen(owner)
+            || owner.GetValue(ToolTipInstanceProperty) is not ToolTip { IsEffectivelyVisible: true } tip
+            || TopLevel.GetTopLevel(tip) is null)
+            return null;
+        return Safe<Rect?>(() => new Rect(window.PointToClient(tip.PointToScreen(default)), tip.Bounds.Size), null);
+    }
+
     /// <inheritdoc cref="Hover(Control, double?, double?)"/>
     /// <param name="controlPath">The path <paramref name="control"/> was resolved from. When the pointer goes to
     /// an editor under it, the reply gives that editor's path from this one.</param>
@@ -4070,8 +4110,56 @@ public static class UiAutomationDriver
             under = topmost;
 
         foreach (var c in under.GetSelfAndVisualAncestors().OfType<Control>())
-            if (ToolTip.GetTip(c)?.ToString() is { Length: > 0 } text) return text.Trim();
+            if (TipText(ToolTip.GetTip(c)) is { } text) return text;
         return null;
+    }
+
+    /// <summary>
+    /// The text a tooltip shows, or null for no tip: a string as it is, and a tip that is a control by the text of its
+    /// visible text blocks, in order, joined with " / ".
+    /// </summary>
+    /// <remarks>
+    /// A control's ToString is its type's name, so a designer box's tip, a StackPanel of three text blocks, was reported
+    /// as "tip: Avalonia.Controls.StackPanel" (#2336). One with no text to read says so, rather than pass a type name off
+    /// as its text: a control's blocks bind to its owner's data, which they have once the tip has opened.
+    /// </remarks>
+    /// <summary>How <see cref="TipText"/> ends for a tip it found no text in.</summary>
+    public const string NoTextToRead = "with no text to read";
+
+    public static string? TipText(object? tip)
+    {
+        switch (tip)
+        {
+            case null:
+                return null;
+            case string text:
+                return NullIfEmpty(text.Trim());
+            case Control control:
+                var shown = control.GetSelfAndLogicalDescendants().OfType<TextBlock>()
+                    .Where(block => ShownWithin(block, control))
+                    .Select(block => (block.Text ?? block.Inlines?.Text)?.Trim())
+                    .Where(line => !string.IsNullOrEmpty(line))
+                    .ToList();
+                return shown.Count > 0 ? string.Join(" / ", shown) : $"a {control.GetType().Name} {NoTextToRead}";
+            default:
+                return Safe(() => tip.ToString(), null) is { } other && !IsDefaultText(other, tip)
+                    ? NullIfEmpty(other.Trim())
+                    : $"a {tip.GetType().Name} {NoTextToRead}";
+        }
+    }
+
+    // Visible itself and through each logical parent up to the tip's own root, which a tip that has not opened is not in a
+    // window to make effectively visible.
+    private static bool ShownWithin(Control block, Control root)
+    {
+        for (ILogical? at = block; at is not null; at = at.LogicalParent)
+        {
+            if (at is Control { IsVisible: false })
+                return false;
+            if (ReferenceEquals(at, root))
+                return true;
+        }
+        return true;
     }
 
     /// <summary>The element a hover should land on — the editor's text view, else the control itself.</summary>
@@ -5046,6 +5134,10 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<Task<InteractOutcome>>? NextClick = null,
     [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<Action>? HeldMoves = null,
+    // Where a tip hover saw open was: x, y, width, height in the window's device-independent units from its top-left, as
+    // inspect_element's boundingRect is (#1303). Absent from every other reply.
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double[]? TipBounds = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);

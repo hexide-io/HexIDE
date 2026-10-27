@@ -55,6 +55,12 @@ public class ModuleExecutionContext
     internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
     {
         if (declaredClass is not null
+            && Components.InBox.ControlLibraries.ForTypeName(declaredClass) is { } library
+            && declaredClass.Equals(library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase)
+            && value.Value is not null
+            && (value.Value is not BuiltinControls.VBProgressBar bar || !ReferenceEquals(bar.Library, library)))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        if (declaredClass is not null
             && value.Value is VbObject incoming
             && !VbInterface.IsAssignableTo(incoming, declaredClass))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);

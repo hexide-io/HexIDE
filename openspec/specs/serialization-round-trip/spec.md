@@ -791,3 +791,14 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
+
+### Requirement: Reference locales SHALL use hexadecimal
+
+The project reader SHALL interpret a reference's LCID as hexadecimal, accepting either case. The writer
+SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273).
+
+#### Scenario: Reading and saving reference locales
+
+- **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
+- **THEN** their model values are 0, 9, 1033, 3082 and 3081
+- **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively

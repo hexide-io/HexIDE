@@ -1521,6 +1521,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(MemberName(member))
+            && MemberArgs(member) is { } tabIndexes)
+            return SSTabMembers.ReadIndexed(tab, MemberName(member), await EvaluateCallArgs(tabIndexes));
+
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
         {
@@ -1546,6 +1550,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
              ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
             return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+
+        if (AvaloniaInterop.SSTabMembers.TryGet(control, memberIdentifier, out var tabValue))
+            return tabValue;
 
         var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
 
@@ -2216,6 +2223,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Controls are an Object, and Controls is not a Collection.
         if (operand.Value is Avalonia.Controls.Control control)
         {
+            if (interpreter.ControlClassFor(targetName) is { } controlClass)
+                return new Vb6Value(control is VBProgressBar progress
+                    && controlClass.Equals(progress.Library.TypeName("ProgressBar"), StringComparison.OrdinalIgnoreCase));
             var className = VB6BuiltIns.ControlTypeName(control);
             // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
             var library = control switch

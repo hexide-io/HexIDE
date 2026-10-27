@@ -88,5 +88,7 @@ Four more projects, native and p-code alike:
 
 ### In HexIDE
 
-A bare name of an in-box control library's class is "User-defined type not defined" (#2265). Only the qualified name,
-`MSComctlLib.ListImage`, resolves.
+The first #2265 slice implements bare ProgressBar declarations, library-sensitive Set (13 on the other library) and
+`TypeOf`, using the project's referenced control-library order. The other measured classes and their interface
+`TypeName` results await their control/object implementations on this base. Ranking a `Reference=` type library
+against an `Object=` library remains unchanged and unmeasured.
