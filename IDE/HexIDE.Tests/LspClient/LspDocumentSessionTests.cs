@@ -64,7 +64,7 @@ public class LspDocumentSessionTests : IDisposable
     // get_diagnostics answered [] for a document whose analysis had not come back, which read as clean
     // code. This is what lets it tell the two apart.
 
-    [Fact]
+    [AvaloniaFact]
     public void An_opened_document_awaits_diagnostics_until_the_first_arrive()
     {
         var session = Session("Sub A()\nEnd Sub");
@@ -77,7 +77,7 @@ public class LspDocumentSessionTests : IDisposable
         session.AwaitingDiagnostics.Should().BeFalse("an empty publish is an answer: the document is clean");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void An_edit_after_diagnostics_awaits_them_again()
     {
         var session = Session("Sub A()\nEnd Sub");
@@ -93,7 +93,7 @@ public class LspDocumentSessionTests : IDisposable
         session.AwaitingDiagnostics.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Another_documents_diagnostics_do_not_answer_this_one()
     {
         var session = Session("Sub A()\nEnd Sub");
@@ -104,7 +104,7 @@ public class LspDocumentSessionTests : IDisposable
         session.AwaitingDiagnostics.Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void A_document_not_open_awaits_nothing()
     {
         var session = Session("Sub A()\nEnd Sub");
@@ -117,7 +117,7 @@ public class LspDocumentSessionTests : IDisposable
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StartingOpensTheDocumentUnderItsOwnUri()
     {
         Session("# hi").Start();
@@ -125,7 +125,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).OpenDocumentAsync(Uri, "# hi", false, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheDocumentIsOpenedEvenWhileNoServerIsRunning()
     {
         // Not an omission. Opening TRACKS the document before it looks for a live server, and tracked
@@ -139,7 +139,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).OpenDocumentAsync(Uri, "# hi", false, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task AChangeWhileNoServerIsRunningIsStillHandedOn()
     {
         // Not gated either, for the open's reason. The client and the registry each record a change before
@@ -155,7 +155,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).ChangeDocumentAsync(Uri, Arg.Any<int>(), "'a", Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task DisposingClosesTheDocument()
     {
         var session = Session("# hi");
@@ -166,7 +166,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).CloseDocumentAsync(Uri, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASessionThatNeverStartedClosesNothing()
     {
         // An editor can be constructed and disposed without ever opening a document — a file that failed
@@ -177,7 +177,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.DidNotReceive().CloseDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task StartingTwiceOpensOnce()
     {
         var session = Session("# hi");
@@ -193,7 +193,7 @@ public class LspDocumentSessionTests : IDisposable
 
     private const string Renamed = "file:///c:/proj/RENAMED.md";
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ARenameClosesUnderTheOldNameThenOpensUnderTheNewOne()
     {
         // The protocol's own guidance for a rename, and for its reason: more than the name can change, so a
@@ -214,7 +214,7 @@ public class LspDocumentSessionTests : IDisposable
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ARenameUsesTheCloseThatWithdrawsDiagnostics_NotAnOrdinaryClose()
     {
         // An ordinary close must NOT withdraw everything -- a build's claim about a form outlives the
@@ -230,7 +230,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.DidNotReceive().CloseDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RenamingToTheNameItAlreadyHasDoesNothing()
     {
         // Every save reconciles the name, and most saves do not change it. A close-and-reopen per keystroke
@@ -249,7 +249,7 @@ public class LspDocumentSessionTests : IDisposable
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheSessionIsNotOpenWhileTheRenameIsInFlight()
     {
         // IsOpen is the precondition every request is gated on. `started && !disposed` describes the whole
@@ -267,7 +267,7 @@ public class LspDocumentSessionTests : IDisposable
         session.IsOpen.Should().BeTrue("and the gate must close again afterwards");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheSessionAnswersToItsNewNameAndNoLongerToItsOld()
     {
         // The withdrawal the close raises comes back through this same filter. Reassigning the URI before
@@ -287,7 +287,7 @@ public class LspDocumentSessionTests : IDisposable
         seen.Should().ContainSingle("the new one is");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ARenameBeforeTheSessionStartedDoesNothing()
     {
         // A document can be renamed while its editor exists but has not opened it -- nothing to close, and
@@ -304,7 +304,7 @@ public class LspDocumentSessionTests : IDisposable
 
     // ── Synchronization ───────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public async Task FlushingSendsTheCurrentTextImmediately()
     {
         var session = Session("# hi");
@@ -317,7 +317,7 @@ public class LspDocumentSessionTests : IDisposable
             Uri, Arg.Any<int>(), "# hi there", Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task EachFlushCarriesAHigherVersion()
     {
         // The version is the server's only way to order what it receives. A repeated number lets a server
@@ -336,7 +336,7 @@ public class LspDocumentSessionTests : IDisposable
         versions[1].Should().BeGreaterThan(versions[0]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheFirstChangeCarriesTheVersionAfterTheOpens()
     {
         // The comparison above is between two changes, which is how the first change came to repeat the
@@ -353,7 +353,7 @@ public class LspDocumentSessionTests : IDisposable
         versions.Should().Equal(LspDocumentVersion.Opening + 1);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ADisposedSessionSendsNoMoreChanges()
     {
         var session = Session("a");
@@ -384,7 +384,7 @@ public class LspDocumentSessionTests : IDisposable
             .Where(call => call.GetMethodInfo().Name == nameof(ILspClient.ChangeDocumentAsync))
             .Select(call => (int)call.GetArguments()[1]!)];
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASecondWindowOverTheSameNameSendsNoSecondOpen()
     {
         SessionOver(new TextDocument("a")).Start();
@@ -393,7 +393,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).OpenDocumentAsync(Uri, Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TwoWindowsOverTheSameNameDrawOneSequenceOfVersions()
     {
         // Two counts interleaving, 2, 2, 3, are what a server ordering by version discards half of.
@@ -411,7 +411,7 @@ public class LspDocumentSessionTests : IDisposable
             "the document has one sequence of versions, whichever window an edit comes from");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ClosingOneOfTwoWindowsLeavesTheDocumentOpen()
     {
         var first = SessionOver(new TextDocument("a"));
@@ -426,7 +426,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).CloseDocumentAsync(Uri, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RenamingOneOfTwoWindowsLeavesTheOldNameOpenForTheOther()
     {
         const string renamed = "file:///c:/proj/RENAMED.md";
@@ -441,7 +441,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.Received(1).OpenDocumentAsync(renamed, "a", false, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TwoWindowsOverANeverSavedDocumentTakeItsFirstNameTogether()
     {
         // Every new document is named untitled: until its project is saved (#500), and its first save renames it
@@ -466,7 +466,7 @@ public class LspDocumentSessionTests : IDisposable
         second.Uri.Should().Be(saved);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AWindowThatJoinsShowsWhatWasAlreadyPublished()
     {
         // It sends no open, so nothing will answer one: it shows what the document's other window shows.
@@ -482,7 +482,7 @@ public class LspDocumentSessionTests : IDisposable
         second.AwaitingDiagnostics.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASaveSendsThePendingEditFirst()
     {
         // The ordering the whole announcement depends on. Editing is debounced, so at the moment a save
@@ -502,7 +502,7 @@ public class LspDocumentSessionTests : IDisposable
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASessionThatNeverStartedAnnouncesNothing()
     {
         // A carried file that failed to read, or a document with no path: there is no open document to
@@ -513,7 +513,7 @@ public class LspDocumentSessionTests : IDisposable
         await _client.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ADisposedSessionAnnouncesNothing()
     {
         var session = Session("x");
@@ -528,7 +528,7 @@ public class LspDocumentSessionTests : IDisposable
 
     // ── Diagnostics ───────────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void DiagnosticsForThisDocumentBecomeMarkers()
     {
         var session = Session("hello world");
@@ -543,7 +543,7 @@ public class LspDocumentSessionTests : IDisposable
         seen[0].EndOffset.Should().Be(5);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DiagnosticsForAnotherDocumentAreIgnored()
     {
         // Every editor hears every publication — there is one channel — so filtering is the only thing
@@ -558,7 +558,7 @@ public class LspDocumentSessionTests : IDisposable
         raised.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AUriTheServerPercentEncodedDifferentlyStillMatches()
     {
         // #236, and the reason this comparison is not `!=`. A server is under no obligation to echo a URI
@@ -578,7 +578,7 @@ public class LspDocumentSessionTests : IDisposable
         seen.Should().ContainSingle();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AnUntitledUriDifferingOnlyInCaseStillMatches()
     {
         // Both segments of untitled:<Project>/<Name>.<ext> are VB6 names, and VB6 compares names without
@@ -615,7 +615,7 @@ public class LspDocumentSessionTests : IDisposable
         seen.Should().ContainSingle();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AnEmptySetClearsTheMarkers()
     {
         var session = Session("hello world");
@@ -629,7 +629,7 @@ public class LspDocumentSessionTests : IDisposable
         seen.Should().BeEmpty("an empty set is how a server says the problems are resolved");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ADisposedSessionRaisesNothing()
     {
         // The editor is gone; its buffer may be too. Converting offsets against it is at best pointless
@@ -645,7 +645,7 @@ public class LspDocumentSessionTests : IDisposable
         raised.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TheOwnerIsToldWheneverDiagnosticsWereApplied()
     {
         // The code editor refreshes its procedure list off this, because a fresh diagnostic set means the
@@ -661,7 +661,7 @@ public class LspDocumentSessionTests : IDisposable
         applied.Should().Be(1);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void WorkAlreadyPostedWhenTheEditorClosesIsAbandoned()
     {
         // The race the inner disposal guard exists for, and the one the rest of this fixture cannot see.
@@ -693,7 +693,7 @@ public class LspDocumentSessionTests : IDisposable
 
     // ── Ranges the buffer has moved past ──────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void ADiagnosticPastTheEndOfTheBufferIsDropped()
     {
         // Ordinary traffic, not a server fault: with a debounce in flight the server is answering about
@@ -709,7 +709,7 @@ public class LspDocumentSessionTests : IDisposable
         seen.Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ADiagnosticRunningOffTheEndOfTheLineIsClamped()
     {
         var session = Session("abc");
@@ -722,7 +722,7 @@ public class LspDocumentSessionTests : IDisposable
         seen.Should().ContainSingle().Which.EndOffset.Should().Be(3, "the buffer is three characters long");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AZeroWidthDiagnosticStillMarksSomething()
     {
         // A server pointing AT a position rather than spanning one — a missing token, most often. A marker
@@ -738,7 +738,7 @@ public class LspDocumentSessionTests : IDisposable
         marker.EndOffset.Should().BeGreaterThan(marker.StartOffset);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ADiagnosticAtTheVeryEndOfTheBufferStaysInsideIt()
     {
         // The shape that needs the end-of-buffer clamp, and the one the obvious "range past the end" test
@@ -762,7 +762,7 @@ public class LspDocumentSessionTests : IDisposable
         marker.StartOffset.Should().BeLessThanOrEqualTo(marker.EndOffset);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ARangeThatEndsBeforeItStartsIsStillAUsableMarker()
     {
         // A malformed range from a server — end before start. Found by mutation: deleting the
@@ -787,7 +787,7 @@ public class LspDocumentSessionTests : IDisposable
 
     // ── Severity ──────────────────────────────────────────────────────────────────────────────────────
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(null, true)]
     [InlineData(DiagnosticSeverity.Error, true)]
     [InlineData(DiagnosticSeverity.Warning, false)]

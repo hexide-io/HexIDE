@@ -87,13 +87,24 @@ public class FormatSelectionTests
                 notifications.Clear();
                 requeried = false;
                 vm.SetSelectedComponents(controls.Take(count));
+                // A full-suite GC used to collect CommandManager's unowned weak-handler wrapper (#2267).
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
                 Dispatcher.UIThread.RunJobs();
                 predicate!.Invoke(vm, [null]).Should().Be(count >= 2);
                 notifications.Should().Contain(nameof(vm.SelectedComponents));
                 requeried.Should().BeTrue();
             }
         }
-        finally { CommandManager.RequerySuggested -= OnRequery; }
+        finally
+        {
+            CommandManager.RequerySuggested -= OnRequery;
+        }
+        requeried = false;
+        CommandManager.InvalidateRequerySuggested();
+        Dispatcher.UIThread.RunJobs();
+        requeried.Should().BeFalse("the listener was removed");
     }
 
     [AvaloniaTheory]
