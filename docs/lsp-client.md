@@ -155,6 +155,13 @@ too (#360). The current rumdl fixture indexes only with a workspace root, so the
 
 ## Request failure logging
 
+Hover also logs at debug why it returned no result: no RPC connection, initialization still
+incomplete, `hoverProvider` unavailable, or a server reply of `null` (#2302).
+Exceptions retain the failure/supersession logging below. These diagnostics contain no document
+content and do not change the nullable hover API. The notification-flood regression includes the
+client log and whether the server received hover in its failure message; the original intermittent
+null result has not been reproduced or attributed to a cause.
+
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave

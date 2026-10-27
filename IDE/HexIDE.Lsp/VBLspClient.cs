@@ -1278,12 +1278,21 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !CanServe("hoverProvider")) return null;
+        var unavailable = _rpc is null ? "no RPC connection"
+            : !_initialized ? "initialization is incomplete"
+            : !CanServe("hoverProvider") ? "hoverProvider is unavailable" : null;
+        if (unavailable is not null)
+        {
+            _logger.LogDebug("textDocument/hover was not sent: {Reason}", unavailable);
+            return null;
+        }
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await InvokeRequestAsync<HoverResult?>(_rpc,
+            var result = await InvokeRequestAsync<HoverResult?>(_rpc!,
                 "textDocument/hover", p, cancellationToken);
+            if (result is null) _logger.LogDebug("textDocument/hover: server returned null");
+            return result;
         }
         catch (Exception ex)
         {
