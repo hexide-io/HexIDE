@@ -116,7 +116,7 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_OK_RequestsProjectEnd()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Ok);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
@@ -128,12 +128,12 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_Cancel_KeepsRunning()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Cancel);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
-        await _windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
+        await _windowManager.Received(1).TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
         reset.Should().BeFalse();
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }
