@@ -506,6 +506,19 @@ restored position.
 - **WHEN** a Minimized or Maximized request goes unconfirmed on an X11 display with no window manager
 - **THEN** the reply says no window manager is running, so nothing will apply it, and does not direct the caller to re-read
 
+### Requirement: invoke_menu_item SHALL reach what a click on the menu reaches
+`invoke_menu_item` SHALL raise each submenu's SubmenuOpened along its path before reading that submenu's items, as
+opening it does, so a submenu filled then holds its items. It SHALL match an item whose header is a control by its
+automation name, or else its text, and SHALL list that name, never a type name, when a segment is missed.
+
+#### Scenario: A submenu nothing has opened yet
+- **WHEN** a path runs through a submenu that a SubmenuOpened handler fills, in a session where nothing has opened it
+- **THEN** the handler runs, and the path reaches the item it added
+
+#### Scenario: An item with a TextBlock header
+- **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
+- **THEN** the item is reached, and a miss in that menu lists it by that name
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
