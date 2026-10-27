@@ -801,6 +801,10 @@ advertises the capability supplies the single answer (registration order breaks 
 advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
 once per capability per connection. These routing notes also appear in exported conversations.
 
+The editor flushes its debounced document change before requesting completion (for both letters and
+advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+On-type formatting is not implemented.
+
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
 with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
