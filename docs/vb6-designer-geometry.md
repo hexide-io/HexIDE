@@ -26,8 +26,9 @@ different form. This is the case the refusal gate still exists for.
 `Treeview Listview Splitter.frm` has a two-element `lblTitle` array living entirely inside one `picTitles`
 — so a control array spans containers, and containment cannot be keyed by name.
 
-**Whether `TabDlg.SSTab` is a container is unresolved.** It is the commonest third-party container in real
-VB6 code, and the probe was blocked by an OCX registry failure. So is `MDIForm`, which appears nowhere in
+**`TabDlg.SSTab` is a container** (measured 2026-10-27, #1090). Every tab's controls are written nested in its
+block, and those on tabs not showing are written 75000 twips to the left. The oracle's "In-box controls: the SSTab"
+has the file and the run-time rules. Whether `MDIForm` is a container is unresolved: it appears nowhere in
 the corpus.
 
 ## Coordinates and units
@@ -81,6 +82,9 @@ load — verified by authoring `0,0,9,9,4,(absent)` and reading back `0,1,2,3,4,
 *traverses* strictly by `TabIndex` across container boundaries is a separate question the renumbering
 evidence does not answer, and it has not been established.
 
+**Re-saving writes the renumbered values into the file** (measured 2026-10-27, the oracle's "In-box controls: the
+SSTab"). Hand-written values of 0 to 3, 10 and 20 to 25 came back 0 to 11, the out-of-range ones in file order.
+
 ## Corpus notes
 
 The `VB98\Template` tree holds **22** designer files (`.frm`/`.ctl`). Two of them — `ADDIN.FRM` and
@@ -116,5 +120,4 @@ None of these were established, and nothing should depend on a guess at them:
 - Does `Load` on a control-array element that is a container clone the element's contents?
 - Does a container clip a child that overhangs it at run time? `Splash Screen.frm` has `lblWarning` at
   `Left = 150`, `Width = 6855` inside a 7080-wide Frame — a 75-twip margin.
-- Does re-saving a container form in VB6's own IDE renumber `TabIndex` in the file?
 - Is `MDIForm` a container, and with what restriction?

@@ -14,6 +14,16 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Click and invoke SHALL refuse disabled targets with the reason
+`interact` SHALL refuse `click` and `invoke` before sending input to a disabled target or a target in a
+disabled window. When a modal dialog blocks that window, the refusal SHALL identify the dialog and tell
+the caller how to find and answer it first. Otherwise it SHALL say the target must be enabled first.
+
+#### Scenario: A reset prompt disables the running form
+- **WHEN** a caller clicks or invokes a button in the form while a modal reset prompt disables it
+- **THEN** nothing is pressed or invoked
+- **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
+
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
 and target, describe the dialog and where it opened, warn that the key may not have landed, and state
@@ -121,7 +131,7 @@ day it lands, with nothing to add.
 - **THEN** an agent can find its controls, act on them and check the outcome, with no new tool
 
 #### Scenario: Selecting a property hidden by a collapsed category
-- **WHEN** `interact` selects a property by text in the categorized Properties list and its category is collapsed
+- **WHEN** `interact` selects a property by text in the categorized Properties list or by its row path and its category is collapsed
 - **AND** the category row and its toggle are showing
 - **THEN** the refusal SHALL name the category as displayed and tell the caller to `toggle` the Button in that row
 - **AND** the selection and category expansion remain unchanged
@@ -605,8 +615,10 @@ modifier keys. Release coordinates SHALL be relative to the target, or to the co
 several moves with the button held before releasing to the pointer capturer or the hit-tested control.
 Each held move SHALL be input of its own, with the dispatcher's layout run before the next, as a real
 pointer's moves are. The reply SHALL name the press landing, release point and recipient, and whether
-capture routed the release. A drag pressed in Dock's layout SHALL also say which tools or documents Dock
-moved, and where, or that the layout is unchanged. Combining `double` with `to` SHALL be refused before
+capture routed the release. A drag that moves a tool or document SHALL also say what Dock moved, and
+where. A drag pressed on one of Dock's drag areas, a tab or a tool window's title strip, that moves nothing
+SHALL say the layout is unchanged; any other drag, such as one in the form designer, SHALL say nothing about
+Dock, since it could not have docked anything. Combining `double` with `to` SHALL be refused before
 pressing.
 
 #### Scenario: Draw a toolbox control
@@ -627,8 +639,39 @@ pressing.
 
 #### Scenario: A drag that docks nothing
 
-- **WHEN** a drag in Dock's layout releases where no drop target is
+- **WHEN** a drag pressed on a tool window's title strip releases where no drop target is
 - **THEN** the reply says the layout is unchanged, so nothing was docked
+
+#### Scenario: A drag that could not have docked
+
+- **WHEN** a drag in Dock's layout is pressed off Dock's drag areas, as a form designer drag is
+- **THEN** the reply says nothing about Dock
+
+### Requirement: Properties category expansion
+
+Categorized Properties rows SHALL expose an expand/collapse provider driven by the category's open state. Their toggle SHALL use the localized category header as its accessible name. `inspect_element` SHALL report `expandCollapseState` from an available expand/collapse provider.
+
+#### Scenario: Opening and closing a category row
+- **WHEN** `interact` expands or collapses a showing category row
+- **THEN** its open state and property visibility follow the requested state
+- **AND** repeating the action succeeds without toggling the state
+- **AND** inspection reports the current expansion state, including after using the category toggle
+
+### Requirement: press_key reads a chord written as one key
+`press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
+as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
+parts are not all modifiers SHALL be refused before anything is pressed, naming the part that is not one.
+
+#### Scenario: A chord written as one key
+
+- **WHEN** `press_key` is called with `key` `Ctrl+H` and no `modifiers`
+- **THEN** it presses H with Control
+- **AND** the reply says `'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'`
+
+#### Scenario: A chord with a part that is not a modifier
+
+- **WHEN** `press_key` is called with `key` `A+B`
+- **THEN** nothing is pressed, and the refusal says `A` is not a modifier
 
 ### Requirement: Adorners are addressed under the element they adorn
 The control view SHALL list an adorner under the element it adorns, after that element's own children, and not where

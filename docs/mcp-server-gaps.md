@@ -750,6 +750,14 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
 
+## Properties category rows refused expand/collapse (#1967 — fixed)
+
+**Symptom.** With Categorized Properties showing, `interact {"target":"…/List[CategorizedProperties]/Pane[PART_ScrollViewer]/ListItem[Appearance]","action":"collapse","window":"ide"}` refused with `element does not support 'collapse'`.
+
+**Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
+
+**Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
+
 ## A drag can't stop before its release, and the designer's preview and grab handles were not in the tree
 
 **Symptom (2026-10-26, Windows, #2216's live check).** `click` with `to` presses, raises its held moves and releases in

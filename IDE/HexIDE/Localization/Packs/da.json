@@ -2,7 +2,9 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
+    "Str.Designer.ShowTabOrder": "Vis tabulatorrækkefølge (overstreget: TabStop fra)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "Egenskaber",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne fil bliver ikke gemt — HexIDE kan endnu ikke gengive den nøjagtigt, så den ville blive ændret, hvis den blev gemt. Dens kode er en del af filen, så indtastning i dette vindue afvises.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Omdøbningen blev ikke udført, fordi den ville ændre filens header eller et medlems Attribute-linjer, som IDE'et vedligeholder.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Omdøbningen blev ikke udført, fordi den også ændrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldrig udføres, så der kan ikke sættes et pausepunkt eller et bogmærke på den.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Indsæt fil",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nyt navn:",
@@ -898,7 +901,6 @@
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
     "Str.Dock.ScrollRight": "Rul faner til højre",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde"
   }
 }

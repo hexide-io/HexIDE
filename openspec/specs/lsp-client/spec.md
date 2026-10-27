@@ -1201,6 +1201,21 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+### Requirement: Refuse multi-document rename answers
+
+The code window SHALL inspect the whole rename WorkspaceEdit before applying any edits. If any URI
+other than its own has a non-empty edit list, it SHALL refuse the whole answer and name those documents
+using loaded member names resolved by the navigation URI rule, falling back to the URI when unresolved.
+Empty lists for other documents SHALL NOT prevent applying edits to the current document.
+
+#### Scenario: Rename reaches another document
+- **WHEN** a rename answer edits another document, whether or not it also edits the current document
+- **THEN** the current buffer remains unchanged and the refusal identifies the other documents
+
+#### Scenario: Another document has no edits
+- **WHEN** the answer edits the current document and has only empty lists for other documents
+- **THEN** the current document's edits follow the usual single-document rename checks
+
 
 ### Requirement: Signature parameter label unions
 
