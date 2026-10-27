@@ -125,6 +125,9 @@ public interface ISettingsService : INotifyPropertyChanged
 
     /// <summary>Show the code-editor minimap (default: visible).</summary>
     bool IsMinimapVisible { get; set; }
+    bool ColorBracketsByDepth { get; set; }
+
+    bool ShowIndentGuides { get; set; }
 
     /// <summary>Pin enclosing block headers above the code while scrolling.</summary>
     bool IsStickyScrollEnabled { get; set; }

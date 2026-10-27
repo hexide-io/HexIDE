@@ -56,6 +56,31 @@ That is all most changes need. Some areas need more, and
 [Advanced setup](#advanced-setup) covers them: checking VB6's actual behaviour, the third-party language
 servers the test suite drives, and reproducing CI's Linux failures on Windows.
 
+## Scan staged changes for secrets
+
+Install [gitleaks](https://github.com/gitleaks/gitleaks#installing) (MIT; CI pins v8.30.1), then enable
+this clone's pre-commit hook from the repository root:
+
+```sh
+git config core.hooksPath scripts/hooks
+```
+
+If you already use a hooks directory, have its `pre-commit` invoke
+`bash scripts/pre-commit-secrets.sh` instead. The hook scans the index, including partially staged files,
+with default gitleaks rules and redacted output. A finding blocks the commit. Missing gitleaks also blocks
+the commit and explicitly says the changes were **not scanned**. Run the same check manually with
+`bash scripts/pre-commit-secrets.sh`.
+
+CI scans every commit in the pull request's base-to-head range, so deleting a token in a later commit
+does not clear the finding: remove it from the branch's history, and revoke any real exposed credential.
+CI verifies the downloaded scanner against a pinned publisher checksum. New-branch pushes scan from
+the merge base with `origin/main`; unavailable history fails with a `NOT scanned` message.
+
+`.gitleaks.toml` extends the upstream rules. It currently needs no fixture exceptions; any future exception
+must identify the specific fixture and explain why it is safe, without broad path exclusions. Inline
+`gitleaks:allow` comments are ignored by both scans. To exercise the guard, run
+`bash scripts/check-secrets.selftest.sh` with gitleaks installed.
+
 ## Conventions
 
 - **Architecture boundary — CST, not AST.** HexIDE's own in-process language tooling is *syntactic*: it
@@ -235,13 +260,14 @@ directly works too, but now and then fails with "Read-only file system" while wr
 like a flaky test and isn't. Keep `apt-get update` in the first command. The SDK packages change most months,
 and an out-of-date package list asks for files that have been removed, which fails with a wall of 404s.
 
-WSL runs a newer Ubuntu than CI does. If CI fails and WSL does not, try CI's exact version (24.04) in a
-container with [Podman](https://podman.io/). Podman is free, whereas Docker Desktop needs a paid licence in
+WSL and CI both run Ubuntu 26.04 now, since GitHub moved `ubuntu-latest` on 2026-10-19. If CI fails and
+WSL does not, try CI's own image in a container with [Podman](https://podman.io/). The tag below follows
+CI's release, which a failing job's log names on its `Image:` line. Podman is free, whereas Docker Desktop needs a paid licence in
 larger organisations. Run this from PowerShell; in Git Bash, MSYS rewrites `/repo/IDE` into a Windows path:
 
 ```powershell
 podman run --rm -v "C:\path\to\HexIDE:/repo" -v hexide-nuget:/root/.nuget -w /repo/IDE `
-  mcr.microsoft.com/dotnet/sdk:10.0-noble `
+  mcr.microsoft.com/dotnet/sdk:10.0-resolute `
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 

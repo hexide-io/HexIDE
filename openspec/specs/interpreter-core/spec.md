@@ -166,11 +166,18 @@ different result rather than reporting a problem.
 
 ### Requirement: Procedure calls SHALL bind parameters as VB6 does
 User-defined procedures SHALL be callable, SHALL pass parameters by reference unless declared otherwise, and
-SHALL support by-value, optional and named arguments.
+SHALL support by-value, optional and named arguments. Each call SHALL keep only its own bindings
+(parameters, locals, return name and `Me`), falling back to the module or instance environment before
+project-wide names, without copying the module's bindings.
 
 By-reference-by-default is the single most consequential difference between VB6 and the languages most
 implementers reach for. A procedure that modifies its parameter is idiomatic VB6, and an engine that passes
 by value will run such a program to completion while producing the wrong answer.
+
+#### Scenario: A procedure without a local binding for a module variable
+- **WHEN** a procedure reads or writes a module variable it does not shadow
+- **THEN** the lookup reaches the module's existing slot through the enclosing environment
+- **AND** that binding is not copied into the procedure's own names
 
 #### Scenario: A procedure modifying its parameter
 - **WHEN** a procedure assigns to a parameter that was not declared by value

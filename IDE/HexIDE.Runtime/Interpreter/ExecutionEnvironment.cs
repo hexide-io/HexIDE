@@ -14,11 +14,14 @@ public class ExecutionEnvironment
     // differently. The copy constructor below runs this initializer too, so a clone keeps the comparer.
     public Dictionary<string, int> variableToLocation = new(StringComparer.OrdinalIgnoreCase);
 
+    private ExecutionEnvironment? moduleScope;
+
     private ExecutionEnvironment(ExecutionEnvironment other)
     {
         foreach (var (name, loc) in other.variableToLocation)
             variableToLocation[name] = loc;
         ProjectNames = other.ProjectNames;
+        moduleScope = other.moduleScope;
     }
 
     public ExecutionEnvironment()
@@ -28,15 +31,20 @@ public class ExecutionEnvironment
 
     public void DefineVariable(string name, int location)
     {
+        // The old module copy kept its first spelling when a local shadowed it. Keep that Locals label.
+        if (moduleScope is not null && moduleScope.variableToLocation.GetAlternateLookup<ReadOnlySpan<char>>()
+                .TryGetValue(name.AsSpan(), out var moduleName, out _))
+            name = moduleName;
         variableToLocation[name] = location;
     }
 
     /// <summary>
-    /// The slot a name reads here: one this environment holds, or else another standard module's Public variable or Const
+    /// The slot a name reads here: its own binding, then its module or instance, then another module's Public variable or Const
     /// (#880). Throws VB6's "Ambiguous name detected" for a name two modules export.
     /// </summary>
     public bool TryGetVariableLocation(string name, out int location) =>
-        variableToLocation.TryGetValue(name, out location) || ProjectNames?.TryGetLocation(name, out location) == true;
+        variableToLocation.TryGetValue(name, out location) || moduleScope?.TryGetVariableLocation(name, out location) == true
+        || ProjectNames?.TryGetLocation(name, out location) == true;
 
     /// <summary>A name this environment holds itself: a local, a parameter, or the module's own declaration.</summary>
     public bool TryGetOwnVariableLocation(string name, out int location) =>
@@ -44,7 +52,7 @@ public class ExecutionEnvironment
 
     /// <summary>
     /// What the module this environment belongs to sees of other modules' Public names, set once every module is loaded.
-    /// A procedure's environment and an instance's are cloned from the module's, and share it.
+    /// A procedure falls back to its module or instance; an instance's clone shares this table.
     /// </summary>
     internal ProjectNames? ProjectNames { get; set; }
 
@@ -73,6 +81,9 @@ public class ExecutionEnvironment
 
     // Only RunProcedure enables ownership; a clone never inherits another activation's slots.
     internal List<int>? AllocatedSlots { get; set; }
+
+    // Calls own only their parameters, locals, return name and Me; module/instance names stay in their scope.
+    internal ExecutionEnvironment CreateProcedureScope() => new() { moduleScope = this };
 
     public ExecutionEnvironment Clone()
     {

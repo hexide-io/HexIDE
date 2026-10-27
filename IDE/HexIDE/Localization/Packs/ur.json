@@ -2,6 +2,7 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Designer.ShowTabOrder": "ٹیب کی ترتیب دکھائیں (کٹا ہوا: TabStop بند)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
     "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
@@ -104,6 +105,7 @@
     "Str.Menu.Edit.Cut": "کاٹیں",
     "Str.Menu.Edit.Copy": "کاپی کریں",
     "Str.Menu.Edit.Paste": "پیسٹ کریں",
+    "Str.Menu.Edit.PasteAsComment": "تبصرے کے طور پر چسپاں کریں",
     "Str.Menu.Edit.PasteLink": "لنک پیسٹ کریں",
     "Str.Menu.Edit.Remove": "ہٹائیں",
     "Str.Menu.Edit.Delete": "حذف کریں",
@@ -130,6 +132,7 @@
     "Str.Menu.View.Definition": "تعریف",
     "Str.Menu.View.Declaration": "اعلان",
     "Str.Menu.View.LastPosition": "آخری مقام",
+    "Str.Tool.RecentEdits.Title": "حالیہ ترامیم",
     "Str.Menu.View.ObjectBrowser": "آبجیکٹ براؤزر",
     "Str.Menu.View.ImmediateWindow": "فوری ونڈو",
     "Str.Menu.View.LocalsWindow": "مقامی ونڈو",
@@ -208,6 +211,8 @@
     "Str.Menu.Tools.ProtocolInspector": "پروٹوکول انسپکٹر...",
     "Str.Menu.AddIns": "ایڈ-انز",
     "Str.Menu.Window": "ونڈو",
+    "Str.Menu.Window.ReopenClosed": "بند ونڈو دوبارہ کھولیں",
+    "Str.Menu.Window.RecentlyClosed": "حال ہی میں بند کی گئی ونڈوز",
     "Str.Menu.Window.Split": "تقسیم کریں",
     "Str.Menu.Window.ResetLayout": "ونڈو ترتیب دوبارہ مرتب کریں",
     "Str.Menu.Help": "مدد",
@@ -357,11 +362,13 @@
     "Str.Designer.Context.Delete": "حذف کریں",
     "Str.Designer.Context.BringToFront": "سامنے لائیں",
     "Str.Designer.Context.SendToBack": "پیچھے بھیجیں",
+    "Str.Designer.PreviewForm": "فارم کا پیش منظر",
     "Str.Designer.Context.ViewCode": "کوڈ دیکھیں",
     "Str.Designer.Context.AlignToGrid": "گرڈ سے ہم آہنگ کریں",
     "Str.Designer.Context.Properties": "خصوصیات",
     "Str.CodeEditor.FileNotSaved.Banner": "یہ فائل محفوظ نہیں کی جائے گی — HexIDE ابھی اسے ہو بہو دوبارہ تیار نہیں کر سکتا، اس لیے اسے محفوظ کرنے سے یہ بدل جائے گی۔ اس کا کوڈ بھی فائل کا حصہ ہے، چنانچہ اس ونڈو میں ٹائپ کرنا مسترد کیا جاتا ہے۔",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "نام تبدیل نہیں کیا گیا، کیونکہ اس سے اس فائل کا ہیڈر یا کسی رکن کی Attribute لائنیں بدل جاتیں، جنہیں IDE سنبھالتا ہے۔",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "نام تبدیل نہیں کیا گیا کیونکہ اس سے دوسری دستاویزات میں بھی ترمیم ہوتی ہے: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "لائن {0} اس فائل کے ہیڈر یا کسی رکن کی Attribute لائنوں کا حصہ ہے، جو کبھی نہیں چلتیں، اس لیے اس پر بریک پوائنٹ یا بُک مارک نہیں لگایا جا سکتا۔",
     "Str.CodeEditor.Dialog.InsertFileTitle": "فائل داخل کریں",
     "Str.CodeEditor.Dialog.RenamePrompt": "نیا نام:",
@@ -893,6 +900,8 @@
     "Str.Dock.MaximizeRestore": "پینل بڑا کریں یا بحال کریں",
     "Str.Dock.Close": "پینل بند کریں",
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
-    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں"
+    "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
   }
 }
