@@ -624,6 +624,7 @@ added afterwards.
 - [A Let into an array variable (2026-10-23, #998, #1588)](a-let-into-an-array-variable.md#a-let-into-an-array-variable-2026-10-23-998-1588)
 - [StrComp, StrConv, Environ, Switch and Error(), and the case of a character (2026-10-23, #1560)](strcomp-strconv-environ-switch-and-error.md#strcomp-strconv-environ-switch-and-error-and-the-case-of-a-character-2026-10-23-1560)
 - [When Err is cleared, and what a running handler traps (2026-10-23, #877)](when-err-is-cleared-and-what-a-running-handler-traps.md#when-err-is-cleared-and-what-a-running-handler-traps-2026-10-23-877)
+- [Err.Source after a run-time error and after Err.Raise (2026-10-27, #1483)](err-source-after-a-run-time-error-and-err-raise.md#errsource-after-a-run-time-error-and-after-errraise-2026-10-27-1483)
 - [`Time`, and eight Dies rows that already ran (2026-10-23, #1633)](time-and-eight-dies-rows-that-already-ran.md#time-and-eight-dies-rows-that-already-ran-2026-10-23-1633)
 - [A Const declared with a type character (2026-10-23, #1614)](a-const-declared-with-a-type-character.md#a-const-declared-with-a-type-character-2026-10-23-1614)
 - [A For counter written with a type character (2026-10-27, #739)](a-for-counter-written-with-a-type-character.md#a-for-counter-written-with-a-type-character-2026-10-27-739)

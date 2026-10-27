@@ -24,6 +24,28 @@ version resource, which only a built exe has.
 **With no `Title=` key at all**, a compiled `App.Title` falls back to the project `Name=` (measured
 separately: `Name="verify"`, no `Title=` → `App.Title` = `verify`).
 
+### Re-measured: the fallback is the `.vbp` file's name, and no quote is kept (2026-10-27, #1483)
+
+Six projects, each `probe.vbp`, compiled as p-code on the guest's vb6.exe SP6. Each logged `App.Title`, `App.EXEName`
+and `App.ProductName`:
+
+| `.vbp` keys | `App.Title` | `EXEName` | `ProductName` |
+|---|---|---|---|
+| `ExeName32="beta.exe"`, `Name="Alpha"`, no `Title=` | **`probe`** | `beta` | `probe` |
+| `Title="TitleKey"`, `ExeName32="ExeNameKey.exe"`, `Name="NameKey"` | **`TitleKey`** | `ExeNameKey` | `TitleKey` |
+| the same three keys, `Title=` after the other two | `TitleKey` | `ExeNameKey` | `TitleKey` |
+| `Title="Titled App"` | `Titled App` | `probe` | `Titled App` |
+| `Title=Unquoted` | `Unquoted` | `probe` | `Unquoted` |
+| `Title="LastKey"`, the file's last line | `LastKey` | `probe` | `LastKey` |
+
+- **With no `Title=`, a compiled `App.Title` is the `.vbp` file's name.** It is not the project's `Name=` and not the
+  exe's. The 2026-09-01 "verify" row fits this reading as well as the `Name=` one, and could not tell them apart.
+- **No form of `Title=` kept its closing quote** on this guest, quoted or not, with a space or without, last line or
+  not. The section below, measured on 2026-09-01, could not be reproduced. The cause is unknown. It may be the VB6
+  build the oracle ran then (see "Which VB6 the oracle is"), or how that probe's file was written. The section is
+  kept as it was measured.
+- **Not measured:** `App.Title` with no `Title=` under F5, where `App.EXEName` is the `.vbp` file's name too.
+
 ### A VB6 defect: `Title=` keeps its closing quote
 
 `Title="TitleValue"` yields `App.Title` = **`TitleValue"`**. `Title=UnquotedTitle` reads back clean, so it
