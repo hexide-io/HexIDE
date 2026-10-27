@@ -98,7 +98,8 @@ Before an initialize reply, neither message is sent. An externally owned pipe se
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
-tree and waits up to two seconds for termination before disposing its process handle (#2023). Its
+tree and waits up to two seconds for termination before disposing its process handle (#2023).
+Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
 exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
@@ -720,12 +721,14 @@ failure fails the connection and tears down the launched process; externally own
 are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
 are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
 in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
-after an unclean IDE exit it sends SIGTERM to the group, then SIGKILL after two seconds.
-The guard preserves the server's exit code. Normal shutdown still attempts the protocol first;
-a guard left after the transport's grace period is terminated with its group. Externally owned
+after an unclean IDE exit, or when the server exits on its own, it sends SIGTERM to the group,
+then SIGKILL after two seconds. For a server that exits on its own, the guard leaves the server's
+group before SIGKILL so it can preserve the server's exit code. Normal shutdown still attempts the
+protocol first; a guard left after the transport's grace period is terminated with its group. Externally owned
 pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
 The lifetime tests kill the owner without disposal and check both server and child on Windows,
-Linux and macOS; the helper runs with its own dependencies and runtime configuration.
+Linux and macOS; Unix clean-exit tests also check children that accept or ignore SIGTERM and the
+server's exit code. The helper runs with its own dependencies and runtime configuration.
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
