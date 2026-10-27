@@ -521,6 +521,20 @@ Tool descriptions SHALL explain how to map inspected window-relative bounds into
 - **AND** a window-relative x coordinate maps to `x * scale + windowOffsetX` in the full image
 - **AND** in the inline copy it maps to `(x + windowOffsetX / scale) * inlineScale`
 
+### Requirement: Automation SHALL be able to set the lock-key state a running program reads
+In a DEBUG build, `set_lock_key` SHALL set a lock key on or off as running programs read it, without changing the
+machine's keyboard, or return it to the keyboard's toggle. A StatusBar's key panels SHALL prefer a set state and
+repaint when it changes. Every reply SHALL list all four keys with their state and its source, and a refused call SHALL
+change nothing.
+
+#### Scenario: Checking a Caps panel's on state
+- **WHEN** a running form's StatusBar has a Caps panel and `set_lock_key` sets CapsLock On
+- **THEN** the panel draws its text black, and the reply lists CapsLock as on with source Set
+
+#### Scenario: Returning a key to the keyboard
+- **WHEN** `set_lock_key` sets CapsLock to Keyboard
+- **THEN** the panel follows the keyboard's own toggle again, and the reply gives that key's source as Keyboard on Windows
+
 ### Requirement: Snapshots show what the screen shows at any scaling
 
 A snapshot SHALL draw the window and each popup as the compositor draws them on screen, so that text a control draws
