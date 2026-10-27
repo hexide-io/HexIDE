@@ -2,11 +2,6 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
-    "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.LspArtifact.Title": "Soubory pracovního prostoru",
     "Str.LspArtifact.Prompt": "Server {0} požádal o zápis místního souboru {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví",
+    "Str.Layout.Layouts": "_Rozložení panelů",
+    "Str.Layout.Save": "_Uložit rozložení jako…",
+    "Str.Layout.FullEditor": "_Celý editor",
+    "Str.Layout.Switch": "_Přepnout",
+    "Str.Layout.Rename": "_Přejmenovat…",
+    "Str.Layout.Delete": "_Odstranit",
+    "Str.Layout.NamePrompt": "Název rozložení:",
+    "Str.Layout.InvalidName": "Zadejte jedinečný neprázdný název rozložení.",
+    "Str.Layout.Skipped": "Nedostupná okna doplňků byla přeskočena: {0}",
+    "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
+    "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako"
   }
 }

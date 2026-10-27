@@ -2,11 +2,6 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
-    "Str.CodeEditor.ViewAs.Tooltip": "Bedingte Kompilierung anzeigen als",
     "Str.Tool.Properties.ExportPicture": "Bild exportieren...",
     "Str.LspArtifact.Title": "Arbeitsbereichsdateien",
     "Str.LspArtifact.Prompt": "Server {0} möchte die lokale Datei {1} schreiben.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
     "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen",
+    "Str.Layout.Layouts": "_Panelanordnungen",
+    "Str.Layout.Save": "Anordnung _speichern unter…",
+    "Str.Layout.FullEditor": "_Vollständiger Editor",
+    "Str.Layout.Switch": "_Wechseln",
+    "Str.Layout.Rename": "_Umbenennen…",
+    "Str.Layout.Delete": "_Löschen",
+    "Str.Layout.NamePrompt": "Name der Anordnung:",
+    "Str.Layout.InvalidName": "Geben Sie einen eindeutigen, nicht leeren Namen für die Anordnung ein.",
+    "Str.Layout.Skipped": "Nicht verfügbare Add-In-Fenster wurden übersprungen: {0}",
+    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Bedingte Kompilierung anzeigen als"
   }
 }

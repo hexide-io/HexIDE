@@ -50,12 +50,12 @@ public class LayoutManifestJsonTests
     }
 
     [Fact]
-    public void Default_HasTwelveToolsWithExpectedHomes()
+    public void Default_HasThirteenToolsWithExpectedHomes()
     {
         var d = LayoutManifest.Default;
 
         d.Version.Should().Be(LayoutManifest.CurrentVersion);
-        d.Tools.Should().HaveCount(12);
+        d.Tools.Should().HaveCount(13);
 
         d.Tools.Single(t => t.Key == "toolbox").Region.Should().Be(DockRegion.Left);
         d.Tools.Single(t => t.Key == "properties").Region.Should().Be(DockRegion.Right);
@@ -84,6 +84,7 @@ public class LayoutManifestJsonTests
         var json = LayoutManifestJson.Serialize(LayoutManifest.Default);
 
         json.Should().Contain("\"version\": 2");
+        json.Should().NotContain("addinId");
         json.Should().Contain("\"region\": \"left\"");
         json.Should().Contain("\"region\": \"document\"");
     }

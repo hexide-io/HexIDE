@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using HexIDE.IDE;
 using HexIDE.Keymaps;
 using HexIDE.Localization;
@@ -58,7 +59,8 @@ public class MainViewViewModelTests
     /// where F5 does and end at what the user is shown.
     /// </summary>
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
-        HexIDE.Debugging.IBreakpointService? breakpoints = null)
+        HexIDE.Debugging.IBreakpointService? breakpoints = null,
+        IWindowStateService? windowState = null, AddinToolWindowService? tools = null)
     {
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
         var loc = _localization;
@@ -85,7 +87,7 @@ public class MainViewViewModelTests
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
             Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), _windowManager);
-        var windowStateService = Substitute.For<IWindowStateService>();
+        var windowStateService = windowState ?? Substitute.For<IWindowStateService>();
 
         // A registry with nothing attached: the view model reads Connections and
         // ConfigurationProblems in its constructor.
@@ -148,11 +150,133 @@ public class MainViewViewModelTests
             Substitute.For<IPersonalityService>(),
             new AddinMenuService(),
             new AddinCommandService(),
-            new AddinToolWindowService(),
+            tools ?? new AddinToolWindowService(),
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc));
+    }
+
+
+    [AvaloniaFact]
+    public async Task NamedLayouts_SaveSwitchRenameDelete_UseCurrentPanelArrangement()
+    {
+        _windowManager.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>())
+            .Returns(Task.FromResult<string?>("Coding"), Task.FromResult<string?>("Review"));
+        _sut.OpenImmediateTool();
+        await _sut.SaveNamedLayoutAsync();
+        _sut.FullEditorLayout();
+        _sut.GetToolWindows().Should().OnlyContain(t => !t.Visible);
+        _sut.NamedLayouts.Get("Coding")!.Tools.Single(t => t.Key == "immediate").Open.Should().BeTrue();
+        _sut.SwitchNamedLayout("Coding");
+        _sut.GetToolWindows().Single(t => t.Name == "Immediate").Visible.Should().BeTrue();
+        await _sut.RenameNamedLayoutAsync("Coding");
+        await _sut.SaveNamedLayoutAsync(); // the name returned is already present: do not overwrite
+        _sut.NamedLayouts.Names.Should().Equal("Review");
+        _sut.NamedLayouts.Get("Review")!.Tools.Single(t => t.Key == "immediate").Open.Should().BeTrue();
+        await _sut.DeleteNamedLayoutAsync("Review");
+        _sut.NamedLayouts.Names.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void NamedLayouts_WindowMenu_ListsEverySavedLayoutWithManagementCommands()
+    {
+        Avalonia.Application.Current!.Styles.Add(new Avalonia.Themes.Simple.SimpleTheme());
+        _sut.NamedLayouts.Save("Coding", LayoutManifest.FullEditor);
+        _sut.NamedLayouts.Save("Design", LayoutManifest.Default);
+        var view = new MainView { DataContext = _sut };
+        var menu = view.FindControl<Avalonia.Controls.MenuItem>("PanelLayoutsMenuItem");
+        menu.Should().NotBeNull();
+        var window = new Avalonia.Controls.Window { Content = view };
+        window.Resources["Str.Layout.Save"] = "Save Layout…";
+        window.Resources["Str.Layout.Rename"] = "Rename";
+        window.Resources["Str.Layout.Delete"] = "Delete";
+        try
+        {
+            window.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            ((Avalonia.Controls.MenuItem)menu!.Parent!).Open();
+            HexIDE.Automation.UiAutomationDriver.Interact(menu, "expand", null).Success.Should().BeTrue();
+            menu.IsSubMenuOpen.Should().BeTrue();
+            menu.Items.Cast<Avalonia.Controls.MenuItem>().Should().Contain(i => Equals(i.Header, "Save Layout…"));
+            menu.Items.Should().HaveCount(4);
+            foreach (var entry in menu.Items.Skip(2).Cast<Avalonia.Controls.MenuItem>())
+            {
+                entry.Items.Should().HaveCount(3);
+                entry.Items.Cast<Avalonia.Controls.MenuItem>().Select(i => i.Header)
+                    .Should().Contain("Rename").And.Contain("Delete");
+                entry.Items.Cast<Avalonia.Controls.MenuItem>().Should().OnlyContain(i => i.Command != null);
+            }
+            var coding = (Avalonia.Controls.MenuItem)menu.Items[2]!;
+            var design = (Avalonia.Controls.MenuItem)menu.Items[3]!;
+            Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(coding)!.GetName().Should().Be("Coding");
+            ((Avalonia.Controls.TextBlock)coding.Header!).Text.Should().Be("Coding");
+            ((Avalonia.Controls.TextBlock)design.Header!).Text.Should().Be("Design");
+            ((Avalonia.Controls.MenuItem)coding.Items[0]!).Command!.Execute(null);
+            _sut.GetToolWindows().Should().OnlyContain(t => !t.Visible);
+            ((Avalonia.Controls.MenuItem)design.Items[0]!).Command!.Execute(null);
+            _sut.GetToolWindows().Count(t => t.Visible).Should().Be(4);
+            _windowManager.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>())
+                .Returns(Task.FromResult<string?>("Draft"));
+            ((Avalonia.Controls.MenuItem)design.Items[1]!).Command!.Execute(null);
+            ((Avalonia.Controls.MenuItem)coding.Items[2]!).Command!.Execute(null);
+            _sut.NamedLayouts.Names.Should().Equal("Draft");
+            HexIDE.Automation.UiAutomationDriver.Interact(menu, "collapse", null).Success.Should().BeTrue();
+            ((Avalonia.Controls.MenuItem)menu.Parent!).Open();
+            HexIDE.Automation.UiAutomationDriver.Interact(menu, "expand", null).Success.Should().BeTrue();
+            menu.Items.Should().HaveCount(3);
+            ((Avalonia.Controls.TextBlock)((Avalonia.Controls.MenuItem)menu.Items[2]!).Header!).Text.Should().Be("Draft");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void LayoutRestore_ReportsUnavailableAddin_AndLateRegistrationRestoresItsRegion()
+    {
+        var state = Substitute.For<IWindowStateService>();
+        state.LoadLayoutManifest().Returns(LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Append(
+                new ToolLayoutState("addin:addin:5:owner:output", true, DockRegion.Bottom, 0, 0.4)).ToArray(),
+        });
+        var tools = new AddinToolWindowService();
+        var sut = Build(_runnerService, windowState: state, tools: tools);
+        sut.NamedLayouts.Save("Saved", state.LoadLayoutManifest()!);
+        _localization.GetString("Str.Layout.Skipped").Returns("Skipped: {0}");
+        sut.SwitchNamedLayout("Saved");
+        _statusBarService.Received().SetMessage("Skipped: addin:addin:5:owner:output");
+        using var handle = tools.ForOwner("owner").Register("output", "Output", null, () => new object());
+        sut.SaveLayout();
+        var json = state.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(IWindowStateService.SaveLayoutManifestJson))
+            .Last().GetArguments()[0].Should().BeOfType<string>().Subject;
+        LayoutManifestJson.Deserialize(json)!.Tools.Single(t => t.Key == "addin:addin:5:owner:output")
+            .Should().Be(new ToolLayoutState("addin:addin:5:owner:output", true, DockRegion.Bottom, 0, 0.4));
+    }
+
+
+    [AvaloniaFact]
+    public void UnregisterAddinWindow_PreservesOtherToolsSharingItsDock()
+    {
+        var tools = new AddinToolWindowService();
+        using var one = tools.ForOwner("first").Register("output", "First", null, () => new object());
+        using var two = tools.ForOwner("second").Register("output", "Second", null, () => new object());
+        var state = Substitute.For<IWindowStateService>();
+        state.LoadLayoutManifest().Returns(LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Concat(new[]
+            {
+                new ToolLayoutState("addin:addin:5:first:output", true, DockRegion.Left, 1, null),
+                new ToolLayoutState("addin:addin:6:second:output", true, DockRegion.Left, 2, null),
+            }).ToArray(),
+        });
+        var sut = Build(_runnerService, windowState: state, tools: tools);
+        one.Dispose();
+        sut.SaveLayout();
+        var json = state.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(IWindowStateService.SaveLayoutManifestJson))
+            .Last().GetArguments()[0].Should().BeOfType<string>().Subject;
+        var captured = LayoutManifestJson.Deserialize(json)!;
+        captured.Tools.Should().Contain(t => t.Key == "toolbox" && t.Open);
+        captured.Tools.Should().Contain(t => t.Key == "addin:addin:6:second:output" && t.Open);
     }
 
     // --- Add File: a file that joined read byte for byte ---

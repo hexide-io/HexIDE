@@ -2,11 +2,6 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
-    "Str.CodeEditor.ViewAs.Tooltip": "Προβολή μεταγλώττισης υπό συνθήκη ως",
     "Str.Tool.Properties.ExportPicture": "Εξαγωγή εικόνας...",
     "Str.LspArtifact.Title": "Αρχεία χώρου εργασίας",
     "Str.LspArtifact.Prompt": "Ο διακομιστής {0} ζήτησε να γράψει το τοπικό αρχείο {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων",
+    "Str.Layout.Layouts": "Διατάξεις πάνελ",
+    "Str.Layout.Save": "Αποθήκευση διάταξης ως…",
+    "Str.Layout.FullEditor": "Πλήρης επεξεργαστής",
+    "Str.Layout.Switch": "Εναλλαγή",
+    "Str.Layout.Rename": "Μετονομασία…",
+    "Str.Layout.Delete": "Διαγραφή",
+    "Str.Layout.NamePrompt": "Όνομα διάταξης:",
+    "Str.Layout.InvalidName": "Εισαγάγετε ένα μοναδικό, μη κενό όνομα διάταξης.",
+    "Str.Layout.Skipped": "Παραλείφθηκαν μη διαθέσιμα παράθυρα προσθέτων: {0}",
+    "Str.Layout.SaveFailed": "Δεν ήταν δυνατή η αποθήκευση των διατάξεων πάνελ.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Προβολή μεταγλώττισης υπό συνθήκη ως"
   }
 }

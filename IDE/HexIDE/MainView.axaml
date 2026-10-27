@@ -399,6 +399,10 @@
                             </MenuItem>
                             <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" IsEnabled="False" />
                             <Separator />
+                            <MenuItem Header="{DynamicResource Str.Layout.Layouts}" x:Name="PanelLayoutsMenuItem" SubmenuOpened="OnPanelLayoutsOpened">
+                                <!-- A child lets Avalonia open the submenu; SubmenuOpened replaces it with current layouts. -->
+                                <Separator />
+                            </MenuItem>
                             <MenuItem Header="{DynamicResource Str.Menu.Window.ResetLayout}" Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Help}">

@@ -2,11 +2,6 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
-    "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako",
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
     "Str.LspArtifact.Title": "Pliki obszaru roboczego",
     "Str.LspArtifact.Prompt": "Serwer {0} poprosił o zapisanie lokalnego pliku {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
     "Str.Dock.ScrollRight": "Przewiń karty w prawo",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków",
+    "Str.Layout.Layouts": "_Układy paneli",
+    "Str.Layout.Save": "_Zapisz układ jako…",
+    "Str.Layout.FullEditor": "_Pełny edytor",
+    "Str.Layout.Switch": "_Przełącz",
+    "Str.Layout.Rename": "Zmień _nazwę…",
+    "Str.Layout.Delete": "_Usuń",
+    "Str.Layout.NamePrompt": "Nazwa układu:",
+    "Str.Layout.InvalidName": "Wprowadź unikatową, niepustą nazwę układu.",
+    "Str.Layout.Skipped": "Pominięto niedostępne okna dodatków: {0}",
+    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
+    "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako"
   }
 }

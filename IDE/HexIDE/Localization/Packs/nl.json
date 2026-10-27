@@ -2,11 +2,6 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bits",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
-    "Str.CodeEditor.ViewAs.Tooltip": "Voorwaardelijke compilatie weergeven als",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
     "Str.LspArtifact.Title": "Werkruimtebestanden",
     "Str.LspArtifact.Prompt": "Server {0} heeft gevraagd om het lokale bestand {1} te schrijven.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Tabbladen naar links schuiven",
     "Str.Dock.ScrollRight": "Tabbladen naar rechts schuiven",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen",
+    "Str.Layout.Layouts": "_Paneelindelingen",
+    "Str.Layout.Save": "Indeling _opslaan als…",
+    "Str.Layout.FullEditor": "_Volledige editor",
+    "Str.Layout.Switch": "_Wisselen",
+    "Str.Layout.Rename": "_Naam wijzigen…",
+    "Str.Layout.Delete": "_Verwijderen",
+    "Str.Layout.NamePrompt": "Naam van indeling:",
+    "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
+    "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
+    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bits",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
+    "Str.CodeEditor.ViewAs.Tooltip": "Voorwaardelijke compilatie weergeven als"
   }
 }

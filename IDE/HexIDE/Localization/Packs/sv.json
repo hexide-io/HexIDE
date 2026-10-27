@@ -2,11 +2,6 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitars",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitars",
-    "Str.CodeEditor.ViewAs.Tooltip": "Visa villkorlig kompilering som",
     "Str.Tool.Properties.ExportPicture": "Exportera bild...",
     "Str.LspArtifact.Title": "Arbetsytefiler",
     "Str.LspArtifact.Prompt": "Server {0} har begärt att skriva den lokala filen {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Rulla flikar åt vänster",
     "Str.Dock.ScrollRight": "Rulla flikar åt höger",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker",
+    "Str.Layout.Layouts": "_Panellayouter",
+    "Str.Layout.Save": "_Spara layout som…",
+    "Str.Layout.FullEditor": "_Hela redigeraren",
+    "Str.Layout.Switch": "_Byt",
+    "Str.Layout.Rename": "_Byt namn…",
+    "Str.Layout.Delete": "_Ta bort",
+    "Str.Layout.NamePrompt": "Layoutnamn:",
+    "Str.Layout.InvalidName": "Ange ett unikt layoutnamn som inte är tomt.",
+    "Str.Layout.Skipped": "Otillgängliga tilläggsfönster hoppades över: {0}",
+    "Str.Layout.SaveFailed": "Panellayouterna kunde inte sparas.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitars",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitars",
+    "Str.CodeEditor.ViewAs.Tooltip": "Visa villkorlig kompilering som"
   }
 }

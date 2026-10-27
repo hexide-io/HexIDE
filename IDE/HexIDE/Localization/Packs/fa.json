@@ -2,11 +2,6 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
-    "Str.CodeEditor.ViewAs.Tooltip": "نمایش کامپایل شرطی به صورت",
     "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.LspArtifact.Title": "پرونده‌های فضای کاری",
     "Str.LspArtifact.Prompt": "کارساز {0} درخواست نوشتن پروندهٔ محلی {1} را دارد.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
     "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
     "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده",
+    "Str.Layout.Layouts": "چیدمان‌های پنل",
+    "Str.Layout.Save": "ذخیرهٔ چیدمان با نام…",
+    "Str.Layout.FullEditor": "ویرایشگر کامل",
+    "Str.Layout.Switch": "تعویض",
+    "Str.Layout.Rename": "تغییر نام…",
+    "Str.Layout.Delete": "حذف",
+    "Str.Layout.NamePrompt": "نام چیدمان:",
+    "Str.Layout.InvalidName": "یک نام یکتا و غیرخالی برای چیدمان وارد کنید.",
+    "Str.Layout.Skipped": "پنجره‌های افزونهٔ در دسترس نبودند و رد شدند: {0}",
+    "Str.Layout.SaveFailed": "چیدمان‌های پنل ذخیره نشدند.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
+    "Str.CodeEditor.ViewAs.Tooltip": "نمایش کامپایل شرطی به صورت"
   }
 }

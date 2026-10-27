@@ -2,11 +2,6 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
-    "Str.CodeEditor.ViewAs.Tooltip": "Показати умовну компіляцію для",
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
     "Str.LspArtifact.Title": "Файли робочої області",
     "Str.LspArtifact.Prompt": "Сервер {0} запитав дозвіл на запис локального файлу {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Прокрутити вкладки ліворуч",
     "Str.Dock.ScrollRight": "Прокрутити вкладки праворуч",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",
+    "Str.Layout.Layouts": "Макети панелей",
+    "Str.Layout.Save": "Зберегти макет як…",
+    "Str.Layout.FullEditor": "Повний редактор",
+    "Str.Layout.Switch": "Перемкнути",
+    "Str.Layout.Rename": "Перейменувати…",
+    "Str.Layout.Delete": "Видалити",
+    "Str.Layout.NamePrompt": "Назва макета:",
+    "Str.Layout.InvalidName": "Введіть унікальну непорожню назву макета.",
+    "Str.Layout.Skipped": "Недоступні вікна надбудов пропущено: {0}",
+    "Str.Layout.SaveFailed": "Не вдалося зберегти макети панелей.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
+    "Str.CodeEditor.ViewAs.Tooltip": "Показати умовну компіляцію для"
   }
 }

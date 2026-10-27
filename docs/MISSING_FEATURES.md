@@ -176,6 +176,7 @@
 | Cascade | — | Done | Publishes rearrange event; MDI host responds |
 | Arrange Icons | — | Stub | MenuItem present, no Command binding |
 | Reset Window Layout | — | Done | **HexIDE addition** (not in VB6) — rebuilds the default tool-window layout, keeping open documents; open add-in tools return to the default right column and closed add-in tools stay closed (#50). See [ide-state-persistence](../openspec/specs/ide-state-persistence/spec.md) Phase 4 |
+| Named Panel Layouts | — | Done | **HexIDE addition** — Window → Panel Layouts opens on first use and saves, lists, switches, renames and deletes named arrangements; built-in Full Editor hides all panels. Add-in windows use the same `addin:<id>` keys as the current layout; unavailable windows are deferred and reported. Saved-layout entries have accessible names (#2006) |
 | Window list | — | Done | Dynamic items from `MdiWindowManager.Windows` |
 
 ---

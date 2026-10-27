@@ -2,11 +2,6 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
-    "Str.CodeEditor.ViewAs.Tooltip": "Montri kondiĉan kompiladon kiel",
     "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
     "Str.LspArtifact.Title": "Laborspacaj dosieroj",
     "Str.LspArtifact.Prompt": "Servilo {0} petis skribi lokan dosieron {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Rulumi langetojn maldekstren",
     "Str.Dock.ScrollRight": "Rulumi langetojn dekstren",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj",
+    "Str.Layout.Layouts": "_Panelaranĝoj",
+    "Str.Layout.Save": "_Konservi aranĝon kiel…",
+    "Str.Layout.FullEditor": "_Plena redaktilo",
+    "Str.Layout.Switch": "_Ŝanĝi",
+    "Str.Layout.Rename": "_Alinomi…",
+    "Str.Layout.Delete": "_Forigi",
+    "Str.Layout.NamePrompt": "Nomo de aranĝo:",
+    "Str.Layout.InvalidName": "Enigu unikan, nemalplenan nomon de aranĝo.",
+    "Str.Layout.Skipped": "Nedisponeblaj fenestroj de aldonaĵoj estis preterlasitaj: {0}",
+    "Str.Layout.SaveFailed": "La panelaranĝoj ne povis esti konservitaj.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
+    "Str.CodeEditor.ViewAs.Tooltip": "Montri kondiĉan kompiladon kiel"
   }
 }

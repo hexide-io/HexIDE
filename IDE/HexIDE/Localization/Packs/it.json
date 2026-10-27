@@ -2,11 +2,6 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
-    "Str.CodeEditor.ViewAs.Tooltip": "Visualizza compilazione condizionale come",
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
     "Str.LspArtifact.Title": "File dell’area di lavoro",
     "Str.LspArtifact.Prompt": "Il server {0} ha richiesto di scrivere il file locale {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Scorri schede a sinistra",
     "Str.Dock.ScrollRight": "Scorri schede a destra",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate",
+    "Str.Layout.Layouts": "_Disposizioni dei pannelli",
+    "Str.Layout.Save": "_Salva disposizione con nome…",
+    "Str.Layout.FullEditor": "_Editor completo",
+    "Str.Layout.Switch": "_Passa",
+    "Str.Layout.Rename": "_Rinomina…",
+    "Str.Layout.Delete": "_Elimina",
+    "Str.Layout.NamePrompt": "Nome della disposizione:",
+    "Str.Layout.InvalidName": "Inserire un nome di disposizione univoco e non vuoto.",
+    "Str.Layout.Skipped": "Le finestre dei componenti aggiuntivi non disponibili sono state ignorate: {0}",
+    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Visualizza compilazione condizionale come"
   }
 }

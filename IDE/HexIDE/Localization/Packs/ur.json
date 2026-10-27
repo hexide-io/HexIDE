@@ -2,11 +2,6 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
-    "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں",
     "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.LspArtifact.Title": "کام کی جگہ کی فائلیں",
     "Str.LspArtifact.Prompt": "سرور {0} نے مقامی فائل {1} لکھنے کی درخواست کی ہے۔",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "ٹیب بائیں اسکرول کریں",
     "Str.Dock.ScrollRight": "ٹیب دائیں اسکرول کریں",
     "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد",
+    "Str.Layout.Layouts": "پینل کی ترتیبیں",
+    "Str.Layout.Save": "ترتیب اس نام سے محفوظ کریں…",
+    "Str.Layout.FullEditor": "مکمل ایڈیٹر",
+    "Str.Layout.Switch": "تبدیل کریں",
+    "Str.Layout.Rename": "نام تبدیل کریں…",
+    "Str.Layout.Delete": "حذف کریں",
+    "Str.Layout.NamePrompt": "ترتیب کا نام:",
+    "Str.Layout.InvalidName": "ترتیب کے لیے ایک منفرد، غیر خالی نام درج کریں۔",
+    "Str.Layout.Skipped": "غیر دستیاب ایڈ اِن ونڈوز چھوڑ دی گئیں: {0}",
+    "Str.Layout.SaveFailed": "پینل کی ترتیبیں محفوظ نہیں ہو سکیں۔",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
+    "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں"
   }
 }

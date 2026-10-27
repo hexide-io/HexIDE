@@ -2,11 +2,6 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
-    "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som",
     "Str.Tool.Properties.ExportPicture": "Eksportér billede...",
     "Str.LspArtifact.Title": "Arbejdsområdefiler",
     "Str.LspArtifact.Prompt": "Server {0} har anmodet om at skrive den lokale fil {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
     "Str.Dock.ScrollRight": "Rul faner til højre",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",
+    "Str.Layout.Layouts": "_Panellayout",
+    "Str.Layout.Save": "_Gem layout som…",
+    "Str.Layout.FullEditor": "_Hele editoren",
+    "Str.Layout.Switch": "_Skift",
+    "Str.Layout.Rename": "_Omdøb…",
+    "Str.Layout.Delete": "_Slet",
+    "Str.Layout.NamePrompt": "Layoutnavn:",
+    "Str.Layout.InvalidName": "Angiv et entydigt layoutnavn, der ikke er tomt.",
+    "Str.Layout.Skipped": "Utilgængelige tilføjelsesvinduer blev sprunget over: {0}",
+    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som"
   }
 }

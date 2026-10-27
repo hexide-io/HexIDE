@@ -2,11 +2,6 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
-    "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.LspArtifact.Title": "Työtilan tiedostot",
     "Str.LspArtifact.Prompt": "Palvelin {0} on pyytänyt lupaa kirjoittaa paikallisen tiedoston {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
     "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä",
+    "Str.Layout.Layouts": "_Paneeliasettelut",
+    "Str.Layout.Save": "_Tallenna asettelu nimellä…",
+    "Str.Layout.FullEditor": "_Koko muokkain",
+    "Str.Layout.Switch": "_Vaihda",
+    "Str.Layout.Rename": "_Nimeä uudelleen…",
+    "Str.Layout.Delete": "_Poista",
+    "Str.Layout.NamePrompt": "Asettelun nimi:",
+    "Str.Layout.InvalidName": "Anna yksilöllinen asettelun nimi, joka ei ole tyhjä.",
+    "Str.Layout.Skipped": "Lisäosien ikkunat, jotka eivät olleet käytettävissä, ohitettiin: {0}",
+    "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
+    "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle"
   }
 }

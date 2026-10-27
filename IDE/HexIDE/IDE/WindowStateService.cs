@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Text.Json;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Serilog;
@@ -10,12 +12,45 @@ public sealed class WindowStateService : IWindowStateService
 {
     private readonly ISettingsService _settings;
     private readonly string _dockLayoutPath;
+    private readonly string _namedLayoutsPath;
     private readonly object _writeLock = new();
 
-    public WindowStateService(ISettingsService settings)
+    public WindowStateService(ISettingsService settings) : this(settings, UserDataPath.Directory) { }
+
+    internal static WindowStateService ForDirectory(ISettingsService settings, string directory) => new(settings, directory);
+
+    private WindowStateService(ISettingsService settings, string directory)
     {
         _settings = settings;
-        _dockLayoutPath = UserDataPath.For("dock-layout.json");
+        _dockLayoutPath = Path.Combine(directory, "dock-layout.json");
+        _namedLayoutsPath = Path.Combine(directory, "named-layouts.json");
+    }
+
+    public IReadOnlyDictionary<string, LayoutManifest> LoadNamedLayouts()
+    {
+        try
+        {
+            var path = _namedLayoutsPath;
+            if (!File.Exists(path)) return new Dictionary<string, LayoutManifest>();
+            var entries = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path));
+            var layouts = new Dictionary<string, LayoutManifest>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in entries ?? [])
+                if (!string.IsNullOrWhiteSpace(entry.Key) && LayoutManifestJson.Deserialize(entry.Value) is { } manifest)
+                    layouts.TryAdd(entry.Key, manifest);
+            return layouts;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "WindowStateService: Failed to load named layouts");
+            return new Dictionary<string, LayoutManifest>();
+        }
+    }
+
+    public void SaveNamedLayouts(IReadOnlyDictionary<string, LayoutManifest> layouts)
+    {
+        var entries = layouts.ToDictionary(p => p.Key, p => LayoutManifestJson.Serialize(p.Value));
+        lock (_writeLock)
+            AtomicFileWriter.WriteAllText(_namedLayoutsPath, JsonSerializer.Serialize(entries));
     }
 
     public void SaveWindowState(Window mainWindow)

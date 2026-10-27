@@ -60,7 +60,8 @@ public class MenuBindingTests
                 var path = Path.GetRelativePath(views, file).Replace(Path.DirectorySeparatorChar, '/');
                 var header = (string?)item.Attribute("Header");
                 // Filled from code in MainView.axaml.cs.
-                if (path == "MainView.axaml" && (string?)item.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == "AddInsMenuItem")
+                if (path == "MainView.axaml" && (string?)item.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))
+                    is "AddInsMenuItem" or "PanelLayoutsMenuItem")
                     continue;
                 // Existing unrelated stubs: Remove is tracked by #835; Align to Grid remains unimplemented.
                 if (path == "MainView.axaml" && header == "{CompiledBinding RemoveFormMenuHeader}" ||

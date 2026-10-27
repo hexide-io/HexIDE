@@ -2,11 +2,6 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 ビット",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 ビット",
-    "Str.CodeEditor.ViewAs.Tooltip": "条件付きコンパイルの表示対象",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
     "Str.LspArtifact.Title": "ワークスペースのファイル",
     "Str.LspArtifact.Prompt": "サーバー {0} がローカルファイル {1} への書き込みを要求しています。",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
     "Str.Dock.ScrollRight": "タブを右にスクロール",
     "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数",
+    "Str.Layout.Layouts": "パネルレイアウト",
+    "Str.Layout.Save": "名前を付けてレイアウトを保存…",
+    "Str.Layout.FullEditor": "エディター全体",
+    "Str.Layout.Switch": "切り替え",
+    "Str.Layout.Rename": "名前の変更…",
+    "Str.Layout.Delete": "削除",
+    "Str.Layout.NamePrompt": "レイアウト名:",
+    "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
+    "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
+    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 ビット",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 ビット",
+    "Str.CodeEditor.ViewAs.Tooltip": "条件付きコンパイルの表示対象"
   }
 }

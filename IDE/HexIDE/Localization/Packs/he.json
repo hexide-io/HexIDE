@@ -2,11 +2,6 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
-    "Str.CodeEditor.ViewAs.Tooltip": "הצגת הידור מותנה עבור",
     "Str.Tool.Properties.ExportPicture": "ייצוא תמונה...",
     "Str.LspArtifact.Title": "קובצי סביבת העבודה",
     "Str.LspArtifact.Prompt": "השרת {0} ביקש לכתוב את הקובץ המקומי {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
     "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
     "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות",
+    "Str.Layout.Layouts": "פריסות חלוניות",
+    "Str.Layout.Save": "שמירת פריסה בשם…",
+    "Str.Layout.FullEditor": "עורך מלא",
+    "Str.Layout.Switch": "החלפה",
+    "Str.Layout.Rename": "שינוי שם…",
+    "Str.Layout.Delete": "מחיקה",
+    "Str.Layout.NamePrompt": "שם הפריסה:",
+    "Str.Layout.InvalidName": "יש להזין שם פריסה ייחודי שאינו ריק.",
+    "Str.Layout.Skipped": "דולגו חלונות תוספים שאינם זמינים: {0}",
+    "Str.Layout.SaveFailed": "לא ניתן לשמור את פריסות החלוניות.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
+    "Str.CodeEditor.ViewAs.Tooltip": "הצגת הידור מותנה עבור"
   }
 }

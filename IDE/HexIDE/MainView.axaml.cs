@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows.Input;
 using Avalonia.Controls;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
@@ -19,6 +20,29 @@ public partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
+    }
+
+    private void OnPanelLayoutsOpened(object? sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, PanelLayoutsMenuItem) || DataContext is not MainViewViewModel vm) return;
+        PanelLayoutsMenuItem.Items.Clear();
+        MenuItem Item(string key, Action action)
+        {
+            var item = new MenuItem { Command = new DelegateCommand(action) };
+            item.Bind(MenuItem.HeaderProperty, item.GetResourceObservable(key));
+            return item;
+        }
+        PanelLayoutsMenuItem.Items.Add(Item("Str.Layout.Save", () => vm.SaveNamedLayoutAsync().ListenErrors()));
+        PanelLayoutsMenuItem.Items.Add(Item("Str.Layout.FullEditor", vm.FullEditorLayout));
+        foreach (var name in vm.NamedLayouts.Names)
+        {
+            var menu = new MenuItem { Header = new TextBlock { Text = name } };
+            Avalonia.Automation.AutomationProperties.SetName(menu, name);
+            menu.Items.Add(Item("Str.Layout.Switch", () => vm.SwitchNamedLayout(name)));
+            menu.Items.Add(Item("Str.Layout.Rename", () => vm.RenameNamedLayoutAsync(name).ListenErrors()));
+            menu.Items.Add(Item("Str.Layout.Delete", () => vm.DeleteNamedLayoutAsync(name).ListenErrors()));
+            PanelLayoutsMenuItem.Items.Add(menu);
+        }
     }
 
     private void AvaloniaOnWeb(object? sender, ExecutedRoutedEventArgs e)

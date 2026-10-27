@@ -2,11 +2,6 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
-    "Str.CodeEditor.ViewAs.Tooltip": "Ver compilação condicional como",
     "Str.Tool.Properties.ExportPicture": "Exportar imagem...",
     "Str.LspArtifact.Title": "Ficheiros da área de trabalho",
     "Str.LspArtifact.Prompt": "O servidor {0} pediu para escrever o ficheiro local {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Deslocar separadores para a esquerda",
     "Str.Dock.ScrollRight": "Deslocar separadores para a direita",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Número máximo de cabeçalhos fixados",
+    "Str.Layout.Layouts": "_Disposições dos painéis",
+    "Str.Layout.Save": "_Guardar disposição como…",
+    "Str.Layout.FullEditor": "_Editor completo",
+    "Str.Layout.Switch": "_Alternar",
+    "Str.Layout.Rename": "_Mudar nome…",
+    "Str.Layout.Delete": "_Eliminar",
+    "Str.Layout.NamePrompt": "Nome da disposição:",
+    "Str.Layout.InvalidName": "Introduza um nome de disposição único e não vazio.",
+    "Str.Layout.Skipped": "As janelas de suplementos indisponíveis foram ignoradas: {0}",
+    "Str.Layout.SaveFailed": "Não foi possível guardar as disposições dos painéis.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.Tooltip": "Ver compilação condicional como"
   }
 }

@@ -2,11 +2,6 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
-    "Str.CodeEditor.ViewAs.Tooltip": "Lihat kompilasi bersyarat sebagai",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
     "Str.LspArtifact.Title": "Berkas ruang kerja",
     "Str.LspArtifact.Prompt": "Server {0} meminta untuk menulis berkas lokal {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "Gulir tab ke kiri",
     "Str.Dock.ScrollRight": "Gulir tab ke kanan",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan",
+    "Str.Layout.Layouts": "_Tata Letak Panel",
+    "Str.Layout.Save": "_Simpan Tata Letak Sebagai…",
+    "Str.Layout.FullEditor": "_Editor Penuh",
+    "Str.Layout.Switch": "_Beralih",
+    "Str.Layout.Rename": "_Ganti Nama…",
+    "Str.Layout.Delete": "_Hapus",
+    "Str.Layout.NamePrompt": "Nama tata letak:",
+    "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
+    "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
+    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Lihat kompilasi bersyarat sebagai"
   }
 }

@@ -2,11 +2,6 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بت",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بت",
-    "Str.CodeEditor.ViewAs.Tooltip": "عرض الترجمة الشرطية وفق",
     "Str.Tool.Properties.ExportPicture": "تصدير الصورة...",
     "Str.LspArtifact.Title": "ملفات مساحة العمل",
     "Str.LspArtifact.Prompt": "طلب الخادم {0} كتابة الملف المحلي {1}.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "تمرير علامات التبويب لليسار",
     "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين",
     "Str.Options.EditorGeneral.Display.StickyScroll": "التمرير الثابت",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "الحد الأقصى للعناوين المثبتة"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "الحد الأقصى للعناوين المثبتة",
+    "Str.Layout.Layouts": "تخطيطات اللوحات",
+    "Str.Layout.Save": "حفظ التخطيط باسم…",
+    "Str.Layout.FullEditor": "المحرر الكامل",
+    "Str.Layout.Switch": "تبديل",
+    "Str.Layout.Rename": "إعادة تسمية…",
+    "Str.Layout.Delete": "حذف",
+    "Str.Layout.NamePrompt": "اسم التخطيط:",
+    "Str.Layout.InvalidName": "أدخل اسم تخطيط فريدًا وغير فارغ.",
+    "Str.Layout.Skipped": "تم تخطي نوافذ الوظائف الإضافية غير المتاحة: {0}",
+    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بت",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بت",
+    "Str.CodeEditor.ViewAs.Tooltip": "عرض الترجمة الشرطية وفق"
   }
 }

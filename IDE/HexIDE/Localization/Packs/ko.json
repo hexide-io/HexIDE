@@ -2,11 +2,6 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
-    "Str.CodeEditor.ViewAs.Tooltip": "조건부 컴파일 표시 대상",
     "Str.Tool.Properties.ExportPicture": "그림 내보내기...",
     "Str.LspArtifact.Title": "작업 영역 파일",
     "Str.LspArtifact.Prompt": "서버 {0}에서 로컬 파일 {1} 쓰기를 요청했습니다.",
@@ -899,6 +894,21 @@
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
     "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
     "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수",
+    "Str.Layout.Layouts": "패널 레이아웃",
+    "Str.Layout.Save": "다른 이름으로 레이아웃 저장…",
+    "Str.Layout.FullEditor": "전체 편집기",
+    "Str.Layout.Switch": "전환",
+    "Str.Layout.Rename": "이름 바꾸기…",
+    "Str.Layout.Delete": "삭제",
+    "Str.Layout.NamePrompt": "레이아웃 이름:",
+    "Str.Layout.InvalidName": "고유하고 비어 있지 않은 레이아웃 이름을 입력하세요.",
+    "Str.Layout.Skipped": "사용할 수 없는 추가 기능 창을 건너뛰었습니다: {0}",
+    "Str.Layout.SaveFailed": "패널 레이아웃을 저장할 수 없습니다.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
+    "Str.CodeEditor.ViewAs.Tooltip": "조건부 컴파일 표시 대상"
   }
 }

@@ -2,11 +2,6 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth",
-    "Str.CodeEditor.ViewAs.Vb6": "VB6",
-    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
-    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
-    "Str.CodeEditor.ViewAs.Tooltip": "View conditional compilation as",
     "Str.Tool.Properties.ExportPicture": "Export picture...",
     "Str.LspArtifact.Title": "Workspace files",
     "Str.LspArtifact.Prompt": "Server {0} has requested to write local file {1}.",
@@ -899,6 +894,21 @@
     "Str.ProjectLoad.MoreWarnings": "...and {0} more warnings (see log for full list).",
     "Str.ProjectLoad.ActiveXDocuments": "This project contains ActiveX Document files (.dob) which are not supported in HexIDE and have been skipped:\n\n{0}\n\nActiveX Documents required Internet Explorer or Office binders as a host, both of which are effectively defunct. This project type is out of scope for HexIDE.",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Sticky scroll",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximum pinned headers"
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximum pinned headers",
+    "Str.Layout.Layouts": "_Panel Layouts",
+    "Str.Layout.Save": "_Save Layout As…",
+    "Str.Layout.FullEditor": "_Full Editor",
+    "Str.Layout.Switch": "_Switch",
+    "Str.Layout.Rename": "_Rename…",
+    "Str.Layout.Delete": "_Delete",
+    "Str.Layout.NamePrompt": "Layout name:",
+    "Str.Layout.InvalidName": "Enter a unique, non-empty layout name.",
+    "Str.Layout.Skipped": "Unavailable add-in windows were skipped: {0}",
+    "Str.Layout.SaveFailed": "The panel layouts could not be saved.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth",
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "View conditional compilation as"
   }
 }
