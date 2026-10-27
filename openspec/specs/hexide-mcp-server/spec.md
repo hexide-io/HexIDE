@@ -536,6 +536,15 @@ any other tool window that opened or closed with it.
 - **WHEN** the Toolbox and the Properties window are tabs of one dock and a caller hides Properties
 - **THEN** only Properties closes, the Toolbox stays open, and the reply is "Properties is now hidden."
 
+### Requirement: press_key SHALL refuse a disabled control
+`press_key` SHALL refuse a target that is not effectively enabled with the refusal `interact` gives a disabled target,
+and SHALL NOT raise the key on it by any route. `inspect_element` SHALL
+report `isKeyboardFocusable` false for such a control.
+
+#### Scenario: The disabled region combo in Options
+- **WHEN** `press_key` presses Down on Options → Language's region combo while it is disabled
+- **THEN** the reply is a refusal saying the combo is disabled and nothing was done, and no key reaches it
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,

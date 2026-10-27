@@ -182,7 +182,8 @@ public static class UiAutomationDriver
             control.DataContext?.GetType().Name,
             providers,
             Safe(() => peer.IsEnabled(), true),
-            Safe(() => peer.IsKeyboardFocusable(), false),
+            // The peer answers for Focusable alone, so a disabled combo read as focusable, as if a key could reach it (#2366).
+            Safe(() => peer.IsKeyboardFocusable(), false) && control.IsEffectivelyEnabled,
             control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
@@ -779,6 +780,8 @@ public static class UiAutomationDriver
 
     // Modal windows disable platform input without necessarily changing a child's IsEffectivelyEnabled, so check the
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
+    // press_key refuses with it too, since its routed fallback pressed a key on a disabled control and reported
+    // success (#2366).
     private static string? DisabledInteractionRefusal(Control control, string verb)
     {
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
@@ -3521,6 +3524,10 @@ public static class UiAutomationDriver
 
             if (KeysTakenBy(target, Describe(target), "pressed") is { } held)
                 return new InteractOutcome(false, "keyboard", null, held);
+            // A disabled control can't take focus, so the routed fallback below pressed the key on it all the same and
+            // reported success, where interact's click and invoke refuse it (#2366).
+            if (DisabledInteractionRefusal(target, "press_key") is { } disabled)
+                return new InteractOutcome(false, "keyboard", null, disabled);
             var deletionArea = AreaOf(target);
             var selectionDelete = parsedKey is Key.Delete or Key.Back
                 && mods is KeyModifiers.None or KeyModifiers.Control;
