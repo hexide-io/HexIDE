@@ -2,7 +2,9 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
+    "Str.Designer.ShowTabOrder": "タブ順序を表示（取り消し線: TabStop オフ）",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 ビット",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 ビット",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "プロパティ",
     "Str.CodeEditor.FileNotSaved.Banner": "このファイルは保存されません — HexIDE はまだこのファイルを忠実に再現できないため、保存するとファイルが変化してしまいます。コードもファイルの一部であるため、このウィンドウでの入力は拒否されます。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "名前の変更は行われませんでした。このファイルのヘッダー、またはメンバーの Attribute 行が変更されるためです。これらは IDE が管理しています。",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "他のドキュメントも編集するため、名前の変更は行われませんでした: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0} 行目は、このファイルのヘッダーまたはメンバーの Attribute 行の一部です。これらの行は実行されないため、ブレークポイントやブックマークは設定できません。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "ファイルの挿入",
     "Str.CodeEditor.Dialog.RenamePrompt": "新しい名前:",
@@ -898,7 +901,7 @@
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
     "Str.Dock.ScrollRight": "タブを右にスクロール",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "固定する見出しの最大数"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
   }
 }

@@ -2,7 +2,9 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
+    "Str.Designer.ShowTabOrder": "إظهار ترتيب التنقل (المشطوب: TabStop معطل)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "التمرير الثابت",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "الحد الأقصى للعناوين المثبتة",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بت",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بت",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "الخصائص",
     "Str.CodeEditor.FileNotSaved.Banner": "لن يُحفظ هذا الملف — لا يستطيع HexIDE حتى الآن إعادة إنتاجه بأمانة، لذا فإن حفظه سيغيّره. تعليماته البرمجية جزء من الملف، ولذلك تُرفض الكتابة في هذه النافذة.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "لم تُطبَّق إعادة التسمية لأنها ستغيّر رأس هذا الملف أو أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر تتولّاها بيئة التطوير.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "لم تتم إعادة التسمية لأنها تعدّل أيضًا مستندات أخرى: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "السطر {0} جزء من رأس هذا الملف أو من أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر لا تُنفَّذ أبدًا، لذا لا يمكن وضع نقطة توقف أو إشارة مرجعية عليه.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "إدراج ملف",
     "Str.CodeEditor.Dialog.RenamePrompt": "الاسم الجديد:",
@@ -898,7 +901,7 @@
     "Str.Dock.Close": "إغلاق اللوحة",
     "Str.Dock.ScrollLeft": "تمرير علامات التبويب لليسار",
     "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "التمرير الثابت",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "الحد الأقصى للعناوين المثبتة"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
   }
 }

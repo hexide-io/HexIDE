@@ -67,6 +67,8 @@ internal static class ColorKeyMapping
             // The code window's read-only text and fold labels (#273 task 3.15). Every shipped pack carries it,
             // because the light default misses the contrast bar on a dark editor; ShippedThemePackTests checks.
             ["ReadOnlyText"]            = ("ReadOnlyTextBrush",                           true),
+            ["IndentGuide"] = ("IndentGuideBrush", true),
+            ["ActiveIndentGuide"] = ("ActiveIndentGuideBrush", true),
             ["BracketDepth1"] = ("BracketDepth1Brush", true),
             ["BracketDepth2"] = ("BracketDepth2Brush", true),
             ["BracketDepth3"] = ("BracketDepth3Brush", true),

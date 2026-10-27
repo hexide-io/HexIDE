@@ -1181,6 +1181,11 @@ earlier registration on a tie. Late answers SHALL be dropped, logged at debug le
 protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
 deadline and caller cancellation.
 
+#### Scenario: A server returns a bare completion array
+- **WHEN** a completion reply is a `CompletionItem[]` rather than a `CompletionList`
+- **THEN** the client SHALL normalize it to a list with `isIncomplete: false` and preserve its items
+- **AND** list replies and null replies SHALL continue to provide their items or no items respectively
+
 #### Scenario: Two servers offer the same completion
 - **WHEN** two timely answers contain the same label and kind
 - **THEN** the higher-priority claimant's item is shown once, with its detail and insertion text
@@ -1196,6 +1201,21 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+### Requirement: Refuse multi-document rename answers
+
+The code window SHALL inspect the whole rename WorkspaceEdit before applying any edits. If any URI
+other than its own has a non-empty edit list, it SHALL refuse the whole answer and name those documents
+using loaded member names resolved by the navigation URI rule, falling back to the URI when unresolved.
+Empty lists for other documents SHALL NOT prevent applying edits to the current document.
+
+#### Scenario: Rename reaches another document
+- **WHEN** a rename answer edits another document, whether or not it also edits the current document
+- **THEN** the current buffer remains unchanged and the refusal identifies the other documents
+
+#### Scenario: Another document has no edits
+- **WHEN** the answer edits the current document and has only empty lists for other documents
+- **THEN** the current document's edits follow the usual single-document rename checks
+
 
 ### Requirement: Signature parameter label unions
 

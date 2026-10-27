@@ -2,7 +2,9 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
+    "Str.Designer.ShowTabOrder": "نمایش ترتیب پیمایش (خط‌خورده: TabStop خاموش)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
     "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "ویژگی‌ها",
     "Str.CodeEditor.FileNotSaved.Banner": "این فایل ذخیره نخواهد شد — HexIDE هنوز نمی‌تواند آن را وفادارانه بازتولید کند، بنابراین ذخیره‌کردن آن، آن را تغییر می‌دهد. کد آن بخشی از فایل است، از این رو تایپ در این پنجره پذیرفته نمی‌شود.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "تغییر نام انجام نشد، زیرا سرآیند این فایل یا خطوط Attribute یکی از اعضا را تغییر می‌داد که IDE آن‌ها را نگهداری می‌کند.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "تغییر نام انجام نشد زیرا سندهای دیگری را نیز ویرایش می‌کند: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "خط {0} بخشی از سرآیند این فایل یا خطوط Attribute یکی از اعضاست که هرگز اجرا نمی‌شوند، بنابراین نمی‌توان روی آن نقطه توقف یا نشانک گذاشت.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "درج فایل",
     "Str.CodeEditor.Dialog.RenamePrompt": "نام جدید:",
@@ -898,7 +901,7 @@
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
     "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی"
   }
 }

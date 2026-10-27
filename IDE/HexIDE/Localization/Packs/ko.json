@@ -2,7 +2,9 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
+    "Str.Designer.ShowTabOrder": "탭 순서 표시 (취소선: TabStop 꺼짐)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
@@ -366,6 +368,7 @@
     "Str.Designer.Context.Properties": "속성",
     "Str.CodeEditor.FileNotSaved.Banner": "이 파일은 저장되지 않습니다 — HexIDE가 아직 이 파일을 충실하게 재현할 수 없어 저장하면 파일이 바뀝니다. 코드도 파일의 일부이므로 이 창에서의 입력은 거부됩니다.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "이 파일의 헤더나 멤버의 Attribute 줄이 바뀌게 되므로 이름 바꾸기를 적용하지 않았습니다. 이 부분은 IDE가 관리합니다.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "다른 문서도 편집하므로 이름을 변경하지 않았습니다: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0}번째 줄은 이 파일의 헤더나 멤버의 Attribute 줄에 속합니다. 이 줄들은 실행되지 않으므로 중단점이나 책갈피를 설정할 수 없습니다.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "파일 삽입",
     "Str.CodeEditor.Dialog.RenamePrompt": "새 이름:",
@@ -898,7 +901,7 @@
     "Str.Dock.Close": "창 닫기",
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
     "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수"
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "들여쓰기 안내선 표시",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정"
   }
 }

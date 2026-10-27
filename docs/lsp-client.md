@@ -63,6 +63,25 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
+are normalized to a complete list (`isIncomplete: false`); list objects retain their supplied flag.
+The editor receives the items from either shape; it does not currently use `isIncomplete`.
+Malformed replies follow the request-failure warning path.
+
+The #2204 result-union audit used the pinned LSP metamodel. Among implemented requests,
+`definition` and `declaration` already normalize single locations, location arrays and location-link
+arrays; `documentSymbol` and `workspace/symbol` already normalize both symbol shapes. Hover's
+nested content union is handled by its converter. Diagnostic reports are read by `kind`, and
+`workspace/executeCommand` retains arbitrary JSON. Folding ranges, semantic tokens (full), signature
+help, highlights, rename, formatting and code lenses accept their single non-null result shape or
+`null`. Resolve requests have a single result shape.
+
+`textDocument/codeAction` (including its mixed Command/CodeAction array) and the other unimplemented
+request methods remain outside this fix. Nested signature-help unions also remain outstanding:
+signature/parameter documentation accepts only strings, and parameter labels only strings rather
+than offset pairs. These need separate changes and wire tests; this audit does not claim full
+coverage of unions inside every result member.
+
 Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
@@ -475,11 +494,10 @@ server is expected to keep off them — the bundled one does, by the rule in
   (`-32800`, `-32801`) stay silent. A successful `null` result still means no change required (#1015).
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
-- **A rename's edits to other documents are dropped.** The code window applies the edits for its own
-  document and discards the rest without saying so
-  ([#1024](https://github.com/hexide-io/HexIDE/issues/1024)). No server attached to a code window sends
-  more than one document's edits today; one that binds names would, and naming a saved member by its file
-  is what lets such a server name it.
+- **A rename reaching other documents is refused as a whole** (#1024). Non-empty edits under
+  any other URI leave the buffer unchanged, including an answer editing only other documents.
+  The refusal names loaded members using the navigation URI rule, and otherwise shows the URI.
+  Empty edit lists under other URIs do not prevent a single-document rename.
 
 ---
 
@@ -940,7 +958,7 @@ than inferred.
 | ○ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
-| ✅ | `textDocument/rename` | → |  |
+| ✅ | `textDocument/rename` | → | Answers editing other documents are refused whole (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
@@ -1115,7 +1133,6 @@ Three clusters account for nearly all of the gap:
 |---|---|---|
 | Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
 
 ---
