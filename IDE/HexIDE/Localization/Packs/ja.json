@@ -901,6 +901,7 @@
     "Str.Dock.Close": "ペインを閉じる",
     "Str.Dock.ScrollLeft": "タブを左にスクロール",
     "Str.Dock.ScrollRight": "タブを右にスクロール",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
   }
 }

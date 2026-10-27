@@ -901,6 +901,7 @@
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
     "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Näytä sisennysohjaimet",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
   }
 }
