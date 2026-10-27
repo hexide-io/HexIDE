@@ -223,6 +223,10 @@ public partial class MainViewViewModel : ObservableObject
         private readonly Dictionary<string, IDockable> toolsByKey;
         private readonly Dictionary<string, ToolLayoutState> deferredTools = new();
         private readonly Dictionary<string, int> savedOrders = new();
+        private readonly Dictionary<string, ToolLayoutState> lastPlacements = new();
+        private IRootDock? liveLayout;
+        private readonly Dictionary<string, IToolDock> pendingToolDocks = new();
+        private readonly Dictionary<IToolDock, DockLayoutNode> pendingToolGroups = new();
         private double leftProportion = LayoutManifest.DefaultLeftProportion;
         private double rightProportion = LayoutManifest.DefaultRightProportion;
 
@@ -303,6 +307,8 @@ public partial class MainViewViewModel : ObservableObject
 
         public override void CloseDockable(IDockable dockable)
         {
+            if (liveLayout != null)
+                CaptureManifest(liveLayout);
             base.CloseDockable(dockable);
             LayoutChanged?.Invoke();
         }
@@ -326,8 +332,13 @@ public partial class MainViewViewModel : ObservableObject
 
         private IRootDock BuildLayout(LayoutManifest m, IDocumentDock? reuseDocument)
         {
+            pendingToolDocks.Clear();
+            pendingToolGroups.Clear();
             leftProportion = m.LeftProportion;
             rightProportion = m.RightProportion;
+            lastPlacements.Clear();
+            foreach (var state in m.Tools)
+                lastPlacements[state.Key] = state;
             savedOrders.Clear();
             foreach (var state in m.Tools)
                 savedOrders[state.Key] = state.Order;
@@ -450,13 +461,87 @@ public partial class MainViewViewModel : ObservableObject
                 VisibleDockables = CreateList(Interleave(horiz)),
             };
 
+            if (m.Topology is { Kind: "split" } topology && ValidTopology(topology) && RestoreTopology(topology) is ProportionalDock restoredMain)
+            {
+                mainLayout = restoredMain;
+                RightDock = Find<ProportionalDock>(mainLayout, d => (d.Context as string) == nameof(RightDock));
+                MiddleDock = Find<ProportionalDock>(mainLayout, d => (d.Context as string) == nameof(MiddleDock)) ?? MiddleDock;
+            }
+
             var rootDock = CreateRootDock();
             rootDock.IsFocusableRoot = true;
             rootDock.IsCollapsable = false;
             rootDock.ActiveDockable = mainLayout;
             rootDock.DefaultDockable = mainLayout;
             rootDock.VisibleDockables = CreateList<IDockable>(mainLayout);
+            liveLayout = rootDock;
             return rootDock;
+        }
+
+        private static bool ValidTopology(DockLayoutNode root)
+        {
+            var keys = new HashSet<string>();
+            var documents = 0;
+            bool Visit(DockLayoutNode node)
+            {
+                if (node.Tools == null || node.Children == null || node.Tools.Any(k => !keys.Add(k)))
+                    return false;
+                if (node.Kind == "document") documents++;
+                return node.Kind is "split" or "tool" or "document" && node.Children.All(Visit);
+            }
+            return Visit(root) && documents == 1;
+        }
+
+        private DockLayoutNode? CaptureTopology(IDockable node)
+        {
+            if (node is not IDock dock) return null;
+            var kind = node is IDocumentDock ? "document" : node is IToolDock ? "tool" : "split";
+            var keys = (dock.VisibleDockables ?? CreateList<IDockable>()).Select(KeyOf)
+                .OfType<string>().Concat(pendingToolDocks.Where(p => ReferenceEquals(p.Value, dock)).Select(p => p.Key)).ToArray();
+            var pendingGroup = node is IToolDock group ? pendingToolGroups.GetValueOrDefault(group) : null;
+            if (pendingGroup != null)
+                keys = keys.OrderBy(k => pendingGroup.Tools.ToList().IndexOf(k)).ToArray();
+            return new DockLayoutNode(kind, double.IsNaN(node.Proportion) ? null : node.Proportion,
+                node is IProportionalDock pd ? pd.Orientation : Orientation.Horizontal,
+                node is IToolDock td ? td.Alignment : Alignment.Unset, node.Context as string,
+                keys, pendingGroup?.ActiveTool ?? (dock.ActiveDockable is { } active ? KeyOf(active) : null),
+                kind == "split" ? (dock.VisibleDockables ?? CreateList<IDockable>())
+                    .Select(CaptureTopology).OfType<DockLayoutNode>().ToArray() : []);
+        }
+
+        private IDock? RestoreTopology(DockLayoutNode node)
+        {
+            IDock dock;
+            if (node.Kind == "document")
+                dock = DocumentDock!;
+            else if (node.Kind == "tool")
+            {
+                var td = CreateToolDock();
+                td.Alignment = node.Alignment;
+                td.VisibleDockables = CreateList(node.Tools.Where(toolsByKey.ContainsKey)
+                    .Select(k => toolsByKey[k]).OfType<Tool>().Cast<IDockable>().ToArray());
+                foreach (var key in node.Tools.Where(k => !toolsByKey.ContainsKey(k) && deferredTools.ContainsKey(k)))
+                    pendingToolDocks[key] = td;
+                if (pendingToolDocks.Values.Contains(td))
+                    pendingToolGroups[td] = node;
+                if (td.VisibleDockables.Count == 0 && !pendingToolDocks.Values.Contains(td))
+                    return null;
+                dock = td;
+            }
+            else
+                dock = new ProportionalDock
+                {
+                    Orientation = node.Orientation,
+                    CanClose = false,
+                    CanFloat = false,
+                    IsCollapsable = false,
+                    VisibleDockables = CreateList(Interleave(node.Children.Select(RestoreTopology).OfType<IDockable>().ToList())),
+                };
+            dock.Proportion = node.Proportion ?? double.NaN;
+            dock.Context = node.Context;
+            dock.ActiveDockable = node.ActiveTool is { } activeKey && toolsByKey.TryGetValue(activeKey, out var active)
+                && dock.VisibleDockables?.Contains(active) == true ? active : dock.VisibleDockables?.FirstOrDefault();
+            return dock;
         }
 
         private IToolDock MakeToolDock(Tool tool, Alignment alignment, double? proportion)
@@ -517,12 +602,12 @@ public partial class MainViewViewModel : ObservableObject
                 var located = Locate(layout, toolsByKey[def.Key]);
                 states.Add(located is { } loc
                     ? new ToolLayoutState(def.Key, true, loc.Region, loc.Order, loc.Proportion)
-                    : def with { Open = false });
+                    : lastPlacements.GetValueOrDefault(def.Key, def) with { Open = false });
             }
 
             foreach (var key in deferredTools.Keys.Concat(toolsByKey.Keys.Where(k => k.StartsWith("addin:", StringComparison.Ordinal))).Distinct())
             {
-                var saved = deferredTools.GetValueOrDefault(key)
+                var saved = lastPlacements.GetValueOrDefault(key) ?? deferredTools.GetValueOrDefault(key)
                     ?? new ToolLayoutState(key, false, DockRegion.Right, int.MaxValue, null);
                 var located = toolsByKey.TryGetValue(key, out var tool) ? Locate(layout, tool) : null;
                 states.Add(located is { } loc
@@ -530,7 +615,14 @@ public partial class MainViewViewModel : ObservableObject
                     : toolsByKey.ContainsKey(key) ? saved with { Open = false } : saved);
             }
 
-            return new LayoutManifest(LayoutManifest.CurrentVersion, left, right, states);
+            leftProportion = left;
+            rightProportion = right;
+            foreach (var state in states)
+                lastPlacements[state.Key] = state;
+            return new LayoutManifest(LayoutManifest.CurrentVersion, left, right, states)
+            {
+                Topology = layout.DefaultDockable is { } tree ? CaptureTopology(tree) : null,
+            };
         }
 
         private (DockRegion Region, int Order, double? Proportion)? Locate(IRootDock layout, IDockable tool)
@@ -560,6 +652,20 @@ public partial class MainViewViewModel : ObservableObject
                     return (DockRegion.Right, ToolDockIndex(parent, td), prop);
                 if (ctx == nameof(MiddleDock))
                     return (DockRegion.Bottom, ToolDockIndex(parent, td), prop);
+            }
+
+            if (container is IToolDock splitTool)
+            {
+                IDockable branch = splitTool;
+                while (FindContainer(layout, branch) is { } ancestor && !ReferenceEquals(ancestor, layout.DefaultDockable))
+                    branch = ancestor;
+                var siblings = (layout.DefaultDockable as IDock)?.VisibleDockables;
+                var documentBranch = siblings?.FirstOrDefault(d => Find<IDocumentDock>(d, _ => true) != null);
+                if (siblings != null && documentBranch != null)
+                    return (ReferenceEquals(branch, documentBranch) ? DockRegion.Bottom
+                        : siblings.IndexOf(branch) < siblings.IndexOf(documentBranch) ? DockRegion.Left : DockRegion.Right,
+                        container.VisibleDockables!.IndexOf(tool),
+                        double.IsNaN(splitTool.Proportion) ? null : splitTool.Proportion);
             }
 
             Log.Debug("DockFactory: tool {Key} in an unrecognized dock; snapping to its default region", KeyOf(tool));
@@ -608,10 +714,25 @@ public partial class MainViewViewModel : ObservableObject
             if (tool is AddinToolWindowViewModel)
                 toolsByKey["addin:" + tool.Id] = tool;
             var key = KeyOf(tool);
-            var placement = key != null ? deferredTools.GetValueOrDefault(key) ?? Home.GetValueOrDefault(key) : null;
+            if (key != null && pendingToolDocks.Remove(key, out var pending) && FindContainer(layout, pending) != null)
+            {
+                pending.VisibleDockables ??= CreateList<IDockable>();
+                var group = pendingToolGroups[pending];
+                var tabOrder = group.Tools.ToList();
+                var index = pending.VisibleDockables.TakeWhile(t => tabOrder.IndexOf(KeyOf(t)!) < tabOrder.IndexOf(key)).Count();
+                pending.VisibleDockables.Insert(index, tool);
+                if (group.ActiveTool == key || pending.ActiveDockable == null)
+                    pending.ActiveDockable = tool;
+                if (!pendingToolDocks.Values.Contains(pending))
+                    pendingToolGroups.Remove(pending);
+                InitDockable(tool, pending);
+                LayoutChanged?.Invoke();
+                return;
+            }
+            var placement = key != null ? lastPlacements.GetValueOrDefault(key) ?? deferredTools.GetValueOrDefault(key) ?? Home.GetValueOrDefault(key) : null;
             var region = placement?.Region ?? (rightFallback ? DockRegion.Right : DockRegion.Bottom);
             var order = placement?.Order ?? int.MaxValue;
-            var proportion = key != null ? deferredTools.GetValueOrDefault(key)?.Proportion : null;
+            var proportion = placement?.Proportion;
 
             switch (region)
             {

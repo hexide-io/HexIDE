@@ -67,6 +67,145 @@ public class DockFactoryTests
     }
 
     [Theory]
+    [InlineData(Dock.Model.Core.Orientation.Horizontal, false, false)]
+    [InlineData(Dock.Model.Core.Orientation.Vertical, false, false)]
+    [InlineData(Dock.Model.Core.Orientation.Horizontal, true, false)]
+    [InlineData(Dock.Model.Core.Orientation.Vertical, true, false)]
+    [InlineData(Dock.Model.Core.Orientation.Horizontal, false, true)]
+    [InlineData(Dock.Model.Core.Orientation.Vertical, true, true)]
+    public void SplitDocks_RoundTripPreservesTopologyTabsAndProportions(Dock.Model.Core.Orientation orientation, bool nested, bool addin)
+    {
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        Dock.Model.Mvvm.Controls.Tool splitTool = immediate;
+        if (addin)
+        {
+            var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+            factory.RegisterAddinTool(root, tool);
+            ((Dock.Model.Controls.IToolDock)tool.Owner!).VisibleDockables!.Remove(tool);
+            splitTool = tool;
+        }
+        var main = (Dock.Model.Controls.IProportionalDock)root.DefaultDockable!;
+        var toolboxDock = (Dock.Model.Controls.IToolDock)main.VisibleDockables![0];
+        toolboxDock.Proportion = 0.35;
+        var right = (Dock.Model.Core.IDock)main.VisibleDockables![4];
+        var projectDock = (Dock.Model.Controls.IToolDock)right.VisibleDockables![0];
+        var project = projectDock.VisibleDockables![0];
+        projectDock.VisibleDockables.Remove(project);
+        toolboxDock.VisibleDockables!.Add(project);
+        toolboxDock.ActiveDockable = project;
+        var extra = factory.CreateToolDock();
+        extra.Alignment = Dock.Model.Core.Alignment.Left;
+        extra.Proportion = 0.65;
+        extra.VisibleDockables = factory.CreateList<Dock.Model.Core.IDockable>(splitTool);
+        extra.ActiveDockable = splitTool;
+        var split = new Dock.Model.Mvvm.Controls.ProportionalDock
+        {
+            Orientation = orientation,
+            Proportion = 0.28,
+            VisibleDockables = factory.CreateList<Dock.Model.Core.IDockable>(toolboxDock,
+                new Dock.Model.Mvvm.Controls.ProportionalDockSplitter(), extra),
+        };
+        if (nested)
+        {
+            extra.Proportion = 0.8;
+            split.VisibleDockables![2] = new Dock.Model.Mvvm.Controls.ProportionalDock
+            {
+                Orientation = orientation == Dock.Model.Core.Orientation.Horizontal
+                    ? Dock.Model.Core.Orientation.Vertical : Dock.Model.Core.Orientation.Horizontal,
+                Proportion = 0.65,
+                VisibleDockables = factory.CreateList<Dock.Model.Core.IDockable>(extra),
+            };
+        }
+        main.VisibleDockables[0] = split;
+        factory.InitLayout(root);
+        var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
+        var key = addin ? "addin:sample" : "immediate";
+        saved.Tools.Single(t => t.Key == key).Open.Should().BeTrue();
+        saved.Tools.Single(t => t.Key == key).Region.Should().Be(DockRegion.Left);
+
+        var (restoredFactory, restoredImmediate) = CreateFactory(saved);
+        var restoredRoot = restoredFactory.CreateLayout();
+        restoredFactory.InitLayout(restoredRoot);
+
+        Dock.Model.Mvvm.Controls.Tool restoredTool = restoredImmediate;
+        if (addin)
+        {
+            // A save before add-in registration must retain its slot too.
+            var pending = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(restoredFactory.CaptureManifest(restoredRoot)))!;
+            (restoredFactory, _) = CreateFactory(pending);
+            restoredRoot = restoredFactory.CreateLayout();
+            restoredFactory.InitLayout(restoredRoot);
+            var tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+            restoredFactory.RegisterAddinTool(restoredRoot, tool);
+            restoredTool = tool;
+        }
+        var restoredMain = (Dock.Model.Controls.IProportionalDock)restoredRoot.DefaultDockable!;
+        restoredMain.VisibleDockables![0].Should().BeAssignableTo<Dock.Model.Controls.IProportionalDock>();
+        var restoredSplit = (Dock.Model.Controls.IProportionalDock)restoredMain.VisibleDockables[0];
+        restoredSplit.Orientation.Should().Be(orientation);
+        restoredSplit.Proportion.Should().Be(0.28);
+        restoredSplit.VisibleDockables.Should().HaveCount(3);
+        restoredSplit.VisibleDockables![0].Proportion.Should().Be(0.35);
+        var restoredTabs = (Dock.Model.Controls.IToolDock)restoredSplit.VisibleDockables[0];
+        restoredTabs.VisibleDockables!.Select(restoredFactory.KeyOf).Should().Equal("toolbox", "project");
+        restoredFactory.KeyOf(restoredTabs.ActiveDockable!).Should().Be("project");
+        restoredSplit.VisibleDockables[1].Should().BeOfType<Dock.Model.Mvvm.Controls.ProportionalDockSplitter>();
+        restoredSplit.VisibleDockables[2].Proportion.Should().Be(0.65);
+        var restoredExtra = restoredSplit.VisibleDockables[2];
+        if (nested)
+        {
+            var inner = (Dock.Model.Controls.IProportionalDock)restoredExtra;
+            inner.Orientation.Should().NotBe(orientation);
+            restoredExtra = inner.VisibleDockables!.Single();
+            restoredExtra.Proportion.Should().Be(0.8);
+        }
+        restoredTool.Owner.Should().BeSameAs(restoredExtra);
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left, false, false)]
+    [InlineData(DockRegion.Left, true, false)]
+    [InlineData(DockRegion.Right, false, false)]
+    [InlineData(DockRegion.Right, true, false)]
+    [InlineData(DockRegion.Bottom, false, false)]
+    [InlineData(DockRegion.Bottom, true, false)]
+    [InlineData(DockRegion.Left, false, true)]
+    [InlineData(DockRegion.Right, false, true)]
+    [InlineData(DockRegion.Bottom, false, true)]
+    public void ClosedTool_RetainsResizedProportion(DockRegion region, bool restart, bool closeContainer)
+    {
+        var (factory, immediate) = CreateFactory(LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Select(t => t.Key == "immediate"
+                ? t with { Open = true, Region = region }
+                : t.Region == region ? t with { Open = false } : t).ToArray()
+        });
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var dock = (Dock.Model.Controls.IToolDock)immediate.Owner!;
+        dock.Proportion = 0.42;
+
+        factory.CloseDockable(closeContainer ? dock : immediate);
+        var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
+        saved.Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
+        if (restart)
+        {
+            (factory, immediate) = CreateFactory(saved);
+            root = factory.CreateLayout();
+            factory.InitLayout(root);
+        }
+
+        factory.PlaceTool(root, immediate, rightFallback: false);
+
+        var restored = factory.CaptureManifest(root).Tools.Single(t => t.Key == "immediate");
+        restored.Open.Should().BeTrue();
+        restored.Region.Should().Be(region);
+        restored.Proportion.Should().Be(0.42);
+    }
+
+    [Theory]
     [InlineData(DockRegion.Left)]
     [InlineData(DockRegion.Right)]
     [InlineData(DockRegion.Bottom)]

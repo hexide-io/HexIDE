@@ -39,9 +39,18 @@ they can read it.
 - **THEN** the Toolbox is open in the left region
 - **AND** closing and reopening it returns it to that region and records it as open for restart
 
+#### Scenario: Showing a closed tool again
+- **WHEN** a resized tool is closed and shown again, including after restarting the IDE
+- **THEN** its last recorded region and dock proportion are restored
+
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted
 - **THEN** the same arrangement is restored
+
+#### Scenario: Reopening split docks
+- **WHEN** tool docks are arranged side by side or stacked, including nested splits, and the IDE restarts
+- **THEN** their split orientations, proportions, tab groups and active tool tabs are restored
+- **AND** older manifests without a split tree still restore through their recorded regions
 
 ### Requirement: Restoration SHALL degrade to a usable layout
 Where recorded state cannot be applied — because it is missing, unreadable, or describes an arrangement that
