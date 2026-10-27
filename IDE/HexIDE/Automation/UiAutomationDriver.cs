@@ -113,6 +113,9 @@ public static class UiAutomationDriver
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
         else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
+        // Neither of those, so an empty list read as "nothing is selected" whatever the tree held (#2288).
+        else if (control is TreeView tree)
+            selection = Safe(() => TreeSelectedNames(tree).ToArray(), []);
 
         string? value = peer.GetProvider<IValueProvider>() is { } vp ? Safe<string?>(() => vp.Value, null) : null;
         // A dropdown's peer names its selection, and gives its value, by the item's ToString, which for a view model with
@@ -836,10 +839,7 @@ public static class UiAutomationDriver
             if (selected) tree.SelectedItems?.Remove(data);
             if (tree.SelectedItems?.Contains(data) == true)
                 return Err($"remove_from_selection did not clear '{LabelOf(control, peer)}'; try click with value 'ctrl'");
-            var names = tree.SelectedItems?.Cast<object>().Select(x =>
-                tree.GetVisualDescendants().OfType<TreeViewItem>()
-                    .FirstOrDefault(candidate => ReferenceEquals(tree.TreeItemFromContainer(candidate), x)) is { } row
-                    ? LabelOf(row) : NameWithoutRow(x, 0)).ToList() ?? [];
+            var names = TreeSelectedNames(tree);
             var summary = names.Count == 0 ? "nothing is selected now"
                 : $"{names.Count} item{(names.Count == 1 ? " is" : "s are")} selected now: {string.Join(", ", names)}";
             var treeChange = selected ? $"removed '{LabelOf(control, peer)}' from the selection"
@@ -875,6 +875,16 @@ public static class UiAutomationDriver
     /// where its row does not exist. Read from the list itself: a ListBox's or TabControl's peer offers no selection
     /// provider, so inspect_element reported nothing selected on every one of them (#1263).
     /// </summary>
+    /// <summary>
+    /// What a tree has selected, each named as its row reads, or as its item does when the row is not realised. A TreeView
+    /// is no SelectingItemsControl and its peer offers no selection provider, so nothing else reads it (#2288).
+    /// </summary>
+    private static List<string> TreeSelectedNames(TreeView tree) =>
+        tree.SelectedItems?.Cast<object>().Select(x =>
+            tree.GetVisualDescendants().OfType<TreeViewItem>()
+                .FirstOrDefault(candidate => ReferenceEquals(tree.TreeItemFromContainer(candidate), x)) is { } row
+                ? LabelOf(row) : NameWithoutRow(x, 0)).ToList() ?? [];
+
     private static List<string> SelectedNames(SelectingItemsControl owner, bool primaryFirst = false) =>
         [.. (owner is ListBox list ? list.Selection.SelectedIndexes : owner.SelectedIndex >= 0 ? [owner.SelectedIndex] : [])
             .OrderBy(i => primaryFirst && i == owner.SelectedIndex ? 0 : 1)
