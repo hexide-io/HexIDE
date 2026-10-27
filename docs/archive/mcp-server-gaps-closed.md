@@ -5246,6 +5246,12 @@ and report an `itemCount` for a list or dropdown, which counts its items whether
 > rows. Guarded by `InspectItemCountTests` (a ComboBox closed and open, a ListBox, a TabControl, a menu and a button) and
 > `InspectElementDescriptionTests`.
 
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1287 said it was checked live without saying how, so it was checked again. A project
+> with Form1 and a module holding `Sub Main`, in Project ▸ Properties: `inspect_element` on the Startup Object
+> dropdown, `Window/Custom/Tab/ComboBox[#1]`, closed, gave `"selectionItems":["Form1"],"value":"Form1","itemCount":2`.
+> On the dialog's tab control, `Window/Custom/Tab`, it gave `"selectionItems":["General"]` and `"itemCount":5`.
+
 ## `get_bookmarks` did not say its lines count from 1 (#1261)
 
 **Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
@@ -5302,6 +5308,13 @@ dialog.
 > own, or "in a window of its own". It records the dialog as named, so the reply's note of open dialogs does not name it
 > a second time. `type_text`'s `mode` description says so. Guarded by `TypeKeysTests`.
 
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1291 said it was checked live without saying how, so it was checked again, with Form1
+> running and the caret on a blank line of its code. `type_text {"text":"abcdef","mode":"keyboard"}` into the code
+> window answered `key 1 of 6 was sent to TextEditor and raised 'HexIDE' (a message box: "This action will reset your
+> project, proceed anyway?", OK/Cancel) over the window; that key may not have landed. Nothing after it was sent.`
+> The IDE had the focus, so the prompt opened over its own window. Cancel left the line blank.
+
 ## `invoke` on a running form's menu item read the tick before the program's Click ran (#1255)
 
 `interact invoke` on a menu item adds "(now ticked)" or "(now unticked)" when the tick moved, read straight after
@@ -5321,6 +5334,13 @@ the tick moved, so a reply with none read as "it did not move".
 > Exit would run. It says the program sets the tick in the item's Click, and where to read it. Guarded by
 > `ProgramWaitTests`, with handlers that tick, untick, do both and do neither, and the click alone on an item whose Click
 > ticks it at once.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1289 said it was checked live without saying how, so it was checked again, on a running
+> form whose Game menu holds a control array, Beginner (ticked), Intermediate and Expert, and whose Click ticks the one
+> clicked. After `expand` on `Window/Menu/MenuItem[mnuGame]`, `invoke` on `…/MenuItem[mnuLevel(1)]` answered `invoked
+> MenuItem 'Intermediate' and closed the menu, as a click does; the program ticked 'Intermediate' and unticked
+> 'Beginner'`. `inspect_element` then gave Intermediate `"toggleState":true` and Beginner `"toggleState":false`.
 
 ## An action that started a DoEvents loop was replied to at its first DoEvents, with no note (#1254)
 
@@ -5342,6 +5362,12 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > replies at once. The wait note in the `interact`, `type_text` and `press_key` descriptions says a loop running before
 > the action, or a Timer's, is not waited for. Guarded by `ProgramWaitTests`, with no time slice so that `DoEvents` is
 > the loop's only yield.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1294 said it was checked live without saying how, so it was checked again, on a running
+> form whose Command1_Click counts Text1 from 1 to 200 with a `DoEvents` each pass, then sets it to "done". `interact
+> {"target":"Window/Button[Command1]","action":"invoke","window":"Form1"}` answered `invoked Button 'Loop'`, with no
+> note, and `inspect_element` on `Window/Edit[Text1]` straight after gave `"value":"done"`.
 
 ## `select` and `type_text` applied #1069's not-showing rule unevenly (#1256)
 
@@ -5366,6 +5392,13 @@ Three paths still acted on, or gave advice from, rows and template parts that do
 >   select its item.
 >
 > Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1293 said it was checked live without saying how, so it was checked again, with Form1
+> selected in the designer. `type_text {"text":"x"}` on the Properties window's
+> `…/Tab[TabProperties]/List[AlphabeticProperties]` answered `'ListBox[AlphabeticProperties]' holds 10 text boxes that
+> show, so which one to type into is not clear; nothing was typed. Address the one you mean: …`, naming each, and the
+> form kept its name. Keyboard `type_text` into the Immediate window still typed: `typed 5 key(s) into TextEditor`.
 
 ## inspect_element named a templated dropdown's selection by its view model's type (#1288)
 
