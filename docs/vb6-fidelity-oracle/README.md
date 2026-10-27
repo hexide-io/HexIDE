@@ -665,3 +665,4 @@ added afterwards.
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
 - [In-box controls: the RichTextBox (2026-10-27, #1100)](in-box-controls-the-richtextbox.md#in-box-controls-the-richtextbox-2026-10-27-1100)
 - [In-box controls: the TabStrip (2026-10-27, #1089)](in-box-controls-the-tabstrip.md#in-box-controls-the-tabstrip-2026-10-27-1089)
+- [In-box classes: a bare name binds to the first library (2026-10-27, #2265)](in-box-classes-a-bare-name-binds-to-the-first-library.md#in-box-classes-a-bare-name-binds-to-the-first-library-2026-10-27-2265)
