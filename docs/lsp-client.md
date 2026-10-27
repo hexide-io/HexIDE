@@ -1229,6 +1229,24 @@ The second, `rdcore`, projects the project's code files, references and Conditio
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
 #456; there is no public add-in contract (#457), no undeclared generation,
 no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
+### Project imports
+
+The loader recognises a server-neutral `projectImport` command and JSON argument array (#2363).
+Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
+After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
+that command with each project's saved URI and in-memory `.vbp` serialization. Importing entries skip
+artefact generation. The server must advertise the command; errors become configuration problems and
+reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
+Successful imports invalidate and re-pull open-document diagnostics until
+the connection first requests `workspace/diagnostic/refresh`, after which server refreshes take over
+for that connection alone. The client declares `workspace.diagnostics.refreshSupport: true` in
+`initialize`, so servers can request that refresh.
+Automatic transport reconnect currently replays documents but does not re-import until the next
+project change; immediate imports cover registry startup and workspace-root replacement.
+Projects without a saved path are reported rather than assigned an invented project URI. Folder updates
+and their ordering are #2364; #2248 file-operation routing is absent on this branch.
+See [configuration](language-servers.md#project-import-declarations).
+
 ### Semantic colours
 
 The client declares standard token types and modifiers, relative encoding, full requests only, and no

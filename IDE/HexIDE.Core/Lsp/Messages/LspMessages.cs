@@ -281,7 +281,11 @@ public record WorkspaceClientCapabilities(
     /// same trap as <c>save</c> and <c>codeLens</c> above, where declaring and using are two halves of one
     /// negotiation and shipping either alone produces silence rather than an error.
     /// </remarks>
-    [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null);
+    [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null,
+    [property: JsonPropertyName("diagnostics")] WorkspaceDiagnosticsClientCapabilities? Diagnostics = null);
+
+public record WorkspaceDiagnosticsClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 /// <summary>One folder of a multi-root workspace, as the protocol spells it.</summary>
 public record WorkspaceFolder(
