@@ -38,7 +38,7 @@ abandoned draw places a 2 by 2 control, `Add: Command1`.
 - With the Command tool on, `interact click` on `…/None[NewControlSpawner]` with `"20,20 to 100,60 hold"` replied that
   the left button was still held and that the canvas had the pointer capture, with a `heldButton` note. `inspect_element`
   on `…/None[NewControlSpawnerPhantom]` then had no `isHidden` and a `boundingRect` 80 by 40, and `take_snapshot` showed
-  the dotted preview on the form.
+  the preview, a solid 2-pixel outline, on the form.
 - `get_project_info` carried the same `heldButton`. `click "5,5"` and `hover` were refused, naming the held button.
 - `release` with `"140,90"` replied as an unheld drag does, released at (140, 90), with no `heldButton` after it.
 - Holding `…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]` with `"4,4 to 44,34 hold"` grew Command1
