@@ -212,7 +212,7 @@ unthemed tab control.
 
 ### The designer: a control drawn on a TabStrip is not its child
 
-The supervisor's question, answered on VB6's IDE rather than from memory:
+Whether a TabStrip takes the controls drawn on it, answered on VB6's IDE rather than from memory:
 - **The steps:**
   1. A form holding TabStrip1 at 120, 120 was opened in the IDE.
   2. A CommandButton was drawn with the toolbox on TabStrip1's client area.
