@@ -243,6 +243,62 @@ Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
 - **BackColor** fills the box.
 - **Appearance and BorderStyle are read-only at run time:** setting Appearance was 383.
 
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
+  `corpus/inbox-controls/pending/richtextbox/`.
+  - RichTextBox1 had every property off its default, its lines in reverse order, and an inline
+    `TextRTF = "{\rtf1\ansi{\fonttbl{\f0 Arial;}}\f0\fs20 Hello \b bold\b0\par second line}"`.
+  - RichTextBox2 had only its position, extents and `_Version`.
+  - A third box was double-clicked from the toolbox first.
+  - A second pass also set RichTextBox1's Locked to True in the Properties window before saving.
+- **The read:** the hand-written form and both saves were read back at run time, natively and as p-code. Each pair
+  logged the same lines.
+
+**Locked is saved as `ReadOnly`.** The `Locked = -1` written by hand was ignored: the Properties window showed False,
+the save left it out, and the program read False. Set in the Properties window, it was saved as `ReadOnly = -1 'True`,
+and the program read Locked True.
+
+**The order VB6 writes the lines in,** whatever order it reads them in: the extender's, the extents and `_Version`,
+then
+
+```
+BackColor, BorderStyle, Enabled, HideSelection, MultiLine, ReadOnly, ScrollBars, MousePointer,
+DisableNoScroll, MaxLength, BulletIndent, Appearance, RightMargin, AutoVerbMenu, OLEDragMode,
+OLEDropMode, TextRTF, the Font block
+```
+
+- **Enabled and TextRTF are always written,** Enabled even at its default, True. The rest are written only when off
+  their defaults. There is no `Text` line.
+- **TextRTF goes to the `.frx`,** as `TextRTF = $"Form1.frx":0101`. The `$` marks a string held there. Each entry is a
+  4-byte little-endian length and then the RTF's bytes, with no terminator.
+- **A TextRTF written inline,** as a quoted string, was read. VB6 moved it to the `.frx` when it saved.
+- **The minimal block was given the empty control's RTF** in the `.frx`, `\ansicpg1252\deff0\deflang1033` shape.
+- **A double-clicked box holds its own name as its text,** as a TextBox does:
+
+  ```
+     Begin RichTextLib.RichTextBox RichTextBox3 
+        Height          =   750
+        Left            =   4050
+        TabIndex        =   2
+        Top             =   3225
+        Width           =   1500
+        _ExtentX        =   2646
+        _ExtentY        =   1323
+        _Version        =   393217
+        Enabled         =   -1  'True
+        TextRTF         =   $"Form1.frx":0000
+     End
+  ```
+
+  Its RTF is a third shape, `{\rtf1\ansi\ansicpg1252\deff0{\fonttbl...}` with `\lang1033` after `\pard`.
+- **With MultiLine False only the first paragraph is kept.**
+  - The `second line` of the RTF written by hand was lost at load, in the IDE and in the program, and VB6's `.frx`
+    no longer has it.
+  - At run time, `Text = "set" & vbCrLf & "by code"` read back `set`.
+- **The extents are recomputed** from Width and Height: `_ExtentX` 7761, written by hand, was saved as 7752.
+
 ### In HexIDE
 
 HexIDE doesn't model the RichTextBox (#1100). The designer draws it as an empty box (#157), and running a form that
