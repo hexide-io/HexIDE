@@ -4742,10 +4742,16 @@ public static class UiAutomationDriver
         {
             Button b => b.Flyout,
             SplitButton sb => sb.Flyout,
-            _ => FlyoutBase.GetAttachedFlyout(c),
+            _ => null,
         };
         if (primary is not null) yield return primary;
-        if (c.ContextFlyout is { } context && !ReferenceEquals(context, primary)) yield return context;
+        // Any control can carry an attached flyout, a Button too: a running Toolbar's dropdown is a MenuFlyout attached to
+        // its button and shown with ShowAt, and read only for controls other than buttons it was in neither the dump nor
+        // the snapshot, though open (#2323).
+        var attached = FlyoutBase.GetAttachedFlyout(c);
+        if (attached is not null && !ReferenceEquals(attached, primary)) yield return attached;
+        if (c.ContextFlyout is { } context && !ReferenceEquals(context, primary) && !ReferenceEquals(context, attached))
+            yield return context;
     }
 
     // All Control descendants at any depth (for the #AutomationId shortcut). Crosses into open popups
