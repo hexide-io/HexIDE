@@ -18,8 +18,7 @@ internal sealed partial class VBTreeView
 
         void DrawNode(TreeNode node, int depth)
         {
-            // Layout sizes are rendering choices, not pinned VB6 pixel metrics.
-            const double height = 20;
+            const double height = RowHeight;
             var step = indentation * 96 / 2540;
             var x = (depth + 1) * step;
             var y = row++ * height;

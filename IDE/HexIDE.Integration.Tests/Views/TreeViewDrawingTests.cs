@@ -29,6 +29,24 @@ public class TreeViewDrawingTests
     }
 
     [AvaloniaFact]
+    public void Rows_start_at_the_top_and_are_sixteen_pixels_high()
+    {
+        var tree = new VBTreeView();
+        tree.TrySetProperty("Style", new Vb6Value(0));
+        tree.TrySetProperty("HideSelection", new Vb6Value(false));
+        var first = tree.Nodes.Add(text: "first");
+        var second = tree.Nodes.Add(text: "second");
+        tree.Nodes.SelectedItem = first;
+        var firstHighlight = Draw(tree).OfType<GeometryDrawing>().Last().GetBounds();
+        firstHighlight.Top.Should().Be(0);
+        firstHighlight.Height.Should().Be(16);
+        tree.Nodes.SelectedItem = second;
+        var secondHighlight = Draw(tree).OfType<GeometryDrawing>().Last().GetBounds();
+        secondHighlight.Top.Should().Be(16);
+        secondHighlight.Height.Should().Be(16);
+    }
+
+    [AvaloniaFact]
     public void Visible_labels_follow_expansion_and_model_changes()
     {
         var tree = new VBTreeView();

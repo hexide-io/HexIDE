@@ -1528,6 +1528,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
+        {
+            if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
+            return new Vb6Value(capacityTree.GetVisibleCount());
+        }
+
         if (variable.Value is VBTreeView treeView && MemberName(member).Equals("Nodes", StringComparison.OrdinalIgnoreCase)
             && MemberArgs(member) is { } nodeIndexes)
             return treeView.Nodes.Default(await EvaluateCallArgs(nodeIndexes));

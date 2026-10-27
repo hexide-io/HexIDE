@@ -7,7 +7,11 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
 {
+    private const double RowHeight = 16;
+
     internal TreeNodes Nodes { get; }
+
+    internal long GetVisibleCount() => (long)(Bounds.Height / RowHeight);
 
     public VBTreeView()
     {

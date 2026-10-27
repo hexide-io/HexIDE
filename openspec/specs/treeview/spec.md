@@ -11,12 +11,19 @@ Describe the runtime drawing, input and native file persistence of MSComctlLib.T
 
 The control SHALL draw visible nodes in sibling order, descending into expanded nodes, with
 Indentation controlling each hierarchy level. Text SHALL reflect node Text and Bold. Model changes
-SHALL invalidate the drawing.
+SHALL invalidate the drawing. Rows SHALL start at the top and be 16 pixels high at 96 dpi,
+with pointer hit-testing using the same row height. GetVisibleCount SHALL return the capacity
+in complete rows as a Long, independently of the number of nodes.
 
 #### Scenario: Expand and mutate a tree from code
 
 - **WHEN** code adds, removes, renames, sorts, moves or expands nodes
 - **THEN** the next drawing reflects the current hierarchy and visible labels
+
+#### Scenario: Capacity of the oracle control
+
+- **WHEN** GetVisibleCount is read on the oracle's 3000-twip-high control
+- **THEN** it returns 12 as a Long, including when there are no nodes
 
 ### Requirement: Choose decorations from the control state
 
@@ -24,7 +31,7 @@ The control SHALL draw lines for Styles 4–7 and expansion buttons for Styles 2
 Root decorations SHALL appear only with LineStyle 1. Checkboxes SHALL draw a box for every
 visible node and show its Checked state. Selection SHALL highlight the label, with HideSelection
 suppressing the highlight when unfocused and an unfocused visible selection using grey.
-No exact pixel metrics are specified.
+Other pixel metrics are not specified.
 
 #### Scenario: Text-only tree
 

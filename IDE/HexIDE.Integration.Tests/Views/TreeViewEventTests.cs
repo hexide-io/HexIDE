@@ -28,6 +28,32 @@ public class TreeViewEventTests
     private static string[] Names(ContainerRuntimeHarness.RecordingRoot root) =>
         root.Calls.Select(c => c.Name.Replace("TreeView1_", "")).ToArray();
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Second_row_hit_testing_uses_sixteen_pixel_rows(bool button)
+    {
+        var (tree, root, window) = Create();
+        try
+        {
+            var first = tree.Nodes.Add(text: "first");
+            var second = tree.Nodes.Add(text: "second");
+            tree.Nodes.Add(second, 4, text: "child");
+            tree.Nodes.SelectedItem = first;
+            tree.TrySetProperty("LineStyle", new Vb6Value(1));
+            var point = tree.TranslatePoint(new Point(button ? 19 : 42, button ? 24 : 17), window)!.Value;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            if (button)
+            {
+                second.Expanded.Should().BeTrue();
+                tree.Nodes.SelectedItem.Should().BeSameAs(first);
+            }
+            else tree.Nodes.SelectedItem.Should().BeSameAs(second);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Code_expansion_and_ensure_visible_raise_only_expansion_events()
     {

@@ -73,7 +73,7 @@ internal sealed partial class VBTreeView
         Focus();
         e.Pointer.Capture(this);
         var secondPress = e.ClickCount % 2 == 0;
-        var row = (int)(point.Position.Y / 20);
+        var row = (int)(point.Position.Y / RowHeight);
         if (row < 0 || point.Position.Y < 0) return;
         var rows = VisibleNodes().ToArray();
         if (row >= rows.Length) return;
@@ -83,7 +83,7 @@ internal sealed partial class VBTreeView
         var button = x - step / 2;
         var left = point.Properties.IsLeftButtonPressed;
         if (left && (depth > 0 || lineStyle == 1) && (style & 2) != 0 && node.ChildNodes.Count > 0
-            && Math.Abs(point.Position.X - button) <= 4 && Math.Abs(point.Position.Y - (row * 20 + 10)) <= 4)
+            && Math.Abs(point.Position.X - button) <= 4 && Math.Abs(point.Position.Y - ((row + 0.5) * RowHeight)) <= 4)
         {
             node.Expanded = !node.Expanded;
             return;

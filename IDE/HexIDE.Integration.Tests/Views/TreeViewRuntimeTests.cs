@@ -38,6 +38,22 @@ public class TreeViewRuntimeTests
     }
 
     [AvaloniaFact]
+    public async Task Visible_count_is_twelve_long_rows_for_the_oracle_control_even_when_empty()
+    {
+        var (_, window, ctx, env) = ContainerRuntimeHarness.Laid(Form.Replace("Height = 1500", "Height = 3000"));
+        try
+        {
+            var printed = await ContainerRuntimeHarness.Run(ctx, env, """
+                Debug.Print TreeView1.GetVisibleCount, TypeName(TreeView1.GetVisibleCount)
+                TreeView1.Nodes.Add , , , "root"
+                Debug.Print TreeView1.GetVisibleCount()
+                """);
+            printed.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture)).Should().Equal("12", "Long", "12");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task A_form_can_build_and_walk_its_tree()
     {
         var printed = await Run("""
