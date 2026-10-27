@@ -326,16 +326,21 @@
                                             </ItemsPanelTemplate>
                                         </controls:ControlsContainer.ItemsPanel>
                                     </controls:ControlsContainer>
+                                    <!-- The ids put the draw preview and the rubber band in dump_visual_tree, which folds away an
+                                         unnamed wrapper, so a caller can read their bounds while a drag is held (#2231). -->
                                     <Canvas Name="NewControlSpawner"
+                                            AutomationProperties.AutomationId="NewControlSpawner"
                                             Background="Transparent"
                                             IsVisible="{CompiledBinding !ToolsBoxToolViewModel.IsCursorSelected}">
                                         <Border Name="NewControlSpawnerPhantom"
+                                                AutomationProperties.AutomationId="NewControlSpawnerPhantom"
                                                 BorderBrush="{DynamicResource ControlSpawnerPhantomBrush}"
                                                 IsVisible="False"
                                                 BorderThickness="2" />
                                     </Canvas>
                                     <Canvas x:Name="RubberBandCanvas" IsHitTestVisible="False">
                                         <Border x:Name="RubberBandRect"
+                                                AutomationProperties.AutomationId="RubberBandRect"
                                                 IsVisible="False"
                                                 BorderBrush="{DynamicResource SelectionAdornerBrush}"
                                                 Background="{DynamicResource RubberBandFillBrush}"
