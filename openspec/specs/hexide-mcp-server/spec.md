@@ -914,6 +914,19 @@ Categorized Properties rows SHALL expose an expand/collapse provider driven by t
 - **AND** repeating the action succeeds without toggling the state
 - **AND** inspection reports the current expansion state, including after using the category toggle
 
+### Requirement: A key pressed with modifiers SHALL press each modifier's own key around it
+`press_key` with modifiers, and `type_text` in keyboard mode typing a capital, SHALL send each modifier's own key
+down before the key and up after it, in reverse, as a person's chord does. Each event SHALL carry the modifiers held
+at that moment, so a modifier key's own down reports itself held and its up does not. The reply SHALL name them.
+
+#### Scenario: Shift+K on a running TextBox
+- **WHEN** `press_key` presses K with Shift on a TextBox that logs its key events
+- **THEN** they run KeyDown 16 with mask 1, KeyDown 75 with mask 1, KeyUp 75 with mask 1, KeyUp 16 with mask 0
+
+#### Scenario: A capital typed as keys
+- **WHEN** `type_text` types K in keyboard mode
+- **THEN** Shift's own KeyDown comes before K's and its KeyUp after K's, and the reply says so
+
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
 as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
