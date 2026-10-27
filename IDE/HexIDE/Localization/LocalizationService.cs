@@ -39,6 +39,13 @@ public sealed class LocalizationService : ILocalizationService
 
     public string ActiveLanguage { get; private set; } = "system";
 
+    public string ResolvedLanguage => ActiveLanguage switch
+    {
+        "system" => ResolveOsLanguage(),
+        "pseudo" or "pseudo-rtl" => "en",
+        _ => ActiveLanguage,
+    };
+
     // "System default" (follows the OS each launch) + the file-backed packs. The two synthetic
     // pseudo-localization locales are DEVELOPER-ONLY (appended in the ctor) so end users never see them.
     public IReadOnlyList<LanguageInfo> AvailableLanguages { get; }

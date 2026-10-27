@@ -930,6 +930,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return await ForEachItem(context, varName, (out Vb6Value item) => items.TryNext(cursor, out item),
                 () => items.EndEnumeration(cursor));
         }
+        if (collection.Value is ImageListImages images)
+        {
+            var iterator = images.Values.GetEnumerator();
+            return await ForEachItem(context, varName, (out Vb6Value item) =>
+            {
+                var next = iterator.MoveNext();
+                item = next ? iterator.Current : default;
+                return next;
+            }, iterator.Dispose);
+        }
         if (collection.Value is FormControls controls)
         {
             var cursor = controls.StartEnumeration();
@@ -3210,6 +3220,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage)
+            {
+                var imageMembers = membersCall.iCS_S_MemberCall();
+                var receiver = await expressionExecutor.ResolveMemberChain(target, imageMembers[..^1], 0, context);
+                if (receiver.Value is ICSharpPropertyBag bag && bag.TrySetProperty(UdtFieldName(imageMembers[^1]), value))
+                    return default;
+                throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             if (membersCall.iCS_S_MemberCall().Length != 1)
