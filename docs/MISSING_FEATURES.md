@@ -215,7 +215,7 @@
 | Properties | Done | Opens/focuses tool window |
 | Form Layout | Done | Opens Form Layout tool window with live form position thumbnail |
 | Object Browser | Partial | Opens Object Browser document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24) |
-| ToolBox | Done | |
+| ToolBox | Done | Remains open after restart when a far-left dock drop nests its dock; live tools in unrecognized arrangements restore in their home region (#2239) |
 | Data View | Stub | Button present; no Data View window |
 | Position display (twips) | Done | Shows selected component position |
 | Size display (twips) | Done | Shows selected component size |

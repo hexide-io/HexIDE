@@ -1,5 +1,7 @@
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Dock.Model.Core;
+using Dock.Model.Mvvm.Controls;
 using HexIDE;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -161,5 +163,43 @@ public class DockFactoryTests
         factory.CloseDockable(immediate);
 
         factory.CaptureManifest(root).Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CaptureManifest_LiveToolInUnrecognizedDock_RestoresOpenInHomeRegion(bool nested)
+    {
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        if (nested)
+        {
+            // A far-left drop wraps the previous main dock in another proportional dock.
+            var main = root.DefaultDockable!;
+            var wrapper = new ProportionalDock { VisibleDockables = factory.CreateList(main) };
+            root.VisibleDockables = factory.CreateList<IDockable>(wrapper);
+            root.DefaultDockable = wrapper;
+            main.Owner = wrapper;
+            wrapper.Owner = root;
+        }
+        else
+        {
+            var main = (IDock)root.DefaultDockable!;
+            var dock = new ToolDock { VisibleDockables = factory.CreateList<IDockable>(immediate) };
+            main.VisibleDockables!.Add(dock);
+            dock.Owner = main;
+            immediate.Owner = dock;
+        }
+
+        var key = nested ? "toolbox" : "immediate";
+        var home = LayoutManifest.Default.Tools.Single(t => t.Key == key);
+        var manifest = factory.CaptureManifest(root);
+        manifest.Tools.Single(t => t.Key == key).Should().Be(home with { Open = true });
+
+        var (restoredFactory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(manifest)));
+        var restoredRoot = restoredFactory.CreateLayout();
+        restoredFactory.InitLayout(restoredRoot);
+        restoredFactory.CaptureManifest(restoredRoot).Tools.Single(t => t.Key == key).Open.Should().BeTrue();
     }
 }

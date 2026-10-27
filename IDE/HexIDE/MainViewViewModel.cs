@@ -533,7 +533,9 @@ public partial class MainViewViewModel : ObservableObject
             }
 
             Log.Debug("DockFactory: tool {Key} in an unrecognized dock; snapping to its default region", KeyOf(tool));
-            return null;
+            return KeyOf(tool) is { } key && Home.TryGetValue(key, out var home)
+                ? (home.Region, home.Order, home.Proportion)
+                : null;
         }
 
         // The IDock that directly contains 'target' in the live tree, or null if not present.

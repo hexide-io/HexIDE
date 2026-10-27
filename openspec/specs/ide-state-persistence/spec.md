@@ -43,6 +43,11 @@ they can read it.
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted
 - **THEN** the same arrangement is restored
 
+#### Scenario: A live tool in an unrecognized dock arrangement
+- **WHEN** a tool is still in the live layout tree but its dock cannot be mapped to a persisted region
+- **THEN** it SHALL be recorded as open in its home region
+- **AND** a tool absent from the live tree is still recorded as closed, even if its owner reference remains
+
 ### Requirement: Restoration SHALL degrade to a usable layout
 Where recorded state cannot be applied — because it is missing, unreadable, or describes an arrangement that
 no longer makes sense — the IDE SHALL fall back to its default layout and start normally.
