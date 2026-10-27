@@ -14,6 +14,16 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Click and invoke SHALL refuse disabled targets with the reason
+`interact` SHALL refuse `click` and `invoke` before sending input to a disabled target or a target in a
+disabled window. When a modal dialog blocks that window, the refusal SHALL identify the dialog and tell
+the caller how to find and answer it first. Otherwise it SHALL say the target must be enabled first.
+
+#### Scenario: A reset prompt disables the running form
+- **WHEN** a caller clicks or invokes a button in the form while a modal reset prompt disables it
+- **THEN** nothing is pressed or invoked
+- **AND** the refusal names the blocking dialog and directs the caller to answer it, rather than blaming coordinates
+
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
 and target, describe the dialog and where it opened, warn that the key may not have landed, and state
