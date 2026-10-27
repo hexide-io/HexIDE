@@ -1209,7 +1209,9 @@ all three would be confidently wrong two-thirds of the time.
 Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
 The client prepares it before launching the server, once per workspace project, behind the
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
-per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
+The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
+task before checking the generated file and provider call count.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in
