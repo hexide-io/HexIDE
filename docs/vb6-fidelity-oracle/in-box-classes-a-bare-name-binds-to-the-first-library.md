@@ -58,8 +58,31 @@ ProgressBar1 from MSComctlLib, ListView2 and ProgressBar2 from ComctlLib.
 - **Nothing failed to compile:** VB6 gave no "Ambiguous name" for a bare name both libraries declare. `TypeName` was
   ListView for both ListViews.
 
-**Not measured:** where a `Reference=` library declaring the same name would rank against these `Object=` lines, and
-whether the References dialog shows these two in the `.vbp`'s order.
+### A `Reference=` library against an `Object=` one
+
+Four more projects, native and p-code alike:
+- **Two set the form's controls from MSCOMCTL.OCX.** The `.vbp` had its `Object=` line and a `Reference=` to COMCTL32.OCX's
+  type library, with no control from it.
+- **Two did the reverse.**
+- Each pair had the two lines in both orders.
+
+| First of the two lines in the `.vbp` | Second | A bare `ListView`, `ListItem` and `ProgressBar` are |
+|---|---|---|
+| `Object=` MSCOMCTL.OCX | `Reference=` COMCTL32.OCX | **MSComctlLib's**: the controls fit |
+| `Reference=` COMCTL32.OCX | `Object=` MSCOMCTL.OCX | **ComctlLib's**: the form's own ListView is **13** in a bare `ListView` |
+| `Object=` COMCTL32.OCX | `Reference=` MSCOMCTL.OCX | **ComctlLib's**: the controls fit |
+| `Reference=` MSCOMCTL.OCX | `Object=` COMCTL32.OCX | **MSComctlLib's**: 13 again |
+
+- **A `Reference=` line ranks exactly as an `Object=` line does: by its place in the `.vbp`.** The two kinds form one list,
+  and the first library declaring the name wins.
+- **The form's own controls get no priority.** With the reference first, `TypeOf ListView1 Is ListView` was False for
+  the form's own ListView, and assigning it to a bare `ListView` was 13 "Type mismatch".
+- **VB6 writes every `Reference=` line before every `Object=` line.** All 16 projects VB6 saved in
+  `corpus/inbox-controls/pending/` that have both kinds do this. So in a project VB6 has saved, a referenced type library
+  outranks every component for a bare name.
+- **Not measured:** whether VB6 reorders a hand-written project, with an `Object=` line first, when it saves it.
+
+**Not measured:** whether the References dialog shows the libraries in the `.vbp`'s order.
 
 ### In HexIDE
 
