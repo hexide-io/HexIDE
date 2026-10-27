@@ -197,17 +197,6 @@ Its issue, #815, is closed, and no HexIDE issue is open for what remains, which 
 
 ---
 
-## 7. `hover`'s move through the window's input is measured headless only (narrowed 2026-10-21)
-
-`hover` now sends its move through the window's own input, so a declared `ToolTip.Tip` opens, as
-`HoverThroughWindowInputTests` shows headless (#1265; the closed gap, with the measurements of the old route, is in the
-archive). Not yet run against the IDE: that a toolbar button reports `tip: Add Form`, where the tip is placed now that
-the move updates the pointer position Avalonia tracks, that quick info and Auto Data Tips still open on Windows and
-Linux, and that a real mouse behaves normally after a hover ends.
-[#1303](https://github.com/hexide-io/HexIDE/issues/1303).
-
----
-
 ## 10. A crashed IDE is indistinguishable from a slow tool call (narrowed 2026-09-22)
 
 > **Narrowed by #643.** An exception nothing caught is now written to the IDE log with its stack, and the log
@@ -749,3 +738,11 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
   `isReadOnly` for the value pattern.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
+
+## Properties category rows refused expand/collapse (#1967 — fixed)
+
+**Symptom.** With Categorized Properties showing, `interact {"target":"…/List[CategorizedProperties]/Pane[PART_ScrollViewer]/ListItem[Appearance]","action":"collapse","window":"ide"}` refused with `element does not support 'collapse'`.
+
+**Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
+
+**Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.

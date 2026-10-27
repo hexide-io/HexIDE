@@ -116,12 +116,14 @@ internal static class ToolSource
     /// <summary>
     /// A field as the wire spells it: its <c>JsonPropertyName</c> if it has one, otherwise the name as
     /// System.Text.Json's camel case writes it, which lower-cases a whole leading acronym (<c>VBTypeName</c> is
-    /// <c>vbTypeName</c>, not <c>vBTypeName</c>). A <c>JsonIgnore</c>d property is not on the wire at all.
+    /// <c>vbTypeName</c>, not <c>vBTypeName</c>). A <c>JsonIgnore</c>d property is not on the wire at all, unless the
+    /// ignore is conditional, as <c>WhenWritingNull</c> is: that one is on the wire whenever it has a value (#1303).
     /// </summary>
     internal static Field? FieldOf(string part)
     {
         var attributes = Regex.Match(part, @"^\s*(?:\[[^\]]*\]\s*)*").Value;
-        if (attributes.Contains("JsonIgnore", StringComparison.Ordinal))
+        if (attributes.Contains("JsonIgnore", StringComparison.Ordinal)
+            && !Regex.IsMatch(attributes, @"JsonIgnore\s*\(\s*Condition\s*=\s*[\w.]*JsonIgnoreCondition\.When"))
             return null;
         var declaration = part[attributes.Length..].Split('=', 2)[0].Trim();
         var at = declaration.LastIndexOfAny([' ', '\t', '\n', '\r']);

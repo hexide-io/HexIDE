@@ -42,7 +42,11 @@ public class VBLoader
         IBasicStandardLibrary? standardLibrary = null,
         VbObject? form = null)
     {
-        RefuseUnsupportedControls(element);
+        var toolbars = element.Components.Where(c => c.BaseClass is FormComponentClass)
+            .SelectMany(c => c.PreservedChildSubtrees)
+            .Select(block => (block.Text, Component: Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)))
+            .Where(pair => pair.Component is not null).ToDictionary(pair => pair.Text, pair => pair.Component!);
+        RefuseUnsupportedControls(element, toolbars.Keys);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -82,6 +86,7 @@ public class VBLoader
 
         // What each block of the form became, for its Controls collection (#1060).
         var placed = new Dictionary<ComponentInstance, Control>();
+        var dialogs = new Dictionary<string, Control>(StringComparer.Ordinal);
 
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
@@ -114,6 +119,15 @@ public class VBLoader
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
 
+        // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
+        foreach (var (block, component) in toolbars)
+        {
+            PlaceComponentTree(component, canvas, canvas, element, (part, control, host) =>
+            {
+                OnPlaced(part, control, host);
+                dialogs[block] = control;
+            });
+        }
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
         foreach (var (component, control, parent) in menus)
@@ -137,7 +151,7 @@ public class VBLoader
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
-        var controls = new FormControls(InFileOrder(element, placed), arrayGroups);
+        var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
         controls.Maker = (componentClass, name, container) => MakeAtRunTime(componentClass, name, container, canvas, element);
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
@@ -433,25 +447,54 @@ public class VBLoader
     /// </summary>
     /// <summary>
     /// The form's controls in the order its file holds their blocks, which is the order of its Controls collection
-    /// (measured, #1060): a container before what it holds, and a menu before its submenus.
+    /// (measured, #1060): a container before what it holds, a menu before its submenus, and a block HexIDE keeps as text
+    /// at the place it was read, among its container's children by its ordinal, as the writer puts it back.
     /// </summary>
-    private static IEnumerable<Control> InFileOrder(FormDefinition element, Dictionary<ComponentInstance, Control> placed)
+    private static IEnumerable<Control> InFileOrder(FormDefinition element, Dictionary<ComponentInstance, Control> placed,
+        Dictionary<string, Control> dialogs)
     {
         var root = element.Components.FirstOrDefault(c => c.BaseClass is FormComponentClass);
         if (root is null)
             yield break;
-        var claimed = element.Components.Where(c => c != root).SelectMany(ChildrenOf).ToHashSet();
-        IEnumerable<Control> Walk(IEnumerable<ComponentInstance> children)
+        var claimed = new HashSet<ComponentInstance>();
+        foreach (var component in element.Components)
+            if (component != root)
+                foreach (var child in ChildrenOf(component))
+                    claimed.Add(child);
+
+        var order = new List<Control>();
+        void Walk(ComponentInstance container, IReadOnlyList<ComponentInstance> children)
         {
-            foreach (var component in children)
+            var blocks = container.PreservedChildSubtrees;
+            var child = 0;
+            var block = 0;
+            for (var position = 0; position < children.Count + blocks.Count; position++)
             {
-                if (placed.TryGetValue(component, out var control))
-                    yield return control;
-                foreach (var child in Walk(ChildrenOf(component)))
-                    yield return child;
+                if (block < blocks.Count && blocks[block].Ordinal <= position)
+                {
+                    if (dialogs.TryGetValue(blocks[block++].Text, out var dialog))
+                        order.Add(dialog);
+                }
+                else if (child < children.Count)
+                {
+                    var component = children[child++];
+                    if (placed.TryGetValue(component, out var control))
+                        order.Add(control);
+                    Walk(component, ChildrenOf(component));
+                }
+            }
+            for (; block < blocks.Count; block++)
+                if (dialogs.TryGetValue(blocks[block].Text, out var dialog))
+                    order.Add(dialog);
+            for (; child < children.Count; child++)
+            {
+                if (placed.TryGetValue(children[child], out var control))
+                    order.Add(control);
+                Walk(children[child], ChildrenOf(children[child]));
             }
         }
-        foreach (var control in Walk(element.Components.Where(c => c != root && !claimed.Contains(c))))
+        Walk(root, element.Components.Where(c => c != root && !claimed.Contains(c)).ToList());
+        foreach (var control in order)
             yield return control;
     }
 
@@ -615,9 +658,6 @@ public class VBLoader
                 VBProps.SetClientInset(control, 2);
         }
 
-        if (component.ContainedControls.Count == 0)
-            return;
-
         if (!componentClass.TryGetChildHost(control, out var childHost))
         {
             // A class that is not a container cannot have been recorded as one by the deserializer, so this
@@ -628,6 +668,8 @@ public class VBLoader
 
         foreach (var child in component.ContainedControls)
             PlaceComponentTree(child, childHost, formCanvas, form, onPlaced);
+        if (control is VBSSTab tab)
+            component.GetPropertyOrDefault(Components.InBox.SSTabSavedState.Property)?.PlacePages(tab);
     }
 
     // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
@@ -674,11 +716,12 @@ public class VBLoader
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUnsupportedControls(FormDefinition element)
+    private static void RefuseUnsupportedControls(FormDefinition element, ICollection<string> runtimeToolbars)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            DescribeUncreatable(block, lines);
+            if (!runtimeToolbars.Contains(block))
+                DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
                 if (property.Name.Equals("DataSource", StringComparison.OrdinalIgnoreCase))

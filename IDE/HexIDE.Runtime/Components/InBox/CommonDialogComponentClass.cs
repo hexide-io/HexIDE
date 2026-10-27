@@ -9,7 +9,7 @@ namespace HexIDE.Runtime.Components.InBox;
 public sealed class CommonDialogComponentClass : InBoxComponentClass
 {
     private CommonDialogComponentClass() : base([VBProperties.LeftProperty, VBProperties.TopProperty], [], [],
-        hasBounds: false, hasVisible: false) { }
+        invisible: true) { }
 
     static CommonDialogComponentClass()
     {

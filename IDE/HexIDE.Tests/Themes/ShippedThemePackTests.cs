@@ -37,6 +37,23 @@ public class ShippedThemePackTests
     public static TheoryData<string> Packs => new() { "Classic", "Dark", "Abyss" };
 
     [Fact]
+    public void IndentGuidesHaveDistinctThemeColours()
+    {
+        foreach (var key in new[] { "IndentGuide", "ActiveIndentGuide" })
+        {
+            ColorKeyMapping.Table.Should().ContainKey(key);
+            ColorKeyMapping.Table[key].Should().Be(($"{key}Brush", true));
+            ClassicDefault(ColorKeyMapping.Table[key].Key).Should().NotBeNull();
+        }
+        foreach (var pack in new[] { "Classic", "Dark", "Abyss" })
+        {
+            var colours = ColoursOf(pack);
+            colours.Should().ContainKey("IndentGuide").And.ContainKey("ActiveIndentGuide");
+            colours["IndentGuide"].Should().NotBe(colours["ActiveIndentGuide"]);
+        }
+    }
+
+    [Fact]
     public void ThePacksTestedHereAreTheOnesTheIdeShips()
     {
         new ThemeService().AvailableThemes.Should().BeEquivalentTo(Packs.Select(row => (string)row.Data));

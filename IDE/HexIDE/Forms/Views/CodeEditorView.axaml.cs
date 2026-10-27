@@ -84,6 +84,7 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private IndentGuideRenderer? _indentGuideRenderer;
     private HexIDE.Tools.CallStackToolViewModel? _callStack;
     private Action? _onFrameShown;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
@@ -335,6 +336,9 @@ public partial class CodeEditorView : UserControl
             // rebuild. (#270)
             OnMarkersChanged(vm.Markers);
 
+            _indentGuideRenderer = new IndentGuideRenderer(TextEditor, vm.Settings);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_indentGuideRenderer);
+
             // Document highlights (background renderer, behind squiggles)
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
@@ -522,6 +526,8 @@ public partial class CodeEditorView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Minimap.Detach();
+        _indentGuideRenderer?.Dispose();
+        _indentGuideRenderer = null;
         _stickyScroll?.Dispose();
         _stickyScroll = null;
 
@@ -696,7 +702,8 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
-        if (DataContext is not CodeEditorViewModel vm) return;
+        // Binding the document before attach is covered by the initial folding request on attach.
+        if (_foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
         // expanded for half a second, or for good were the request to fail. A member's run is the same, and one
         // an edit turns into an orphan has to lose its fold now rather than when a server next answers (task 4.3).
@@ -2228,6 +2235,10 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
+            // The document change is debounced 300ms, but completion needs the current source.
+            await vm.FlushDocumentAsync(token);
+            if (token.IsCancellationRequested) return;
+
             var items = triggerCharacter is null
                 ? await vm.RequestCompletionAsync(position, token)
                 : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
@@ -2519,17 +2530,7 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                // A plain dictionary lookup compares ordinally, and `Changes` is keyed by whatever URI the
-                // SERVER chose to write. A normalised drive letter therefore matches nothing and rename
-                // applies NOTHING — silently, and indistinguishably from a rename the server declined.
-                // Worse than the definition case above, because there is no second branch to fall into.
-                var docUri = vm.GetDocumentUriPublic();
-                var textEdits = edit.Changes
-                    .FirstOrDefault(c => HexIDE.Lsp.LspDocumentUri.AreSame(c.Key, docUri)).Value;
-                if (textEdits is null) return;
-
-                // Through the guarded path, which refuses a rename reaching the header as a whole (#273 3.9).
-                if (vm.ApplyRename(textEdits, oldName) is { } refusal)
+                if (vm.ApplyRename(edit, oldName) is { } refusal)
                     _ = vm.ShowRefusalAsync(refusal);
             });
         }

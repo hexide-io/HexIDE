@@ -840,4 +840,44 @@ public class MainViewViewModelTests
         breakpoints.GetBreakpoints(second.Identity).Should().BeEmpty();
         breakpoints.GetBreakpoints(elsewhere.Identity).Should().BeEmpty();
     }
+
+    // --- Tool windows tabbed in one dock: hiding one leaves the rest (#2362) ---
+
+    // The Properties window dragged into the Toolbox's dock, as a person can since #2239, so the two are tabs of one dock.
+    private (Dock.Model.Core.IDock Shared, Dock.Model.Core.IDockable Toolbox, Dock.Model.Core.IDockable Properties) TabPropertiesWithToolbox()
+    {
+        var factory = _sut.Layout.Factory!;
+        var toolbox = (Dock.Model.Core.IDockable)_sut.ToolBox;
+        var properties = (Dock.Model.Core.IDockable)_sut.Properties;
+        var shared = (Dock.Model.Core.IDock)toolbox.Owner!;
+        factory.MoveDockable((Dock.Model.Core.IDock)properties.Owner!, shared, properties, toolbox);
+        shared.VisibleDockables.Should().Contain([toolbox, properties]);
+        return (shared, toolbox, properties);
+    }
+
+    [AvaloniaFact]
+    public void Hiding_a_tool_tabbed_with_another_closes_it_alone()
+    {
+        var (shared, toolbox, _) = TabPropertiesWithToolbox();
+
+        var (error, note) = _sut.SetToolWindowVisible("Properties", false);
+
+        error.Should().BeNull();
+        note.Should().Be("Properties is now hidden.");
+        var windows = _sut.GetToolWindows();
+        windows.Single(t => t.Name == "Properties").Visible.Should().BeFalse();
+        windows.Single(t => t.Name == "Toolbox").Visible.Should().BeTrue();
+        shared.VisibleDockables.Should().ContainSingle().Which.Should().BeSameAs(toolbox);
+    }
+
+    [AvaloniaFact]
+    public void A_hidden_tool_shows_again_and_the_reply_says_when_nothing_changed()
+    {
+        TabPropertiesWithToolbox();
+        _sut.SetToolWindowVisible("Properties", false);
+
+        _sut.SetToolWindowVisible("properties", true).Should().Be(((string?)null, "Properties is now shown."));
+        _sut.GetToolWindows().Where(t => t.Name is "Properties" or "Toolbox").Should().OnlyContain(t => t.Visible);
+        _sut.SetToolWindowVisible("Properties", true).Note.Should().Be("Properties is now shown, as it was already.");
+    }
 }

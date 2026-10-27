@@ -45,7 +45,8 @@ connection. Unsupported adapter-initiated requests SHALL receive an unsuccessful
 
 ### Requirement: Bounded connection lifetime and resource use
 
-Each request SHALL have a finite configurable deadline and accept caller cancellation. The client SHALL
+Each request SHALL have a finite configurable deadline and accept caller cancellation. A caller MAY override
+the connection deadline for one request with a positive finite timeout; omission SHALL use the connection default. The client SHALL
 bound pending requests and queued events. It SHALL NOT retry timed-out or cancelled requests automatically.
 EOF, malformed input, event overflow and failed writes SHALL close the connection and fail pending work.
 Disposal SHALL settle pending requests with `IOException` and release owned streams; repeated disposal SHALL be safe.

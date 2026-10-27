@@ -480,7 +480,7 @@
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Standard.Start">
                             <Path Classes="play" Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Standard.Break">
+                        <Button Width="22" Height="22" Padding="3" Command="{CompiledBinding BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Standard.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Standard.End">
@@ -571,7 +571,7 @@
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Debug.Start">
                             <Path Classes="play" Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Debug.Break">
+                        <Button Width="22" Height="22" Padding="3" Command="{CompiledBinding BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Debug.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Debug.End">

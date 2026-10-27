@@ -38,8 +38,8 @@ public class UncreatableControlTests
       + "   End\r\n";
 
     // A container HexIDE cannot create, holding a control it can, and a font block, whose BeginProperty is not a control.
-    private const string SSTab1 =
-        "   Begin TabDlg.SSTab SSTab1 \r\n"
+    private const string Container1 =
+        "   Begin ThirdParty.Container Container1 \r\n"
       + "      Height          =   2000\r\n"
       + "      Left            =   120\r\n"
       + "      Top             =   600\r\n"
@@ -206,12 +206,12 @@ public class UncreatableControlTests
     public void Every_control_a_block_holds_is_named_even_one_HexIDE_models()
     {
         // Text2 is a TextBox, which HexIDE creates anywhere else. Inside a control it cannot create, nothing is read.
-        Action act = () => _ = VBLoader.RunForm(Project(Form("Form1", Data1 + SSTab1)).StartupForm!, CancellationToken.None, out _);
+        Action act = () => _ = VBLoader.RunForm(Project(Form("Form1", Data1 + Container1)).StartupForm!, CancellationToken.None, out _);
 
         act.Should().Throw<NotImplementedException>().WithMessage(
             "HexIDE cannot create Data1 (VB.Data).\n"
-          + "HexIDE cannot create SSTab1 (TabDlg.SSTab).\n"
-          + "HexIDE cannot create Text2, inside SSTab1 (TabDlg.SSTab).");
+          + "HexIDE cannot create Container1 (ThirdParty.Container).\n"
+          + "HexIDE cannot create Text2, inside Container1 (ThirdParty.Container).");
     }
 
     [AvaloniaFact]
@@ -231,15 +231,15 @@ public class UncreatableControlTests
     {
         var listView = Data1.Replace("VB.Data Data1", "MSComctlLib.ListView ListView1").Replace("      Caption         =   \"Data1\"\r\n", "");
         var treeView = Data1.Replace("VB.Data Data1", "ComctlLib.TreeView TreeView1").Replace("      Caption         =   \"Data1\"\r\n", "");
-        var tab = SSTab1.Replace("VB.TextBox Text2", "MSComctlLib.Slider Slider1");
+        var tab = Container1.Replace("VB.TextBox Text2", "MSComctlLib.Slider Slider1");
 
         Action act = () => _ = VBLoader.RunForm(Project(Form("Form1", listView + treeView + tab)).StartupForm!, CancellationToken.None, out _);
 
         act.Should().Throw<NotImplementedException>().WithMessage(
             "HexIDE cannot create ListView1 (MSComctlLib.ListView), which isn't implemented yet (#1085).\n"
           + "HexIDE cannot create TreeView1 (ComctlLib.TreeView), which isn't implemented yet (#1086).\n"
-          + "HexIDE cannot create SSTab1 (TabDlg.SSTab).\n"
-          + "HexIDE cannot create Slider1, inside SSTab1 (TabDlg.SSTab), which isn't implemented yet (#1091).");
+          + "HexIDE cannot create Container1 (ThirdParty.Container).\n"
+          + "HexIDE cannot create Slider1, inside Container1 (ThirdParty.Container), which isn't implemented yet (#1091).");
     }
 
     [AvaloniaFact]

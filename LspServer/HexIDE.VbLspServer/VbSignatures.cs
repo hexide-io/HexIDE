@@ -18,6 +18,8 @@ internal static class VbSignatures
             ["FileLen"] = [new SignatureEntry("FileLen(PathName) As Long", ["PathName"])],
             ["FileDateTime"] = [new SignatureEntry("FileDateTime(PathName) As Date", ["PathName"])],
             ["GetAttr"] = [new SignatureEntry("GetAttr(PathName) As Long", ["PathName"])],
+            ["LoadPicture"] = [new SignatureEntry("LoadPicture([FileName], [Size], [ColorDepth], [X], [Y])", ["FileName", "Size", "ColorDepth", "X", "Y"])],
+            ["SavePicture"] = [new SignatureEntry("SavePicture(Picture, FileName)", ["Picture", "FileName"])],
             // Dialogs / I/O
             ["MsgBox"] =
             [

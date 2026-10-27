@@ -236,7 +236,6 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     public async Task A_user_defined_type_raises_13_rather_than_reading_as_0(string expression)
     {
         // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs.
-        // Arrays of a UDT are refused at declaration instead (#181, BoundaryConstructTests).
         await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
                   + "Debug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(13L)]);

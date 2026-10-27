@@ -410,6 +410,7 @@ public class VBArray
 {
     private List<(int lbound, int ubound)> bounds = new();
     private object[] array;
+    private Func<Vb6Value>? elementDefault;
     private Vb6Value.ValueType? elementType;   // remembered so Erase can reset a FIXED array's elements to default
 
     /// <summary>The element type the array was declared with, or null for a Variant array (<c>Dim a()</c>, Array()).</summary>
@@ -444,6 +445,7 @@ public class VBArray
         IsDynamic = true,
         bounds = new List<(int lbound, int ubound)>(bounds),
         elementType = elementType,
+        elementDefault = elementDefault,
         DeclaredClass = DeclaredClass,
         array = CopyLevel(array, copyElement),
     };
@@ -456,16 +458,22 @@ public class VBArray
         return copy;
     }
 
+    internal VBArray NewWithBounds(IReadOnlyList<(int, int)>? newBounds) => newBounds is null
+        ? Unallocated(elementType ?? Vb6Value.ValueType.EmptyVariant, elementDefault)
+        : new VBArray(elementType ?? Vb6Value.ValueType.EmptyVariant, newBounds, elementDefault);
+
     public VBArray()
     {
         array = [];
     }
 
     /// <summary>An array of <paramref name="elementType"/> with no bounds yet, as a dynamic array is before its ReDim.</summary>
-    internal static VBArray Unallocated(Vb6Value.ValueType elementType) => new() { elementType = elementType };
+    internal static VBArray Unallocated(Vb6Value.ValueType elementType, Func<Vb6Value>? elementDefault = null) =>
+        new() { elementType = elementType, elementDefault = elementDefault };
 
-    public VBArray(Vb6Value.ValueType innerType, IReadOnlyList<(int lowerBound, int upperBound)> bounds)
+    public VBArray(Vb6Value.ValueType innerType, IReadOnlyList<(int lowerBound, int upperBound)> bounds, Func<Vb6Value>? elementDefault = null)
     {
+        this.elementDefault = elementDefault;
         // An array too big to allocate is 7, Out of memory (measured for ReDim b(2147483647) and b(1 To 2147483647), which
         // is all those rows say: 8 GB fails in a 32-bit process anyway). The count is taken as a long: as an int,
         // 0 To 2147483647 wrapped negative and raised 9.
@@ -536,7 +544,7 @@ public class VBArray
         var keep = Math.Min(length, level.Length);
         Array.Copy(level, leaf, keep);
         for (var i = keep; i < length; i++)
-            leaf[i] = elementType is { } type ? new Vb6Value(type) : Vb6Value.Variant;
+            leaf[i] = NewElement();
         for (var i = keep; i < level.Length; i++)
             dropped.Add((Vb6Value)level[i]);
         return leaf;
@@ -550,24 +558,19 @@ public class VBArray
         array = [];
     }
 
-    /// <summary>Erase of a FIXED array: bounds preserved, every element reset to the element type's default
-    /// (0 / "" / Empty / Nothing). In-place. Fixed arrays of a UDT element type are left unchanged — resetting those
-    /// needs interpreter context the array doesn't hold (a documented limitation; scalar fixed arrays are correct).</summary>
-    public void ResetElements()
-    {
-        if (elementType is { } et && et.Type.Match(_ => false, _ => true))   // scalar element types only
-            ResetScalarElements(array, et);
-    }
+    /// <summary>Erase of a fixed array keeps its bounds and gives every element a fresh default value.</summary>
+    public void ResetElements() => ResetLevel(array);
 
-    private static void ResetScalarElements(object[] arr, Vb6Value.ValueType elementType)
+    private Vb6Value NewElement() => elementDefault?.Invoke()
+        ?? (elementType is { } type ? new Vb6Value(type) : Vb6Value.Variant);
+
+    private void ResetLevel(object[] level)
     {
-        for (int i = 0; i < arr.Length; i++)
-        {
-            if (arr[i] is object[] sub)
-                ResetScalarElements(sub, elementType);
+        for (int i = 0; i < level.Length; i++)
+            if (level[i] is object[] inner)
+                ResetLevel(inner);
             else
-                arr[i] = new Vb6Value(elementType);
-        }
+                level[i] = NewElement();
     }
 
     private object[] CreateArray(Vb6Value.ValueType innerType, int dimension)
@@ -583,7 +586,7 @@ public class VBArray
         {
             if (dimension == bounds.Count - 1)
             {
-                arr[i] = new Vb6Value(innerType);
+                arr[i] = NewElement();
             }
             else
             {
