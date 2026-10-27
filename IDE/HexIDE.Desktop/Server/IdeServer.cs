@@ -42,9 +42,10 @@ internal static class IdeServer
                 // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
                 .WithHttpTransport(McpTransport.Configure)
                 .WithTools<HexIdeTools>(ReplyJson.Options), session)
-            // A modal dialog open once a call is done is named in its reply (#681).
+            // A modal dialog open once a call is done is named in its reply (#681), and so is a held button (#2231).
             .WithRequestFilters(filters => filters
                 .AddCallToolFilter(OpenDialogNote.Filter)
+                .AddCallToolFilter(HeldButtonNote.Filter)
                 .AddCallToolFilter(InlineSnapshot.Filter));
 
         var app = builder.Build();

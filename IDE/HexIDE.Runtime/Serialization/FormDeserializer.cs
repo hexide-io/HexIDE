@@ -88,6 +88,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
     ];
 
@@ -192,6 +193,11 @@ public class FormDeserializer
             }
 
             var instance = new ComponentInstance(componentClass, serializedComponent.Name);
+            if (componentClass is Components.InBox.StatusBarComponentClass)
+            {
+                instance.SetProperty(Components.InBox.StatusBarComponentClass.SavedPanelsProperty, serializedComponent);
+                instance.SetProperty(Components.InBox.StatusBarComponentClass.PanelPicturesProperty, frxBlobs);
+            }
             // Every component stays in the flat list, menus included. The tree below is additive, so
             // nothing that reads FormDefinition.Components needs to know it exists.
             components.Add(instance);
