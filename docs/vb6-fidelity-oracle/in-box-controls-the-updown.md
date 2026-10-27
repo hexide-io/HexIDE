@@ -1,7 +1,7 @@
 ## In-box controls: the UpDown (2026-10-27, #1093)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6 with MSCOMCT2.OCX 6.01.9782, Microsoft Windows Common Controls-2 6.0 (SP6), on
+- **The software:** VB6 SP6 (6.00.9782) with MSCOMCT2.OCX 6.01.9782, Microsoft Windows Common Controls-2 6.0 (SP6), on
   Windows 10 at 96 dpi.
   - The form line is `Object = "{86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCT2.OCX"`.
   - The block is `Begin MSComCtl2.UpDown`, `_Version` 393216.
@@ -129,6 +129,221 @@ width, to 375. Alignment 1 put them back.
 
 - **Change** comes from every assignment to Value, and from a Min or Max that pulls Value in.
 - **UpClick and DownClick** were never raised from code.
+
+### Events, with real input
+
+**The probe:** UpDown1 at Min 0, Max 10, Increment 1, unless a row says otherwise. The program read the UpDown's and
+Text1's window rectangles, and a driver on the guest's console clicked the halves of the UpDown and typed. Native and
+p-code logged the same lines.
+
+| Action | Events, in order |
+|---|---|
+| Click the top half of a vertical UpDown | MouseDown, **Change** with Value +1, MouseUp, **UpClick** |
+| Click the bottom half | MouseDown, Change with Value -1, MouseUp, **DownClick** |
+| A horizontal one (`Orientation = 1` in the file): the right half, the left half | UpClick with +1, DownClick with -1 |
+| Click the bottom half at Min | **Change, with Value still 0**, then DownClick |
+| With Wrap: the top half at Max, the bottom half at Min | Value 10 to 0, and 0 to 10, with Change and the click event |
+| Increment 3: the top half at 8 | **10**: clamped at Max |
+| the same again, at 10 | Change with Value 10, UpClick |
+| the bottom half at 10 | **6**, not 7 |
+| Increment 3 with Wrap: the top half at 10 | 0 |
+| Hold the top half for 3 seconds, from 0 | **Change at every step**, 1 to 10, then Change at 10 again and again while held; **one UpClick, after MouseUp** |
+| Press the top half, move off the control, release | Change at the press; **UpClick still raised** |
+| Right-click | MouseDown and MouseUp with Button 2. No Change, no click event |
+| The wheel over it | nothing |
+| With Min 10 and Max 0, Value 5: the top half, the bottom half twice | 4, then 5, 6: **up moves toward Max**, whichever is larger |
+
+- **Change comes at the press, and UpClick or DownClick after the release,** after MouseUp.
+- **A click at the end of the range still raises Change**, with Value unchanged.
+
+**The keyboard.** Tabbing from Text1 gave the UpDown the focus, with GotFocus. **The Up arrow then moved the focus back to
+Text1**, the control before it, and raised no Change. The UpDown takes no keys. With the buddy focused, the Up and Down
+arrows were Text1's own KeyDown and changed nothing.
+
+**Holding the button.** With Max 1000, the first repeat came 0.53 s after the press, and then one step every 0.11 s, by 1,
+for the whole 7 seconds: 59 steps, each with Change. **There is no acceleration.** Acceleration was 0, its default, and
+UpClick came once, after MouseUp.
+
+**An Increment above 1 snaps to its multiples first.** One click, one Change:
+- **A Value that isn't a multiple of Increment goes to the next multiple in the direction of travel, and then a whole
+  Increment beyond it.**
+  - Increment 3, up: 0 to 3, 3 to 6, 1 to 6, 2 to 6, 4 to 9, 5 to 9, 7 to 12.
+  - Increment 3, down: 3 to 0, 9 to 6, 4 to 0, 5 to 0, 8 to 3, 10 to 6, 20 to 15.
+  - Increment 2: up from 1 is 4, and down from 3 is 0.
+  - Increment 4: 6 is 12 up and 0 down.
+  - Increment 5, up: 1, 4 and 5 all give 10, and 6 gives 15. Down: 6 gives 0, and 99 gives 90.
+- **The multiples are of Increment itself, not counted from Min.** With Min 1, 2 or -1 the same values gave the same
+  answers: 1 to 6, 2 to 6, 3 to 6, 4 to 9 up, and 7 to 3, 20 to 15 down.
+- **Below zero the answers leave the grid.** With Min -10 and Increment 3:
+  - up, -10 gave -5, -7 gave -2, -5 gave -1 and -6 gave -3;
+  - down, -5 gave -10.
+- **One formula fits every row, negatives included.** Write r for |Value| mod Increment, computed on the magnitude:
+  - a step that raises Value gives Value + Increment, plus Increment - r when r isn't 0;
+  - a step that lowers it gives Value - Increment - r.
+
+  On a positive Value this is the snap described above. On a negative one the magnitude makes it land between
+  multiples.
+- The result is then clamped to the range: up from 8 with Max 10 gave 10.
+- **With Min above Max, up still moves toward Max, so it lowers Value:** Min 20, Max 0, Value 10 gave 6 up and 15 down,
+  by the same formula.
+
+**Wrap only from the end itself.**
+- With Increment 3 and Wrap, up from 10, the Max, gave 0.
+- **Down from 1 gave 0, not a wrap:** a step that would pass Min stopped at it.
+- With Increment 1, up from the Max wrapped to Min, and down from Min to Max.
+
+**A buddy with SyncBuddy: the click reads the buddy's text first.**
+- **The text is converted as VB converts a String to a Long,** then clamped to the range, then stepped.
+- **Text that won't convert counts as 0.**
+
+Increment 1, Min 0, Max 10, Value 4, up, unless the row says otherwise:
+
+| Text1 held | Value after | Read as |
+|---|---|---|
+| `7`, set from code | 8 | 7 |
+| `5`, typed, Value 1 | 6 | 5: **the buddy's text, not Value** |
+| ` 3`, `  7  `, `7 ` | 4, 8, 8 | spaces ignored |
+| `3.7` | 5 | 4: rounded |
+| `2.5`, `3.5` | 3, 5 | 2, 4: **half to even** |
+| `&H5` | 6 | 5: **hexadecimal** |
+| `1e1` | 10 | 10, clamped |
+| `1,5` | 10 | 10 or more, clamped: as VB reads it in this guest's en-GB user locale, 15, the comma a thousands separator |
+| `$3` | 4 | **3**: the currency sign taken |
+| `(2)`, with Min -10 | -1 | **-2**: parentheses negate |
+| `-5` with Min -10; with Min 0 | -4; 1 | -5; clamped to 0 |
+| `42`, down | 9 | 42, clamped to 10 |
+| `9x`, `x`, `Text1`, empty | 1 | **0** |
+| `9x` with Min -10, down | -1 | 0 |
+| `9x` with Min 5, up; down | 6; 5 | 0, clamped to 5 |
+
+The written text is Value's own: `3.7` became `5`, `&H5` became `6`.
+
+### Drawing
+
+Screenshots at 96 dpi, one fresh form per state:
+- **Alone,** the vertical UpDown is two stacked buttons with black triangles. The horizontal one, from `Orientation = 1`
+  in the file, is two side by side, pointing left and right.
+- **Bound,** it takes the buddy's height and sits flush against it, on the right with Alignment 1 and on the left with 0.
+  The vertical one's triangles shrink to fit.
+- **A horizontal UpDown, bound, became 255 wide and the buddy's height:** two thin buttons whose arrows are dots. Alone,
+  it was 495 × 255.
+- **Enabled False** greys both triangles, etched.
+- **At Max** nothing changes: the up button isn't greyed.
+
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE and saved. VB6's save is in
+  `corpus/inbox-controls/pending/updown/`. It held:
+  - Text1, then UpDown1 with every property but the buddy's off its default and its lines reversed: horizontal, 495 ×
+    255;
+  - UpDown2, with only its position, extents and `_Version`;
+  - Text2, then UpDown3, as minimal as UpDown2.
+- **In the IDE, before the save:**
+  - UpDown3's AutoBuddy and then its SyncBuddy were stepped to True in the Properties window;
+  - a fourth UpDown was double-clicked from the toolbox.
+- **The read:** the hand-written form and VB6's save were read back at run time, natively and as p-code. They logged the
+  same values.
+- **The buddy's lines:** in later passes,
+  - UpDown3's BuddyProperty was chosen in the Properties window;
+  - ten hand-written single-UpDown projects, plus VB6's save with that BuddyProperty, were each built and read back,
+    native and p-code alike.
+
+**VB6's blocks, as it wrote them:**
+
+```
+   Begin MSComCtl2.UpDown UpDown1 
+      Height          =   255
+      Left            =   3000
+      TabIndex        =   1
+      Top             =   120
+      Width           =   495
+      _ExtentX        =   873
+      _ExtentY        =   450
+      _Version        =   393216
+      Value           =   5
+      Alignment       =   0
+      Increment       =   2
+      Max             =   50
+      Min             =   -5
+      Orientation     =   1
+      Wrap            =   -1  'True
+      Enabled         =   0   'False
+      OLEDropMode     =   1
+   End
+```
+
+```
+   Begin VB.TextBox Text2 
+      Height          =   315
+      Left            =   120
+      TabIndex        =   3
+      Text            =   "Text2"
+      Top             =   1800
+      Width           =   945
+   End
+   Begin MSComCtl2.UpDown UpDown3 
+      Height          =   315
+      Left            =   1066
+      TabIndex        =   4
+      Top             =   1800
+      Width           =   255
+      _ExtentX        =   450
+      _ExtentY        =   556
+      _Version        =   393216
+      AutoBuddy       =   -1  'True
+      BuddyControl    =   "Text2"
+      BuddyDispid     =   196610
+      OrigLeft        =   3000
+      OrigTop         =   1800
+      OrigRight       =   3255
+      OrigBottom      =   2295
+      SyncBuddy       =   -1  'True
+      BuddyProperty   =   0
+   End
+```
+
+- **The order is VB6's:**
+  - `_Version` comes straight after the extents;
+  - then Value, Alignment, Increment, Max, Min, Orientation, Wrap, Enabled, OLEDropMode;
+  - a bound UpDown has AutoBuddy, BuddyControl, BuddyDispid, the four `Orig` lines, SyncBuddy and BuddyProperty between
+    `_Version` and the rest.
+- **Each property is written only when off its default.**
+- **The double-clicked UpDown is 255 × 750**, with `_ExtentX = 450` and `_ExtentY = 1323`, and nothing after `_Version`.
+- **Binding in the designer moved and narrowed as at run time, and the save keeps it:**
+  - Text2 is written 945 wide;
+  - UpDown3 is written at its bound place and height, 1066 and 315.
+- **`OrigLeft`, `OrigTop`, `OrigRight` and `OrigBottom` are the rectangle the UpDown had before it was bound**, in twips:
+  3000, 1800, 3255, 2295.
+- **`BuddyControl` is the buddy's name.**
+- **`BuddyProperty` is a dispatch ID.**
+  - 0, the default member, while the window shows "(Default)".
+  - **Choosing Left in the window wrote `BuddyProperty = 65540`**, &H10004, and left `BuddyDispid` at 196610.
+  - The window's list began (None), (Default), Name, Index, BackColor, ForeColor, Left, Top.
+- **`BuddyDispid` is 196610**, &H30002, for a TextBox buddy with the default property. What it identifies isn't
+  measured. Choosing Left didn't change it.
+- There is no `.frx`.
+
+**What each buddy line does when the form loads.** Each project held Text1, then UpDown1 at 3000, 120, 255 × 495:
+
+| Hand-written | Loaded as | `Value = 7`, then unbinding |
+|---|---|---|
+| VB6's lines for Text1, the UpDown left unbound in size and place | bound, AutoBuddy and SyncBuddy True, **but nothing moved: 3000, 120, and Text1 still 1200 wide** | Text1 `7`. **Unbinding widened Text1 to 1455**, by the UpDown's width, though binding had never narrowed it |
+| without BuddyDispid; or `BuddyDispid = 0` | the same | the same: **BuddyDispid isn't needed** |
+| `BuddyProperty = 65540` | the same | **Text1's Left became 7** |
+| VB6's save with Left chosen | bound | Text2's Left became 7 |
+| `BuddyProperty = "Tag"` | bound | **438** |
+| BuddyControl and SyncBuddy alone, no BuddyProperty line | bound, AutoBuddy False | **438**: a missing BuddyProperty isn't the default member |
+| VB6's lines without the four `Orig` lines | bound | Text1 `7`. **Unbinding put the UpDown at 0, 0, 30 × 30** |
+| `BuddyControl = "NoSuch"`, the rest as VB6 writes it | **unbound, AutoBuddy and SyncBuddy False**, no error | |
+| `AutoBuddy = -1` alone | **unbound, AutoBuddy False**: it doesn't bind at load | |
+| `SyncBuddy = -1` alone | SyncBuddy False | |
+
+- **A file's buddy lines move nothing at load.** VB6 writes the bound place and sizes into the file itself, for the UpDown and
+  for the buddy, so they come back from the file's own lines.
+- **Unbinding puts the UpDown at its `Orig` rectangle, and widens the buddy by the UpDown's width**, whether or not the
+  buddy was narrowed. Without `Orig` lines the rectangle is 0, 0, 30 × 30.
+- A buddy that doesn't exist, or AutoBuddy or SyncBuddy without one, loads unbound, silently.
 
 ### In HexIDE
 

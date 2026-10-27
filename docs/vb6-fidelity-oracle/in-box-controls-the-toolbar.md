@@ -1,6 +1,6 @@
 ## In-box controls: the Toolbar (2026-10-26, #1088)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md). Every build was made with `/make` as native code and as p-code, and
 the two logged the same lines. The one exception is the junk Left and Top an invisible button reads back, given below.
 - **Run time:** a Sub Main showing a 6000×4500-twip form holding VB6's double-clicked Toolbar, a PictureBox and an
