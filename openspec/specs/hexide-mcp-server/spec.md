@@ -506,6 +506,15 @@ restored position.
 - **WHEN** a Minimized or Maximized request goes unconfirmed on an X11 display with no window manager
 - **THEN** the reply says no window manager is running, so nothing will apply it, and does not direct the caller to re-read
 
+### Requirement: hover SHALL report a tip by the text it shows
+`hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
+blocks in order. A tip with no text to read SHALL be reported as such, never by a type's name, and an open tip whose
+text has not appeared yet SHALL be read again until it does or the dwell ends.
+
+#### Scenario: A carried control's box in the designer
+- **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
+- **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,

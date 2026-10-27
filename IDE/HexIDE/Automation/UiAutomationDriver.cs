@@ -4045,8 +4045,56 @@ public static class UiAutomationDriver
             under = topmost;
 
         foreach (var c in under.GetSelfAndVisualAncestors().OfType<Control>())
-            if (ToolTip.GetTip(c)?.ToString() is { Length: > 0 } text) return text.Trim();
+            if (TipText(ToolTip.GetTip(c)) is { } text) return text;
         return null;
+    }
+
+    /// <summary>
+    /// The text a tooltip shows, or null for no tip: a string as it is, and a tip that is a control by the text of its
+    /// visible text blocks, in order, joined with " / ".
+    /// </summary>
+    /// <remarks>
+    /// A control's ToString is its type's name, so a designer box's tip, a StackPanel of three text blocks, was reported
+    /// as "tip: Avalonia.Controls.StackPanel" (#2336). One with no text to read says so, rather than pass a type name off
+    /// as its text: a control's blocks bind to its owner's data, which they have once the tip has opened.
+    /// </remarks>
+    /// <summary>How <see cref="TipText"/> ends for a tip it found no text in.</summary>
+    public const string NoTextToRead = "with no text to read";
+
+    public static string? TipText(object? tip)
+    {
+        switch (tip)
+        {
+            case null:
+                return null;
+            case string text:
+                return NullIfEmpty(text.Trim());
+            case Control control:
+                var shown = control.GetSelfAndLogicalDescendants().OfType<TextBlock>()
+                    .Where(block => ShownWithin(block, control))
+                    .Select(block => (block.Text ?? block.Inlines?.Text)?.Trim())
+                    .Where(line => !string.IsNullOrEmpty(line))
+                    .ToList();
+                return shown.Count > 0 ? string.Join(" / ", shown) : $"a {control.GetType().Name} {NoTextToRead}";
+            default:
+                return Safe(() => tip.ToString(), null) is { } other && !IsDefaultText(other, tip)
+                    ? NullIfEmpty(other.Trim())
+                    : $"a {tip.GetType().Name} {NoTextToRead}";
+        }
+    }
+
+    // Visible itself and through each logical parent up to the tip's own root, which a tip that has not opened is not in a
+    // window to make effectively visible.
+    private static bool ShownWithin(Control block, Control root)
+    {
+        for (ILogical? at = block; at is not null; at = at.LogicalParent)
+        {
+            if (at is Control { IsVisible: false })
+                return false;
+            if (ReferenceEquals(at, root))
+                return true;
+        }
+        return true;
     }
 
     /// <summary>The element a hover should land on — the editor's text view, else the control itself.</summary>
