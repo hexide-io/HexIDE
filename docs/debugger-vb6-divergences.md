@@ -98,7 +98,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   statement (a documented divergence — the faithful proc-end-clear had introduced 7 defects in the Phase-2 review, so
   it was removed). The v2·P5 dispatch-idle disarm restored the VB6 behaviour after both P5 adversarial reviewers
   independently flagged the leak (a Step Over leaving `target=1` fired on *every* subsequent event).
-- **Status:** **resolved (v2·P5)**. Matches VB6's "next event runs free."
+- **Status:** **resolved (v2·P5)**. Matches VB6's "next event runs free." **#2320:** returning to idle also
+  publishes Continued and releases frozen events, so the shell leaves break mode (title, current-line bar,
+  inspection windows and command availability). VB6's title and toolbar at this point remain unmeasured.
 
 ### D5. Step Over / Step Out (v2·P5)
 - **VB6:** Shift+F8 (Step Over — run a called proc to completion, break at the next statement in the current frame),

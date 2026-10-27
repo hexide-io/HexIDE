@@ -266,6 +266,37 @@ public class DebuggerTests : BaseVBTestFixture
         }
     }
 
+    [Theory]
+    [InlineData("Into")]
+    [InlineData("Over")]
+    [InlineData("Out")]
+    public async Task StepReturningToIdle_LeavesBreakModeAndReleasesFrozenEvents(string step)
+    {
+        var dbg = new DebugController();
+        dbg.SetBreakpoints("M", new[] { 1 });
+        var decider = dbg.OnStatementAsync(1, "M", null).AsTask();
+        var newcomer = dbg.OnStatementAsync(2, "Other", null).AsTask();
+        newcomer.IsCompleted.Should().BeFalse();
+        var continued = 0;
+        dbg.Continued += () => continued++;
+
+        if (step == "Into") dbg.StepInto();
+        else if (step == "Over") dbg.StepOver();
+        else dbg.StepOut();
+        await decider.Guarded();
+        continued.Should().Be(0);
+        newcomer.IsCompleted.Should().BeFalse();
+
+        dbg.NotifyDispatchIdle();
+        continued.Should().Be(1);
+        dbg.State.Should().Be(DebugState.Running);
+        dbg.CurrentStop.Should().BeNull();
+        await newcomer.Guarded();
+        dbg.NotifyDispatchIdle();
+        continued.Should().Be(1);
+        await dbg.OnStatementAsync(3, "Other", null).AsTask().Guarded();
+    }
+
     [Fact]
     public async Task Stop_WhilePaused_RaisesContinued_SoTheCurrentLineBarClears()
     {
