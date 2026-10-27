@@ -502,6 +502,31 @@ returned before the write, which is applied the same way.
 [#701](https://github.com/hexide-io/HexIDE/issues/701).
 
 
+## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
+
+**Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
+2026-10-13):
+
+```
+interact {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/Pane/None[FormContainer]/List[ControlsContainer]/ListItem[Command1]","action":"select"}
+invoke_format_command {"command":"AlignLefts"}
+→ "Nothing changed, and no undo step was added: the selection is Command1. The spacing commands need two or
+   more selected controls, the others at least one, and a selection that already satisfies the command is
+   left as it is."
+```
+
+The spec makes the nine alignment and sizing commands unavailable below two selected controls, and with one they
+can never change anything, so "at least one" sends a caller back with the same single selection. The text is
+hard-coded and the command table has no per-command minimum. Cross-platform by code reading.
+
+**Workaround.** Before any Align* or MakeSame* command, select two or more controls with `interact` `select` and
+then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterHorizontally and CenterVertically.
+
+**Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
+names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
+cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
+
+
 ## `set_window_state` replies with the window's state from before the change on Linux
 
 **Symptom.** Each call followed by `get_window_state {}` (Linux, openSUSE Leap 16 under XWayland, Debug build of
@@ -539,31 +564,6 @@ platform applies a change at once.
 was passed, a move or resize has arrived; on timeout, reply with what the window reports and a note to re-read.
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
-
-## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
-
-**Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
-2026-10-13):
-
-```
-interact {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/Pane/None[FormContainer]/List[ControlsContainer]/ListItem[Command1]","action":"select"}
-invoke_format_command {"command":"AlignLefts"}
-→ "Nothing changed, and no undo step was added: the selection is Command1. The spacing commands need two or
-   more selected controls, the others at least one, and a selection that already satisfies the command is
-   left as it is."
-```
-
-The spec makes the nine alignment and sizing commands unavailable below two selected controls, and with one they
-can never change anything, so "at least one" sends a caller back with the same single selection. The text is
-hard-coded and the command table has no per-command minimum. Cross-platform by code reading.
-
-**Workaround.** Before any Align* or MakeSame* command, select two or more controls with `interact` `select` and
-then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterHorizontally and CenterVertically.
-
-**Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
-names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
-cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
-
 
 ## The code window's completion description: desktop snapshot composition still needs a live check
 
@@ -750,38 +750,10 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
 
-## The `modalDialog` note lists a dialog's check boxes among its buttons
+## Properties category rows refused expand/collapse (#1967 — fixed)
 
-**Symptom (2026-10-26, #534's first-contact baseline, Windows).** `invoke_menu_item {"path":"Tools/Options"}`
-answered with `"modalDialog":"'Options' (Prompt for project/Reload files changed outside the IDE/Reset All/Restore
-Defaults/OK/Cancel), a modal dialog over 'Project1 - HexIDE [design]', …"`. The first two are check boxes on the page
-showing. They are not answers to the dialog. `OpenDialogs.DescriptionOf` takes every `Button`, and Avalonia's
-`CheckBox` and `RadioButton` derive from it.
+**Symptom.** With Categorized Properties showing, `interact {"target":"…/List[CategorizedProperties]/Pane[PART_ScrollViewer]/ListItem[Appearance]","action":"collapse","window":"ide"}` refused with `element does not support 'collapse'`.
 
-**Workaround.** Dump the dialog to see which are buttons.
+**Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
 
-**Suggested fix.** Leave `ToggleButton`s out of the buttons. [#2079](https://github.com/hexide-io/HexIDE/issues/2079).
-
-## A path not starting with `Window` is refused without saying where paths come from
-
-**Symptom (2026-10-26, #534's first-contact baseline, Sonnet 5.5, Windows).** Having seen "Editor > General" in a
-snapshot of the Options dialog, it sent `interact {"target":"Editor/General","action":"select","window":"Options"}`
-and was refused with `path must start with 'Window' (got 'Editor')`. The refusal is accurate, but it doesn't name
-where paths come from. Sonnet recovered by loading `dump_visual_tree` on its own.
-
-**Workaround.** `dump_visual_tree` with `match` gives the path.
-
-**Suggested fix.** End every path refusal with that next step. [#2080](https://github.com/hexide-io/HexIDE/issues/2080).
-## `toggle` reads the state back before work it set off has run
-
-**Symptom (2026-10-26, #1103, Windows).** The Components dialog refuses an uncheck of a library a form uses, and puts the
-box back once the binding's write is over, through the dispatcher.
-`interact {"window":"Components","target":"Window/Custom/Tab/List/Pane[PART_ScrollViewer]/ListItem[#1]/CheckBox[Microsoft Windows Common Controls 6.0 (SP6)]","action":"toggle"}`
-answered `it is now off`. After the refusal's message box was answered, `inspect_element` on the same path read
-`"toggleState": true`.
-
-**Workaround.** When a toggle opens a modal window, answer it and read the state again with `inspect_element`.
-
-**Suggested fix.** Before reading back, drain the dispatcher's queued work, as `click` waits for the next frame; a running
-form's controls already wait for the program (#1255). Where a modal window opened during the call, say that the state may
-change once it is answered. [#2050](https://github.com/hexide-io/HexIDE/issues/2050).
+**Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.

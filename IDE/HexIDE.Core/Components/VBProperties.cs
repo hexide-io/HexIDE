@@ -191,6 +191,8 @@ public static class VBProperties
     /// </summary>
     public static PropertyClass<bool> OptionValueProperty = new PropertyClass<bool>("Value", "Whether this option button is the selected one in its group.", PropertyCategory.Misc, false);
 
+    public static PropertyClass<bool> CommandValueProperty = new PropertyClass<bool>("Value", "Clicks the command button when set to True.", PropertyCategory.Misc, false);
+
     public static PropertyClass<bool> LockedProperty = new PropertyClass<bool>("Locked", "Whether the control's contents can be edited.", PropertyCategory.Behavior, false);
 
     /// <summary>A ListBox's MultiSelect: set at design time, and read-only to a program (measured, #1413).</summary>
