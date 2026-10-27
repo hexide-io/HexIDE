@@ -289,7 +289,8 @@ not raise Click. Mouse coordinates SHALL be in twips.
 
 #### Scenario: Caption press changes the page
 - **WHEN** a user clicks an enabled caption for another tab
-- **THEN** MouseDown precedes Click(PreviousTab), which precedes MouseUp
+- **THEN** MouseDown runs to completion while Tab still identifies the old page
+- **AND** the tab changes through the same event dispatch before Click(PreviousTab), followed by MouseUp
 - **AND** the SSTab has focus and its page engine has switched the controls
 
 #### Scenario: Disabled caption or page press

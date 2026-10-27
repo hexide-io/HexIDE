@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -46,7 +47,17 @@ public sealed class VBSSTab : Decorator, IVBContainerControl
         {
             Focus();
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.ClickCount % 2 == 1 && TabEnabled(index))
-                Tab = index;
+            {
+                // MouseDown may yield in the interpreter. Switch on its queue, before the later MouseUp (#2358).
+                if (this.FindLogicalAncestorOfType<IModuleExecutionRoot>()?.Events is { } events)
+                    events.Raise("SSTab select", () =>
+                    {
+                        Tab = index;
+                        return Task.CompletedTask;
+                    });
+                else
+                    Tab = index;
+            }
         }
     }
 

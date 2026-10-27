@@ -1382,7 +1382,8 @@ default member reads zero and ignores Let assignments. The runtime now draws the
 including rows, active captions, Style, orientation, wrapping and focus indication; drawing does not inset
 the child host or change the measured position-based page engine. Appearance/picture binding and the saved-state
 designer preview remain for later slices. Mouse captions, focused arrow/Ctrl+Tab navigation and Alt caption
-mnemonics now switch pages, with measured mouse ordering and focus. The in-box language inventory counts above
+mnemonics now switch pages, with measured mouse ordering and focus. MouseDown completes with the old Tab
+before the queued page switch and Click, including when the interpreter yields (#2358). The in-box language inventory counts above
 are unchanged: external-control members are tracked separately here.
 
 | Member | Status | Detail |
