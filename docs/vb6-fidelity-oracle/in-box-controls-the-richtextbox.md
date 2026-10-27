@@ -200,6 +200,49 @@ On `Cat cat concat CAT`, CR LF, `second cat line`:
 | `SelText = "Q"`, `SelRTF =` | SelChange, then Change |
 | `Find "R"` | SelChange |
 
+### Events, with real input
+
+**The probe:** `alpha beta gamma` in the box, run on the guest's console. A driver clicked and typed for real and marked
+each action in the log, which recorded every event. Native and p-code logged the same lines, mouse coordinates apart.
+
+| Action | Events, in order |
+|---|---|
+| Click in the text | MouseDown, MouseUp, Click, **then SelChange** |
+| Type `x` | KeyDown, KeyPress, **SelChange, Change**, KeyUp |
+| Enter | KeyDown, KeyPress 13, SelChange, Change, KeyUp. A CR LF is inserted, and the caret moves 2 |
+| Backspace | KeyDown, SelChange, Change, **then KeyPress 8**, KeyUp. Backspace after a CR LF removes both |
+| Tab | KeyDown 9, then the focus moves to the next control. **No tab is typed** |
+| Double-click `beta` | MouseDown, MouseUp, Click, SelChange (9,0), DblClick, **SelChange (6,5)**: the word with its trailing space, then MouseUp |
+| Right-click | MouseDown and MouseUp with Button 2, then **Click**. There is no menu, AutoVerbMenu being False |
+| Ctrl+A | selects all, SelChange 0,16, and KeyPress 1 |
+| Ctrl+B, Ctrl+U | **nothing** but KeyPress 2 and 21 |
+| **Ctrl+I** | **types a tab** over the selection, KeyPress 9 |
+| Ctrl+E, Ctrl+R, Ctrl+L | centre, right and left the paragraph, each raising Change |
+| Ctrl+Z | undoes the last change: Ctrl+L's, putting `\qr` back. SelChange, Change |
+| Ctrl+C, then Ctrl+V at the end | pasted `beta`. SelChange, Change |
+| With Locked True: type, Backspace | KeyDown, KeyPress, KeyUp. Nothing changes, and no Change |
+| With MaxLength 20, type 8 characters after 16 | the first 4 typed, the other 4 dropped. Each raised KeyDown, KeyPress and KeyUp, but only the first 4 raised Change |
+| Type or Delete inside protected text | KeyDown, KeyPress, KeyUp. Nothing changes |
+
+- **Assigning Text at load raised Change** before the form's code ran on.
+- **Mouse X and Y are in twips.**
+
+### Drawing
+
+Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
+- **The selection is drawn in inverse video:** black, with white text. That is not the system highlight colour.
+  **With HideSelection True and the focus elsewhere, no selection is drawn.**
+- **Character formatting draws as set:** bold, italic, underline, strikethrough, colour, size and face.
+  **SelCharOffset ±60 raises or lowers text** for a superscript or subscript.
+- **Alignment:** left, centred and right paragraphs.
+- **Bullets:** a `•` at the left with the text at the hanging indent.
+- **MultiLine wraps at the box's edge. RightMargin 2000 wraps at 2000 twips**, however wide the box.
+- **Tab stops:** SelTabs 1500 and 3000 set the first paragraph's stops. The next paragraph kept the default stops, each
+  about half an inch.
+- **Enabled False greys the text and the background,** which turns the button face colour.
+- **BackColor** fills the box.
+- **Appearance and BorderStyle are read-only at run time:** setting Appearance was 383.
+
 ### In HexIDE
 
 HexIDE doesn't model the RichTextBox (#1100). The designer draws it as an empty box (#157), and running a form that
