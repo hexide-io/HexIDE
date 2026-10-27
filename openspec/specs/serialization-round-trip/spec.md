@@ -791,3 +791,20 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
+
+### Requirement: In-box corpus state consistency
+
+The corpus gate SHALL reject a control folder present in both `corpus/inbox-controls/pending/` and `saved/`,
+reporting both paths. It SHALL also reject byte-identical files at the same relative path in those states.
+It SHALL NOT compare files across different control folders or outside this corpus. README folder rows SHALL
+list each pending and saved control folder in its actual state.
+
+#### Scenario: A merge leaves a control in both states
+
+- **WHEN** both `pending/treeview/` and `saved/treeview/` exist
+- **THEN** the guard fails and names both paths
+
+#### Scenario: Different controls share a fixture
+
+- **WHEN** a pending Toolbar and a saved ImageList have identical companion bytes
+- **THEN** those shared bytes do not cause a duplicate-file failure
