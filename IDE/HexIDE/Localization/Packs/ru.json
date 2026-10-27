@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-разрядная",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-разрядная",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-разрядная",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-разрядная",
     "Str.CodeEditor.ViewAs.Tooltip": "Показать условную компиляцию для",
     "Str.Tool.Properties.ExportPicture": "Экспорт изображения...",
     "Str.LspArtifact.Title": "Файлы рабочей области",

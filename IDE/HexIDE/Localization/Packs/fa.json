@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
     "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC ۳۲ بیتی",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC ۶۴ بیتی",
     "Str.CodeEditor.ViewAs.Tooltip": "نمایش کامپایل شرطی به صورت",
     "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.LspArtifact.Title": "پرونده‌های فضای کاری",

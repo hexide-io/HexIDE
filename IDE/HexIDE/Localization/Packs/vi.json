@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Xem biên dịch có điều kiện theo",
     "Str.Tool.Properties.ExportPicture": "Xuất hình ảnh...",
     "Str.LspArtifact.Title": "Tệp không gian làm việc",

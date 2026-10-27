@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Compilationem conditionalem ostende ut",
     "Str.Tool.Properties.ExportPicture": "Imaginem exportare...",
     "Str.LspArtifact.Title": "Fasciculi spatii laboris",
