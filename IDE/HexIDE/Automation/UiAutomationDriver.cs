@@ -3963,6 +3963,73 @@ public static class UiAutomationDriver
             RawPointer.Leave(topLevel);
     }
 
+    /// <summary>
+    /// Watches the input <paramref name="topLevel"/> receives while hover waits for a tip, for pointer input this hover did
+    /// not send: the real mouse's, or another hover's away from <paramref name="hovered"/>, the point hovered, in the
+    /// window's coordinates. Either takes the tip with it.
+    /// </summary>
+    /// <remarks>
+    /// Read from the input manager's stream, which is what Avalonia's tooltip service follows, so the routed pointer events
+    /// that click and drag raise on a control, which cannot move a tip, are not counted. The real mouse, resting over the
+    /// window, gets moves from the platform as windows change around it, a tip's own popup among them, and the reply said no
+    /// tip opened without being able to say why (#2376). Tool calls run concurrently, so another hover can move the pointer
+    /// too, and that is not the real mouse's doing. Created, read and disposed on the UI thread, where input arrives.
+    /// </remarks>
+    public sealed class ForeignPointerWatch : IDisposable
+    {
+        private readonly TopLevel _topLevel;
+        private readonly Point _hovered;
+        private readonly object? _root;
+        private readonly IDisposable? _subscription;
+
+        public ForeignPointerWatch(TopLevel topLevel, Point hovered)
+        {
+            (_topLevel, _hovered) = (topLevel, hovered);
+            _root = RawPointer.InputRootOf(topLevel);
+            _subscription = _root is null ? null : RawPointer.Input?.Subscribe(new Observer(Saw));
+        }
+
+        /// <summary>What last moved the pointer during the watch, said for the reply; null when nothing did.</summary>
+        public string? Moved { get; private set; }
+
+        private void Saw(Avalonia.Input.Raw.RawInputEventArgs e)
+        {
+            if (RawPointer.Read(e) is not { } raw || !ReferenceEquals(raw.Root, _root))
+                return;
+            var anotherHover = RawPointer.Sent(raw.Device);
+            if (raw.Type == Avalonia.Input.Raw.RawPointerEventType.LeaveWindow && anotherHover)
+                Moved = "another hover ended during the watch, taking the pointer out of the window, and the tip went with it. "
+                        + "Hover one control at a time";
+            var at = raw.Position;
+            if (raw.Type != Avalonia.Input.Raw.RawPointerEventType.Move
+                || Math.Abs(at.X - _hovered.X) < 1 && Math.Abs(at.Y - _hovered.Y) < 1)
+                return;
+            // What it is over as a caller would name it: the control whose tip a person would now be shown, else the nearest
+            // named one. The innermost part under the point is something like a button's AccessText.
+            var under = (_topLevel.InputHitTest(at) as Visual)?.GetSelfAndVisualAncestors().OfType<Control>().ToList() ?? [];
+            var over = under.FirstOrDefault(c => ToolTip.GetTip(c) is not null)
+                       ?? under.FirstOrDefault(c => !string.IsNullOrEmpty(c.Name) || !string.IsNullOrEmpty(AutomationProperties.GetAutomationId(c)))
+                       ?? under.FirstOrDefault();
+            var where = $"the pointer to ({at.X.ToString("0.#", CultureInfo.InvariantCulture)}, "
+                        + $"{at.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window"
+                        + (over is null ? string.Empty : $", over {Describe(over)},");
+            Moved = anotherHover
+                ? $"another hover moved {where} during the watch, and the tip went with it. Hover one control at a time"
+                : $"the real {(raw.Device is IMouseDevice ? "mouse" : "pointer")} moved {where} during the watch, and the tip "
+                  + "went with it, as it would for a person: one resting over the window is sent such moves as windows change "
+                  + "around it. Move it off the window and hover again";
+        }
+
+        public void Dispose() => _subscription?.Dispose();
+
+        private sealed class Observer(Action<Avalonia.Input.Raw.RawInputEventArgs> next) : IObserver<Avalonia.Input.Raw.RawInputEventArgs>
+        {
+            public void OnNext(Avalonia.Input.Raw.RawInputEventArgs value) => next(value);
+            public void OnError(Exception error) { }
+            public void OnCompleted() { }
+        }
+    }
+
     /// <summary>Uses the same platform callback as hover. Reflection is needed for Avalonia's private input API.</summary>
     private static class RawKeyboard
     {
@@ -4039,6 +4106,20 @@ public static class UiAutomationDriver
                 typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input");
             public static readonly System.Reflection.ConstructorInfo? NewMouse = typeof(MouseDevice).GetConstructors()
                 .FirstOrDefault(c => c.GetParameters() is [{ ParameterType: var p }] && p == typeof(Avalonia.Input.Pointer));
+            // A pointer event's members, which the reference assemblies leave out as private API.
+            public static readonly System.Reflection.PropertyInfo? EventRoot =
+                typeof(Avalonia.Input.Raw.RawInputEventArgs).GetProperty("Root");
+            public static readonly System.Reflection.PropertyInfo? EventDevice =
+                typeof(Avalonia.Input.Raw.RawInputEventArgs).GetProperty("Device");
+            public static readonly System.Reflection.PropertyInfo? EventType =
+                typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetProperty("Type");
+            public static readonly System.Reflection.PropertyInfo? EventPosition =
+                typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetProperty("Position");
+            // The input manager every window's input passes through, which Avalonia's tooltip service follows. Its class is
+            // internal; its interface is public.
+            public static readonly System.Reflection.PropertyInfo? InputManager = typeof(Avalonia.Input.Raw.RawInputEventArgs)
+                .Assembly.GetType("Avalonia.Input.InputManager")
+                ?.GetProperty("Instance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
             public static readonly System.Reflection.ConstructorInfo? NewEvent =
                 typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetConstructors().FirstOrDefault(c => c.GetParameters() is
                     [_, { ParameterType: var t }, _, _, { ParameterType: var p }, _] && t == typeof(ulong) && p == typeof(Point));
@@ -4056,6 +4137,49 @@ public static class UiAutomationDriver
         public static bool Move(TopLevel topLevel, Point at) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.Move, at);
 
         public static void Leave(TopLevel topLevel) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.LeaveWindow, default);
+
+        /// <summary>Whether <paramref name="device"/> is the one every hover sends through.</summary>
+        public static bool Sent(IInputDevice? device) => device is not null && ReferenceEquals(device, mouse);
+
+        /// <summary>The input root of <paramref name="topLevel"/> that its input events carry; null when it cannot be read.</summary>
+        public static object? InputRootOf(TopLevel topLevel) => Reach(() => Members.InputRoot?.GetValue(topLevel));
+
+        /// <summary>The input manager's stream of every window's input; null when it cannot be reached.</summary>
+        public static IObservable<Avalonia.Input.Raw.RawInputEventArgs>? Input => Reach(() =>
+            Members.InputManager?.GetValue(null) is { } manager
+                ? manager.GetType().GetProperty("Process")?.GetValue(manager) as IObservable<Avalonia.Input.Raw.RawInputEventArgs>
+                : null);
+
+        /// <summary>A pointer event's root, device, type and position; null for any other input, or when one cannot be
+        /// read.</summary>
+        public static (object? Root, IInputDevice? Device, Avalonia.Input.Raw.RawPointerEventType Type, Point Position)? Read(
+            Avalonia.Input.Raw.RawInputEventArgs e)
+        {
+            if (e is not Avalonia.Input.Raw.RawPointerEventArgs)
+                return null;
+            try
+            {
+                return Members.EventType?.GetValue(e) is Avalonia.Input.Raw.RawPointerEventType type
+                       && Members.EventPosition?.GetValue(e) is Point position
+                    ? (Members.EventRoot?.GetValue(e), Members.EventDevice?.GetValue(e) as IInputDevice, type, position)
+                    : null;
+            }
+            catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
+                                           or MemberAccessException or InvalidCastException or ArgumentException)
+            {
+                return null;
+            }
+        }
+
+        private static T? Reach<T>(Func<T?> read) where T : class
+        {
+            try { return read(); }
+            catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
+                                           or MemberAccessException or InvalidCastException or ArgumentException)
+            {
+                return null;
+            }
+        }
 
         private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at)
         {

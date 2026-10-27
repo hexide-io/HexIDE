@@ -627,6 +627,7 @@ added afterwards.
 - [`Time`, and eight Dies rows that already ran (2026-10-23, #1633)](time-and-eight-dies-rows-that-already-ran.md#time-and-eight-dies-rows-that-already-ran-2026-10-23-1633)
 - [A Const declared with a type character (2026-10-23, #1614)](a-const-declared-with-a-type-character.md#a-const-declared-with-a-type-character-2026-10-23-1614)
 - [A For counter written with a type character (2026-10-27, #739)](a-for-counter-written-with-a-type-character.md#a-for-counter-written-with-a-type-character-2026-10-27-739)
+- [A Function declared with a type character (2026-10-27, #740)](a-function-declared-with-a-type-character.md#a-function-declared-with-a-type-character-2026-10-27-740)
 - [A D exponent in a source literal (2026-10-23, #1611)](a-d-exponent-in-a-source-literal.md#a-d-exponent-in-a-source-literal-2026-10-23-1611)
 - [GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)](getsetting-savesetting-deletesetting-and-getallsettings.md#getsetting-savesetting-deletesetting-and-getallsettings-2026-10-23-1562)
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)

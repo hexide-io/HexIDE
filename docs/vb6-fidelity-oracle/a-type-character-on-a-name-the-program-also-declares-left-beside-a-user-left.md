@@ -349,7 +349,8 @@ Four kinds of divergence came out, each filed:
   on first suffixed assignment. No new VB6 measurement was needed for those: the assignment tables above supply the
   values and types. The For counter was measured at every scope, with `Next` too, in "A For counter written with a
   type character" (2026-10-27), and follows it.
-- A `Function` declared with a type character does not parse, so its module does not load (#740).
+- A `Function` declared with a type character did not parse, so its module did not load. #740 fixed it, measured in "A
+  Function declared with a type character".
 - Surplus arguments are dropped, so `H(5, 6)`, `G(5, 6)` and `F(5, 6)` above run and answer, and a
   `String` variable that shares a library function's name (`Left`, `Trim`) is passed over to the library
   when called with arguments. TE_01 answers the program's

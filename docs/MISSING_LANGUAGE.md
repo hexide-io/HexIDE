@@ -115,7 +115,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 2 | 16 | 42 | 0 | 46 | 107 |
+| Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 3 | 22 | 1 | 25 | 51 |
@@ -123,16 +123,16 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 82 | 15 | 0 | 26 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **2** | **145** | **438** | **20** | **578** | **1184** |
+| **Total** | **1** | **0** | **145** | **440** | **20** | **578** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
 
 
-### The single most useful number here is 1
+### The single most useful number here is 0
 
-**Only one construct in this inventory fails to parse**: a `Function` declared with a type
-character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)). Every other
+**No construct in this inventory fails to parse.** The last one, a `Function` declared with a type
+character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)), parses now. Every
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
 value. The one Silently wrong row below is a wrong value counted as such; the `()` row records
 another under [#741](https://github.com/hexide-io/HexIDE/issues/741) and stays Partial, for the reason
@@ -145,7 +145,8 @@ conditional compilation took `#Const` off it ([#1112](https://github.com/hexide-
 before the parse, so the grammar never sees one, as vb6.exe's parser never sees an inactive branch. The `D` exponent
 marker left it when vb6.exe was found to compile one ([#1611](https://github.com/hexide-io/HexIDE/issues/1611)), and the same measurement found a
 literal ending in its point, which took its place. That went to one when both grammars learned to read it
-([#1615](https://github.com/hexide-io/HexIDE/issues/1615)).
+([#1615](https://github.com/hexide-io/HexIDE/issues/1615)), and to none when the interpreter's `functionStmt` took the
+`typeHint?` the LSP server's grammar had (#740).
 
 That matters for three reasons. It is the empirical form of the claim in `CLAUDE.md` that no VB6
 construct is incomprehensible to the CST, which until now was an architectural assertion rather than a
@@ -157,8 +158,8 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 17% of VB6's statements (18
-of 107, two of them the `Function` rows, which fail only when a type character is used) and 67% of the
+damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
+of 107) and 67% of the
 in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 82 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
@@ -226,20 +227,13 @@ is taken for an undeclared variable. Found while fixing #975. A class's Property
 |---|---|---|---|
 | `Property Get` | **Silently wrong** | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. **Re-rated from Partial by measurement ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** A standard module's Property Get is not reached by its name: `x = PG`, with `Property Get PG() As Long()` in a module, reads Empty here with no error, where VB6 reads the array (measured), and `PG()` is "Sub or Function not defined". A class's is unaffected, and one declared `As Long()` returns its array ([#975](https://github.com/hexide-io/HexIDE/issues/975), measured). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
 
-## Won't load — 2 names
+## Won't load — 0 names
 
-The whole list. A parse failure takes the entire module down — nothing in the file runs and the editor
-cannot open it usefully — so despite how obscure these look, each one has a blast radius of a file rather
-than a statement. That is why they are worth fixing ahead of far more commonly used constructs that merely
-throw.
+Nothing is on the list now. A parse failure takes the entire module down — nothing in the file runs and the editor
+cannot open it usefully — so however obscure each construct below looked, it had a blast radius of a file rather
+than a statement. That is why each was fixed ahead of far more commonly used constructs that merely throw.
 
-**`Function` joined the list by measurement** ([#740](https://github.com/hexide-io/HexIDE/issues/740)).
-A `Function` declared with a type character, `Function GetName$()`, does not parse; without one it does,
-so its two rows, `Function` and `Function...End Function`, are rated by that worst case. They are two
-names for one construct, as `Line number` and `LineNumber` are. Unlike the others it does not look
-obscure: the character stands in for an `As` clause. Only `$` has a VB6 row: VB6 compiles a `Function`
-declared with it (oracle TR_01, TR_02, TB_01, each a `Function Left$`). No oracle row has a `Function`
-declared with `% & ! # @`, although HexIDE refuses `Function Twice%` in the same way.
+**`Function` declared with a type character used to be here** ([#740](https://github.com/hexide-io/HexIDE/issues/740)). `Function GetName$()` did not parse, so its module never loaded: the interpreter's `functionStmt` had no `typeHint?` after the name, though the LSP server's had one. All six characters were measured on vb6.exe, native and p-code, and the rule ported across. Both rows are Partial again, as they were before the character was measured, since the body may assign the return through it too ([#739](https://github.com/hexide-io/HexIDE/issues/739)).
 
 **A literal ending in its point, and the `D` exponent, used to be here.** vb6.exe compiles `5.` and `5.D1`, and both
 grammars needed a digit after the point and lexed no `D` in a whole number. Both were measured and are read now
@@ -264,8 +258,6 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Function` | **Won't load** | **#2120:** procedure calls keep their own bindings and fall back to the module or instance, avoiding a copy of every module name on each call; name lookup and the Locals display are preserved. **#79, phase 1:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
-| `Function...End Function` | **Won't load** | **#79, phase 1:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 
 ## Dies mid-run — 145 names
 
@@ -428,13 +420,13 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 18 absent, 42 partial, 46 supported)
+### Statements — 107 names (1 silently wrong, 16 absent, 44 partial, 46 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `On Error Resume Next` | Supported | **#767:** an unimplemented fault suppresses Class_Terminate during reference cleanup, so a raising termination hook cannot replace it with a trappable error.  **#839:** a block statement whose condition or header raises goes on into the block, as VB6 does: `If k Then` runs the Then branch, `ElseIf k` its branch, a one-line `If k` its Then part, and `Do While k`, `Do Until k` and `While k` run their bodies, asking again each time round, where the whole statement was skipped (measured by #840 and #839, native and in the IDE). Where native code and p-code differ, for a Select Case selector and a For loop's start, limit or step, HexIDE follows p-code, which is how the IDE runs a program. On Error GoTo with Resume Next in the handler still resumes after the whole top-level statement (see `Resume Next`) — Sets errorMode = ErrorMode.ResumeNext, trapped per statement in every nested block (VisitBlock) and at the top-level pc driver. **#877:** it clears Err, as every On Error does, and while a handler is running it traps nothing: an error inside the handler goes to the caller, as vb6.exe sends it (measured). | StatementExecutor.cs |
-| `Function` | **Won't load** | **#2120:** procedure calls keep their own bindings and fall back to the module or instance, avoiding a copy of every module name on each call; name lookup and the Locals display are preserved. **#79, phase 1:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
-| `Function...End Function` | **Won't load** | **#79, phase 1:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
+| `Function` | Partial | **#2120:** procedure calls keep their own bindings and fall back to the module or instance, avoiding a copy of every module name on each call; name lookup and the Locals display are preserved. **#79, phase 1:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **A type character declares the return ([#740](https://github.com/hexide-io/HexIDE/issues/740), measured for all six).** `Function F%()` returns an Integer, and `& ! # @ $` a Long, Single, Double, Currency and String, ahead of a DefType for the name's letter. A call may carry the character, `F%()` or `F% + 1`, and it is checked against the return type: another character, or one on a Variant Function, is VB6's compile error "Type-declaration character does not match declared data type". A character and an `As` clause together are "Expected: end of statement". The body may assign the return through the character, `F% = 7`, as VB6 does ([#739](https://github.com/hexide-io/HexIDE/issues/739)). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
+| `Function...End Function` | Partial | **#79, phase 1:** activation slots are freed on return and error unwind; ByRef aliases and persistent Static slots are retained. **A type character declares the return ([#740](https://github.com/hexide-io/HexIDE/issues/740)); the body may assign it through the character ([#739](https://github.com/hexide-io/HexIDE/issues/739)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below now has `typeHint?` after the name (#740). Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Close` | Supported | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** closes the numbered files, every open file with no number, and one that isn't open with no error, all as vb6.exe measured. A program's files also close at `End` and when it ends. | StatementExecutor.cs, VbFiles.cs |
