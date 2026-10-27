@@ -528,6 +528,15 @@ automation name, or else its text, and SHALL list that name, never a type name, 
 - **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
 - **THEN** the item is reached, and a miss in that menu lists it by that name
 
+### Requirement: hover SHALL report a tip by the text it shows
+`hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
+blocks in order. A tip with no text to read SHALL be reported as such, never by a type's name, and an open tip whose
+text has not appeared yet SHALL be read again until it does or the dwell ends.
+
+#### Scenario: A carried control's box in the designer
+- **WHEN** `hover` reaches the designer's box for a carried control, whose tip is a StackPanel of three text blocks
+- **THEN** the reply's tip reads as the control's name, its class and the sentence, joined with ` / `
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 A snapshot SHALL include the window and its open native popups at their relative screen positions,
