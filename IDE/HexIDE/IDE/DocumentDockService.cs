@@ -20,6 +20,38 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     private bool subscribedToDock;
     private BaseEditorWindowViewModel? activeDocument;
 
+    public RecentlyClosedDocuments RecentlyClosed { get; } = new();
+
+    public void TrackTabs()
+    {
+        if (Dock is { } dock) EnsureDockSubscription(dock);
+    }
+
+    public void ReopenClosedDocument(IEditorService editors, ClosedDocument? entry = null)
+    {
+        RecentlyClosed.Reopen(editors, tab =>
+        {
+            if (TryActivateAny(t => ReferenceEquals(t, tab))) return;
+            if (tab is ArchiveDocumentViewModel archive)
+            {
+                var existing = openDocuments.OfType<ArchiveDocumentViewModel>()
+                    .FirstOrDefault(vm => vm.Entry.Identity.Equals(archive.Entry.Identity));
+                if (existing is null) OpenDocument(archive);
+                else
+                {
+                    existing.CaretOffset = archive.CaretOffset;
+                    TryActivate<ArchiveDocumentViewModel>(vm => vm == existing);
+                }
+                return;
+            }
+            if (Dock is not { } dock) return;
+            dock.VisibleDockables!.Add(tab);
+            factory.Value!.InitDockable(tab, dock);
+            factory.Value.SetFocusedDockable(dock, tab);
+            dock.ActiveDockable = tab;
+        }, entry);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public IReadOnlyList<BaseEditorWindowViewModel> OpenDocuments => openDocuments;
@@ -69,9 +101,12 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     {
         this.factory = factory;
         this.eventBus = eventBus;
-        projectUnloadedSub = eventBus.Subscribe<ProjectUnloadedEvent>(_ =>
+        projectUnloadedSub = eventBus.Subscribe<ProjectUnloadedEvent>(e =>
         {
-            foreach (var document in openDocuments.Where(d => d is not ArchiveDocumentViewModel).ToArray())
+            RecentlyClosed.Unload(e.Project);
+            foreach (var document in openDocuments.Where(d => d.OpenDocument?.Project == e.Project
+                         || d is RelatedDocumentEditorViewModel r && r.RelatedDocument?.Owner == e.Project
+                         || d is ProjectDocumentViewModel p && p.Project == e.Project).ToArray())
                 CloseDocument(document);
         });
     }
@@ -144,6 +179,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         if (e.OldItems is null) return;
         foreach (var item in e.OldItems)
         {
+            if (item is IDockable tab) RecentlyClosed.Record(tab);
             if (item is BaseEditorWindowViewModel removed && openDocuments.Remove(removed))
             {
                 eventBus.Publish(new FileClosedEvent(removed.Title, removed.OpenDocument));
@@ -170,5 +206,15 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         }
     }
 
-    public void Dispose() => projectUnloadedSub.Dispose();
+    public void Dispose()
+    {
+        projectUnloadedSub.Dispose();
+        RecentlyClosed.Dispose();
+        if (Dock is { } dock)
+        {
+            dock.PropertyChanged -= OnDockPropertyChanged;
+            if (dock.VisibleDockables is INotifyCollectionChanged ncc)
+                ncc.CollectionChanged -= OnVisibleDockablesChanged;
+        }
+    }
 }

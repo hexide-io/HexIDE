@@ -505,8 +505,7 @@ public class McpRestartTests
     {
         var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = new[] { 3_000_000_000L } });
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain("'lines'").And.Contain("item 0: 3000000000 is too large; "
-            + "it takes a whole number from -2147483648 to 2147483647");
+        TextOf(result).Should().Contain("'lines'").And.Contain("item 0: 3000000000 is larger than any whole number this argument can hold (2147483647)");
     }
 
     [Fact]
@@ -515,19 +514,17 @@ public class McpRestartTests
         var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 3_000_000_000L });
 
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain("'count'").And.Contain("3000000000 is too large; "
-            + "it takes a whole number from -2147483648 to 2147483647");
+        TextOf(result).Should().Contain("'count'").And.Contain("3000000000 is larger than any whole number this argument can hold (2147483647)");
     }
 
     [Theory]
-    [InlineData("9223372036854775808", "too large")]
-    [InlineData("-9223372036854775809", "too small")]
-    public async Task Long_overflow_explains_the_whole_number_range(string value, string direction)
+    [InlineData("9223372036854775808", "larger", "9223372036854775807")]
+    [InlineData("-9223372036854775809", "smaller", "-9223372036854775808")]
+    public async Task Long_overflow_explains_the_storage_limit(string value, string direction, string limit)
     {
         var result = await CallWithAsync("seq", new() { ["after"] = value, ["limit"] = 1 });
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain($"'after': {value} is {direction}; it takes a whole number from "
-            + "-9223372036854775808 to 9223372036854775807").And.NotContain("System.Int").And.NotContain("Path:");
+        TextOf(result).Should().Contain($"'after': {value} is {direction} than any whole number this argument can hold ({limit})").And.NotContain("System.Int").And.NotContain("Path:");
     }
 
     [Fact]
@@ -538,8 +535,22 @@ public class McpRestartTests
             ["dwellMs"] = System.Text.Json.JsonSerializer.SerializeToElement(3_000_000_000L),
         };
         ToolFailures.BindingProblems(new System.Text.Json.JsonException(), arguments, "hover")
-            .Should().ContainSingle().Which.Should().Contain("from -2147483648 to 2147483647")
+            .Should().ContainSingle().Which.Should().Contain("larger than any whole number this argument can hold (2147483647)")
             .And.Contain("from 0 to 10000").And.NotContain("System.Int").And.NotContain("Path:");
+    }
+
+    [Theory]
+    [InlineData(99999999999L, "larger", "2147483647")]
+    [InlineData(-99999999999L, "smaller", "-2147483648")]
+    public void Tree_depth_overflow_distinguishes_storage_limit_from_parameter_bounds(long value, string direction, string limit)
+    {
+        var arguments = new Dictionary<string, System.Text.Json.JsonElement>
+        {
+            ["maxDepth"] = System.Text.Json.JsonSerializer.SerializeToElement(value),
+        };
+        ToolFailures.BindingProblems(new System.Text.Json.JsonException(), arguments, "dump_visual_tree")
+            .Should().ContainSingle().Which.Should().Contain($"'maxDepth': {value} is {direction} than any whole number this argument can hold ({limit})")
+            .And.Contain("at least 1").And.NotContain("whole number from");
     }
 
     [Fact]
@@ -617,6 +628,7 @@ public class McpRestartTests
             .And.Contain("app.UseLoopbackOnly(port);")
             .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
+            .And.Contain(".AddCallToolFilter(HeldButtonNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
 
         var startup = ToolSource.WithoutComments(

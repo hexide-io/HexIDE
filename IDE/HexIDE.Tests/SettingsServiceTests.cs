@@ -51,6 +51,7 @@ public class SettingsServiceTests : IDisposable
     [InlineData(nameof(SettingsService.IsDebugToolbarVisible), true)]
     [InlineData(nameof(SettingsService.IsFormEditorToolbarVisible), true)]
     [InlineData(nameof(SettingsService.IsMinimapVisible), false)]
+    [InlineData(nameof(SettingsService.ColorBracketsByDepth), false)]
     [InlineData("IsStickyScrollEnabled", false)]
     [InlineData("StickyScrollDepth", 5)]
     public void Save_PreservesOtherInstancesChanges(string propertyName, object value)

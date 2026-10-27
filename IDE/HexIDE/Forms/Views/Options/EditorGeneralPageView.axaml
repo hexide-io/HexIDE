@@ -18,12 +18,14 @@
         </HeaderedContentControl>
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.Display.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
+                <CheckBox IsChecked="{CompiledBinding ShowIndentGuides}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowIndentGuides}" />
                 <CheckBox IsChecked="{CompiledBinding IsStickyScrollEnabled}" Content="{DynamicResource Str.Options.EditorGeneral.Display.StickyScroll}" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="{DynamicResource Str.Options.EditorGeneral.Display.StickyDepth}" VerticalAlignment="Center" />
                     <NumericUpDown Value="{CompiledBinding StickyScrollDepth}" Minimum="1" Maximum="10" Width="80" IsEnabled="{CompiledBinding IsStickyScrollEnabled}" />
                 </StackPanel>
                 <CheckBox IsChecked="{CompiledBinding IsMinimapVisible}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowMinimap}" />
+                <CheckBox IsChecked="{CompiledBinding ColorBracketsByDepth}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ColorBracketsByDepth}" />
             </StackPanel>
         </HeaderedContentControl>
     </StackPanel>

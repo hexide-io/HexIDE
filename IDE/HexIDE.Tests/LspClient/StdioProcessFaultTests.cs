@@ -48,7 +48,9 @@ public class StdioProcessFaultTests
             timer.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
             if (mode is "ignore" or "tree")
                 timer.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromSeconds(2));
-            process.HasExited.Should().BeTrue();
+            // On Unix the server is now the guard's child; a group kill reparents it just like
+            // its descendant below, so check the kernel's exited state as well as .NET's handle.
+            await WaitUntilGone(process);
             if (child is not null)
             {
                 // A reparented Unix child may briefly remain a zombie until the host reaps it.

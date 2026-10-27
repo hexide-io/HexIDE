@@ -98,3 +98,22 @@ the model; the serialized model check SHALL run on flush and matching save event
 #### Scenario: Deleting after pointer selection
 - **WHEN** a developer selects a control by clicking the designer canvas, releases the pointer and presses Delete from a focused child of the designer
 - **THEN** the deletion is committed, can be undone and shows the designer tab's modified marker
+
+### Requirement: Recently closed tabs can be reopened during the session
+The IDE SHALL retain the last 20 closed code, designer and tool document tabs in newest-first order.
+The Window menu SHALL offer Reopen Closed Window, disabled when the history is empty, and a list of
+recently closed windows. The rebindable `ReopenClosedDocumentCommand` SHALL default to the platform
+command modifier plus Shift+T. Reopening SHALL remove the selected entry, restore its view and, for a
+code window, restore its caret position. History SHALL NOT persist across sessions.
+
+#### Scenario: Reopen the last closed code window
+- **WHEN** the developer closes a code window and invokes Reopen Closed Window
+- **THEN** its code view opens with its previous caret position and its history entry is removed
+
+#### Scenario: A document or project leaves the session
+- **WHEN** a document is removed from its project or its project closes
+- **THEN** its history entries are removed immediately and tabs closed by that removal are not recorded
+
+#### Scenario: More than twenty windows close
+- **WHEN** a twenty-first window closes
+- **THEN** the oldest history entry is discarded

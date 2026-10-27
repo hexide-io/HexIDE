@@ -10,10 +10,10 @@ using StreamJsonRpc;
 namespace HexIDE.Tests.LspClient;
 
 /// <summary>
-/// What <c>shutdown</c> and <c>exit</c> look like on the wire.
+/// What the lifecycle messages look like on the wire.
 ///
 /// <para>
-/// LSP 3.17 defines both as taking <b>no parameters</b>, and the four ways of expressing "nothing" are not
+/// LSP 3.17 defines shutdown and exit as taking <b>no parameters</b>, and the four ways of expressing "nothing" are not
 /// interchangeable to a real server. Measured against foreign servers this suite drives and an
 /// externally-authored one (hexide-io/HexIDE#312, #368):
 /// </para>
@@ -89,7 +89,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     private readonly TaskCompletionSource _initializeSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private async Task<VBLspClient> ConnectedAsync(
-        bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false)
+        bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
+        Func<string>? locale = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         _disposables.Add(serverSide);
@@ -146,12 +147,38 @@ public class ShutdownWireShapeTests : IAsyncDisposable
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
-        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale);
         _disposables.Add(client);
         _starting = client.StartAsync();
         if (answerInitialize) await _starting;
         else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en-GB", "en-GB")]
+    [InlineData("fr", "fr")]
+    [InlineData("zh-Hans", "zh-Hans")]
+    [InlineData("system", "en")]
+    [InlineData("pseudo", "en")]
+    [InlineData("pseudo-rtl", "en")]
+    public async Task InitializeCarriesResolvedUiLocale(string language, string expected)
+    {
+        var previous = HexIDE.Localization.LocalizationService.OsUICulture;
+        try
+        {
+            HexIDE.Localization.LocalizationService.OsUICulture = CultureInfo.InvariantCulture;
+            var localization = new HexIDE.Localization.LocalizationService();
+            localization.Apply(language);
+            await ConnectedAsync(locale: () => localization.ResolvedLanguage);
+
+            FrameFor("initialize").GetProperty("params").GetProperty("locale")
+                .GetString().Should().Be(expected);
+        }
+        finally
+        {
+            HexIDE.Localization.LocalizationService.OsUICulture = previous;
+        }
     }
 
     [Fact]
