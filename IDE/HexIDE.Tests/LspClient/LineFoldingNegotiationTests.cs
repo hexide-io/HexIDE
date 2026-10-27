@@ -10,18 +10,7 @@ using StreamJsonRpc;
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
 namespace HexIDE.Tests.LspClient;
 
-/// <summary>
-/// That the client says it folds whole lines, and that a server which honours that ends a fold on the line before
-/// its closing line (hexide-io/HexIDE#1363).
-///
-/// <para>
-/// <b>The editor folds a server's range by whole lines.</b> <c>Vb6FoldingAdapter.FromServer</c> reads a fold's
-/// lines and ignores its characters. A client that does not declare <c>lineFoldingOnly</c> is told a fold may end
-/// part-way along a line, and clangd ends each one just before its closing brace. Read by whole lines, that fold
-/// runs to the end of the brace's line, so collapsing it hid the brace. Told the client folds whole lines, clangd
-/// ends the fold a line earlier.
-/// </para>
-/// </summary>
+/// <summary>The client accepts character folding ranges (hexide-io/HexIDE#1022).</summary>
 public class LineFoldingNegotiationTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
@@ -61,7 +50,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task TheClientTellsTheServerItFoldsWholeLines()
+    public async Task TheClientDoesNotDeclareLineOnlyFolding()
     {
         var server = new HandshakeRecorder();
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
@@ -90,11 +79,8 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         semantic.GetProperty("overlappingTokenSupport").GetBoolean().Should().BeFalse();
         semantic.GetProperty("multilineTokenSupport").GetBoolean().Should().BeFalse();
 
-        initialize.GetProperty("capabilities")
-            .GetProperty("textDocument")
-            .GetProperty("foldingRange")
-            .GetProperty("lineFoldingOnly").GetBoolean()
-            .Should().BeTrue("the editor folds a server's range by whole lines and ignores its characters");
+        initialize.GetProperty("capabilities").GetProperty("textDocument")
+            .GetProperty("foldingRange").ValueKind.Should().Be(JsonValueKind.Null);
 
         const string uri = "untitled:Module1.bas";
         var tokens = await client.RequestSemanticTokensAsync(uri, TestContext.Current.CancellationToken);
@@ -154,7 +140,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
     }
 
     [ForeignServerFact("cpp")]
-    public async Task AServerThatHonoursItEndsAFoldBeforeTheClosingLine()
+    public async Task AServerEndsAFoldOnTheClosingBraceLine()
     {
         var sut = CppRegistry();
         var uri = DocumentUri();
@@ -164,8 +150,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
 
         folds.Should().ContainSingle("the function body is the one block in the file");
         folds[0].StartLine.Should().Be(0);
-        folds[0].EndLine.Should().Be(2,
-            "a fold read by whole lines that ended on line 3 would hide the closing brace, which has that line to itself");
+        folds[0].EndLine.Should().Be(3, "without lineFoldingOnly clangd ends on the brace line");
     }
 
     public async ValueTask DisposeAsync()
