@@ -60,6 +60,6 @@ bare name:
 - The pre-pass takes it as the return type ahead of a DefType, and refuses it beside an `As` clause.
 - A call with the character to the program's own Function is checked against the return type, with or without
   parentheses.
-- **The return assigned through the character, `BI% = 7`, is refused until #739,** where vb6.exe returns 7. It used to
-  write a variable named `BI%` and leave the Function returning 0.
+- The return assigned through the character, `BI% = 7`, sets it, as vb6.exe does (#739). Until #739 it was refused, and
+  before #740 it wrote a variable named `BI%` and left the Function returning 0.
 - A `Sub` with a character still fails to parse, where vb6.exe refuses to compile it. Both refuse the program.
