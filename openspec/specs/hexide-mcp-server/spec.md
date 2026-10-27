@@ -629,3 +629,13 @@ pressing.
 
 - **WHEN** a drag in Dock's layout releases where no drop target is
 - **THEN** the reply says the layout is unchanged, so nothing was docked
+
+### Requirement: Properties category expansion
+
+Categorized Properties rows SHALL expose an expand/collapse provider driven by the category's open state. Their toggle SHALL use the localized category header as its accessible name. `inspect_element` SHALL report `expandCollapseState` from an available expand/collapse provider.
+
+#### Scenario: Opening and closing a category row
+- **WHEN** `interact` expands or collapses a showing category row
+- **THEN** its open state and property visibility follow the requested state
+- **AND** repeating the action succeeds without toggling the state
+- **AND** inspection reports the current expansion state, including after using the category toggle
