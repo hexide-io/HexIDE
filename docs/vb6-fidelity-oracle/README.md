@@ -649,6 +649,8 @@ added afterwards.
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
+
+- [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
 - [A multiple selection in the designer, and Align (2026-10-26, #2181, design-time, IDE)](a-multiple-selection-in-the-designer-and-align.md#a-multiple-selection-in-the-designer-and-align-2026-10-26-2181-design-time-ide)
