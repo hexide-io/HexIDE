@@ -125,7 +125,9 @@ raises the same two errors.
 
 **Other sizing:**
 - `Width = 500` and `Height = 6000` from code were taken as given, without snapping. MonthRows stayed 1.
-- With 3 × 4 months, VisibleDays(1) was 2025-12-28: the twelve months shown ended with the current one.
+- With 3 × 4 months, VisibleDays(1) was 2025-12-28. **This was first read as "the twelve months shown ended with the
+  current one", and that was wrong.** 2025-12-28 is the Sunday before 1 January 2026, so the months shown were January
+  to December 2026. A later probe found the same for 2001, 2004 and 2009, under "Week, VisibleDays and the edges".
 
 ### StartOfWeek, ShowToday, ShowWeekNumbers and ScrollRate
 
@@ -152,7 +154,8 @@ raises the same two errors.
   | 2004-12-31 | **52** | 6 |
   | 2005-01-01 | 52 | 7 |
 
-  ISO numbering would put 2004-12-31 in week 53. **What rule this follows resisted explanation.**
+  ISO numbering would put 2004-12-31 in week 53. **What rule this follows resisted explanation here.** It was
+  explained later: see "Week, VisibleDays and the edges" below.
 
 ### DayBold, VisibleDays and HitTest
 
@@ -169,6 +172,106 @@ raises the same two errors.
     the title, and every one returned **7**, the title's background, with Date unchanged at 1899-12-30.
   - 9999,9999 lies outside the control and returned 6.
   - Read that way, the four 7s were right, not a hidden-form artefact.
+
+### Week, VisibleDays and the edges (2026-10-27)
+
+**The probe:** code only, in a shown form, with MonthView1 from a hand-written minimal block. Native and p-code logged
+the same lines, the time of day VisibleDays carries apart.
+
+**Week reads.** Value was set to every day from 25 December to 7 January, for each year end from 2000 to 2012, under
+StartOfWeek 1 and 2. Spot checks covered StartOfWeek 3, 4 and 7.
+
+**The rule: weeks start on StartOfWeek, and week 1 is the week holding 4 January,** the first week with at least four
+days in the new year. Days before it belong to the old year's last week, 52 or 53. It is ISO 8601's rule with the week
+starting on StartOfWeek rather than always on Monday, and it fits every day logged.
+
+| Days | StartOfWeek 1, Sunday | StartOfWeek 2, Monday |
+|---|---|---|
+| 2000-12-31, a Sunday | **1**: its week holds 1 to 6 January | 52 |
+| 2001-12-30, 2001-12-31 | 1, 1 | 52, **1** |
+| **2003-12-28 to 2004-01-03** | **53**: the week has only 3 days of 2004. 2004-01-04 is 1 | 2003-12-29 on: 1 |
+| 2004-12-26 to 2005-01-01 | 52 | 2004-12-27 to 2005-01-02: **53**, ISO's week |
+| 2008-12-28 to 2009-01-03 | **53** | 2008-12-29 on: 1 |
+| 2009-12-27 to 2010-01-02 | 52 | 2009-12-28 to 2010-01-03: **53** |
+
+- **The rows the entry recorded earlier fit it.** 2001-12-31 is 1, and 2004-12-31 and 2005-01-01 are 52, all under
+  StartOfWeek 1.
+- **Other StartOfWeek values follow the same rule:**
+
+  | StartOfWeek | 2004-12-31 | 2005-01-01 | 2001-12-30 and 2001-12-31 |
+  |---|---|---|---|
+  | 3, Tuesday | 53 | 53 | 52 |
+  | 4, Wednesday | **1**: the week holds 1 to 4 January | 1 | 52 |
+  | 7, Saturday | 52 | 1 | 1 |
+- Week is an Integer: 24 for 2001-06-15.
+
+**Week writes move Value to the same weekday in week n of the week-year Value is in,** counted by the same rule:
+
+| From | Week = 1 | 2 | 26 | 51 | 52 | 53 |
+|---|---|---|---|---|---|---|
+| 2001-06-15, a Friday | 2001-01-05 | 01-12 | 06-29 | 12-21 | 12-28 | **2002-01-04, reading Week 1** |
+| **2005-01-01, a Saturday in 2004's week 52** | **2004-01-10** | 2004-01-17 | 2004-07-03 | 2004-12-25 | 2005-01-01 | 2005-01-08, reading 1 |
+| 2004-12-31, a Friday | 2004-01-09 | 01-16 | 07-02 | 12-24 | 12-31 | 2005-01-07, reading 1 |
+| 2004-06-15, a Tuesday | 2004-01-06 | 01-13 | 06-29 | 12-21 | 12-28 | 2005-01-04, reading 1 |
+
+- **The year is the week-year, not Value's calendar year.** From 2005-01-01, Week = 1 went to January 2004.
+- **Week = 53 in a year of 52 weeks runs on into the next year's week 1.** It raised no error. 0 and 54 raise 380, as
+  above.
+
+**VisibleDays' index runs from 1 to the number of days shown,** and those days are contiguous:
+
+| Months shown | Last index | Days |
+|---|---|---|
+| 1 × 1 | **42** | six whole weeks |
+| 1 × 2 and 2 × 1 | **70 or 77** | from the first month's first row to the end of the last month's six rows |
+| 2 × 2 | 133 | the same |
+| 3 × 4 | 371 or 378 | the same |
+
+- **The span is the first month's grid start to the 42nd day of the last month's grid.** With June and July 2001 shown,
+  it ran from 2001-05-27 to 2001-08-11, 77 days, with no gap between the months.
+- **Index 0, -1, one past the last, and 32767 raise 380.**
+- **The index is rounded as VB rounds to an Integer:** 1.5 and 2.5 both read VisibleDays(2), 42.5 read (42), and 0.5
+  and 42.6 raised 380. `"2"` read (2).
+- **Each is a Date carrying the time of day it was read,** as recorded above.
+- **Which months are shown after MonthRows or MonthColumns changes depended on what was shown before:**
+
+  | Value | 1 × 1 | then 1 × 2 | then 2 × 2 | then 3 × 4 |
+  |---|---|---|---|---|
+  | 2001-06-15 | June | June, July | June to September | **January to December 2001** |
+  | 2009-02-15 | February | **January, February** | January to April | January to December 2009 |
+  | 2004-12-15 | December | December, January | December to March | January to December 2004 |
+
+  **Twelve months showed Value's calendar year each time.** What decides the first month for fewer resisted explanation.
+
+**The selection's edges,** with MultiSelect True and MaxSelCount 7, from Value 2001-06-15:
+
+| Assignment | Result |
+|---|---|
+| `SelEnd = 06-12`, before SelStart 06-15 | **no error. The selection collapses to 06-12**, and Value follows. A SelStart after SelEnd does the same, as above |
+| `SelStart = 06-01`, with SelEnd 06-18: 18 days | **35770**, and nothing changes |
+| `SelEnd = 06-19`, from 06-12: 8 days | 35770 |
+| **`MaxSelCount = 3`, with 06-12 to 06-18 selected** | **35770, "An invalid date range was specified."** MaxSelCount stays 7 and the selection stays |
+| `MaxSelCount = 1`, with 3 days selected | 35770 |
+| `MultiSelect = False`, with 06-15 to 06-18 | **the selection collapses to SelStart**, 06-15. True again keeps the single day |
+| `Value = 06-25`, with 06-15 to 06-18 | **the selection collapses to Value**, whether the date is outside the range or inside it |
+| `MinDate = 06-21`, with 06-20 to 06-22 | Value is pulled up to 06-21, and the selection collapses to it |
+| **`MaxDate = 06-21`, with 06-20 to 06-22** | **no error. MaxDate reads 06-21, and SelEnd stays 06-22, past it.** A later `SelEnd = 06-22` raised 35770, and `SelEnd = 06-21` was taken |
+
+- **MaxSelCount can't be set below the days already selected.**
+- **Moving Value always collapses the selection.**
+
+**MinDate and MaxDate:**
+
+| Assignment | Result |
+|---|---|
+| **`MinDate = 2001-07-01`, above MaxDate 2001-06-30** | **35775**, "A value was specified for the MinDate property that is higher than the current value of MaxDate." Nothing changes |
+| `MinDate = 2001-06-30`, equal to MaxDate | taken. Value is pulled to it |
+| **`MinDate = 1752-12-31`, `1601-01-01`, `0100-01-01`** | **35772**, "An invalid date was specified for the MinDate property." |
+| `MinDate = 1753-01-02`, `9999-12-31` | taken. 9999-12-31 pulled Value up to it |
+| `MaxDate = 1752-12-31`, `1601-01-01` | **35774**, below MinDate, rather than an invalid date |
+| `MaxDate = 1753-01-01`, `9999-12-30` | taken. 1753-01-01 pulled Value down to it |
+| `Value = 9999-12-31` | taken. Week 52 |
+| `Value = 1753-01-01` | taken. Week 1, DayOfWeek 2, a Monday |
 
 ### The rest
 
