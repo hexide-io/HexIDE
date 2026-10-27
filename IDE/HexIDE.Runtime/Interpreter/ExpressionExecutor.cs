@@ -554,11 +554,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return TryGetArgLocation(valueStmt);
     }
 
+    // A name written with its type character is the variable too, `Bump i%` and `App t$` writing into the caller's (measured,
+    // #742). The read that evaluated the argument has already checked the character, or declared the name with it.
     private int? TryGetArgLocation(VB6Parser.ValueStmtContext valueStmt)
     {
         if (valueStmt is VB6Parser.VsICSContext ics
             && ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is { } vp
-            && vp.typeHint() == null && vp.dictionaryCallStmt() == null
+            && vp.dictionaryCallStmt() == null
             && env.TryGetVariableLocation(vp.ambiguousIdentifier().GetText(), out var loc)
             && !interpreter.ExecutionContext.State.IsConstant(loc)
             && !interpreter.ExecutionContext.State.IsReadOnly(loc))
@@ -603,11 +605,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             || ics.implicitCallStmt_InStmt()?.iCS_S_ProcedureOrArrayCall() is not { } call
             || call.ambiguousIdentifier() is not { } id
             || call.baseType() != null || call.iCS_S_NestedProcedureCall() != null
-            || call.typeHint() != null || call.dictionaryCallStmt() != null
+            || call.dictionaryCallStmt() != null
             || call.argsCall().Length != 1
             || await interpreter.ReadVariable(env, id.GetText()) is not (true, var holder)
             || !holder.Type.IsArray || holder.Value is not VBArray array)
             return null;
+        // `Bump a%(1)` passes the element, its character checked against the array's element type (measured, #742).
+        if (call.typeHint() is { } hint)
+        {
+            if (!env.TryGetVariableLocation(id.GetText(), out var arrayLocation))
+                return null;
+            RefuseMismatchedVariableCharacter(arrayLocation, holder, hint);
+        }
         var index = Subscripts(await EvaluateCallArgs(call.argsCall(0)));
         try
         {
@@ -889,8 +898,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (ctx.iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
-            // `Command$` with no parentheses, the library's function with no arguments and its result a String (measured).
-            // Any other name with a type character is still refused (#742).
+            // `Command$` with no parentheses, the library's function with no arguments and its result a String (measured). The
+            // program's own Function, and a variable, a constant or an Enum member, are read through their character (#740,
+            // #742). Any other name with a type character is still refused.
             if (varOrProcCall.typeHint() is { } hint)
             {
                 var hinted = varOrProcCall.ambiguousIdentifier().GetText();
@@ -908,7 +918,27 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     if (await interpreter.CallProcedure(hinted, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } hintedResult)
                         return hintedResult;
                 }
-                throw new NotImplementedException("Type hint is not supported");
+                if (env.TryGetVariableLocation(hinted, out var hintedLocation))
+                {
+                    RefuseAmbiguousEnumMember(hinted);
+                    if (!interpreter.TryReadNow(env, hinted, out _, out var hintedValue, out var hintedNeed))
+                        (_, hintedValue) = await interpreter.ReadVariableAfter(env, hinted, hintedNeed!);
+                    RefuseMismatchedVariableCharacter(hintedLocation, hintedValue, hint);
+                    return hintedValue;
+                }
+                // A name nothing else claims is declared by the read, with the character's type ahead of a DefType: `u$` read
+                // first is the String "", and a bare `u` after it reads the same variable (measured). The read allocates, as an
+                // assignment does, so that the later bare read finds it typed.
+                if (NothingClaims(hinted))
+                {
+                    VbIntrinsicNames.RefuseMissingObject(hinted);
+                    if (currentModule.PrePass.RequireVariableDefinitions || interpreter.SuppressImplicitDeclaration)
+                        throw new VBVariableNotDefinedException(hinted);
+                    var declared = BaseTypeMapper.Map(hint);
+                    interpreter.ExecutionContext.AllocVariable(env, hinted, new Vb6Value(declared), declared);
+                    return (await interpreter.ReadVariable(env, hinted)).Value;
+                }
+                throw new NotImplementedException($"`{varOrProcCall.GetText()}` is not implemented: a type character on a name that is not a variable (#742)");
             }
             if (varOrProcCall.dictionaryCallStmt() != null)
                 return await VisitICS_S_VariableOrProcedureCall(varOrProcCall);
@@ -1093,6 +1123,41 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBCompileErrorException(TypeCharacterMismatch);
     }
 
+    // A variable, a constant or an Enum member read through a type character, `s$`, `i%`, `a%(1)` (#742): the character is a
+    // check, not a conversion. The name is read as it would be without it, and its type must be the character's: the declared
+    // one, a Const's value's, an Enum member's Long, a declared array's element type. A Variant, an object, a Byte, a Boolean
+    // and a Date take no character, so a read of one through any character is VB6's compile error (measured,
+    // docs/vb6-fidelity-oracle/a-name-read-with-a-type-character.md).
+    private void RefuseMismatchedVariableCharacter(int location, Vb6Value value, VB6Parser.TypeHintContext hint)
+    {
+        if (CharacterTypeOf(location, value) != BaseTypeMapper.Map(hint))
+            throw new VBCompileErrorException(TypeCharacterMismatch);
+    }
+
+    private Vb6Value.ValueType? CharacterTypeOf(int location, Vb6Value value)
+    {
+        var state = interpreter.ExecutionContext.State;
+        if (state.IsVariant(location))
+            return null;
+        if (state.IsConstant(location) || state.IsReadOnly(location))
+            return value.Type;
+        if (value.Type.IsArray && value.Value is VBArray array)
+            return array.ElementType;
+        return state.DeclaredTypeOf(location);
+    }
+
+    // No procedure, intrinsic, constant, member of the form or of the library has the name, so a read through a character
+    // declares it, as an assignment through one would.
+    private bool NothingClaims(string name)
+        => !FormMembers.TryBare(interpreter.ExecutionContext, env, name, out _, out _)
+           && !interpreter.BuiltIns.TryGetBuiltInConstant(name, out _)
+           && !interpreter.TryResolveProcedure(name, currentModule, out _, out _)
+           && interpreter.GlobalMember(name) is null
+           && !interpreter.EnumIsQualifier(name, env, currentModule)
+           && !interpreter.TryResolveQualifier(name, out _)
+           && !VbIntrinsicNames.IsIntrinsic(name)
+           && !name.Equals("Clipboard", StringComparison.OrdinalIgnoreCase);
+
     // The name is the program's own Function, and no variable in scope hides it but the Function's own return slot, so that
     // `RI%(n - 1)` inside `RI%` is a recursive call.
     private bool CallsOwnFunction(string name)
@@ -1261,17 +1326,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // A type-declaration character on the call (#742). `$` is the one a program reaches first, the library's string
         // functions written `Trim$` and `Left$` (#1071). The name is looked up without it by the ordinary search, and the
-        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The other characters still
-        // stop the run, except on the program's own Function, where each is checked against its return type (measured, #740).
+        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The other characters
+        // are checked against the program's own Function's return type (measured, #740), or an array's element type, `a%(1)`
+        // (measured, #742), and still stop the run on anything else.
         var name = procOrArrayCall.ambiguousIdentifier().GetText();
         var dollar = false;
-        VB6Parser.TypeHintContext? ownHint = null;
+        VB6Parser.TypeHintContext? ownHint = null, variableHint = null;
         if (procOrArrayCall.typeHint() is { } hint)
         {
             if (hint.GetText() == "$")
                 dollar = true;
             else if (CallsOwnFunction(name))
                 ownHint = hint;
+            else if (env.TryGetVariableLocation(name, out _))
+                variableHint = hint;
             else
                 throw new NotImplementedException($"the type-declaration character {hint.GetText()} on a call is not implemented (#742)");
         }
@@ -1280,6 +1348,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // value; return the element control. A missing element is Err 340 (oracle-verified against vb6.exe).
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
+        if (variableHint is not null && !maybeGroup.Type.IsArray)
+            throw new NotImplementedException($"`{name}{variableHint.GetText()}(…)` is not implemented: {name} is not an array (#742)");
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
         if (named && maybeGroup.Value is ToolbarItems toolbarItems)
             return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
@@ -1327,8 +1397,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // through so `Fact(n - 1)` inside `Fact` is a recursive call, and `Zero()` finds the Function.
         if (await interpreter.ReadVariable(env, name) is (true, var variable) && variable.Type.IsArray)
         {
-            if (dollar)
-                throw new NotImplementedException($"{name}$ on an array is not implemented (#742)");
+            if (procOrArrayCall.typeHint() is { } elementHint)
+            {
+                if (!env.TryGetVariableLocation(name, out var arrayLocation))
+                    throw new NotImplementedException($"{name}{elementHint.GetText()} on an array is not implemented (#742)");
+                RefuseMismatchedVariableCharacter(arrayLocation, variable, elementHint);
+            }
             if (variable.Value is not VBArray array)
                 throw new VBCompileErrorException("Array expected");
             var indices = await EvaluateCallArgs(argsCtx, beforeLast);
