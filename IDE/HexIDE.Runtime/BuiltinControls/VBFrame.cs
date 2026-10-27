@@ -29,7 +29,12 @@ public class VBFrame : HeaderedContentControl, IVBContainerControl
     public Canvas? ChildHost
     {
         get => GetValue(ChildHostProperty);
-        set => SetValue(ChildHostProperty, value);
+        set
+        {
+            SetValue(ChildHostProperty, value);
+            if (value is not null)
+                VBEnabled.SetOwner(value, this);
+        }
     }
 
     static VBFrame()

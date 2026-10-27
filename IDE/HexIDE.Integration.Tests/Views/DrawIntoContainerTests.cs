@@ -233,6 +233,50 @@ public class DrawIntoContainerTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, 5, 14, 50, 30, 8, 16, 41, 17)]
+    [InlineData(true, 178, 98, 234, 138, 178, 98, 57, 41)]
+    [InlineData(true, 178, 98, 578, 398, 178, 98, 81, 65)]
+    [InlineData(true, 234, 138, 56, 56, 162, 82, 73, 57)]
+    [InlineData(true, 72, 168, 472, 232, 72, 168, 209, 33)]
+    [InlineData(false, 5, 14, 50, 31, 5, 14, 46, 18)]
+    public void The_drag_preview_matches_the_control_placed_on_release(bool grid,
+        double x1, double y1, double x2, double y2, double left, double top, double width, double height)
+    {
+        var (vm, _) = Designer(grid);
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var spawner = view.FindControl<Canvas>("NewControlSpawner")!;
+            var phantom = view.FindControl<Border>("NewControlSpawnerPhantom")!;
+            Point OnWindow(Point canvas) => spawner.TranslatePoint(canvas, window)!.Value;
+            var start = new Point(x1, y1);
+            var end = new Point(x2, y2);
+
+            window.MouseDown(OnWindow(start), MouseButton.Left);
+            window.MouseMove(OnWindow(start + new Vector(1, 1)));
+            window.MouseMove(OnWindow(end));
+
+            phantom.IsVisible.Should().BeTrue();
+            var preview = new Rect(Canvas.GetLeft(phantom), Canvas.GetTop(phantom), phantom.Width, phantom.Height);
+            preview.Should().Be(new Rect(left, top, width, height));
+
+            window.MouseUp(OnWindow(end), MouseButton.Left);
+            var placed = vm.SelectedComponent!;
+            new Rect(placed.Left, placed.Top, placed.Width, placed.Height).Should().Be(preview);
+            phantom.IsVisible.Should().BeFalse();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // e and g: a double-click on the toolbox places on the form, whatever container is selected (measured).
     [AvaloniaFact]
     public void A_control_placed_by_double_click_goes_on_the_form()

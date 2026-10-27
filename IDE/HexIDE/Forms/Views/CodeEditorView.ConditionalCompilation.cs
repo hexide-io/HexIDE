@@ -10,6 +10,8 @@ using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Language;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.TwinBasic;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Forms.Views;
@@ -73,17 +75,24 @@ public partial class CodeEditorView
         var source = vm.Document.Text;
         _evaluatedLineCount = vm.Document.LineCount;
         ConditionalTargetCombo.IsVisible = Regex.IsMatch(source, @"^\s*#If\b", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
+        var project = vm.ModuleDefinition?.Owner ?? vm.FormDefinition?.Owner;
+        var twinBasic = vm.ConditionalTargetIndex is 3 or 4;
         var builtIns = vm.ConditionalTargetIndex switch
         {
             1 => CompilationConstants.Vba32BuiltIns,
             2 => CompilationConstants.Vba64BuiltIns,
+            3 or 4 => TwinBasicBuiltIns(vm.ConditionalTargetIndex == 4, project?.ProjectType),
             _ => CompilationConstants.Vb6BuiltIns,
         };
-        var project = vm.ModuleDefinition?.Owner ?? vm.FormDefinition?.Owner;
         try
         {
             var arguments = project is null ? CompilationArguments.None : CompilationArguments.ForProject(project);
-            var result = ConditionalCompiler.Preprocess(source, new CompilationConstants(arguments, builtIns), vm.Title);
+            var constants = new CompilationConstants(arguments, builtIns)
+            {
+                CallsReadZero = twinBasic,
+                NullIsUndetermined = twinBasic,
+            };
+            var result = ConditionalCompiler.Preprocess(source, constants, vm.Title);
             _inactiveLines = result.InactiveLines.Where(range =>
                 !result.UndeterminedLines.Any(unknown => unknown.First <= range.Last && unknown.Last >= range.First)).ToArray();
         }
@@ -92,6 +101,26 @@ public partial class CodeEditorView
             _inactiveLines = [];
         }
         TextEditor.TextArea.TextView.Redraw();
+    }
+
+    private static IReadOnlyDictionary<string, Vb6Value> TwinBasicBuiltIns(bool win64, VBProjectType? projectType)
+    {
+        var buildType = projectType switch
+        {
+            VBProjectType.EXE => "Standard EXE",
+            VBProjectType.OleDll => "ActiveX DLL",
+            VBProjectType.Control => "ActiveX Control",
+            _ => null,
+        };
+        var builtIns = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (constant, value) in TwinBasicCompilationConstants.BuiltIns(win64, build: null, buildType))
+            builtIns[constant] = value switch
+            {
+                int number => new Vb6Value(number).AsVariant(),
+                string s => new Vb6Value(s).AsVariant(),
+                _ => Vb6Value.Null,
+            };
+        return builtIns;
     }
 
     private void RemoveConditionalCompilation()

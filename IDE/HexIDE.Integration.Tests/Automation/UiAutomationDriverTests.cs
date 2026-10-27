@@ -299,7 +299,7 @@ public class UiAutomationDriverTests
             var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
             error.Should().BeNull();
             UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing")
-                .And.NotContain("copy that shows");
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             clicks.Should().Be(0);
         }
         finally { window.Close(); }
@@ -510,7 +510,7 @@ public class UiAutomationDriverTests
             var refused = UiAutomationDriver.Interact(target, "select", byPath ? null : "BackColor");
             refused.Success.Should().BeFalse();
             refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it")
-                .And.NotContain("copy that shows");
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             list.SelectedItem.Should().BeNull();
             category.IsExpanded.Should().BeFalse();
 
@@ -573,6 +573,49 @@ public class UiAutomationDriverTests
                     ? Avalonia.Automation.ExpandCollapseState.Collapsed : Avalonia.Automation.ExpandCollapseState.Expanded);
             ControlAutomationPeer.CreatePeerForElement(list.ContainerFromIndex(1)!)!
                 .GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>().Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("invoke", false, 1)]
+    [InlineData("click", true, 1)]
+    [InlineData("invoke", false, 5)]
+    public void Interact_HiddenCopy_NamesShowingPaths(string action, bool byId, int count)
+    {
+        var clicks = 0;
+        var hidden = new Button { Content = "Approve" };
+        hidden.Click += (_, _) => clicks++;
+        AutomationProperties.SetAutomationId(hidden, "approval");
+        var panel = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { hidden } } } };
+        var shown = Enumerable.Range(0, count).Select(i => new Button { Content = byId ? "Continue" : "Approve" }).ToArray();
+        foreach (var button in shown)
+        {
+            if (byId) AutomationProperties.SetAutomationId(button, "approval");
+            button.Click += (_, _) => clicks++;
+            panel.Children.Add(button);
+        }
+        panel.Children.Add(new TextBlock { Text = "Approve" });
+        panel.Children.Add(new Button { Content = "Reject" });
+        var window = new Window { Content = panel, Width = 300, Height = 400 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var result = UiAutomationDriver.Interact(hidden, action, null);
+            result.Success.Should().BeFalse();
+            if (count == 1)
+                result.Error.Should().Contain($"a showing copy is at '{UiAutomationDriver.PathWithin(window, "Window", shown[0])}'; target that");
+            else
+            {
+                result.Error.Should().Contain("5 showing copies");
+                foreach (var button in shown.Take(3))
+                    result.Error.Should().Contain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+                foreach (var button in shown.Skip(3))
+                    result.Error.Should().NotContain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+            }
+            result.Error.Should().NotContain("Make it show first");
+            clicks.Should().Be(0);
         }
         finally { window.Close(); }
     }
@@ -2073,6 +2116,53 @@ public class UiAutomationDriverTests
         {
             UiAutomationDriver.PressKey(box, "NotAKey", null).Error.Should().Contain("unknown key");
             UiAutomationDriver.PressKey(box, "S", "Hyper").Error.Should().Contain("unknown modifier");
+        }
+        finally { window.Close(); }
+    }
+
+    // A chord written as one key, as a person writes it, presses that chord and says how it was read. It was refused as an
+    // unknown key, which sent the caller to the key names when 'H' was never the problem (#2189).
+    [AvaloniaTheory]
+    [InlineData("Ctrl+H", null, Avalonia.Input.Key.H, Avalonia.Input.KeyModifiers.Control, "'Ctrl+H' was read as key 'H' with modifiers 'Ctrl'")]
+    [InlineData(" ctrl+shift+s ", null, Avalonia.Input.Key.S, Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
+        "was read as key 's' with modifiers 'ctrl+shift'")]
+    [InlineData("Shift+H", "Ctrl", Avalonia.Input.Key.H, Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
+        "'Shift+H' was read as key 'H' with modifiers 'Shift', added to 'Ctrl'")]
+    public void PressKey_AChordWrittenAsOneKey_PressesIt_AndSaysHowItWasRead(
+        string key, string? modifiers, Avalonia.Input.Key expectedKey, Avalonia.Input.KeyModifiers expectedModifiers, string note)
+    {
+        Avalonia.Input.Key? got = null;
+        var mods = Avalonia.Input.KeyModifiers.None;
+        var box = new TextBox();
+        box.KeyDown += (_, e) => { got = e.Key; mods = e.KeyModifiers; };
+        var window = Show(box);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(box, key, modifiers);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            got.Should().Be(expectedKey);
+            mods.Should().Be(expectedModifiers);
+            outcome.Detail.Should().EndWith(note)
+                .And.Contain($"pressed {expectedModifiers.ToString().Replace(", ", "+")}+{expectedKey}").And.NotContain("Control, ");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_AChordWhosePrefixIsNoModifier_OrWhoseKeyIsUnknown_SaysWhichPartIsWrong()
+    {
+        var pressed = 0;
+        var box = new TextBox();
+        box.KeyDown += (_, _) => pressed++;
+        var window = Show(box);
+        try
+        {
+            UiAutomationDriver.PressKey(box, "A+B", null).Error.Should()
+                .StartWith("'A+B' is not a key, and not a chord either: 'A' is not a modifier.").And.NotContain("unknown key");
+            UiAutomationDriver.PressKey(box, "Ctrl+Nope", null).Error.Should().StartWith("unknown key 'Nope' in 'Ctrl+Nope'");
+            UiAutomationDriver.PressKey(box, "+", null).Error.Should().StartWith("unknown key '+' —");
+            pressed.Should().Be(0);
         }
         finally { window.Close(); }
     }

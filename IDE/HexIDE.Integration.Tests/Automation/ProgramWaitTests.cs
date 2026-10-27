@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -91,7 +92,7 @@ public class ProgramWaitTests
     }
 
     // The time slice is -1 by default, so every statement yields and is held; null leaves DoEvents a loop's only yield.
-    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1)
+    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1, DISetup? composition = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         // The code follows the header in one file, so a breakpoint's line counts the header, as the code window does.
@@ -104,8 +105,9 @@ public class ProgramWaitTests
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
-        var controller = new DebugController { TimeSliceMs = timeSliceMs };
-        var runner = new ProjectRunnerService(
+        var controller = composition is null ? new DebugController() : (DebugController)composition.DebugController;
+        controller.TimeSliceMs = timeSliceMs;
+        var runner = composition?.ProjectRunnerService as ProjectRunnerService ?? new ProjectRunnerService(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 
@@ -337,6 +339,60 @@ public class ProgramWaitTests
         outcome.Detail.Should().Be("invoked Button 'Command1'");
         ((TextBox)Run.Named(form2, "Text1")).Text.Should().Be("clicked");
         run.Text.Should().NotBe("back", "Form2 is still up");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Standard.Break")]
+    [InlineData("Debug.Break")]
+    public async Task Break_remains_enabled_with_focus_in_a_running_DoEvents_loop(string id)
+    {
+        var composition = new DISetup();
+        var shell = ToolbarAutomationNameTests.ShowMainView();
+        var main = (MainView)shell.Content!;
+        main.DataContext = composition.Root;
+        // Show both toolbars locally without persisting a settings change.
+        foreach (var toolbar in shell.GetVisualDescendants().OfType<Control>().Where(c =>
+                     Avalonia.Automation.AutomationProperties.GetAutomationId(c) is "StandardToolbar" or "DebugToolbar"))
+            toolbar.IsVisible = true;
+        try
+        {
+            using var run = Start("""
+                Private Sub Command1_Click()
+                    Do
+                        DoEvents
+                    Loop
+                End Sub
+                """, composition: composition);
+            var button = shell.GetVisualDescendants().OfType<Button>().Single(b =>
+                Avalonia.Automation.AutomationProperties.GetAutomationId(b) == id);
+            var command = run.Named("Command1");
+            command.Focus().Should().BeTrue();
+            UiAutomationDriver.Interact(command, "invoke", null).Success.Should().BeTrue();
+            await Task.Delay(100);
+
+            run.Runner.CanBreakProject.Should().BeTrue();
+            button.IsEffectivelyEnabled.Should().BeTrue("Break must remain available while the program has focus");
+            var outcome = UiAutomationDriver.Interact(button, "invoke", null);
+            outcome.Success.Should().BeTrue(outcome.Error);
+            await WaitFor(() => run.Controller.State == DebugState.Paused && !button.IsEffectivelyEnabled);
+            run.Controller.State.Should().Be(DebugState.Paused);
+            button.IsEffectivelyEnabled.Should().BeFalse();
+            run.Controller.Continue();
+            await WaitFor(() => button.IsEffectivelyEnabled);
+            button.IsEffectivelyEnabled.Should().BeTrue();
+            run.Runner.EndProject();
+            await WaitFor(() => !button.IsEffectivelyEnabled);
+            button.IsEffectivelyEnabled.Should().BeFalse();
+        }
+        finally { shell.Close(); }
+
+        static async Task WaitFor(Func<bool> ready)
+        {
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            while (!ready() && elapsed.Elapsed < TimeSpan.FromSeconds(10))
+                await Task.Delay(10);
+            ready().Should().BeTrue("the posted command state must reach the toolbar");
+        }
     }
 
     // A handler that loops on DoEvents is the program's message loop: what an action sets off runs inside it.

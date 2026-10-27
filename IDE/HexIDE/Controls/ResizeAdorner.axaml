@@ -26,7 +26,9 @@
             <Setter Property="Template">
             <ControlTemplate>
                 <Panel>
+                    <!-- Each handle's id puts it in dump_visual_tree under the control it resizes (#2231). -->
                     <Border Name="PART_TopLeft"
+                            AutomationProperties.AutomationId="PART_TopLeft"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="-7,-7,0,0"
                             controls:ResizeAdorner.ResizeXDirection="Left"
@@ -36,6 +38,7 @@
                             HorizontalAlignment="Left"
                             VerticalAlignment="Top" />
                     <Border Name="PART_Top"
+                            AutomationProperties.AutomationId="PART_Top"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="0,-7,0,0"
                             controls:ResizeAdorner.ResizeXDirection="None"
@@ -45,6 +48,7 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Top" />
                     <Border Name="PART_TopRight"
+                            AutomationProperties.AutomationId="PART_TopRight"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="0,-7,-7,0"
                             controls:ResizeAdorner.ResizeXDirection="Right"
@@ -55,6 +59,7 @@
                             VerticalAlignment="Top" />
 
                     <Border Name="PART_Left"
+                            AutomationProperties.AutomationId="PART_Left"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="-7,0,0,0"
                             controls:ResizeAdorner.ResizeXDirection="Left"
@@ -64,6 +69,7 @@
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center" />
                     <Border Name="PART_Right"
+                            AutomationProperties.AutomationId="PART_Right"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="0,0,-7,0"
                             controls:ResizeAdorner.ResizeXDirection="Right"
@@ -74,6 +80,7 @@
                             VerticalAlignment="Center" />
 
                     <Border Name="PART_BottomLeft"
+                            AutomationProperties.AutomationId="PART_BottomLeft"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="-7,0,0,-7"
                             controls:ResizeAdorner.ResizeXDirection="Left"
@@ -83,6 +90,7 @@
                             HorizontalAlignment="Left"
                             VerticalAlignment="Bottom" />
                     <Border Name="PART_Bottom"
+                            AutomationProperties.AutomationId="PART_Bottom"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="0,0,0,-7"
                             controls:ResizeAdorner.ResizeXDirection="None"
@@ -92,6 +100,7 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Bottom" />
                     <Border Name="PART_BottomRight"
+                            AutomationProperties.AutomationId="PART_BottomRight"
                             Theme="{StaticResource AdornerBorder_Internal}"
                             Margin="0,0,-7,-7"
                             controls:ResizeAdorner.ResizeXDirection="Right"

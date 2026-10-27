@@ -541,7 +541,7 @@ internal sealed partial class VbFiles
 
     // A program's paths are Windows paths. Elsewhere a backslash is taken as the separator it means. A relative path is
     // resolved as the remarks say.
-    private string FullPath(string path)
+    internal string FullPath(string path)
     {
         if (!OperatingSystem.IsWindows())
             path = path.Replace('\\', System.IO.Path.DirectorySeparatorChar);

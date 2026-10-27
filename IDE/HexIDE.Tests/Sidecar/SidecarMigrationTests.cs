@@ -32,13 +32,19 @@ public sealed class SidecarMigrationTests : IDisposable
     private readonly string dir = Path.Join(Path.GetTempPath(), "HexIDE.Tests.Sidecar", Guid.NewGuid().ToString("N"));
     private readonly IProjectManager projectManager = Substitute.For<IProjectManager>();
     private readonly List<ProjectDefinition> loaded = [];
+    private Action<ProjectDefinition>? beforeSidecar;
 
     public SidecarMigrationTests()
     {
         Directory.CreateDirectory(dir);
         projectManager.LoadedProjects.Returns(_ => loaded);
         projectManager.When(m => m.AddProject(Arg.Any<ProjectDefinition>()))
-            .Do(ci => loaded.Add(ci.Arg<ProjectDefinition>()));
+            .Do(ci =>
+            {
+                var project = ci.Arg<ProjectDefinition>();
+                loaded.Add(project);
+                beforeSidecar?.Invoke(project);
+            });
     }
 
     public void Dispose()
@@ -427,14 +433,6 @@ public sealed class SidecarMigrationTests : IDisposable
     /// GIVEN a sidecar entry for a module whose file cannot be found; WHEN the project is opened and later saved;
     /// THEN the entry is still in the sidecar, unchanged.
     /// </summary>
-    /// <remarks>
-    /// A module whose file is missing is still loaded, empty, so the code window shows the header it would have:
-    /// one line for a <c>.bas</c>, thirteen for a <c>.cls</c>. Its LOW lines are what catch an entry being placed
-    /// rather than carried, because they are lines of that empty composition and would pass a range check. A
-    /// UserControl is the kind whose missing file leaves no trace on the model at all, so it is here as well. A
-    /// PropertyPage is loaded by the same pass as a <c>.bas</c> and a <c>.cls</c> but has no header to put in
-    /// front of its code, so it is the kind a placed entry would not even move.
-    /// </remarks>
     [Theory]
     [InlineData("Module=Gone; Gone.bas")]
     [InlineData("Class=Gone; Gone.cls")]
@@ -454,11 +452,8 @@ public sealed class SidecarMigrationTests : IDisposable
         File.WriteAllText(SidecarPath, entries);
 
         var opened = await Open(vbp);
-        var gone = Doc(opened.Project, "Gone");
-        gone.AbsolutePath.Should().NotBeNull();
-        File.Exists(gone.AbsolutePath!).Should().BeFalse("the fixture's file is missing");
-        opened.Breakpoints.GetBreakpoints(gone).Should().BeEmpty("lines that cannot be placed are not placed");
-        opened.Bookmarks.GetBookmarks(gone).Should().BeEmpty();
+        DocumentLookup.DocumentsOf(opened.Project).Should().NotContain(d => d.Name == "Gone");
+        opened.Project.PreservedItemLines.Should().Contain(vbpLine);
 
         // Saved, with a mark set elsewhere so the sidecar really is rewritten.
         opened.Breakpoints.SetDocument(Doc(opened.Project, "Utils"), [6]);
@@ -497,7 +492,7 @@ public sealed class SidecarMigrationTests : IDisposable
         File.WriteAllText(SidecarPath, $$"""{ "version": 1, "breakpoints": { "Gone": [{{oldLine}}] } }""");
 
         var first = await Open(vbp);
-        first.Breakpoints.GetBreakpoints(Doc(first.Project, "Gone")).Should().BeEmpty("its file is missing");
+        DocumentLookup.DocumentsOf(first.Project).Should().NotContain(d => d.Name == "Gone");
         first.Breakpoints.SetDocument(Doc(first.Project, "Utils"), [6]);
         await first.Sidecar.SaveAsync(first.Project);
         Close(first.Project);
@@ -528,10 +523,14 @@ public sealed class SidecarMigrationTests : IDisposable
     /// entry would also be consumed, and the next opening could never migrate it into the module once its
     /// <c>.bas</c> is restored. Both formats are here, since the old keys are migrated and the new ones gathered.
     /// </remarks>
-    [Fact]
-    public async Task ANameSharedWithADocumentWhoseFileIsMissingIsCarried()
+    [Theory]
+    [InlineData("Module=Orders; Missing.bas")]
+    [InlineData("Class=Orders; Missing.cls")]
+    [InlineData("UserControl=Orders.ctl")]
+    [InlineData("PropertyPage=Orders.pag")]
+    public async Task ANameSharedWithADocumentWhoseFileIsMissingIsCarried(string line)
     {
-        var vbp = Stage("Module=Orders; Missing.bas");
+        var vbp = Stage(line);
         var formOld = OldLineOf(OrdersFrm, null, "    total = 12.5 * 3");
         var text = $$"""
             {
@@ -545,10 +544,8 @@ public sealed class SidecarMigrationTests : IDisposable
         var opened = await Open(vbp);
 
         var named = DocumentLookup.DocumentsOf(opened.Project).Where(d => d.Name == "Orders").ToList();
-        named.Should().HaveCount(2, "a form and a module share the name");
-        named.Should().ContainSingle(d => d.Form != null);
-        named.Single(d => d.Module != null).AbsolutePath.Should().NotBeNull();
-        File.Exists(named.Single(d => d.Module != null).AbsolutePath!).Should().BeFalse("the module's file is missing");
+        named.Should().ContainSingle().Which.Form.Should().NotBeNull();
+        opened.Project.PreservedItemLines.Should().Contain(line);
         foreach (var document in named)
         {
             opened.Breakpoints.GetBreakpoints(document).Should().BeEmpty($"{document.Display} cannot take half an entry");
@@ -562,14 +559,17 @@ public sealed class SidecarMigrationTests : IDisposable
     /// it: the next opening that can measure the entry joins the two.
     /// </summary>
     /// <remarks>
-    /// The document's file is missing, so its entry under the new keys is carried from the file, and the code
-    /// window still shows it, header and an empty line, so a breakpoint can be set in it. Writing the stores' marks
+    /// The document's file disappears after loading but before the sidecar is read, so its entry under the new
+    /// keys is carried from the file, while its loaded code window can still take a breakpoint. Writing the stores' marks
     /// alone under that name would delete the carried one for good.
     /// </remarks>
     [Fact]
     public async Task AMarkSetWhereAnEntryIsCarriedIsWrittenBesideIt()
     {
         var vbp = Stage("Module=Gone; Gone.bas");
+        var gonePath = Path.Join(dir, "Gone.bas");
+        File.WriteAllText(gonePath, "Attribute VB_Name = \"Gone\"\r\n");
+        beforeSidecar = _ => File.Delete(gonePath);
         File.WriteAllText(SidecarPath, """{ "version": 2, "fileBreakpoints": { "Gone": [5] } }""");
 
         var opened = await Open(vbp);

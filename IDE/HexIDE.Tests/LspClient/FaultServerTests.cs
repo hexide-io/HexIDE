@@ -173,7 +173,8 @@ public sealed class FaultServerTests : IAsyncDisposable
         (await hover).Should().BeNull();
 
         await Eventually(() => !client.IsRunning, TimeSpan.FromSeconds(5), "the client knows the connection is gone");
-        log.Has(LogLevel.Warning, "connection lost").Should().BeTrue("a server falling over is reported, not silent");
+        await Eventually(() => log.Has(LogLevel.Warning, "connection lost"), TimeSpan.FromSeconds(5),
+            "a server falling over is reported, not silent");
     }
 
     // ---- Malformed frames ----
@@ -191,7 +192,8 @@ public sealed class FaultServerTests : IAsyncDisposable
         await server.WriteRawAsync(Encoding.UTF8.GetBytes(frame));
 
         await Eventually(() => !client.IsRunning, TimeSpan.FromSeconds(5), "a stream that can no longer be framed is a lost connection");
-        log.Has(LogLevel.Warning, "connection lost").Should().BeTrue("the client says why it stopped");
+        await Eventually(() => log.Has(LogLevel.Warning, "connection lost"), TimeSpan.FromSeconds(5),
+            "the client says why it stopped");
         await Within(client.StopAsync(), TimeSpan.FromSeconds(10), "stopping after a broken stream returns");
     }
 

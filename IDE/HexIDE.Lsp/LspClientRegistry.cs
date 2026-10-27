@@ -33,6 +33,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 {
     private readonly List<Entry> _entries;
     private readonly ILogger<LspClientRegistry> _logger;
+    private readonly TimeProvider _timeProvider;
     private readonly ILspWorkspace? _workspace;
     private readonly IWorkspaceArtifactService? _artifacts;
 
@@ -84,9 +85,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger,
         ILspWorkspace? workspace = null,
         IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null,
-        IWorkspaceArtifactService? artifacts = null)
+        IWorkspaceArtifactService? artifacts = null,
+        TimeProvider? timeProvider = null)
     {
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
         ConfigurationProblems = configurationProblems ?? [];
@@ -378,9 +381,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         string uri, Position position, string? triggerCharacter, CancellationToken ct)
     {
         var budget = TimeSpan.FromSeconds(1);
-        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var started = _timeProvider.GetTimestamp();
         using var waiting = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var deadline = Task.Delay(budget, waiting.Token);
+        var deadline = Task.Delay(budget, _timeProvider, waiting.Token);
         var pending = StartedClaimantsFor(uri)
             .Where(c => triggerCharacter is null
                 || CompletionTriggers(c).Contains(triggerCharacter, StringComparer.Ordinal))
@@ -403,7 +406,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 var timely = false;
                 var items = await client.RequestCompletionAsync(uri, position, ct, () =>
                 {
-                    timely = clock.Elapsed <= budget;
+                    timely = _timeProvider.GetElapsedTime(started) <= budget;
                     if (timely || ct.IsCancellationRequested) return;
                     _logger.LogDebug("Completion from {Id} answered after the popup opened; discarded.", OwnerOf(client));
                     client.NoteLateCompletion();

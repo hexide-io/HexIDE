@@ -145,6 +145,8 @@ public partial class MainViewViewModel : ObservableObject
 
     private void UpdateRunState()
     {
+        // Break is bound directly so a running form's focus cannot divert it from the IDE (#2179).
+        BreakProjectCommand.RaiseCanExecutedChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(WindowTitle));
         if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
@@ -563,7 +565,9 @@ public partial class MainViewViewModel : ObservableObject
             }
 
             Log.Debug("DockFactory: tool {Key} in an unrecognized dock; snapping to its default region", KeyOf(tool));
-            return null;
+            return KeyOf(tool) is { } key && Home.TryGetValue(key, out var home)
+                ? (home.Region, home.Order, home.Proportion)
+                : null;
         }
 
         // The IDock that directly contains 'target' in the live tree, or null if not present.
@@ -621,7 +625,8 @@ public partial class MainViewViewModel : ObservableObject
                     left.VisibleDockables ??= CreateList<IDockable>();
                     left.VisibleDockables.Insert(Math.Min(order, left.VisibleDockables.Count), tool);
                     left.ActiveDockable = tool;
-                    InitDockable(tool, left);
+                    // Initialize after adding the tool so Dock does not retain IsEmpty = true.
+                    InitDockable(left, layout.DefaultDockable);
                     SetFocusedDockable(left, tool);
                     break;
                 }
@@ -719,7 +724,6 @@ public partial class MainViewViewModel : ObservableObject
             main.VisibleDockables ??= CreateList<IDockable>();
             main.VisibleDockables.Insert(0, new ProportionalDockSplitter());
             main.VisibleDockables.Insert(0, left);
-            InitDockable(left, main);
             return left;
         }
 
