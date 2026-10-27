@@ -113,6 +113,9 @@ public static class UiAutomationDriver
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
         else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
+        // Neither of those, so an empty list read as "nothing is selected" whatever the tree held (#2288).
+        else if (control is TreeView tree)
+            selection = Safe(() => TreeSelectedNames(tree).ToArray(), []);
 
         string? value = peer.GetProvider<IValueProvider>() is { } vp ? Safe<string?>(() => vp.Value, null) : null;
         // A dropdown's peer names its selection, and gives its value, by the item's ToString, which for a view model with
@@ -509,7 +512,9 @@ public static class UiAutomationDriver
         if (norm is not ("invokecommand" or "setproperty" or "release") && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } verb
             && Shows(control) is not true and var shows)
             return Err(NotShowingRefusal(control, verb, shows)
-                       + (verb == "scroll"
+                       + (shows is false && Safe(() => ShowingCopyHint(control), null) is { } copyHint
+                           ? copyHint
+                           : verb == "scroll"
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
                            ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
@@ -809,6 +814,38 @@ public static class UiAutomationDriver
             : "is not showing: it or a container is hidden, which dump_visual_tree marks \"isHidden\": true. "
               + $"No person could reach it, so '{verb}' was refused and nothing was done.");
 
+    private static string? ShowingCopyHint(Control control)
+    {
+        if (TopLevel.GetTopLevel(control) is not Window window) return null;
+        var label = LabelOf(control);
+        var id = NullIfEmpty(AutomationProperties.GetAutomationId(control));
+        var paths = new List<string>();
+        Walk(window, "Window");
+        return paths.Count switch
+        {
+            0 => null,
+            1 => $" a showing copy is at '{paths[0]}'; target that",
+            _ => $" {paths.Count} showing copies are in this window; first paths: "
+                 + string.Join(", ", paths.Take(3).Select(p => $"'{p}'")) + "; target the one you want",
+        };
+
+        void Walk(Control parent, string path)
+        {
+            var children = new List<MeaningfulChild>();
+            CollectMeaningfulChildren(parent, children);
+            foreach (var child in children)
+            {
+                var candidate = child.Control;
+                var childPath = path + "/" + BestSegment(child, children);
+                if (candidate.GetType() == control.GetType() && Shows(candidate) is true
+                    && (LabelOf(candidate) == label
+                        || id is not null && AutomationProperties.GetAutomationId(candidate) == id))
+                    paths.Add(childPath);
+                Walk(candidate, childPath);
+            }
+        }
+    }
+
     /// <summary>
     /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.
     /// </summary>
@@ -836,10 +873,7 @@ public static class UiAutomationDriver
             if (selected) tree.SelectedItems?.Remove(data);
             if (tree.SelectedItems?.Contains(data) == true)
                 return Err($"remove_from_selection did not clear '{LabelOf(control, peer)}'; try click with value 'ctrl'");
-            var names = tree.SelectedItems?.Cast<object>().Select(x =>
-                tree.GetVisualDescendants().OfType<TreeViewItem>()
-                    .FirstOrDefault(candidate => ReferenceEquals(tree.TreeItemFromContainer(candidate), x)) is { } row
-                    ? LabelOf(row) : NameWithoutRow(x, 0)).ToList() ?? [];
+            var names = TreeSelectedNames(tree);
             var summary = names.Count == 0 ? "nothing is selected now"
                 : $"{names.Count} item{(names.Count == 1 ? " is" : "s are")} selected now: {string.Join(", ", names)}";
             var treeChange = selected ? $"removed '{LabelOf(control, peer)}' from the selection"
@@ -875,6 +909,16 @@ public static class UiAutomationDriver
     /// where its row does not exist. Read from the list itself: a ListBox's or TabControl's peer offers no selection
     /// provider, so inspect_element reported nothing selected on every one of them (#1263).
     /// </summary>
+    /// <summary>
+    /// What a tree has selected, each named as its row reads, or as its item does when the row is not realised. A TreeView
+    /// is no SelectingItemsControl and its peer offers no selection provider, so nothing else reads it (#2288).
+    /// </summary>
+    private static List<string> TreeSelectedNames(TreeView tree) =>
+        tree.SelectedItems?.Cast<object>().Select(x =>
+            tree.GetVisualDescendants().OfType<TreeViewItem>()
+                .FirstOrDefault(candidate => ReferenceEquals(tree.TreeItemFromContainer(candidate), x)) is { } row
+                ? LabelOf(row) : NameWithoutRow(x, 0)).ToList() ?? [];
+
     private static List<string> SelectedNames(SelectingItemsControl owner, bool primaryFirst = false) =>
         [.. (owner is ListBox list ? list.Selection.SelectedIndexes : owner.SelectedIndex >= 0 ? [owner.SelectedIndex] : [])
             .OrderBy(i => primaryFirst && i == owner.SelectedIndex ? 0 : 1)
@@ -4083,7 +4127,7 @@ public static class UiAutomationDriver
     /// <summary>A control named the way a caller would recognise it: type plus whatever identity it carries.</summary>
     private static string Describe(Control control)
     {
-        var id = control.Name ?? (control as StyledElement)?.Name;
+        var id = NullIfEmpty(control.Name) ?? NullIfEmpty(AutomationProperties.GetAutomationId(control));
         return string.IsNullOrEmpty(id) ? control.GetType().Name : $"{control.GetType().Name}[{id}]";
     }
 

@@ -38,6 +38,19 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 - **WHEN** the target list or tree row is not selected
 - **THEN** the selection remains unchanged and the reply says the target was not selected
 
+### Requirement: Inspection SHALL report what a tree has selected
+`inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
+reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
+SHALL be read from the tree itself.
+
+#### Scenario: A selected watch row
+- **WHEN** a Watches row is selected and the Watches tree is inspected
+- **THEN** `selectionItems` names that row
+
+#### Scenario: A cleared tree
+- **WHEN** the row is removed from the selection and the tree is inspected again
+- **THEN** `selectionItems` is empty
+
 ### Requirement: Interrupted keyboard typing SHALL distinguish sending a key from applying its edit
 When a key sent by keyboard `type_text` opens a dialog, the reply SHALL identify that key's position
 and target, describe the dialog and where it opened, warn that the key may not have landed, and state
@@ -159,6 +172,13 @@ day it lands, with nothing to add.
 - **AND** the category row and its toggle are showing
 - **THEN** the refusal SHALL name the category as displayed and tell the caller to `toggle` the Button in that row
 - **AND** the selection and category expansion remain unchanged
+
+#### Scenario: A hidden control has showing copies
+- **WHEN** `interact` refuses a provider or pointer action on a hidden control
+- **AND** the same window contains showing controls of the same type with the same label or non-empty automation ID
+- **THEN** the refusal SHALL give the showing copy's addressable path when there is one, or the total count and first three paths when there are several
+- **AND** no action is performed; the caller chooses which path to target
+- **AND** when no copy shows, the existing guidance to make the control show remains
 
 #### Scenario: A grid recycles a row after filtering
 - **WHEN** filtering a DataGrid leaves recycled rows in its rows presenter
@@ -786,3 +806,21 @@ AutomationIds, so the dump lists them and `inspect_element` reads their bounds.
 
 - **WHEN** an element's adorner has no AutomationId and holds nothing meaningful
 - **THEN** the dump adds nothing for it
+
+### Requirement: Control identity in interaction replies
+
+The shared control description used by interaction replies SHALL append the control's Avalonia name
+in brackets to its concrete type, falling back to its automation id when the name is empty, and to
+the bare type when neither identifier exists. This includes click press/release descriptions and
+disabled-window refusals.
+
+#### Scenario: Running form control identified in click and refusal
+
+- **WHEN** a caller clicks a running form's `Button[cmdMark]`, whose concrete type is `VBCommandButton`
+- **THEN** the click reply describes it as `VBCommandButton[cmdMark]`
+- **AND** a click refused because a modal dialog disables its window uses the same description
+
+#### Scenario: Toolbar button identified without an Avalonia name
+
+- **WHEN** a caller clicks an unnamed button whose automation id is `Standard.OpenProject`
+- **THEN** the reply describes it as `Button[Standard.OpenProject]`
