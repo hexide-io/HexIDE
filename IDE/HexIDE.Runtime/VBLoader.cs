@@ -673,9 +673,6 @@ public class VBLoader
                 VBProps.SetClientInset(control, 2);
         }
 
-        if (component.ContainedControls.Count == 0)
-            return;
-
         if (!componentClass.TryGetChildHost(control, out var childHost))
         {
             // A class that is not a container cannot have been recorded as one by the deserializer, so this
@@ -686,6 +683,8 @@ public class VBLoader
 
         foreach (var child in component.ContainedControls)
             PlaceComponentTree(child, childHost, formCanvas, form, onPlaced);
+        if (control is VBSSTab tab)
+            component.GetPropertyOrDefault(Components.InBox.SSTabSavedState.Property)?.PlacePages(tab);
     }
 
     // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
