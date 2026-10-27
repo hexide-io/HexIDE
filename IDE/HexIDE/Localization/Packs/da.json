@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som",
     "Str.Tool.Properties.ExportPicture": "Eksportér billede...",
     "Str.LspArtifact.Title": "Arbejdsområdefiler",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
     "Str.Dock.ScrollRight": "Rul faner til højre",
+    "Str.PropDesc.ImageWidth": "Billedernes bredde.",
+    "Str.PropDesc.ImageHeight": "Billedernes højde.",
+    "Str.PropDesc.MaskColor": "Farven til gennemsigtige pixels.",
+    "Str.PropDesc.UseMaskColor": "Om maskefarven bruges.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis indrykningslinjer",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde"
   }
 }

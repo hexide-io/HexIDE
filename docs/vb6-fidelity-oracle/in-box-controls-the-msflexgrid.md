@@ -244,6 +244,158 @@ cell never given one,** not the grid's BackColor.
   came out swapped as often as not: in run 1, `B` (r4) came before `b` (r3).
 - **Col 2 with ColSel 1** keyed on columns 1 then 2, left to right, as Col 1 with ColSel 2 would.
 
+### Events, with real input
+
+**The probe:**
+- A 30 × 6 grid holding `r,c` in every cell, one fixed row and column, run on the guest's console.
+- A driver clicked and typed for real and marked each action in the log, which recorded every event.
+- Native and p-code logged the same lines, mouse coordinates apart.
+
+| Action | Events, in order |
+|---|---|
+| Click cell 2,2, with 1,1 current | **LeaveCell (1,1), EnterCell (2,2), RowColChange, then MouseDown**, SelChange, MouseUp, Click |
+| Click the current cell again | MouseDown, MouseUp, Click |
+| Shift+click 4,3 | MouseDown, with RowSel and ColSel already 4 and 3, SelChange, MouseUp, Click. Row and Col stay |
+| Ctrl+click 3,1 | as a plain click. There is no multiple selection |
+| Drag from 1,1 to 3,2 | the cell change at the press, MouseDown, SelChange, MouseUp, Click: RowSel 3, ColSel 2 |
+| Click column heading 0,2 | Row 1, Col 2, RowColChange, MouseDown, then **RowSel 29: the whole column**. SelChange, MouseUp, Click |
+| Click row heading 3,0 | Row 3, **Col 1**, then ColSel 5: the whole row |
+| Click the corner, 0,0 | Row 1, Col 1, RowSel 29, ColSel 5: everything |
+| Double-click 2,3 | the cell change, MouseDown, SelChange, MouseUp, Click, **DblClick, SelChange, MouseUp** |
+| Right-click 5,2 | MouseDown and MouseUp with Button 2, then **Click**. The current cell doesn't move |
+| Drag a column border in the fixed row, AllowUserResizing 3 | **no event at all.** ColWidth(1) went from 960 to 1545 |
+
+- **The cell changes before MouseDown.** In MouseDown, Row and Col are already the clicked cell's, and MouseRow and
+  MouseCol are the cell under the pointer: 0 for a heading.
+- **Mouse X and Y are in twips.**
+- **Clicking a heading never makes the fixed cell current.** It moves to the first non-fixed cell of that column or row
+  and selects the whole column or row.
+- **With AllowBigSelection False, a heading click selects only that first cell:** RowSel 1, ColSel 3.
+- **SelectionMode 1 (by row)** keeps Col at 1, the first non-fixed column, and ColSel at the last.
+  - A click on 3,3 gave Row 3, Col 1, ColSel 5.
+  - Down raised SelChange twice, once for the new cell and once for the row.
+  - Right changed nothing but raised SelChange twice.
+- **SelectionMode 2 (by column)** keeps Row at 1 and RowSel at the last: a click on 2,2 gave Row 1, Col 2, RowSel 29.
+
+**The keyboard:**
+
+| Key | Effect |
+|---|---|
+| Down, Up, Left, Right | one cell. LeaveCell, **SelChange, EnterCell**, RowColChange: SelChange comes before EnterCell, unlike a click |
+| Right into a column not wholly shown | Scroll first, LeftCol 1 to 2 |
+| Home, End | the first and last non-fixed column of the row |
+| Ctrl+Home, Ctrl+End | cell 1,1 and the last cell, 29,5. Two Scroll events, rows then columns |
+| PageDown, from 1,1 | **Row 11, TopRow 2** |
+| PageUp | back to Row 1, TopRow 1 |
+| Shift+Down, Shift+Right | extend the selection. SelChange only |
+| Enter, a letter | KeyDown, KeyPress, KeyUp. Nothing moves, and nothing is edited |
+| Tab, Shift+Tab | move the focus out of the grid and back. The grid doesn't keep Tab |
+
+- **KeyDown isn't raised for the keys the grid moves on:** the arrows, Home, End and the Page keys.
+- **KeyUp was raised for some of them and not others.** Home, End, Ctrl+Home, Ctrl+End, PageUp, PageDown and the
+  Shift+arrows raised it; the plain arrows didn't. Native and p-code agreed on this, and no rule explains it.
+
+### Drawing
+
+Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
+- **The default grid:**
+  - Every cell is 64 × 16 pixels, 960 × 240 twips.
+  - The fixed cells are grey and raised.
+  - The rest of the control, past the last cell, is BackColorBkg's dark grey.
+  - A scroll bar shows only when its cells don't fit.
+- **Alignment:**
+  - 0 to 8 put the text left, centre or right, and top, middle or bottom, in threes: 0 left top, 4 centred, 8 right
+    bottom.
+  - **With FixedAlignment left at 9, a fixed row's cell follows its column's ColAlignment:** `a0` sat top left over
+    column 1, whose ColAlignment was 0.
+- **9, general:**
+  - Text is left and numbers right, middle.
+  - **The test is the first character:**
+    - right: `123`, `-4.5`, `1,5`, `1e3`, and **`12abc`**;
+    - left: `abc`, `$3`, ` 7` with a leading space, and `#1/1/2000#`.
+- **Text too wide is clipped at the cell's edge,** with no ellipsis, and doesn't run into the next cell.
+- **WordWrap True wraps a cell's text within it,** clipped at the cell's bottom.
+- **Changing the grid's Font.Size makes every row taller.** At 12 point the rows grew to fit, though CellFontSize 12 on
+  one cell didn't grow its row (group 1).
+- **Merging:**
+  - With MergeCells 1 (free), MergeCol(1) True, and column 1 holding `a`, `a`, `a`, `b`, `b`, rows 1 to 3 drew as one
+    cell with `a` centred in its height.
+  - Rows 4 and 5, with MergeRow True, merged across: `b`, `b`, `b` in row 4 drew as one cell over columns 1 to 3, and
+    `b`, `b`, `c` in row 5 merged columns 1 and 2.
+  - **With MergeCells 2 (restrict rows) and only MergeCol set, nothing merged.**
+- **GridLines:**
+  - 0 drew no lines between the non-fixed cells, the fixed cells keeping theirs.
+  - 2 (inset) and 3 (raised) draw 3D lines.
+  - GridLineWidth 3 thickens the lines.
+- **TextStyle** 1 and 2 draw the text raised or inset.
+- **A CellPicture is drawn in the cell with the text over it,** at CellPictureAlignment's place: top left by default,
+  centred at 4.
+- **The colours:**
+  - BackColor and ForeColor are the non-fixed cells';
+  - BackColorFixed and ForeColorFixed the fixed cells';
+  - BackColorBkg the empty area;
+  - GridColor and GridColorFixed the lines.
+- **The selection:**
+  - The current cell is never highlighted. It is drawn normally, with the focus rectangle, and the rest of the
+    selection in BackColorSel and ForeColorSel.
+  - FocusRect 2 draws a heavier rectangle.
+  - HighLight 0 draws no highlight.
+  - **HighLight 2, with the focus elsewhere, drew neither the highlight nor the focus rectangle.**
+- **The Cell properties draw per cell,** a fixed cell included: CellBackColor, CellForeColor, bold, italic, underline
+  and size.
+- **FixedRows and FixedCols 0** draw every cell white.
+- **Appearance 0, BorderStyle 0 and ScrollBars 0** drew a flat grid with no border and no scroll bars, the cells running
+  off the edge.
+
+### The saved files
+
+**The programs:**
+- **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
+  `corpus/inbox-controls/pending/msflexgrid/`.
+  - MSFlexGrid1 had every property off its default, its lines in reverse order.
+  - MSFlexGrid2 had only its position, extents and `_Version`.
+  - A third grid was double-clicked from the toolbox first.
+- **The read:** both forms were read back at run time, natively and as p-code. All four runs logged the same lines.
+
+**The double-clicked grid** is the bare block, 1500 × 750, centred on the 9600 × 7200 form:
+
+```
+   Begin MSFlexGridLib.MSFlexGrid MSFlexGrid3 
+      Height          =   750
+      Left            =   4050
+      TabIndex        =   2
+      Top             =   3225
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   1323
+      _Version        =   393216
+   End
+```
+
+**The order VB6 writes the lines in,** whatever order they were read in: the extender's, the extents and `_Version`, then
+
+```
+Rows, Cols, FixedRows, FixedCols, RowHeightMin, BackColor, ForeColor, BackColorFixed,
+ForeColorFixed, BackColorSel, ForeColorSel, BackColorBkg, GridColor, GridColorFixed,
+WordWrap, Redraw, AllowBigSelection, ScrollTrack, RightToLeft, TextStyle, TextStyleFixed,
+FocusRect, HighLight, FillStyle, GridLines, GridLinesFixed, ScrollBars, SelectionMode,
+MergeCells, AllowUserResizing, PictureType, BorderStyle, Appearance, MousePointer,
+GridLineWidth, FormatString, the Font block, OLEDropMode
+```
+
+- **Every property is saved under its own name, and only when off its default.** `FixedCols = 0` was written because the
+  default is 1.
+- **The font is a `BeginProperty Font` block.**
+- **Cell text is not saved.** The only text the file carries is FormatString, and there is no `.frx`.
+- **Loading applies FormatString to the loaded grid.**
+  - `<A|^B|>C|D` on 5 rows and 4 columns, FixedRows 2 and FixedCols 0, put `A` to `D` in row 0.
+  - It set ColAlignment and FixedAlignment to 1, 4, 7 and 9.
+  - The widths, 225 each, are measured in the grid's own font, Arial 9.75 bold.
+- **Row and Col start at the first non-fixed cell:** Row 2, Col 0.
+- **RowHeightMin 300 made every row 300.**
+- **`RightToLeft = -1` was written, but read False at run time.**
+- **The minimal block loads with the defaults** of group 1.
+
 ### In HexIDE
 
 HexIDE doesn't model the MSFlexGrid (#1099). The designer draws it as an empty box (#157), and running a form that holds one is refused, as for any control HexIDE can't create (#857).

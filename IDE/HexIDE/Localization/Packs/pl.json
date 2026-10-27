@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bitowy",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitowy",
     "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako",
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
     "Str.LspArtifact.Title": "Pliki obszaru roboczego",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "Zamknij panel",
     "Str.Dock.ScrollLeft": "Przewiń karty w lewo",
     "Str.Dock.ScrollRight": "Przewiń karty w prawo",
+    "Str.PropDesc.ImageWidth": "Szerokość obrazów.",
+    "Str.PropDesc.ImageHeight": "Wysokość obrazów.",
+    "Str.PropDesc.MaskColor": "Kolor przezroczystych pikseli.",
+    "Str.PropDesc.UseMaskColor": "Czy używać koloru maski.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia"
   }
 }

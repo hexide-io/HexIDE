@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
     "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC ۳۲ بیتی",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC ۶۴ بیتی",
     "Str.CodeEditor.ViewAs.Tooltip": "نمایش کامپایل شرطی به صورت",
     "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.LspArtifact.Title": "پرونده‌های فضای کاری",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "بستن پنل",
     "Str.Dock.ScrollLeft": "پیمایش زبانه‌ها به چپ",
     "Str.Dock.ScrollRight": "پیمایش زبانه‌ها به راست",
+    "Str.PropDesc.ImageWidth": "عرض تصاویر.",
+    "Str.PropDesc.ImageHeight": "ارتفاع تصاویر.",
+    "Str.PropDesc.MaskColor": "رنگ پیکسل‌های شفاف.",
+    "Str.PropDesc.UseMaskColor": "آیا رنگ ماسک استفاده شود.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی"
   }
 }

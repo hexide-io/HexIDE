@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32비트",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64비트",
     "Str.CodeEditor.ViewAs.Tooltip": "조건부 컴파일 표시 대상",
     "Str.Tool.Properties.ExportPicture": "그림 내보내기...",
     "Str.LspArtifact.Title": "작업 영역 파일",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "창 닫기",
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
     "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
+    "Str.PropDesc.ImageWidth": "이미지의 너비입니다.",
+    "Str.PropDesc.ImageHeight": "이미지의 높이입니다.",
+    "Str.PropDesc.MaskColor": "투명 픽셀에 사용하는 색입니다.",
+    "Str.PropDesc.UseMaskColor": "마스크 색 사용 여부입니다.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "들여쓰기 안내선 표시",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정"
   }
 }

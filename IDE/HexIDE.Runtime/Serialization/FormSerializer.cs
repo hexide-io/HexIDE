@@ -364,6 +364,7 @@ public class FormSerializer
         name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
         || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
+        || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
@@ -410,9 +411,9 @@ public class FormSerializer
                 if (value is not null && !Equals(value, property.BoxedDefaultValue(inBox)))
                     vb.WriteProperty(property.Name, property.PropertyType, value);
             }
-        if (Carried("_Version") is { } version)
+        if (inBox is not ImageListComponentClass && Carried("_Version") is { } version)
             WriteCarried(version);
-        else
+        else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
 
         foreach (var property in inBox.OwnProperties)
@@ -431,5 +432,27 @@ public class FormSerializer
         // panel edits do not mutate the designer instance, just as with other control properties.
         if (inBox is StatusBarComponentClass && Carried("Panels") is { } panels)
             WriteCarried(panels);
+        if (inBox is ImageListComponentClass)
+        {
+            if (Carried("_Version") is { } imageVersion) WriteCarried(imageVersion);
+            else vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+            if (instance.GetPropertyOrDefault(ImageListComponentClass.PicturesProperty) is { Count: > 0 } pictures)
+            {
+                vb.BeginProperty("Images", "{2C247F25-8591-11D1-B16A-00C0F0283628}");
+                vb.WriteProperty("NumListImages", typeof(int), pictures.Count);
+                for (var i = 0; i < pictures.Count; i++)
+                {
+                    var picture = pictures[i];
+                    vb.BeginProperty($"ListImage{i + 1}", "{2C247F27-8591-11D1-B16A-00C0F0283628}");
+                    vb.WriteRawProperty("Picture", citations.Cite(picture.Record));
+                    vb.WriteProperty("Key", typeof(string), picture.Key);
+                    // Object.Tag is padded as Tag, seven columns farther right (measured, #1083).
+                    if (picture.Tag.Length > 0) vb.WriteProperty("Object.Tag             ", typeof(string), picture.Tag);
+                    vb.EndProperty();
+                }
+                vb.EndProperty();
+            }
+            else if (Carried("Images") is { } images) WriteCarried(images);
+        }
     }
 }

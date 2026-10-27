@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-बिट",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-बिट",
     "Str.CodeEditor.ViewAs.Tooltip": "सशर्त संकलन इस रूप में देखें",
     "Str.Tool.Properties.ExportPicture": "चित्र निर्यात करें...",
     "Str.LspArtifact.Title": "कार्यस्थान फ़ाइलें",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "फलक बंद करें",
     "Str.Dock.ScrollLeft": "टैब बाईं ओर स्क्रॉल करें",
     "Str.Dock.ScrollRight": "टैब दाईं ओर स्क्रॉल करें",
+    "Str.PropDesc.ImageWidth": "चित्रों की चौड़ाई।",
+    "Str.PropDesc.ImageHeight": "चित्रों की ऊँचाई।",
+    "Str.PropDesc.MaskColor": "पारदर्शी पिक्सेल का रंग।",
+    "Str.PropDesc.UseMaskColor": "क्या मास्क रंग का उपयोग करना है।",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
   }
 }

@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Προβολή μεταγλώττισης υπό συνθήκη ως",
     "Str.Tool.Properties.ExportPicture": "Εξαγωγή εικόνας...",
     "Str.LspArtifact.Title": "Αρχεία χώρου εργασίας",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "Κλείσιμο παραθύρου",
     "Str.Dock.ScrollLeft": "Κύλιση καρτελών αριστερά",
     "Str.Dock.ScrollRight": "Κύλιση καρτελών δεξιά",
+    "Str.PropDesc.ImageWidth": "Το πλάτος των εικόνων.",
+    "Str.PropDesc.ImageHeight": "Το ύψος των εικόνων.",
+    "Str.PropDesc.MaskColor": "Το χρώμα των διαφανών pixel.",
+    "Str.PropDesc.UseMaskColor": "Αν χρησιμοποιείται το χρώμα μάσκας.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
   }
 }

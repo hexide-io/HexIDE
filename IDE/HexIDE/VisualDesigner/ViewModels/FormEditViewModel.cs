@@ -687,7 +687,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;
-        if (settingsService.AlignToGrid)
+        if (settingsService.AlignToGrid && componentClass is not ImageListComponentClass)
         {
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);

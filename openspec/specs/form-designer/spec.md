@@ -57,8 +57,11 @@ but its toolbar keeps showing the first selected and its Properties caption can 
 
 ### Requirement: Controls SHALL be selectable by adding to the selection or by dragging a region
 The designer SHALL support extending the selection with a modifier, and selecting by dragging a region over
-the canvas. A dragged region SHALL select every control it intersects, not only those it fully encloses. The
-region SHALL span the whole form rather than being confined to one container, and this is a stated
+the canvas. A modifier click on a control in a different container from the reference SHALL be ignored,
+leaving the selection and reference unchanged (VB6 SP6 measurement, #2181). A plain click SHALL select
+that control alone. Controls sharing a container, including a Frame and a form-level control, SHALL
+remain selectable together. A dragged region SHALL select every control it intersects, not only those it
+fully encloses. The region SHALL span the whole form rather than being confined to one container, and this is a stated
 divergence from the original product.
 
 Intersection rather than containment is what VB6 did, and it is the more useful rule: selecting a row of
@@ -70,6 +73,10 @@ with what that container holds. HexIDE's region does return such a selection, an
 what makes that harmless rather than a defect. Confining the region needs the IDE to decide which container
 a point belongs to — the same judgement that moving a control between containers by dragging needs — and
 both are deferred together rather than half-built.
+
+#### Scenario: Modifier click across containers
+- **WHEN** a control is selected and the developer Ctrl-clicks or Shift-clicks a control in another container
+- **THEN** the selection and reference remain unchanged
 
 #### Scenario: Dragging a region across several controls
 - **WHEN** the developer drags a region that partially crosses several controls

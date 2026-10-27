@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بت",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بت",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 بت",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 بت",
     "Str.CodeEditor.ViewAs.Tooltip": "عرض الترجمة الشرطية وفق",
     "Str.Tool.Properties.ExportPicture": "تصدير الصورة...",
     "Str.LspArtifact.Title": "ملفات مساحة العمل",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "إغلاق اللوحة",
     "Str.Dock.ScrollLeft": "تمرير علامات التبويب لليسار",
     "Str.Dock.ScrollRight": "تمرير علامات التبويب لليمين",
+    "Str.PropDesc.ImageWidth": "عرض الصور.",
+    "Str.PropDesc.ImageHeight": "ارتفاع الصور.",
+    "Str.PropDesc.MaskColor": "اللون المستخدم للبكسلات الشفافة.",
+    "Str.PropDesc.UseMaskColor": "ما إذا كان لون القناع مستخدمًا.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
   }
 }

@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 סיביות",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 סיביות",
     "Str.CodeEditor.ViewAs.Tooltip": "הצגת הידור מותנה עבור",
     "Str.Tool.Properties.ExportPicture": "ייצוא תמונה...",
     "Str.LspArtifact.Title": "קובצי סביבת העבודה",
@@ -903,6 +905,11 @@
     "Str.Dock.Close": "סגירת החלונית",
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
     "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
+    "Str.PropDesc.ImageWidth": "רוחב התמונות.",
+    "Str.PropDesc.ImageHeight": "גובה התמונות.",
+    "Str.PropDesc.MaskColor": "הצבע של פיקסלים שקופים.",
+    "Str.PropDesc.UseMaskColor": "האם להשתמש בצבע המסכה.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "הצג קווי הנחיה להזחה",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
   }
 }

@@ -8,6 +8,8 @@
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bit",
+    "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "View conditional compilation as",
     "Str.Tool.Properties.ExportPicture": "Export picture...",
     "Str.LspArtifact.Title": "Workspace files",
@@ -903,6 +905,11 @@
     "Str.ProjectLoad.Heading": "Couldn't properly deserialize the project:",
     "Str.ProjectLoad.MoreWarnings": "...and {0} more warnings (see log for full list).",
     "Str.ProjectLoad.ActiveXDocuments": "This project contains ActiveX Document files (.dob) which are not supported in HexIDE and have been skipped:\n\n{0}\n\nActiveX Documents required Internet Explorer or Office binders as a host, both of which are effectively defunct. This project type is out of scope for HexIDE.",
+    "Str.PropDesc.ImageWidth": "The width of the images.",
+    "Str.PropDesc.ImageHeight": "The height of the images.",
+    "Str.PropDesc.MaskColor": "The color used for transparent pixels.",
+    "Str.PropDesc.UseMaskColor": "Whether to use the mask color.",
+    "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Show indent guides",
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth"
   }
 }

@@ -89,6 +89,7 @@ public class FormDeserializer
     [
         Components.InBox.ProgressBarComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
+        Components.InBox.ImageListComponentClass.Instance,
     ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -556,6 +557,29 @@ public class FormDeserializer
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            if (componentClass is Components.InBox.ImageListComponentClass
+                && serializedComponent.Properties.TryGetValue("Images", out var imagesValue)
+                && imagesValue is Dictionary<string, object> imageProperties)
+            {
+                var pictures = new List<Components.InBox.ImageListPicture>();
+                foreach (var entry in imageProperties)
+                    if (entry.Value is Dictionary<string, object> image
+                        && image.TryGetValue("Picture", out var citation) && citation is string reference
+                        && frxBlobs is not null && FrxDeserializer.TryExtractBlob(reference, frxBlobs) is { } record)
+                    {
+                        pictures.Add(new Components.InBox.ImageListPicture(record,
+                            image.GetValueOrDefault("Key") as string ?? "",
+                            image.GetValueOrDefault("Object.Tag") as string ?? ""));
+                    }
+                // Unknown group members stay in the carried block, rather than disappearing on the next save.
+                var known = imageProperties.Keys.All(k => k == "NumListImages" || k.StartsWith("ListImage", StringComparison.Ordinal))
+                    && imageProperties.Values.OfType<Dictionary<string, object>>()
+                        .All(image => image.Keys.All(k => k is "Picture" or "Key" or "Object.Tag")
+                            && (!image.TryGetValue("Key", out var key) || key is string)
+                            && (!image.TryGetValue("Object.Tag", out var tag) || tag is string));
+                if (known && imageProperties.GetValueOrDefault("NumListImages") is int count && pictures.Count == count)
+                    instance.SetProperty(Components.InBox.ImageListComponentClass.PicturesProperty, pictures);
+            }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
             if (parent is not null && rootComponent.Type == "VB.Form" &&

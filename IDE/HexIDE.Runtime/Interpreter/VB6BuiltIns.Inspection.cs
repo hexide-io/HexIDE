@@ -79,6 +79,9 @@ public partial class VB6BuiltIns
         PanelPicture => throw new NotImplementedException("Panel.Picture TypeName is unmeasured (#1087)"),
         StatusBarPanel => "IPanel",
         StatusBarPanels => "IPanels",
+        ImageListImages => "IImages",
+        ImageListImage => "IImage",
+        ImageListPictureObject => "Picture",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         // So is a form's Controls: measured, `TypeName(Controls)` and `TypeName(Me.Controls)` (#1060).
