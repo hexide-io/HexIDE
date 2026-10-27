@@ -2,7 +2,9 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
+    "Str.Designer.ShowTabOrder": "Tabulatorreihenfolge anzeigen (durchgestrichen: TabStop aus)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-Bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-Bit",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "Fenster schließen",
     "Str.Dock.ScrollLeft": "Registerkarten nach links scrollen",
     "Str.Dock.ScrollRight": "Registerkarten nach rechts scrollen",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximale Anzahl angehefteter Kopfzeilen"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
   }
 }

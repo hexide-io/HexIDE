@@ -2,7 +2,9 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
+    "Str.Designer.ShowTabOrder": "Näytä sarkainjärjestys (yliviivattu: TabStop pois)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bittinen",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "Sulje paneeli",
     "Str.Dock.ScrollLeft": "Vieritä välilehtiä vasemmalle",
     "Str.Dock.ScrollRight": "Vieritä välilehtiä oikealle",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
   }
 }

@@ -2,7 +2,9 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.Designer.ShowTabOrder": "הצגת סדר טאבים (מחוק: TabStop כבוי)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32 סיביות",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 סיביות",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "סגירת החלונית",
     "Str.Dock.ScrollLeft": "גלילת כרטיסיות שמאלה",
     "Str.Dock.ScrollRight": "גלילת כרטיסיות ימינה",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
   }
 }

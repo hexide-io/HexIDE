@@ -2,7 +2,9 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
+    "Str.Designer.ShowTabOrder": "Vis tabulatorrækkefølge (overstreget: TabStop fra)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "Luk panel",
     "Str.Dock.ScrollLeft": "Rul faner til venstre",
     "Str.Dock.ScrollRight": "Rul faner til højre",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde"
   }
 }

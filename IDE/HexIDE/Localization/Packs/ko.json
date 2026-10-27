@@ -2,7 +2,9 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
+    "Str.Designer.ShowTabOrder": "탭 순서 표시 (취소선: TabStop 꺼짐)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32비트",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64비트",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "창 닫기",
     "Str.Dock.ScrollLeft": "탭을 왼쪽으로 스크롤",
     "Str.Dock.ScrollRight": "탭을 오른쪽으로 스크롤",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정"
   }
 }

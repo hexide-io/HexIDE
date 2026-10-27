@@ -2,7 +2,9 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.Designer.ShowTabOrder": "Zobrazit pořadí tabulátoru (přeškrtnuté: TabStop vypnuto)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32bitové",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "Zavřít panel",
     "Str.Dock.ScrollLeft": "Posunout karty doleva",
     "Str.Dock.ScrollRight": "Posunout karty doprava",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
   }
 }

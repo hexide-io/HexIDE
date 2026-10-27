@@ -2,7 +2,9 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan",
+    "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",
+    "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",
+    "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan",
     "Str.CodeEditor.ViewAs.Vb6": "VB6",
     "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
@@ -899,7 +901,6 @@
     "Str.Dock.Close": "Tutup panel",
     "Str.Dock.ScrollLeft": "Gulir tab ke kiri",
     "Str.Dock.ScrollRight": "Gulir tab ke kanan",
-    "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",
-    "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan"
   }
 }
