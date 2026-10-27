@@ -782,8 +782,17 @@ public static class UiAutomationDriver
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
     // press_key refuses with it too, since its routed fallback pressed a key on a disabled control and reported
     // success (#2366).
-    private static string? DisabledInteractionRefusal(Control control, string verb)
+    /// <summary>
+    /// Why a person couldn't act on <paramref name="window"/> itself, its caption buttons or frame, through
+    /// <paramref name="verb"/>: a modal dialog over it, or the window disabled. Null when they could. It names the window
+    /// as <paramref name="name"/>, as the caller reached it: a running form's window is otherwise only its class.
+    /// </summary>
+    public static string? WindowRefusal(Window window, string verb, string? name = null) =>
+        DisabledInteractionRefusal(window, verb, name);
+
+    private static string? DisabledInteractionRefusal(Control control, string verb, string? name = null)
     {
+        var subject = name ?? Describe(control);
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
         var open = OpenDialogs.Among(OpenWindows());
         var blocking = open.Where(d => OpenDialogs.Blocks(d, window)).ToList();
@@ -791,7 +800,7 @@ public static class UiAutomationDriver
         {
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
-            return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
+            return $"'{subject}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
                    + $"No person could use it, so '{verb}' was refused and nothing was done. Answer the dialog first: "
                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
         }
@@ -804,7 +813,7 @@ public static class UiAutomationDriver
         var cause = control.IsEnabled && container is not null
             ? $" Its container '{Describe(container)}'{(window is null ? string.Empty : AddressOf(window, "Window", container))} disables it."
             : string.Empty;
-        return $"'{Describe(control)}' is disabled (\"isEnabled\": false).{cause} "
+        return $"'{subject}' is disabled (\"isEnabled\": false).{cause} "
                + $"No person could use it, so '{verb}' was refused and nothing was done. "
                + "Wait until it is enabled before trying again; inspect_element reports its current state";
     }

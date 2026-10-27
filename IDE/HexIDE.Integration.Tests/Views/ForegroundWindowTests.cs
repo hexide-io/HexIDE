@@ -190,6 +190,22 @@ public class ForegroundWindowTests : IDisposable
         error.Should().Contain("editor").And.Contain("auto").And.Contain("ide");
     }
 
+    // get_window_state and set_window_state reach the IDE's own window when no window is named, as before they took one,
+    // so an unknown name's refusal there must not call "auto" the default (#2357).
+    [AvaloniaFact]
+    public void An_unknown_scope_names_the_default_of_the_tool_that_asked()
+    {
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+
+        ForegroundWindow.Pick("Nope", main, [main, form]).Error.Should()
+            .Contain("\"auto\" (the default: ").And.NotContain("the default here");
+        ForegroundWindow.Pick("Nope", main, [main, form], ideByDefault: true).Error.Should()
+            .StartWith("Unknown window 'Nope'. Use \"ide\" (the default here: the IDE window, even while a program is running), "
+                       + "\"auto\" (any visible window other than the IDE's own, a dialog first), or the name or title of an open")
+            .And.NotContain("(the default: ");
+    }
+
     [AvaloniaFact]
     public void An_unknown_scope_does_not_describe_auto_as_frontmost()
     {
