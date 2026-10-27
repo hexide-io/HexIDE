@@ -28,8 +28,38 @@ public class TreeViewDrawingTests
         else yield return drawing;
     }
 
+    [AvaloniaTheory]
+    [InlineData(1, 0, 2)]
+    [InlineData(1, 1, 3)]
+    [InlineData(0, 0, 0)]
+    [InlineData(0, 1, 1)]
+    public void Edge_insets_the_drawing(int appearance, int border, int edge)
+    {
+        var (_, canvas, _, _) = ContainerRuntimeHarness.Spawn($"""
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin MSComctlLib.TreeView TreeView1
+                  Width = 2400
+                  Height = 1200
+                  Appearance = {appearance}
+                  BorderStyle = {border}
+                  Style = 0
+                  HideSelection = 0
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """);
+        var tree = (VBTreeView)ContainerRuntimeHarness.Child(canvas, "TreeView1");
+        tree.Nodes.SelectedItem = tree.Nodes.Add(text: "selected");
+        var drawings = Draw(tree).OfType<GeometryDrawing>().ToArray();
+        var highlight = drawings.Last().GetBounds();
+        highlight.Top.Should().Be(edge);
+        highlight.Left.Should().BeApproximately(1000 * 96.0 / 2540 + edge, 0.001);
+        drawings.Length.Should().Be(2 + edge * 4);
+    }
+
     [AvaloniaFact]
-    public void Rows_start_at_the_top_and_are_sixteen_pixels_high()
+    public void Rows_start_at_the_client_top_and_are_sixteen_pixels_high()
     {
         var tree = new VBTreeView();
         tree.TrySetProperty("Style", new Vb6Value(0));
@@ -38,11 +68,11 @@ public class TreeViewDrawingTests
         var second = tree.Nodes.Add(text: "second");
         tree.Nodes.SelectedItem = first;
         var firstHighlight = Draw(tree).OfType<GeometryDrawing>().Last().GetBounds();
-        firstHighlight.Top.Should().Be(0);
+        firstHighlight.Top.Should().Be(2);
         firstHighlight.Height.Should().Be(16);
         tree.Nodes.SelectedItem = second;
         var secondHighlight = Draw(tree).OfType<GeometryDrawing>().Last().GetBounds();
-        secondHighlight.Top.Should().Be(16);
+        secondHighlight.Top.Should().Be(18);
         secondHighlight.Height.Should().Be(16);
     }
 
@@ -50,15 +80,16 @@ public class TreeViewDrawingTests
     public void Visible_labels_follow_expansion_and_model_changes()
     {
         var tree = new VBTreeView();
+        tree.TrySetProperty("Style", new Vb6Value(0));
         var root = tree.Nodes.Add(text: "root");
         var collapsed = Draw(tree).Count;
         tree.Nodes.Add(root, 4, text: "child");
         Draw(tree).Count.Should().Be(collapsed);
         root.Expanded = true;
         Draw(tree).Count.Should().BeGreaterThan(collapsed);
-        var label = Draw(tree)[1].GetBounds();
+        var label = Draw(tree)[^2].GetBounds();
         root.Text = "a much longer root label";
-        Draw(tree)[1].GetBounds().Should().NotBe(label);
+        Draw(tree)[^2].GetBounds().Should().NotBe(label);
         tree.Nodes.Clear();
         Draw(tree).Count.Should().BeLessThan(collapsed);
     }

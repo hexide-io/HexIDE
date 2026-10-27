@@ -41,7 +41,7 @@ public class TreeViewEventTests
             tree.Nodes.Add(second, 4, text: "child");
             tree.Nodes.SelectedItem = first;
             tree.TrySetProperty("LineStyle", new Vb6Value(1));
-            var point = tree.TranslatePoint(new Point(button ? 19 : 42, button ? 24 : 17), window)!.Value;
+            var point = tree.TranslatePoint(new Point(button ? 19 : 42, button ? 26 : 19), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
             if (button)
@@ -50,6 +50,30 @@ public class TreeViewEventTests
                 tree.Nodes.SelectedItem.Should().BeSameAs(first);
             }
             else tree.Nodes.SelectedItem.Should().BeSameAs(second);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Edge_is_excluded_and_rows_start_inside_the_client()
+    {
+        var (tree, root, window) = Create();
+        try
+        {
+            var first = tree.Nodes.Add(text: "first");
+            var second = tree.Nodes.Add(text: "second");
+            tree.Nodes.SelectedItem = second;
+            tree.Focus();
+            root.Calls.Clear();
+            var edge = tree.TranslatePoint(new Point(44, 1), window)!.Value;
+            window.MouseDown(edge, MouseButton.Right);
+            window.MouseUp(edge, MouseButton.Right);
+            tree.Nodes.SelectedItem.Should().BeSameAs(second);
+            Names(root).Should().NotContain("NodeClick");
+            var inside = tree.TranslatePoint(new Point(44, 17), window)!.Value;
+            window.MouseDown(inside, MouseButton.Right);
+            window.MouseUp(inside, MouseButton.Right);
+            tree.Nodes.SelectedItem.Should().BeSameAs(first);
         }
         finally { window.Close(); }
     }

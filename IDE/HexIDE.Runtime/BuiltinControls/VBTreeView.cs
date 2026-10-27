@@ -11,7 +11,20 @@ internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
 
     internal TreeNodes Nodes { get; }
 
-    internal long GetVisibleCount() => (long)(Bounds.Height / RowHeight);
+    internal int ClientEdge { get; private set; } = 2;
+
+    // Height is the declared .frm twips converted to pixels by the loader, available before layout.
+    internal long GetVisibleCount() => (long)(Math.Max(0, Height - 2 * ClientEdge) / RowHeight);
+
+    internal void LoadEdge(int appearance, int borderStyle)
+    {
+        sunken = appearance == 1;
+        singleBorder = borderStyle == 1;
+        ClientEdge = (sunken ? 2 : 0) + (singleBorder ? 1 : 0);
+    }
+
+    private bool sunken = true;
+    private bool singleBorder;
 
     public VBTreeView()
     {

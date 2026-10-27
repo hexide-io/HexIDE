@@ -11,14 +11,24 @@ Describe the runtime drawing, input and native file persistence of MSComctlLib.T
 
 The control SHALL draw visible nodes in sibling order, descending into expanded nodes, with
 Indentation controlling each hierarchy level. Text SHALL reflect node Text and Bold. Model changes
-SHALL invalidate the drawing. Rows SHALL start at the top and be 16 pixels high at 96 dpi,
+SHALL invalidate the drawing. Rows SHALL start at the client origin and be 16 pixels high at 96 dpi,
 with pointer hit-testing using the same row height. GetVisibleCount SHALL return the capacity
-in complete rows as a Long, independently of the number of nodes.
+in complete client rows as a Long, independently of the number of nodes, before layout,
+in Form_Load and after Show. The client inset on each side SHALL be 2 pixels for Appearance 1 /
+BorderStyle 0, 3 for 1 / 1, zero for 0 / 0 and 1 for 0 / 1. Drawing and pointer hit-testing
+SHALL use that inset. Appearance 1 SHALL draw the sunken 3D edge and BorderStyle 1 SHALL
+add a single line inside it (or alone with Appearance 0).
 
 #### Scenario: Expand and mutate a tree from code
 
 - **WHEN** code adds, removes, renames, sorts, moves or expands nodes
 - **THEN** the next drawing reflects the current hierarchy and visible labels
+
+#### Scenario: Capacity of the eight measured controls
+
+- **WHEN** GetVisibleCount is read with (Appearance, BorderStyle) pairs (1,0), (1,1), (0,0), (0,1)
+- **THEN** the 1200-twip tree returns 4, 4, 5, 4, and the 3000-twip tree returns 12 in each case
+- **AND** Form_Load and reads after Show agree, with zero or 30 nodes
 
 #### Scenario: Capacity of the oracle control
 

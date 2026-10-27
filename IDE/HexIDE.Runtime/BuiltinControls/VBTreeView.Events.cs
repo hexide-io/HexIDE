@@ -73,8 +73,10 @@ internal sealed partial class VBTreeView
         Focus();
         e.Pointer.Capture(this);
         var secondPress = e.ClickCount % 2 == 0;
-        var row = (int)(point.Position.Y / RowHeight);
-        if (row < 0 || point.Position.Y < 0) return;
+        var position = point.Position - new Avalonia.Vector(ClientEdge, ClientEdge);
+        if (position.X < 0 || position.Y < 0 || position.X >= Bounds.Width - 2 * ClientEdge
+            || position.Y >= Bounds.Height - 2 * ClientEdge) return;
+        var row = (int)(position.Y / RowHeight);
         var rows = VisibleNodes().ToArray();
         if (row >= rows.Length) return;
         var (node, depth) = rows[row];
@@ -83,12 +85,12 @@ internal sealed partial class VBTreeView
         var button = x - step / 2;
         var left = point.Properties.IsLeftButtonPressed;
         if (left && (depth > 0 || lineStyle == 1) && (style & 2) != 0 && node.ChildNodes.Count > 0
-            && Math.Abs(point.Position.X - button) <= 4 && Math.Abs(point.Position.Y - ((row + 0.5) * RowHeight)) <= 4)
+            && Math.Abs(position.X - button) <= 4 && Math.Abs(position.Y - ((row + 0.5) * RowHeight)) <= 4)
         {
             node.Expanded = !node.Expanded;
             return;
         }
-        if (left && Nodes.Checkboxes && point.Position.X >= x && point.Position.X <= x + 12)
+        if (left && Nodes.Checkboxes && position.X >= x && position.X <= x + 12)
         {
             node.Checked = !node.Checked;
             Raise("NodeCheck", new Vb6Value(node));
@@ -99,7 +101,7 @@ internal sealed partial class VBTreeView
             FlowDirection.LeftToRight,
             new Typeface(FontFamily.Default, FontStyle.Normal,
                 node.Bold ? FontWeight.Bold : FontWeight.Normal), 13, Brushes.Black);
-        if (point.Position.X < x || point.Position.X > x + text.Width + 4) return;
+        if (position.X < x || position.X > x + text.Width + 4) return;
         if (secondPress && left)
         {
             node.Expanded = !node.Expanded;

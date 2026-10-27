@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Serialization;
 
@@ -35,6 +39,73 @@ public class TreeViewRuntimeTests
             var values = await ContainerRuntimeHarness.Run(ctx, env, code);
             return values.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture) ?? "").ToArray();
         }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1200, 1, 0, 4)]
+    [InlineData(1200, 1, 1, 4)]
+    [InlineData(1200, 0, 0, 5)]
+    [InlineData(1200, 0, 1, 4)]
+    [InlineData(3000, 1, 0, 12)]
+    [InlineData(3000, 1, 1, 12)]
+    [InlineData(3000, 0, 0, 12)]
+    [InlineData(3000, 0, 1, 12)]
+    public async Task Visible_count_uses_the_measured_client_before_and_after_layout(int twips, int appearance, int border, int expected)
+    {
+        var form = Form.Replace("Height = 1500", $"Height = {twips}")
+            .Replace("Style = 7", $"Style = 7\nAppearance = {appearance}\nBorderStyle = {border}");
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form);
+        var before = await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print TreeView1.GetVisibleCount, TypeName(TreeView1.GetVisibleCount)");
+        before.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture)).Should().Equal(expected.ToString(CultureInfo.InvariantCulture), "Long");
+        var (_, window, laidCtx, laidEnv) = ContainerRuntimeHarness.Laid(form);
+        try
+        {
+            var after = await ContainerRuntimeHarness.Run(laidCtx, laidEnv, """
+                Debug.Print TreeView1.GetVisibleCount
+                Dim i As Long
+                For i = 1 To 30
+                    TreeView1.Nodes.Add , , , "node"
+                Next
+                Debug.Print TreeView1.GetVisibleCount
+                """);
+            after.Select(v => v.Value).Should().Equal((long)expected, (long)expected);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1200, "4")]
+    [InlineData(3000, "12")]
+    public void Form_load_reads_capacity_before_show(int twips, string expected)
+    {
+        var source = Form.Replace("Height = 1500", $"Height = {twips}") + "\n" + """
+            Private Sub Form_Load()
+                Debug.Print TreeView1.GetVisibleCount
+                Debug.Print TypeName(TreeView1.GetVisibleCount)
+            End Sub
+            """;
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), new NullSink())!);
+        var printed = new List<string>();
+        VBDebugConsole.Output += printed.Add;
+        using var cancel = new CancellationTokenSource();
+        try
+        {
+            _ = VBLoader.RunForm(project.StartupForm!, cancel.Token, out _);
+            Dispatcher.UIThread.RunJobs();
+            printed.Select(value => value.Trim()).Should().Equal(expected, "Long");
+        }
+        finally
+        {
+            cancel.Cancel();
+            Dispatcher.UIThread.RunJobs();
+            VBDebugConsole.Output -= printed.Add;
+        }
+    }
+
+    private sealed class NullSink : IDeserializeErrorSink
+    {
+        public void LogError(string _) { }
     }
 
     [AvaloniaFact]

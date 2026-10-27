@@ -1305,7 +1305,9 @@ signature help and the Object Browser, not the completion popup.
 ## Not yet enumerated
 
 **TreeView (#1086):** Rows draw and accept pointer hits at the measured 16-pixel height;
-`GetVisibleCount` returns complete-row capacity as a Long (12 for the oracle control).
+`GetVisibleCount` returns complete client-row capacity as a Long, before layout and in Form_Load
+as well as after Show (4 for the default-edged 80-pixel tree, 12 for the 200-pixel tree).
+Saved Appearance/BorderStyle choose the measured 0/1/2/3-pixel edge, drawing and pointer origin.
 Scrolling (#2359) remains unmeasured and not implemented; label editing follows in #2360.
 `TreeNodes.cs` supplies the hierarchy model and `TreeNodeAutomation.cs` now exposes
 its collection and node identities to the interpreter. Injected collections can be built and walked from VB6:

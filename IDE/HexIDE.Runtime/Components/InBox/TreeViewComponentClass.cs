@@ -27,6 +27,9 @@ internal sealed class TreeViewComponentClass : ComponentBaseClass
         // A missing Style loads 0; the new control's default is 7 (measured).
         if (instance.GetPropertyOrDefault(InBoxComponentClass.LoadedTypeNameProperty) is not null)
             tree.TrySetProperty("Style", new Vb6Value(0));
+        tree.LoadEdge(
+            serialized.Properties.TryGetValue("Appearance", out var appearance) ? Convert.ToInt32(appearance, System.Globalization.CultureInfo.InvariantCulture) : 1,
+            serialized.Properties.TryGetValue("BorderStyle", out var border) ? Convert.ToInt32(border, System.Globalization.CultureInfo.InvariantCulture) : 0);
         foreach (var (name, raw) in serialized.Properties)
         {
             switch (name.ToLowerInvariant())
