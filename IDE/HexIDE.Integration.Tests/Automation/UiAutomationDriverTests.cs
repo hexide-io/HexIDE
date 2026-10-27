@@ -404,6 +404,58 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("collapse")]
+    [InlineData("expand")]
+    [InlineData("name")]
+    public void Property_category_row_supports_expand_and_collapse(string action)
+    {
+        var loc = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        loc.GetString("Str.PropCategory.Appearance").Returns("Appearance");
+        var vm = new HexIDE.VisualDesigner.PropertiesToolViewModel(
+            Substitute.For<HexIDE.IDE.IDocumentDockService>(), Substitute.For<HexIDE.IDE.IEventBus>(),
+            Substitute.For<HexIDE.IDE.IWindowManager>(), loc);
+        var category = new HexIDE.VisualDesigner.PropertyCategoryViewModel(vm, HexIDE.Runtime.Components.PropertyCategory.Appearance);
+        var property = new HexIDE.VisualDesigner.PropertyViewModel(vm, HexIDE.Runtime.Components.VBProperties.BackColorProperty, null);
+        vm.Properties.Add(property);
+        vm.CategorizedProperties.Add(category);
+        vm.CategorizedProperties.Add(property);
+        var view = new HexIDE.VisualDesigner.Views.PropertiesToolView { DataContext = vm };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+        window.Show();
+        view.FindControl<TabItem>("CategorizedPropertiesTab")!.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var list = view.FindControl<ListBox>("CategorizedProperties")!;
+            var row = list.ContainerFromIndex(0)!;
+            var toggle = row.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Single();
+            if (action == "name")
+            {
+                ControlAutomationPeer.CreatePeerForElement(toggle)!.GetName().Should().Be("Appearance");
+                return;
+            }
+            category.IsExpanded = action == "collapse";
+            UiAutomationDriver.Interact(row, action, null).Success.Should().BeTrue();
+            UiAutomationDriver.Inspect(row, "category").ExpandCollapseState.Should().Be(action == "expand" ? "Expanded" : "Collapsed");
+            category.IsExpanded.Should().Be(action == "expand");
+            property.IsVisible.Should().Be(category.IsExpanded);
+            var peer = ControlAutomationPeer.CreatePeerForElement(row)!;
+            peer.GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>()!
+                .ExpandCollapseState.Should().Be(action == "expand"
+                    ? Avalonia.Automation.ExpandCollapseState.Expanded : Avalonia.Automation.ExpandCollapseState.Collapsed);
+            UiAutomationDriver.Interact(row, action, null).Success.Should().BeTrue();
+            ControlAutomationPeer.CreatePeerForElement(toggle)!.GetName().Should().Be("Appearance");
+            UiAutomationDriver.Interact(toggle, "toggle", null).Success.Should().BeTrue();
+            peer.GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>()!
+                .ExpandCollapseState.Should().Be(action == "expand"
+                    ? Avalonia.Automation.ExpandCollapseState.Collapsed : Avalonia.Automation.ExpandCollapseState.Expanded);
+            ControlAutomationPeer.CreatePeerForElement(list.ContainerFromIndex(1)!)!
+                .GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>().Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Interact_OnTheShowingCopy_StillActs()
     {
