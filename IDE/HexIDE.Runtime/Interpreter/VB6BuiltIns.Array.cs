@@ -70,10 +70,10 @@ public partial class VB6BuiltIns
     private static Vb6Value Split(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         if (a.Count < 1) throw InvalidCall();
+        var text = Supplied(a, 3) ? IsTextCompare(CompareArgument(a[3]), databaseAsText: true) : compareText;
         string s = AsStr(a[0]);
         string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
         int limit = Supplied(a, 2) ? AsInt(a[2]) : -1;
-        var text = Supplied(a, 3) ? AsInt(a[3]) == 1 : compareText;
 
         var parts = SplitVb(s, delim, limit, text);
         var items = new List<Vb6Value>(parts.Count);
@@ -189,10 +189,11 @@ public partial class VB6BuiltIns
     // 1033, 2057, 4096) compare as text, and invalid ones (3000, 4095, 32767, 65536) are 5. Whether a valid one compares
     // in that locale, or simply as text, is not measured. HexIDE cannot tell which identifiers Windows accepts, so it
     // refuses those loudly rather than guess (#881).
-    private static bool IsTextCompare(long compare) => compare switch
+    private static bool IsTextCompare(long compare, bool databaseAsText = false) => compare switch
     {
         0 => false,
         1 => true,
+        2 when databaseAsText => true,
         2 or < 0 => throw InvalidCall(),
         _ => throw new NotImplementedException(
             $"A compare of {compare} is not supported. VB6 compares as text for some values from 3 up and raises 5 for " +

@@ -8,3 +8,6 @@ The #2062 brief's measured load-time font inheritance is recorded in
 
 The #178 issue comments' measured whole-record copy and array behavior is recorded in
 [A UDT copied whole, and arrays of a UDT](vb6-fidelity-oracle/a-udt-copied-whole-and-arrays-of-a-udt.md).
+
+The #881 comments’ measured compare validation order is recorded in
+[A compare argument, and when it is checked](vb6-fidelity-oracle/compare-argument-validation.md).
