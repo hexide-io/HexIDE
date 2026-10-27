@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "此菜单是否列出打开的 MDI 子窗口。",
     "Str.PropDesc.Locked": "控件内容是否可以编辑。",
     "Str.PropDesc.MultiSelect": "是否可以选择多个项目，以及如何选择。",
+    "Str.PropDesc.SimpleText": "简单样式中显示的文本。",
+    "Str.PropDesc.ShowTips": "是否显示面板工具提示。",
     "Str.PropDesc.Style": "控件的绘制方式及其行为方式。",
     "Str.PropDesc.StartUpPosition": "窗体首次打开时在屏幕上的位置。",
     "Str.PropDesc.ShowInTaskbar": "窗体是否显示在任务栏中。",

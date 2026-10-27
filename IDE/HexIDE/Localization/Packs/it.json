@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "Se questo menu elenca le finestre figlie MDI aperte.",
     "Str.PropDesc.Locked": "Se il contenuto del controllo può essere modificato.",
     "Str.PropDesc.MultiSelect": "Se è possibile selezionare più di un elemento, e come.",
+    "Str.PropDesc.SimpleText": "Il testo visualizzato nello stile semplice.",
+    "Str.PropDesc.ShowTips": "Indica se vengono mostrati i suggerimenti dei pannelli.",
     "Str.PropDesc.Style": "Come viene disegnato il controllo e come si comporta.",
     "Str.PropDesc.StartUpPosition": "Dove viene posizionato il form sullo schermo alla prima apertura.",
     "Str.PropDesc.ShowInTaskbar": "Se il form appare nella barra delle applicazioni.",

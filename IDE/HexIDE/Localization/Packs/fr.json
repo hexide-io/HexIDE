@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "Indique si ce menu répertorie les fenêtres enfants MDI ouvertes.",
     "Str.PropDesc.Locked": "Indique si le contenu du contrôle peut être modifié.",
     "Str.PropDesc.MultiSelect": "Indique si plusieurs éléments peuvent être sélectionnés, et comment.",
+    "Str.PropDesc.SimpleText": "Le texte affiché dans le style simple.",
+    "Str.PropDesc.ShowTips": "Indique si les info-bulles des panneaux sont affichées.",
     "Str.PropDesc.Style": "La façon dont le contrôle est dessiné et dont il se comporte.",
     "Str.PropDesc.StartUpPosition": "L'emplacement de la feuille à l'écran lors de sa première ouverture.",
     "Str.PropDesc.ShowInTaskbar": "Indique si la feuille apparaît dans la barre des tâches.",

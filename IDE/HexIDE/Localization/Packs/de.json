@@ -635,6 +635,8 @@
     "Str.PropDesc.WindowList": "Ob dieses Menü die geöffneten MDI-Unterfenster auflistet.",
     "Str.PropDesc.Locked": "Ob der Inhalt des Steuerelements bearbeitet werden kann.",
     "Str.PropDesc.MultiSelect": "Ob mehr als ein Element ausgewählt werden kann, und wie.",
+    "Str.PropDesc.SimpleText": "Der im einfachen Stil angezeigte Text.",
+    "Str.PropDesc.ShowTips": "Ob QuickInfos für Bereiche angezeigt werden.",
     "Str.PropDesc.Style": "Wie das Steuerelement gezeichnet wird und wie es sich verhält.",
     "Str.PropDesc.StartUpPosition": "Wo das Formular beim ersten Öffnen auf dem Bildschirm platziert wird.",
     "Str.PropDesc.ShowInTaskbar": "Ob das Formular in der Taskleiste angezeigt wird.",

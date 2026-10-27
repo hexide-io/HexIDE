@@ -77,10 +77,12 @@ Four more projects, native and p-code alike:
   and the first library declaring the name wins.
 - **The form's own controls get no priority.** With the reference first, `TypeOf ListView1 Is ListView` was False for
   the form's own ListView, and assigning it to a bare `ListView` was 13 "Type mismatch".
-- **VB6 writes every `Reference=` line before every `Object=` line.** All 16 projects VB6 saved in
-  `corpus/inbox-controls/pending/` that have both kinds do this. So in a project VB6 has saved, a referenced type library
-  outranks every component for a bare name.
-- **Not measured:** whether VB6 reorders a hand-written project, with an `Object=` line first, when it saves it.
+- **VB6 writes every `Reference=` line before every `Object=` line.** A hand-written project with its `Object=` line first
+  came back from VB6's Save Project with that line after every `Reference=` line ("A reference's path, and the line order a
+  save writes", #2274). So in a project VB6 has saved, a referenced type library outranks every component for a bare name.
+  - **Corrected 2026-10-27:** this entry first cited the 16 `.vbp` files in `corpus/inbox-controls/pending/` that have
+    both kinds. Those files are hand-written, as the corpus README says, so they show nothing about VB6. The #2274
+    measurement replaced them.
 
 **Not measured:** whether the References dialog shows the libraries in the `.vbp`'s order.
 
