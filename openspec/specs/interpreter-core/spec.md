@@ -207,6 +207,38 @@ program that compiles and runs.
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
+### Requirement: A name read through a type character SHALL be the name's own read
+A variable, constant, Enum member, parameter or array read with a type-declaration character (`s$`, `i%`,
+`a%(1)`) SHALL be read as the name without it, and SHALL raise VB6's compile error "Type-declaration character
+does not match declared data type" when the character is not the name's type. A name nothing declares SHALL be
+declared by the read, with the character's type.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/a-name-read-with-a-type-character.md`, #742).
+
+#### Scenario: A String read through its character
+- **WHEN** `Dim s As String` holds "x" and the program reads `s$`
+- **THEN** the read SHALL give the String "x"
+
+#### Scenario: A character the name's type does not match
+- **WHEN** the program reads `v%` for `Dim v As Long`, or `v$` for a Variant
+- **THEN** the interpreter SHALL raise the compile error "Type-declaration character does not match declared data type"
+
+#### Scenario: A type that takes no character
+- **WHEN** the program reads a Variant, an object, a Byte, a Boolean or a Date through any character
+- **THEN** the interpreter SHALL raise the same compile error
+
+#### Scenario: An undeclared name under Option Explicit
+- **WHEN** a module with `Option Explicit` reads `u%` and nothing declares `u`
+- **THEN** the interpreter SHALL raise "Variable not defined"
+
+#### Scenario: An undeclared name read through a character
+- **WHEN** a module without `Option Explicit` reads `z@` before anything declares `z`
+- **THEN** the read SHALL give the Currency 0, and a bare `z` after it SHALL read the same Currency
+
+#### Scenario: A ByRef argument written with its character
+- **WHEN** `Bump i%` passes an Integer `i` to `Sub Bump(n As Integer)`, which adds 1 to `n`
+- **THEN** `i` SHALL be 1 greater afterwards
+
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
 and the engine SHALL support VB6's error-handling statements, including continuing at the next statement,
