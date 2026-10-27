@@ -679,3 +679,26 @@ parts are not all modifiers SHALL be refused before anything is pressed, naming 
 
 - **WHEN** `press_key` is called with `key` `A+B`
 - **THEN** nothing is pressed, and the refusal says `A` is not a modifier
+
+### Requirement: Adorners are addressed under the element they adorn
+The control view SHALL list an adorner under the element it adorns, after that element's own children, and not where
+its adorner layer sits, so its paths read as the screen does and round-trip through `Resolve` and `PathWithin`. An
+adorner SHALL be folded away as any wrapper is unless it, or something in it, is meaningful. The designer's draw
+preview, its rubber band, a selected control's resize adorner and the adorner's eight grab handles SHALL carry
+AutomationIds, so the dump lists them and `inspect_element` reads their bounds.
+
+#### Scenario: A selected control's grab handles
+
+- **WHEN** a control is selected in the form designer
+- **THEN** `…/ListItem[Command1]/None[ResizeAdorner]` and its handles, such as `None[PART_BottomRight]`, are in the dump
+- **AND** a `click` drag on a handle resizes the control
+
+#### Scenario: The draw preview
+
+- **WHEN** a toolbox tool is selected
+- **THEN** `NewControlSpawner` and its `NewControlSpawnerPhantom` are in the dump, the preview marked hidden until a draw shows it
+
+#### Scenario: An adorner with nothing meaningful in it
+
+- **WHEN** an element's adorner has no AutomationId and holds nothing meaningful
+- **THEN** the dump adds nothing for it
