@@ -24,7 +24,12 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
     public Canvas? ChildHost
     {
         get => GetValue(ChildHostProperty);
-        set => SetValue(ChildHostProperty, value);
+        set
+        {
+            SetValue(ChildHostProperty, value);
+            if (value is not null)
+                VBEnabled.SetOwner(value, this);
+        }
     }
 
     /// <summary>

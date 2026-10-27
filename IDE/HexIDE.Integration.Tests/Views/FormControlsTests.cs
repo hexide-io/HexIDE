@@ -273,6 +273,20 @@ public class FormControlsTests
         printed.Should().Equal("cleared cleared");
     }
 
+    [AvaloniaFact]
+    public void ControlsEnumeration_ReadsDisabledContainers()
+    {
+        var printed = Printed("""
+            Frame1.Enabled = False
+            Dim c As Control
+            For Each c In Me.Controls
+                If c.Name = "Check1" Then Debug.Print c.Enabled
+            Next
+            """);
+
+        printed.Should().Equal("False");
+    }
+
     // ── Item ─────────────────────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
