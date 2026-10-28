@@ -55,6 +55,10 @@ internal static partial class VbTextCompare
         return order;
     }
 
+    /// <summary>Whether every character has an oracle weight or measured expansion, without the Unicode fallback.</summary>
+    public static bool HasMeasuredWeights(string text) =>
+        text.All(c => ByCharacter.ContainsKey(c) || LettersOf.ContainsKey(c));
+
     /// <summary>Whether the two compare equal as text.</summary>
     public static bool AreEqual(string a, string b) => Compare(a, b) == 0;
 

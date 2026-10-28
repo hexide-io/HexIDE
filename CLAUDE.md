@@ -15,19 +15,19 @@ Requirements: .NET 10 SDK. No Java needed — `Antlr4BuildTasks` bundles the ANT
 cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj
 cd IDE && dotnet run --project HexIDE.Desktop/
 
-# Tests
-cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1900 VB6 interpreter tests
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~300 LSP server tests
-cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
-cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests
+# Tests (from the repository root)
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/          # VB6 interpreter tests
+pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ # LSP server tests
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/                  # IDE ViewModel tests (foreign servers — see below)
+pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/      # Headless Avalonia UI tests
 
 # Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
-cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
 
 # One class, or an arbitrary slice
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
+pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
 cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
@@ -46,12 +46,19 @@ Failed test jobs upload their `TestResults` directories as `test-results-<job>-<
 seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
 `dotnet test` prints only a log path, download that job's artifact to read the reason.
 
-CI and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
+CI, `scripts/test.ps1` and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
 `.github/workflows/build.yml` (#883). A short run must fail so its logs are kept by #1309.
 The four main-suite floors are about 95% of the measured totals recorded beside them; raise them
-when the suites grow. The WSL runner uses a floor of one for a filtered run, or accepts an explicit
-`--minimum-expected-tests` for a known slice. Its argument checks run with
-`bash scripts/test-linux.selftest.sh`. The async test-context lifetime fix is tracked separately in
+when the suites grow. Both scripts use a floor of one for a filtered run, or accept an explicit
+`--minimum-expected-tests` after `--` for a known slice. Run local suites from the repository root
+with `pwsh scripts/test.ps1 <project> [arguments]` (Windows PowerShell 5.1 also works via
+`powershell -ExecutionPolicy Bypass -File scripts/test.ps1`). Its final PASS/FAIL follows the exit
+code: MTP can print `Passed!` even when the floor fails. Bare `dotnet test` has no default floor.
+A project default was checked with this tree's MTP 1.9.1 for #2264: filters do not disable it
+and a later floor is rejected
+as a duplicate, so it would break filtered runs. Argument checks run with
+`pwsh scripts/test.selftest.ps1` and `bash scripts/test-linux.selftest.sh`.
+The async test-context lifetime fix is tracked separately in
 [#2194](https://github.com/hexide-io/HexIDE/issues/2194).
 
 **Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
@@ -377,7 +384,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `run_project` | Start the VB6 runtime |
 | `stop_project` | Stop the running project |
 | `shutdown_ide` | Clean shutdown (triggers all shutdown handlers) |
-| `take_snapshot(window?, inline?)` | Capture a window's client area as PNG, without its title bar or frame; `title` reports its actual title, and `activeDialog` remains for compatibility. Returns temp file path — read it with the `Read` tool to view. Under `window: "auto"`, the default, any other visible window (a dialog, the Find window, a running program's form) is captured in preference to the IDE's own, whether or not it is on top; `"ide"` captures the IDE. With the IDE on another machine, pass `inline: true` to get the image in the reply |
+| `take_snapshot(window?, inline?, includeFrame?)` | Capture a window's client area as PNG, without its title bar or frame, or with `includeFrame: true` on Windows the whole window as Windows renders it, frame included, even where another window covers it; `title` reports its actual title, and `activeDialog` remains for compatibility. Returns temp file path — read it with the `Read` tool to view. Under `window: "auto"`, the default, any other visible window (a dialog, the Find window, a running program's form) is captured in preference to the IDE's own, whether or not it is on top; `"ide"` captures the IDE. With the IDE on another machine, pass `inline: true` to get the image in the reply |
 | `dump_visual_tree(root?, maxDepth?, interactiveOnly?, window?, match?)` | Walk the active window's **control-view** tree (structural wrappers collapsed; under `window: "auto"` any other visible window is preferred to the IDE's own, whether or not it is on top, modal or not, the Find window included; among several, a dialog wins, then the one with focus, then the one opened last). Each node carries an addressable `path`, automation ControlType, Name/AutomationId, DataContext VM type, and supported interaction providers. The discovery entry point; `match` finds nodes by name, id, class or view-model type without returning the whole tree. |
 | `inspect_element(target, window?)` | Deep-inspect one control by `path`: supported providers, bounds, current value and toggle state, `selectionItems` (what is selected, not the items), a list's `itemCount`, and the DataContext VM's command, Command-bound method and property members (the surface `interact`'s reflection actions target). Pass the same `window` as the dump the path came from. |
 | `list_lsp_messages(connectionId?, method?, failuresOnly?, afterSequence?, limit?)` | Recorded language-server envelopes — time, direction, method, id, size, outcome, latency — with no content. Answers "was it even sent" and "what came back", which diagnostics cannot. Works unarmed. |
@@ -386,7 +393,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
 | `export_lsp_conversation(connectionId?)` | Writes the conversation as JSON-lines plus a manifest and returns both paths. **Always pseudonymised** — this is the shareable form; `get_lsp_message` is the raw one and is not. |
 | `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
-| `answer_next_file_dialog(path?)` | Pre-answers the next file dialog, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree and no other tool can reach it. Omit `path` to answer as cancelled. Single-shot: arm it immediately before the action.  |
+| `answer_next_file_dialog(path?, paths?)` | Pre-answers the next file dialog, so a Save As / Open / Export flow can be driven end to end. `paths` answers an Open that allows several files with all of them. A native picker is outside the control tree and no other tool can reach it. Omit `path` to answer as cancelled. Single-shot: arm it immediately before the action.  |
 | `clear_file_dialog_answers()` | Discards armed answers, and reports how many there were — which is how you find out a step you thought opened a picker did not. |
 | `set_lock_key(key?, state?)` | Sets Caps Lock, Num Lock, Insert or Scroll Lock `On` or `Off` as programs running in HexIDE read it, or back to `Keyboard`, so a StatusBar key panel's on state can be checked: `press_key` can't change the toggle Windows keeps. The machine's keyboard is untouched. Every reply lists all four keys with their `source`. DEBUG-only, like the server |
 | `interact(target, action, value?, window?)` | Drive a control. Provider actions: `invoke`/`select`/`add_to_selection`/`remove_from_selection`/`double_click`/`set_value`/`set_range_value`/`toggle`/`expand`/`collapse`/`scroll`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. Pointer action: `click`, which presses and releases a real pointer at a point on the target (`value` is an optional `x,y`, a button and any of shift/ctrl/alt, as in `10,5 right shift`; append `to x,y` or `to <path>:x,y` to drag with held moves and release coordinates relative to the target or named control; `to` cannot accompany `double`). Add `hold` to a drag, as in `20,20 to 100,60 hold`, to stop before the release with the button still down: every reply then carries a `heldButton` note, `take_snapshot` and `dump_visual_tree` see the drag in progress, `click`, `double_click` and `hover` are refused, and `release` lets it go, at an optional `x,y` or `<path>:x,y` it moves to first. After 120 s with no call a hold is abandoned: Escape, then a release where it was pressed; a designer draw or resize can still change the form then, and the note names the undo step. `click` is the only verb that presses: `invoke` goes through the automation peer and raises a Button's Click with no pointer events, so a running form's MouseDown and MouseUp need `click`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. `expand` and `collapse` open and close a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns, whose items then appear under it in `dump_visual_tree`; with the popup already open or closed the reply says so. `close` closes the target's window as its title-bar close box does (`IsProgrammatic` false), so a Yes/No or Abort/Retry/Ignore MsgBox refuses it, and a form's QueryUnload, or a modal form over it, may refuse it; the reply says whether it is still open, or hidden rather than closed. Every verb except `invoke_command` and `set_property` refuses disabled targets, naming a disabling container or a blocking modal dialog to answer first. Every verb except `invoke_command` and `set_property` is refused on a control that is not showing (`isHidden`), and `toggle`, `expand`, `collapse` and `set_value` reply with the state read back. Pass the same `window` as the dump the path came from: while a program runs, `auto` usually picks its form. The generic substitute for per-interaction tools. |
@@ -933,6 +940,12 @@ widening visibility to `public` just for a test. When a new test project needs r
   English caller-selection test's drain changed its context to idle in 8 of 12 seeded runs; all 12
   passed, so that measurement does not reproduce the cleanup exception or establish the link to #883.
   `InteractClickTests` records the same trap for `CultureInfo.CurrentCulture`.
+  `CultureGuardAttribute` checks the current thread's culture and UI culture and both default thread
+  cultures after every Integration test against the host values captured at assembly startup (#2322),
+  naming the test that left them behind. Its entry check remains a backstop. This does not inspect other
+  threads or dispatcher operations that have not run yet; the actual leaker behind #2322 is still unknown.
+  xUnit restores test-body execution contexts before the exit hook, so the regression tests invoke the
+  hook while their deliberate leak is still active; setup leaks that survive to the hook fail the test.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
   All five test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
@@ -959,6 +972,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
   The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
+  Use `scripts/test.ps1` for local runs: full suites get the CI floor, filtered runs get one,
+  and an explicit `--minimum-expected-tests` after `--` overrides that choice.
   — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement
   on VSTest and worth relying on: "0 tests, green" cannot happen by typo.
 

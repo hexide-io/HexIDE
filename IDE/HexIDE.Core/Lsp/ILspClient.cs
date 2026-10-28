@@ -4,6 +4,13 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>Reports successfully created disk files; the connection applies its server filters.</summary>
+    Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    /// <summary>Reports successfully renamed disk files, carrying both absolute URIs.</summary>
+    Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    /// <summary>Reports deleted disk files, never files merely removed from a project.</summary>
+    Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>Rechecks the workspace root and reopens held documents if it moved.</summary>
     Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 

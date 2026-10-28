@@ -125,6 +125,8 @@ public class FormSerializer
             vb.EndSortedProperties();
             if (inBox is not null)
                 WriteOwnProperties(vb, component, inBox, citations);
+            if (component.BaseClass is TreeViewComponentClass)
+                TreeViewPersistence.Write(vb, component, citations);
             WriteChildren(component, ChildrenOf(component));
             vb.End();
         }
@@ -350,7 +352,10 @@ public class FormSerializer
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)
         {
-            if (inBox is not null && IsOwnRunLine(inBox, raw.Name))
+            if (instance.BaseClass is TreeViewComponentClass && TreeViewPersistence.IsOwn(raw.Name))
+                continue;
+            if (inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
+                || inBox is not null && IsOwnRunLine(inBox, raw.Name))
                 continue;
             if (instance.BaseClass.Properties.Any(p =>
                     string.Equals(p.Name, raw.Name, StringComparison.OrdinalIgnoreCase) && instance.TryGetBoxedProperty(p, out _)))
@@ -359,13 +364,81 @@ public class FormSerializer
         }
     }
 
+    private static readonly string[] SSTabOwnOrder =
+        ["TabOrientation", "Style", "MousePointer", "Tabs", "Tab", "TabsPerRow", "TabHeight", "TabMaxWidth",
+         "WordWrap", "ShowFocusRect", "BackColor", "ForeColor", "OLEDropMode", "Font"];
+
+    private static bool IsSSTabOwnLine(string name) =>
+        SSTabOwnOrder.Contains(name, StringComparer.OrdinalIgnoreCase)
+        || SSTabPageOrder(name) is not null
+        || name.StartsWith("TabEnabled(", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("TabVisible(", StringComparison.OrdinalIgnoreCase);
+
+    // Page lists and their flags remain as read, including the tab-zero load trap. The designer
+    // stays read-only until it can maintain membership when controls are added, removed or renamed.
+    private static void WriteSSTabProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
+        CompanionCitations citations)
+    {
+        void Write(ComponentInstance.UnknownRawProperty raw) =>
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        foreach (var name in SSTabOwnOrder)
+        {
+            var found = false;
+            foreach (var raw in instance.UnknownRawProperties.Where(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                Write(raw);
+                found = true;
+            }
+            if (!found && name == "TabHeight")
+                vb.WriteProperty(name, typeof(int), 520);
+        }
+
+        foreach (var raw in instance.UnknownRawProperties.Where(r => SSTabPageOrder(r.Name) is not null)
+                     .OrderBy(r => SSTabPageOrder(r.Name)))
+            Write(raw);
+    }
+
+    // Indexed names sort numerically, with each control immediately followed by its Enabled line.
+    // Unrecognised names keep the existing unknown-property preservation path.
+    private static (int Page, int Kind, int Control, int Suffix)? SSTabPageOrder(string name)
+    {
+        var open = name.IndexOf('(');
+        var close = name.IndexOf(')');
+        if (open < 0 || close <= open
+            || !int.TryParse(name[(open + 1)..close], NumberStyles.None, CultureInfo.InvariantCulture, out var page))
+            return null;
+        var prefix = name[..open];
+        var tail = name[(close + 1)..];
+        if (prefix.Equals("TabCaption", StringComparison.OrdinalIgnoreCase) && tail.Length == 0)
+            return (page, 0, 0, 0);
+        if (prefix.Equals("TabPicture", StringComparison.OrdinalIgnoreCase) && tail.Length == 0)
+            return (page, 1, 0, 0);
+        if (!prefix.Equals("Tab", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (tail.Equals(".ControlEnabled", StringComparison.OrdinalIgnoreCase))
+            return (page, 2, 0, 0);
+        if (tail.Equals(".ControlCount", StringComparison.OrdinalIgnoreCase))
+            return (page, 4, 0, 0);
+        if (!tail.StartsWith(".Control(", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var controlClose = tail.IndexOf(')');
+        if (controlClose < 9
+            || !int.TryParse(tail[9..controlClose], NumberStyles.None, CultureInfo.InvariantCulture, out var control))
+            return null;
+        var suffix = tail[(controlClose + 1)..];
+        return suffix.Length == 0 ? (page, 3, control, 0)
+            : suffix.Equals(".Enabled", StringComparison.OrdinalIgnoreCase) ? (page, 3, control, 1) : null;
+    }
+
     // The lines of an in-box control's second run that HexIDE carries rather than models (#1082).
     private static bool IsOwnRunLine(InBoxComponentClass inBox, string name) =>
         name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
         || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
+        || (inBox is TabStripComponentClass && TabStripPersistence.OwnLine(name))
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
-        || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+        || inBox.CarriedPropertyOrder.Contains(name, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// An in-box control's second run (#1082), written after its extender's as VB6 writes it (measured): <c>_ExtentX</c>,
@@ -402,6 +475,11 @@ public class FormSerializer
             vb.WriteProperty("_ExtentX", typeof(int), extents.X);
             vb.WriteProperty("_ExtentY", typeof(int), extents.Y);
         }
+        if (inBox is TabStripComponentClass)
+        {
+            TabStripPersistence.Write(vb, instance, citations);
+            return;
+        }
         // The StatusBar writes these before _Version (VB6 SP6, #1087 issuecomment-6427372779).
         if (inBox is StatusBarComponentClass)
             foreach (var property in new PropertyClass[] { StatusBarComponentClass.StyleProperty,
@@ -415,6 +493,15 @@ public class FormSerializer
             WriteCarried(version);
         else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+
+        if (inBox is SSTabComponentClass)
+        {
+            WriteSSTabProperties(vb, instance, citations);
+            return;
+        }
+        foreach (var name in inBox.CarriedPropertyOrder)
+            if (Carried(name) is { } raw && inBox.WriteCarriedProperty(raw))
+                WriteCarried(raw);
 
         foreach (var property in inBox.OwnProperties)
         {

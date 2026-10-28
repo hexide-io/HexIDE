@@ -19,6 +19,8 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private readonly Dictionary<string, string> _lastNote = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private CancellationTokenSource? _pending;
+    private readonly TimeProvider _timeProvider;
+    internal Task PendingRegeneration { get; private set; } = Task.CompletedTask;
     private bool _disposed;
     private readonly Dictionary<string, Func<WorkspaceArtifactContext, CancellationToken, Task>> _imports = new(StringComparer.Ordinal);
     private readonly string? _stateFile;
@@ -32,8 +34,9 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     public WorkspaceArtifactService(IWorkspaceArtifactWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWorkspaceArtifactConsent consent,
         ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null,
-        IWorkspaceLibraryNames? libraryNames = null)
+        IWorkspaceLibraryNames? libraryNames = null, TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _providers = providers;
         _consent = consent;
@@ -313,14 +316,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     {
         _pending?.Cancel();
         _pending = new CancellationTokenSource();
-        _ = RegenerateAsync(_pending.Token);
+        PendingRegeneration = RegenerateAsync(_pending.Token);
     }
 
     private async Task RegenerateAsync(CancellationToken token)
     {
         try
         {
-            await Task.Delay(300, token);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), _timeProvider, token);
             (LanguageServerRegistration Server, Func<WorkspaceArtifactContext, CancellationToken, Task>? Import)[] servers;
             await _gate.WaitAsync(token);
             try { servers = _active.Values.Select(server => (server, _imports.GetValueOrDefault(server.Id))).ToArray(); }

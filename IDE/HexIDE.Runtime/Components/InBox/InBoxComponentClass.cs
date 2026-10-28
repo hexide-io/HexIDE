@@ -23,7 +23,9 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     }
 
     /// <summary>The in-box controls HexIDE implements (#1082), which the toolbox offers from each library declaring one.</summary>
-    public static IReadOnlyList<InBoxComponentClass> Implemented => [ProgressBarComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance];
+    public static IReadOnlyList<InBoxComponentClass> Implemented =>
+        [ProgressBarComponentClass.Instance, StatusBarComponentClass.Instance, ImageListComponentClass.Instance, SSTabComponentClass.Instance,
+            CommonDialogComponentClass.Instance];
 
     /// <summary>The control's class name, as its libraries declare it: <c>ProgressBar</c>.</summary>
     public abstract string ControlClassName { get; }
@@ -59,6 +61,12 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     /// </summary>
     public virtual IReadOnlyList<(string Name, PropertyClass After)> CarriedOwnProperties => [];
 
+    /// <summary>Own scalar lines carried verbatim, in their measured file order.</summary>
+    public virtual IReadOnlyList<string> CarriedPropertyOrder => [];
+
+    /// <summary>Whether a carried own scalar line differs from its measured default.</summary>
+    public virtual bool WriteCarriedProperty(ComponentInstance.UnknownRawProperty property) => true;
+
     /// <summary>The type name <paramref name="instance"/> is written under: the one it was read under, or this class's.</summary>
     public string TypeNameOf(ComponentInstance instance) =>
         instance.GetPropertyOrDefault(LoadedTypeNameProperty) ?? VBTypeName;
@@ -93,7 +101,7 @@ public abstract class InBoxComponentClass : ComponentBaseClass
     /// it was read with, even where a hand-edited file's disagree with its Width and Height, or the control's default where
     /// the file had none; once sized, or for one never read, they are its size's.
     /// </summary>
-    public (int X, int Y) ExtentsToWrite(ComponentInstance instance, int? readX, int? readY)
+    public virtual (int X, int Y) ExtentsToWrite(ComponentInstance instance, int? readX, int? readY)
     {
         var width = instance.GetPropertyOrDefault(VBProperties.WidthProperty);
         var height = instance.GetPropertyOrDefault(VBProperties.HeightProperty);

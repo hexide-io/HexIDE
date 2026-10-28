@@ -457,6 +457,27 @@ public class VBWindowContext : IModuleExecutionRoot
         await interpreter.RunFormDeclarations(EnsureInstance());
     }
 
+    public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed)
+    {
+        Events.Raise(name, async () =>
+        {
+            if (interpreter is null || RunIsOver() || EnsureInstance().FormUnloaded)
+                return;
+            await Dispatch(async () =>
+            {
+                if (!started)
+                    await EnsureDeclarations();
+                var state = ExecutionContext.State;
+                var slot = state.Alloc(args[writable]);
+                var callArgs = new List<CallArg>();
+                for (var i = 0; i < args.Count; i++)
+                    callArgs.Add(new CallArg(args[i], i == writable ? slot : null));
+                await interpreter.RaiseFormEvent(EnsureInstance(), name, callArgs);
+                completed(Convert.ToInt32(state[slot].Value));
+            });
+        });
+    }
+
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
@@ -484,6 +505,24 @@ public class VBWindowContext : IModuleExecutionRoot
         // Each element of a Timer array is a timer of its own, so its ticks are kept apart by Index.
         var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
         Raise(name, () => argList, EventCoalescing.Timer, key);
+    }
+
+    internal void ExecuteControlInput(string name, Func<Task> work)
+    {
+        if (interpreter is null)
+            return;
+        Events.Raise(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded || Program is not null && !form.FormLoaded)
+                return;
+            await Dispatch(async () =>
+            {
+                if (!started)
+                    await EnsureDeclarations();
+                await work();
+            });
+        });
     }
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
