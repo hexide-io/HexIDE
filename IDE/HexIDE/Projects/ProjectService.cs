@@ -1528,6 +1528,7 @@ public class ProjectService : IProjectService
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
+        SnapshotRenderBaseline(form);
         ForgetKeptLineFor(project, absolutePath);
         return Adopted<FormDefinition>.Added(form, name, byteForByte ? HostAnsi.CodePage : null);
     }
@@ -1572,6 +1573,7 @@ public class ProjectService : IProjectService
         }
 
         project.AddModule(module);
+        SnapshotRenderBaseline(module);
         ForgetKeptLineFor(project, absolutePath);
         return Adopted<ModuleDefinition>.Added(module, name, byteForByte ? HostAnsi.CodePage : null);
     }

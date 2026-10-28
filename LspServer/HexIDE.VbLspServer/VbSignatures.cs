@@ -21,6 +21,14 @@ internal static class VbSignatures
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            // Financial positional surface (#2523); these display names do not enable named runtime calls.
+            ["NPer"] = [new SignatureEntry("NPer(Rate, Pmt, PV, [FV], [Type]) As Double", ["Rate", "Pmt", "PV", "FV", "Type"])],
+            ["IPmt"] = [new SignatureEntry("IPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
+            ["PPmt"] = [new SignatureEntry("PPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
+            ["Rate"] = [new SignatureEntry("Rate(NPer, Pmt, PV, [FV], [Type], [Guess]) As Double", ["NPer", "Pmt", "PV", "FV", "Type", "Guess"])],
+            ["Pmt"] = [new SignatureEntry("Pmt(Rate, NPer, PV, [FV], [Type]) As Double", ["Rate", "NPer", "PV", "FV", "Type"])],
+            ["FV"] = [new SignatureEntry("FV(Rate, NPer, Pmt, [PV], [Type]) As Double", ["Rate", "NPer", "Pmt", "PV", "Type"])],
+            ["PV"] = [new SignatureEntry("PV(Rate, NPer, Pmt, [FV], [Type]) As Double", ["Rate", "NPer", "Pmt", "FV", "Type"])],
             // Filesystem positional surface (#1561); runtime named arguments await measurement.
             ["CurDir"] = [new SignatureEntry("CurDir([Drive]) As String", ["Drive"])],
             ["Dir"] = [new SignatureEntry("Dir([PathName], [Attributes]) As String", ["PathName", "Attributes"])],
@@ -294,6 +302,8 @@ internal static class VbSignatures
             ["IsNull"]    = [new SignatureEntry("IsNull(Expression) As Boolean",  ["Expression"], "Returns True if the expression evaluates to Null.")],
             ["IsEmpty"]   = [new SignatureEntry("IsEmpty(Expression) As Boolean", ["Expression"], "Returns True if the variable has been initialized.")],
             ["IsObject"]  = [new SignatureEntry("IsObject(Expression) As Boolean",["Expression"], "Returns True if the variable is an object reference.")],
+            // Descriptive positional label; VB6's parameter name and named calls remain unmeasured (#2622).
+            ["ObjPtr"]    = [new SignatureEntry("ObjPtr(object) As Long", ["object"], "Returns an object's identity; Nothing has identity zero. Named arguments are not implemented.")],
             ["IsArray"]   = [new SignatureEntry("IsArray(VarName) As Boolean",    ["VarName"],    "Returns True if the variable is an array.")],
             ["IsDate"]    = [new SignatureEntry("IsDate(Expression) As Boolean",  ["Expression"], "Returns True if the expression can be converted to a date.")],
             ["IsNumeric"] = [new SignatureEntry("IsNumeric(Expression) As Boolean",["Expression"],"Returns True if the expression can be evaluated as a number.")],
@@ -303,6 +313,7 @@ internal static class VbSignatures
             // Error handling
             ["Err"]   = [new SignatureEntry("Err.Number / Err.Description / Err.Source", [], "The Err object contains information about runtime errors.")],
             ["CVErr"] = [new SignatureEntry("CVErr(ErrorCode As Long) As Variant", ["ErrorCode"], "Returns a Variant with error subtype containing the specified error code.")],
+            ["Erl"]   = [new SignatureEntry("Erl() As Long", [], "The line number at or above where the error being handled was raised; 0 where there is none.")],
 
             // Object / misc
             ["CallByName"] = [new SignatureEntry("CallByName(Object, ProcName, CallType, Args...)", ["Object", "ProcName", "CallType", "Args"], "Calls a member by name using VbMethod, VbGet, VbLet or VbSet.")],

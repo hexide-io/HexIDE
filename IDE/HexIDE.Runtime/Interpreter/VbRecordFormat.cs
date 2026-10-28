@@ -166,8 +166,8 @@ internal static class VbRecordFormat
             w.U16(9);
             throw new RecordObjectInVariant(w.ToArray());
         }
-        if (value.Type == Vb6Value.ValueType.Missing)
-            throw new NotImplementedException("Put of an Error Variant is not implemented: CVErr is not implemented");
+        if (value.Type == Vb6Value.ValueType.Missing || value.Type == Vb6Value.ValueType.Error)
+            throw new NotImplementedException("Put of an Error Variant is not implemented (#2520)");
         if (value.Type == Vb6Value.ValueType.UserDefinedType)
             throw new NotImplementedException("Put of a Variant holding a user-defined Type is not implemented (#1646)");
         var vt = VariantType(value.Type);
@@ -385,7 +385,7 @@ internal static class VbRecordFormat
                 case 9:
                     throw new RecordGetFailure(VBStandardError.TypeMismatch, null);
                 case 10:
-                    throw new NotImplementedException("Get of an Error Variant is not implemented: CVErr is not implemented");
+                    throw new NotImplementedException("Get of an Error Variant is not implemented (#2520)");
                 case 13:
                     throw new RecordGetFailure(VBStandardError.TypeMismatch, Vb6Value.Variant);
                 case 14:

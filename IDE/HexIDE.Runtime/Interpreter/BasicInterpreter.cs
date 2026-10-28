@@ -402,6 +402,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // deadlock) and mutate state. Blocked here, before construction. Scoped to Paused (see RunProcedure).
         if (SuppressUserProcedureCalls && DebugController?.State == Debugging.DebugState.Paused)
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
+        if (className.Equals("StdFont", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(className, out _))
+            throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
         if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class || classDef.HostedControl)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
         // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
@@ -619,6 +621,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A relative path in a file statement is the project's folder's (#1145), read when the file is opened, since the
         // project's details arrive after the interpreter is built.
         BuiltIns.Files.ProjectFolder = () => App.Path;
+        App = new VbApp(AppInfo.None, BuiltIns.Files);
 
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef
@@ -698,6 +701,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
     public VbApp App { get; private set; } = new(AppInfo.None);
 
+    internal Win32Resources Resources { get; private set; } = new();
+
     private VbScreen? screen;
 
     /// <summary>
@@ -728,7 +733,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (info.ProjectName is { } name)
             ProjectName = name;
-        App = new VbApp(info);
+        Resources = Win32Resources.Load(info.ResourceFilePath);
+        App = new VbApp(info, BuiltIns.Files);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
         BuiltIns.ControlLibraries = info.ControlLibraries ?? [];

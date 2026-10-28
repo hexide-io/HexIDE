@@ -5242,7 +5242,7 @@ public static class UiAutomationDriver
     /// are attached with <c>ISetLogicalParent.SetParent</c> instead: the popup is never a visual child of
     /// anything, so a visual walk cannot reach it however deep it goes. That asymmetry is what made menus
     /// look like they worked while context menus and toolbar flyouts reported <c>children: []</c> — one
-    /// cause wearing two faces, recorded as two separate entries in docs/mcp-server-gaps.md.</para>
+    /// cause wearing two faces, recorded as two separate entries in docs/mcp-gaps/.</para>
     ///
     /// <para><b>Found from the owner, not by enumerating popup roots.</b> Avalonia exposes no public list of
     /// live <c>PopupRoot</c>s, but every one of these popups is reachable from the control that owns it —

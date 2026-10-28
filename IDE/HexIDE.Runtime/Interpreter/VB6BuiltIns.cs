@@ -49,6 +49,13 @@ public partial class VB6BuiltIns
     /// <summary>What <c>Command</c> answers: the project's command line arguments, empty where it has none.</summary>
     internal string CommandLine { get; set; } = "";
 
+    /// <summary>
+    /// What <c>Erl</c> answers, a Long (#2528): the line number at or above where the latest trapped error was raised, in the
+    /// procedure that trapped it and in source order, set as the error is trapped, and 0 again wherever VB6 clears Err itself.
+    /// The program's own <c>Err.Clear</c> leaves it.
+    /// </summary>
+    internal long Erl { get; set; }
+
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
@@ -117,8 +124,15 @@ public partial class VB6BuiltIns
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
-        // LoadPicture accepts only the measured file-path shape; its other conversions refuse there.
-        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)) return arg;
+        // LoadPicture and the financials accept only measured argument shapes; other conversions refuse there.
+        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "Pmt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "FV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "PV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "NPer", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "IPmt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "PPmt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "Rate", StringComparison.OrdinalIgnoreCase)) return arg;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
@@ -134,7 +148,7 @@ public partial class VB6BuiltIns
     // CVar among them: CVar of an object is the object, whether its default member wants an argument, as a Collection's
     // does, or not (measured, #1466: TypeName(CVar(k)) is "K1" and IsObject(CVar(k)) True for a class with a default Value).
     private static readonly HashSet<string> TakesTheArgumentItself = new(StringComparer.OrdinalIgnoreCase)
-        { "TypeName", "IsObject", "IsMissing", "Array", "CVar" };
+        { "TypeName", "IsObject", "IsMissing", "Array", "CVar", "ObjPtr" };
 
     private static readonly HashSet<string> ReadsADefaultMemberIfAny = new(StringComparer.OrdinalIgnoreCase)
         { "VarType", "IsNumeric", "IsEmpty", "IsNull", "IsDate", "IsError", "IsArray" };
@@ -169,6 +183,7 @@ public partial class VB6BuiltIns
         RegisterStrings(d);
         RegisterConversion(d);
         RegisterMath(d);
+        RegisterFinancial(d);
         RegisterArray(d);
         RegisterInspection(d);
         d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
@@ -186,6 +201,9 @@ public partial class VB6BuiltIns
         d["IMEStatus"] = (_, a, _) => a.Count == 0
             ? new Vb6Value(0L)
             : throw new NotImplementedException("IMEStatus arguments are not implemented (#2551)");
+        d["Erl"] = (self, a, _) => a.Count == 0
+            ? new Vb6Value(self.Erl)
+            : throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
         // FreeFile is an Integer, 1 with nothing open, and FreeFile(1) the first from 256 (measured, #1145).
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));
@@ -284,7 +302,9 @@ public partial class VB6BuiltIns
 
     private async Task<Vb6Value> MsgBox(List<Vb6Value> args)
     {
-        var text = args.Count >= 1 ? VbDisplay.ToTextOrNull(args[0]) : "";
+        var text = args.Count >= 1
+            ? args[0].Type == Vb6Value.ValueType.Error ? VbPrint.ErrorText(args[0]) : VbDisplay.ToTextOrNull(args[0])
+            : "";
         // The style is a Long, coerced as CLng does. It was read only when it arrived as an Integer, so every Long
         // was style 0, an OK button and no icon: every in-box constant is a Long, so `vbYesNo + vbQuestion` showed
         // OK alone and its Yes branch could never run. Measured: a Long, "4" and 4.5 (banker's: 4) are all Yes/No;

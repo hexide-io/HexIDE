@@ -23,6 +23,7 @@ internal static class VbWrite
             throw new NotImplementedException($"Write # of {value.Type} is not implemented (#1521)");
         return value.Value switch
         {
+            _ when value.Type == Vb6Value.ValueType.Error => "#ERROR " + ((ushort)value.Value!).ToString(CultureInfo.InvariantCulture) + "#",
             _ when value.IsNull => "#NULL#",
             null => "",
             string s => "\"" + s.Replace("\"", "\"\"") + "\"",
