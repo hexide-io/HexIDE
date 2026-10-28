@@ -19,7 +19,10 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     private readonly Dictionary<string, string> _lastNote = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private CancellationTokenSource? _pending;
+    private readonly TimeProvider _timeProvider;
+    internal Task PendingRegeneration { get; private set; } = Task.CompletedTask;
     private bool _disposed;
+    private readonly Dictionary<string, Func<WorkspaceArtifactContext, CancellationToken, Task>> _imports = new(StringComparer.Ordinal);
     private readonly string? _stateFile;
     private readonly ConversationLog? _capture;
     private readonly IWorkspaceLibraryNames? _libraryNames;
@@ -31,8 +34,9 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     public WorkspaceArtifactService(IWorkspaceArtifactWorkspace workspace,
         IWorkspaceArtifactProviderRegistry providers, IWorkspaceArtifactConsent consent,
         ILogger<WorkspaceArtifactService> log, string? stateFile = null, ConversationLog? capture = null,
-        IWorkspaceLibraryNames? libraryNames = null)
+        IWorkspaceLibraryNames? libraryNames = null, TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _providers = providers;
         _consent = consent;
@@ -53,6 +57,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     public async Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken)
     {
+        if (server.ProjectImport is not null) return;
         if (server.WorkspaceArtifactRefused)
             Note(server, "Workspace artefact declaration refused, so no file is generated: see the configuration "
                 + "problems in Tools > Language Servers.");
@@ -72,6 +77,20 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                     Note(server, $"Workspace artefact {spec.RelativePath} not written; launching anyway: {ex.GetType().Name}.");
                 }
             }
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task ImportAsync(LanguageServerRegistration server,
+        Func<WorkspaceArtifactContext, CancellationToken, Task> import, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_disposed) return;
+            _active[server.Id] = server;
+            _imports[server.Id] = import;
+            foreach (var project in _workspace.Projects) await import(project, cancellationToken);
         }
         finally { _gate.Release(); }
     }
@@ -297,19 +316,24 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     {
         _pending?.Cancel();
         _pending = new CancellationTokenSource();
-        _ = RegenerateAsync(_pending.Token);
+        PendingRegeneration = RegenerateAsync(_pending.Token);
     }
 
     private async Task RegenerateAsync(CancellationToken token)
     {
         try
         {
-            await Task.Delay(300, token);
-            LanguageServerRegistration[] servers;
+            await Task.Delay(TimeSpan.FromMilliseconds(300), _timeProvider, token);
+            (LanguageServerRegistration Server, Func<WorkspaceArtifactContext, CancellationToken, Task>? Import)[] servers;
             await _gate.WaitAsync(token);
-            try { servers = _active.Values.ToArray(); }
+            try { servers = _active.Values.Select(server => (server, _imports.GetValueOrDefault(server.Id))).ToArray(); }
             finally { _gate.Release(); }
-            foreach (var server in servers) await PrepareAsync(server, token);
+            foreach (var (server, import) in servers)
+            {
+                if (server.ProjectImport is not null && import is not null)
+                    await ImportAsync(server, import, token);
+                else await PrepareAsync(server, token);
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _log.LogWarning(ex, "Workspace artefact regeneration failed."); }

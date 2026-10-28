@@ -59,11 +59,13 @@ public interface IFormView
 public sealed class VBProgram : IFormProgram
 {
     private readonly BasicInterpreter interpreter;
+    internal IBasicStandardLibrary StandardLibrary { get; }
     private readonly Func<FormDefinition, IFormView>? openForm;
     private readonly Dictionary<string, FormDefinition> definitions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
-    private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
+    // The loaded forms, in the order they loaded, as VB6's Forms holds them (measured, #2496).
+    private readonly List<VbObject> loaded = [];
     // The modal forms displayed, innermost last.
     private readonly List<VBWindowContext> modals = [];
     // The form Activate was last raised for, until another is activated or it unloads.
@@ -115,6 +117,7 @@ public sealed class VBProgram : IFormProgram
         Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm)
     {
         this.openForm = openForm;
+        StandardLibrary = rootContext.StandardLibrary;
         var (standardModules, classModules) = VBLoader.InterpreterModules(project);
         string primaryName, primaryCode;
         var primaryKind = InterpreterModuleKind.Form;
@@ -146,14 +149,21 @@ public sealed class VBProgram : IFormProgram
         // The project's Conditional Compilation Arguments, or vb6.exe's refusal of them before anything runs (#1112).
         var compilation = project is null ? null : CompilationConstants.ForProject(project);
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
-            primaryCode, primaryName, additional, classModules, primaryKind, others, compilation)
+            primaryCode, primaryName, additional, classModules.Concat(project?.Modules
+                .Where(m => m.Kind == ModuleKind.UserControl && m.FormPart is not null)
+                .Select(m => (m.Name, FormCodeText.WholeFile(m))) ?? []).ToList(), primaryKind, others, compilation)
         {
             DebugController = debugController,
             Events = Events,
             Forms = this,
         };
         if (project is not null)
+        {
             interpreter.SetAppInfo(AppInfo.FromProject(project));
+            foreach (var module in project.Modules.Where(m => m.Kind == ModuleKind.UserControl && m.FormPart is not null))
+                if (interpreter.Modules.TryGet(module.Name, out var controlTemplate))
+                    controlTemplate.HostedControl = true;
+        }
         VBLoader.DescribeProject(interpreter, project);
         interpreter.SeedFormNames();
         if (startup is null)
@@ -205,6 +215,48 @@ public sealed class VBProgram : IFormProgram
         contexts[instance] = context;
         if (!created.Contains(instance))
             created.Add(instance);
+        if (context.Window is { } window)
+            AvaloniaInterop.ScreenPointer.Apply(window, screenPointer);
+    }
+
+    /// <inheritdoc/>
+    public VbObject? ActiveForm => active?.FormInstance;
+
+    /// <summary>
+    /// The control that has the focus in the active form's window: the first of the form's controls at or above the focused
+    /// element, so a part of a control, a ComboBox's text box, is the ComboBox. Null when the focus is on none of them, as on a
+    /// form with nothing that can take it (measured: Nothing, as the form's own ActiveControl is), and when no form is active.
+    /// </summary>
+    public Avalonia.Controls.Control? ActiveControl
+    {
+        get
+        {
+            if (active?.Window is not { } window
+                || Avalonia.Controls.TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Avalonia.LogicalTree.ILogical focused)
+                return null;
+            Avalonia.Controls.Control? found = null;
+            for (var element = focused; element is not null; element = element.LogicalParent)
+            {
+                if (ReferenceEquals(element, window))
+                    return found;
+                if (found is null && element is Avalonia.Controls.Control control && FormControls.TryOf(control, out _))
+                    found = control;
+            }
+            // Not in the active form's window: the focus is elsewhere, as on the IDE's own editor.
+            return null;
+        }
+    }
+
+    // Screen.MousePointer, which every form shows while it is not 0 (#2431).
+    private BuiltinTypes.VBCursorType screenPointer;
+
+    /// <inheritdoc/>
+    public void ScreenPointerChanged(BuiltinTypes.VBCursorType pointer)
+    {
+        screenPointer = pointer;
+        foreach (var context in contexts.Values)
+            if (context.Window is { } window)
+                AvaloniaInterop.ScreenPointer.Apply(window, pointer);
     }
 
     /// <summary>
@@ -252,7 +304,7 @@ public sealed class VBProgram : IFormProgram
         var context = view.Context;
         context.Attach(this, form, FormCodeText.WholeFile(definition), existing);
         var instance = context.FormInstance!;
-        view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary, instance));
+        view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary, instance, this));
         context.HoldControlsUntilLoad();
         context.CloseWindow = view.CloseForm;
         Register(context);
@@ -352,6 +404,7 @@ public sealed class VBProgram : IFormProgram
         // window is shown before it is activated, so a Show's Resize has run by then.
         using var posting = Events.Posting();
         previous?.ExecuteSub("Form_Deactivate");
+        context.ShowControls();
         context.ExecuteSub("Form_Activate");
     }
 
@@ -359,9 +412,14 @@ public sealed class VBProgram : IFormProgram
     internal void Loaded(VBWindowContext context)
     {
         var instance = context.FormInstance!;
-        if (loaded.Add(instance))
-            interpreter.AddRef(Vb6Value.NewObject(instance));
+        if (loaded.Exists(form => ReferenceEquals(form, instance)))
+            return;
+        loaded.Add(instance);
+        interpreter.AddRef(Vb6Value.NewObject(instance));
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<VbObject> LoadedForms => loaded;
 
     /// <summary>
     /// A form has unloaded: the program lets go of it there, inside the statement that unloaded it, so a
@@ -373,8 +431,11 @@ public sealed class VBProgram : IFormProgram
         if (ReferenceEquals(active, context))
             active = null;
         var instance = context.FormInstance!;
-        if (loaded.Remove(instance))
-            await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
+        var at = loaded.FindIndex(form => ReferenceEquals(form, instance));
+        if (at < 0)
+            return;
+        loaded.RemoveAt(at);
+        await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
     }
 
     /// <summary>

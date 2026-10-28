@@ -15,6 +15,18 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBTimer)
+            TimerMembers.RefuseMethod(method);
+
+        if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
+        {
+            if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))
+                throw TabStripMembers.Refused(method);
+            strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
+            return Vb6Value.Nothing;
+        }
+        if (c is VBTreeView)
+            throw new NotImplementedException();
         if (c is VBToolbar)
             VBToolbar.RefusePending(method);
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a

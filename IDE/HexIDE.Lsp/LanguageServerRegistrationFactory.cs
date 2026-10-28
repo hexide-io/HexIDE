@@ -78,7 +78,8 @@ public sealed class LanguageServerRegistrationFactory(
                     id, entry.WorkspaceArtifact, artifactProviders, out var artifact, out _)
                         ? artifact
                         : null,
-                WorkspaceArtifactRefused: entry.WorkspaceArtifact is not null && artifact is null));
+                WorkspaceArtifactRefused: entry.WorkspaceArtifact is not null && artifact is null,
+                ProjectImport: ProjectImportSpecReader.TryRead(id, entry.ProjectImport, out var import, out _) ? import : null));
         }
 
         return registrations;

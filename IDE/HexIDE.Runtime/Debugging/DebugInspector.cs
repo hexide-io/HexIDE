@@ -82,6 +82,8 @@ public sealed record DebugEvalResult(bool Ok, string Display, string TypeName, b
     /// its type. VB6's text has 7 or 15 significant digits, so a change below them would not show in it (#772).
     /// </summary>
     public string? ChangeKey { get; init; }
+
+    internal bool UndefinedName { get; init; }
 }
 
 /// <summary>A paused activation, able to hand the debugger its Locals on demand. Implemented by the interpreter's
@@ -100,6 +102,10 @@ public interface IDebugFrame
     /// <see cref="EvaluateAsync"/>, but returns a <see cref="DebugEvalResult"/> (display / type / VB6 truthiness /
     /// expandable node), or <c>Ok = false</c> carrying the error message.</summary>
     System.Threading.Tasks.Task<DebugEvalResult> EvaluateTypedAsync(string expression);
+
+    /// <summary>Evaluate a stored context; legacy frames retain their current-frame evaluation.</summary>
+    System.Threading.Tasks.Task<DebugEvalResult> EvaluateScopedWatchAsync(string expression, string context)
+        => EvaluateTypedAsync(expression);
 
     /// <summary>The current call DEPTH (1 = outermost). The controller reads it at the gate to decide Step Over
     /// (break when depth &lt;= the depth at the step) and Step Out (break when depth &lt; it).</summary>

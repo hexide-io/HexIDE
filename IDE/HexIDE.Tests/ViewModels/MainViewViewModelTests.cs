@@ -329,6 +329,23 @@ public class MainViewViewModelTests
         _sut.EndProjectCommand.CanExecute(null).Should().Be(allowed);
     }
 
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void EndProjectCommand_NotifiesWhenRunnerAvailabilityChanges(bool allowed)
+    {
+        _runnerService.CanEndProject.Returns(!allowed);
+        var changes = 0;
+        _sut.EndProjectCommand.CanExecuteChanged += (_, _) => changes++;
+        _runnerService.CanEndProject.Returns(allowed);
+
+        _runnerService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _runnerService, new PropertyChangedEventArgs(nameof(IProjectRunnerService.CanEndProject)));
+
+        changes.Should().Be(1);
+        _sut.EndProjectCommand.CanExecute(null).Should().Be(allowed);
+    }
+
     // --- RestartProjectCommand ---
 
     [AvaloniaTheory]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.ComponentModel;
+using Avalonia.Threading;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -86,7 +87,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 _observed = manager;
                 manager.ProjectLoaded += MembershipChanged;
                 manager.ProjectUnloaded += MembershipChanged;
-                Refresh();
+                Refresh(notify: false);
             }
             return _projects ?? [];
         }
@@ -95,10 +96,11 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
     private void MembershipChanged(ProjectDefinition _) => Refresh();
     private void MaterialChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is "Name" or "AbsolutePath" or "References") Refresh();
+        if ((sender is ProjectDefinition && e.PropertyName != nameof(ProjectDefinition.WorkingDirectory))
+            || e.PropertyName is "Name" or "AbsolutePath") Refresh();
     }
 
-    private void Refresh()
+    private void Refresh(bool notify = true)
     {
         foreach (var unsubscribe in _unsubscribe) unsubscribe();
         _unsubscribe.Clear();
@@ -147,10 +149,14 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 r.Lcid, r.LibPath is null ? null : SerializedProject.ToHostPath(r.LibPath))).ToArray();
             var arguments = CompilationArguments.TryForProject(project, out var parsed) ? parsed : CompilationArguments.None;
             contexts.Add(new WorkspaceArtifactContext(root,
-                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments.Values)));
+                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments.Values),
+                ProjectText: project.AbsolutePath is { } path
+                    ? async token => await Dispatcher.UIThread.InvokeAsync<string>(
+                        () => new ProjectSerializer().Serialize(project, path), DispatcherPriority.Normal, token)
+                    : null));
         }
         _projects = contexts;
-        ProjectChanged?.Invoke();
+        if (notify) ProjectChanged?.Invoke();
     }
 
     private void Observe(INotifyPropertyChanged item)

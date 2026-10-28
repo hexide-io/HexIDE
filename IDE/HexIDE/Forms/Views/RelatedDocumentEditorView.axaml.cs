@@ -222,14 +222,39 @@ public partial class RelatedDocumentEditorView : UserControl
                 case nameof(RelatedDocumentEditorViewModel.CaretOffset):
                     var caret = Math.Clamp(vm.CaretOffset, 0, editor.Document.TextLength);
                     if (editor.CaretOffset != caret)
-                        editor.CaretOffset = caret;
+                        MoveCaret(editor, caret);
                     break;
             }
         };
         vm.PropertyChanged += _vmCaretSync;
 
+        // A view made for a caret already placed, as open_file places one in a carried file it opens (#2403), takes it
+        // once laid out, and scrolls to it, as the code window does: the document arrives by binding, and moving the caret
+        // before it has would be lost.
+        var placed = vm.CaretOffset;
+        if (placed > 0)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (DataContext == vm)
+                    MoveCaret(editor, Math.Clamp(placed, 0, editor.Document.TextLength));
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
+
         _caretMoved = (_, _) => vm.CaretOffset = editor.CaretOffset;
         editor.TextArea.Caret.PositionChanged += _caretMoved;
+    }
+
+    /// <summary>
+    /// Puts the caret at <paramref name="caret"/> as the code window does (#2403): a fold over it is opened, or it would
+    /// sit unseen, and the editor scrolls to it, since navigation can arrive while this editor is already active.
+    /// </summary>
+    private void MoveCaret(TextEditor editor, int caret)
+    {
+        if (_foldingManager is { } folds)
+            foreach (var fold in folds.GetFoldingsContaining(caret))
+                if (fold.IsFolded && fold.StartOffset < caret && caret <= fold.EndOffset)
+                    fold.IsFolded = false;
+        editor.CaretOffset = caret;
+        editor.ScrollToLine(editor.TextArea.Caret.Line);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

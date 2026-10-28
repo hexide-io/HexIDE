@@ -9,6 +9,516 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## A dropdown's unrealized items couldn't be read: the dump saw ten of Options' 31 languages — **CLOSED** (#2450, 2026-10-28)
+
+**Symptom (2026-10-28, hexide-mcp, a first-contact check of #2444).** The Language dropdown on Options' Language page
+holds 31 items (`inspect_element` gave `itemCount` 31), but only the first ten had rows. `dump_visual_tree` with
+`interactiveOnly: false`, after an `expand`, listed Arabic through Finnish and stopped, and `match: "fr"` found
+nothing. `select` with `value: "French"` worked, by scrolling the list until French had a row, but nothing before
+that told the caller French was there or how it was spelled. The headless session reported: "I couldn't see that
+French exists beforehand."
+
+**Fixed (#2450).** `inspect_element` on a list, an open dropdown or a tab control gives `items`: each item's text as
+`select` matches it. A row that doesn't exist is brought into view to be read, as `select` does, and the list is put
+back where it was before anything is drawn. Items that don't show are left out, as `select` passes over them, and at
+most 200 are listed; `itemsNote` says what was left out. A closed dropdown has no rows to bring into view, and opening
+it is a person's action, not a read, so it gives no `items` and `itemsNote` says to expand it. Guarded by
+`InspectItemTextsTests`.
+
+**Live (2026-10-28, Windows, a headless `claude -p` told to work from the descriptions alone).** Asked to find
+every language the dropdown offers without selecting one, it inspected the closed dropdown and read `itemCount` 31
+and the `itemsNote` telling it to expand. It expanded, inspected again, and listed all 31, from "System default"
+to "Vietnamese", then collapsed it and cancelled the dialog. What it still tripped on was the two dropdowns having
+no accessible name, which is #2449.
+
+## `take_snapshot` of a minimized window returned its last frame as if current — **CLOSED** (#2416, 2026-10-28)
+
+**Symptom (2026-10-27, Windows, #1925's minimized check).** After `set_window_state {"state":"Minimized","window":"Form1"}`
+had run the form's Resize, `take_snapshot {"window":"Form1"}` returned a 450×300 image, with the usual client
+`captureArea`, whose label read `resize 1, activate 1, state 0`: the form before it minimized. Restored, it read
+`resize 3`. A minimized window draws no new frames, and the compositor capture (#2306) returns the last one.
+
+**Workaround.** Restore the window with `set_window_state` before capturing it, and treat a capture of a minimized
+window as stale.
+
+**Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
+`set_window_state`; or render it fresh and say so. Never present the last frame as current.
+
+**Fixed (#2416).** The default capture refuses a minimized window, as the frame capture does, and says how to
+restore it. A person can't see a minimized window's contents either, so nothing is rendered in its place. Guarded by
+`FrameCoverTests`, which pins the wording; headless can't minimize a window, so the refusal itself was checked live.
+
+**Live (2026-10-28, Windows at 150%, headless `claude -p` through the hexide tools).** A form whose Resize writes
+`resize N, state S` into a label:
+
+```
+set_window_state {"state":"Minimized","window":"Form1"}      → label: resize 2, state 1
+take_snapshot {"window":"Form1"}
+→ 'Form1' is minimized, so nothing of it is on the screen, and the last frame it drew before it was minimized would
+  read as current; nothing was captured. Restore it with set_window_state {"state":"Normal","window":"Form1"},
+  then capture it.
+set_window_state {"state":"Normal","window":"Form1"}         → label: resize 3, state 0
+take_snapshot {"window":"Form1"}                               → a 450×300 image reading "resize 3, state 0"
+```
+
+---
+
+## `type_text` refused a running form's RichTextBox as having no text surface — **CLOSED** (#2460, 2026-10-28)
+
+**Symptom (2026-10-28, hexide-frm, live-checking #2456's RichTextBox).** `type_text(target: "Window/None[RichTextBox1]",
+text: "x", mode: "keyboard", window: "Form1")` answered `'VBRichTextBox' has no text surface
+(TextEditor/TextArea/TextBox) to type into`. The RichTextBox is a `Control` HexIDE draws itself, and it takes typing in
+a `TextInput` handler of its own. The refusal judged the target by its class, not by whether it takes text, so
+typing, KeyPress and Change order, MaxLength and protected text could not be driven at all. Every in-box control
+drawn the same way would have been unreachable in the same way.
+
+**Fixed (#2460).** In keyboard mode a control that takes focus, with no text box under it, is sent the keys: KeyDown,
+TextInput and KeyUp, as a person's keyboard sends them. What it did with them is read from what came back. A control
+that handled the TextInput of none of the keys that type a character is reported as taking no typing, and the reply
+says their KeyDown and KeyUp were raised. A control that cannot take focus is still refused, now saying why. Document
+mode still needs a text box, and its refusal names keyboard mode. **A dropdown that is not editable behaves differently
+in keyboard mode:** it takes focus, so it is now sent the keys, and its own text search selects by them, as a person's
+typing does. A caller that learned "expand, then select" from the old refusal now sees the dropdown take the keys
+instead; document mode still refuses it that way. Refusing typing a person can do was the defect.
+Guarded by `TypeIntoOwnInputTests`, which type into a stand-in control that handles its own input.
+
+**Live (2026-10-28, Windows, headless `claude -p` through the hexide tools)**, on #2456's branch with this change
+applied. The probe form held a RichTextBox with `MaxLength = 5`, whose KeyPress and Change appended to a label:
+
+```
+type_text {"target":"Window/None[RichTextBox1]","text":"abcdefg","mode":"keyboard","window":"Form1"}
+→ {"success":true,"mechanism":"keyboard","detail":"typed 7 key(s) into VBRichTextBox as a person types them"}
+inspect_element {"target":"Window/Text[Label1]","window":"Form1"}
+→ name: "P97 C[a] P98 C[ab] P99 C[abc] P100 C[abcd] P101 C[abcde] P102 P103 "
+type_text {"target":"Window/None[RichTextBox1]","text":"x","window":"Form1"}
+→ 'VBRichTextBox' has no text surface (TextEditor/TextArea/TextBox) to type into; mode "keyboard" sends it keys as a
+  person types, for a control that takes typing itself
+```
+
+Every key ran KeyPress and every insert ran Change, until MaxLength stopped the inserts after the fifth; whether that
+matches VB6's RichTextBox is #2456's to say, not this tool's.
+
+## `get_window_state` mixed screen and device-independent pixels, and didn't say which edge it measured — **CLOSED** (#2454, 2026-10-28)
+
+**Symptom (2026-10-28, hexide-int, Windows at 150%, #2448's live check).** The IDE, maximized, read
+`{"x":-11,"y":-11,"width":1280,"height":649}`. A running form placed at Left 7200, Top 3600 twips read
+`{"x":721,"y":325,"width":304,"height":200}`. `x` and `y` were the platform's position in screen pixels, which on
+Windows includes the invisible resize border (the -11). `width` and `height` were the client area in device-independent
+pixels. Nothing in the reply said either, so a caller could not tell whether a form's `y` of 325 against the 360 its
+Top implies was a placement defect or only what the number measured.
+
+**Fixed (#2454).** The four numbers are kept, as `set_window_state` takes them, and every reply now also carries:
+- `scale`;
+- `outer`, the window's whole rectangle, its invisible resize border included, which is where `x` and `y` are;
+- `frame`, the window as drawn;
+- `client`, the area inside;
+- `units`, which says all of this.
+
+The three rectangles are on the screen in device-independent pixels, twips divided by 15. Positions stay in screen
+pixels for `x` and `y` because they are what the platform and `set_window_state` use, and the only coordinates that
+hold across monitors of different scale. A hidden or minimized window has no rectangles. Guarded by
+`WindowStateUnitsTests`; Windows' own rectangles are read from the HWND, which a headless test has none of, so those
+were checked live.
+
+**Live (2026-10-28, Windows at 150%, headless `claude -p` through the hexide tools).** A form whose `Form_Load` runs
+`Me.Move 7200, 3600, 4800, 3600`:
+
+```
+get_window_state {"window":"Form1"}
+→ {"state":"Normal","x":4,"y":23,"width":304,"height":200,"name":"Form1","scale":1.5,
+   "outer":{"x":2.7,"y":15.3,"width":318.7,"height":238},"frame":{"x":8.7,"y":15.3,"width":306.7,"height":232},
+   "client":{"x":10,"y":45.3,"width":304,"height":200.7},"units":"…"}
+set_window_state {"state":"Normal","window":"Form1","x":720,"y":360}
+→ "outer":{"x":480,"y":240,…},"frame":{"x":486,"y":240,…},"client":{"x":487.3,"y":270,…}
+```
+
+The first reply shows the form at Windows' default place, not at 480, 240, while the program's own `Me.Left` and
+`Me.Top` read back 7200 and 3600. That is #852 (a form's Left and Top don't move the window at run time), whose
+oracle rows say a form's Left and Top are the outer window's position, so `outer` is the rectangle to compare with
+them. The reply now shows that defect instead of hiding it. The maximized IDE reads `outer` -7.3, -7.3 (the -11 in
+screen pixels) and `frame` 0, 0.
+
+---
+
+## `press_key` with a character key typed nothing — **CLOSED** (#2428, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2422's live check).** `press_key {"target":"Window/Edit[Text1]","key":"K",
+"modifiers":"Shift","window":"Form1"}` on a running TextBox logged `D16/1 D75/1 U75/1 U16/0`: no KeyPress, and no
+text. The oracle puts KeyPress 75 between the KeyDown and KeyUp, and a person's press types K. The reply, `pressed
+Shift+K`, does not say nothing was typed. The raw key events carry no text, which a platform sends separately.
+
+**Workaround, until the fix.** `type_text` with `mode: "keyboard"`, which logged `D16/1 D75/1 P75 U75/1 U16/0`.
+
+**Suggested fix.** Type the key's character between its KeyDown and KeyUp when it types one, as `type_text` does; or
+say in the reply that nothing was typed and name `type_text`. [#2428](https://github.com/hexide-io/HexIDE/issues/2428).
+
+**Fixed (#2428).** `press_key` sends the key's character after its KeyDown, as text of its own, as a platform sends
+a person's press, through the window input and the routed fallback alike. None goes with Ctrl, Alt or Meta held,
+whose chords are commands, and none for a control character such as Backspace's, which a running program's KeyPress
+takes from the key itself. In a code window the key is judged as typing is, so a protected line refuses it. The
+reply ends `it typed "K", as the key does`. Guarded by `PressKeyTypesTests` and `TypeKeysTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix on main at batch 86, which has #2418, headless `claude -p` through the
+hexide tools).**
+
+| `press_key` | Logged | Text1 | The oracle |
+|---|---|---|---|
+| K, `modifiers` Shift | `D16/1 D75/1 P75 U75/1 U16/0` | `K` | KeyCode 75, KeyAscii 75 |
+| K | `D75/0 P107 U75/0` | `k` | KeyCode 75, KeyAscii 107 |
+| A, `modifiers` Ctrl | `D17/2 D65/2 P1 U65/2 U17/0` | | KeyAscii 1, once |
+| X, `modifiers` Alt | `D18/4 D88/4 U88/4 U18/0` | | no KeyPress |
+| Back | `D8/0 P8 U8/0` | | 8 in all three |
+
+## `open_file` couldn't put the caret in a carried file — **CLOSED** (#2403, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #1334's live check).** `open_file {"name":"twice.c","line":3,"column":27}`, on a
+project carrying `twice.c`, answered `{"success":false,"error":"'twice.c' is a carried file, which opens in the
+plain-text editor, where this does not put the caret; nothing was opened"}`. The refusal is deliberate: #700 placed the
+caret in the code window only.
+
+**Workaround, until the fix.** `open_file` with no `line`, then walk the caret there with `press_key`: Ctrl+Home, Down per line, End or
+Right. That is a call per keystroke, and a wrapped line or a refused key misplaces it.
+
+**Suggested fix.** Place the caret in the carried-file editor, an AvaloniaEdit `TextEditor` like the code window's, with
+`CaretPlacement.Place` and the same rules, and read it back in the note. If a carried file must be treated differently,
+open it and say so, rather than refuse and open nothing. [#2403](https://github.com/hexide-io/HexIDE/issues/2403).
+
+**Fixed (#2403).** `open_file` places the caret in a carried file as in a code window. It checks the place against the
+text `get_file_content` returns, the editor's buffer or else the file on disk, and refuses one off the text before
+anything opens. It then opens the file, places the caret with `CaretPlacement.Place`, which now takes any
+`ISearchableDocument`, and reads it back in the note. The carried-file view gained what #700's review gave the code
+window's: a fold the caret lands at the end of is opened, which AvaloniaEdit does not do for itself, and the editor
+scrolls to it. It also takes a caret placed before it was laid out, as open_file places one in a file it has just
+opened; the editor's own caret, at 0 when its document arrived, used to overwrite it. Guarded by
+`CaretPlacementTests` and `OpenFileCaretTests`.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of the fix, headless `claude -p` through the hexide tools).** A
+project carried `notes.md`, 80 lines, `line NN of the notes` from line 2.
+
+- `open_file {"name":"notes.md","line":99}`: `Nothing was opened: in notes.md, line 99 is not one of its lines,
+  numbered 1 to 81`, and `get_document_tabs` then listed no tab.
+- `open_file {"name":"notes.md","line":70,"column":6}`: `… The caret is at line 70, column 6: offset 1510 in the text
+  get_file_content returns.` The snapshot, read by eye, shows lines 59 to 81 with the caret just before `70` on line 70:
+  the editor scrolled there.
+- `type_text` `XY` in keyboard mode on the editor's TextArea, then `get_file_content`: line 70 read `line XY70 of the
+  notes`.
+- `open_file` at line 2, column 1 on the file already open: `The caret is at line 2, column 1: offset 9 …`.
+
+---
+
+## No tool could see a running form's frame — **CLOSED** (#1595, #2182, 2026-10-27)
+
+**Symptom (2026-10-23, #1575, Windows, Debug).** A change to a running form's window, its border, caption bar and
+buttons, could not be checked through the tools. `take_snapshot(window: "B3x1")` on a running Fixed Dialog returned
+a 252 × 150 image at scale 1.5: the form's 168 × 100 client area, with no caption bar, border or buttons.
+`inspect_element(target: "Window", window: "B3x1")` returned `boundingRect [0,0,168,100]`, `providers []` and
+`dataContextMembers []`, and nothing about whether the window can be resized, its decorations, its buttons or whether
+it is a tool window.
+
+**Workaround.** From outside the IDE: `GetWindowLong` with `GWL_STYLE` and `GWL_EXSTYLE` through a PowerShell
+P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
+real caller uses.
+
+**Implemented; Windows live verification pending (#1595).** `inspect_element` on a Window reports the
+Avalonia frame and now reads `nativeStyle` / `nativeExStyle` as unsigned 32-bit Win32 bit masks from its HWND.
+`nativeStyleNote` explains when those reads are unavailable, including on headless and non-Windows hosts.
+`take_snapshot(window: "B3x1", includeFrame: true)` captures the window with its frame, cropped to the DWM frame
+rectangle, with client-origin offsets for mapping inspected bounds. Since #2182 Windows renders it (`PrintWindow` with
+`PW_RENDERFULLCONTENT`) rather than the screen being copied, so a window covering it is not in the image, and open
+popups are drawn over it as the default capture draws them. Should Windows render nothing, or only black, the frame
+rectangle is copied from the screen, and the note says how much of it other windows cover. It refuses a window with
+no HWND, or hidden or minimized, rather than silently returning a client-only image; a copy from the screen is also
+refused for a window partly off the desktop. The default client/popup render is unchanged.
+
+**Required live check.** On Windows at 150% scaling, inspect a running Fixed Dialog and tool window, compare
+both style masks with `GetWindowLong`, and capture each with `includeFrame: true` (also with `inline: true`).
+Confirm caption, border and buttons, client-origin coordinate mapping, an overlapping window, and the explicit
+refusal for a minimized or partly off-screen window. Keep this entry open until those checks pass.
+[#1595](https://github.com/hexide-io/HexIDE/issues/1595).
+
+**Measured (2026-10-26, Windows 11 at 150%, a Debug build of this branch merged with main at c208b2d7, headless
+`claude -p` through the hexide tools).** A running form with BorderStyle 3 (Fixed Dialog) and the caption "Fixed":
+
+- `inspect_element {"target":"Window","window":"Fixed"}` gave `"frame":{"canResize":false,"windowDecorations":"Full",
+  "canMinimize":false,"canMaximize":false,"showInTaskbar":true,"windowState":"Normal","nativeStyle":382206080,
+  "nativeExStyle":2359553}`. Both masks equal `GetWindowLongPtr`'s `GWL_STYLE` and `GWL_EXSTYLE`, read on the same
+  window: caption, system menu, no sizing frame and no minimize or maximize box, with a modal dialog frame.
+- `take_snapshot {"window":"Fixed","includeFrame":true}` gave `"width":454,"height":347,"scale":1.5,"windowOffsetX":2,
+  "windowOffsetY":45` and the note. With the form in front, the image is the form: a caption bar reading "Fixed",
+  the border, a close button only, and the client area at (2, 45), so `boundingRect` [0,0,300,200] maps to
+  (2, 45)-(452, 345) as the description says. With `"inline":true`, the inline copy is the same, at 454×347 and
+  `inlineScale` 1.5. Without `includeFrame` the image is the 450×300 client area, with offsets 0.
+- **With another window over the form, the image is that window.** The IDE was started in the background, so the
+  running form opened behind another application's window, and the same call returned that window's pixels. The reply
+  was identical to the unobscured one, note included, so nothing in it says the capture missed. No tool brings a
+  running form to the front, so the note's advice can't be followed through the tools. Filed as #2182.
+- **Not checked:** a tool window, and the refusal for a minimized or partly off-screen window. `set_window_state`
+  acts on the IDE's main window only, and nothing else minimizes or moves a running form.
+
+**Measured again with #2182's fix (2026-10-27, Windows at 150%, a Debug build of this branch merged with main at
+27e5bd06, headless `claude -p` through the hexide tools).** The running form was a Fixed Dialog captioned "Fixed" with
+a Toolbar. A test harness outside the IDE covered it with a topmost magenta window; `WindowFromPoint` at the form's
+centre returned the harness window.
+
+- `inspect_element {"target":"Window","window":"Form1"}` gave the same `nativeStyle` 382206080 and `nativeExStyle`
+  2359553 as before, equal to `GetWindowLong`'s `GWL_STYLE` and `GWL_EXSTYLE` read by the harness.
+- `take_snapshot {"window":"Form1","includeFrame":true}` with the form covered gave `"width":604,"height":497,
+  "scale":1.5,"windowOffsetX":2,"windowOffsetY":45` and the frame `captureArea`. The image is the form: its caption bar
+  reading "Fixed", the close button, the Toolbar and the client area, with no magenta pixel in it.
+- With the Toolbar's dropdown open, the same call drew its menu, item First, over the form, still covered.
+- Without `includeFrame` the image is the 600×450 client area, offsets 0, also with no magenta.
+- With the harness then moving the form to x 1800 on a desktop 1920 wide, so all but 120 pixels of it were off the
+  right edge, the call returned the whole 604×497 window: no part black or missing.
+- **One divergence from the screen.** The 1-pixel border down the sides and along the bottom comes out black, about
+  3,000 pixels of the 604×497 image, where the screen draws it in the border colour. Windows 11 draws that border
+  outside the window's own pixels.
+
+**The last two checks (2026-10-27, Windows at 150%, a Debug build of this branch merged with main at 8048301e,
+headless `claude -p` through the hexide tools).**
+
+- **Tool windows.** Two running forms, Form1 a Fixed ToolWindow (BorderStyle 4) and Form2 a Sizable ToolWindow (5).
+  - `inspect_element {"target":"Window","window":"Form1"}` gave `"nativeStyle":382205952,"nativeExStyle":2097536`, and
+    Form2's gave `382664704` and `2097536`. A harness's `GetWindowLongPtr` read the same four values, with
+    `WS_EX_TOOLWINDOW` set on both.
+  - `take_snapshot {"window":"Form1","includeFrame":true}` gave a 304×197 image with `"windowOffsetX":2,"windowOffsetY":45`.
+    It shows the caption reading "Tool fixed", a close button only, the border, and the client area. Form2's is the same
+    with its own caption. With `"inline":true` the inline copies are the same size, at `inlineScale` 1.5.
+  - Windows' own metrics agree, read without the screen: the client origin sits at (2, 45) inside the DWM frame, and at
+    144 dpi `SM_CYCAPTION` and `SM_CYSMCAPTION` are both 34, so a tool window's 45-pixel caption band is
+    34 + `SM_CYFRAME` 5 + `SM_CXPADDEDBORDER` 6. The session was locked, so no screen copy could be compared; that the
+    frame captures still rendered shows #2182's route needs no unlocked screen.
+- **A minimized window.** `set_window_state {"state":"Minimized","window":"Form1"}`, which reaches a running form since
+  #2357, then `take_snapshot {"window":"Form1","includeFrame":true}`, was refused: `The window is hidden or minimized.
+  Show or restore it, then retry includeFrame true.` That reply also carried the client `captureArea`, describing an
+  image it never took. Both are fixed here: a refusal carries no `captureArea`, and the refusal names the way back: `The
+  window is minimized, so Windows draws no frame for it. Restore it with set_window_state, state Normal and its name as
+  'window', then retry includeFrame true.` A hidden window gets a refusal of its own. `FrameCoverTests` pins both.
+- **Partly off the desktop, through the tools.** `set_window_state {"state":"Normal","window":"Form1","x":1800,"y":200}`
+  on a 1920-wide desktop, then the frame capture, returned the whole 454×347 window, nothing black or missing, with no
+  note. That is the harness check above, now made through the surface.
+
+**Found on the way.** The default capture of a minimized window returned the last frame it drew before minimizing,
+with the reply of a fresh capture: #2416, in the live document.
+
+## An array argument from a client with a stale schema was refused as "not a long string", with no hint why — **CLOSED** (#2446, 2026-10-28)
+
+**Symptom (2026-10-27, hexide-frm, driving the CommonDialog's two-file Open after #2395 and #2426).** The session had
+loaded `answer_next_file_dialog` before #2426 added `paths`, and a client keeps a tool's schema once loaded. With no
+`paths` in its copy, it sent the array the caller wrote as a JSON string, and the server refused it: `'paths' must be
+array, not a long string. Its input schema names each parameter and its type.` That pointed the caller at the schema,
+which was the stale thing, and told it nothing of what had arrived. A model on first contact would retry the same call,
+or decide the tool was broken.
+
+**Fixed (#2446).** A string argument that holds, as JSON, the array or object its parameter declares is refused
+naming the cause, and the refusal's close says that a retry from the same session sends the same text and a new
+session loads the current schema. The value is not taken: that would guess at what the client meant. A long string in
+any refusal is shown by its length and start, not as "a long string". Guarded by `McpRestartTests`, which call a real
+server over its transport.
+
+**Live, reproducing the cause (2026-10-28, Windows, headless `claude -p` through the hexide tools).** The session
+loaded `answer_next_file_dialog` from a batch-85 build, whose schema lists `path` alone, and used it. The IDE was then
+swapped for a build of this fix, in the same session, and the call made with `paths` written as an array:
+
+```
+'answer_next_file_dialog' refused its arguments, and nothing was done: 'paths' must be array, and arrived as a string
+holding one, a string of 43 characters beginning "["C:\\nowhere\\a.txt","C"…: what a client sends while it holds an
+older schema of this tool, from before this parameter took an array. Retrying in this session sends the same text: its
+client keeps the schema it loaded, which this server has since changed. A new session loads the current schema and
+sends the value as it was written.
+```
+
+The middle of that reply has since been tidied to `arrived as a string of 43 characters holding one, beginning …`; the
+test pins the new wording.
+
+---
+
+## `interact`'s `click` pressed without moving the pointer there, so a program's MouseMove never ran from one — **CLOSED** (#2407, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's TreeView recheck, on #2353).** `click` raised a press and a release at the point,
+and no move first, so a running form's MouseMove never fired from a click. A person's click always arrives with the
+pointer having moved onto the control. A live check of a control's event order, MouseMove, MouseDown, MouseUp,
+Click, couldn't be made with `click` alone, and the recheck had to `hover` at the same points to get MouseMove at all.
+
+**Fixed (#2407).** `click` raises a `PointerMoved` on the element it presses, at the point, before the press, on its own
+pointer. That is the route a running form's MouseMove is raised from. A click where the last click left the pointer in
+that window moves nothing first, as a still pointer sends no move; a hover's end takes the pointer out of the window,
+so the next click arrives again. A double click's second press already moved nothing. The reply ends `the pointer moved
+there first, as a person's does` or `the pointer was already there from the last click, so it did not move first`.
+Guarded by `InteractClickTests` and `MouseEventTests`. The oracle's mouse probes logged no MouseMove, so whether VB6
+raises others around a click is unmeasured: #2412.
+
+**Live, against a real pointer (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+A twips form logged each mouse event into a label: `cMM`, `cMD`, `cMU` and `cC` for Command1's MouseMove, MouseDown,
+MouseUp and Click, and `fMM`, `fMD`, `fMU` and `fC` for the form's.
+
+| Input | Windows, through `click` | Linux under WSLg, through `click` | Linux, real X input from `xdotool` |
+|---|---|---|---|
+| click on Command1 | `cMM cMD cC cMU` | `cMM cMD cC cMU` | `cMM cMD cC cMU` |
+| click on the form at (333, 200) | `fMM fMD fMU fC` | `fMM fMD fMU fC` | `fMM fMD fMU fC` |
+| the same click again | `fMD fMU fC` | `fMD fMU fC` | `fMD fMU fC` (and `cMD cC cMU` on Command1) |
+
+- **The real pointer.** `xdotool mousemove` then `click 1`, so the X server's own input reached Avalonia's X11
+  backend. With the form not yet active, the first real click on Command1 gave `cMM` alone, as the window manager took
+  the press to activate the form; with it active, it gave the row above.
+- **Windows.** The real-pointer column couldn't be measured there: the session was locked, and posted mouse messages
+  don't reliably reach Avalonia's input on this host, as an earlier entry found. Three posted clicks left one
+  `fMM fMD fMU fC`, which says nothing either way.
+
+## `answer_next_file_dialog` armed one path, so a multi-select Open could not be answered with several files — **CLOSED** (#2408, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's live check of #2395, the CommonDialog).** A ShowOpen with AllowMultiselect and
+Explorer (`Flags = &H80200`) had to return two files, as in the oracle's row where `"a.txt" "b.txt"` is typed and
+FileName comes back as the folder, Chr(0), `a.txt`, Chr(0), `b.txt`. No call could give that answer.
+`answer_next_file_dialog(path: "<folder>\a.txt")` armed one path, which the Open picker returned as a one-element
+list. Calling it twice armed two answers, each spent by its own dialog, so the second went to the next picker rather
+than to the same pick. Only a person or the headless tests could reach a program's multi-file result. The IDE's own
+Add File, which allows several, had the same limit.
+
+**Fixed (#2408).** `answer_next_file_dialog` takes `paths`, every file of one answer in order, beside `path`; the reply
+lists them in `paths`. Only an Open that allows several takes them all. A save, or an Open that takes one file, answers
+the answer as cancelled, not with its first file, which no person could have chosen there; the answer is spent all the
+same, so it cannot redirect a later dialog. The save's own reply fails and says so. Where nothing replies for the
+dialog, as with a single-select Open from a menu or a running program, the next `answer_next_file_dialog` or
+`clear_file_dialog_answers` reply does, once. Both `path` and `paths`, an empty `paths` or a blank entry is refused, with
+nothing armed. Guarded by `ScriptedFileDialogsTests` and `AnswerNextFileDialogPathsTests`. A program's multi-file
+FileName is #2395's to format; this gives it the files.
+
+**Live (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools, a new Standard EXE).**
+
+- **Add File with two files.** `answer_next_file_dialog {"paths":["…\\Alpha.bas","…\\Beta.bas"]}`, then
+  `invoke_menu_item {"path":"Project/Add File"}`: `get_project_info` listed `"modules":["Alpha","Beta"]`, and
+  `clear_file_dialog_answers` then said `Nothing was armed.`
+- **A save.** `add_file` a module Gamma, arm two paths, then `set_file_content` Gamma: `{"success":false,"error":"The
+  new code is in the IDE. Module 'Gamma' still has no file: the save picker answered as cancelled, because the armed
+  answer named several files and it takes one (answer_next_file_dialog's paths is for an Open that allows several), so
+  nothing was written. …"}`, re-checked against the final build. The `clear_file_dialog_answers` after it said
+  `Nothing was armed.`: the save took the answer, and its reply had already reported the refusal.
+- **An Open that takes one file, from a menu.** Arm two paths, then `invoke_menu_item {"path":"Run/Start External
+  Debug Session"}`, which replied only `Invoked`. The next `answer_next_file_dialog {}` said `The next file dialog will
+  answer as cancelled. Earlier, an Open picker that takes one file took an answer of 2 paths, which it cannot take, so
+  it answered as cancelled.`
+- **Refused at arming.** `path` and `paths` together: `Pass path for one file or paths for several, not both.`; `paths`
+  empty: `paths must name at least one file, and none of them blank. …`; both with `Nothing was armed.`
+
+## `press_key` and `type_text` pressed a modified key without the modifier's own KeyDown and KeyUp — **CLOSED** (#2422, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's live check of #2418, the TextBox key events).** `press_key` with `modifiers`, and
+`type_text` in keyboard mode, sent the key with its modifiers as flags and never the modifier's own key. A person's
+Shift+K is Shift down, K down, K up, Shift up. The oracle's TextBox key table measures that pair, Shift 16, Ctrl 17
+and Alt 18 with mask 1, 2 or 4 while held and mask 0 on their own release, and none of it could be driven:
+`press_key(key: "A", modifiers: "Ctrl")`, `press_key(key: "X", modifiers: "Alt")` and
+`type_text(text: "K", mode: "keyboard")` each raised the main key's events alone. The keyboard twin of #2407.
+
+**Fixed (#2422).** Each modifier's own key goes down before the key, in the order Ctrl, Shift, Alt, Meta, holding
+what is down so far, and up after it in reverse, holding what is still down. The window input, the routed fallback
+and `type_text`'s keyboard mode all send the same chord. A modifier pressed alone reports itself held going down and
+not coming up, as Windows reports it. The replies name the keys: `pressed Shift+K; LeftShift went down before K and
+up after it, as a person holds it`, and `type_text`'s `LeftShift went down before the capital and up after it`.
+Guarded by `ModifierKeyChordTests`. A press of a key with nothing typed, such as Shift+K through `press_key`, is
+#2428.
+
+**Live (2026-10-27, Windows, a Debug build of this branch merged locally with #2418, headless `claude -p` through the
+hexide tools).** Text1's KeyDown, KeyPress and KeyUp each logged a token: `D<KeyCode>/<Shift>`, `P<KeyAscii>`,
+`U<KeyCode>/<Shift>`.
+
+| Call | Logged | The oracle |
+|---|---|---|
+| `press_key` K, `modifiers` Shift | `D16/1 D75/1 U75/1 U16/0` | the same, with KeyPress 75 before the KeyUp: #2428 |
+| `press_key` A, `modifiers` Ctrl | `D17/2 D65/2 P1 U65/2 U17/0` | KeyCode 65, KeyAscii 1 |
+| `press_key` X, `modifiers` Alt | `D18/4 D88/4 U88/4 U18/0` | KeyCode 88, no KeyPress |
+| `press_key` LeftShift | `D16/1 U16/0` | Shift 16, mask 1 held and 0 on release |
+| `type_text` "Kk", keyboard mode | `D16/1 D75/1 P75 U75/1 U16/0 D75/0 P107 U75/0` | K and k both 75, KeyAscii 75 and 107 |
+
+---
+
+## `set_window_state` reached only the IDE's own window — **CLOSED** (#2357, 2026-10-27)
+
+**Symptom.** `set_window_state` and `get_window_state` took no `window` and acted on the IDE's main window only, and no
+tool minimized, restored, moved or resized any other window. A running form's `Form_Resize`, a `WindowState` read in a
+Timer, and a layout that depends on the form's size couldn't be driven through the tools, and neither could a tool's own
+handling of a minimized window. Found twice. #1925's live check couldn't try `includeFrame`'s refusal for a minimized
+form. #2182's needed a form moved partly off the desktop and did it with `SetWindowPos` from a harness, which bypasses
+the surface being checked.
+
+**Fixed (#2357).** Both tools take the tree tools' `window`, and act on the IDE's own window when it is omitted, as
+before. The reply's `name` is what reaches the window again: `ide`, a running form's name, or a window's title.
+
+- **As a person does it.** Another window changes through the same Avalonia properties its caption buttons and frame
+  set, so a running form's Resize and Activate run as they do for a click. The reply waits for the program, as
+  `interact`'s does, then reads the window again.
+- **What a person couldn't do is refused**, with nothing changed:
+  - a state the window has no box for (a form's MinButton, MaxButton, ControlBox and BorderStyle decide);
+  - a size for a fixed border, where `x` and `y` alone still move it;
+  - any change to a disabled window or one under a modal dialog, through the refusal `interact` uses.
+- **An unknown name** is refused, listing the open windows. The message says the IDE's window is the default here, where
+  the tree tools' says `auto` is.
+
+Guarded by `WindowStateOtherWindowTests` and `ForegroundWindowTests`.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of the fix, headless `claude -p` through the hexide tools).** Form1
+(Sizable) counted its Resize and Activate into a label. Form2 was a Fixed Dialog with no minimize or maximize box.
+
+- **Omitted `window`.** `get_window_state {}` gave `{"state":"Normal","x":-11,"y":-11,"width":1280,"height":649,"name":"ide"}`,
+  as before, apart from `name`.
+- **Form1, from `resize 1, activate 1`.**
+  - Minimize answered `"state":"Minimized","x":-32000,"y":-32000`.
+  - Restore: `resize 3, activate 2, state 0, width 4500`.
+  - Maximize: `resize 6, activate 2, state 2, width 19200`.
+  - Normal at `x 200, y 150, width 500, height 300`: `resize 11, activate 2, state 0, width 7500`, at the position and
+    size asked for.
+- **Form2.**
+  - Minimize was refused: `'Form2' has no minimize box, so a person can't minimize it. …`.
+  - `width: 400` was refused: `'Form2' has a fixed border, so a person can't resize it; …`.
+  - `x: 700, y: 200` moved it.
+- **Form1 under the program's MsgBox.** Minimize was refused: `'Form1' is in a window a modal dialog has disabled:
+  'WinState' (a message box: "Hold", OK). …`. Once the MsgBox was answered, the same call minimized the form, a second
+  one found it minimized by name, and Normal restored it. The first run named the form by its class, `VBFormRuntime`,
+  which is fixed.
+- **An unknown name.** `get_window_state {"window":"Nope"}` answered `Unknown window 'Nope'. Use "ide" (the default
+  here: …), "auto" (…), or the name or title of an open window: Form2 ("Fixed"), Form1 ("Resize probe"). …`.
+- **The same changes from a person's caption buttons**, sent as the `WM_SYSCOMMAND` a click sends, gave the same
+  Resize counts as the tool's:
+  - maximize and restore from maximized, three each;
+  - minimize and restore from minimized, one each, with one Activate on the restore.
+
+  Three for a maximize is the runtime's own behaviour whichever route it comes by: #2389.
+
+## The code window's completion description: desktop snapshot composition needed a live check — **CLOSED** (#1334, 2026-10-27)
+
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+
+**Fixed in code, with headless regression tests (#1678).** The dump reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and commits it through the list's own commit path. The snapshot composer discovers the
+description's top-level root by the same route and composes it after the list, which headless rendering can't prove:
+a headless popup renders in the window's own overlay.
+
+**Why the check took a foreign server.** The bundled VB6 server sends no `detail` on any completion item, so with it
+alone no item has a description, and the tooltip never shows. The carried-file editor asks no server for completion
+(#266), so a C file carried by the project couldn't stand in either. clangd attached to `.bas` beside the bundled server
+can, once it parses the module: its first attempt answered `twice` as `"kind":1,"deprecated":true` with no `detail`,
+clangd's fallback for a file it can't parse, because `Attribute VB_Name = "Module1"` isn't C. A `.clangd` beside the
+probe adding `-xc` and `-DAttribute=char*` made that line a declaration missing its semicolon, which clang recovers from.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of main at 8ae02d39 plus #2401, which touches neither path; clangd
+22.1.6 from the foreign-server cache, attached for `.bas` in the session's own profile; headless `claude -p` through
+the hexide tools, with `--capture-lsp`).** Module1 read `int twice(int x);` and `int main(void) { return tw; }`.
+
+- `open_file {"name":"Module1","line":3,"column":27}` put the caret after `tw`, and `press_key` Ctrl+Space on the
+  editor opened the list: clangd's item first, then the bundled server's keywords.
+- `get_lsp_message` on clangd's completion response gave `{"detail":"int",…,"kind":3,"label":" twice(int x)",…}`.
+- `interact` `select` on `…/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[twice(int x)]` answered
+  `selected ' twice(int x)'`. `dump_visual_tree` rooted at the list then listed `…/List[PART_ListBox]/Text[int]`, a
+  `TextBlock` named `int`, beside the list's scroll viewer.
+- `take_snapshot {"window":"ide"}` drew the tooltip: a bordered box reading `int`, just right of the list, level with
+  the selected row, whole, with the list unclipped beside it. Checked by eye on the image as well as by the caller.
+
+**Found on the way.** `open_file` with a `line` refuses a carried file and opens nothing: #2403, in the live document.
+
+---
+
 ## `hover` couldn't say that the real mouse, resting over the window, took the tip — **CLOSED** (#2376, 2026-10-27)
 
 **Symptom (2026-10-27, Windows, #1303's live check).** With the real cursor resting over the IDE's window, a second
