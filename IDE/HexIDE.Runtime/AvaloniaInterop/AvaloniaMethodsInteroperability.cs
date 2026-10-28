@@ -119,6 +119,7 @@ public static class AvaloniaMethodsInteroperability
     /// <item>otherwise the control has the focus at once, and its form is activated if another one had it. The old
     /// control's LostFocus and the new one's GotFocus come after the handler that called SetFocus has returned, as
     /// messages Windows posts;</item>
+    /// <item>after Me.Show in Form_Load, the focus events run inside Load instead (#2436, measured);</item>
     /// <item>it raises no Validate, and on the control that already has the focus it raises nothing.</item>
     /// </list>
     /// A control that can't take the focus, such as a Label, has no SetFocus in VB6, and is refused as not implemented
@@ -132,7 +133,7 @@ public static class AvaloniaMethodsInteroperability
         view.ActivateForm();
         if (c is not IFormView)
         {
-            using var posting = view.Context.Events.Posting();
+            using var posting = view.Context.Loading ? null : view.Context.Events.Posting();
             c.Focus();
         }
         return Vb6Value.Nothing;

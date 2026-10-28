@@ -395,12 +395,14 @@ public sealed class VBProgram : IFormProgram
         var previous = active;
         active = context;
         // Posted: they wait for the handler that is running. Win32 activates the window inside Show, and without this the
-        // pair ran there, before the statement after the Show; headless, the activation comes after the handler anyway. A
-        // window is shown before it is activated, so a Show's Resize has run by then.
-        using var posting = Events.Posting();
+        // pair ran there, before the statement after the Show; headless, the activation comes after the handler anyway.
+        // Show inside Load is the measured exception: Activate and initial focus run inside Load (#2436). A window is
+        // shown before it is activated, so a Show's Resize has run by then.
+        using var posting = context.Loading ? null : Events.Posting();
         previous?.ExecuteSub("Form_Deactivate");
         context.ShowControls();
         context.ExecuteSub("Form_Activate");
+        context.FocusFirstControl();
     }
 
     /// <summary>A form has loaded: the program holds it until it unloads, as VB6's Forms does.</summary>

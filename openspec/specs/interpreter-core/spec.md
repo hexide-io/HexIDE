@@ -1256,3 +1256,20 @@ These outcomes are measured on vb6.exe SP6, native and p-code ([#2623](https://g
 #### Scenario: A Null target is preserved
 - **WHEN** `v` holds Null and `Mid$(v, 1, 1) = "9"` runs
 - **THEN** error 94 is raised and `v` remains Null
+
+### Requirement: A shown form focuses its first eligible tab stop
+
+On showing a startup form or a form through `Show vbModal` from Sub Main, the runtime SHALL focus
+its first enabled, visible control in tab order with TabStop True, passing over Labels. Its GotFocus
+SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreeing).
+
+#### Scenario: The first control cannot receive initial focus
+- **GIVEN** Text1 precedes Text2 in tab order
+- **WHEN** the form is shown with Text1 disabled, hidden or TabStop False
+- **THEN** Text2 receives focus and GotFocus follows Form_Activate
+
+#### Scenario: SetFocus before and after showing inside Load
+- **WHEN** Form_Load calls Text2.SetFocus before showing the form
+- **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
+- **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
+- **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
