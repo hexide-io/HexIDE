@@ -22,7 +22,8 @@
 - [x] 2.4 Warn where a file on disk changed after the backup, using the existing baseline.
   The row names the changed files. Each document's backup records the hash of its file as last read or written, and the file is hashed again when the dialog opens.
 - [x] 2.5 List every pending recovery under File, and delete a run's folder once it is restored or discarded.
-  File › Recover Unsaved Work. Restore, Discard (confirmed first) and Decide Later; a run's record loses each project as it is dealt with, and its folder goes with the last.
+  File → Recover Unsaved Work. Restore, Discard (confirmed first) and Decide Later; a run's record loses each project as it is dealt with, and its folder goes with the last.
 
 ## 3. Document
-- [ ] 3.1 Describe recovery in the user-facing documentation, and update its rows in `docs/MISSING_FEATURES.md`.
+- [x] 3.1 Describe recovery in the user-facing documentation, and update its rows in `docs/MISSING_FEATURES.md`.
+  `docs/crash-recovery.md`, linked from `--user-data-dir` in `docs/command-line.md`, and a File menu row for Recover Unsaved Work, which had none. The changelog entry is `changelog.d/499.md`.

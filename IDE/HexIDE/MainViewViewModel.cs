@@ -141,7 +141,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public DelegateCommand AddFileCommand { get; }
 
-    /// <summary>File › Recover Unsaved Work: lists the work crash recovery is still holding (hexide-io/HexIDE#499).</summary>
+    /// <summary>File → Recover Unsaved Work: lists the work crash recovery is still holding (hexide-io/HexIDE#499).</summary>
     public DelegateCommand RecoverUnsavedWorkCommand { get; }
 
     private readonly HexIDE.Recovery.IRecoveryOffers? recoveryOffers;

@@ -13,7 +13,7 @@ namespace HexIDE.Forms.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One dialog for each place the work is offered: at start, as a project is opened, and from File › Recover Unsaved
+/// One dialog for each place the work is offered: at start, as a project is opened, and from File → Recover Unsaved
 /// Work. <b>Restore</b> and <b>Discard</b> act on the selected project and take it off the list, and the dialog closes
 /// once the list is empty. <b>Decide Later</b> leaves whatever is left waiting, under the File menu.
 /// </para>

@@ -20,7 +20,7 @@ public interface IRecoveryOffers
     /// </summary>
     Task<bool> OfferAtStartAsync();
 
-    /// <summary>Lists every project whose work is still waiting, for File › Recover Unsaved Work.</summary>
+    /// <summary>Lists every project whose work is still waiting, for File → Recover Unsaved Work.</summary>
     Task ShowPendingAsync();
 }
 
@@ -29,7 +29,7 @@ public interface IRecoveryOffers
 /// <para>
 /// <b>Offered where the work can be placed.</b> A project that never had a file is offered at start, since there is
 /// nothing to open. A saved one is offered as it is opened, matched by its path, or by its project file once nothing is
-/// left at the old path: a moved project is still found, and a copy beside the original is not. File › Recover Unsaved
+/// left at the old path: a moved project is still found, and a copy beside the original is not. File → Recover Unsaved
 /// Work lists whatever is still waiting, so nothing is stranded behind a project that is never opened again.
 /// </para>
 /// <para>
