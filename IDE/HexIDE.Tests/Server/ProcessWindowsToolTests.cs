@@ -15,6 +15,15 @@ public class ProcessWindowsToolTests
     private static Process Launched(string program, string arguments, ProcessWindowStyle style) =>
         Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = true, WindowStyle = style })!;
 
+    // What a test started, and whatever that started in turn, as Windows 11's notepad.exe does: by ID, never by name.
+    // The start time is read at launch: a launcher that has handed off and gone has none to read.
+    private static void KillWithChildren(Process process, DateTime started)
+    {
+        foreach (var child in OperatingSystem.IsWindows() ? HexIDE.Automation.ProcessWindows.Descendants(process.Id, started) : [])
+            try { Process.GetProcessById(child).Kill(); } catch (ArgumentException) { }
+        try { process.Kill(); } catch (InvalidOperationException) { }
+    }
+
     // No window and no children, so killing it leaves nothing behind.
     private static Process Waiting() => OperatingSystem.IsWindows()
         ? Process.Start(new ProcessStartInfo("ping.exe", "-n 30 127.0.0.1") { CreateNoWindow = true })!
@@ -136,12 +145,7 @@ public class ProcessWindowsToolTests
             reply.Note.Should().MatchRegex(@" \d+ process(es)? it started (is|are) included\.", "notepad, ping and the console host");
             windows.Should().Contain(w => w.ProcessId != launcher.Id && w.State == "Minimized");
         }
-        finally
-        {
-            foreach (var child in OperatingSystem.IsWindows() ? HexIDE.Automation.ProcessWindows.Descendants(launcher.Id, started) : [])
-                try { Process.GetProcessById(child).Kill(); } catch (ArgumentException) { }
-            try { launcher.Kill(); } catch (InvalidOperationException) { }
-        }
+        finally { KillWithChildren(launcher, started); }
     }
 
     // A hidden window's show state reads Normal, which a first-contact caller took for a window on screen.
@@ -149,6 +153,7 @@ public class ProcessWindowsToolTests
     public async Task A_program_started_hidden_is_read_as_hidden_and_the_note_says_vbHide_did_it()
     {
         using var process = Launched("notepad.exe", "", ProcessWindowStyle.Hidden);
+        var started = process.StartTime.ToUniversalTime();
         try
         {
             ShellLaunches.Record(process.Id, "notepad.exe", 0);
@@ -158,13 +163,14 @@ public class ProcessWindowsToolTests
             reply.Windows.Should().Contain(w => w.ClassName == "Notepad" && w.State == "Hidden" && !w.Visible);
             reply.Note.Should().EndWith(" None is visible, as vbHide starts a program hidden.");
         }
-        finally { try { process.Kill(); } catch (InvalidOperationException) { } }
+        finally { KillWithChildren(process, started); }
     }
 
     [WindowsOnlyFact]
     public async Task A_minimized_program_is_read_as_minimized_and_visible()
     {
         using var process = Launched("notepad.exe", "", ProcessWindowStyle.Minimized);
+        var started = process.StartTime.ToUniversalTime();
         try
         {
             ShellLaunches.Record(process.Id, "notepad.exe", 6);
@@ -176,12 +182,6 @@ public class ProcessWindowsToolTests
                                           + "(vbMinimizedNoFocus).");
             reply.Windows.Should().Contain(w => w.State == "Minimized" && w.Visible && w.ClassName == "Notepad");
         }
-        finally
-        {
-            // A launcher may have handed off: whatever it started goes too, by ID, never by name.
-            foreach (var window in (await ProcessWindowsTool.DescribeAsync(process.Id, TestContext.Current.CancellationToken)).Windows ?? [])
-                try { Process.GetProcessById(window.ProcessId).Kill(); } catch (ArgumentException) { }
-            try { process.Kill(); } catch (InvalidOperationException) { }
-        }
+        finally { KillWithChildren(process, started); }
     }
 }
