@@ -23,3 +23,6 @@ The #178 issue comments' measured whole-record copy and array behavior is record
 
 The #2325 comments’ measured keyboard input is recorded in
 [Key events](vb6-fidelity-oracle/key-events.md).
+
+The #2515 measured numeric formatting functions are recorded in
+[Numeric format functions](vb6-fidelity-oracle/numeric-format-functions.md).
