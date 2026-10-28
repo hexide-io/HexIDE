@@ -92,7 +92,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
-        ConfigurationProblems = configurationProblems ?? [];
+        _configurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
         _entries = registrations
@@ -144,7 +144,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// when one server declined it and another served it.</summary>
     public IReadOnlyList<string> DeclinedCapabilities => [];
 
-    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
+    private readonly ConcurrentDictionary<string, LanguageServerConfigProblem> _importProblems = new();
+    private readonly IReadOnlyList<LanguageServerConfigProblem> _configurationProblems;
+    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems =>
+        _configurationProblems.Concat(_importProblems.Values).ToArray();
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
         _entries.Select(e => new LanguageServerConnection(
@@ -923,7 +926,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
-            if (_artifacts is not null)
+            if (_artifacts is not null && e.Registration.ProjectImport is null)
             {
                 try { await _artifacts.PrepareAsync(e.Registration, cancellationToken); }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -945,6 +948,27 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             await client.StartAsync(cancellationToken);
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
+            if (client.IsRunning && _artifacts is not null && e.Registration.ProjectImport is { } spec)
+                await _artifacts.ImportAsync(e.Registration, async (project, token) =>
+                {
+                    // A stopped/replaced connection must not be revived by the debounce callback.
+                    if (!ReferenceEquals(e.Client, client) || !client.IsRunning) return;
+                    var problemKey = e.Registration.Id + "\0" + (project.Project.DefinitionPath ?? project.WorkspaceRoot);
+                    try
+                    {
+                        if (project.Project.DefinitionPath is not { } path || project.ProjectText is not { } render)
+                            throw new InvalidOperationException("Project import requires a saved project path and in-memory project text.");
+                        await client.ImportProjectAsync(spec, new Uri(path).AbsoluteUri, await render(token), token);
+                        _importProblems.TryRemove(problemKey, out _);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
+                    {
+                        _importProblems[problemKey] = new(e.Registration.Id, $"Project import failed for {project.Project.Name}: {ex.Message}", false);
+                        _logger.LogWarning(ex, "Project import failed for {Server}.", e.Registration.Id);
+                    }
+                    ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+                }, cancellationToken);
 
             if (!client.IsRunning)
                 _logger.LogWarning("Language server '{Id}' did not start; its languages have no support.",

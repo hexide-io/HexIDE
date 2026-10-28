@@ -14,6 +14,15 @@ Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see
 4. **No value mutation** — values for preserved keys are identical (modulo deliberate canonicalisation, e.g. path separator normalisation)
 5. **`.frx` byte identity** — when no blob-backed properties were modified, the `.frx` output must be byte-for-byte identical to the original
 
+The `.vbp` corpus comparison resolves each parsed `Reference=` path from its own project folder
+using Windows path semantics (#2274). Absolute and relative spellings of the same library compare
+equally; every other byte, including the rest of the reference line, remains significant. VB6 saves
+a same-drive library relative, so a project moved from another drive need not retain its path spelling.
+Line order is compared strictly for every project, the VB98 Template tree included: a VB6 save
+with no edit keeps every line where it was read, and VB6's own saves of its templates showed it
+(#2274). Only confirming the References dialog regroups a save, and the corpus round trip never
+does.
+
 To run the corpus tests locally:
 
 ```

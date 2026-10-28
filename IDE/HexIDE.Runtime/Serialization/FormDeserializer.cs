@@ -89,6 +89,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
@@ -119,6 +120,7 @@ public class FormDeserializer
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
+            TabStripPersistence.Validate(rootComponent);
             headerLines = vb.HeaderLines;
             designerText = vb.DesignerText;
             // The parser no longer reports a raw Begin depth. It counted every Begin without knowing what
@@ -582,6 +584,15 @@ public class FormDeserializer
                     form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, ex.Message);
                 }
             }
+            if (componentClass is Components.InBox.TabStripComponentClass)
+            {
+                instance.SetProperty(TabStripPersistence.SavedProperty, serializedComponent);
+                if (!TabStripPersistence.CanWrite(serializedComponent)
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentX") is not int
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentY") is not int)
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnimplementedControlPersistence,
+                        "TabStrip persistence is not implemented (#1089).");
+            }
             // An in-box control is written back under the type name it was read under, and with the extents it was read with
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
@@ -684,6 +695,13 @@ public class FormDeserializer
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 $"it references companion binary content HexIDE cannot re-emit "
                 + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
+
+        // Rendering also serves dirty checks; only the save path may refuse missing extents (#1631).
+        if (components.Any(c => c.BaseClass is UserControlComponentClass uc && uc.Setting("InvisibleAtRuntime")
+            && (!c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase))
+                || !c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)))))
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.MissingUserControlExtents,
+                "it contains an invisible UserControl without both recorded extents; saving its size is not implemented");
 
         form.UpdateCode(code);
         form.UpdateComponents(components);

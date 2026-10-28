@@ -463,7 +463,7 @@ public static class AvaloniaInteroperability
     /// <summary>
     /// The enum value a value names, converted as an Integer, or 380 when it is not one of the property's values.
     /// </summary>
-    private static int EnumValue(Type type, Vb6Value value)
+    internal static int EnumValue(Type type, Vb6Value value)
     {
         var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Integer));
         // MousePointer's members are exactly what VB6 accepts, 0 to 15 and 99, measured (#768, #120).

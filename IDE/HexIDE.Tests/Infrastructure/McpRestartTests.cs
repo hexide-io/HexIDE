@@ -431,6 +431,45 @@ public class McpRestartTests
             .Should().Be("Form1 3 ");
     }
 
+    // A client holding a schema older than the server's sends an array or object it was given as text, and sends it so
+    // again on every retry: the refusal says why, and does not point at the schema it holds (#2446).
+    [Theory]
+    [InlineData("[1, 2]", "a string holding one, \"[1, 2]\"")]
+    [InlineData("[]", "a string holding one, \"[]\"")]
+    [InlineData("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]",
+        "a string of 43 characters holding one, beginning \"[1, 2, 3, 4, 5, 6, 7, 8,\"…")]
+    public async Task An_array_that_arrived_as_text_holding_one_is_refused_naming_a_stale_schema(string sent, string shown)
+    {
+        var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = sent });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be($"'marks' refused its arguments, and nothing was done: 'lines' must be array, and "
+            + $"arrived as {shown}: what a client sends while it holds an older schema of this "
+            + "tool, from before this parameter took an array. Retrying in this session sends the same text: its client "
+            + "keeps the schema it loaded, which this server has since changed. A new session loads the current schema and "
+            + "sends the value as it was written.");
+    }
+
+    [Fact]
+    public async Task Text_that_holds_no_array_is_refused_as_before_and_points_at_the_schema()
+    {
+        TextOf(await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = "1, 2" })).Should().Be(
+            "'marks' refused its arguments, and nothing was done: 'lines' must be array, not \"1, 2\". Its input schema "
+            + "names each parameter and its type.");
+        // A string parameter is a string, whatever its text holds.
+        TextOf(await CallWithAsync("marks", new() { ["name"] = "[1]", ["lines"] = new[] { 3 } })).Should().Be("[1] 3 ");
+    }
+
+    [Fact]
+    public async Task A_long_string_is_shown_by_its_length_and_its_start()
+    {
+        var sent = "yes, please turn it on, and keep it on for the rest";
+
+        TextOf(await CallWithAsync("flag", new() { ["on"] = sent })).Should().Be(
+            $"'flag' refused its arguments, and nothing was done: 'on' must be boolean, not a string of {sent.Length} "
+            + "characters beginning \"yes, please turn it on, \"…. Its input schema names each parameter and its type.");
+    }
+
     [Fact]
     public async Task A_number_in_a_string_binds_as_the_SDK_reads_it_and_is_not_named_beside_a_real_problem()
     {

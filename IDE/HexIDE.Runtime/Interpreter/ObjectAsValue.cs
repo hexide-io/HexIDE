@@ -39,6 +39,8 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        Components.InBox.TabStripTab tab => new Vb6Value(tab.Tab.Caption),
+        VBTabStrip => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         VBCommonDialog => throw new VBRunTimeException(new VBStandardError(394, "Property is write-only")),
         ToolbarItem item => item.DefaultValue,
         Components.InBox.TreeNode node => new Vb6Value(node.Text),
