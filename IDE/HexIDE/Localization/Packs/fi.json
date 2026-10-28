@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Lataa kuva",
+    "Str.Tool.Properties.LoadPictureFailed": "Kuvaa ei voi ladata tiedostosta ”{0}”.",
     "Str.Designer.ShowTabOrder": "Näytä sarkainjärjestys (yliviivattu: TabStop pois)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Kiinnitetyt otsikot vieritettäessä",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Kiinnitettyjen otsikoiden enimmäismäärä",

@@ -512,7 +512,8 @@ public class PropertyTextTests
     public void A_refusal_names_the_text_a_font_and_a_picture_take()
     {
         PropertyText.Accepted(VBProperties.FontProperty).Should().Contain("\"Tahoma, 9.75 pt, bold, italic, charset 0\"").And.Contain("regular");
-        PropertyText.Accepted(VBProperties.PictureProperty).Should().StartWith("no text").And.Contain("no automation route");
+        PropertyText.Accepted(VBProperties.PictureProperty).Should().StartWith("no text").And.Contain("... button").And.Contain("answer_next_file_dialog");
+        PropertyText.Accepted(VBProperties.OleObjectBlobProperty).Should().Contain("no automation route");
     }
 
     [Theory]

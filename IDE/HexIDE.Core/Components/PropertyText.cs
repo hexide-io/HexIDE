@@ -96,6 +96,9 @@ public static partial class PropertyText
                    + "number or a style word, such as \"Wingdings 2\", is taken as a face when it is the control's own, "
                    + "installed here, or a Windows font vb6.exe takes by name, such as \"MS Shell Dlg 2\"; otherwise it "
                    + "reads as a face and a size or style without their comma";
+        if (property == VBProperties.PictureProperty || property == VBProperties.IconProperty
+            || property == VBProperties.DragIconProperty || property == VBProperties.MouseIconProperty)
+            return "no text: use the picture row's ... button in the Properties window; answer_next_file_dialog can answer its file picker";
         if (type == typeof(byte[]))
             return "no text: it is loaded through the Properties window's dialog, and no automation route reaches it yet";
         if (type == typeof(bool))
