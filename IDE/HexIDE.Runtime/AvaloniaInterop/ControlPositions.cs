@@ -47,7 +47,8 @@ internal static class ControlPositions
         // A Timer's Left and Top belong only to its designer icon (measured, #2069).
         if (control is VBTimer && (ReferenceEquals(property, VBProperties.LeftProperty)
                                   || ReferenceEquals(property, VBProperties.TopProperty)))
-            throw new VBRunTimeException(VBStandardError.PropertyGetCantBeExecutedAtRunTime);
+            throw new VBRunTimeException(new VBStandardError(VBStandardError.PropertyGetCantBeExecutedAtRunTime.ErrNo,
+                $"'{property.Name}' property cannot be read at run time"));
         // A form's own Width and Height are its outer size, its frame included (#1072).
         if (control is Window form && IsSize(property))
             return new Vb6Value((float)FormFrame.Read(form, IsVertical(property)));
