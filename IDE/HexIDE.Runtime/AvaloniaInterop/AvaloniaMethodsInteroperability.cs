@@ -233,6 +233,12 @@ public static class AvaloniaMethodsInteroperability
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBTreeView tree && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count != 0) throw new NotImplementedException();
+            await tree.StartLabelEditAsync();
+            return Vb6Value.Nothing;
+        }
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);

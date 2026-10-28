@@ -85,7 +85,6 @@ public class TreeViewRuntimeTests
     [InlineData("Refresh")]
     [InlineData("HitTest 0, 0")]
     [InlineData("OLEDrag")]
-    [InlineData("StartLabelEdit")]
     public async Task Missing_methods_name_the_member_and_tracking_issue(string call)
     {
         Func<Task> act = () => Run($"TreeView1.{call}");

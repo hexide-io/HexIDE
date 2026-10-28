@@ -3,7 +3,7 @@
 ## Purpose
 
 Describe the runtime drawing, input and native file persistence of MSComctlLib.TreeView (#1086). ImageList binding awaits
-#1083; label editing, remaining runtime members and the sample-node designer preview remain later slices.
+#1083; remaining runtime members and the sample-node designer preview remain later slices.
 
 ## Requirements
 
@@ -106,7 +106,7 @@ Adding nodes while already focused SHALL NOT select them.
 
 ### Requirement: Dispatch measured keyboard and SingleSel sequences
 
-Enter SHALL toggle the selected node before KeyDown. Home and Down SHALL select with NodeClick;
+With no label editor open, Enter SHALL toggle the selected node before KeyDown. Home and Down SHALL select with NodeClick;
 Right SHALL expand or select the first child, and Left SHALL collapse or select the parent.
 Numpad multiply/subtract SHALL expand/collapse. Space with Checkboxes SHALL toggle Checked with
 NodeCheck. These actions other than Enter SHALL follow KeyDown and precede KeyUp.
@@ -136,3 +136,30 @@ Missing extents on unchanged loaded controls SHALL retain their absence; that ed
 
 - **WHEN** a new TreeView is saved
 - **THEN** its block writes Style 7 and Appearance 1
+
+### Requirement: Edit a label
+
+StartLabelEdit SHALL open a shared label editor for a visible selected node in either LabelEdit mode.
+With no selection it SHALL do nothing. F2 SHALL only dispatch KeyDown 113, and manual-mode label
+clicks SHALL NOT start an edit. The editor SHALL exist with the original text at zero size
+before BeforeLabelEdit runs, with Cancel as Integer zero; cancellation SHALL remove it.
+Otherwise it SHALL open two pixels left and one above the label with all text selected and a single
+border. The first key SHALL increase height by four pixels and move it two pixels upward.
+Enter, Tab and focus loss SHALL commit changed text, and Escape SHALL discard it. Tab SHALL move focus
+to the next control after committing. Unchanged text SHALL NOT
+raise AfterLabelEdit. During AfterLabelEdit the node SHALL retain its original Text; afterward it
+SHALL take the handler's NewString unless Cancel is set. In automatic mode a click on an already-selected
+label SHALL start editing one host double-click time after MouseUp. A double-click SHALL cancel the
+pending edit. Commit-before-click ordering and focus ordering when an event handler suspends remain outstanding; positioning a selected invisible node and restarting an active edit remain unmeasured and refused.
+
+#### Scenario: A handler substitutes a label
+
+- **WHEN** an edit of Node 2 is committed with xyz and AfterLabelEdit changes NewString to Changed
+- **THEN** Text reads Node 2 inside the handler and Changed after it returns
+
+#### Scenario: Click the selected label
+
+- **WHEN** an already-selected label is clicked with LabelEdit 0
+- **THEN** MouseDown, NodeClick and MouseUp precede BeforeLabelEdit
+- **AND** the editor opens after the host double-click interval from MouseUp
+- **AND** a second press forming a double-click cancels that pending editor

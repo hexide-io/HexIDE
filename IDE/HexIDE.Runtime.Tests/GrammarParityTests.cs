@@ -35,6 +35,8 @@ public class GrammarParityTests
     // added only after deciding the divergence is intended rather than to silence this test.
     private static readonly Dictionary<string, string> InterpreterOnly = new()
     {
+        ["signedLiteral"] = "Metadata-only signed values after #1073 removed signs from the interpreter lexer tokens. "
+                          + "The LSP grammar already handles those signs in integerLiteral, doubleLiteral and octalLiteral.",
         ["continueStmt"] = "A HexIDE grammar extension. VB6 has no Continue statement at all, so there is "
                          + "nothing for the LSP grammar to carry and nothing to upstream.",
     };

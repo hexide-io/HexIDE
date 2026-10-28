@@ -136,6 +136,14 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: Converting a hex or octal String
+- **WHEN** CInt, CLng, CByte, CDbl, CCur, CSng, CDec or Val reads a hex or octal String
+- **THEN** width follows the unsigned value, independent of leading zeros
+- **AND** CInt and Val read signed 16 bits through &HFFFF; the other conversions retain that unsigned value
+- **AND** values from &H10000 through &HFFFFFFFF are read as signed 32 bits before range checking
+- **AND** above &HFFFFFFFF CInt, CByte and Val retain low 32 bits, CLng raises 6, and the other conversions read the whole value
+- **AND** numeric conversions refuse a trailing `&` with error 13 (the literal form remains valid)
+
 #### Scenario: A For body changes its integral numeric counter
 - **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
 - **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
@@ -512,6 +520,26 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 #### Scenario: A retained debugger frame
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
+
+### Requirement: A literal's sign SHALL be an operator
+The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
+apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
+subtraction without requiring spaces. Negation of `&H8000` or a typed Integer holding -32768 SHALL raise
+Overflow (6), following p-code.
+
+#### Scenario: Negation after power
+- **WHEN** `-2 ^ 2` or `Const C = -2 ^ 2` is evaluated
+- **THEN** the result is Double -4
+- **AND** `(-2) ^ 2` is Double 4
+
+#### Scenario: Digits determine the type before negation
+- **WHEN** `-32768` or `-2147483648` is evaluated
+- **THEN** the result is respectively Long -32768 or Double -2147483648
+- **AND** an explicitly typed Integer constant or assignment can hold -32768
+
+#### Scenario: Subtraction without spaces
+- **WHEN** `x-1` is evaluated with Integer x holding 5
+- **THEN** the result is Integer 4
 
 ### Requirement: Err.Source identifies the raising project
 
