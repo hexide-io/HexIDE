@@ -335,13 +335,19 @@ command. A form the runtime loader cannot create SHALL report its existing unsup
 
 ### Requirement: Designer instantiation failures are contained per control
 
-The designer SHALL catch an exception from a control's designer instantiation, log the exception, and show a disabled placeholder at that control's bounds with its name and the exception message. The view-only label SHALL be localized. The failed preview SHALL NOT prevent the form from remaining open.
+The designer SHALL catch an exception from a control's designer instantiation, layout or drawing, log the exception, and show a disabled placeholder at that control's bounds with its name and the exception message. The view-only label SHALL be localized. The failed preview SHALL NOT prevent the form from remaining open.
 
 #### Scenario: A registered component refuses its designer instance
 
 - **WHEN** a form containing a registered component whose designer instantiation throws is opened
 - **THEN** the designer shows the failed control's name and reason in a disabled placeholder at its bounds
 - **AND** its canvas item is disabled and the form stays open
+- **AND** opening the preview does not change the serialized form
+
+#### Scenario: A control refuses while it is drawn
+
+- **WHEN** a form is opened whose StatusBar has a spring panel beside a Contents panel with text, which the StatusBar refuses to lay out
+- **THEN** the designer shows that StatusBar's name and reason in a disabled placeholder at its bounds, and the form stays open
 - **AND** opening the preview does not change the serialized form
 
 Conversion to an inert carried block, exclusion from property selection and verbatim carry-over after edits elsewhere on the form remain outstanding under #2405.
