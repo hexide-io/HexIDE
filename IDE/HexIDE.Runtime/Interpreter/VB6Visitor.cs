@@ -24,7 +24,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
     /// <c>a(3.5)</c> is <c>a(4)</c>), a numeric string read (<c>a(" 3 ")</c>), <c>True</c> -1, <c>Empty</c> 0,
     /// <c>Null</c> 94, <c>"x"</c> 13, and beyond a Long 6, all before the bounds are checked. One exception to CLng:
     /// an omitted <c>Optional</c> Variant is 13, where CLng reads it as 448 (measured, and so is <c>CVErr(5)</c>,
-    /// which HexIDE has no value for yet).
+    /// which also raises 13).
     /// </summary>
     /// <remarks>
     /// It accepted only an Integer, a Byte or an integral string, and refused anything else as an untrappable
@@ -32,7 +32,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
     /// </remarks>
     public static int Subscript(Vb6Value value)
     {
-        if (value.IsMissing)
+        if (value.IsMissing || value.Type == Vb6Value.ValueType.Error)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         return Convert.ToInt32(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Long).Value);
     }
@@ -45,7 +45,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
     /// </summary>
     public static int ControlArrayIndex(Vb6Value value)
     {
-        if (value.IsMissing)
+        if (value.IsMissing || value.Type == Vb6Value.ValueType.Error)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         var index = Convert.ToInt32(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Integer).Value);
         if (index < 0)

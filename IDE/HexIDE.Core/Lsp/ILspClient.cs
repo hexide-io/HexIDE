@@ -285,6 +285,9 @@ public interface ILspClient : IAsyncDisposable
     /// </remarks>
     Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>Notifies opted-in servers of workspace folder changes before project import.</summary>
+    Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>Imports a project and refreshes diagnostics. Failures propagate to configuration reporting.</summary>
     Task<System.Text.Json.JsonElement?> ImportProjectAsync(ProjectImportSpec spec, string uri, string text,
         CancellationToken cancellationToken = default) => throw new NotSupportedException("Project import is unavailable.");

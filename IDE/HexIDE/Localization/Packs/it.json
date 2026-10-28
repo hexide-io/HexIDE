@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— risposta, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Copia come traccia",
     "Str.Tool.ProtocolInspector.Export": "Esporta conversazione...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Sostituire questi file esistenti?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Esportati {0} messaggi in {1}, con il manifest in {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "L'esportazione non è stata completata: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Ciò che esce è pseudonimizzato.",
