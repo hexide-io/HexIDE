@@ -499,3 +499,21 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
+
+### Requirement: FormatDateTime SHALL use the program's locale
+`FormatDateTime(Date, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
+uses CStr's general date rendering, 1 the long date, 2 the short date, 3 the long time, and
+4 24-hour hours and minutes. It SHALL accept the date serials, date text, Empty, Null and
+True measured in [#2516](https://github.com/hexide-io/HexIDE/issues/2516).
+NamedFormat SHALL convert as CInt does and reject formats outside 0–4 with error 5.
+
+#### Scenario: Measured en-GB date and time
+- **WHEN** `FormatDateTime(#2026-10-28 14:05:09#)` runs in the measured en-GB regional settings
+- **THEN** it returns the String `28/10/2026 14:05:09`
+- **AND** format 4 returns `14:05`
+
+#### Scenario: Null date and invalid format
+- **WHEN** the date argument is Null and the format is omitted
+- **THEN** the result is an empty String
+- **WHEN** a date is supplied with NamedFormat Null or `"x"`
+- **THEN** the error is 94 or 13 respectively

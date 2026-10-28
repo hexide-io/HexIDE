@@ -23,3 +23,6 @@ The #178 issue comments' measured whole-record copy and array behavior is record
 
 The #2325 comments’ measured keyboard input is recorded in
 [Key events](vb6-fidelity-oracle/key-events.md).
+
+The #2516 brief’s measured date and time formatting is recorded in
+[FormatDateTime](vb6-fidelity-oracle/formatdatetime.md).
