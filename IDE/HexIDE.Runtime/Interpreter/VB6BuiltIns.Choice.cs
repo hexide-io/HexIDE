@@ -14,9 +14,11 @@ public partial class VB6BuiltIns
         // #2526, SP6 native and p-code: CLng arguments, Null propagation, and fields as wide as Stop + 1.
         d["Partition"] = (_, a, _) =>
         {
-            for (var i = 0; i < 4; i++)
-                if (a[i].IsNull)
-                    return Vb6Value.Null;
+            // Null as Number or Start is measured to return Null; as Stop or Interval it was not measured.
+            if (a[2].IsNull || a[3].IsNull)
+                throw new NotImplementedException("Partition: Null as Stop or Interval has not been measured (#2526)");
+            if (a[0].IsNull || a[1].IsNull)
+                return Vb6Value.Null;
             var number = (long)NarrowNum(a[0], Vb6Value.ValueType.Long).Value!;
             var start = (long)NarrowNum(a[1], Vb6Value.ValueType.Long).Value!;
             var stop = (long)NarrowNum(a[2], Vb6Value.ValueType.Long).Value!;

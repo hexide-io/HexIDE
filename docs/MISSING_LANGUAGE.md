@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
+| Intrinsic functions | 0 | 0 | 32 | 53 | 0 | 68 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
+| **Total** | **1** | **0** | **126** | **452** | **20** | **585** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 127 names
+## Dies mid-run — 126 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -552,7 +552,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (33 absent, 53 partial, 67 supported)
+### Intrinsic functions — 153 names (32 absent, 53 partial, 68 supported)
 
 
 **array** (3)
@@ -668,7 +668,7 @@ missing.
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
-| `Partition` | Supported | **#2526, measured SP6 native and p-code:** CLng-coerced arguments; padded inclusive buckets with width from Stop + 1, blank outside bound, last bucket capped at Stop. Null in any argument returns Null; negative Start, Stop <= Start and Interval < 1 raise 5; a nonnumeric String raises 13. | VB6BuiltIns.Choice.cs |
+| `Partition` | Supported | **#2526, measured SP6 native and p-code:** CLng-coerced arguments; padded inclusive buckets with width from Stop + 1, blank outside bound, last bucket capped at Stop. Null as Number or Start returns Null, and Null as Stop or Interval, which was not measured, is refused; negative Start, Stop <= Start and Interval < 1 raise 5; a nonnumeric String raises 13. | VB6BuiltIns.Choice.cs |
 | `QBColor` | Supported | Measured: `QBColor(0)` to `QBColor(15)` is the sixteen-colour table, as a Long. The argument is coerced as CInt does (`QBColor(7.5)` is colour 8, `QBColor(40000)` overflows: 6); outside 0 to 15 raises 5, Null 94. | VB6BuiltIns.Color.cs |
 | `RGB` | Supported | Measured: red + 256 green + 65536 blue, as a Long. Each component is coerced as CInt does (banker's rounding, numeric strings, Null 94, "x" 13, outside Integer 6); a negative one raises 5 and one above 255 is 255. | VB6BuiltIns.Color.cs |
 | `Switch` | Supported | **#1560:** runs as vb6.exe measured: every argument evaluated first, expressions read as CBool until one holds, a Null one holding nothing, those after it unread; an odd count is 5. | VB6BuiltIns.Choice.cs |

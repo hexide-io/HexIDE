@@ -19,8 +19,6 @@ public class PartitionTests : BaseVBTestFixture
     [InlineData("25, 0, 100, 10.6", " 22: 32")]
     [InlineData("Null, 0, 100, 10", null)]
     [InlineData("25, Null, 100, 10", null)]
-    [InlineData("25, 0, Null, 10", null)]
-    [InlineData("25, 0, 100, Null", null)]
     [InlineData("\"25\", 0, 100, 10", " 20: 29")]
     [InlineData("25, 0, 100, 200", "  0:100")]
     [InlineData("99999, 0, 100000, 10", " 99990: 99999")]
@@ -34,7 +32,7 @@ public class PartitionTests : BaseVBTestFixture
             Debug.Print Err.Number
             """);
 
-        AssertDebugLog([expected is null ? Vb6Value.Null : new Vb6Value(expected), 0L]);
+        AssertDebugLog([expected is null ? Vb6Value.Null : new Vb6Value(expected), new Vb6Value(0L)]);
     }
 
     [Theory]
@@ -54,5 +52,18 @@ public class PartitionTests : BaseVBTestFixture
             """);
 
         AssertDebugLog([new Vb6Value((long)number)]);
+    }
+
+    [Theory]
+    [InlineData("25, 0, Null, 10")]
+    [InlineData("25, 0, 100, Null")]
+    public async Task Null_as_Stop_or_Interval_is_refused_until_measured(string arguments)
+    {
+        var run = () => Run($"""
+            Dim result
+            result = Partition({arguments})
+            """);
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Null as Stop or Interval*#2526*");
     }
 }
