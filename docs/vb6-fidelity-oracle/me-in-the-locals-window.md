@@ -105,3 +105,42 @@ So:
 - **`Me` ends with one `Item` per control, `Item 1` to `Item 5`, after the sorted list.** They follow the `.frm`'s
   order, both array elements in place: Label1, Text1, Timer1, Command1(0), Command1(2). There are as many as `Count`
   reads, each typed `Variant/Object/<class>` with no Value.
+
+### With module-level variables
+
+**The probe.** The same form, with five module-level variables added. They're declared in this order:
+`Public Score As Integer`, `Private mCount As Long`, `Dim zLast As Variant`, `Private aFirst As String`, then
+`Private Grid(1 To 2) As Long`. `Form_Load` sets `Score = 7`, `mCount = 42`, `zLast = "z"`, `aFirst = "a"` and
+`Grid(1) = 5`, then reaches `Stop`. `Me` and then `Grid` were expanded.
+
+**Where they appeared**, each between the two rows shown with it:
+
+| Expression | Value | Type |
+|---|---|---|
+| `ActiveControl` | `Nothing` | `Control` |
+| `aFirst` | `"a"` | `String` |
+| `Appearance` | `1` | `Integer` |
+| … | | |
+| `ForeColor` | `-2147483630` | `Long` |
+| `Grid` + | | `Long(1 to 2)` |
+| `Grid(1)`, under `Grid` | `5` | `Long` |
+| `Grid(2)`, under `Grid` | `0` | `Long` |
+| `HasDC` | `True` | `Boolean` |
+| … | | |
+| `MaxButton` | `True` | `Boolean` |
+| `mCount` | `42` | `Long` |
+| `MDIChild` | `False` | `Boolean` |
+| … | | |
+| `ScaleWidth` | `4500` | `Single` |
+| `Score` | `7` | `Integer` |
+| `ShowInTaskbar` | `True` | `Boolean` |
+| … | | |
+| `WindowState` | `0` | `Integer` |
+| `zLast` | `"z"` | `Variant/String` |
+| `Item 1` + | | `Variant/Object/Label` |
+
+Every other row is as in the table above. So **a form's own module-level variables are in the same list as its
+properties and controls, sorted by name with case ignored.** That holds for `Public`, `Private` and `Dim` alike, whatever
+order they're declared in. `Item 1` to `Item n` still come after all of them, even after a variable whose name sorts
+last. A Variant reads `Variant/` and its subtype, as `Item n` does. An array is a node typed `Long(1 to 2)`, whose
+children are its elements, `Grid(1)` and `Grid(2)`.
