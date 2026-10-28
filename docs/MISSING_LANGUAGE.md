@@ -121,9 +121,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
-| In-box objects | 0 | 0 | 81 | 16 | 0 | 26 | 123 |
+| In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **137** | **447** | **20** | **579** | **1184** |
+| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -159,8 +159,8 @@ visitor, not changing how the language is understood.
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
-of 107) and 66% of the
-in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 81 of 123) are unavailable. Both
+of 107) and 58% of the
+in-box surface (`App`, `Printer`, `Clipboard`; 71 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 137 names
+## Dies mid-run — 127 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -381,16 +381,6 @@ most of the in-box object model.
 | `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
-| `Screen` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
-| `Screen.ActiveControl` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.ActiveForm` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.FontCount` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.Fonts` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.Height` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.MousePointer` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.TwipsPerPixelX` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.TwipsPerPixelY` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.Width` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
 | `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -922,7 +912,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (81 absent, 16 partial, 26 supported)
+### In-box objects — 123 names (71 absent, 21 partial, 31 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1013,16 +1003,16 @@ missing.
 | `PropertyBag_VB5` | **Dies** | The name lexes as an ordinary IDENTIFIER (digits and `_` are both in LETTERORDIGIT, VB6.g4). Measured for `Dim p As PropertyBag_VB5` and for `Set p = New PropertyBag_VB5`:… | StatementExecutor.cs |
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
-| `Screen` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
-| `Screen.ActiveControl` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.ActiveForm` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.FontCount` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.Fonts` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.Height` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.MousePointer` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.TwipsPerPixelX` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.TwipsPerPixelY` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Screen.Width` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** reached wherever nothing the program declares is named Screen, as `Clipboard` is, with or without Option Explicit: `TypeName` is "Screen", and `Dim s As Screen` holds it (measured, oracle "The Screen object"). Each member's row says what runs. `MouseIcon` is refused rather than guessed. A write to a member a program cannot write is 382, or 383 for TwipsPerPixelX and Y, naming it, as through an Object; early-bound, VB6 refuses it at compile time instead, and here it is refused as the statement runs. | VbScreen.cs |
+| `Screen.ActiveControl` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the active form's control with the focus. Nothing, with no error, when no form is active or the form has nothing that can take the focus (measured, oracle "The Screen object"). Partial because a shown form gives no control the focus until the user or the program moves it ([#2436](https://github.com/hexide-io/HexIDE/issues/2436)), so this reads Nothing there, where VB6 reads the first control in tab order. | VBProgram.cs |
+| `Screen.ActiveForm` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the form last activated. Nothing, with no error, before a form is shown, after `Load` alone, and after it unloads (measured, oracle "The Screen object"). | VBProgram.cs |
+| `Screen.FontCount` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** an Integer, as measured: the number of font families the platform lists, which is not the count Windows gives VB6. | VbScreen.cs, AvaloniaDisplay.cs |
+| `Screen.Fonts` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a String. An index past either end is "", with no error, and the index converts as an Integer: rounded to even, 40000 is 6, "abc" 13 and Null 94 (measured, oracle "The Screen object"). The names and their order are the platform's font families, not Windows'. | VbScreen.cs, AvaloniaDisplay.cs |
+| `Screen.Height` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a Single, the primary screen's height in twips: its device-independent pixels, whole, times 15 (measured: 11520 at 768). A scaled display was not measured on VB6. | VbScreen.cs, AvaloniaDisplay.cs |
+| `Screen.MousePointer` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** an Integer, 0 until set, converted as a control's is: 0 to 15 and 99, rounded to even, anything else 380, a String converted, "abc" 13 and 32768 6 (measured, oracle "The Screen object"). It does not set a form's, and it stays set after the last form unloads (measured). While it is not 0, each form's window and every control in it show that pointer, over a control's own. Partial: a control made after it was set shows its own until it is next set, and 99 shows an arrow, since `MouseIcon` is not implemented. | VbScreen.cs, ScreenPointer.cs |
+| `Screen.TwipsPerPixelX` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a Single 15 (measured at 96 dpi). HexIDE's pixel is a device-independent one, 15 twips at any scaling; a scaled display was not measured on VB6. | VbScreen.cs |
+| `Screen.TwipsPerPixelY` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a Single 15 (measured at 96 dpi). HexIDE's pixel is a device-independent one, 15 twips at any scaling; a scaled display was not measured on VB6. | VbScreen.cs |
+| `Screen.Width` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** a Single, the primary screen's width in twips: its device-independent pixels, whole, times 15 (measured: 15360 at 1024). A scaled display was not measured on VB6. Centring a form on it, `(Screen.Width - Me.Width) / 2`, now runs. | VbScreen.cs, AvaloniaDisplay.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `App.ProductName` | Partial | Resolves, but is hardwired to the empty string regardless of the project - it is not read from AppInfo at all. VbApp.cs is: case "productname": value = ""; return true; | VbApp.cs |
 | `ClipBoardConstants` | Partial | The nine MEMBER constants are all registered in the built-in constant table and resolve as bare names - vbCFBitmap=2, vbCFDIB=8, vbCFEMetafile=14, vbCFFiles=15, vbCFLink=-16640… | VB6BuiltIns.cs |

@@ -874,6 +874,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return result;
             return new Vb6Value(interpreter.Clipboard);
         }
+        if (interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
+        {
+            if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var objectProc) && objectProc.IsFunction
+                && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } objectResult)
+                return objectResult;
+            return libraryObject;
+        }
         VbIntrinsicNames.RefuseMissingObject(identifier);
         throw new VBVariableNotDefinedException(identifier);
     }
@@ -985,6 +992,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     return builtInFn;
                 if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
                     return new Vb6Value(interpreter.Clipboard);
+                if (interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
+                    return libraryObject;
                 // Nothing else claims the name, so VB6 makes it a variable: reading an undeclared name is
                 // legal and yields Empty (measured). LAST, after procedures and intrinsics — a mistyped
                 // function call must not become a silent Empty. (#171)

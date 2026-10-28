@@ -337,7 +337,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
             "Reading an object's default member calls into the program, which is not available in the Immediate window."),
-        VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
+        VbObject or VbErr or VbApp or VbScreen => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
 
@@ -2260,6 +2260,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 bool leadFound;
                 if (!interpreter.TryReadNow(currentEnv, identifier, out leadFound, out variable, out var leadNeed))
                     (leadFound, variable) = await interpreter.ReadVariableAfter(currentEnv, identifier, leadNeed!);
+                // `Screen.MousePointer = x`, where nothing the program declares is named Screen (#2431).
+                if (!leadFound && interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
+                    (leadFound, variable) = (true, libraryObject);
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
@@ -3498,6 +3501,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (receiver.Value is ICSharpPropertyBag bag && bag.TrySetProperty(UdtFieldName(imageMembers[^1]), value))
                     return default;
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            }
+            // `Set s.ActiveForm = Nothing` is 382, naming the member, as a Let of it is (measured, #2431).
+            if (setLead && target.Value is VbScreen screen && membersCall.iCS_S_MemberCall().Length == 1)
+            {
+                screen.TrySetProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
             }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
