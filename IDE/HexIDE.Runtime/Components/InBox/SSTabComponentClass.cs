@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Avalonia;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinControls;
 using static HexIDE.Runtime.Components.VBProperties;
@@ -37,7 +38,20 @@ public sealed class SSTabComponentClass : InBoxComponentClass
         return tab;
     }
 
-    public override Control InstantiateForDesigner(ComponentInstance instance) => new VBSSTab(CreateChildHost());
+    public void InitializeDesignerPages(ComponentInstance instance) => SSTabDesignerPages.For(instance);
+
+    public bool SelectDesignerPage(ComponentInstance instance, Point point, Size size,
+        IReadOnlyList<ComponentInstance> children) => SSTabDesignerPages.For(instance).Select(point, size, children);
+
+    public void SynchronizeDesignerPages(ComponentInstance instance, IReadOnlyList<ComponentInstance> children) =>
+        SSTabDesignerPages.For(instance).Synchronize(children);
+
+    public override Control InstantiateForDesigner(ComponentInstance instance)
+    {
+        var tab = new VBSSTab(CreateChildHost());
+        instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Apply(tab, forDesigner: true);
+        return tab;
+    }
 
     public override bool TryGetChildHost(Control control, [NotNullWhen(true)] out Canvas? host)
     {

@@ -303,6 +303,12 @@ Declared names carry their syntactic completion kind: Sub → Method, Function �
 Property, Const → Constant, Enum → Enum, enum member → EnumMember, Type → Struct, and variables and
 parameters → Variable. Filtered client-side as you type.
 
+Completion bypasses the analysis worker and reads the last published declaration snapshot (#2434).
+It can therefore return names from the previous revision while a change is being parsed. Once the
+first open starts analysis, completion can return the static keywords and built-ins even before any
+declarations have been parsed. Diagnostics still run and publish for every
+change, and other requests (including formatting) still wait for that change's analysis.
+
 - ◐ No position awareness — the full list comes back regardless of cursor context.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each
   needs binding: resolving what `obj` *is*, or what type is expected here, is the relationship between two
@@ -318,7 +324,10 @@ parameters → Variable. Filtered client-side as you type.
 
 89 VB6 built-ins are covered, spanning strings, type conversions, math, arrays, character/ASCII,
 date/time, inspection, I/O and object/misc. The active parameter tracks comma position through nested
-parentheses, and the document is flushed before the request so there is no race with the change debounce.
+parentheses. Past the end of a signature whose last parameter is a list, as `Array`, `Choose` and `Switch` have,
+that parameter stays active. Past any other signature's end, the argument's own index is sent, so no parameter
+is marked for an argument VB6 would refuse (#2599).
+The document is flushed before the request so there is no race with the change debounce.
 
 - ◐ Signatures are manually authored tables.
 - ■ User-defined procedure signatures are not shown. Matching a call site to its declaration is binding.
@@ -442,14 +451,14 @@ than obeyed.
 
 ## The server's own trace
 
-Not a language feature, so it is absent from the table below — but it is the only way to see *why* one of
-those features cost what it did.
+Not a language feature, so it is absent from the table below. The trace explains an analysis to the
+client; the server's debug log also separates scheduling and execution costs.
 
 Set `trace` to `messages` or `verbose` in `initialize`, or send `$/setTrace` to a running server, and the
 analysis reports itself over `$/logTrace`. At `messages` that is one line per analysis; at `verbose` the
 same line arrives with detail attached in the notification's `verbose` member. Off is the default, an
-unrecognised value is ignored rather than silently downgraded, and with the level off nothing is measured —
-the parse runs exactly as it does when nobody is watching.
+unrecognised value is ignored rather than silently downgraded, and with the level off no analysis report
+is allocated or sent. Debug timing logs are independent of this protocol trace setting.
 
 ```
 untitled:Project1/Form1.frm: LL fallback, 41.3 ms, 1 diagnostic, 7 symbols
@@ -472,6 +481,14 @@ nothing. What only the server process knows is:
 - **A document refused rather than analysed** — a ranged content change against a server advertising Full
   sync is refused and the document evicted. On the wire, an empty diagnostic array; indistinguishable from
   a file with nothing wrong.
+
+Set `HEXIDE_LOG_LEVEL=Debug` to record each scheduled method's queue wait and execution time in the
+rolling server log. Completion has its own immediate dispatch path. Analysis logs include the parse's
+thread-pool queue wait, the SLL duration and, if reached, the LL duration (including abandoned work that
+finishes later). The diagnostics duration covers the whole budgeted analysis and cache refresh, so it
+includes parsing rather than being additive to it. Method, request id and document revision identify
+interleaved work; parse and diagnostics entries also carry the document URI. LL runs inline after SLL,
+with no separate queue. No document content is logged. See the [#2434 measurement](completion-latency-2434.md).
 
 Measured against five third-party servers, this channel is empty in practice: `trace: "verbose"` plus an
 explicit `$/setTrace` produced zero `$/logTrace` frames between them. So the bundled server is also the

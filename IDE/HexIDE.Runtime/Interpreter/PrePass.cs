@@ -218,6 +218,16 @@ public class PrePass : VB6BaseVisitor<object?>
         return node is VB6Parser.ValueStmtContext ? null : base.VisitChildren(node);
     }
 
+    public bool PredeclaredId { get; private set; }
+
+    public override object? VisitModuleAttributes(VB6Parser.ModuleAttributesContext context)
+    {
+        foreach (var attribute in context.attributeStmt())
+            if (attribute.implicitCallStmt_InStmt().GetText().Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
+                PredeclaredId = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+        return base.VisitModuleAttributes(context);
+    }
+
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)
     {
         topLevelBlocks.Add(context.block());
@@ -697,7 +707,7 @@ public class PrePass : VB6BaseVisitor<object?>
             ? (BaseTypeMapper.Map(hint), false, false)
             : ReturnOf(context.asTypeClause(), name);
         GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
-            returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
+            returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
         NoteDefaultMember(context.block());
@@ -818,7 +828,7 @@ public class PrePass : VB6BaseVisitor<object?>
             : ReturnOf(context.asTypeClause(), name);
         DeclareModuleName(name);
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, true, ParseParams(context.argList()),
-            returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
+            returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
         NoteDefaultMember(context.block());
@@ -907,12 +917,13 @@ public class PrePass : VB6BaseVisitor<object?>
 
     private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
     {
-        var type = ExtractBaseType(asType) ?? Vb6Value.ValueType.EmptyVariant;
+        var type = asType?.type()?.LPAREN() != null && asType.type().baseType() is { } element
+            && (element.OBJECT() != null || element.COLLECTION() != null)
+            ? Vb6Value.ValueType.Object : ExtractBaseType(asType) ?? Vb6Value.ValueType.EmptyVariant;
         return asType?.type()?.LPAREN() != null ? new Vb6Value.ValueType(type, true) : type;
     }
 
-    // The array type a store into the return name is checked against (#986): `As Integer()` or `As Variant()`, but not
-    // `As Object()` or `As Collection()`, which ExtractBaseType does not map and ReturnTypeOf reads as a Variant array.
+    // A named element type is resolved at the call, once the project's classes are known (#999).
     private static Vb6Value.ValueType? CheckedArrayReturnOf(VB6Parser.AsTypeClauseContext? asType)
-        => asType?.type()?.LPAREN() != null && ExtractBaseType(asType) is { } element ? new Vb6Value.ValueType(element, true) : null;
+        => asType?.type()?.LPAREN() != null && asType.type().complexType() is null ? ReturnTypeOf(asType) : null;
 }

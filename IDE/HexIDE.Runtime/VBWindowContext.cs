@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Linq;
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using HexIDE.Runtime.AvaloniaInterop;
+using System.Threading.Tasks;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Utils;
@@ -206,7 +209,36 @@ public class VBWindowContext : IModuleExecutionRoot
         ExecutionContext.State.ClearPendingControls(form);
         Program?.Loaded(this);
         await StartControls();
-        await Report(() => interpreter!.RaiseFormEvent(form, "Form_Load"));
+        await Report(() => RaiseLoad(form));
+    }
+
+    internal bool Loading { get; private set; }
+
+    private async Task RaiseLoad(VbObject form)
+    {
+        Loading = true;
+        try
+        {
+            await interpreter!.RaiseFormEvent(form, "Form_Load");
+        }
+        finally
+        {
+            Loading = false;
+        }
+    }
+
+    private bool initiallyFocused;
+
+    internal void FocusFirstControl()
+    {
+        if (initiallyFocused || Window is null)
+            return;
+        initiallyFocused = true;
+        // The first eligible tab stop takes the focus after Activate, including a Show inside Load (#2436).
+        Window.GetLogicalDescendants().OfType<Control>()
+            .Where(c => TabOrder.HasTabStop(c) && TabOrder.GetTabStop(c)
+                && c is { Focusable: true, IsEffectivelyVisible: true, IsEffectivelyEnabled: true })
+            .OrderBy(TabOrder.Get).FirstOrDefault()?.Focus();
     }
 
     internal async Task ControlEvent(string name, IReadOnlyList<Vb6Value>? args = null)
@@ -510,7 +542,7 @@ public class VBWindowContext : IModuleExecutionRoot
                     ExecutionContext.State.ClearPendingControls(form);
                     Program?.Loaded(this);
                     await StartControls();
-                    if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) == Outcome.Over)
+                    if (await Report(() => RaiseLoad(form)) == Outcome.Over)
                         return false;
                 }
                 // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
@@ -595,8 +627,8 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     /// <inheritdoc/>
-    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
-        Raise(name, args, coalescing);
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
+        Raise(name, args, coalescing, when: when);
 
     /// <inheritdoc/>
     public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);

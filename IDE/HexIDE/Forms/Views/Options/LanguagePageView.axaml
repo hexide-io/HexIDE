@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
              xmlns:loc="clr-namespace:HexIDE.Localization"
              mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
@@ -9,9 +10,10 @@
              x:Class="HexIDE.Forms.Views.Options.LanguagePageView">
     <HeaderedContentControl Header="{DynamicResource Str.Options.Language.Header}" Padding="10" VerticalAlignment="Top">
         <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" >
-            <AccessText Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,6"
+            <AccessText x:Name="LanguageLabel" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,6"
                         Text="{DynamicResource Str.Options.Language.LanguageLabel}" />
             <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"
+                      AutomationProperties.Name="{CompiledBinding #LanguageLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
                       ItemsSource="{CompiledBinding AvailableLanguages}"
                       SelectedItem="{CompiledBinding SelectedLanguage}"
                       HorizontalAlignment="Left" Width="200">
@@ -22,10 +24,11 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
 
-            <AccessText Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"
+            <AccessText x:Name="RegionLabel" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"
                         Text="{DynamicResource Str.Options.Language.RegionLabel}"
                         IsEnabled="{CompiledBinding IsRegionEnabled}" />
             <ComboBox Grid.Row="1" Grid.Column="1"
+                      AutomationProperties.Name="{CompiledBinding #RegionLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
                       ItemsSource="{CompiledBinding AvailableRegions}"
                       SelectedItem="{CompiledBinding SelectedRegion}"
                       IsEnabled="{CompiledBinding IsRegionEnabled}"

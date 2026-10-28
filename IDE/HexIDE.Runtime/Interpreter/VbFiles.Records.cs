@@ -135,6 +135,7 @@ internal sealed partial class VbFiles
         var (file, start, counted) = RecordAt(number, at, VbAccess.Write);
         if (file.Mode == VbFileMode.Random && bytes.Length > file.RecordLength)
             throw new VBRunTimeException(VBStandardError.BadRecordLength);
+        CheckLocks(file, start, start + bytes.Length - 1);
         var stream = file.Stream!;
         var before = stream.Position;
         stream.Position = start;
@@ -159,7 +160,7 @@ internal sealed partial class VbFiles
     public RecordRead BeginGet(int number, long? at)
     {
         var (file, start, counted) = RecordAt(number, at, VbAccess.Read);
-        return new RecordRead(file, start, counted);
+        return new RecordRead(this, file, start, counted);
     }
 
     /// <summary>Moves the file past what <paramref name="read"/> took, or past its record, and sets EOF.</summary>
@@ -168,6 +169,7 @@ internal sealed partial class VbFiles
     internal sealed class RecordRead : IRecordSource
     {
         private readonly OpenFile file;
+        private readonly VbFiles files;
         private readonly long start;
         private readonly long counted;
         private readonly byte[]? record;
@@ -176,9 +178,10 @@ internal sealed partial class VbFiles
         private int got;
         private bool past;
 
-        internal RecordRead(OpenFile file, long start, long counted)
+        internal RecordRead(VbFiles files, OpenFile file, long start, long counted)
         {
             this.file = file;
+            this.files = files;
             this.start = start;
             this.counted = counted;
             if (file.Mode == VbFileMode.Random)
@@ -208,6 +211,7 @@ internal sealed partial class VbFiles
         // `count` bytes from `from`, zeros past the end, `fewer` when there were fewer. The file stays where it was.
         private byte[] Bytes(long from, int count, out bool fewer)
         {
+            files.CheckLocks(file, from, from + count - 1);
             var stream = file.Stream!;
             var bytes = new byte[count];
             var read = 0;

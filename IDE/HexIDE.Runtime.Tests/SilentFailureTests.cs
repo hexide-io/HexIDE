@@ -23,7 +23,7 @@ public class SilentFailureTests : BaseVBTestFixture
     // ── An unimplemented intrinsic now says so ──────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("Erl")]
+    [InlineData("Printers")]
     public async Task ReadingAnUnimplementedIntrinsic_Raises_InsteadOfYieldingEmpty(string name)
     {
         // Each of these returned Empty before, with no error at all.

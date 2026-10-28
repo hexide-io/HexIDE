@@ -69,6 +69,8 @@ public sealed class UserFileWriteFailureTests : IDisposable
     {
         var target = Target(name);
         Fail(target);
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(MessageBoxResult.Yes);
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
@@ -81,6 +83,45 @@ public sealed class UserFileWriteFailureTests : IDisposable
         await make.Should().ThrowAsync<IOException>();
         Preserved(target);
         await windows.ReceivedWithAnyArgs().MessageBox(default!);
+    }
+
+    [Theory]
+    [InlineData(MessageBoxResult.Yes)]
+    [InlineData(MessageBoxResult.No)]
+    [InlineData(MessageBoxResult.Cancel)]
+    public async Task MakeAsksBeforeReplacingDerivedArchive(MessageBoxResult answer)
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Replace these existing files?\n{0}");
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            localization, Substitute.For<IHeaderRefresher>());
+        service.RuntimeDirectory = root;
+        Directory.CreateDirectory(Target("standalone"));
+        File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Target("Made.dll"), "user archive");
+        File.WriteAllText(Target("Made.exe"), "user executable");
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("Made.exe"));
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(answer);
+
+        Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
+        if (answer == MessageBoxResult.Yes)
+        {
+            await make();
+            using var archive = System.IO.Compression.ZipFile.OpenRead(Target("Made.dll"));
+            archive.Entries.Should().Contain(e => e.Name == "Made.vbp");
+            File.ReadAllText(Target("Made.exe")).Should().Be("runner");
+        }
+        else
+        {
+            await make.Should().ThrowAsync<OperationCanceledException>();
+            File.ReadAllText(Target("Made.dll")).Should().Be("user archive");
+            File.ReadAllText(Target("Made.exe")).Should().Be("user executable");
+        }
+        await windows.Received(1).MessageBox("Replace these existing files?\n" + Target("Made.dll"),
+            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning);
     }
 
     [Fact]
@@ -131,19 +172,30 @@ public sealed class UserFileWriteFailureTests : IDisposable
         await using var capture = new ConversationLog();
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(true);
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("conversation.jsonl"));
+        // The export asks before replacing an existing file (#2504); this test agrees, to reach the writer.
+        windows.MessageBox(default!).ReturnsForAnyArgs(MessageBoxResult.Yes);
         var vm = new ProtocolInspectorToolViewModel(capture, Substitute.For<ILocalizationService>(), new Pseudonymiser(), windows);
         await vm.ExportAsync();
         Preserved(target);
         vm.ExportStatus.Should().NotBeEmpty();
     }
 
+    // Each automation export has a directory of its own (#2504), so a failed write leaves an earlier export as it was,
+    // and no staging file behind.
     [Theory]
     [InlineData("hexide_lsp_conversation.jsonl")]
     [InlineData("hexide_lsp_conversation.manifest.json")]
-    public async Task AutomationExportPreservesEachTargetOnPartialWrite(string name)
+    public async Task AutomationExportFailsCleanlyAndLeavesEarlierExports(string name)
     {
-        var target = Target(name);
-        Fail(target);
+        var earlier = Target(name);
+        File.WriteAllText(earlier, "old bytes");
+        AtomicFileWriter.OpenStream.Value = path =>
+        {
+            if (!Path.GetFileName(path).StartsWith(name + ".", StringComparison.Ordinal))
+                return new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+            injected = true;
+            return new PartialFailureStream(path);
+        };
         await using var capture = new ConversationLog();
         using var context = new HexIDE.Desktop.Server.IdeContext(Substitute.For<IProjectManager>(),
             Substitute.For<IDocumentDockService>(), Substitute.For<HexIDE.Lsp.ILspClient>(), null!,
@@ -152,7 +204,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var tools = new HexIDE.Desktop.Server.HexIdeTools(context) { ConversationExportDirectory = root };
         Func<Task> export = () => tools.ExportLspConversationAsync(ct: TestContext.Current.CancellationToken);
         await export.Should().ThrowAsync<IOException>();
-        Preserved(target);
+        injected.Should().BeTrue("the export must reach the shared writer");
+        File.ReadAllBytes(earlier).Should().Equal("old bytes"u8.ToArray());
+        Directory.GetFiles(root, name + ".*.tmp", SearchOption.AllDirectories).Should().BeEmpty();
     }
 
     [Fact]

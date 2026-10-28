@@ -11,6 +11,7 @@ using StreamJsonRpc;
 
 namespace HexIDE.VbLspServer.Tests;
 
+[Collection("Server timing")]
 public class WireContractTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -188,6 +189,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 3, 0));
         list.GetProperty("isIncomplete").GetBoolean().Should().BeFalse();
@@ -213,6 +215,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, source + "\n");
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
         var item = list.GetProperty("items").EnumerateArray()
@@ -225,6 +228,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
         var dates = list.GetProperty("items").EnumerateArray()
@@ -241,6 +245,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, source + "\n");
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
         var matches = list.GetProperty("items").EnumerateArray()
@@ -389,6 +394,26 @@ public class WireContractTests
 
         var sig = await RequestAsync(h, "textDocument/signatureHelp", Pos(Uri, 1, 11)); // after "a, "
         sig.GetProperty("activeParameter").GetInt32().Should().Be(1);
+    }
+
+    // A list's last parameter takes every argument past it, so it stays active. Any other signature has no parameter
+    // for an extra argument, which VB6 refuses, so the argument's own index goes out and nothing is marked (#2599).
+    [Theory]
+    [InlineData("Array(1, 2, ", 0)]
+    [InlineData("Choose(1, 2, 3, 4, ", 2)]
+    [InlineData("Switch(True, 1, False, 2, ", 2)]
+    [InlineData("Mid(a, 1, 2, ", 3)]
+    [InlineData("Mid(a, 1, 2, 3, ", 4)]
+    [InlineData("Len(a, b, ", 2)]
+    public async Task SignatureHelp_past_the_last_parameter_keeps_only_a_list_active(
+        string call, int expectedParameter)
+    {
+        await using var h = await StartAsync();
+        var line = "x = " + call;
+        await OpenAsync(h, Uri, "Sub T()\n" + line + "\nEnd Sub\n");
+
+        var sig = await RequestAsync(h, "textDocument/signatureHelp", Pos(Uri, 1, line.Length));
+        sig.GetProperty("activeParameter").GetInt32().Should().Be(expectedParameter);
     }
 
     [Fact]
@@ -835,6 +860,125 @@ public class WireContractTests
         symbols.EnumerateArray().Select(s => s.GetProperty("name").GetString()).Should().Contain("cmdOK_Click");
     }
 
+    [Theory]
+    [InlineData("Sub Work()\nEnd Sub\n", false)]
+    [InlineData("Sub Work()\n    @@\nEnd Sub\n", true)]
+    public async Task Debug_log_reports_queue_parse_diagnostics_and_completion_times(string source, bool fallback)
+    {
+        var previous = Serilog.Log.Logger;
+        var sink = new TimingSink();
+        using var logger = new Serilog.LoggerConfiguration().MinimumLevel.Debug().Enrich.FromLogContext()
+            .WriteTo.Sink(sink).CreateLogger();
+        Serilog.Log.Logger = logger;
+        try
+        {
+            await using var h = await StartAsync();
+            await OpenAsync(h, Uri, Doc);
+            await h.NextDiagnosticsAsync();
+            sink.Events.Clear();
+            await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+            {
+                textDocument = new { uri = Uri, version = 2 },
+                contentChanges = new[] { new { text = source } },
+            });
+            await h.NextDiagnosticsAsync();
+            var completion = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+            completion.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("label").GetString())
+                .Should().Contain("Work");
+            await RequestAsync(h, "textDocument/documentSymbol", DocParams(Uri));
+            var events = sink.Events.ToArray();
+            foreach (var method in new[] { "textDocument/didChange", "textDocument/completion" })
+            {
+                events.Should().Contain(e => e.MessageTemplate.Text == "{Method} queue wait {QueueMs} ms"
+                    && e.Properties["Method"].ToString() == $"\"{method}\"" && e.Properties.ContainsKey("QueueMs"));
+                events.Should().Contain(e => e.MessageTemplate.Text == "{Method} elapsed {ElapsedMs} ms"
+                    && e.Properties["Method"].ToString() == $"\"{method}\"" && e.Properties.ContainsKey("ElapsedMs"));
+            }
+            var completionTiming = events.Single(e => e.MessageTemplate.Text == "{Method} elapsed {ElapsedMs} ms"
+                && e.Properties["Method"].ToString() == "\"textDocument/completion\"");
+            completionTiming.Properties["RequestId"].Should().BeOfType<Serilog.Events.ScalarValue>()
+                .Which.Value.Should().BeOfType<int>();
+            var stages = events.Where(e => e.MessageTemplate.Text == "Parse {Stage} elapsed {ElapsedMs} ms").ToList();
+            stages.Select(e => e.Properties["Stage"].ToString())
+                .Should().Equal(fallback ? new[] { "\"SLL\"", "\"LL\"" } : new[] { "\"SLL\"" });
+            stages.Should().OnlyContain(e => e.Properties.ContainsKey("ElapsedMs")
+                && e.Properties["Uri"].ToString() == $"\"{Uri}\""
+                && e.Properties["Method"].ToString() == "\"textDocument/didChange\""
+                && e.Properties["DocumentVersion"].ToString() == "2");
+            events.Should().Contain(e => e.MessageTemplate.Text == "Parse worker queue wait {QueueMs} ms");
+            events.Should().Contain(e => e.MessageTemplate.Text == "Diagnostics {Uri} elapsed {ElapsedMs} ms");
+        }
+        finally { Serilog.Log.Logger = previous; }
+    }
+
+    private sealed class TimingSink : Serilog.Core.ILogEventSink
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<Serilog.Events.LogEvent> Events { get; } = new();
+        public void Emit(Serilog.Events.LogEvent logEvent) => Events.Enqueue(logEvent);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Completion_answers_during_analysis_from_the_last_snapshot(bool firstOpen)
+    {
+        var store = new SlowDocumentStore();
+        await using var h = await StartAsync(store);
+        if (!firstOpen)
+        {
+            await OpenAsync(h, Uri, Doc);
+            await h.NextDiagnosticsAsync();
+        }
+
+        store.Hold = true;
+        if (firstOpen)
+            await OpenAsync(h, Uri, "Dim NewCounter As Long\n");
+        else
+            await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+            {
+                textDocument = new { uri = Uri, version = 2 },
+                contentChanges = new[] { new { text = "Dim NewCounter As Long\n" } },
+            });
+        await store.Entered.Task.WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        var symbols = RequestAsync(h, "textDocument/documentSymbol", DocParams(Uri));
+        try
+        {
+            var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+            var labels = list.GetProperty("items").EnumerateArray()
+                .Select(i => i.GetProperty("label").GetString()).ToList();
+            if (firstOpen)
+                labels.Should().Contain("Dim").And.NotContain("NewCounter");
+            else
+                labels.Should().Contain("Counter").And.NotContain("NewCounter");
+            symbols.IsCompleted.Should().BeFalse("other requests still wait for the current analysis");
+        }
+        finally { store.Release.TrySetResult(); }
+
+        await h.NextDiagnosticsAsync();
+        await symbols;
+        var refreshed = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+        refreshed.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("label").GetString())
+            .Should().Contain("NewCounter").And.NotContain("Counter");
+    }
+
+    private sealed class SlowDocumentStore : DocumentStore
+    {
+        public bool Hold { get; set; }
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
+            AnalyzeAsync(string source, VbCompilationContext? compilation)
+        {
+            if (Hold)
+            {
+                Entered.TrySetResult();
+                await Release.Task;
+            }
+            return await base.AnalyzeAsync(source, compilation);
+        }
+    }
+
     // ── harness ─────────────────────────────────────────────────────────────────────────────────
     private static object DocParams(string uri) => new { textDocument = new { uri } };
 
@@ -874,9 +1018,9 @@ public class WireContractTests
     private static object Pos(string uri, int line, int character) =>
         new { textDocument = new { uri }, position = new { line, character } };
 
-    private static async Task<Harness> StartAsync()
+    private static async Task<Harness> StartAsync(DocumentStore? store = null)
     {
-        var h = new Harness();
+        var h = new Harness(store);
         await h.Rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
             new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }).WaitAsync(Timeout);
         await h.Rpc.NotifyWithParameterObjectAsync("initialized", new { });
@@ -909,11 +1053,11 @@ public class WireContractTests
         private readonly LanguageServer _server;
         private readonly Task _loop;
 
-        public Harness()
+        public Harness(DocumentStore? store = null)
         {
             var c2s = new Pipe();
             var s2c = new Pipe();
-            _server = LspServerHost.Create(c2s.Reader.AsStream(), s2c.Writer.AsStream());
+            _server = LspServerHost.Create(c2s.Reader.AsStream(), s2c.Writer.AsStream(), store ?? new DocumentStore());
             _loop = _server.Run();
 
             var handler = new HeaderDelimitedMessageHandler(
@@ -937,3 +1081,6 @@ public class WireContractTests
         }
     }
 }
+
+[CollectionDefinition("Server timing", DisableParallelization = true)]
+public class ServerTimingCollection;

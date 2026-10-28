@@ -235,11 +235,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source of a named form, module or class and saves to disk. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was written, as the IDE spells them. Two parts of the file are the IDE's, and content that changes either is refused with nothing changed. The header (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines) changes from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A member's Attribute lines, the run under a procedure's or variable's declaration that gives its description or dispatch id, may move or be renamed with it and go with its declaration; the reply names each member whose lines are otherwise changed, added or dropped. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
+    [Description("Replaces the VB6 source of the form, module or class 'name' and saves to disk; `project` picks one where a group holds two of that name. The reply's 'project' and 'document' name what was written, as the IDE spells them. Two parts of the file are the IDE's, and content that changes either is refused with nothing changed. The header (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines) changes from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A member's Attribute lines, the run under a procedure's or variable's declaration that gives its description or dispatch id, may move or be renamed with it and go with its declaration; the reply names each member whose lines are otherwise changed, added or dropped. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
     public async Task<MutateResult> SetFileContentAsync(
+        [Description("A form, module or class, as get_project_info lists them, found in every loaded project without "
+                     + "regard to case. A name two documents share is refused, and the reply lists them.")]
         string name,
         [Description("What get_file_content returns, edited: the whole file with its header and every member's Attribute lines as the document has them. The code alone is accepted too, and the document's own header is kept in front of it.")]
         string content,
+        [Description("The project the document is in, as get_project_info names it, for a group that holds two "
+                     + "documents of one name; omit it otherwise.")]
         string? project = null,
         CancellationToken ct = default)
     {
@@ -1003,6 +1007,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
+    [McpServerTool(Name = "get_process_windows")]
+    [Description("Describes the top-level windows of a program that a VB6 program run in this IDE started with Shell, which "
+                 + "no other tool reaches: pass the process ID Shell returned as 'pid'. The processes it started in turn are "
+                 + "included, since a launcher can hand off to another program and exit. Each window gives 'processId', "
+                 + "'title', 'state' (Normal, Minimized, Maximized or Hidden), 'visible', 'bounds' ([left, top, width, height] in "
+                 + "screen pixels), 'isForeground' and 'className'. Omit 'pid' to list what has been started, each with the "
+                 + "window style Shell was given and whether it still runs. Only processes started with Shell can be read, so "
+                 + "no other program's window is reachable, and nothing is sent to any window. The note says when the process "
+                 + "has exited, when its ID has passed to another process, and when it has no window yet. Windows only.")]
+    public Task<ProcessWindowsResult> GetProcessWindowsAsync(
+        [Description("The process ID Shell returned. Omit it to list the processes started with Shell.")] int? pid = null,
+        CancellationToken ct = default) =>
+        ProcessWindowsTool.DescribeAsync(pid, ct);
+
     private const string WindowStateParameter =
         "Which window. Omitted, or \"ide\", is the IDE's own, as before this parameter existed. A running form's name such "
         + "as \"Form2\", or a window's title, reaches that window, minimized ones included, and \"auto\" picks as "
@@ -1014,7 +1032,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var (target, _, error) = ResolveActiveWindow(string.IsNullOrWhiteSpace(window) ? "ide" : window, ideByDefault: true);
         if (target is null)
-            return (null, null, error);
+            // Another program's window was what the first caller looked for here (#2591).
+            return (null, null, error + " A window of another program, one a running program started with Shell, is read "
+                                + "with get_process_windows.");
         return (target, StateNameOf(target), null);
     }
 
@@ -1935,7 +1955,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root). A row with 'repeats' opens an object already open above it, such as a Timer's Parent under Me, so its children are left out.")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1961,7 +1981,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static LocalsRow MapLocalsNode(DebugNode node, int maxDepth, int depth, int[] budget)
     {
         LocalsRow[]? children = null;
-        if (node.HasChildren && depth < maxDepth && budget[0] > 0)
+        if (node.HasChildren && !node.Repeats && depth < maxDepth && budget[0] > 0)
         {
             var kids = new List<LocalsRow>();
             foreach (var c in node.Expand())
@@ -1973,7 +1993,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             children = kids.ToArray();
         }
         string expression = node.TruncatedRemaining > 0 ? $"… {node.TruncatedRemaining} more" : node.Name;
-        return new LocalsRow(expression, node.Value, node.TypeName, node.HasChildren, children);
+        return new LocalsRow(expression, node.Value, node.TypeName, node.HasChildren, children, node.Repeats);
     }
 
     [McpServerTool(Name = "get_call_stack")]
@@ -2636,10 +2656,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types, Shift's own key around a capital); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types, Shift's own key around a capital); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. See 'text' for line breaks. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
         [Description("A path from dump_visual_tree. A target that is not showing is refused. If the target is not itself a text surface, a descendant editor/textbox is used (AvaloniaEdit is preferred over incidental textboxes); the reply gives the path of the surface that took the text. A target holding more than one showing surface of the chosen kind is refused, with their paths listed. In the default mode a dropdown that is not editable is refused with a pointer to select.")]
-        string target, string text, [Description(WindowParameter)] string? window = null,
+        string target,
+        [Description("The text to type. In the default mode, text over several lines is inserted verbatim: include \\n "
+                     + "for each line break. It is exact, reliable, and not altered by live auto-indent or IntelliSense. "
+                     + "For a typing cadence, call this once per line.")]
+        string text,
+        [Description(WindowParameter)] string? window = null,
         [Description("\"document\" (the default) inserts the text at the caret in one edit, exact and untouched by "
                      + "auto-indent, completion or auto-close. \"keyboard\" types it as a person does, a key at a time, to "
                      + "the focused control: KeyDown, TextInput and KeyUp per character, \\n as Enter and \\t as Tab, with "
@@ -2687,9 +2712,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, an offset into the whole file get_file_content returns, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first showing under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' is how long to watch. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, so assert the reply, not a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. 'window' is as in dump_visual_tree. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, which is how a particular identifier is hovered; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, so assert the reply, not a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
     public async Task<InteractOutcome> HoverAsync(
-        string target, double? x = null, double? y = null,
+        [Description("A path from dump_visual_tree. A target that is not a code editor but contains one is hovered at "
+                     + "that editor, the first showing under it, and the reply then names the editor and gives its path, "
+                     + "as dump_visual_tree would print it.")]
+        string target,
+        [Description("With 'y', the point to hover, relative to the target's own top-left. Omit both and the point is "
+                     + "the CARET for a code editor, so position it first with interact set_property CaretOffset, an "
+                     + "offset into the whole file get_file_content returns, which is how you hover a particular "
+                     + "identifier; and the centre of anything else.")]
+        double? x = null,
+        [Description("With 'x', the point to hover, relative to the target's own top-left; see 'x' for what omitting "
+                     + "both does.")]
+        double? y = null,
         [Description("How long to watch for a tip, in milliseconds: default 1500, from 0 to 10000. It must exceed the "
                      + "400ms quick-info dwell plus the language server's round trip.")]
         int dwellMs = 1500,
@@ -3082,10 +3118,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it. File/Make waits for its result: the program it wrote, with its size, or why it wrote none.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var makes = HexIDE.Projects.MakeOutcomes.Started;
+        var invoked = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var lifetime = Avalonia.Application.Current!.ApplicationLifetime
                 as IClassicDesktopStyleApplicationLifetime;
@@ -3123,6 +3160,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var note = UiSaveFeedback.Execute(command, found.CommandParameter, $"Invoked '{found.Header ?? path}'.");
             return new MutateResult(true, null, note);
         });
+        // Make runs on after its command returns, and said how it ended only in its own message box (#2671).
+        if (invoked.Success && HexIDE.Projects.MakeOutcomes.Latest is { } make && make.Number > makes)
+            invoked = invoked with { Note = invoked.Note + " " + await MakeReply.AwaitAsync(make, ct) };
+        return invoked;
     }
 
     /// <summary>What has keyboard focus in <paramref name="window"/>, for a refusal that depends on it.</summary>
@@ -3454,7 +3495,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     internal string ConversationExportDirectory { get; set; } = System.IO.Path.GetTempPath();
 
     [McpServerTool(Name = "export_lsp_conversation")]
-    [Description("Writes the recorded conversation to two files and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Document names, paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one name stay distinguishable and a normalisation bug survives the redaction. That includes the name of a document with no file on disk, which goes on the wire as untitled:<project>/<document>: both segments are the developer's own words and both are replaced. Extensions and drive letters survive, so what a message was about is still legible. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit `connectionId` for the whole interleaved timeline.")]
+    [Description("Writes the recorded conversation to two files in a fresh temporary directory per call, preserving earlier exports, and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Document names, paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one name stay distinguishable and a normalisation bug survives the redaction. That includes the name of a document with no file on disk, which goes on the wire as untitled:<project>/<document>: both segments are the developer's own words and both are replaced. Extensions and drive letters survive, so what a message was about is still legible. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit `connectionId` for the whole interleaved timeline.")]
     public async Task<LspExportResult> ExportLspConversationAsync(
         string? connectionId = null, CancellationToken ct = default)
     {
@@ -3471,7 +3512,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var export = await ConversationExporter.ExportAsync(
             ctx.Capture, redactor, string.IsNullOrWhiteSpace(connectionId) ? null : connectionId);
 
-        var stem = System.IO.Path.Combine(ConversationExportDirectory, "hexide_lsp_conversation");
+        // A fresh directory per export, under ConversationExportDirectory, so an export never replaces an earlier one
+        // (#2504). The writes are still staged and flushed (#2503).
+        var directory = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(
+            ConversationExportDirectory, "hexide-lsp-export-" + Guid.NewGuid().ToString("N")));
+        var stem = System.IO.Path.Combine(directory.FullName, "hexide_lsp_conversation");
         var messages = stem + ".jsonl";
         var manifest = stem + ".manifest.json";
 
@@ -3788,7 +3833,11 @@ internal record DebugStateResult(
 
 internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
 
-internal record LocalsRow(string Expression, string Value, string Type, bool HasChildren, LocalsRow[]? Children);
+/// <param name="Repeats">The row opens an object already open above it, such as a Timer's Parent under Me, so its
+/// children, the same tree again, are left out (#2329). Absent otherwise.</param>
+internal record LocalsRow(string Expression, string Value, string Type, bool HasChildren, LocalsRow[]? Children,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool Repeats = false);
 
 internal record EvaluateResult(bool Success, string? Error, string? Result);
 

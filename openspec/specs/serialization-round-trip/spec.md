@@ -737,16 +737,20 @@ SHALL leave those control copies unchanged (measured for #2062; see
 - **WHEN** Form1's font name becomes Tahoma
 - **THEN** both controls still read Arial
 
-## Out of Scope
-- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
-  carried, never read.
-- **Reproducing the original product's omissions.** The original product omits properties left at their
-  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
-  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
-  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
-  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of modelled form/control properties.** These properties are written in the
-  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
+### Requirement: Interpreter archive replacement consent
+
+Interpreter Make SHALL ask before replacing an existing derived `.dll` project archive, naming that
+file. Only Yes SHALL authorize replacement. Declining or dismissing the question SHALL leave both the
+archive and executable untouched. The archive SHALL be staged and flushed through `AtomicFileWriter`.
+
+#### Scenario: Decline replacement of a derived archive
+- **WHEN** the executable picker selects a path whose derived `.dll` already exists
+- **AND** the developer declines or dismisses the archive replacement question
+- **THEN** Make is cancelled without replacing either output
+
+#### Scenario: Agree to replace a derived archive
+- **WHEN** the developer answers Yes to the question naming the existing derived archive
+- **THEN** Make replaces the archive with a readable package of the current project
 
 ### Requirement: Made programs SHALL carry source text independently of the host code page
 
@@ -909,3 +913,14 @@ unchanged because their insertion behaviour has not been measured.
 - **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
 - **THEN** Retained=0 is inserted between those lines
 - **AND** the remaining lines retain their order
+
+## Out of Scope
+- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
+  carried, never read.
+- **Reproducing the original product's omissions.** The original product omits properties left at their
+  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
+  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
+  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
+  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.

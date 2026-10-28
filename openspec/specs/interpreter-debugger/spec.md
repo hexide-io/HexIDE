@@ -165,8 +165,24 @@ Locals is the primary inspection surface, showing what is in scope where executi
 
 #### Scenario: Expanding a control whose property cannot be read
 - **WHEN** the developer expands a control one of whose listed properties raises when read
-- **THEN** that property is listed with the raised error's own description in angle brackets, and no type
+- **THEN** that property is listed with the raised error's own description in angle brackets, and the member's declared
+  type where it is measured, as a Timer's is, and otherwise no type
 - **AND** the control's other properties are still listed, and the expansion does not fail
+
+#### Scenario: Expanding a Timer
+- **WHEN** the developer expands a Timer
+- **THEN** it lists VB6's seven rows in VB6's order, `[_Default]`, `Enabled`, `Index`, `Interval`, `Name`, `Parent` and
+  `Tag`, each with the member's declared type, and `Parent` opens to the form
+
+#### Scenario: Expanding a control array
+- **WHEN** the developer expands a control array
+- **THEN** its elements are listed as `Item 1`, `Item 2` and on, in index order, numbered from 1 whatever their Index
+
+#### Scenario: Expanding a running form's Me
+- **WHEN** the developer expands `Me` on a running form
+- **THEN** its first row is `[_Default]`, reading VB6's "Wrong number of arguments" error with type `Object`
+- **AND** its properties, controls and own variables follow as one list sorted by name, case ignored, and an `Item`
+  row per control ends it, in the order the form's file holds them
 
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.
@@ -401,3 +417,19 @@ Initialize's last statement into Load's first statement.
 - **AND** a step from its last statement pauses on Load's first statement
 - **WHEN** the form has no Form_Initialize
 - **THEN** the initial step pauses on Load's first statement
+
+### Requirement: A made program surfaces fatal errors
+The standalone host SHALL apply the same event boundary when deciding whether a run-time error is unhandled. It SHALL
+show a warning box titled with the program's name, containing the run-time error number and description, with OK only.
+Nothing in the program, including Timers, SHALL run behind it. Dismissal SHALL exit the process without QueryUnload,
+Unload or Terminate. Compile errors and faults SHALL also be reported; an unimplemented construct SHALL be identified
+as such and an engine fault SHALL report Internal error (51).
+
+#### Scenario: A sink fails in a made program
+- **WHEN** a RaiseEvent sink leaves a run-time error unhandled
+- **THEN** the warning box appears before any handler in the raiser can catch it
+- **AND** dismissal exits the program without running that handler or unload and terminate events
+
+#### Scenario: Startup or event failure
+- **WHEN** Sub Main or an event procedure leaves a run-time error unhandled
+- **THEN** the host shows the fatal warning and holds execution until dismissal

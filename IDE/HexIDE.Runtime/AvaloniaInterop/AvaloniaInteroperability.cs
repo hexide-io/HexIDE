@@ -142,6 +142,8 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBUpDown>(tabStop: true);
+        RegisterTabOrder<VBDTPicker>(tabStop: true);
         RegisterTabOrder<VBStatusBar>(tabStop: false);
         RegisterTabOrder<VBSSTab>(tabStop: true);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
@@ -272,6 +274,14 @@ public static class AvaloniaInteroperability
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(control))
+        {
+            if (value.Type != Vb6Value.ValueType.String)
+                throw new NotImplementedException("Font value conversion is not implemented (#934)");
+            // A value assignment writes Name; Set is handled separately by the statement executor.
+            _ = ControlFont.Get(control);
+            return FontMembers.TrySet(control, "FontName", value);
+        }
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -503,6 +513,11 @@ public static class AvaloniaInteroperability
             value = new Vb6Value((long)timer.Interval);
             return true;
         }
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(c))
+        {
+            value = new Vb6Value(ControlFont.Get(c));
+            return true;
+        }
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
         if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
         {
@@ -562,7 +577,7 @@ public static class AvaloniaInteroperability
     /// control's runtime members; duplicates by name are collapsed.</summary>
     /// <remarks>
     /// A property whose read raises is listed with the raised error's own description and no value, rather than ending
-    /// the read (#2289). A Timer's designer positions and absent members aren't listed by VB6's Locals (#801).
+    /// the read (#2289). Locals lists a Timer by VB6's measured rows instead (<see cref="TimerMembers.LocalsRows"/>, #2329).
     /// </remarks>
     public static IReadOnlyList<(string Name, Vb6Value Value, string? Error)> ReadProperties(Control c)
     {
@@ -571,12 +586,11 @@ public static class AvaloniaInteroperability
         {
             if (byName.ContainsKey(property.Name))
                 continue;
-            if (c is VBTimer && (!TimerMembers.HasProperty(property.Name)
-                                 || ReferenceEquals(property, VBProperties.LeftProperty)
-                                 || ReferenceEquals(property, VBProperties.TopProperty)))
-                continue;
             if (c is VBScrollBar && (ReferenceEquals(property, VBProperties.BackColorProperty)
                                     || ReferenceEquals(property, VBProperties.ForeColorProperty)))
+                continue;
+            // A control with no Font doesn't list one, rather than listing the 438 a read of it raises (#934).
+            if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.IsAbsent(c))
                 continue;
             try
             {

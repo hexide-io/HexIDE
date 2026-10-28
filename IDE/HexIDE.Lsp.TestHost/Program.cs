@@ -12,6 +12,21 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
+        if (args[0] == "dispose-server")
+        {
+            Stream input = Console.OpenStandardInput();
+            if (args.Length > 2)
+            {
+                var pipe = new NamedPipeClientStream(".", args[2], PipeDirection.InOut, PipeOptions.Asynchronous);
+                await pipe.ConnectAsync();
+                input = pipe;
+            }
+            Console.Error.WriteLine("dispose-ready");
+            await input.CopyToAsync(Stream.Null);
+            if (args[1] == "hang") await Task.Delay(TimeSpan.FromMinutes(1));
+            Environment.Exit(37);
+            return;
+        }
         if (args[0] == "exit")
         {
             Environment.Exit(int.Parse(args[1]));

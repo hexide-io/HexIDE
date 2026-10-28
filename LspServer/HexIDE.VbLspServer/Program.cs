@@ -28,12 +28,13 @@ var sessionStamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Is(GetMinimumLevel())
+    .Enrich.FromLogContext()
     .WriteTo.File(
         path: Path.Combine(logDir, $"{LogFilePrefix}{sessionStamp}.log"),
         fileSizeLimitBytes: PartSizeLimitBytes,
         rollOnFileSizeLimit: true,
         retainedFileCountLimit: RetainedPartsPerSession,
-        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}",
         shared: false)
     .CreateLogger();
 

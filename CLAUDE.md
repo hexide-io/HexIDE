@@ -287,11 +287,20 @@ which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2
 test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
 error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
 read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
-`bash scripts/check-xunit-report.sh` on the file, which lands under the project's
-`bin/Debug/net10.0/TestResults/`. CI does both on every Integration step. The cause measured was
+`bash scripts/check-xunit-report.sh` on the file. A relative `--results-directory TestResults` puts it in the
+project's own `TestResults/`, on Windows and under WSL alike. CI does both on every Integration step. The cause measured was
 Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
 fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
 fails loudly if one starts a test on a leftover context again.
+
+**A hung Integration run ends 10 minutes after a test last started or finished, and names what was running**
+([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every Integration step passes
+`--hangdump --hangdump-timeout 10m --hangdump-type Mini` (`Microsoft.Testing.Extensions.HangDump`, kept at the
+Microsoft.Testing.Platform version xunit.v3 brings). The results directory then holds a `*_hang.log` listing each
+test still running and how long it had run, beside a mini dump with managed stacks
+(`dotnet-dump analyze <file> -c "clrstack -all"`). CI turns the log into an error annotation and uploads both.
+Before this, a hang ran out the 30-minute step limit and left no report at all. Add the same options after the
+`--` to get this locally.
 
 ## MCP Dev Loop
 
@@ -940,6 +949,11 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`CS0108` suppressed** in `HexIDE.VbLspServer.csproj` — expected artifact from the generated `VisualBasic6Parser.cs` (the ANTLR parser hides an inherited member).
 - **ANTLR generated-code naming**: `Antlr4BuildTasks` generates into the **global namespace** (no `namespace` in generated files; no `using` alias needed) and does **not** escape C# keywords the way other ANTLR targets do — e.g. the grammar rule `type` generates a C# method `type()`, not `type_()`. Check the generated code under `obj/` if unsure of a method name.
 - **Two-stage parse**: `VbDiagnosticsProvider` parses SLL-first with `BailErrorStrategy`, then falls back to LL on `ParseCanceledException` (ANTLR's official perf pattern). SLL-only mispredicts VB6's call-vs-array ambiguity (`Foo(1)`) on valid code — never ship SLL-only. A wall-clock backstop (`TryGetDiagnosticsAndTreeWithin`, `ParseBudget` = 2s) abandons pathological parses and keeps prior diagnostics.
+- **Never start a lexer alternative with a predicate.** ANTLR evaluates a left-edge `{...}?` while computing the
+  start of every token and caches no DFA edge computed through it, so one such predicate in `IDENTIFIER_CONTINUATION`
+  made the interpreter's lexer about 350 times slower and the language server's about 200 times, for three days
+  ([#2676](https://github.com/hexide-io/HexIDE/issues/2676)). Put the check at the right edge, reading the character
+  before the token from `TokenStartCharIndex`. `LexerPredicatePlacementTests` fails the build on a left-edge one.
 - **`IReadOnlyList<T>`** has no `.Find()`. Use `Array.Find(array, predicate)` or a `foreach` loop.
 - **Never use `System.IO.Path` on a path that came out of, or is going into, a VB6 file.** `.vbp`/`.vbg`/`.frm` are Windows-native formats: their paths are backslash-separated on every host, while `System.IO.Path` answers about the *host* filesystem. **`build-ide` runs on `ubuntu-latest`**, where a backslash is an ordinary filename character — so `Path.GetFileName(@"docs\README.md")` returns the whole string, and `Path.GetRelativePath` emits `docs/README.md` into a file that must say `docs\README.md`. Both are silent (each yields something that still looks like a path) and **both are invisible on a Windows dev box**. Use `SerializedProject.FileNameOf` / `.ToHostPath` / `.ToProjectFilePath`; convert to host separators only where a path is resolved against the filesystem, never for what gets written back.
 - **A test expectation about VB6-file *content* must be a literal backslashed string, never composed with `Path.Combine`.** An expectation built from a host path API follows whichever machine runs it, so it passes on Windows by accident and on Linux *certifies the bug*. Three `SerializationRoundTripTests` cases did exactly this — one of them named `..._PreservedVerbatim` — and read as cover for years. Test **inputs** are different: those are real filesystem paths and are rightly built with `Path.Combine`. That distinction is the whole rule.
@@ -1023,6 +1037,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   **This is now guarded, because it was the last drift-prone artefact here trusted to a habit.**
   `DesignRecordTests` fails the build when a change has every task ticked and is still sitting in
   `changes/`, and when an archived change's requirements are absent from the capability it targeted.
+  It also reports the file and line of any live requirement outside `## Requirements` (#2587): keep
+  requirements above later `##` headings such as `## Out of Scope`, where OpenSpec cannot read them.
   It was written after five changes were found unarchived at once, three of them `MODIFIED` deltas
   whose requirement headings existed in `specs/` while their bodies were weeks out of date — which is
   why a survey by heading reported those three as tidying and archiving them rewrote sixty-eight lines.

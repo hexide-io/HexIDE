@@ -390,13 +390,12 @@ public class FormSerializer
         || name.StartsWith("TabEnabled(", StringComparison.OrdinalIgnoreCase)
         || name.StartsWith("TabVisible(", StringComparison.OrdinalIgnoreCase);
 
-    // Page lists and their flags remain as read, including the tab-zero load trap. The designer
-    // stays read-only until it can maintain membership when controls are added, removed or renamed.
+    // Retain saved values, including the tab-zero load trap; generated page lines use the block's indent.
     private static void WriteSSTabProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
         CompanionCitations citations)
     {
         void Write(ComponentInstance.UnknownRawProperty raw) =>
-            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList(), reindent: true);
         foreach (var name in SSTabOwnOrder)
         {
             var found = false;
@@ -451,6 +450,7 @@ public class FormSerializer
         name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
         || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
         || (inBox is TabStripComponentClass && TabStripPersistence.OwnLine(name))
+        || (inBox is MaskedEdBoxComponentClass && MaskedEdBoxPersistence.OwnLine(name))
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -510,6 +510,11 @@ public class FormSerializer
         else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
 
+        if (inBox is MaskedEdBoxComponentClass)
+        {
+            MaskedEdBoxPersistence.Write(vb, instance);
+            return;
+        }
         if (inBox is SSTabComponentClass)
         {
             WriteSSTabProperties(vb, instance, citations);

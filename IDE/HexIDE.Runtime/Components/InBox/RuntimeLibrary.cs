@@ -186,13 +186,28 @@ public static class ControlLibraries
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["CommonDialog"] = 1084 },
         "comdlg32-constants.json");
 
+    /// <summary>MSCOMCT2.OCX, Microsoft Windows Common Controls-2 6.0 (SP6), from VB6's UpDown save (#1093).</summary>
+    public static readonly RuntimeLibrary MSComCtl2 = new("MSComCtl2", "Microsoft Windows Common Controls-2 6.0 (SP6)",
+        "{86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}", "2.0",
+        "MSCOMCT2.OCX", 393216,
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["UpDown"] = 1093, ["DTPicker"] = 1094, ["MonthView"] = 1081, ["Animation"] = 1081, ["FlatScrollBar"] = 1081,
+        }, null);
+
+    /// <summary>MSMASK32.OCX: identity and constants measured in the MaskedEdBox oracle (#1098).</summary>
+    public static readonly RuntimeLibrary MSMask = new("MSMask", "MSMask",
+        "{C932BA88-4374-101B-A56C-00AA003668DC}", "1.1", "MSMASK32.OCX", 393216,
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["MaskEdBox"] = 1098 },
+        "msmask32-constants.json");
+
     // Its registry description is unmeasured; the dialog uses the recorded library name.
     public static readonly RuntimeLibrary RichTextLib = new("RichTextLib", "RichTextLib",
         "{3B7C8863-D78F-101B-B9B5-04021C009402}", "1.2", "RICHTX32.OCX", 393217,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["RichTextBox"] = 1100 }, null);
 
     /// <summary>Every in-box control library HexIDE knows.</summary>
-    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, RichTextLib];
+    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, MSComCtl2, MSMask, RichTextLib];
 
     /// <summary>The library <paramref name="reference"/> names, or null for one HexIDE doesn't know.</summary>
     public static RuntimeLibrary? For(ObjectReference reference) => All.FirstOrDefault(l => l.IsNamedBy(reference));

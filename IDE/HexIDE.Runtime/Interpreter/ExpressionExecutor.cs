@@ -102,9 +102,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return (left, right);
     }
 
-    public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context)
+    public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context, bool inclusiveComparison = false)
     {
         var (leftValue, rightValue) = await GetTwoValues(context);
+        if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
+            && leftValue.Type != rightValue.Type)
+            throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return (leftValue, rightValue);
 
@@ -146,6 +149,24 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (lr >= 0 && rr >= 0)
         {
             var target = lr >= rr ? leftValue.Type : rightValue.Type;
+            if (inclusiveComparison)
+            {
+                // #229: inclusive comparisons use the measured pair domain, not the widening ladder.
+                var pair = (Math.Min(lr, rr), Math.Max(lr, rr));
+                target = pair switch
+                {
+                    (3, 6) => Vb6Value.ValueType.Single,
+                    (2, 3) => Vb6Value.ValueType.Double,
+                    (4, 6) => Vb6Value.ValueType.Currency,
+                    (5, 6) => Vb6Value.ValueType.Decimal,
+                    _ => target
+                };
+                // Out-of-range comparisons still order without raising a conversion overflow.
+                if ((target == Vb6Value.ValueType.Currency || target == Vb6Value.ValueType.Decimal) &&
+                    (Math.Abs(AsDouble(leftValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue) ||
+                     Math.Abs(AsDouble(rightValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue)))
+                    target = Vb6Value.ValueType.Double;
+            }
             return (PromoteNumeric(leftValue, target), PromoteNumeric(rightValue, target));
         }
 
@@ -1527,6 +1548,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!dollar && interpreter.GlobalMember(name) is { } global)
             return await interpreter.CallLibraryMember(global, name, await EvaluateCallArgs(argsCtx))
                 ?? throw new VBSubOrFunctionNotDefinedException(name);
+        if (!dollar && name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames);
         // `Forms(i)`, where nothing the program declares claims the name: Forms' default member, Item (#2496).
         if (!dollar && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms forms })
             return forms.Item(await EvaluateCallArgs(argsCtx));
@@ -1592,6 +1615,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // (`Math`/`Strings`/…) are transparent and skipped permissively; multi-level object-graph chains are not
     // supported here (that is the deferred general member-chain wall).
 
+    internal static void RequireMemberReceiver(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
+    {
+        // Measured non-object Variant receivers (#257); other kinds keep their existing dispatch.
+        if (value.Type == Vb6Value.ValueType.EmptyVariant || value.Type == Vb6Value.ValueType.Null
+            || value.HeldAsVariant && (value.Type.IsArray || value.Type == Vb6Value.ValueType.Integer
+                || value.Type == Vb6Value.ValueType.String))
+            throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
+    }
+
     /// <summary>
     /// Resolve ONE member on a value: `.Name` applied to whatever the previous step produced.
     ///
@@ -1602,6 +1634,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        RequireMemberReceiver(variable, ctx);
         if (variable.Value is VBTabStrip strip && AvaloniaInterop.TabStripMembers.IsOwn(MemberName(member)))
             return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBToolbar toolbar)
@@ -1676,6 +1709,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return MemberArgs(member) is { } fieldArgs
                     ? FieldElement(variable, vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
                     : fieldVal;
+            if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
+                && string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+                && !FormMembers.IsMember(memberName, out _))
+                throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
             // own members, which VB6 refuses to let clash with them. Using one loads the form, as a control does.
             if (await interpreter.Loading((Form: vobj, Member: memberName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow)
@@ -1864,6 +1901,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var library = qualifier.Name!;
             while (true)
             {
+                if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+                    return await ThenTheRest(await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames));
                 var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
@@ -2190,6 +2229,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // and Nothing Is Nothing — NOT Vb6Value equality (which would run numeric coercion).
             var leftObject = await EvaluateValue(context.valueStmt(0));
             var rightObject = await EvaluateValue(context.valueStmt(1));
+            if (leftObject.Type == Vb6Value.ValueType.Error || rightObject.Type == Vb6Value.ValueType.Error)
+                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
             return new Vb6Value(ReferenceEquals(leftObject.Value, rightObject.Value));
         }
         // Option Compare is the module's where the comparison is written: a Binary module's function called from a Text
@@ -2207,12 +2248,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             : context.GT() != null ? Order.Greater
             : context.LEQ() != null ? Order.LessOrEqual
             : Order.GreaterOrEqual;
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt(),
+            context.LEQ() != null || context.GEQ() != null);
         // Two strings compare ordinally under Option Compare Binary (oracle-verified: "B" < "a", "10" < "9"), and as text
         // under Option Compare Text. A string-vs-number pair is left to the numeric path below (numeric string coerces; a
         // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
         if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
+        if (leftValue.Type == Vb6Value.ValueType.Boolean && rightValue.Type == Vb6Value.ValueType.Boolean)
+            return (Vb6Value)Holds(order, leftValue.Value is true ? -1 : 0, rightValue.Value is true ? -1 : 0);
+        if ((context.LEQ() != null || context.GEQ() != null) &&
+            leftValue.Value is decimal leftDecimal && rightValue.Value is decimal rightDecimal)
+            return (Vb6Value)Holds(order, leftDecimal, rightDecimal);
+        if (leftValue.Type == Vb6Value.ValueType.Error && rightValue.Type == Vb6Value.ValueType.Error)
+            return (Vb6Value)Holds(order, (ushort)leftValue.Value!, (ushort)rightValue.Value!);
         if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
             return (Vb6Value)Holds(order, leftInt, rightInt);
         if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))
@@ -2373,6 +2422,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         if (call is not null && interpreter.LibraryClassFor(call.GetText()) is { } libraryClass)
             return interpreter.AdoptNewTemp(interpreter.NewLibraryObject(libraryClass), stmtFrames);
+        if (call?.GetText().Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase) == true)
+            throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
         // `New Collection`, and `New VBA.Collection`, the library's own (#1471).
         if (call?.iCS_S_MembersCall() is { } qualified && IsCollectionType(qualified.GetText()))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
@@ -2380,6 +2431,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ?? throw new VBCompileErrorException("Expected a class name after New");
         if (IsCollectionType(className) && !interpreter.Modules.TryGet(className, out _))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
+        // VB6 compiles New ErrObject but refuses its creation at run time (#2627).
+        if (className.Equals("ErrObject", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
+            throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered"));
         var created = Vb6Value.NewObject(await interpreter.NewObject(className));
         // Hold the transient in the current statement frame so a New that is never stored (consumed by a built-in
         // arg, a condition, a member read) still terminates at statement-end; a subsequent Set / ByVal-bind
@@ -2434,6 +2488,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
+                VBUpDown => "MSComCtl2",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)

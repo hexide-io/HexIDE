@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
@@ -9,6 +10,9 @@ using Avalonia.Threading;
 using HexIDE.Runtime;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -18,7 +22,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// A control's and a form's FontSize, FontBold, FontItalic, FontUnderline and FontStrikethru at run time (#1343), and a
 /// TextBox's own Font (#915). The form is vb6.exe's probe, and every line it prints is a line vb6.exe logged for the same
 /// statements, native and p-code alike (the oracle's "A font's FontSize, FontBold and the rest"). The probe's
-/// <c>Font.Weight</c> and <c>Font.Size</c> are left out of each line: the Font object is #934.
+/// <c>Font.Weight</c> and <c>Font.Size</c> are covered separately by the object tests below (#934).
 /// </summary>
 public class FontMembersTests
 {
@@ -339,4 +343,214 @@ public class FontMembersTests
         Snap("MS Shell Dlg", 9).Should().Be((8.25, "MS Shell Dlg"));
         Snap("MS Shell Dlg", 16).Should().Be((12, "MS Shell Dlg"));
     }
+
+    [AvaloniaFact]
+    public void Font_is_an_object_with_the_measured_members_and_types()
+    {
+        Run("""
+                Debug.Print TypeName(Me.Font) & " " & TypeName(Label1.Font) & " " & TypeName(Text1.Font)
+                Debug.Print Label1.Font.Name & " " & Label1.Font.Size & " " & TypeName(Label1.Font.Size)
+                Debug.Print Label1.Font.Bold & " " & Label1.Font.Italic & " " & Label1.Font.Weight & " " & Label1.Font.Charset
+
+            """).Should().Equal("Font Font Font", "MS Sans Serif 8.25 Currency", "False False 400 0");
+    }
+
+    [AvaloniaFact]
+    public void Font_uses_Name_as_its_default_member()
+    {
+        Run("""
+                v = Label1.Font
+                Debug.Print TypeName(v) & " " & v
+                Debug.Print CStr(Label1.Font)
+                Label1.Font = "Arial"
+                Debug.Print Label1.Font.Name
+
+            """).Should().Equal("String MS Sans Serif", "MS Sans Serif", "Arial");
+    }
+
+    [AvaloniaFact]
+    public void Font_references_are_stable_and_separate_from_the_form()
+    {
+        Run("""
+                Debug.Print Label1.Font Is Label1.Font
+                Debug.Print Me.Font Is Label1.Font
+
+            """).Should().Equal("True", "False");
+    }
+
+    [AvaloniaFact]
+    public void Set_Font_shares_changes_in_both_directions_and_redraws_every_owner()
+    {
+        Run("""
+                Set Text1.Font = Label1.Font
+                Label1.Font.Size = 12
+                Debug.Print Text1.FontSize & " " & Text1.Font.Size
+                Label1.FontBold = True
+                Debug.Print Text1.Font.Bold & " " & Text1.Font.Weight
+                Text1.FontBold = False
+                Debug.Print Label1.Font.Bold & " " & Label1.Font.Weight
+                Text1.FontBold = True
+                Label1.Font.Size = 9
+                Debug.Print CStr(Text1.FontSize)
+                Debug.Print Text1.Font Is Label1.Font
+
+            """, controls =>
+        {
+            controls["Text1"].FontSize.Should().Be(12);
+            controls["Label1"].FontSize.Should().Be(12);
+            controls["Text1"].FontWeight.Should().Be(Avalonia.Media.FontWeight.Bold);
+        }).Should().Equal("12 12", "True 700", "False 400", "9", "True");
+    }
+
+    [AvaloniaFact]
+    public void Set_Font_Nothing_raises_380_without_replacing_the_font()
+    {
+        Run("""
+                Dim f As Object
+                Set f = Label1.Font
+                Set Label1.Font = Nothing
+                Debug.Print CStr(Err.Number)
+                Debug.Print Label1.Font Is f
+
+            """).Should().Equal("380", "True");
+    }
+
+    [AvaloniaFact]
+    public void Set_Font_on_a_removed_control_keeps_the_measured_735_guard()
+    {
+        Run("""
+                Dim c As Control
+                Set c = Controls.Add("VB.Label", "Late")
+                Controls.Remove "Late"
+                Set c.Font = Label1.Font
+                Debug.Print CStr(Err.Number)
+
+            """).Should().Equal("735");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("CommandButton")]
+    [InlineData("CheckBox")]
+    [InlineData("OptionButton")]
+    [InlineData("ComboBox")]
+    [InlineData("ListBox")]
+    [InlineData("Frame")]
+    [InlineData("PictureBox")]
+    public void Every_existing_font_bearing_control_reads_a_Font_object(string type)
+    {
+        TemplatedControl control = type switch
+        {
+            "CommandButton" => new VBCommandButton(),
+            "CheckBox" => new VBCheckBox(),
+            "OptionButton" => new VBOptionButton(),
+            "ComboBox" => new VBComboBox(),
+            "ListBox" => new VBListBox(),
+            "Frame" => new VBFrame(),
+            _ => new VBPictureBox(),
+        };
+        AttachedProperties.SetFont(control, VBFont.Default);
+        AvaloniaInteroperability.TryGet(control, VBProperties.FontProperty, out var font).Should().BeTrue();
+        VB6BuiltIns.DebugTypeName(font).Should().Be("Font");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Name")]
+    [InlineData("Bold")]
+    [InlineData("Italic")]
+    [InlineData("Underline")]
+    [InlineData("Strikethrough")]
+    [InlineData("Weight")]
+    [InlineData("Charset")]
+    [InlineData("Size")]
+    public void Unmeasured_object_member_writes_refuse_instead_of_inventing_a_conversion(string member)
+    {
+        var control = new VBLabel();
+        AttachedProperties.SetFont(control, VBFont.Default);
+        AvaloniaInteroperability.TryGet(control, VBProperties.FontProperty, out var font).Should().BeTrue();
+        Action write = () => ((ICSharpPropertyBag)font.Value!).TrySetProperty(member,
+            new Vb6Value(20));
+        write.Should().Throw<NotImplementedException>();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Long")]
+    [InlineData("Single")]
+    [InlineData("Double")]
+    [InlineData("Currency")]
+    [InlineData("String")]
+    [InlineData("Date")]
+    [InlineData("Boolean")]
+    public void Unmeasured_Size_conversions_refuse_even_when_the_value_looks_like_a_measured_size(string type)
+    {
+        var value = type switch
+        {
+            "Long" => new Vb6Value(9L),
+            "Single" => new Vb6Value(9f),
+            "Double" => new Vb6Value(9d),
+            "Currency" => Vb6Value.NewCurrency(9m),
+            "String" => new Vb6Value("9"),
+            "Date" => new Vb6Value(new VbDate(9)),
+            _ => new Vb6Value(true),
+        };
+        var control = new VBLabel();
+        AttachedProperties.SetFont(control, VBFont.Default);
+        AvaloniaInteroperability.TryGet(control, VBProperties.FontProperty, out var font).Should().BeTrue();
+        Action write = () => ((ICSharpPropertyBag)font.Value!).TrySetProperty("Size", value);
+        write.Should().Throw<NotImplementedException>();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("DriveListBox")]
+    [InlineData("DirListBox")]
+    [InlineData("FileListBox")]
+    [InlineData("Data")]
+    public void Font_on_a_placeholder_refuses_as_not_implemented(string type)
+    {
+        var componentClass = PlaceholderComponentClass.ForType($"VB.{type}");
+        var control = componentClass.Instantiate(new ComponentInstance(componentClass, "Control1"));
+        Action read = () => AvaloniaInteroperability.TryGet(control, VBProperties.FontProperty, out _);
+        read.Should().Throw<NotImplementedException>();
+        Action write = () => AvaloniaInteroperability.TrySet(control, VBProperties.FontProperty, new Vb6Value("Arial"));
+        write.Should().Throw<NotImplementedException>();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Underline")]
+    [InlineData("Strikethrough")]
+    public void Unmeasured_object_member_reads_refuse(string member)
+    {
+        var control = new VBLabel();
+        AttachedProperties.SetFont(control, VBFont.Default);
+        AvaloniaInteroperability.TryGet(control, VBProperties.FontProperty, out var font).Should().BeTrue();
+        Action read = () => ((ICSharpPropertyBag)font.Value!).TryGetProperty(member, out _);
+        read.Should().Throw<NotImplementedException>();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HScrollBar")]
+    [InlineData("VScrollBar")]
+    // A Timer's Font is one of its measured absent members (#801): the binding table doesn't resolve it, and the
+    // statement executor raises 438. TimerMemberTests owns that case.
+    [InlineData("Shape")]
+    [InlineData("Line")]
+    [InlineData("Image")]
+    public void Controls_without_a_Font_raise_438(string type)
+    {
+        Control control = type switch
+        {
+            "HScrollBar" => new VBScrollBar { Orientation = Avalonia.Layout.Orientation.Horizontal },
+            "VScrollBar" => new VBScrollBar { Orientation = Avalonia.Layout.Orientation.Vertical },
+            "Shape" => new VBShape(),
+            "Line" => new VBLine(0, 0, 0, 0),
+            _ => new VBImage(),
+        };
+        Action read = () => AvaloniaInteroperability.TryGet(control, VBProperties.FontProperty, out _);
+        read.Should().Throw<VBRunTimeException>()
+            .Which.Error.ErrNo.Should().Be(438);
+        Action write = () => AvaloniaInteroperability.TrySet(control, VBProperties.FontProperty,
+            new Vb6Value("Arial"));
+        write.Should().Throw<VBRunTimeException>()
+            .Which.Error.ErrNo.Should().Be(438);
+    }
+
 }
