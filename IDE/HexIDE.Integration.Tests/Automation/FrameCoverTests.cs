@@ -41,6 +41,17 @@ public class FrameCoverTests
             "The window is hidden, so it has no frame on the screen. Show it, then retry includeFrame true.");
     }
 
+    // The default capture refuses a minimized window too: the compositor still held the frame it drew before it was
+    // minimized, which came back as if current (#2416). Headless can't minimize a window, so the wording is pinned here.
+    [Fact]
+    public void The_client_capture_refuses_a_minimized_window_and_says_how_to_restore_it()
+    {
+        SnapshotComposer.MinimizedRefusal("Form1").Should().Be(
+            "'Form1' is minimized, so nothing of it is on the screen, and the last frame it drew before it was minimized "
+            + "would read as current; nothing was captured. Restore it with set_window_state "
+            + "{\"state\":\"Normal\",\"window\":\"Form1\"}, then capture it.");
+    }
+
     [Fact]
     public void A_copy_says_how_much_other_windows_cover_and_which_is_on_top()
     {

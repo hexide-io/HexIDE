@@ -1015,10 +1015,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var (target, _, error) = ResolveActiveWindow(string.IsNullOrWhiteSpace(window) ? "ide" : window, ideByDefault: true);
         if (target is null)
             return (null, null, error);
+        return (target, StateNameOf(target), null);
+    }
+
+    // A window as the window-state tools name it, which is what a caller passes as 'window' to reach it again.
+    private static string StateNameOf(Avalonia.Controls.Window target)
+    {
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        return (target, target == main ? "ide"
+        return target == main ? "ide"
             : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
-            : DescribeWindow(target), null);
+            : DescribeWindow(target);
     }
 
     internal static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
@@ -2218,7 +2224,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "even where another window covers it, with its open popups drawn over it. Windows only; refused, with no "
                      + "client-only fallback, for a window hidden or minimized. Should Windows render nothing, the frame is "
                      + "copied from the screen and the 'note' says how much of it other windows cover, since that part shows "
-                     + "them. Default false renders the client area and its popups, even if occluded.")]
+                     + "them. Default false renders the client area and its popups, even if occluded, and refuses a minimized window, whose last frame is stale.")]
         bool includeFrame = false,
         CancellationToken ct = default)
     {
@@ -2246,6 +2252,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 if (snapshot is null)
                     return new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null);
             }
+            // A minimized window is refused as the frame capture refuses it: the compositor still held its last frame, which
+            // came back as a capture of the window as it is (#2416).
+            else if (active.WindowState == Avalonia.Controls.WindowState.Minimized)
+                return new SnapshotResult(null, HexIDE.Automation.SnapshotComposer.MinimizedRefusal(StateNameOf(active)),
+                    activeDialog, Title: active.Title, CaptureArea: null);
             else
                 snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
             using var captured = snapshot;
