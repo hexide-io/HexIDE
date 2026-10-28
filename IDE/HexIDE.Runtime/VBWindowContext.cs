@@ -550,6 +550,32 @@ public class VBWindowContext : IModuleExecutionRoot
         });
     }
 
+    public async Task ExecuteEditEventAsync(string name, IList<Vb6Value> args)
+    {
+        if (interpreter is null) return;
+        await Events.Run(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded) return false;
+            return await Dispatch(async () =>
+            {
+                if (!started) await EnsureDeclarations();
+                var callArgs = new List<CallArg>();
+                for (var i = 0; i < args.Count; i++)
+                    callArgs.Add(new CallArg(args[i], null, new EditArgument(args, i)));
+                await interpreter.RaiseFormEvent(form, name, callArgs);
+            });
+        });
+    }
+
+    private sealed record EditArgument(IList<Vb6Value> Arguments, int Index) : IByRefTarget
+    {
+        public Vb6Value.ValueType? DeclaredType => Arguments[Index].Type;
+        public bool IsVariant => false;
+        public Vb6Value Read() => Arguments[Index];
+        public void Write(Vb6Value value) => Arguments[Index] = value;
+    }
+
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
