@@ -83,6 +83,23 @@ public class InspectPointerTests
     }
 
     [AvaloniaFact]
+    public void A_pointer_a_style_sets_is_said_to_come_from_the_style()
+    {
+        var button = new Button { Content = "OK" };
+        button.Styles.Add(new Style(x => x.OfType<Button>())
+        {
+            Setters = { new Setter(InputElement.CursorProperty, VBCursorType.Crosshair.ToCursor()) },
+        });
+        var window = Show(button);
+        try
+        {
+            UiAutomationDriver.Inspect(button, "Window/Button", window).Pointer.Should()
+                .Be(new PointerState(2, "Cross", "Cross", PointerSource.Style, "self", null));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void A_pointer_the_runtime_did_not_make_is_said_to_be_unrecorded_not_guessed()
     {
         var button = new Button { Content = "OK" };
