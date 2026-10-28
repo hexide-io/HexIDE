@@ -39,7 +39,7 @@ public class FormComponentClass : ComponentBaseClass
     /// </summary>
     public virtual string DesignerDoubleClickEvent => "Load";
 
-    private static readonly EventClass[] RootEvents = [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
+    private static readonly EventClass[] RootEvents = [KeyDownEvent, KeyPressEvent, KeyUpEvent, ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
     public override string Name => "Form";
     public override string VBTypeName => "VB.Form";
@@ -66,15 +66,19 @@ public class FormComponentClass : ComponentBaseClass
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
             WindowStartupLocation = instance.GetPropertyOrDefault(StartUpPositionProperty).ToAvalonia(),
+            CenterOnShow = instance.GetPropertyOrDefault(StartUpPositionProperty) == VBStartupPosition.StartUpScreen,
             ShowInTaskbar = instance.GetPropertyOrDefault(ShowInTaskbarProperty),
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             Position = new PixelPoint((int)instance.GetPropertyOrDefault(LeftProperty), (int)instance.GetPropertyOrDefault(TopProperty))
         };
+        AttachedProperties.SetKeyPreview(form, instance.GetPropertyOrDefault(KeyPreviewProperty));
         VBProps.SetName(form, instance.GetPropertyOrDefault(NameProperty));
         // The frame its Width and Height include at run time (#1072).
         // And the window that frame is drawn as: its border, caption bar and buttons (#1575).
         var chrome = AvaloniaInterop.FormChrome.Read(instance, menuBar);
         AvaloniaInterop.FormFrame.Set(form, chrome, menuBar);
+        AvaloniaInterop.FormPosition.FromClient(form, instance.GetPropertyOrDefault(LeftProperty),
+            instance.GetPropertyOrDefault(TopProperty), chrome, menuBar);
         chrome.Apply(form);
         // And the icon it carries: its own, none, or the default (#1594).
         AvaloniaInterop.FormIcon.Read(instance).Apply(form);

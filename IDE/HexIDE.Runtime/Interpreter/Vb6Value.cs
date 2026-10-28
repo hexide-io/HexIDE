@@ -17,6 +17,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     {
         if (Type == other.Type)
         {
+            if (Type == ValueType.Error)
+                return ((ushort)Value!).CompareTo((ushort)other.Value!);
             if (Type == ValueType.Integer)
                 return ((int)Value!).CompareTo((int)other.Value!);
             if (Type == ValueType.Long)
@@ -57,6 +59,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     {
         switch (v.Value)
         {
+            case uint:
+                throw new NotImplementedException("Numeric use of an unsigned Automation Long is not implemented (#1084)");
             case byte b: d = b; return true;
             case int i: d = i; return true;
             case long l: d = l; return true;
@@ -173,6 +177,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         }
     }
     public Vb6Value(long value) : this(ValueType.Long, value) {}
+    internal static Vb6Value NewAutomationUnsignedLong(uint value) => new(ValueType.AutomationUnsignedLong, value);
     public Vb6Value(byte value) : this(ValueType.Byte, value) {}
     public Vb6Value(VbDate value) : this(ValueType.Date, value) {}
 
@@ -181,6 +186,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     // Currency is always a fixed 4 decimal places (banker's-rounded at construction); Decimal keeps full scale.
     public static Vb6Value NewCurrency(decimal value) => new Vb6Value(ValueType.Currency, Math.Round(value, 4, MidpointRounding.ToEven));
     public static Vb6Value NewDecimal(decimal value) => new Vb6Value(ValueType.Decimal, value);
+
+    // A boxed ushort keeps Error numbers out of the implicit numeric helpers. Explicit conversions unwrap it.
+    public static Vb6Value NewError(ushort number) => new Vb6Value(ValueType.Error, number);
 
     // A user-defined Type instance (the concrete type is on the VbUdt).
     public static Vb6Value NewUdt(VbUdt udt) => new Vb6Value(ValueType.UserDefinedType, udt);
@@ -293,6 +301,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         public static readonly ValueType CSharpProxyObject = new ValueType(ValueTypePrimitive.CSharpProxyObject, false);
         public static readonly ValueType Null = new ValueType(ValueTypePrimitive.Null, false);
         public static readonly ValueType Long = new ValueType(ValueTypePrimitive.Long, false);
+        public static readonly ValueType AutomationUnsignedLong = new(ValueTypePrimitive.AutomationUnsignedLong, false);
         public static readonly ValueType Byte = new ValueType(ValueTypePrimitive.Byte, false);
         public static readonly ValueType Currency = new ValueType(ValueTypePrimitive.Currency, false);
         public static readonly ValueType Decimal = new ValueType(ValueTypePrimitive.Decimal, false);
@@ -303,6 +312,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         // live on the VbObject. A null Value = Nothing.
         public static readonly ValueType Object = new ValueType(ValueTypePrimitive.Object, false);
 
+        public static readonly ValueType Error = new ValueType(ValueTypePrimitive.Error, false);
         /// <summary>A blank argument slot. See <see cref="ValueTypePrimitive.Missing"/>.</summary>
         public static readonly ValueType Missing = new ValueType(ValueTypePrimitive.Missing, false);
 
@@ -361,7 +371,10 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         ///
         /// It should never escape into general value flow: argument binding consumes it.
         /// </summary>
-        Missing
+        Missing,
+
+        AutomationUnsignedLong,
+        Error
     }
 
     public static implicit operator Vb6Value(int value) =>
@@ -419,6 +432,19 @@ public class VBArray
 
     public bool IsDefined => bounds.Count > 0;
 
+    // A ParamArray's elements (#2462), each read and written through the argument it stands for while the call runs.
+    private IByRefTarget[]? aliases;
+
+    /// <summary>Whether this is a ParamArray's array, as the call made it, rather than a copy of one.</summary>
+    public bool IsParamArray => aliases is not null;
+
+    /// <summary>
+    /// A ParamArray (#2462): a Variant array from 0 whatever Option Base says, empty (0 To -1) when the call gave it nothing,
+    /// each of whose elements is one of the call's arguments (measured, native and p-code).
+    /// </summary>
+    internal static VBArray ParamArray(IByRefTarget[] elements) =>
+        new(Vb6Value.ValueType.EmptyVariant, [(0, elements.Length - 1)]) { aliases = elements };
+
     /// <summary>
     /// How many running calls hold an element ByRef (#1455), plus For Each loops walking this array (#1460).
     /// While any does, ReDim and Erase raise 10 (<see cref="IsLocked"/>). The ByRef path also refuses stores into
@@ -441,8 +467,18 @@ public class VBArray
         elementType = elementType,
         elementDefault = elementDefault,
         DeclaredClass = DeclaredClass,
-        array = CopyLevel(array, copyElement),
+        array = aliases is null ? CopyLevel(array, copyElement) : CopyAliases(copyElement),
     };
+
+    // A copy of a ParamArray holds what its elements read now, and is an ordinary array (measured: `copy = a`, then
+    // `copy(0) = 99`, leaves a(0) as it was).
+    private object[] CopyAliases(Func<Vb6Value, Vb6Value> copyElement)
+    {
+        var copy = new object[aliases!.Length];
+        for (int i = 0; i < copy.Length; i++)
+            copy[i] = copyElement(aliases[i].Read());
+        return copy;
+    }
 
     private static object[] CopyLevel(object[] level, Func<Vb6Value, Vb6Value> copyElement)
     {
@@ -595,6 +631,8 @@ public class VBArray
     {
         if (index.Count != bounds.Count)
             throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);   // undimensioned/wrong-dim → Err 9 (oracle), trappable
+        if (Alias(index) is { } alias)
+            return alias.Read().ViewedAs(DeclaredClass);
         object arr = array;
         for (var index1 = 0; index1 < index.Count; index1++)
         {
@@ -609,6 +647,12 @@ public class VBArray
     {
         if (index.Count != bounds.Count)
             throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);   // undimensioned/wrong-dim → Err 9 (oracle), trappable
+        // The argument converts, as a store into it does.
+        if (Alias(index) is { } alias)
+        {
+            alias.Write(val);
+            return;
+        }
         object arr = array;
         for (var index1 = 0; index1 < index.Count - 1; index1++)
         {
@@ -627,6 +671,10 @@ public class VBArray
 
         ((object[])arr)[index[^1] - bounds[^1].lbound] = val;
     }
+
+    // A subscript out of range falls through to the ordinary path, which raises 9 as it does for any array.
+    private IByRefTarget? Alias(IReadOnlyList<int> index) =>
+        aliases is not null && (uint)(index[0] - bounds[0].lbound) < (uint)aliases.Length ? aliases[index[0] - bounds[0].lbound] : null;
 
     /// <summary>The number of dimensions (0 for an undimensioned array). Used by the debugger's Locals inspector
     /// to label array elements by their real subscripts.</summary>

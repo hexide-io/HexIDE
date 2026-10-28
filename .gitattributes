@@ -2,6 +2,8 @@
 # the shebang breaks `#!/usr/bin/env bash` on Linux/CI (build_cloudflare.sh, copy-in script).
 *.sh text eol=lf
 scripts/hooks/pre-commit text eol=lf
+# Read by check-licences.sh, whose awk keeps a CR as part of the last field, so a CRLF copy fails every licence (#2589).
+*.tsv text eol=lf
 
 # VB6 source is CRLF by format convention: VB6 wrote it that way, HexIDE writes it that way, and
 # SerializationCorpusTests compares bytes. Without these rules a Linux/macOS checkout normalizes the

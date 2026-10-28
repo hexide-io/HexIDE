@@ -283,6 +283,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 RefreshModified();
         }));
         AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(_ => FlushComponentsToModel()));
+        AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
+        {
+            if (e.Module == formDefinition?.OwningModule)
+                RequestClose();
+        }));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
             if (e.Form == formDefinition)
@@ -817,6 +822,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // TextBox and Text = "Combo1" for a ComboBox (measured, #926). Only where the class has the property.
         if (baseClass.Properties.Contains(VBProperties.CaptionProperty))
             instance.SetProperty(VBProperties.CaptionProperty, newName);
+        if (baseClass is RichTextBoxComponentClass)
+            RichTextBoxPersistence.Seed(instance, newName);
         if (baseClass.Properties.Contains(VBProperties.TextProperty))
             instance.SetProperty(VBProperties.TextProperty, newName);
         var newComponent = new ComponentInstanceViewModel(this, instance)

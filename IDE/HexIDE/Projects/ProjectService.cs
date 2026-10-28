@@ -242,6 +242,41 @@ public class ProjectService : IProjectService
         if (archives != null) await archives.Close();
     }
 
+    public async Task RemoveDocument(DocumentIdentity document)
+    {
+        if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
+            return;
+
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+        var changed = new SaveChangesViewModel();
+        if (document.Form is { } form && IsDirty(form)) changed.Add(form);
+        if (document.Module is { } module && IsDirty(module)) changed.Add(module);
+        if (changed.ChangedFiles.Count > 0)
+        {
+            changed.SelectedFiles.AddRange(changed.ChangedFiles);
+            if (!await windowManager.ShowDialog(changed))
+                throw new OperationCanceledException();
+            if (changed.SaveChanges && changed.SelectedFiles.Count > 0)
+            {
+                var saved = document.Form is { } toSave
+                    ? await SaveForm(toSave, false)
+                    : await SaveModule(document.Module!, false);
+                if (!saved) return;
+            }
+        }
+
+        if (document.Form is { } removedForm)
+        {
+            eventBus.Publish(new FormUnloadedEvent(removedForm));
+            document.Project.DeleteForm(removedForm);
+        }
+        else if (document.Module is { } removedModule)
+        {
+            eventBus.Publish(new ModuleUnloadedEvent(removedModule));
+            document.Project.DeleteModule(removedModule);
+        }
+    }
+
     public async Task UnloadProject(ProjectDefinition project)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
@@ -631,8 +666,15 @@ public class ProjectService : IProjectService
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
+        {
+            var existed = File.Exists(destination.Path);
             if (Write(destination, announceSave, ownCommand, rewrites))
+            {
                 written.Add(destination);
+                if (announceSave && !existed && lspClient is not null)
+                    await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(destination.Path)).AbsoluteUri]);
+            }
+        }
 
         foreach (var destination in written)
         {
@@ -1230,16 +1272,7 @@ public class ProjectService : IProjectService
 
             // This is not a .dll file, but it will look better :wink: :wink:
             var archivePath = Path.ChangeExtension(exePath, "dll")!;
-            var stagedArchivePath = archivePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try
-            {
-                ZipFile.CreateFromDirectory(tempPath, stagedArchivePath);
-                File.Move(stagedArchivePath, archivePath, overwrite: true);
-            }
-            finally
-            {
-                try { File.Delete(stagedArchivePath); } catch { /* best effort — the staged archive is disposable */ }
-            }
+            AtomicFileWriter.Write(archivePath, stream => ZipFile.CreateFromDirectory(tempPath, stream));
         }
         finally
         {
@@ -1257,7 +1290,7 @@ public class ProjectService : IProjectService
         // its own assemblies and the native libraries, so nothing else goes with it (#1971). It used to be the runner's
         // apphost and three native libraries, which ran only while the runner was compiled AOT; since #30 the apphost has
         // needed HexIDE.Standalone.dll beside it, and no made program started.
-        runner.CopyTo(exePath, overwrite: true);
+        AtomicFileWriter.Copy(runner.FullName, exePath);
     }
 
     /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
@@ -1284,7 +1317,7 @@ public class ProjectService : IProjectService
         static void Convert(string path, Vb6TextEncoding encoding)
         {
             var text = Vb6TextFile.Decode(File.ReadAllBytes(path), encoding);
-            File.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
+            AtomicFileWriter.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
         }
     }
 
@@ -1348,7 +1381,11 @@ public class ProjectService : IProjectService
         // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a
         // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
-            Write(file, announceSave: true);
+        {
+            var existed = File.Exists(file.Path);
+            if (Write(file, announceSave: true) && !existed && lspClient is not null)
+                await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(file.Path)).AbsoluteUri]);
+        }
         if (lspClient is not null)
             await lspClient().WorkspaceChangedAsync();
     });
@@ -1933,41 +1970,16 @@ public class ProjectService : IProjectService
     // document (Vb6TextFile.EncodeDocument) and every refusal names it.
     private void AtomicWriteText(string targetPath, string content, byte[] bytes)
     {
-        var tmp = targetPath + ".tmp";
-        try
-        {
-            // Encode once and record the SAME bytes. FileHasher.Hash(string) hashes the UTF-8 encoding,
-            // which stopped matching the file the moment VB6 source began being written as ANSI — the
-            // watcher would re-hash from disk, see a different hash, and report every save as an external
-            // change. Recording the actual bytes keeps self-write suppression correct.
-            File.WriteAllBytes(tmp, bytes);
-            File.Move(tmp, targetPath, overwrite: true);
-            baselineStore.Record(targetPath, bytes);
-            // Render baselines are only ever compared against other renders, so a string hash is fine.
-            renderBaselines[targetPath] = FileHasher.Hash(content);
-        }
-        catch
-        {
-            if (File.Exists(tmp)) File.Delete(tmp);
-            throw;
-        }
+        AtomicFileWriter.WriteAllBytes(targetPath, bytes);
+        baselineStore.Record(targetPath, bytes);
+        renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
     private void AtomicWriteBytes(string targetPath, byte[] content)
     {
-        var tmp = targetPath + ".tmp";
-        try
-        {
-            File.WriteAllBytes(tmp, content);
-            File.Move(tmp, targetPath, overwrite: true);
-            baselineStore.Record(targetPath, content);
-            renderBaselines[targetPath] = FileHasher.Hash(content);
-        }
-        catch
-        {
-            if (File.Exists(tmp)) File.Delete(tmp);
-            throw;
-        }
+        AtomicFileWriter.WriteAllBytes(targetPath, content);
+        baselineStore.Record(targetPath, content);
+        renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
     /// <summary>The file extension VB6 gives a module of this kind.</summary>

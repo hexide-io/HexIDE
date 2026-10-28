@@ -10,7 +10,9 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -22,6 +24,32 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 public class CommonDialogTests
 {
+    [AvaloniaFact]
+    public void Open_passes_every_selected_file_from_the_IDE_picker()
+    {
+        var windows = Opening();
+        windows.OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>()).Returns(
+            Task.FromResult<IReadOnlyList<string>?>([@"C:\hexoracle-cdfiles\a.txt", @"C:\hexoracle-cdfiles\b.txt"]));
+        var ran = Run(Form(Dialog,
+            "    dlg.Flags = &H200\r\n"
+          + "    dlg.ShowOpen\r\n"
+          + "    Debug.Print dlg.FileName\r\n"), windows);
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal(@"C:\hexoracle-cdfiles\ a.txt b.txt");
+    }
+
+    [AvaloniaFact]
+    public void Unknown_font_keeps_previous_name_and_real_face_keeps_spelling()
+    {
+        var dialog = new VBCommonDialog(null!);
+        dialog.TrySetProperty("FontName", new Vb6Value("arial")).Should().BeTrue();
+        dialog.TryGetProperty("FontName", out var before).Should().BeTrue();
+        before.Should().Be(new Vb6Value("arial"));
+        dialog.TrySetProperty("FontName", new Vb6Value("HexIDE nonexistent font 1084")).Should().BeTrue();
+        dialog.TryGetProperty("FontName", out var after).Should().BeTrue();
+        after.Should().Be(before);
+    }
+
     private sealed class NullSink : IDeserializeErrorSink
     {
         public static readonly NullSink Instance = new();
@@ -178,9 +206,9 @@ public class CommonDialogTests
           + "    Debug.Print dlg.FileName & \" \" & dlg.FileTitle\r\n"), windows);
 
         ran.Failures.Should().BeEmpty();
-        // 6148 is the 4100 set plus cdlOFNPathMustExist, as Windows adds it. One filter can't have been changed.
+        // The Open result adds PathMustExist and ExtensionDifferent (DefaultExt was empty).
         ran.Printed.Should().Equal(
-            @"C:\docs\sample.txt sample.txt 1 6148",
+            @"C:\docs\sample.txt sample.txt 1 7172",
             @"C:\docs\abc.txt abc.txt 2",
             @"C:\docs\notes.log notes.log");
         asked!.Title.Should().Be("Save As");
@@ -230,6 +258,44 @@ public class CommonDialogTests
         ran.Printed.Should().Equal("Courier New 10 True True 1", "32755 Courier New");
     }
 
+    [AvaloniaTheory]
+    [InlineData(0, 0)]
+    [InlineData(1, 255)]
+    public void ShowColor_runs_through_the_IDE_host(int flags, int expected)
+    {
+        var windows = Opening();
+        windows.ShowColorDialog(expected).Returns(Task.FromResult<int?>(expected));
+        var ran = Run(Form(Dialog,
+            $"    dlg.Flags = {flags}\r\n"
+          + "    dlg.Color = vbRed\r\n"
+          + "    dlg.ShowColor\r\n"
+          + "    Debug.Print CStr(VarType(dlg.Color))\r\n"), windows);
+
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("19");
+        windows.Received(1).ShowColorDialog(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("dlg.ShowPrinter")]
+    [InlineData("dlg.Action = 5")]
+    public void Printer_runs_through_the_IDE_host(string statement)
+    {
+        var windows = Opening();
+        windows.ShowPrintDialog().Returns(Task.FromResult(true), Task.FromResult(false));
+        var ran = Run(Form(Dialog,
+            "    dlg.Copies = 3\r\n"
+          + "    dlg.PrinterDefault = False\r\n"
+          + $"    {statement}\r\n"
+          + "    Debug.Print dlg.Copies & \" \" & dlg.Orientation & \" \" & dlg.hDC\r\n"
+          + "    dlg.CancelError = True\r\n"
+          + $"    {statement}\r\n"
+          + "    Debug.Print Err.Number & \" \" & dlg.Copies & \" \" & dlg.Orientation & \" \" & dlg.hDC\r\n"), windows);
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("1 1 0", "32755 1 1 0");
+        windows.Received(2).ShowPrintDialog();
+    }
+
     [AvaloniaFact]
     public void What_the_form_s_file_sets_is_read_and_a_member_it_does_not_model_is_refused()
     {
@@ -237,10 +303,10 @@ public class CommonDialogTests
             "      CancelError     =   -1  'True\r\n      DialogTitle     =   \"Pick one\"\r\n      _ExtentX");
         var ran = Run(Form(withProperties,
             "    Debug.Print dlg.CancelError & \" \" & dlg.DialogTitle\r\n"
-          + "    Debug.Print dlg.HelpFile\r\n"), Opening());
+          + "    Debug.Print dlg.hDC\r\n"), Opening());
 
         ran.Printed.Should().Equal("True Pick one");
-        ran.Failures.Should().ContainSingle().Which.Should().Contain("HelpFile");
+        ran.Failures.Should().ContainSingle().Which.Should().Contain("hDC");
     }
 
     [AvaloniaFact]

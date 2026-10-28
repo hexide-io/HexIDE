@@ -264,7 +264,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddPropertyPage}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addpropertypage}" Command="{CompiledBinding AddPropertyPageCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddFile}" Command="{CompiledBinding AddFileCommand}" />
                             <Separator />
-                            <MenuItem Header="{CompiledBinding RemoveFormMenuHeader}" />
+                            <MenuItem x:Name="RemoveProjectMemberMenuItem" Header="{CompiledBinding RemoveFormMenuHeader}" Command="{CompiledBinding RemoveDocumentCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Personality.IsProjectReferencesVisible}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.Components}" Command="{x:Static vb:ApplicationCommands.ProjectComponentsCommand}" />
@@ -483,7 +483,7 @@
                         <Button Width="22" Height="22" Padding="3" Command="{CompiledBinding BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Standard.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Standard.End">
+                        <Button Width="22" Height="22" Padding="3" Command="{CompiledBinding EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Standard.End">
                             <Path Data="{StaticResource Geo.Stop}" Fill="{StaticResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
@@ -574,7 +574,7 @@
                         <Button Width="22" Height="22" Padding="3" Command="{CompiledBinding BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Debug.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Debug.End">
+                        <Button Width="22" Height="22" Padding="3" Command="{CompiledBinding EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Debug.End">
                             <Path Data="{StaticResource Geo.Stop}" Fill="{StaticResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
@@ -668,7 +668,7 @@
                                     Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
                                     Height="22"
                                     AutomationProperties.AutomationId="StatusBar">
-                <DockPanel Margin="2,1">
+                <DockPanel x:Name="StatusBarPanel" Margin="2,1">
                     <!-- INS/OVR panel (rightmost) -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
                                             MinWidth="50" Margin="1,0,0,0">

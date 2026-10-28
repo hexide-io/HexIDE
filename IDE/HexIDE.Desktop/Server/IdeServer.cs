@@ -34,6 +34,8 @@ internal static class IdeServer
         builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(port));
 
         builder.Services.AddSingleton(context);
+        // What the program prints, for the replies of the tools that run and stop it (#2531).
+        ProgramPrinted.Shared.Attach(context.ProjectRunnerService, () => context.ProjectRunnerService.IsRunning);
         builder.Services.AddHttpContextAccessor();
         // A call from another agent session is refused before anything else (#1306), and an exception a tool did not
         // catch is reported with its type and message rather than the SDK's bare "An error occurred invoking" (#603).
@@ -76,6 +78,9 @@ internal static class IdeServer
         // Only now: this line used to be written before the bind was attempted, so a port already in use
         // left a log that said the server was listening.
         Log.Information("HexIDE MCP server listening on http://localhost:{Port}", port);
+        // And on screen, in the status bar, for the same reason (#2451).
+        HexIDE.Automation.AutomationServerStatus.Current.Listening(port, session, ToolFailures.WithoutProfile(
+            AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
         await app.WaitForShutdownAsync(ct);
     }
 }

@@ -228,7 +228,6 @@ public class ObjectAsValueTests : BaseVBTestFixture
 
     [Theory]
     [InlineData("c = Frobnicate(o)")]                 // neither a built-in nor a procedure
-    [InlineData("c = CallByName(o, \"Tag\", 2)")]    // a built-in HexIDE does not have
     public async Task A_name_that_is_no_built_in_is_still_reported_when_given_an_object(string use)
     {
         // The refusal used to run before the lookup, so each was a trappable 438 that Resume Next stepped over.

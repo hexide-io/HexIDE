@@ -92,7 +92,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
-        ConfigurationProblems = configurationProblems ?? [];
+        _configurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
         _entries = registrations
@@ -144,7 +144,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// when one server declined it and another served it.</summary>
     public IReadOnlyList<string> DeclinedCapabilities => [];
 
-    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
+    private readonly ConcurrentDictionary<string, LanguageServerConfigProblem> _importProblems = new();
+    private readonly IReadOnlyList<LanguageServerConfigProblem> _configurationProblems;
+    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems =>
+        _configurationProblems.Concat(_importProblems.Values).ToArray();
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
         _entries.Select(e => new LanguageServerConnection(
@@ -326,6 +329,33 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // saves, so of two servers holding one document only the one that asked hears about it — which is
         // why the gate belongs on the connection and not here.
         Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.SaveDocumentAsync(uri, cancellationToken)));
+
+    public Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default) =>
+        RouteFileOperationsAsync(uris, "didCreate", uri => uri,
+            (client, files) => client.DidCreateFilesAsync(files, cancellationToken));
+
+    public Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default) =>
+        RouteFileOperationsAsync(uris, "didDelete", uri => uri,
+            (client, files) => client.DidDeleteFilesAsync(files, cancellationToken));
+
+    public Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default) =>
+        RouteFileOperationsAsync(files, "didRename", file => file.OldUri,
+            (client, matching) => client.DidRenameFilesAsync(matching, cancellationToken), file => file.NewUri);
+
+    private Task RouteFileOperationsAsync<T>(T[] files, string operation, Func<T, string> uri,
+        Func<ILspClient, T[], Task> send, Func<T, string>? newUri = null) =>
+        // Generated workspace artefacts already describe the project; keep a single writer (#2248).
+        // Other workspace events follow operation filters, not language claims, and never launch a server.
+        Task.WhenAll(_entries.Where(e => e.Registration.WorkspaceArtifact is null
+            && e.Client is { IsRunning: true }).Select(e =>
+        {
+            var client = e.Client!;
+            var matching = files.Where(file =>
+                FileOperationFilters.Matches(client.AdvertisedCapabilities, operation, uri(file))
+                || newUri is not null && FileOperationFilters.Matches(client.AdvertisedCapabilities, operation, newUri(file)))
+                .ToArray();
+            return matching.Length == 0 ? Task.CompletedTask : send(client, matching);
+        }));
 
     // ── One-answer features ─────────────────────────────────────────────────────────────────────────
     // A document has ONE structure and ONE set of folds, however many servers are looking at it. Two
@@ -896,7 +926,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
-            if (_artifacts is not null)
+            if (_artifacts is not null && e.Registration.ProjectImport is null)
             {
                 try { await _artifacts.PrepareAsync(e.Registration, cancellationToken); }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -918,6 +948,31 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             await client.StartAsync(cancellationToken);
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
+            if (client.IsRunning && _artifacts is not null)
+                await _artifacts.TrackFoldersAsync(e.Registration, token =>
+                    ReferenceEquals(e.Client, client) && client.IsRunning
+                        ? client.UpdateWorkspaceFoldersAsync(token) : Task.CompletedTask, cancellationToken);
+            if (client.IsRunning && _artifacts is not null && e.Registration.ProjectImport is { } spec)
+                await _artifacts.ImportAsync(e.Registration, async (project, token) =>
+                {
+                    // A stopped/replaced connection must not be revived by the debounce callback.
+                    if (!ReferenceEquals(e.Client, client) || !client.IsRunning) return;
+                    var problemKey = e.Registration.Id + "\0" + (project.Project.DefinitionPath ?? project.WorkspaceRoot);
+                    try
+                    {
+                        if (project.Project.DefinitionPath is not { } path || project.ProjectText is not { } render)
+                            throw new InvalidOperationException("Project import requires a saved project path and in-memory project text.");
+                        await client.ImportProjectAsync(spec, new Uri(path).AbsoluteUri, await render(token), token);
+                        _importProblems.TryRemove(problemKey, out _);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
+                    {
+                        _importProblems[problemKey] = new(e.Registration.Id, $"Project import failed for {project.Project.Name}: {ex.Message}", false);
+                        _logger.LogWarning(ex, "Project import failed for {Server}.", e.Registration.Id);
+                    }
+                    ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+                }, cancellationToken);
 
             if (!client.IsRunning)
                 _logger.LogWarning("Language server '{Id}' did not start; its languages have no support.",

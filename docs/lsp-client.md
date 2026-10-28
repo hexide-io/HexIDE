@@ -18,7 +18,8 @@ A pinned foreign-server download with a checksum mismatch fails an ordinary guar
 the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
 Signature help accepts parameter labels as strings or UTF-16 offset pairs into the signature label.
-The popup highlights the exact offset range and uses its text for parameter documentation. String labels
+The popup bolds the active parameter range without changing the signature label or its optional-parameter
+brackets ([#2632](https://github.com/hexide-io/HexIDE/issues/2632)), and uses its text for parameter documentation. String labels
 retain their existing first-match highlighting. An offset outside the signature has no highlight.
 If deferred result deserialization fails, the protocol inspector marks the exchange Failed with an
 “answer dropped” detail and retains any captured reply body (#2186).
@@ -177,6 +178,11 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
+Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
+and folding requests for that document and waits for their cancellation frames to be sent before
+`didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
+documents. The change starts a fresh diagnostic pull; editor refreshes request fresh tokens and folds.
+
 Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
 answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
 has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
@@ -198,7 +204,12 @@ an early initialize error from the expected timeout without accepting either as 
 
 ## Describing the workspace
 
-`initialize` carries **both** `workspaceFolders` — one per loaded project — and the deprecated `rootUri`,
+Each project's folder precedes its outside source folders. Missing source files add no folder; shared
+folders are deduplicated, and an outside source still belongs to the project listing it (#2364).
+Membership changes use the same 300 ms debounce as project import.
+Opted-in servers receive deduplicated added and removed folders before the import command (#2364).
+
+`initialize` carries **both** `workspaceFolders` — each loaded project’s folder, plus existing outside source folders — and the deprecated `rootUri`,
 and the client declares `workspace.workspaceFolders`. Sending both is not belt-and-braces: four of the five
 servers this suite drives were measured, and they show three different behaviours. (ruff, the fifth, was
 added later for the pull model and has not been measured on this question — which is stated rather than
@@ -224,9 +235,9 @@ to one entry, so a server does not index the same tree twice.
 `workspaceFolders` is **null, never an empty array**, when no project is open: the protocol gives those two
 different meanings, and "no folders are open" is the true one.
 
-**Not yet done:** `workspace/didChangeWorkspaceFolders`. A server started while a group was open is
-correct; one already running when a project joins or leaves the group is not told, and keeps the folder list
-it was given at `initialize`.
+`workspace/didChangeWorkspaceFolders` is sent on that trigger only when the server declares
+`workspace.workspaceFolders.changeNotifications` as true or a registration string.
+Unchanged folders produce no notification. Folder updates also reach connections without project import.
 
 ---
 
@@ -750,6 +761,11 @@ assertion would be guarding against nothing.
 
 ## Reading the conversation
 
+Conversation exports ask before replacing any existing messages or derived manifest file, naming both
+when both exist. Declining writes neither file. Automation exports each use a fresh temporary directory,
+so a later export preserves earlier returned files (#2504). The broader
+[file-safety audit](file-safety-audit.md) records the remaining write-path risks.
+
 **The protocol inspector is how you see what crossed the wire**, and it is the answer to the question a
 diagnostics list cannot settle: whether a request was even sent, what came back, and how long it took. A
 `Tools → Protocol Inspector` tab shows one interleaved timeline across every attached server; the same
@@ -945,7 +961,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 32 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 34 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1013,7 +1029,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 3 of 21
+### `workspace/*` — 5 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1024,8 +1040,8 @@ than inferred.
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
 | ○ | `workspace/didChangeConfiguration` | → |  |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
-| ○ | `workspace/didChangeWorkspaceFolders` | → |  |
-| ○ | `workspace/didCreateFiles` | → |  |
+| ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
+| ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
 | ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
@@ -1147,6 +1163,34 @@ that, which is CI.
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
 
+### File-operation notifications (#2248)
+
+`VBLspClient` has explicit `DidCreateFilesAsync`, `DidRenameFilesAsync` and `DidDeleteFilesAsync`
+entry points for successfully completed disk operations. Each connection reads
+`workspace.fileOperations.didCreate`, `didRename` or `didDelete` from the server's initialize reply
+and sends only matching files. Filters support URI schemes, file/folder selection, glob alternatives,
+character ranges and `ignoreCase`; rename matches either URI. Empty matching batches send nothing.
+These are notifications and carry no request id. Wire tests read the frames and use a shutdown response
+as a barrier when asserting silence.
+
+The registry fans out to every running server whose operation filter matches, regardless of its document
+language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
+notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
+it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
+receiving matching notifications. File events do not start servers. Initialize advertises the three
+notification capabilities.
+First saves and Save As to a destination that does not exist report creation after the write succeeds;
+ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
+reports no rename. Save Project and SaveProjectToDirectory use the same creation rule. Failed writes,
+including I/O and access-denied failures, send no creation notification; a wire test checks silence
+after a shutdown barrier.
+
+Disk rename and Remove-with-delete hooks remain outstanding: explorer name changes currently leave
+paths unchanged, and Remove only detaches a member. Neither is a disk event. The generated rename/delete
+rows remain ○ until IDE actions perform those disk operations; their explicit protocol senders and
+registry routes are ready.
+`willCreate`, `willRename` and `willDelete` remain outside the issue's scope.
+
 ### What the shape of that table says
 
 Three clusters account for nearly all of the gap:
@@ -1241,6 +1285,24 @@ The second, `rdcore`, projects the project's code files, references and Conditio
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
 #456; there is no public add-in contract (#457), no undeclared generation,
 no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
+### Project imports
+
+The loader recognises a server-neutral `projectImport` command and JSON argument array (#2363).
+Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
+After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
+that command with each project's saved URI and in-memory `.vbp` serialization. Importing entries skip
+artefact generation. The server must advertise the command; errors become configuration problems and
+reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
+Successful imports invalidate and re-pull open-document diagnostics until
+the connection first requests `workspace/diagnostic/refresh`, after which server refreshes take over
+for that connection alone. The client declares `workspace.diagnostics.refreshSupport: true` in
+`initialize`, so servers can request that refresh.
+Automatic transport reconnect currently replays documents but does not re-import until the next
+project change; immediate imports cover registry startup and workspace-root replacement.
+Projects without a saved path are reported rather than assigned an invented project URI. Folder updates
+precede the import on the same debounce (#2364).
+See [configuration](language-servers.md#project-import-declarations).
+
 ### Semantic colours
 
 The client declares standard token types and modifiers, relative encoding, full requests only, and no

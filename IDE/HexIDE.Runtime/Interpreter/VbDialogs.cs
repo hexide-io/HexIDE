@@ -11,6 +11,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// <param name="FileName">The name it suggests, or empty.</param>
 /// <param name="DefaultExtension">The extension a name typed without one is given, without its dot, or empty.</param>
 /// <param name="OverwritePrompt">Ask before choosing a file that exists: <c>cdlOFNOverwritePrompt</c>.</param>
+/// <param name="AllowMultiple">Allow several Open picks: <c>cdlOFNAllowMultiselect</c>.</param>
 public sealed record VbFileDialogRequest(
     bool Save,
     string? Title,
@@ -19,10 +20,11 @@ public sealed record VbFileDialogRequest(
     string InitialDirectory,
     string FileName,
     string DefaultExtension,
-    bool OverwritePrompt);
+    bool OverwritePrompt,
+    bool AllowMultiple = false);
 
-/// <summary>The file a dialog chose, and the filter it was chosen under, from 1, where the host can tell.</summary>
-public sealed record VbFileDialogAnswer(string Path, int? FilterIndex);
+/// <summary>The first file, selected filter (from 1) where known, and any further files in selection order.</summary>
+public sealed record VbFileDialogAnswer(string Path, int? FilterIndex, IReadOnlyList<string>? AdditionalPaths = null);
 
 /// <summary>A font, as a CommonDialog's <c>ShowFont</c> hands it to the host and takes it back (#1084).</summary>
 public sealed record VbFontChoice(string Name, float Size, bool Bold, bool Italic);
@@ -35,6 +37,10 @@ public sealed record VbFontChoice(string Name, float Size, bool Bold, bool Itali
 /// </summary>
 public static class HostDialogs
 {
+    public static Func<Task<bool>>? Print { get; set; }
+
+    public static Func<int, Task<int?>>? Color { get; set; }
+
     /// <summary>Open and Save As, or null for the platform's picker.</summary>
     public static Func<VbFileDialogRequest, Task<VbFileDialogAnswer?>>? File { get; set; }
 

@@ -246,6 +246,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("capture")]
     public CaptureLimitsEntry? Capture { get; set; }
 
+    /// <summary>A command and argument template for importing the in-memory project.</summary>
+    [JsonPropertyName("projectImport")]
+    public ProjectImportEntry? ProjectImport { get; set; }
+
     /// <summary>
     /// A file this server needs to exist, in the workspace, before it starts.
     /// </summary>

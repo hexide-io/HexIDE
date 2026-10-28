@@ -322,6 +322,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (mine && session is { } open) ReconcileThenAnnounceSaveAsync(open).ListenErrors();
         }));
 
+        AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
+        {
+            if (e.Module == moduleDefinition)
+                RequestClose();
+        }));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
             if (e.Form == formDefinition)

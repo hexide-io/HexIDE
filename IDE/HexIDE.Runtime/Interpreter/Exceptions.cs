@@ -7,6 +7,11 @@ namespace HexIDE.Runtime.Interpreter;
 
 public class VBRunTimeException : Exception
 {
+    // VB6 error provenance, separate from the CLR assembly name in Exception.Source.
+    internal string? VbSource { get; set; }
+    internal string? VbHelpFile { get; set; }
+    internal long? VbHelpContext { get; set; }
+
     public ParserRuleContext? Context { get; }
     private readonly VBStandardError stdError;
 
@@ -40,7 +45,8 @@ public class VBRunTimeException : Exception
     /// run-time error dialog and <c>get_last_runtime_error</c> still name the statement. One that has a context keeps it.
     /// </summary>
     public VBRunTimeException At(ParserRuleContext statement) =>
-        Context != null ? this : new VBRunTimeException(Message, statement, stdError, this);
+        Context != null ? this : new VBRunTimeException(Message, statement, stdError, this)
+            { VbSource = VbSource, VbHelpFile = VbHelpFile, VbHelpContext = VbHelpContext };
 }
 
 public class VBCompileErrorException : Exception

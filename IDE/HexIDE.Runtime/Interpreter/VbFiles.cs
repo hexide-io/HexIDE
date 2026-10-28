@@ -95,6 +95,7 @@ internal sealed partial class VbFiles
     internal sealed class OpenFile(string path, VbFileMode mode, bool locked)
     {
         public string Path { get; } = path;
+        public List<(long Start, long End)> Locks { get; } = [];
         public VbFileMode Mode { get; } = mode;
         public bool Locked { get; } = locked;
         public byte[] Input { get; init; } = [];
@@ -106,6 +107,7 @@ internal sealed partial class VbFiles
         public long AppendOrigin { get; set; }
         // The print column, counted from 0 at the start of a line: where a comma's next zone is measured from.
         public int Column { get; set; }
+        public int Width { get; set; }
         // A Binary or Random file's own handle, read and written in place, its position the file's.
         public FileStream? Stream { get; init; }
         // What this handle may do, and what it lets another handle on the file do (#1646).
@@ -254,7 +256,10 @@ internal sealed partial class VbFiles
     private (byte[] Bytes, int Position, int EndByte) TextSource(OpenFile file)
     {
         if (file.Mode == VbFileMode.Input)
+        {
+            CheckLocks(file, 0, long.MaxValue);
             return (file.Input, file.Position, CtrlZ);
+        }
         if (file.Mode != VbFileMode.Binary)
             throw new VBRunTimeException(VBStandardError.BadFileMode);
         return (SnapshotOf(file), (int)Math.Min(file.Stream!.Position, int.MaxValue), -1);
@@ -370,6 +375,21 @@ internal sealed partial class VbFiles
         return file.Mode != VbFileMode.Input || AtEnd(file);
     }
 
+    // #2521 measured every mode except Input: its probe failed to open that file.
+    public long FileAttr(int number, long attribute)
+    {
+        if (attribute != 1)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        return Get(number).Mode switch
+        {
+            VbFileMode.Output => 2L,
+            VbFileMode.Append => 8L,
+            VbFileMode.Random => 4L,
+            VbFileMode.Binary => 32L,
+            _ => throw new NotImplementedException("FileAttr for Input mode is not implemented: its VB6 value is unmeasured (#2521)"),
+        };
+    }
+
     private static bool AtEnd(OpenFile file) => file.Position >= file.Input.Length || file.Input[file.Position] == CtrlZ;
 
     /// <summary>
@@ -480,6 +500,18 @@ internal sealed partial class VbFiles
         MoveText(file, p, past: false);
         return text.ToString();
     }
+
+    public void SetWidth(int number, int width)
+    {
+        var file = Get(number);
+        if (file.Mode == VbFileMode.Random)
+            throw new NotImplementedException("Width on a Random file is unmeasured (#2554)");
+        if (width is < 0 or > 255)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        file.Width = width;
+    }
+
+    public int PrintWidth(int number) => Writable(number).Width;
 
     /// <summary>The column the next character of <c>Print #</c> lands in, from 0.</summary>
     public int Column(int number) => Writable(number).Column;

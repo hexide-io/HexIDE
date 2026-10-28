@@ -49,6 +49,17 @@ public class LspWorkspaceWiringTests
     }
 
     [Fact]
+    public void ProjectSavesUseTheApplicationsLanguageRegistry()
+    {
+        var composition = AsTheApplicationBuildsIt();
+        var factory = typeof(ProjectService).GetField("lspClient",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(composition.ProjectService);
+        var client = factory.Should().BeOfType<Func<ILspClient>>().Which;
+        client().Should().BeSameAs(composition.LspClient);
+    }
+
+    [Fact]
     public void AskingWhereTheWorkspaceIsDoesNotThrow()
     {
         // Deliberately not asserting an answer — the defect was never a wrong directory, it was that the
@@ -110,6 +121,61 @@ public class LspWorkspaceWiringTests
         var folders = WorkspaceOver(ProjectIn(shared, "Client"), ProjectIn(shared, "Server")).Folders;
 
         folders.Should().HaveCount(1);
+    }
+
+    [Theory]
+    [InlineData(ModuleKind.StandardModule)]
+    [InlineData(ModuleKind.ClassModule)]
+    [InlineData(ModuleKind.UserControl)]
+    public void ExistingOutsideSourcesAddOneFolderAndRemovalDropsIt(ModuleKind kind)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hexide-outside-" + Guid.NewGuid().ToString("N"));
+        var app = Path.Combine(root, "App");
+        var shared = Path.Combine(root, "Shared");
+        Directory.CreateDirectory(app);
+        Directory.CreateDirectory(shared);
+        try
+        {
+            var project = ProjectIn(app, "Client");
+            var source = Path.Combine(shared, "Source.bas");
+            File.WriteAllText(source, "");
+            var item = new ModuleDefinition(project, "Source", kind) { AbsolutePath = source };
+            project.AddModule(item);
+            project.AddModule(new ModuleDefinition(project, "Missing", kind)
+            {
+                AbsolutePath = Path.Combine(root, "Missing", "Absent.bas")
+            });
+            File.WriteAllText(Path.Combine(app, "Local.bas"), "");
+            project.AddModule(new ModuleDefinition(project, "Local", kind)
+            {
+                AbsolutePath = Path.Combine(app, "Local.bas")
+            });
+            var workspace = WorkspaceOver(project);
+            workspace.Folders.Select(f => f.Directory).Should().Equal(app, shared);
+            workspace.Projects.Should().ContainSingle("outside folders do not create projects");
+            project.DeleteModule(item);
+            workspace.Folders.Select(f => f.Directory).Should().Equal(app);
+            workspace.Dispose();
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void OutsideFormsShareADeduplicatedFolder()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hexide-forms-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var project = ProjectIn(Path.Combine(root, "App"), "Client");
+            var source = Path.Combine(root, "Shared.frm");
+            File.WriteAllText(source, "");
+            project.AddForm(new FormDefinition(project, [], "") { AbsolutePath = source });
+            project.AddForm(new FormDefinition(project, [], "") { AbsolutePath = source });
+            var workspace = WorkspaceOver(project);
+            workspace.Folders.Select(f => f.Directory).Should().Equal(Path.Combine(root, "App"), root);
+        }
+        finally { Directory.Delete(root, recursive: true); }
     }
 
     [Fact]
