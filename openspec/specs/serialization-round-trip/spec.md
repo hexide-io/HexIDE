@@ -208,6 +208,12 @@ wrong result rather than a late error, so such a form is refused when it is run,
 - **WHEN** a file the IDE would refuse to save is opened
 - **THEN** its editors are read-only and state why
 
+#### Scenario: An invisible UserControl has no complete recorded extents
+- **WHEN** a form holds an InvisibleAtRuntime UserControl missing `_ExtentX` or `_ExtentY`
+- **THEN** the designer opens read-only and the form records the missing-extents save-fidelity reason
+- **AND** dirty checks and other read-only serialization do not throw
+- **AND** saving is refused without changing the file or inventing extents
+
 #### Scenario: Running a project containing one
 - **WHEN** a project containing such a file is run, and the file holds neither a control the engine cannot create
   nor a data-bound control
@@ -777,6 +783,20 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
+
+### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
+A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value
+in the `.pag`. A save SHALL omit StandardSize, including a carried line from a loaded file, because
+VB6 rejects that property name in a `.pag` (#1631, issuecomment-6426450412). The unmeasured Small and
+Large preset dimensions SHALL NOT be inferred from the StandardSize line.
+
+#### Scenario: Edit a PropertyPage help context
+- **WHEN** a PropertyPage loaded with HelpContextID 7 is edited and saved
+- **THEN** its saved HelpContextID reflects the edit
+
+#### Scenario: Save an invalid StandardSize file line
+- **WHEN** a loaded PropertyPage contains `StandardSize = 1 'Small` and is saved
+- **THEN** the `.pag` omits StandardSize and keeps its dimensions
 
 ### Requirement: CommonDialog scalar saves follow the measured VB6 layout
 The serializer SHALL write MSComDlg.CommonDialog own scalar properties under their individual names in the

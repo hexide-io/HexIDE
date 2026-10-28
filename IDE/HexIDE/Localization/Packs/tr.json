@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Fare nesnenin üzerindeyken görünen işaretçi şekli.",
     "Str.PropDesc.RightToLeft": "Metin ve yerleşimin sağdan sola yazılan diller için yansıtılıp yansıtılmayacağı.",
     "Str.PropDesc.ToolTipText": "İşaretçi denetimin üzerinde durduğunda görünen ipucu.",
+    "Str.PropDesc.HelpContextID": "Nesnenin yardım konusunun bağlam numarası.",
     "Str.PropDesc.WhatsThisHelpID": "Nesneyi bir yardım konusuna bağlayan bağlam numarası.",
     "Str.PropDesc.Font": "Nesnenin metninde kullanılan yazı tipi.",
     "Str.PropDesc.Alignment": "Denetimin metninin (ya da CheckBox veya OptionButton başlığının) nasıl hizalanacağı.",

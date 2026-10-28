@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "마우스가 개체 위에 있을 때 표시되는 포인터 모양.",
     "Str.PropDesc.RightToLeft": "오른쪽에서 왼쪽 언어를 위해 텍스트와 레이아웃을 대칭 반전할지 여부.",
     "Str.PropDesc.ToolTipText": "포인터가 컨트롤 위에 머물 때 표시되는 툴팁.",
+    "Str.PropDesc.HelpContextID": "개체의 도움말 항목에 대한 컨텍스트 번호입니다.",
     "Str.PropDesc.WhatsThisHelpID": "개체를 도움말 항목에 연결하는 컨텍스트 번호.",
     "Str.PropDesc.Font": "개체 텍스트에 사용되는 글꼴.",
     "Str.PropDesc.Alignment": "컨트롤 텍스트(또는 CheckBox나 OptionButton의 캡션)의 정렬 방식.",

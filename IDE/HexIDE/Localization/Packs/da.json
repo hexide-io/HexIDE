@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Markørens form, mens musen er over objektet.",
     "Str.PropDesc.RightToLeft": "Om tekst og layout spejlvendes til højre-til-venstre-sprog.",
     "Str.PropDesc.ToolTipText": "Værktøjstip, der vises, når markøren hviler på kontrolelementet.",
+    "Str.PropDesc.HelpContextID": "Kontekstnummeret for objektets hjælpeemne.",
     "Str.PropDesc.WhatsThisHelpID": "Et kontekstnummer, der knytter objektet til et hjælpeemne.",
     "Str.PropDesc.Font": "Skrifttypen, der bruges til objektets tekst.",
     "Str.PropDesc.Alignment": "Hvordan kontrolelementets tekst justeres (eller en CheckBox eller OptionButtons tekst).",

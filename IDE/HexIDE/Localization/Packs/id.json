@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Bentuk penunjuk yang ditampilkan saat mouse berada di atas objek.",
     "Str.PropDesc.RightToLeft": "Apakah teks dan tata letak dicerminkan untuk bahasa kanan-ke-kiri.",
     "Str.PropDesc.ToolTipText": "Tooltip yang ditampilkan saat penunjuk berhenti di atas kontrol.",
+    "Str.PropDesc.HelpContextID": "Nomor konteks topik bantuan objek.",
     "Str.PropDesc.WhatsThisHelpID": "Nomor konteks yang menghubungkan objek ke topik bantuan.",
     "Str.PropDesc.Font": "Font yang digunakan untuk teks objek.",
     "Str.PropDesc.Alignment": "Cara teks kontrol diratakan (atau caption CheckBox atau OptionButton).",

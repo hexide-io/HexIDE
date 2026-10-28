@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "鼠标位于对象上方时显示的指针形状。",
     "Str.PropDesc.RightToLeft": "是否为从右到左的语言镜像文本和布局。",
     "Str.PropDesc.ToolTipText": "指针停留在控件上时显示的工具提示。",
+    "Str.PropDesc.HelpContextID": "对象帮助主题的上下文编号。",
     "Str.PropDesc.WhatsThisHelpID": "将对象关联到帮助主题的上下文编号。",
     "Str.PropDesc.Font": "对象文本所用的字体。",
     "Str.PropDesc.Alignment": "控件文本（或 CheckBox、OptionButton 标题）的对齐方式。",

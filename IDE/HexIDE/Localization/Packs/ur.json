@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "ماؤس آبجیکٹ کے اوپر ہونے پر دکھائی دینے والی پوائنٹر کی شکل۔",
     "Str.PropDesc.RightToLeft": "آیا دائیں سے بائیں زبانوں کے لیے متن اور خاکہ آئینہ دار کیا جائے۔",
     "Str.PropDesc.ToolTipText": "پوائنٹر کے کنٹرول پر ٹھہرنے پر دکھایا جانے والا ٹول ٹِپ۔",
+    "Str.PropDesc.HelpContextID": "آبجیکٹ کے مدد کے موضوع کا سیاق نمبر۔",
     "Str.PropDesc.WhatsThisHelpID": "ایک سیاق نمبر جو آبجیکٹ کو مدد کے موضوع سے جوڑتا ہے۔",
     "Str.PropDesc.Font": "آبجیکٹ کے متن کے لیے استعمال ہونے والا فونٹ۔",
     "Str.PropDesc.Alignment": "کنٹرول کا متن (یا CheckBox یا OptionButton کا کیپشن) کس طرح ترتیب دیا جائے۔",

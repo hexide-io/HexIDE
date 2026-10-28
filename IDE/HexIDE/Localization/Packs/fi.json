@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Osoittimen muoto, kun hiiri on objektin päällä.",
     "Str.PropDesc.RightToLeft": "Peilataanko teksti ja asettelu oikealta vasemmalle luettaville kielille.",
     "Str.PropDesc.ToolTipText": "Työkaluvihje, joka näkyy osoittimen levätessä ohjausobjektin päällä.",
+    "Str.PropDesc.HelpContextID": "Objektin ohjeaiheen kontekstinumero.",
     "Str.PropDesc.WhatsThisHelpID": "Kontekstinumero, joka linkittää objektin ohjeaiheeseen.",
     "Str.PropDesc.Font": "Objektin tekstissä käytettävä fontti.",
     "Str.PropDesc.Alignment": "Ohjausobjektin tekstin (tai CheckBoxin tai OptionButtonin otsikon) tasaus.",

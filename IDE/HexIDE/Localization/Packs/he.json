@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "צורת המצביע המוצגת כשהעכבר מעל האובייקט.",
     "Str.PropDesc.RightToLeft": "האם הטקסט והפריסה מוצגים במראה הפוכה עבור שפות מימין לשמאל.",
     "Str.PropDesc.ToolTipText": "עצת המסך המוצגת כשהמצביע נח על הפקד.",
+    "Str.PropDesc.HelpContextID": "מספר ההקשר של נושא העזרה של האובייקט.",
     "Str.PropDesc.WhatsThisHelpID": "מספר הקשר המקשר את האובייקט לנושא עזרה.",
     "Str.PropDesc.Font": "הגופן המשמש לטקסט של האובייקט.",
     "Str.PropDesc.Alignment": "אופן היישור של טקסט הפקד (או הכיתוב של CheckBox או OptionButton).",

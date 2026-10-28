@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "La forma del puntero mostrada cuando el ratón está sobre el objeto.",
     "Str.PropDesc.RightToLeft": "Si el texto y la disposición se reflejan para idiomas de derecha a izquierda.",
     "Str.PropDesc.ToolTipText": "La información sobre herramientas que aparece al posar el puntero sobre el control.",
+    "Str.PropDesc.HelpContextID": "El número de contexto del tema de ayuda del objeto.",
     "Str.PropDesc.WhatsThisHelpID": "Un número de contexto que vincula el objeto con un tema de ayuda.",
     "Str.PropDesc.Font": "La fuente usada para el texto del objeto.",
     "Str.PropDesc.Alignment": "Cómo se alinea el texto del control (o el título de un CheckBox u OptionButton).",

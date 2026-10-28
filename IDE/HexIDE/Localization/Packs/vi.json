@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Hình dạng con trỏ hiển thị khi chuột ở trên đối tượng.",
     "Str.PropDesc.RightToLeft": "Văn bản và bố cục có được đảo chiều cho ngôn ngữ viết từ phải sang trái hay không.",
     "Str.PropDesc.ToolTipText": "Chú giải hiển thị khi con trỏ dừng trên điều khiển.",
+    "Str.PropDesc.HelpContextID": "Số ngữ cảnh của chủ đề trợ giúp của đối tượng.",
     "Str.PropDesc.WhatsThisHelpID": "Số ngữ cảnh liên kết đối tượng với một chủ đề trợ giúp.",
     "Str.PropDesc.Font": "Phông chữ dùng cho văn bản của đối tượng.",
     "Str.PropDesc.Alignment": "Cách canh lề văn bản của điều khiển (hoặc chú thích của CheckBox, OptionButton).",

@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Tvar ukazatele zobrazený, když je myš nad objektem.",
     "Str.PropDesc.RightToLeft": "Zda se text a rozvržení zrcadlí pro jazyky psané zprava doleva.",
     "Str.PropDesc.ToolTipText": "Popisek zobrazený, když ukazatel spočine na prvku.",
+    "Str.PropDesc.HelpContextID": "Číslo kontextu tématu nápovědy objektu.",
     "Str.PropDesc.WhatsThisHelpID": "Kontextové číslo, které objekt spojuje s tématem nápovědy.",
     "Str.PropDesc.Font": "Písmo použité pro text objektu.",
     "Str.PropDesc.Alignment": "Zarovnání textu prvku (nebo popisku CheckBox či OptionButton).",

@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "شکل اشاره‌گری که هنگام قرار گرفتن ماوس روی شیء نمایش داده می‌شود.",
     "Str.PropDesc.RightToLeft": "اینکه متن و چیدمان برای زبان‌های راست‌به‌چپ آینه شوند.",
     "Str.PropDesc.ToolTipText": "راهنمای ابزاری که هنگام توقف اشاره‌گر روی کنترل نمایش داده می‌شود.",
+    "Str.PropDesc.HelpContextID": "شمارهٔ زمینهٔ موضوع راهنمای شیء.",
     "Str.PropDesc.WhatsThisHelpID": "شماره زمینه‌ای که شیء را به یک موضوع راهنما پیوند می‌دهد.",
     "Str.PropDesc.Font": "قلم مورد استفاده برای متن شیء.",
     "Str.PropDesc.Alignment": "نحوه تراز متن کنترل (یا عنوان CheckBox یا OptionButton).",

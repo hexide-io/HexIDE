@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "La formo de la musmontrilo montrata dum la muso estas super la objekto.",
     "Str.PropDesc.RightToLeft": "Ĉu teksto kaj aranĝo estas spegulitaj por dekstre-al-maldekstraj lingvoj.",
     "Str.PropDesc.ToolTipText": "La ŝpruchelpilo montrata kiam la montrilo ripozas sur la regilo.",
+    "Str.PropDesc.HelpContextID": "La kunteksta numero de la helpotemo de la objekto.",
     "Str.PropDesc.WhatsThisHelpID": "Konteksta numero kiu ligas la objekton al helpotemo.",
     "Str.PropDesc.Font": "La tiparo uzata por la teksto de la objekto.",
     "Str.PropDesc.Alignment": "Kiel la teksto de la regilo estas ĝisrandigita (aŭ la titolo de CheckBox aŭ OptionButton).",
