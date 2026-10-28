@@ -52,6 +52,8 @@ public abstract class ComponentBaseClass : IComponentClass
     /// <summary>Visible controls (default) have Width/Height/Visible; invisible ones (Timer) override false.</summary>
     public virtual bool IsVisual => true;
 
+    public virtual bool CanSaveFaithfully => true;
+
     /// <summary>
     /// True for a control VB6 draws on its container's own surface rather than in a window of its own: the Label, Shape,
     /// Line and Image. Such a control is drawn under every windowed control in its container, whatever their order, and

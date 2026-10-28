@@ -22,6 +22,9 @@ public interface IComponentClass
     /// </summary>
     bool IsVisual { get; }
 
+    /// <summary>False while this component has no faithful file writer.</summary>
+    bool CanSaveFaithfully => true;
+
     IReadOnlyList<PropertyClass> Properties { get; }
     IReadOnlyDictionary<string, PropertyClass> PropertiesByName { get; }
     IReadOnlyList<EventClass> Events { get; }

@@ -455,7 +455,9 @@ public class FormSerializer
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-        || inBox.CarriedPropertyOrder.Contains(name, StringComparer.OrdinalIgnoreCase);
+        || inBox.CarriedPropertyOrder.Contains(name, StringComparer.OrdinalIgnoreCase)
+        || inBox is SliderComponentClass && (SliderComponentClass.FileProperties.Contains(name, StringComparer.OrdinalIgnoreCase)
+            || name.Equals("Text", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// An in-box control's second run (#1082), written after its extender's as VB6 writes it (measured): <c>_ExtentX</c>,
@@ -481,6 +483,34 @@ public class FormSerializer
 
         var readX = Carried("_ExtentX");
         var readY = Carried("_ExtentY");
+        // Slider's own properties remain view-only. Preserve even file-only values that the runtime clamps or
+        // ignores; missing extents likewise stay missing until a measured resize supplies new ones (#1091).
+        if (inBox is SliderComponentClass)
+        {
+            var basis = instance.GetPropertyOrDefault(InBoxComponentClass.ExtentBasisProperty);
+            var unchangedSize = basis is not null
+                && basis.Width == instance.GetPropertyOrDefault(VBProperties.WidthProperty)
+                && basis.Height == instance.GetPropertyOrDefault(VBProperties.HeightProperty);
+            if (!unchangedSize)
+            {
+                var resized = inBox.ExtentsToWrite(instance, ValueOf(readX), ValueOf(readY));
+                vb.WriteProperty("_ExtentX", typeof(int), resized.X);
+                vb.WriteProperty("_ExtentY", typeof(int), resized.Y);
+            }
+            if (!unchangedSize && Carried("_Version") is null)
+                vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
+            foreach (var raw in instance.UnknownRawProperties)
+            {
+                if (raw.Name.Equals("Text", StringComparison.OrdinalIgnoreCase) || !IsOwnRunLine(inBox, raw.Name))
+                    continue;
+                if (!unchangedSize && (raw.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase)
+                    || raw.Name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                WriteCarried(raw);
+            }
+            return;
+        }
+
         var extents = inBox.ExtentsToWrite(instance, ValueOf(readX), ValueOf(readY));
         if (ValueOf(readX) == extents.X && ValueOf(readY) == extents.Y)
         {

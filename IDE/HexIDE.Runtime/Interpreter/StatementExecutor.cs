@@ -2025,10 +2025,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
         // `v = Command1` reads its Value, `n = Check1` its Value (all measured). HexIDE has no default members for
         // controls yet (#790), and storing the reference gave a wrong value: a String took the .NET type name, a
-        // Variant kept the control. So a Let of one is refused until #790, whatever the target. A Let never stores a
+        // Variant kept the control. Apart from Slider (#1091), a Let of one is refused until #790, whatever the target. A Let never stores a
         // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
         // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
         // settled by ObjectAsValue above, and controls are the one kind it leaves alone.
+        if (value.Value is VBSlider sliderValue)
+            return new Vb6Value(sliderValue.Value);
         if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
             throw new NotImplementedException(
                 $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
@@ -2232,6 +2234,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (oldLet.Value is VBSSTab)
                 return default;
 
+            if (oldLet.Value is VBSlider sliderTarget
+                && currentEnv.TryGetVariableLocation(identifier, out var sliderSlot)
+                && IsObjectVariable(currentEnv, identifier, sliderSlot))
+            {
+                SliderMembers.TrySet(sliderTarget, "Value", value);
+                return default;
+            }
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
             // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
             // Variant simply takes the value (#1493).
@@ -2545,6 +2554,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+            if (SliderMembers.TrySet(control, memberIdentifier, value) is { } slider)
+                return slider ? default : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
             if ((StatusBarMembers.TrySet(control, memberIdentifier, value)
                  ?? ProgressBarMembers.TrySet(control, memberIdentifier, value)) is { } inBox)
                 return inBox ? default
