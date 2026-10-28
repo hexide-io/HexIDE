@@ -141,6 +141,17 @@ public class VBLoader
                 dialogs[block] = control;
             });
         }
+
+        // Saved references may name an ImageList later in the file (#2334).
+        foreach (var toolbar in placed.Values.OfType<VBToolbar>())
+        {
+            if (toolbar.SavedImageListName is not { } name) continue;
+            var matches = placed.Values.Where(c => VBProps.GetName(c) == name).ToArray();
+            if (matches.Length != 1 || matches[0] is not VBImageList images)
+                throw ToolbarItems.Unmeasured();
+            toolbar.TrySetProperty("ImageList", new Vb6Value((Control)images));
+        }
+
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
         foreach (var (component, control, parent) in menus)
