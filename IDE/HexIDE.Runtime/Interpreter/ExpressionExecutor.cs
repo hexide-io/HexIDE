@@ -852,6 +852,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 (bangFound, bangTarget) = await interpreter.ReadVariableAfter(env, name, bangNeed!);
             if (!bangFound && await BareFormMember(name) is { } bangMember)
                 (bangFound, bangTarget) = (true, bangMember);
+            // `Forms!Form1`, where nothing the program declares claims the name (#2496).
+            if (!bangFound && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms } forms)
+                (bangFound, bangTarget) = (true, forms);
             if (!bangFound)
                 throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection and a form's Controls");
             return await Bang(bangTarget, bang);
@@ -1112,6 +1115,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             VbCollection items => items.Default([new Vb6Value(key)]),
             ImageListImages images => images.Item(new Vb6Value(key)),
             FormControls controls => controls.Item([new Vb6Value(key)]),
+            // Forms has no keys, so `Forms!Form1` is 13 (measured, #2496).
+            VbForms forms => forms.Item([new Vb6Value(key)]),
             VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form =>
                 await interpreter.Loading((Form: form, Key: key),
                     static s => FormMembers.ControlsItem(s.Form, [new Vb6Value(s.Key)])),
@@ -1420,6 +1425,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on a form's Controls is not implemented (#742)");
             return heldControls.Item(await EvaluateCallArgs(argsCtx));
         }
+        // Forms held in a variable, `o(0)` (#2496).
+        if (named && maybeGroup.Value is VbForms heldForms)
+        {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on Forms is not implemented (#742)");
+            return heldForms.Item(await EvaluateCallArgs(argsCtx));
+        }
         // Indexing a variable declared As Collection that holds Nothing is 91 (measured, #1471).
         if (named && maybeGroup.Type == Vb6Value.ValueType.Object && maybeGroup.Value is null
             && maybeGroup.DeclaredAs is { } declaredAs && IsCollectionType(declaredAs))
@@ -1515,6 +1527,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!dollar && interpreter.GlobalMember(name) is { } global)
             return await interpreter.CallLibraryMember(global, name, await EvaluateCallArgs(argsCtx))
                 ?? throw new VBSubOrFunctionNotDefinedException(name);
+        // `Forms(i)`, where nothing the program declares claims the name: Forms' default member, Item (#2496).
+        if (!dollar && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms forms })
+            return forms.Item(await EvaluateCallArgs(argsCtx));
         if (dollar && DollarRefused.Contains(name))
             throw new VBCompileErrorException(TypeCharacterMismatch);
         if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
@@ -2421,7 +2436,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, $"{library}.{className}", StringComparison.OrdinalIgnoreCase));
         }
-        if (operand.Value is ControlArrayGroup or FormControls)
+        if (operand.Value is ControlArrayGroup or FormControls or VbForms)
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
         if (operand.Value is VbObject vo)
             return new Vb6Value(string.Equals(vo.ClassName, targetName, StringComparison.OrdinalIgnoreCase)

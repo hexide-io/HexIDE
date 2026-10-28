@@ -337,7 +337,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
             "Reading an object's default member calls into the program, which is not available in the Immediate window."),
-        VbObject or VbErr or VbApp or VbScreen => ObjectAsValue.Scalar(v, null),
+        VbObject or VbErr or VbApp or VbScreen or VbForms => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
 
@@ -1016,6 +1016,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var cursor = controls.StartEnumeration();
             return await ForEachItem(context, varName, (out Vb6Value item) => controls.TryNext(cursor, out item), () => { });
         }
+        if (collection.Value is VbForms forms)
+        {
+            var cursor = forms.StartEnumeration();
+            return await ForEachItem(context, varName, (out Vb6Value item) => VbForms.TryNext(cursor, out item), () => { });
+        }
 
         if (collection.Value is not VBArray { IsDefined: true } array)
         {
@@ -1027,7 +1032,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 VBArray => new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized),
                 null when collection.Type == Vb6Value.ValueType.Object => new VBRunTimeException(context, VBStandardError.ObjectRequired),
                 VbObject or Avalonia.Controls.Control or ICSharpProxy => throw new NotImplementedException(
-                    "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
+                    "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection, a form's Controls and Forms are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
             if (!ResumesNext)
@@ -3618,9 +3623,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitUnloadStmt(VB6Parser.UnloadStmtContext context)
     {
-        // A form, as `Unload Me` or by its name (#973): QueryUnload and Unload run inside this statement, and the ones
-        // after it run once they have. An indexed operand is a control-array element, as before.
-        if (FindProcedureOrArrayCall(context.valueStmt()) is not { } indexed || indexed.argsCall().Length == 0)
+        // A form, as `Unload Me`, by its name (#973) or as `Unload Forms(i)` (#2496): QueryUnload and Unload run inside this
+        // statement, and the ones after it run once they have. An operand indexing a control array is its element, as before.
+        if (FindProcedureOrArrayCall(context.valueStmt()) is not { } indexed || indexed.argsCall().Length == 0
+            || !IndexesControlArray(indexed))
         {
             var target = await expressionExecutor.EvaluateValue(context.valueStmt());
             if (target.Value is VbObject { FormWindow: IModuleExecutionRoot root })
@@ -3640,6 +3646,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         group.Unload(index);   // Err 340 if missing, Err 362 if a design-time element
         return ControlFlow.Nothing;
     }
+
+    // Whether `name(i)` names a control array, whose element Unload takes without reading it: reading a missing one is 340.
+    private bool IndexesControlArray(VB6Parser.ICS_S_ProcedureOrArrayCallContext call) =>
+        call.ambiguousIdentifier() is { } name
+        && interpreter.ExecutionContext.TryGetVariable(currentEnv, name.GetText(), out var named)
+        && named.Value is ControlArrayGroup;
 
     public override async Task<ControlFlow> VisitUnlockStmt(VB6Parser.UnlockStmtContext context)
     {
