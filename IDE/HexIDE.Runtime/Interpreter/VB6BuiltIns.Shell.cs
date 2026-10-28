@@ -38,7 +38,7 @@ public partial class VB6BuiltIns
                     found |= File.Exists(Path.Combine(directory, name));
             if (!found)
                 throw new VBRunTimeException(VBStandardError.FileNotFound);
-            throw new NotImplementedException("Shell: omitted WindowStyle show state has not been measured (#2522)");
+            throw new NotImplementedException("Shell: omitted WindowStyle show state has not been measured (#2563)");
         }
 
         if (OperatingSystem.IsWindows())
