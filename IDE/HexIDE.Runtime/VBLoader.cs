@@ -40,7 +40,8 @@ public class VBLoader
         ModuleExecutionContext executionContext,
         ExecutionEnvironment environment,
         IBasicStandardLibrary? standardLibrary = null,
-        VbObject? form = null)
+        VbObject? form = null,
+        VBProgram? program = null)
     {
         var toolbars = element.Components.Where(c => c.BaseClass is FormComponentClass)
             .SelectMany(c => c.PreservedChildSubtrees)
@@ -93,6 +94,18 @@ public class VBLoader
             if (control is VBCommonDialog dialog)
                 dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#1084)");
             placed[component] = control;
+            AvaloniaInterop.UserControlContainers.Register(control, component.Container is { } owner ? placed.GetValueOrDefault(owner) : null);
+            if (AvaloniaInterop.UserControlMembers.IsUserControl(control))
+            {
+                // The extender's file properties are carried raw until the designer models them (group 2).
+                if (RawNumber(component, "TabIndex") is { } tabIndex)
+                    KeyboardNavigation.SetTabIndex(control, tabIndex);
+                if (RawDouble(component, "TabStop") is { } tabStop)
+                    KeyboardNavigation.SetIsTabStop(control, tabStop != 0);
+                AvaloniaInterop.UserControlMembers.Configure(control);
+            }
+            if (control is VBUserControl userControl && program is not null)
+                userControl.Attach(program, component.BaseClass.ClassName);
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
 
@@ -184,7 +197,7 @@ public class VBLoader
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
-        var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
+        var controls = new FormControls(InFileOrder(element, placed, dialogs).OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups);
         foreach (var (block, control) in dialogs)
             if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
                 upDown.LoadBuddy(saved.Properties, controls);
@@ -224,6 +237,13 @@ public class VBLoader
             }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         }
 
+        AvaloniaInterop.UserControlKeys.Attach(root, controls);
+        AvaloniaInterop.UserControlFocus.Attach(root);
+        root.SizeChanged += (_, _) =>
+        {
+            foreach (var control in controls.All)
+                AvaloniaInterop.UserControlMembers.Align(control);
+        };
         return root;
     }
 
@@ -1004,7 +1024,7 @@ public class VBLoader
     {
         var program = new VBProgram(element, context, debugController, openForm);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
-            context.FormInstance));
+            context.FormInstance, program));
         context.HoldControlsUntilLoad();
         return program;
     }

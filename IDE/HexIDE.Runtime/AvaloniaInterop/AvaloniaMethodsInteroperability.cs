@@ -18,6 +18,13 @@ public static class AvaloniaMethodsInteroperability
         if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                               || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
+        if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
+        {
+            if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))
+                throw TabStripMembers.Refused(method);
+            strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
+            return Vb6Value.Nothing;
+        }
         if (c is VBTreeView)
             throw new NotImplementedException();
         if (c is VBToolbar)

@@ -98,6 +98,7 @@ public sealed class PropertyPageRootClass : FormComponentClass
         FontProperty,
         ForeColorProperty,
         HeightProperty,
+        HelpContextIDProperty,
         KeyPreviewProperty,
         WidthProperty], DesignerRootEvents.PropertyPage)
     {
