@@ -115,7 +115,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
+| Statements | 1 | 0 | 14 | 46 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
@@ -123,7 +123,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **124** | **452** | **20** | **587** | **1184** |
+| **Total** | **1** | **0** | **122** | **454** | **20** | **587** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -158,7 +158,7 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
+damage is concentrated in **statements** and the **in-box object model**: 13% of VB6's statements (14
 of 107) and 55% of the
 in-box surface (`App`, `Printer`, `Clipboard`; 68 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 124 names
+## Dies mid-run — 122 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -344,7 +344,6 @@ most of the in-box object model.
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
-| `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `NPer` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPer)". Named in the deferral list at… | VB6BuiltIns.cs |
@@ -375,7 +374,6 @@ most of the in-box object model.
 | `Rate` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Rate)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4). A bare call dispatches to the module's own Sub named `Reset`, including a private sibling in `Class_Initialize` (measured, #851). The file-closing statement still throws NotImplementedException: "Reset not implemented" when no local Sub matches. | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
-| `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
@@ -399,7 +397,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 16 absent, 44 partial, 46 supported)
+### Statements — 107 names (1 silently wrong, 14 absent, 46 partial, 46 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -431,7 +429,7 @@ missing.
 | `Kill` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `Line Input #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** reads a line of an Input file in the ANSI code page, ending at CR or CR LF but not a lone LF, and stopping at Ctrl+Z; 62 past the end, with the variable unchanged (all measured). It reads a Binary file too, where a Ctrl+Z is an ordinary byte, and on a Random file is 54 ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). Into a plain variable only: an array element or a member is refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
-| `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
+| `LSet` | Partial | **#2517:** named String variables and Variants holding a String or Integer justify to the current text length; both retain the leftmost characters of overlong values. Integer, Double, Boolean and Empty sources convert to text; Null raises 94 without changing the target (measured). Fixed-length String declarations, UDT copying, other target types, other source conversions and member/indexed targets remain not implemented. | StatementExecutor.cs |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MkDir` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `Name` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
@@ -445,7 +443,7 @@ missing.
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4). A bare call dispatches to the module's own Sub named `Reset`, including a private sibling in `Class_Initialize` (measured, #851). The file-closing statement still throws NotImplementedException: "Reset not implemented" when no local Sub matches. | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
 | `RmDir` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
-| `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
+| `RSet` | Partial | **#2517:** named String variables and Variants holding a String or Integer justify to the current text length; both retain the leftmost characters of overlong values. Integer, Double, Boolean and Empty sources convert to text; Null raises 94 without changing the target (measured). Fixed-length String declarations, UDT copying, other target types, other source conversions and member/indexed targets remain not implemented. | StatementExecutor.cs |
 | `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `SaveSetting` | Supported | **#1562:** runs as vb6.exe measured, as a statement, by `Call`, and as `VBA.SaveSetting`, with its named arguments. The setting is kept as text, a backslash in the program or section name makes a path, an empty name is 5, and Null 94. On Windows it writes the registry key VB6 uses, `HKCU\Software\VB and VBA Program Settings`; elsewhere `program-settings.json` in the user-data directory | VB6BuiltIns.Settings.cs |
 | `Seek (statement)` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** `Seek #n, position`, or with no `#`, moves the next read or write to that byte, as vb6.exe measured: below 1 is 63; past the end an Input file is at its end and an Output file's next Print fills the gap with NULs; on an Append file it writes over what is there. On a Binary file the byte, on a Random file the record, and EOF False after it ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | StatementExecutor.cs, VbFiles.cs |
