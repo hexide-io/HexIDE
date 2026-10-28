@@ -4607,6 +4607,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
             // member stops the run even under Resume Next (#867); a known constant
             // used as a bare statement is a harmless no-op.
+            if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            {
+                await interpreter.CallByName(await expressionExecutor.ResolveCallArgs(argsCall), stmtFrames);
+                return true;
+            }
             var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
@@ -4660,6 +4665,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (interpreter.GlobalMember(subName) is { } global)
             await interpreter.CallLibraryMember(global, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
+        else if (subName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            await interpreter.CallByName(await expressionExecutor.ResolveCallArgs(context.argsCall()), stmtFrames);
         else
         {
             List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateIntrinsicArgs(subName, context.argsCall());

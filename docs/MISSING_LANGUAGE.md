@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 14 | 46 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 31 | 54 | 0 | 68 | 153 |
+| Intrinsic functions | 0 | 0 | 30 | 55 | 0 | 68 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **120** | **455** | **20** | **588** | **1184** |
+| **Total** | **1** | **0** | **119** | **456** | **20** | **588** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 120 names
+## Dies mid-run — 119 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -296,7 +296,6 @@ most of the in-box object model.
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
-| `CallByName` | **Dies** | Not registered by any Register* partial. Expression calls and library-qualified statement calls stop with an untrappable Sub or Function not defined; On Error Resume Next cannot skip the missing effect (#867). Bare statement calls stop as an unimplemented intrinsic. | ExpressionExecutor.cs |
 | `ChrB` | **Dies** | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** refused as not implemented: it is always one byte, a String of an odd number of bytes, which HexIDE's whole-character strings cannot hold (measured: `ChrB(65) & ChrB(0) = "A"`). | VB6BuiltIns.Strings.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
 | `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
@@ -546,7 +545,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (31 absent, 54 partial, 68 supported)
+### Intrinsic functions — 153 names (30 absent, 55 partial, 68 supported)
 
 
 **array** (3)
@@ -649,7 +648,7 @@ missing.
 |---|---|---|---|
 | `Command` | Partial | The project's Command Line Arguments (`Command32` in the .vbp), as VB6 gives them under F5, which is how HexIDE always runs: empty where there are none, as a String, spelt `Command`, `Command()` or `Command$` (measured in a made program run with none). A made program's own process arguments are not passed. | VB6BuiltIns.cs, VbApp.cs |
 | `Shell` | Partial | **#2522:** function and statement launch a program and return its process ID as Double. Windows maps styles 0–4, 6 and 7 to show state; Unix accepts styles without window effects. CInt style conversion and errors 5/53/94 are measured. Other OS launch failures, unmeasured styles, non-string path conversions and successful launches with omitted WindowStyle (#2563) remain explicitly not implemented pending measurements. | VB6BuiltIns.Shell.cs |
-| `CallByName` | **Dies** | Not registered by any Register* partial. Expression calls and library-qualified statement calls stop with an untrappable Sub or Function not defined; On Error Resume Next cannot skip the missing effect (#867). Bare statement calls stop as an unimplemented intrinsic. | ExpressionExecutor.cs |
+| `CallByName` | Partial | Class instances (#2519): public scalar fields, Property Get/Let/Set and methods, retaining ByRef argument locations through the direct-call binder; conversion, Optional/ParamArray, Sub-as-value Empty and object results with Set work. Missing names/empty names and call types 0/16 raise 438, Get on a method 450, missing arguments 449 and surplus arguments 450. Expression/statement calls include VBA qualification. Collection Add(item, key)/Item(index) via VbMethod and Err.Number via VbGet work; Collection Count/Item via VbGet raise 438; Nothing raises 5, scalar receiver 424, Null name 94. Forms/controls, Collection object results, other in-box members/call types/arity, private members, non-scalar fields, field Set/indexing, unavailable property accessors, other call-type combinations, named/omitted arguments and unmeasured name/call-type conversions still refuse as not implemented. | BasicInterpreter.CallByName.cs |
 | `Choose` | Supported | **[#1464](https://github.com/hexide-io/HexIDE/issues/1464), measured native and p-code:** the index is **truncated, not rounded**: `Choose(1.6, "a", "b", "c")` is "a", `Choose(2.5, …)` "b" and `Choose(0.5, …)` Null. An index outside the choices is Null with no error, however far outside (`Choose(True, …)`, `Choose(40000, …)`, `Choose(1E+20, …)`), and so is `Choose(1)` with no choices; a Null index is 94, and "x" 13. Every choice is evaluated, in order, before Choose chooses, so `Choose(1, 1, 1 / 0)` is 11. The choice comes back as itself, an object included, and reads as a Variant. `Choose()` does not compile. | VB6BuiltIns.Choice.cs |
 | `CreateObject` | Partial | **#1107:** `CreateObject("Library.Class")` calls the managed factory of a class in a known, referenced library. COM activation such as `Excel.Application` remains unimplemented and retains the existing refusal. | BasicInterpreter.cs, BasicInterpreter.Libraries.cs |
 | `Environ` | Supported | **#1560:** runs as vb6.exe measured: a name ignores case and spaces around it, an index is read as CInt, 255 being the bound (past the last variable is "") and 256 and up 5; the entries come in order of name, as vb6.exe gave them. | VB6BuiltIns.Interaction.cs |

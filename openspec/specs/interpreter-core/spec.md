@@ -220,6 +220,35 @@ program that compiles and runs.
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
+### Requirement: CallByName SHALL dispatch class and implemented in-box members
+`CallByName` SHALL support Collection `Add` with item/key and `Item` with one index through VbMethod,
+and `Err.Number` through VbGet, as expressions or statements, bare or VBA-qualified (#2519).
+Class instances SHALL support public scalar field Get/Let, Property Get/Let/Set and method calls through the
+same procedure binder as direct calls, preserving conversions, Optional, ParamArray and ByRef writeback.
+Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
+A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
+Get on a method raises 450, too few arguments 449, and too many 450.
+Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
+unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
+combinations, named/omitted arguments and name/call-type conversions.
+
+#### Scenario: Collection lookup by name
+- **WHEN** a Collection receives `CallByName k, "Add", VbMethod, "a", "ka"`
+- **THEN** `CallByName(k, "Item", VbMethod, "ka")` returns String `a`
+- **AND** Get on Count or Item raises 438
+
+#### Scenario: Class ByRef call
+- **WHEN** `n As Integer` holds 4 and `CallByName c, "Twice", VbMethod, n` calls a method that doubles its ByRef argument
+- **THEN** the caller's n holds 8
+
+#### Scenario: Object property identity
+- **WHEN** `CallByName c, "O", VbSet, k` assigns a Collection to a class object property
+- **THEN** `Set got = CallByName(c, "O", VbGet)` returns that same Collection
+
+#### Scenario: Receiver and name errors
+- **WHEN** CallByName receives Nothing, a scalar receiver, or a Variant Null name respectively
+- **THEN** it raises 5, 424, or 94 respectively
+
 ### Requirement: Empty parentheses SHALL preserve a declared whole array
 A declared array named with empty parentheses SHALL evaluate as the whole array. Array parameters and
 ByRef Variant parameters SHALL share it; ByVal Variant parameters and a Let into a Variant SHALL copy it.
