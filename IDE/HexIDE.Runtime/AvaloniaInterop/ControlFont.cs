@@ -35,11 +35,14 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         return result;
     }
 
+    /// <summary>The controls VB6 gives no Font at all, so reading or writing one raises 438 (#934).</summary>
+    internal static bool IsAbsent(Control control) => control is VBScrollBar or VBTimer or VBShape or VBLine or VBImage;
+
     private static void RefuseAbsent(Control control)
     {
         if (control.GetValue(NotImplementedProperty))
             throw new NotImplementedException("Font on this placeholder control is not implemented (#934)");
-        if (control is VBScrollBar or VBTimer or VBShape or VBLine or VBImage)
+        if (IsAbsent(control))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (AttachedProperties.GetFont(control) is null)
             throw new NotImplementedException("Font on this control is not implemented (#934)");

@@ -592,6 +592,9 @@ public static class AvaloniaInteroperability
             if (c is VBScrollBar && (ReferenceEquals(property, VBProperties.BackColorProperty)
                                     || ReferenceEquals(property, VBProperties.ForeColorProperty)))
                 continue;
+            // A control with no Font doesn't list one, rather than listing the 438 a read of it raises (#934).
+            if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.IsAbsent(c))
+                continue;
             try
             {
                 if (TryGet(c, property, out var value))
