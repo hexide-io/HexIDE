@@ -100,6 +100,9 @@ public class CVErrTests : BaseVBTestFixture
     [InlineData("CDate(e)")]
     [InlineData("e = Null")]
     [InlineData("e = Empty")]
+    [InlineData("e = \"5\"")]
+    [InlineData("e = \"abc\"")]
+    [InlineData("e < \"5\"")]
     public async Task Implicit_use_is_type_mismatch(string expression)
     {
         await Run($"""
@@ -202,6 +205,12 @@ public class CVErrTests : BaseVBTestFixture
     // Follow-up measurements: #2520 comments and measuring PR #2613, native and p-code.
     [Theory]
     [InlineData("5", 13)]
+    [InlineData("\"5\"", 13)]
+    [InlineData("\"abc\"", 13)]
+    [InlineData("Null", 13)]
+    [InlineData("Empty", 13)]
+    [InlineData("Is > 4", 13)]
+    [InlineData("1 To 9", 13)]
     [InlineData("CVErr(5)", 0)]
     [InlineData("Is > CVErr(4)", 0)]
     public async Task Select_case_runs_the_measured_arm(string test, long error)
@@ -220,6 +229,20 @@ public class CVErrTests : BaseVBTestFixture
             Debug.Print Err.Number
             """);
         AssertDebugLog(["case", new Vb6Value(error), new Vb6Value(error)]);
+    }
+
+    [Fact]
+    public async Task A_selector_against_an_Error_case_value_is_refused_until_measured()
+    {
+        var run = () => Run("""
+            Dim e, n
+            e = CVErr(5)
+            n = 5
+            Select Case n
+            Case e
+            End Select
+            """);
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Error Case value*#2520*");
     }
 
     [Fact]
