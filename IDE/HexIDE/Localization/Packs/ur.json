@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— جواب، {0} بائٹس —",
     "Str.Tool.ProtocolInspector.Copy": "ٹریس کے طور پر کاپی کریں",
     "Str.Tool.ProtocolInspector.Export": "گفتگو برآمد کریں...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "کیا ان موجودہ فائلوں کو بدلنا ہے؟\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} پیغامات {1} میں برآمد کر دیے گئے، مینی فیسٹ {2} پر ہے۔",
     "Str.Tool.ProtocolInspector.ExportFailed": "برآمد مکمل نہیں ہوئی: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "جو باہر جاتا ہے وہ فرضی ناموں سے بدلا ہوا ہوتا ہے۔",
