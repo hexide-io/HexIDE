@@ -469,6 +469,29 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
+### Requirement: Err.Source identifies the raising project
+
+A trapped run-time error SHALL report the raising project's Name as Err.Source, without a class
+suffix and independently of Title. Err.Raise SHALL retain an explicit source; with no source argument
+it SHALL fill an empty Source from the project name and preserve an already set Source. Err.Clear
+SHALL empty Source. Error provenance SHALL survive propagation across the managed library boundary.
+Native ActiveX DLL activation remains outside the implemented runtime surface.
+
+#### Scenario: A class raises into its caller
+
+- **WHEN** a class in project Probe raises a run-time error trapped by its caller
+- **THEN** Err.Source is Probe, even with Title set to Titled App
+
+#### Scenario: A managed library propagates an error
+
+- **WHEN** code in project ProbeDll raises an error into project Probe
+- **THEN** the caller's handler sees ProbeDll, or the source explicitly supplied to Err.Raise
+
+#### Scenario: A sourceless Raise follows a manual Source
+
+- **WHEN** Err.Source is Set and Err.Raise 7 supplies no source
+- **THEN** Err.Source remains Set
+
 ### Requirement: Assignment targets with type characters
 
 The interpreter SHALL resolve an unqualified scalar assignment target with `$`, `%`, `&`, `!`, `#` or `@`

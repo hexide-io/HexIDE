@@ -4912,6 +4912,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // halt stops; a condition notes its own first (ConditionMet).
     private bool Locate(Exception error, ParserRuleContext stmt)
     {
+        if (error is VBRunTimeException runtimeError)
+            runtimeError.VbSource ??= interpreter.ProjectName;
         var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
             ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
             : null;
