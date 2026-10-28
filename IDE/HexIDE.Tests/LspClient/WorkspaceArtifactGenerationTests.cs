@@ -14,6 +14,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     private readonly IWorkspaceArtifactConsent _consent = Substitute.For<IWorkspaceArtifactConsent>();
     private readonly Provider _provider = new();
     private readonly WorkspaceArtifactService _service;
+    private readonly DebounceClock _clock = new();
 
     public WorkspaceArtifactGenerationTests()
     {
@@ -25,7 +26,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         _consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
         _service = new WorkspaceArtifactService(_workspace,
             new WorkspaceArtifactProviderRegistry([_provider]), _consent,
-            NullLogger<WorkspaceArtifactService>.Instance);
+            NullLogger<WorkspaceArtifactService>.Instance, timeProvider: _clock);
     }
 
     private LanguageServerRegistration Server(string path = "generated.json") => new(
@@ -144,16 +145,25 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await _consent.Received().AllowAsync("probe", "Probe server", _root, Path.Combine(_root, "generated.json"), Arg.Any<WorkspaceArtifactSpec>());
     }
 
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task MaterialChangesRegenerateAfterDebounce()
     {
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
         var initial = _provider.Calls;
         _provider.Content = "changed";
         _workspace.Change();
+        _clock.Advance(TimeSpan.FromMilliseconds(200));
         _workspace.Change();
+        _clock.Advance(TimeSpan.FromMilliseconds(200));
         _workspace.Change();
-        await Task.Delay(700, TestContext.Current.CancellationToken);
+        var regeneration = _service.PendingRegeneration;
+        _clock.HasTimer.Should().BeTrue();
+        _clock.Advance(TimeSpan.FromMilliseconds(299));
+        regeneration.IsCompleted.Should().BeFalse();
+        _provider.Calls.Should().Be(initial);
+        File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("first");
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+        await regeneration.WaitAsync(TestContext.Current.CancellationToken);
         File.ReadAllText(Path.Combine(_root, "generated.json")).Should().Be("changed");
         _provider.Calls.Should().Be(initial + 1);
     }
@@ -544,6 +554,35 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     {
         _service.Dispose();
         Directory.Delete(_root, true);
+    }
+
+    // Each change cancels its predecessor's one-shot delay before creating the next.
+    private sealed class DebounceClock : TimeProvider
+    {
+        private long _ticks;
+        private long _due;
+        private Action? _fire;
+        public bool HasTimer => _fire is not null;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state,
+            TimeSpan dueTime, TimeSpan period)
+        {
+            period.Should().Be(Timeout.InfiniteTimeSpan);
+            _due = _ticks + dueTime.Ticks;
+            _fire = () => callback(state);
+            var timer = Substitute.For<ITimer>();
+            timer.When(t => t.Dispose()).Do(_ => _fire = null);
+            return timer;
+        }
+
+        public void Advance(TimeSpan elapsed)
+        {
+            _ticks += elapsed.Ticks;
+            if (_ticks < _due) return;
+            var fire = _fire;
+            _fire = null;
+            fire?.Invoke();
+        }
     }
 
     private sealed class Provider : IWorkspaceArtifactProvider

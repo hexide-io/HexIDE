@@ -298,7 +298,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // Give a server that received exit time to finish before terminating a wedged wrapper and its children.
         try
         {
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            await process.WaitForExitAsync().WaitAsync(LaunchedServerGuard.ExitTimeout);
         }
         catch (TimeoutException)
         {

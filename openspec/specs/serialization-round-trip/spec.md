@@ -778,6 +778,19 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
 
+### Requirement: CommonDialog scalar saves follow the measured VB6 layout
+The serializer SHALL write MSComDlg.CommonDialog own scalar properties under their individual names in the
+measured order, omitting defaults, and SHALL preserve the saved controls' order. Font properties SHALL remain
+individual lines rather than a Font block. Missing lines SHALL retain the measured runtime defaults.
+
+#### Scenario: VB6's four CommonDialogs are saved again
+- **WHEN** the form in `corpus/inbox-controls/saved/commondialog/` is loaded and saved
+- **THEN** its bytes are unchanged, including CommonDialog4 preceding the three existing controls
+
+#### Scenario: Explicit defaults are read
+- **WHEN** a CommonDialog own scalar property is read at its measured default
+- **THEN** the writer omits that line
+
 ### Requirement: MSComctlLib ImageList picture persistence
 
 The serializer SHALL preserve the measured MSComctlLib.ImageList format: extender properties, extents, BackColor,

@@ -24,8 +24,8 @@ concurrency:
 env:
   MIN_TESTS_RUNTIME: 5849       # 6157 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_TWINBASIC: 200      # 226
-  MIN_TESTS_IDE: 4241           # 4465 measured; catches short runs; raise to 95% of a new full total.
-  MIN_TESTS_INTEGRATION: 2954   # 3110 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_IDE: 4249           # 4473 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_INTEGRATION: 2850   # 3001 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_LSP_SERVER: 528     # 556 measured; catches short runs; raise to 95% of a new full total.
 
 jobs:
@@ -435,6 +435,22 @@ jobs:
           name: test-results-${{ github.job }}-${{ runner.os }}
           path: IDE/**/TestResults/**
           retention-days: 7
+
+  # A job skipped before matrix expansion reports its literal matrix expression, not the required
+  # platform check names (#2382). Expand those names on Ubuntu when the real builds are skipped.
+  build-ide-desktop-docs:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}
+    name: build-ide (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: windows }
+          - { name: macos }
+    steps:
+      - name: Report the skipped build
+        run: echo 'Build skipped for a docs-only change.'
 
   build-lsp-server:
     needs: changes

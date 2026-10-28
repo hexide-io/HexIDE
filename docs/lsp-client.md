@@ -98,7 +98,8 @@ Before an initialize reply, neither message is sent. An externally owned pipe se
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
-tree and waits up to two seconds for termination before disposing its process handle (#2023). Its
+tree and waits up to two seconds for termination before disposing its process handle (#2023).
+Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
 exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
@@ -163,6 +164,13 @@ too (#360). The current rumdl fixture indexes only with a workspace root, so the
 
 ## Request failure logging
 
+Hover also logs at debug why it returned no result: no RPC connection, initialization still
+incomplete, `hoverProvider` unavailable, or a server reply of `null` (#2302).
+Exceptions retain the failure/supersession logging below. These diagnostics contain no document
+content and do not change the nullable hover API. The notification-flood regression includes the
+client log and whether the server received hover in its failure message; the original intermittent
+null result has not been reproduced or attributed to a cause.
+
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
 (ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
@@ -176,6 +184,11 @@ For language operations, a deadline returns the request's empty or absent result
 an answer. Cancellation sends `$/cancelRequest` best effort; returning never depends on its acknowledgement.
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
+
+Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
+and folding requests for that document and waits for their cancellation frames to be sent before
+`didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
+documents. The change starts a fresh diagnostic pull; editor refreshes request fresh tokens and folds.
 
 Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
 answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
@@ -728,12 +741,14 @@ failure fails the connection and tears down the launched process; externally own
 are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
 are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
 in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
-after an unclean IDE exit it sends SIGTERM to the group, then SIGKILL after two seconds.
-The guard preserves the server's exit code. Normal shutdown still attempts the protocol first;
-a guard left after the transport's grace period is terminated with its group. Externally owned
+after an unclean IDE exit, or when the server exits on its own, it sends SIGTERM to the group,
+then SIGKILL after two seconds. For a server that exits on its own, the guard leaves the server's
+group before SIGKILL so it can preserve the server's exit code. Normal shutdown still attempts the
+protocol first; a guard left after the transport's grace period is terminated with its group. Externally owned
 pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
 The lifetime tests kill the owner without disposal and check both server and child on Windows,
-Linux and macOS; the helper runs with its own dependencies and runtime configuration.
+Linux and macOS; Unix clean-exit tests also check children that accept or ignore SIGTERM and the
+server's exit code. The helper runs with its own dependencies and runtime configuration.
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
@@ -943,7 +958,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 32 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 33 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1011,7 +1026,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 3 of 21
+### `workspace/*` — 4 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1023,7 +1038,7 @@ than inferred.
 | ○ | `workspace/didChangeConfiguration` | → |  |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
 | ○ | `workspace/didChangeWorkspaceFolders` | → |  |
-| ○ | `workspace/didCreateFiles` | → |  |
+| ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
 | ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
@@ -1145,6 +1160,34 @@ that, which is CI.
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
 
+### File-operation notifications (#2248)
+
+`VBLspClient` has explicit `DidCreateFilesAsync`, `DidRenameFilesAsync` and `DidDeleteFilesAsync`
+entry points for successfully completed disk operations. Each connection reads
+`workspace.fileOperations.didCreate`, `didRename` or `didDelete` from the server's initialize reply
+and sends only matching files. Filters support URI schemes, file/folder selection, glob alternatives,
+character ranges and `ignoreCase`; rename matches either URI. Empty matching batches send nothing.
+These are notifications and carry no request id. Wire tests read the frames and use a shutdown response
+as a barrier when asserting silence.
+
+The registry fans out to every running server whose operation filter matches, regardless of its document
+language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
+notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
+it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
+receiving matching notifications. File events do not start servers. Initialize advertises the three
+notification capabilities.
+First saves and Save As to a destination that does not exist report creation after the write succeeds;
+ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
+reports no rename. Save Project and SaveProjectToDirectory use the same creation rule. Failed writes,
+including I/O and access-denied failures, send no creation notification; a wire test checks silence
+after a shutdown barrier.
+
+Disk rename and Remove-with-delete hooks remain outstanding: explorer name changes currently leave
+paths unchanged, and Remove only detaches a member. Neither is a disk event. The generated rename/delete
+rows remain ○ until IDE actions perform those disk operations; their explicit protocol senders and
+registry routes are ready.
+`willCreate`, `willRename` and `willDelete` remain outside the issue's scope.
+
 ### What the shape of that table says
 
 Three clusters account for nearly all of the gap:
@@ -1221,7 +1264,9 @@ all three would be confidently wrong two-thirds of the time.
 Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
 The client prepares it before launching the server, once per workspace project, behind the
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
-per-workspace consent, hash-based ownership, and debounced regeneration after material project changes.
+per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
+The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
+task before checking the generated file and provider call count.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in

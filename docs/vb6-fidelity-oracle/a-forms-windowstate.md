@@ -27,3 +27,30 @@ that state transition raises Resize explicitly because Avalonia's Windows backen
 Duplicate resize notifications while minimized are suppressed. Not reproduced: a minimized window's 2400-twip
 Width, which Avalonia doesn't report, and what a form hidden after being shown reads, which was not measured.
 
+### A person's maximize, restore, minimize and border drag (2026-10-27, #2389)
+
+**The probe:** a sizable form, 4500 × 3000 twips of client, in the guest's console session at 15 twips a pixel, with
+"Show window contents while dragging" on. It logs Load, Activate, Deactivate, GotFocus, LostFocus, Paint and Resize,
+each with WindowState, Width, Height, ScaleWidth and ScaleHeight read in the handler. A driver acted on it in two ways:
+- with real clicks on the caption buttons, found through `WM_GETTITLEBARINFOEX`;
+- with the `WM_SYSCOMMAND` each click sends, `SC_MAXIMIZE`, `SC_RESTORE` and `SC_MINIMIZE`.
+
+A restore from minimized was `SC_RESTORE` both times, not a click on the taskbar. Then the driver pressed on the right
+border and moved 20 pixels right five times, 400 ms apart, before releasing. Then it dragged the bottom-right corner
+40,30 pixels in one move. Native and p-code logged the same 48 lines, and the clicks logged what the commands did.
+
+| Change | Events, in order | Read in Resize |
+|---|---|---|
+| Load and Show | Load, Resize, Activate, GotFocus, Paint | state 0, Width 4740, Height 3585, ScaleWidth 4500, ScaleHeight 3000 |
+| Maximize | **one Resize**, then Paint | state 2, Width 15600, Height 11160, ScaleWidth 15360, ScaleHeight 10575 |
+| Restore from maximized | **one Resize**, and no Paint | state 0, the shown size again |
+| Minimize | **one Resize** | state 1, Width 2400, Height 420, ScaleWidth 0, ScaleHeight 0 |
+| Restore from minimized | **one Resize**, then Paint; **no Activate** | state 0, the shown size |
+| The right border, dragged in five 20-pixel moves | **one Resize and one Paint per move**, none on release | Width 5040, 5340, 5640, 5940, 6240; ScaleWidth 300 more each time |
+| The corner, dragged in one move | one Resize, then Paint | Width 6840, Height 4035, ScaleWidth 6600, ScaleHeight 3450 |
+
+So every change of the window raises exactly one Resize, reading the final state and size, and Paint follows only
+when the client grows. Minimizing and restoring raise neither Deactivate nor Activate, nor LostFocus nor GotFocus:
+those are for moving between the program's own forms. A drag raises Resize as the window changes, not once at the end,
+with window contents shown while dragging. With that setting off, Windows sizes the window only on release, so one
+Resize would be expected then. That was not measured.

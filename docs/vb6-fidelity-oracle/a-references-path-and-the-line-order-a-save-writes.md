@@ -75,6 +75,62 @@ In both, every `Reference=` line comes before every `Object=` line.
 This bears on #2265. A bare class name binds to whichever library comes first in the `.vbp` ("In-box classes: a bare
 name binds to the first library"), so once VB6 has saved a project, a referenced type library outranks every component.
 
+### A save with no edit keeps the order it read (2026-10-28)
+
+**The question.** VB6's shipped project templates list lines out of the order above. IIS Application puts a `Reference=`
+after its `Designer=` line, and Data Project puts an `Object=` after its `Designer=` and `Form=` lines. Where does a save
+put them?
+
+**The probe.** VB6 SP6's IDE on the oracle VM's console. Each template's whole folder was copied to a folder of its own
+two levels below `C:\`, and the template opened in the IDE and saved with File → Save Project As, under a new name in
+the same folder. A plain File → Save Project of IIS Application wrote the same bytes as its Save As. Five synthetic
+projects with registered controls covered the shapes the templates need, MSCOMCTL.OCX and TABCTL32.OCX among them. Each
+synthetic project was saved twice:
+- **unedited**, with Save Project As;
+- **after Project → References was opened and OKed with nothing changed,** then Save Project.
+
+| Lines as read | Saved unedited | Saved after the References dialog's OK |
+|---|---|---|
+| `Object=` (A), `Form=`, `Module=`, `Object=` (B), `Reference=` | **the same order** | `Reference=` ×2, `Object=` A, B, `Form=`, `Module=` |
+| `Form=`, `Object=`, `Module=` | **the same order** | not run |
+| `Object=`, `Reference=` ×2, `Form=` | **the same order** | `Reference=` ×2, `Object=`, `Form=` |
+| `Reference=`, `Object=`, `Reference=`, `Form=`, `Module=`, `Object=`, `IconForm=` | **the same order** | `Reference=` ×2, `Object=` ×2, `Form=`, `Module=`, `IconForm=` |
+| IIS Application: `Reference=` ×2, `Designer=`, `Reference=` | **the same order** | not run |
+
+So:
+- **A save with no edit writes every line where it was read.** That held for an `Object=` after the members, an
+  `Object=` between two members, and a `Reference=` after a `Designer=` or after the members.
+- **The References dialog's OK, even with nothing changed, regroups them:** every `Reference=`, then every `Object=` in
+  the order read, then the members in the order read, then the rest. The earlier probe above went through that dialog,
+  which is why it showed this order.
+- **The Components dialog does not regroup:** it adds its `Object=` line after the last `Form=` line (#1103).
+- **Not measured:** whether another edit, such as Project Properties, regroups as the References dialog does.
+
+**What else the unedited save changed in the templates.**
+
+| Template | Change |
+|---|---|
+| All five | Every resolvable `Reference=` path rewritten from the registry and made relative, as above: the template's `..\VB\stdole2.tlb`, `D:\VB98\stdole2.tlb` and `..\..\..\..\..\VB6\stdole2.tlb` all became `..\..\Windows\SysWOW64\stdole2.tlb`. The description after the last `#` was kept as the file had it, a trailing space included |
+| DHTML Application | The library's path came from the registry even where the file name differed: `MSHTMPGD.DLL` became `...\designer\MSHTMPGR.DLL` |
+| ActiveX Document Dll | **The reference changed library:** `{BEF6E001-...}#2.0`, Standard OLE Types in `OLEPRO32.DLL`, was written as `{00020430-...}#2.0`, stdole2, with the description "Standard OLE Types" kept. It did so with `{BEF6E001-...}` registered and without it |
+| IIS Application | The ASP library, `{D97A6DA0-...}#2.0`, was not resolvable: only version 3.0 was registered, or none. Its line kept `#2.0#`, and its absolute path on the same drive was made relative: `C:\WINNT40\System32\inetsrvsp.dll` became `..\..\WINNT40\System32\inetsrvsp.dll` |
+| Activex Document Exe | **`Retained=0` added**, between `Unattended=0` and `ThreadPerObject=0`, where the template had none. The other four already had it |
+
+Every line not listed kept its text and its place, and each file kept its final CR LF.
+
+**Data Project could not be measured here.** VB6 reported "Error accessing the system registry" at its first `Object=`
+line, MSDatRep.ocx, and stopped loading at "Continue Loading Project?". A synthetic project with its late `mshflxgd.ocx`
+line gave the same error. The guest also lacks the Data Environment designer that its `DataEnv.Dsr` needs, and its run
+time. Both come from the VB6 media, and the licence keys for its data controls are the likeliest cause of the registry
+error, as with the MaskedEdBox (#1098). Before the load stopped, its ADO reference had been written as
+`{00000205-...}#2.5#0#...\msado25.tlb#Microsoft ActiveX Data Objects 2.0 Library`: the library and version the registry
+resolved, under the description the file had.
+
+**The saved files** are kept beside the templates in the round-trip corpus, outside this tree because they are derived
+from Microsoft's: `<template>.vbp.vb6-saved`, for the five templates above. That name keeps them out of the corpus's own
+`*.vbp` search. Their `Reference=` paths are relative to the folder they were saved in on the oracle VM, two levels
+below `C:\`, so those fields can't be compared byte for byte from another folder or machine.
+
 ### In HexIDE
 
 `ProjectSerializer` keeps an absolute reference path absolute and rebases only a relative one (#2274). It writes the lines

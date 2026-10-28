@@ -237,21 +237,44 @@ public sealed class VBLspClient : ILspClient
     // Shared with initialize for consistency; a policy budget, not a measured server response time.
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
 
+    // Guard removal/disposal against cancellation while a change drains the wire notifications.
+    private readonly object _supersededGate = new();
+    private readonly Dictionary<CancellationTokenSource, (string Uri, RequestCancellation Scope)> _superseded = new();
+
+    private async Task CancelSupersededAsync(string uri)
+    {
+        Task[] sends;
+        lock (_supersededGate)
+        {
+            var requests = _superseded.Where(entry => entry.Value.Uri == uri).ToArray();
+            foreach (var request in requests) request.Key.Cancel();
+            sends = requests.Select(request => request.Value.Scope.CancellationSent).ToArray();
+        }
+        await Task.WhenAll(sends);
+    }
+
     private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
-        CancellationToken cancellationToken = default, TimeSpan? timeout = null)
+        CancellationToken cancellationToken = default, TimeSpan? timeout = null, string? supersededUri = null)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var scope = new RequestCancellation(_capture, _connectionId);
         var previous = RequestCancellation.Current.Value;
         Task<T> pending;
+        if (supersededUri is not null)
+            lock (_supersededGate) _superseded.Add(cancellation, (supersededUri, scope));
         try
         {
             RequestCancellation.Current.Value = scope;
             pending = rpc.InvokeWithParameterObjectAsync<T>(method, parameters, cancellation.Token);
         }
+        catch
+        {
+            lock (_supersededGate) _superseded.Remove(cancellation);
+            throw;
+        }
         finally { RequestCancellation.Current.Value = previous; }
 
-        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellationToken); }
+        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellation.Token); }
         catch (Exception ex) when (ex is TimeoutException || ex is OperationCanceledException)
         {
             if (ex is TimeoutException) scope.Outcome = ConversationOutcome.TimedOut;
@@ -266,6 +289,10 @@ public sealed class VBLspClient : ILspClient
         {
             scope.DropAnswer(ex);
             throw;
+        }
+        finally
+        {
+            lock (_supersededGate) _superseded.Remove(cancellation);
         }
     }
 
@@ -576,7 +603,8 @@ public sealed class VBLspClient : ILspClient
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
-                    WorkspaceFolders: true),
+                    WorkspaceFolders: true,
+                    FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities()));
 
@@ -894,6 +922,7 @@ public sealed class VBLspClient : ILspClient
             var p = new DidChangeTextDocumentParams(
                 new VersionedTextDocumentIdentifier(uri, version),
                 [new TextDocumentContentChangeEvent(text)]);
+            await CancelSupersededAsync(uri);
             try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
             catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
 
@@ -1078,7 +1107,7 @@ public sealed class VBLspClient : ILspClient
         {
             try
             {
-                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
+                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p, supersededUri: uri);
                 break;
             }
             catch (RemoteInvocationException ex) when (ShouldRetryDiagnostic(ex))
@@ -1248,6 +1277,39 @@ public sealed class VBLspClient : ILspClient
             href is null ? null : new CodeDescription(href));
     }
 
+    public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didCreate", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didCreateFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didCreateFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var matching = files.Where(file => FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.OldUri)
+            || FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.NewUri)).ToArray();
+        if (matching.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didRenameFiles", new RenameFilesParams(matching)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didRenameFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didDelete", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didDeleteFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didDeleteFiles", ex, cancellationToken); }
+    }
+
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
     {
         // No _openDocuments write, unlike its three siblings: a save changes neither the text nor the
@@ -1278,12 +1340,21 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !CanServe("hoverProvider")) return null;
+        var unavailable = _rpc is null ? "no RPC connection"
+            : !_initialized ? "initialization is incomplete"
+            : !CanServe("hoverProvider") ? "hoverProvider is unavailable" : null;
+        if (unavailable is not null)
+        {
+            _logger.LogDebug("textDocument/hover was not sent: {Reason}", unavailable);
+            return null;
+        }
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await InvokeRequestAsync<HoverResult?>(_rpc,
+            var result = await InvokeRequestAsync<HoverResult?>(_rpc!,
                 "textDocument/hover", p, cancellationToken);
+            if (result is null) _logger.LogDebug("textDocument/hover: server returned null");
+            return result;
         }
         catch (Exception ex)
         {
@@ -1423,7 +1494,7 @@ public sealed class VBLspClient : ILspClient
             var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
                 .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
             var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
-                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken);
+                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri);
             if (result?.Data is not { Length: > 0 })
             {
                 if (_semanticWarnings.TryAdd(uri, 0))
@@ -1434,7 +1505,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            if (!cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
+            if (ex is not OperationCanceledException && !cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
                 _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
             return null;
         }
@@ -1447,7 +1518,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             return await InvokeRequestAsync<FoldingRange[]>(_rpc,
-                "textDocument/foldingRange", p, cancellationToken) ?? [];
+                "textDocument/foldingRange", p, cancellationToken, supersededUri: uri) ?? [];
         }
         catch (Exception ex)
         {
