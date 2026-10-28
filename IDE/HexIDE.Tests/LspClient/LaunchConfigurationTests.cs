@@ -17,21 +17,21 @@ public class LaunchConfigurationTests
         Directory.CreateDirectory(directory);
         try
         {
-            var windows = OperatingSystem.IsWindows();
             var pipeName = "hexide-" + Guid.NewGuid().ToString("N")[..8];
-            var script = Path.Combine(directory, windows ? "probe.ps1" : "probe.sh");
             var output = Path.Combine(directory, "received.txt");
-            File.WriteAllText(script, windows
-                ? "@($env:HEXIDE_LAUNCH_PROBE, $env:PATH) + @($args | ForEach-Object { '[' + $_ + ']' }) | Set-Content -LiteralPath $env:HEXIDE_LAUNCH_OUTPUT"
-                : "{ printf '%s\n' \"$HEXIDE_LAUNCH_PROBE\" \"$PATH\"; printf '[%s]\n' \"$@\"; } > \"$HEXIDE_LAUNCH_OUTPUT\"");
+            // The probe is the test host's launch-probe mode, the same .NET program on every platform. It was a
+            // PowerShell script on Windows, the slowest thing this test started: with every core busy, Windows
+            // PowerShell 5.1 took 4.0 to 6.6 s to start and exit where the test host took 1.5 to 2.1 s. Its slow
+            // starts failed this test before (#1913, #1941), and a pipe case wrote nothing within the transport's
+            // 30 s on CI (#2543).
             string[] values = array ? ["", " spaced ", "a\"b", @"a\b", "{pipe}"] : ["legacy"];
-            string[] prefix = windows ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script] : [script];
+            string[] prefix = [Path.Join(AppContext.BaseDirectory, "LspTestHost", "HexIDE.Lsp.TestHost.dll"), "launch-probe"];
             object arguments = array ? prefix.Concat(values).ToArray()
                 : string.Join(' ', prefix.Select(a => $"\"{a}\"")) + " legacy";
             var json = JsonSerializer.Serialize(new
             {
                 id = "probe", extensions = new[] { ".probe" }, languageId = "probe", transport,
-                command = windows ? "powershell.exe" : "/bin/sh", arguments, pipeName,
+                command = "dotnet", arguments, pipeName,
                 environment = new Dictionary<string, string>
                 {
                     ["HEXIDE_LAUNCH_PROBE"] = "configured", ["HEXIDE_LAUNCH_OUTPUT"] = output,
@@ -41,12 +41,13 @@ public class LaunchConfigurationTests
             var factory = new LanguageServerRegistrationFactory(
                 Substitute.For<ILoggerFactory>().WithNullLoggers());
             await using var client = factory.Create([entry]).Single().CreateClient();
-            // The probe never connects, so a pipe start runs until it gives up and then kills the child. No fixed budget
-            // outlasts a cold powershell.exe on a loaded CI runner: three seconds did not (#1913), nor ten (#1941). So the
-            // start is left pending while the file is watched, and is cancelled once the child has written everything; a
-            // slow runner gets the whole minute and a fast one finishes in seconds. A stdio start ends by itself when the
-            // probe exits, possibly mid-write, which the same watch covers.
+            // The probe never connects, so a pipe start runs until the transport's own connect timeout of 30 s, and the
+            // transport then kills the child; the minute here only bounds the watch. So the start is left pending while
+            // the file is watched, and is cancelled once the child has written everything. A stdio start ends when the
+            // probe exits, or when initialize goes unanswered for 30 s with the child still running, so the watch does
+            // not stop when the start does.
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             var starting = client.StartAsync(timeout.Token);
             var expectedLines = 2 + values.Length;
             string[] received = [];
@@ -57,13 +58,16 @@ public class LaunchConfigurationTests
                     if (File.Exists(output) && (received = File.ReadAllLines(output)).Length >= expectedLines)
                         break;
                 }
-                catch (IOException) { /* still being written */ }
+                catch (IOException) { /* held open by something else for a moment */ }
                 await Task.Delay(100, TestContext.Current.CancellationToken);
             }
+            var ended = starting.IsCompleted;
             await timeout.CancelAsync();
             try { await starting; }
             catch (OperationCanceledException) { /* the start is abandoned once the child has answered */ }
-            received.Should().HaveCount(expectedLines, "the configured child must have written its received values");
+            received.Should().HaveCount(expectedLines,
+                "the configured child must have written its received values; after {0:0.0} s the start {1}",
+                watch.Elapsed.TotalSeconds, ended ? "had already ended" : "was still running");
             received[0].Should().Be("configured");
             received[1].Should().Be(Environment.GetEnvironmentVariable("PATH"), "unspecified variables are inherited");
             received.Skip(2).Should().Equal(values.Select(v =>

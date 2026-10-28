@@ -337,7 +337,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
             "Reading an object's default member calls into the program, which is not available in the Immediate window."),
-        VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
+        VbObject or VbErr or VbApp or VbScreen or VbForms => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
 
@@ -809,6 +809,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBCompileErrorException($"{message} ({name})");
     }
 
+    // ReDim or Erase of a procedure's ParamArray is VB6's compile error "Invalid ParamArray use" (measured, #2462), raised here as
+    // the statement runs.
+    private void RefuseParamArray(string name)
+    {
+        if (currentEnv.TryGetVariableLocation(name, out var location) && interpreter.ExecutionContext.State.IsParamArray(location))
+            throw new VBCompileErrorException($"Invalid ParamArray use ({name})");
+    }
+
     public override async Task<ControlFlow> VisitEraseStmt(VB6Parser.EraseStmtContext context)
     {
         // `Erase a[, b, ...]` — a DYNAMIC array is freed (undimensioned: later LBound/UBound/index → Err 9), a FIXED
@@ -817,6 +825,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var name = vs.GetText();
             RefuseConstantTarget(name, "Expected array");
+            RefuseParamArray(name);
             Vb6Value v;
             if (vs is VB6Parser.VsICSContext field && await UdtArrayField(field.implicitCallStmt_InStmt()) is { } arrayField)
                 v = arrayField.Read();
@@ -927,7 +936,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
+        {
+            UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
+        }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
 
@@ -971,6 +983,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (collection.Value is VBArray { ElementType: var elementType } && elementType == Vb6Value.ValueType.UserDefinedType)
             throw new VBCompileErrorException("For Each may not be used on array of user-defined type or fixed-length strings");
 
+        if (collection.Value is Components.InBox.TabStripTabs tabs)
+        {
+            var snapshot = tabs.Owner.Model.Tabs.ToArray();
+            var at = 0;
+            return await ForEachItem(context, varName, (out Vb6Value item) =>
+            {
+                if (!snapshot.SequenceEqual(tabs.Owner.Model.Tabs))
+                    throw TabStripMembers.Refused("collection mutation during For Each");
+                item = at < snapshot.Length ? new Vb6Value(tabs.Wrap(snapshot[at++])) : default;
+                return at <= snapshot.Length && item.Value is not null;
+            }, () => { });
+        }
         if (collection.Value is VbCollection items)
         {
             var cursor = items.StartEnumeration();
@@ -992,6 +1016,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var cursor = controls.StartEnumeration();
             return await ForEachItem(context, varName, (out Vb6Value item) => controls.TryNext(cursor, out item), () => { });
         }
+        if (collection.Value is VbForms forms)
+        {
+            var cursor = forms.StartEnumeration();
+            return await ForEachItem(context, varName, (out Vb6Value item) => VbForms.TryNext(cursor, out item), () => { });
+        }
 
         if (collection.Value is not VBArray { IsDefined: true } array)
         {
@@ -1003,7 +1032,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 VBArray => new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized),
                 null when collection.Type == Vb6Value.ValueType.Object => new VBRunTimeException(context, VBStandardError.ObjectRequired),
                 VbObject or Avalonia.Controls.Control or ICSharpProxy => throw new NotImplementedException(
-                    "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
+                    "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection, a form's Controls and Forms are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
             if (!ResumesNext)
@@ -1936,6 +1965,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
+        // BuddyControl is a Variant which accepts a control reference even through Let (#1093).
+        if (value.Value is Control
+            && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } buddyCall
+            && buddyCall.iCS_S_VariableOrProcedureCall() is { } buddyLead
+            && buddyCall.iCS_S_MemberCall() is [var buddyMember]
+            && UdtFieldName(buddyMember).Equals("BuddyControl", StringComparison.OrdinalIgnoreCase)
+            && interpreter.ExecutionContext.TryGetVariable(currentEnv, buddyLead.GetText(), out var buddyTarget)
+            && buddyTarget.Value is VBUpDown)
+            return value;
+
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } selectionTarget
+            && selectionTarget.iCS_S_MemberCall().LastOrDefault() is { } lastSelection
+            && UdtFieldName(lastSelection).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
+            && value.Value is Components.InBox.TabStripTab)
+            return value;
         // #1485/#878: only the measured direct temporary / App forms clear a Variant on a failed
         // default-value read. Keep the original exception, including its number and message.
         try
@@ -2168,6 +2212,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VBRichTextBox richTextBox)
+                {
+                    VBProps.RefuseIfRemoved(richTextBox);
+                    RichTextBoxMembers.TrySet(richTextBox, "TextRTF", value);
+                    return default;
+                }
                 if (oldLet.Value is ToolbarItem toolbarItem)
                 {
                     toolbarItem.SetDefault(value);
@@ -2176,6 +2226,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (oldLet.Value is StatusBarPanel panel)
                 {
                     panel.SetText(value);
+                    return default;
+                }
+                if (oldLet.Value is VBUpDown upDown)
+                {
+                    upDown.TrySetProperty("Value", value);
                     return default;
                 }
                 RefuseLetIntoObject(oldLet, identifier, context);
@@ -2231,6 +2286,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 bool leadFound;
                 if (!interpreter.TryReadNow(currentEnv, identifier, out leadFound, out variable, out var leadNeed))
                     (leadFound, variable) = await interpreter.ReadVariableAfter(currentEnv, identifier, leadNeed!);
+                // `Screen.MousePointer = x`, where nothing the program declares is named Screen (#2431).
+                if (!leadFound && interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
+                    (leadFound, variable) = (true, libraryObject);
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
@@ -2343,6 +2401,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
+            if (members[0].iCS_S_ProcedureOrArrayCall() is { } tabStripCall && tabStripCall.argsCall().Length == 1)
+            {
+                var tabName = UdtFieldName(members[0]);
+                if (variable.Value is VBTabStrip tabStrip && tabName.Equals("Tabs", StringComparison.OrdinalIgnoreCase))
+                {
+                    var indexes = await expressionExecutor.EvaluateCallArgs(tabStripCall.argsCall(0));
+                    if (indexes.Count != 1)
+                        throw TabStripMembers.Refused("Tabs index arguments");
+                    tabStrip.Model.Item(indexes[0]).Caption = Components.InBox.TabStripTabs.Text(value);
+                    return default;
+                }
+                if (variable.Value is Components.InBox.TabStripTabs tabCollection && tabName.Equals("Item", StringComparison.OrdinalIgnoreCase))
+                {
+                    var indexes = await expressionExecutor.EvaluateCallArgs(tabStripCall.argsCall(0));
+                    if (indexes.Count != 1)
+                        throw TabStripMembers.Refused("Tabs index arguments");
+                    tabCollection.Owner.Model.Item(indexes[0]).Caption = Components.InBox.TabStripTabs.Text(value);
+                    return default;
+                }
+            }
+
             if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(UdtFieldName(members[0]))
                 && members[0].iCS_S_ProcedureOrArrayCall() is { } tabItem && tabItem.argsCall().Length == 1)
             {
@@ -2350,7 +2429,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await expressionExecutor.EvaluateCallArgs(tabItem.argsCall(0)), value);
                 return default;
             }
-
             // A list's List(i) = text and a ListBox's Selected(i) = b, the control members here that take an index (#821,
             // #1395).
             if (variable.Value is Control listControl && ListMembers.IsList(listControl)
@@ -2397,6 +2475,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
                 };
 
+            if (await TabStripMembers.Set(variable.Value, memberIdentifier, value, interpreter, currentModule, currentEnv))
+                return default;
             if (members[0].iCS_S_ProcedureOrArrayCall() is { } toolbarCall && toolbarCall.argsCall().Length == 1)
             {
                 ToolbarItems? collection = variable.Value switch
@@ -2413,6 +2493,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return default;
                 }
             }
+            if (variable.Value is ICSharpAsyncPropertyBag asyncPropertyBag
+                && await asyncPropertyBag.TrySetPropertyAsync(memberIdentifier, value))
+                return default;
 
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
@@ -2423,6 +2506,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
             // Every member of a control Controls.Remove took out is 735 (measured, #1556).
             VBProps.RefuseIfRemoved(control);
+
+            if (control is VBTimer)
+                TimerMembers.CheckWrite(memberIdentifier);
+
+            UserControlMembers.Check(variable, memberIdentifier);
+            if (UserControlMembers.TrySet(control, memberIdentifier, value))
+                return default;
+
+            if (RichTextBoxMembers.TrySet(control, memberIdentifier, value))
+                return default;
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
             if ((StatusBarMembers.TrySet(control, memberIdentifier, value)
@@ -2660,7 +2753,36 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitLsetStmt(VB6Parser.LsetStmtContext context)
     {
-        throw new NotImplementedException("Lset not implemented");
+        return await JustifyString(context.implicitCallStmt_InStmt(), context.valueStmt(), false);
+    }
+
+    private async Task<ControlFlow> JustifyString(VB6Parser.ImplicitCallStmt_InStmtContext target,
+        VB6Parser.ValueStmtContext source, bool right)
+    {
+        if (target.iCS_S_VariableOrProcedureCall() is not { } variable || variable.dictionaryCallStmt() is not null)
+            throw new NotImplementedException("LSet/RSet into this target is not implemented");
+        var name = variable.ambiguousIdentifier().GetText();
+        RefuseConstantTarget(name, VariableRequired);
+        var (found, oldValue) = await interpreter.ReadVariable(currentEnv, name);
+        if (!found || !currentEnv.TryGetVariableLocation(name, out var slot))
+            throw new NotImplementedException("LSet/RSet into an undeclared target is not implemented");
+        var declared = interpreter.ExecutionContext.State.DeclaredTypeOf(slot);
+        if (declared is not null && declared != Vb6Value.ValueType.String
+            || oldValue.Type != Vb6Value.ValueType.String && oldValue.Type != Vb6Value.ValueType.Integer)
+            throw new NotImplementedException("LSet/RSet for this target type is not implemented");
+        var value = await expressionExecutor.EvaluateScalar(source);
+        if (value.IsNull)
+            throw new VBRunTimeException(source, VBStandardError.InvalidUseOfNull);
+        if (value.Type != Vb6Value.ValueType.String && value.Type != Vb6Value.ValueType.Integer
+            && value.Type != Vb6Value.ValueType.Double && value.Type != Vb6Value.ValueType.Boolean
+            && value.Type != Vb6Value.ValueType.EmptyVariant)
+            throw new NotImplementedException("LSet/RSet conversion from this source type is not implemented");
+        var width = VbDisplay.ToText(oldValue).Length;
+        var text = VbDisplay.ToText(value);
+        // Both statements keep the leftmost characters when the value is too long (#2517).
+        var result = text.Length > width ? text[..width] : right ? text.PadLeft(width) : text.PadRight(width);
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, new Vb6Value(result));
+        return ControlFlow.Nothing;
     }
 
     // As in PrePass: every directive was applied before the parse (#1112), and a `#` line left is code to vb6.exe.
@@ -2795,6 +2917,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private sealed class FileTarget(VbFiles files, int number) : VbPrint.ITarget
     {
         public int Column => files.Column(number);
+        public int Width => files.PrintWidth(number);
         public void Write(string text) => files.Write(number, text);
     }
 
@@ -2951,7 +3074,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProcedure("Reset", [], currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
             return ControlFlow.Nothing;
         }
-        throw new NotImplementedException("Reset not implemented");
+        interpreter.BuiltIns.Files.CloseAll();
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitResumeStmt(VB6Parser.ResumeStmtContext context)
@@ -2983,7 +3107,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitRsetStmt(VB6Parser.RsetStmtContext context)
     {
-        throw new NotImplementedException("Rset not implemented");
+        return await JustifyString(context.implicitCallStmt_InStmt(), context.valueStmt(), true);
     }
 
     public override async Task<ControlFlow> VisitSavepictureStmt(VB6Parser.SavepictureStmtContext context)
@@ -3325,6 +3449,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             IModuleExecutionRoot? evtRoot = null;
             if (evtListener != null && value.Value is Control heldControl)
             {
+                if (heldControl is VBTabStrip)
+                    throw TabStripMembers.Refused("WithEvents");
                 if (VBProps.GetIndex(heldControl) is not null)
                     throw new VBRunTimeException(context, VBStandardError.ThisComponentDoesntSupportTheSetOfEvents);
                 evtRoot = evtListener.FormWindow as IModuleExecutionRoot
@@ -3378,6 +3504,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBTimer)
+            {
+                var timerMembers = membersCall.iCS_S_MemberCall();
+                if (timerMembers.Length != 1)
+                    throw new NotImplementedException("Set on a Timer member chain is not implemented (#801)");
+                TimerMembers.CheckWrite(UdtFieldName(timerMembers[0]));
+                throw new NotImplementedException("Set on a Timer member is not measured (#801)");
+            }
+
+            if (setLead && target.Value is VBTabStrip or Components.InBox.TabStripTab
+                && membersCall.iCS_S_MemberCall() is { Length: > 0 } tabMembers)
+            {
+                var receiver = tabMembers.Length == 1 ? target
+                    : await expressionExecutor.ResolveMemberChain(target, tabMembers[..^1], 0, context);
+                var tabName = UdtFieldName(tabMembers[^1]);
+                if (await TabStripMembers.Set(receiver.Value, tabName, value, interpreter, currentModule, currentEnv))
+                    return default;
+                if (receiver.Value is Components.InBox.TabStripTab tab && tab.TrySetProperty(tabName, value))
+                    return default;
+            }
             if (setLead && target.Value is VBTreeView treeView
                 && membersCall.iCS_S_MemberCall().Length == 1
                 && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
@@ -3392,9 +3538,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 treeNode.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
                 return default;
             }
-            if (setLead && target.Value is VBToolbar && membersCall.iCS_S_MemberCall().Length == 1)
+            if (setLead && target.Value is VBToolbar toolbar && membersCall.iCS_S_MemberCall().Length == 1)
             {
                 var name = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+                if (name.ToLowerInvariant() is "imagelist" or "hotimagelist" or "disabledimagelist"
+                    && toolbar.TrySetProperty(name, value)) return default;
                 VBToolbar.RefusePending(name);
                 if (name.Equals("Buttons", StringComparison.OrdinalIgnoreCase)) throw ToolbarItems.Error(383);
             }
@@ -3403,6 +3551,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 item.TrySetProperty("Tag", value);
                 return default;
+            }
+            if (setLead && target.Value is Control setControl && membersCall.iCS_S_MemberCall() is { Length: 1 } setMembers)
+            {
+                var member = UdtFieldName(setMembers[0]);
+                UserControlMembers.Check(target, member);
+                if (UserControlContainers.TrySet(setControl, member, value))
+                    return ControlFlow.Nothing;
             }
             if (setLead && target.Value is VBStatusBar or StatusBarPanel or StatusBarPanels)
             {
@@ -3413,13 +3568,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
                 throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
             }
-            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage)
+            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown)
             {
                 var imageMembers = membersCall.iCS_S_MemberCall();
                 var receiver = await expressionExecutor.ResolveMemberChain(target, imageMembers[..^1], 0, context);
                 if (receiver.Value is ICSharpPropertyBag bag && bag.TrySetProperty(UdtFieldName(imageMembers[^1]), value))
                     return default;
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            }
+            // `Set s.ActiveForm = Nothing` is 382, naming the member, as a Let of it is (measured, #2431).
+            if (setLead && target.Value is VbScreen screen && membersCall.iCS_S_MemberCall().Length == 1)
+            {
+                screen.TrySetProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
             }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
@@ -3519,9 +3680,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitUnloadStmt(VB6Parser.UnloadStmtContext context)
     {
-        // A form, as `Unload Me` or by its name (#973): QueryUnload and Unload run inside this statement, and the ones
-        // after it run once they have. An indexed operand is a control-array element, as before.
-        if (FindProcedureOrArrayCall(context.valueStmt()) is not { } indexed || indexed.argsCall().Length == 0)
+        // A form, as `Unload Me`, by its name (#973) or as `Unload Forms(i)` (#2496): QueryUnload and Unload run inside this
+        // statement, and the ones after it run once they have. An operand indexing a control array is its element, as before.
+        if (FindProcedureOrArrayCall(context.valueStmt()) is not { } indexed || indexed.argsCall().Length == 0
+            || !IndexesControlArray(indexed))
         {
             var target = await expressionExecutor.EvaluateValue(context.valueStmt());
             if (target.Value is VbObject { FormWindow: IModuleExecutionRoot root })
@@ -3541,6 +3703,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         group.Unload(index);   // Err 340 if missing, Err 362 if a design-time element
         return ControlFlow.Nothing;
     }
+
+    // Whether `name(i)` names a control array, whose element Unload takes without reading it: reading a missing one is 340.
+    private bool IndexesControlArray(VB6Parser.ICS_S_ProcedureOrArrayCallContext call) =>
+        call.ambiguousIdentifier() is { } name
+        && interpreter.ExecutionContext.TryGetVariable(currentEnv, name.GetText(), out var named)
+        && named.Value is ControlArrayGroup;
 
     public override async Task<ControlFlow> VisitUnlockStmt(VB6Parser.UnlockStmtContext context)
     {
@@ -3603,6 +3771,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var variableName = varOrProcCall?.ambiguousIdentifier().GetText() ?? fieldTarget!.Name;
             RefuseConstantTarget(variableName, "Expected array");
+            if (fieldTarget is null)
+                RefuseParamArray(variableName);
 
             Vb6Value value;
             if (fieldTarget is not null)
@@ -4163,7 +4333,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitWidthStmt(VB6Parser.WidthStmtContext context)
     {
-        throw new NotImplementedException("Width not implemented");
+        if (!context.valueStmt(0).GetText().StartsWith('#'))
+            throw new NotImplementedException("Width without a file number is not implemented");
+        var number = await FileNumber(context.valueStmt(0));
+        var value = await expressionExecutor.EvaluateValue(context.valueStmt(1));
+        var width = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, context).Value);
+        interpreter.BuiltIns.Files.SetWidth(number, width);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitWithStmt(VB6Parser.WithStmtContext context)
@@ -4425,6 +4601,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
+            UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
         else
@@ -4453,6 +4630,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
             // member stops the run even under Resume Next (#867); a known constant
             // used as a bare statement is a harmless no-op.
+            if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            {
+                await interpreter.CallByName(await expressionExecutor.ResolveCallArgs(argsCall), stmtFrames);
+                return true;
+            }
             var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
@@ -4506,6 +4688,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (interpreter.GlobalMember(subName) is { } global)
             await interpreter.CallLibraryMember(global, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
+        else if (subName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            await interpreter.CallByName(await expressionExecutor.ResolveCallArgs(context.argsCall()), stmtFrames);
         else
         {
             List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateIntrinsicArgs(subName, context.argsCall());
@@ -4831,6 +5015,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // halt stops; a condition notes its own first (ConditionMet).
     private bool Locate(Exception error, ParserRuleContext stmt)
     {
+        if (error is VBRunTimeException runtimeError)
+            runtimeError.VbSource ??= interpreter.ProjectName;
         var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
             ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
             : null;

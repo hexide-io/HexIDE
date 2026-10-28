@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "マウスがオブジェクト上にあるときに表示されるポインターの形状。",
     "Str.PropDesc.RightToLeft": "右から左に記述する言語向けに文字列とレイアウトを反転するかどうか。",
     "Str.PropDesc.ToolTipText": "ポインターをコントロール上に置いたときに表示されるツールチップ。",
+    "Str.PropDesc.HelpContextID": "オブジェクトのヘルプトピックのコンテキスト番号。",
     "Str.PropDesc.WhatsThisHelpID": "オブジェクトをヘルプトピックに結び付けるコンテキスト番号。",
     "Str.PropDesc.Font": "オブジェクトの文字列に使用するフォント。",
     "Str.PropDesc.Alignment": "コントロールの文字列（または CheckBox・OptionButton のキャプション）の配置。",
@@ -749,6 +750,18 @@
     "Str.Tool.ObjectBrowser.Title": "オブジェクト ブラウザー",
     "Str.StatusBar.LineColumn": "行 {0}, 列 {1}",
     "Str.StatusBar.Insert": "挿入",
+    "Str.StatusBar.Automation.Text": "MCP :{0}",
+    "Str.StatusBar.Automation.TextSession": "MCP :{0} · {1}",
+    "Str.StatusBar.Automation.Tip.Listening": "自動化サーバーは {0} で待ち受けています。",
+    "Str.StatusBar.Automation.Tip.Session": "セッション '{0}' に応答し、他のセッションからの呼び出しは拒否します。",
+    "Str.StatusBar.Automation.Tip.AnyCaller": "セッションを指定しない呼び出し元すべてに応答します。",
+    "Str.StatusBar.Automation.Tip.Process": "プロセス {0}、ビルド先 {1}。",
+    "Str.StatusBar.Automation.Tip.Loopback": "このマシンにのみ応答し、認証はありません。ここでそのポートを開けるものは何でも、この IDE を操作できます。",
+    "Str.StatusBar.Automation.Tip.Running": "呼び出しを実行中です: {0}。",
+    "Str.StatusBar.Automation.Tip.LastCall": "最後の呼び出し: {0}、{1}。",
+    "Str.StatusBar.Automation.Tip.NoCall": "まだ呼び出しはありません。",
+    "Str.StatusBar.Automation.Tip.RefusedFrom": "他のセッションから拒否した呼び出し: {0} 件。最後はセッション '{1}' を指定していました。",
+    "Str.StatusBar.Automation.Tip.RefusedUnnamed": "他のセッションから拒否した呼び出し: {0} 件。最後はセッションを指定していませんでした。",
     "Str.StatusBar.Overtype": "上書き",
     "Str.StatusBar.LanguageServer": "言語サーバー",
     "Str.StatusBar.LanguageServerProgress": "{0}: {1}{2}",
@@ -913,6 +926,9 @@
     "Str.PropDesc.MaskColor": "透明ピクセルに使用する色。",
     "Str.PropDesc.UseMaskColor": "マスク色を使用するかどうか。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
+    "Str.Dialog.Print.Configuration": "部数: 1、用紙の向き: 縦。",
+    "Str.Dialog.Print.Unavailable": "印刷は未実装です。OK はダイアログの設定のみを返します。",
+    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）"
   }
 }

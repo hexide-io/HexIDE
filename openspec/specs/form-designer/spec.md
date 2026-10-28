@@ -332,3 +332,15 @@ command. A form the runtime loader cannot create SHALL report its existing unsup
 - **WHEN** the developer edits a text box, resizes the preview and closes it
 - **THEN** those edits are discarded and the designer remains unchanged
 - **AND** no Load, Resize, Click, QueryUnload or other VB event procedure runs
+
+### Requirement: ImageList designer icon
+The designer SHALL show a modelled MSComctlLib.ImageList as a 38 × 38 box with a two-pixel raised edge.
+The outer top/left SHALL use 3D light, inner top/left highlight, inner bottom/right shadow, and outer
+bottom/right dark shadow, with the face brush inside. These roles SHALL follow the theme's system brushes.
+HexIDE SHALL draw its own vector filmstrip glyph in a 32 × 32 area at (2, 2), rather than reproduce VB6's picture.
+Runtime invisibility and the measured unsnapped placement SHALL remain unchanged.
+
+#### Scenario: ImageList in the designer
+- **WHEN** an ImageList is placed on a form
+- **THEN** its raised box contains the original vector drawing rather than a text stand-in
+- **AND** changing theme updates its brushes

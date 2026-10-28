@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "माउस ऑब्जेक्ट के ऊपर होने पर दिखने वाला पॉइंटर आकार।",
     "Str.PropDesc.RightToLeft": "दाएँ-से-बाएँ भाषाओं के लिए टेक्स्ट और लेआउट प्रतिबिंबित हों या नहीं।",
     "Str.PropDesc.ToolTipText": "पॉइंटर कंट्रोल पर टिकने पर दिखाया जाने वाला टूलटिप।",
+    "Str.PropDesc.HelpContextID": "ऑब्जेक्ट के सहायता विषय की संदर्भ संख्या।",
     "Str.PropDesc.WhatsThisHelpID": "ऑब्जेक्ट को किसी सहायता विषय से जोड़ने वाला संदर्भ नंबर।",
     "Str.PropDesc.Font": "ऑब्जेक्ट के टेक्स्ट के लिए उपयोग किया जाने वाला फ़ॉन्ट।",
     "Str.PropDesc.Alignment": "कंट्रोल का टेक्स्ट (या CheckBox या OptionButton का कैप्शन) कैसे संरेखित हो।",
@@ -749,6 +750,18 @@
     "Str.Tool.ObjectBrowser.Title": "ऑब्जेक्ट ब्राउज़र",
     "Str.StatusBar.LineColumn": "पंक्ति {0}, स्तंभ {1}",
     "Str.StatusBar.Insert": "सम्मिलन",
+    "Str.StatusBar.Automation.Text": "MCP :{0}",
+    "Str.StatusBar.Automation.TextSession": "MCP :{0} · {1}",
+    "Str.StatusBar.Automation.Tip.Listening": "ऑटोमेशन सर्वर {0} पर सुन रहा है।",
+    "Str.StatusBar.Automation.Tip.Session": "यह सत्र '{0}' की सेवा करता है, और किसी भी अन्य सत्र की कॉल अस्वीकार करता है।",
+    "Str.StatusBar.Automation.Tip.AnyCaller": "यह हर उस कॉलर की सेवा करता है जो कोई सत्र नहीं बताता।",
+    "Str.StatusBar.Automation.Tip.Process": "प्रक्रिया {0}, {1} में बनी।",
+    "Str.StatusBar.Automation.Tip.Loopback": "यह केवल इसी मशीन को उत्तर देता है, बिना प्रमाणीकरण के: यहाँ जो कुछ भी इसका पोर्ट खोल सकता है, वह इस IDE को चला सकता है।",
+    "Str.StatusBar.Automation.Tip.Running": "एक कॉल चल रही है: {0}।",
+    "Str.StatusBar.Automation.Tip.LastCall": "अंतिम कॉल: {0}, {1} पर।",
+    "Str.StatusBar.Automation.Tip.NoCall": "अभी तक कोई कॉल नहीं।",
+    "Str.StatusBar.Automation.Tip.RefusedFrom": "अन्य सत्रों से अस्वीकृत कॉल: {0}। अंतिम ने सत्र '{1}' बताया।",
+    "Str.StatusBar.Automation.Tip.RefusedUnnamed": "अन्य सत्रों से अस्वीकृत कॉल: {0}। अंतिम ने कोई सत्र नहीं बताया।",
     "Str.StatusBar.Overtype": "अधिलेखन",
     "Str.StatusBar.LanguageServer": "भाषा सर्वर",
     "Str.StatusBar.LanguageServerProgress": "{0}: {1}{2}",
@@ -913,6 +926,9 @@
     "Str.PropDesc.MaskColor": "पारदर्शी पिक्सेल का रंग।",
     "Str.PropDesc.UseMaskColor": "क्या मास्क रंग का उपयोग करना है।",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें",
+    "Str.Dialog.Print.Configuration": "प्रतियाँ: 1; अभिविन्यास: पोर्ट्रेट।",
+    "Str.Dialog.Print.Unavailable": "मुद्रण लागू नहीं है। ठीक केवल संवाद की सेटिंग लौटाता है।",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

@@ -591,6 +591,7 @@
     "Str.PropDesc.MousePointer": "La formo de la musmontrilo montrata dum la muso estas super la objekto.",
     "Str.PropDesc.RightToLeft": "Ĉu teksto kaj aranĝo estas spegulitaj por dekstre-al-maldekstraj lingvoj.",
     "Str.PropDesc.ToolTipText": "La ŝpruchelpilo montrata kiam la montrilo ripozas sur la regilo.",
+    "Str.PropDesc.HelpContextID": "La kunteksta numero de la helpotemo de la objekto.",
     "Str.PropDesc.WhatsThisHelpID": "Konteksta numero kiu ligas la objekton al helpotemo.",
     "Str.PropDesc.Font": "La tiparo uzata por la teksto de la objekto.",
     "Str.PropDesc.Alignment": "Kiel la teksto de la regilo estas ĝisrandigita (aŭ la titolo de CheckBox aŭ OptionButton).",
@@ -748,6 +749,18 @@
     "Str.Tool.ObjectBrowser.Title": "Objekta Foliumilo",
     "Str.StatusBar.LineColumn": "Lin {0}, Kol {1}",
     "Str.StatusBar.Insert": "ENM",
+    "Str.StatusBar.Automation.Text": "MCP :{0}",
+    "Str.StatusBar.Automation.TextSession": "MCP :{0} · {1}",
+    "Str.StatusBar.Automation.Tip.Listening": "La aŭtomatiga servilo aŭskultas ĉe {0}.",
+    "Str.StatusBar.Automation.Tip.Session": "Ĝi servas la seancon '{0}' kaj rifuzas vokojn de ĉiu alia.",
+    "Str.StatusBar.Automation.Tip.AnyCaller": "Ĝi servas ĉiun vokanton, kiu nomas neniun seancon.",
+    "Str.StatusBar.Automation.Tip.Process": "Procezo {0}, konstruita en {1}.",
+    "Str.StatusBar.Automation.Tip.Loopback": "Ĝi respondas nur al ĉi tiu maŝino, sen aŭtentigo: io ajn ĉi tie, kiu povas malfermi ĝian pordon, povas stiri ĉi tiun IDE-on.",
+    "Str.StatusBar.Automation.Tip.Running": "Voko funkcias: {0}.",
+    "Str.StatusBar.Automation.Tip.LastCall": "Lasta voko: {0}, je {1}.",
+    "Str.StatusBar.Automation.Tip.NoCall": "Ankoraŭ neniu voko.",
+    "Str.StatusBar.Automation.Tip.RefusedFrom": "Rifuzitaj vokoj de aliaj seancoj: {0}. La lasta nomis la seancon '{1}'.",
+    "Str.StatusBar.Automation.Tip.RefusedUnnamed": "Rifuzitaj vokoj de aliaj seancoj: {0}. La lasta nomis neniun seancon.",
     "Str.StatusBar.Overtype": "ANST",
     "Str.StatusBar.LanguageServer": "Lingva servilo",
     "Str.StatusBar.LanguageServerProgress": "{0}: {1}{2}",
@@ -913,6 +926,9 @@
     "Str.PropDesc.MaskColor": "La koloro por travideblaj bilderoj.",
     "Str.PropDesc.UseMaskColor": "Ĉu uzi la maskan koloron.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
+    "Str.Dialog.Print.Configuration": "Kopioj: 1; orientiĝo: vertikala.",
+    "Str.Dialog.Print.Unavailable": "Presado ne estas realigita. Bone liveras nur la dialogajn agordojn.",
+    "Str.Dialog.Color.Rgb": "RVB (#RRGGBB)"
   }
 }

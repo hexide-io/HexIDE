@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "Форма указателя при наведении мыши на объект.",
     "Str.PropDesc.RightToLeft": "Зеркально ли отображаются текст и разметка для языков с письмом справа налево.",
     "Str.PropDesc.ToolTipText": "Всплывающая подсказка при наведении указателя на элемент.",
+    "Str.PropDesc.HelpContextID": "Номер контекста раздела справки объекта.",
     "Str.PropDesc.WhatsThisHelpID": "Числовой код контекста, связывающий объект с разделом справки.",
     "Str.PropDesc.Font": "Шрифт текста объекта.",
     "Str.PropDesc.Alignment": "Выравнивание текста элемента (или подписи CheckBox либо OptionButton).",
@@ -749,6 +750,18 @@
     "Str.Tool.ObjectBrowser.Title": "Обозреватель объектов",
     "Str.StatusBar.LineColumn": "Стр {0}, Стлб {1}",
     "Str.StatusBar.Insert": "ВСТ",
+    "Str.StatusBar.Automation.Text": "MCP :{0}",
+    "Str.StatusBar.Automation.TextSession": "MCP :{0} · {1}",
+    "Str.StatusBar.Automation.Tip.Listening": "Сервер автоматизации прослушивает {0}.",
+    "Str.StatusBar.Automation.Tip.Session": "Он обслуживает сеанс «{0}» и отклоняет вызовы из любых других.",
+    "Str.StatusBar.Automation.Tip.AnyCaller": "Он обслуживает любого вызывающего, не указавшего сеанс.",
+    "Str.StatusBar.Automation.Tip.Process": "Процесс {0}, собран в {1}.",
+    "Str.StatusBar.Automation.Tip.Loopback": "Он отвечает только этому компьютеру, без проверки подлинности: всё здесь, что может открыть его порт, может управлять этой IDE.",
+    "Str.StatusBar.Automation.Tip.Running": "Выполняется вызов: {0}.",
+    "Str.StatusBar.Automation.Tip.LastCall": "Последний вызов: {0}, в {1}.",
+    "Str.StatusBar.Automation.Tip.NoCall": "Вызовов ещё не было.",
+    "Str.StatusBar.Automation.Tip.RefusedFrom": "Отклонённых вызовов из других сеансов: {0}. Последний указал сеанс «{1}».",
+    "Str.StatusBar.Automation.Tip.RefusedUnnamed": "Отклонённых вызовов из других сеансов: {0}. Последний не указал сеанс.",
     "Str.StatusBar.Overtype": "ЗАМ",
     "Str.StatusBar.LanguageServer": "Языковой сервер",
     "Str.StatusBar.LanguageServerProgress": "{0}: {1}{2}",
@@ -913,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Цвет прозрачных пикселей.",
     "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности",
+    "Str.Dialog.Print.Configuration": "Копии: 1; ориентация: книжная.",
+    "Str.Dialog.Print.Unavailable": "Печать не реализована. ОК возвращает только настройки диалога.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

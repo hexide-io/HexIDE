@@ -160,7 +160,7 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                     </MenuItem>
                     <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormHeader}" Command="{CompiledBinding SaveFormCommand}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormAsHeader}" Command="{CompiledBinding SaveFormAsCommand}" />
-                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Command="{CompiledBinding DeleteForm}" Header="{CompiledBinding RemoveFormHeader}" />
+                    <MenuItem IsVisible="{CompiledBinding HasRemovableSelection}" Command="{CompiledBinding DeleteForm}" Header="{CompiledBinding RemoveFormHeader}" />
                     <Separator />
                     <MenuItem Header="{DynamicResource Str.Tool.Project.Menu.Print}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Print}" Command="{x:Static HexIDE:ApplicationCommands.DisabledCommand}" />
                 </MenuFlyout>

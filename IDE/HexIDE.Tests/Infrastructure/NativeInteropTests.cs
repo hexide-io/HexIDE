@@ -7,12 +7,22 @@ namespace HexIDE.Tests.Infrastructure;
 
 public class NativeInteropTests
 {
+    [Fact]
+    public void Toolbar_caption_dispatch_guards_GDI_and_retains_portable_fallback()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Runtime",
+            "BuiltinControls", "VBToolbar.cs")).ReplaceLineEndings("\n");
+        source.Should().Contain("if (OperatingSystem.IsWindows())\n            return ToolbarCaptionMetrics.Measure");
+        source.Should().Contain("extent += Math.Round(advance * scale)");
+    }
+
     [Theory]
     [InlineData("HexIDE", "Controls/MDI/MDIWindow.axaml.cs", 2)]
     [InlineData("HexIDE.Desktop", "ConsoleOutput.cs", 5)]
     [InlineData("HexIDE.Desktop", "Server/ToolFailures.cs", 1)]
     [InlineData("HexIDE.Desktop", "Server/X11WindowManager.cs", 6)]
     [InlineData("HexIDE.Runtime", "TypeLibrary/TypeLibReader.cs", 2)]
+    [InlineData("HexIDE.Runtime", "BuiltinControls/ToolbarCaptionMetrics.cs", 6)]
     [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
     [InlineData("HexIDE.LspGuard", "Program.cs", 4)]
     public void NativeDeclarationsUseSourceGeneration(string project, string file, int count)

@@ -592,6 +592,7 @@
     "Str.PropDesc.MousePointer": "צורת המצביע המוצגת כשהעכבר מעל האובייקט.",
     "Str.PropDesc.RightToLeft": "האם הטקסט והפריסה מוצגים במראה הפוכה עבור שפות מימין לשמאל.",
     "Str.PropDesc.ToolTipText": "עצת המסך המוצגת כשהמצביע נח על הפקד.",
+    "Str.PropDesc.HelpContextID": "מספר ההקשר של נושא העזרה של האובייקט.",
     "Str.PropDesc.WhatsThisHelpID": "מספר הקשר המקשר את האובייקט לנושא עזרה.",
     "Str.PropDesc.Font": "הגופן המשמש לטקסט של האובייקט.",
     "Str.PropDesc.Alignment": "אופן היישור של טקסט הפקד (או הכיתוב של CheckBox או OptionButton).",
@@ -749,6 +750,18 @@
     "Str.Tool.ObjectBrowser.Title": "דפדפן אובייקטים",
     "Str.StatusBar.LineColumn": "שורה {0}, עמודה {1}",
     "Str.StatusBar.Insert": "הוספה",
+    "Str.StatusBar.Automation.Text": "MCP :{0}",
+    "Str.StatusBar.Automation.TextSession": "MCP :{0} · {1}",
+    "Str.StatusBar.Automation.Tip.Listening": "שרת האוטומציה מאזין בכתובת {0}.",
+    "Str.StatusBar.Automation.Tip.Session": "הוא משרת את ההפעלה '{0}' ודוחה קריאות מכל הפעלה אחרת.",
+    "Str.StatusBar.Automation.Tip.AnyCaller": "הוא משרת כל קורא שאינו מציין הפעלה.",
+    "Str.StatusBar.Automation.Tip.Process": "תהליך {0}, נבנה ב-{1}.",
+    "Str.StatusBar.Automation.Tip.Loopback": "הוא עונה למחשב זה בלבד, ללא אימות: כל דבר כאן שיכול לפתוח את היציאה שלו יכול לשלוט ב-IDE הזה.",
+    "Str.StatusBar.Automation.Tip.Running": "קריאה פועלת: {0}.",
+    "Str.StatusBar.Automation.Tip.LastCall": "קריאה אחרונה: {0}, בשעה {1}.",
+    "Str.StatusBar.Automation.Tip.NoCall": "עדיין אין קריאות.",
+    "Str.StatusBar.Automation.Tip.RefusedFrom": "קריאות שנדחו מהפעלות אחרות: {0}. האחרונה ציינה את ההפעלה '{1}'.",
+    "Str.StatusBar.Automation.Tip.RefusedUnnamed": "קריאות שנדחו מהפעלות אחרות: {0}. האחרונה לא ציינה הפעלה.",
     "Str.StatusBar.Overtype": "דריסה",
     "Str.StatusBar.LanguageServer": "שרת שפה",
     "Str.StatusBar.LanguageServerProgress": "{0}: {1}{2}",
@@ -913,6 +926,9 @@
     "Str.PropDesc.MaskColor": "הצבע של פיקסלים שקופים.",
     "Str.PropDesc.UseMaskColor": "האם להשתמש בצבע המסכה.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "הצג קווי הנחיה להזחה",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.Dialog.Print.Configuration": "עותקים: 1; כיוון: לאורך.",
+    "Str.Dialog.Print.Unavailable": "הדפסה אינה ממומשת. אישור מחזיר רק את הגדרות תיבת הדו־שיח.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

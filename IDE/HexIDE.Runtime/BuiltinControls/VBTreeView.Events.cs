@@ -1,7 +1,10 @@
 using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.Interpreter;
@@ -68,8 +71,12 @@ internal sealed partial class VBTreeView
 
     private void HandlePointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (editor is not null && (ReferenceEquals(e.Source, editor)
+            || e.Source is Visual source && editor.IsVisualAncestorOf(source))) return;
+        CancelPendingLabelEdit();
         var point = e.GetCurrentPoint(this);
         if (point.Properties.PointerUpdateKind is not (PointerUpdateKind.LeftButtonPressed or PointerUpdateKind.RightButtonPressed)) return;
+        var selected = Nodes.SelectedItem;
         Focus();
         e.Pointer.Capture(this);
         var secondPress = e.ClickCount % 2 == 0;
@@ -107,18 +114,34 @@ internal sealed partial class VBTreeView
             node.Expanded = !node.Expanded;
             this.ExecuteSub(ComponentBaseClass.DblClickEvent);
         }
-        else SelectFromInput(node, labelClick: true);
+        else
+        {
+            SelectFromInput(node, labelClick: true);
+            if (left && ReferenceEquals(selected, node) && labelEdit == 0) editOnRelease = node;
+        }
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
         e.Pointer.Capture(null);
+        if (editOnRelease is { } node && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            editOnRelease = null;
+            pendingLabelEdit = Avalonia.Threading.DispatcherTimer.RunOnce(async () =>
+            {
+                pendingLabelEdit = null;
+                if (IsFocused && labelEdit == 0 && editor is null && ReferenceEquals(Nodes.SelectedItem, node))
+                    await StartLabelEditAsync();
+            }, Application.Current!.PlatformSettings!.GetDoubleTapTime(PointerType.Mouse));
+        }
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (editor?.IsKeyboardFocusWithin == true) return;
+        CancelPendingLabelEdit();
         var node = Nodes.SelectedItem;
         if (e.Key == Key.Enter && node is not null) node.Expanded = !node.Expanded;
         RaiseKey("KeyDown", e);
@@ -153,6 +176,7 @@ internal sealed partial class VBTreeView
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
+        if (editor?.IsKeyboardFocusWithin == true) return;
         RaiseKey("KeyUp", e);
     }
 
@@ -163,7 +187,7 @@ internal sealed partial class VBTreeView
         {
             Key.Enter => 13, Key.Space => 32, Key.Home => 36, Key.Left => 37, Key.Right => 39,
             Key.Down => 40, Key.Multiply => 106, Key.Subtract => 109,
-            Key.A => 65, Key.Q => 81, Key.R => 82,
+            Key.A => 65, Key.Q => 81, Key.R => 82, Key.F2 when name == "KeyDown" => 113,
             _ => -1,
         };
         if (code < 0) return;

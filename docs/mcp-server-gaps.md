@@ -650,28 +650,6 @@ for a running form's Frame, PictureBox, Label and Image.
 author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
 discovery gap remains open.
 
-## No tool can see a running form's frame
-
-**Symptom (2026-10-23, #1575, Windows, Debug).** A change to a running form's window, its border, caption bar and
-buttons, could not be checked through the tools. `take_snapshot(window: "B3x1")` on a running Fixed Dialog returned
-a 252 × 150 image at scale 1.5: the form's 168 × 100 client area, with no caption bar, border or buttons.
-`inspect_element(target: "Window", window: "B3x1")` returned `boundingRect [0,0,168,100]`, `providers []` and
-`dataContextMembers []`, and nothing about whether the window can be resized, its decorations, its buttons or whether
-it is a tool window.
-
-**Workaround.** From outside the IDE: `GetWindowLong` with `GWL_STYLE` and `GWL_EXSTYLE` through a PowerShell
-P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
-real caller uses.
-
-**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
-`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
-There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
-explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
-This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
-
-**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
-the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
-
 ## No tool says which control has the focus, and `press_key` moves it there
 
 **Symptom (2026-10-23, #1583, Windows).** On a running form with Text1 focused, whose program logs every GotFocus,
@@ -723,16 +701,18 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-## `open_file` can't put the caret in a carried file
+## `match: "TextEditor"` does not find the Immediate window, though the description says it does
 
-**Symptom (2026-10-27, Windows, #1334's live check).** `open_file {"name":"twice.c","line":3,"column":27}`, on a
-project carrying `twice.c`, answered `{"success":false,"error":"'twice.c' is a carried file, which opens in the
-plain-text editor, where this does not put the caret; nothing was opened"}`. The refusal is deliberate: #700 placed the
-caret in the code window only.
+**Symptom (2026-10-28, Windows, #2496's live check).** With the Immediate window shown and seven lines of a program's
+`Debug.Print` output in it, `dump_visual_tree {"window":"ide","match":"TextEditor"}` answered "Nothing matches
+'TextEditor'", and so did the same call scoped with `root` to the Immediate pane. `match: "Immediate"` with
+`interactiveOnly: false` found only the hidden toolbar button. The tool's description promises that `TextEditor` finds
+"the Immediate window's" editor. The window is an `ImmediateToolView` over an unnamed `TextArea`, and no node carries
+its text, so a caller cannot tell an empty window from one it cannot reach.
 
-**Workaround.** `open_file` with no `line`, then walk the caret there with `press_key`: Ctrl+Home, Down per line, End or
-Right. That is a call per keystroke, and a wrapped line or a refused key misplaces it.
+**Workaround.** `inspect_element` on `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, the `ImmediateToolView`: its
+`dataContextMembers` give `Document` with the whole text as its value.
 
-**Suggested fix.** Place the caret in the carried-file editor, an AvaloniaEdit `TextEditor` like the code window's, with
-`CaretPlacement.Place` and the same rules, and read it back in the note. If a carried file must be treated differently,
-open it and say so, rather than refuse and open nothing. [#2403](https://github.com/hexide-io/HexIDE/issues/2403).
+**Suggested fix.** Give the editor a node `match: "TextEditor"` finds and `inspect_element` reads, or correct the
+description to name the route that works; better, a read of the Immediate window's text, the commonest check after a run.
+[#2513](https://github.com/hexide-io/HexIDE/issues/2513).

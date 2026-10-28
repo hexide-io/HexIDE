@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -21,6 +22,9 @@ public sealed class CommandManager : AvaloniaObject
 
     private DispatcherOperation? _requerySuggestedOperation;
     private event EventHandler? PrivateRequerySuggested;
+    // The wrapper must live as long as the listener, without the event rooting that listener.
+    private readonly ConditionalWeakTable<object, List<WeakHandlerWrapper>> _requeryHandlers = new();
+    private static readonly object s_staticHandlerOwner = new();
 
     /// <summary>
     /// Identifies the CanExecute attached event.
@@ -45,9 +49,29 @@ public sealed class CommandManager : AvaloniaObject
     /// </summary>
     public static event EventHandler RequerySuggested
     {
-        // WeakHandlerWrapper will ensure, that add/remove with the same handler will work.
-        add => PrivateRequerySuggestedEvent.Subscribe(Current, new WeakHandlerWrapper(value));
-        remove => PrivateRequerySuggestedEvent.Unsubscribe(Current, new WeakHandlerWrapper(value));
+        add
+        {
+            var handlers = Current._requeryHandlers.GetOrCreateValue(value.Target ?? s_staticHandlerOwner);
+            lock (handlers)
+            {
+                var handler = new WeakHandlerWrapper(value);
+                handlers.Add(handler);
+                PrivateRequerySuggestedEvent.Subscribe(Current, handler);
+            }
+        }
+        remove
+        {
+            if (!Current._requeryHandlers.TryGetValue(value.Target ?? s_staticHandlerOwner, out var handlers))
+                return;
+            lock (handlers)
+            {
+                var index = handlers.FindLastIndex(handler => handler.Matches(value));
+                if (index < 0)
+                    return;
+                PrivateRequerySuggestedEvent.Unsubscribe(Current, handlers[index]);
+                handlers.RemoveAt(index);
+            }
+        }
     }
 
     internal static readonly WeakEvent<CommandManager, EventArgs> PrivateRequerySuggestedEvent =
@@ -264,7 +288,6 @@ public sealed class CommandManager : AvaloniaObject
         public WeakHandlerWrapper(EventHandler handler) => _handler = handler;
         public void OnEvent(object? sender, WeakEvent ev, EventArgs e) => _handler(sender, e);
 
-        public override int GetHashCode() => _handler.GetHashCode();
-        public override bool Equals(object? obj) => obj is WeakHandlerWrapper other && other._handler == _handler;
+        public bool Matches(EventHandler handler) => _handler == handler;
     }
 }
