@@ -34,13 +34,20 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         });
     }
 
-    private readonly Dictionary<Control, (ToolbarItem Item, bool Arrow)> targets = [];
+    private readonly Dictionary<Control, ToolbarItem> targets = [];
     private bool suppressRelease;
 
-    private (ToolbarItem? Item, bool Arrow) Target(object? source)
+    private (ToolbarItem? Item, bool Arrow) Target(PointerEventArgs e)
     {
-        for (var visual = source as Visual; visual is not null && visual != this; visual = visual.GetVisualParent())
-            if (visual is Control control && targets.TryGetValue(control, out var target)) return target;
+        for (var visual = e.Source as Visual; visual is not null && visual != this; visual = visual.GetVisualParent())
+            if (visual is Control control && targets.TryGetValue(control, out var target))
+            {
+                target.TryGetProperty("Style", out var kind);
+                // VB6's dropdown arrow strip is 13 px wide and spans the button's height (#2328).
+                var arrow = Convert.ToInt64(kind.Value) == 5 &&
+                    e.GetPosition(control).X >= control.Bounds.Width - 13;
+                return (target, arrow);
+            }
         return (null, false);
     }
 
@@ -73,7 +80,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
 
     private void Press(object? sender, PointerPressedEventArgs e)
     {
-        var (item, arrow) = Target(e.Source);
+        var (item, arrow) = Target(e);
         var left = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed;
         suppressRelease = left && (arrow || e.ClickCount % 2 == 0);
         e.Handled = suppressRelease;
@@ -92,7 +99,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             entry.Click += (_, _) => ItemEvent(ToolbarComponentClass.ButtonMenuClickEvent, menu);
             flyout.Items.Add(entry);
         }
-        var anchor = targets.First(t => t.Value.Item == item && !t.Value.Arrow).Key;
+        var anchor = targets.First(t => t.Value == item).Key;
         FlyoutBase.SetAttachedFlyout(anchor, flyout);
         flyout.ShowAt(anchor);
     }
@@ -103,7 +110,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         if (suppressRelease) { suppressRelease = false; return; }
         AttachedEvents.RaiseMouse(this, e, ComponentBaseClass.MouseUpEvent);
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
-        if (e.InitialPressMouseButton == MouseButton.Left) Activate(Target(e.Source).Item);
+        if (e.InitialPressMouseButton == MouseButton.Left) Activate(Target(e).Item);
         RefreshButtons();
     }
 
@@ -136,7 +143,6 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
                     face.Children.Add(new TextBlock { Text = (string)caption.Value! });
                     var arrow = new TextBlock { Text = "▾" };
                     face.Children.Add(arrow);
-                    targets[arrow] = (item, true);
                     visual = Convert.ToInt64(value.Value) == 1
                         ? new ToggleButton { Content = face, IsChecked = true }
                         : new Button { Content = face };
@@ -150,7 +156,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             visual.IsEnabled = (bool)enabled.Value!;
             if (style == 1) visual.Classes.Add("flat");
             if (showTips && (string)tip.Value! != "") ToolTip.SetTip(visual, tip.Value);
-            targets[visual] = (item, false);
+            targets[visual] = item;
             strip.Children.Add(visual);
         }
     }
