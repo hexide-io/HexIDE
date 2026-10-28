@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 14 | 46 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 32 | 53 | 0 | 68 | 153 |
+| Intrinsic functions | 0 | 0 | 31 | 54 | 0 | 68 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **121** | **454** | **20** | **588** | **1184** |
+| **Total** | **1** | **0** | **120** | **455** | **20** | **588** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 121 names
+## Dies mid-run — 120 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -347,7 +347,6 @@ most of the in-box object model.
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `NPer` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPer)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `NPV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `ObjPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin; not in BuildRegistry (VB6BuiltIns.cs), not in Grammar/VB6.g4, not even in the editor metadata (VbKeywordNormalizer.cs / VbSignatures.cs). A call… | VB6BuiltIns.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
@@ -378,10 +377,10 @@ most of the in-box object model.
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
 | `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `StrPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
+| `StrPtr` | **Dies** | **#2622 remaining:** unregistered; string-buffer identity, vbNullString versus assigned empty text, copying and ByRef/ByVal relations remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
 | `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
-| `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
+| `VarPtr` | **Dies** | **#2622 remaining:** unregistered; variable and temporary identity, ByRef/ByVal aliasing and the measured array element steps remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
 | `VB_PredeclaredId` | **Dies** | The attribute line itself never throws: a leading run parses as moduleAttributes, and a class header is kept out of Code by ModuleDefinition (then composed back for the interpreter by FormCodeText.WholeFile). The attribute gives no default class instance, so `Debug.Print C.Foo()` dies at the first use with Variable not defined (C). Forms receive their predeclared instance through VBLoader by another path; this gap affects classes only. | ModuleDefinition.cs, VB6.g4, VBLoader.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
@@ -547,7 +546,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (32 absent, 53 partial, 68 supported)
+### Intrinsic functions — 153 names (31 absent, 54 partial, 68 supported)
 
 
 **array** (3)
@@ -630,9 +629,9 @@ missing.
 |---|---|---|---|
 | `Erl` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
 | `Error` | Supported | **#1560:** `Error(n)` answers from vb6.exe's measured table of all 65,536 numbers, past 65535 being 6; `Error` with no number is Err's Description or its number's text. | VB6BuiltIns.Interaction.cs, VbErrorMessages.cs |
-| `ObjPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin; not in BuildRegistry (VB6BuiltIns.cs), not in Grammar/VB6.g4, not even in the editor metadata (VbKeywordNormalizer.cs / VbSignatures.cs). A call… | VB6BuiltIns.cs |
-| `StrPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
-| `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
+| `ObjPtr` | Partial | **#2622, object-identity slice:** returns a Long identity: zero for Nothing or an unset Object, non-zero for live objects, shared by aliases and distinct for different objects. Integer and String operands raise run-time 13. Named arguments, other non-object operand types and argument counts other than one are unmeasured and explicitly refused as not implemented. Identities are not native addresses. Measured native/p-code relations: [issue #2622](https://github.com/hexide-io/HexIDE/issues/2622), measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and [#2628](https://github.com/hexide-io/HexIDE/pull/2628); `ObjPtrTests`. | VB6BuiltIns.Inspection.cs |
+| `StrPtr` | **Dies** | **#2622 remaining:** unregistered; string-buffer identity, vbNullString versus assigned empty text, copying and ByRef/ByVal relations remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
+| `VarPtr` | **Dies** | **#2622 remaining:** unregistered; variable and temporary identity, ByRef/ByVal aliasing and the measured array element steps remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
 | `IsError` | Partial | Implemented as new Vb6Value(a[0].IsMissing) — it reports ONLY an omitted argument, because that is the sole vbError value the value model can hold. In-code comment: "An omitted argument is… | VB6BuiltIns.Inspection.cs |
 | `TypeName` | Partial | **#872:** `TypeName(Debug)` raises the measured "Syntax error" as its statement executes, even under On Error Resume Next. Control arrays already report "Object", and class arrays "Object()" with VarType 8201. Registered and correct for every primitive, array and VB class instance (a VbObject reports its own ClassName; arrays append "()"). The restriction is objects that are not VB classes: for… | VB6BuiltIns.Inspection.cs |
 | `IsArray` | Supported | Registered: new Vb6Value(a[0].Type.IsArray) — reports the value model's array flag directly. Tested: IsArray(a)=True for Dim a(1 To 3) As Integer, IsArray(123)=False… | VB6BuiltIns.Inspection.cs |

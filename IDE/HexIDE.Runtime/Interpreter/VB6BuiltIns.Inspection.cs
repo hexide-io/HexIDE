@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 using VTP = HexIDE.Runtime.Interpreter.Vb6Value.ValueTypePrimitive;
@@ -25,6 +26,7 @@ public partial class VB6BuiltIns
         d["IsNull"]    = (_, a, _) => new Vb6Value(a[0].Type == VT.Null);
         d["IsArray"]   = (_, a, _) => new Vb6Value(a[0].Type.IsArray);
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
+        d["ObjPtr"]    = (self, a, _) => self.ObjPtr(a);
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
         // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
@@ -207,4 +209,31 @@ public partial class VB6BuiltIns
 
     private static bool IsObjectValue(Vb6Value v) =>
         v.Type == VT.Control || v.Type == VT.CSharpProxyObject || v.Type == VT.Nothing || v.Type == VT.Object;
+
+    // #2622's native/p-code measurements constrain identities, not addresses (measuring PRs #2624 and #2628).
+    // Weak keys neither retain objects nor change Class_Terminate ownership; distinct objects never reuse an identity.
+    private readonly ConditionalWeakTable<object, ObjectIdentity> objectIdentities = new();
+    private long nextObjectIdentity;
+    private sealed record ObjectIdentity(long Number);
+
+    private Vb6Value ObjPtr(IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count != 1)
+            throw new NotImplementedException("ObjPtr argument counts other than one are unmeasured (#2622)");
+        var value = args[0];
+        if (!IsObjectValue(value))
+        {
+            if (value.Type == VT.Integer || value.Type == VT.String)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            throw new NotImplementedException("ObjPtr of this non-object type is unmeasured (#2622)");
+        }
+        if (value.Value is null)
+            return new Vb6Value(0L);
+        return new Vb6Value(objectIdentities.GetValue(value.Value, _ =>
+        {
+            if (nextObjectIdentity == int.MaxValue)
+                throw new NotImplementedException("ObjPtr identity space exhausted (#2622)");
+            return new ObjectIdentity(++nextObjectIdentity);
+        }).Number);
+    }
 }
