@@ -643,8 +643,6 @@ public class FormDeserializer
             {
                 instance.SetProperty(Components.InBox.SSTabSavedState.Property,
                     new Components.InBox.SSTabSavedState(serializedComponent.Properties));
-                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
-                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
             }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
@@ -656,6 +654,11 @@ public class FormDeserializer
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
+
+            if (instance.GetPropertyOrDefault(Components.InBox.SSTabSavedState.Property) is { } pages
+                && !pages.CanDesign(instance))
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
+                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
         }
 
         LoadRecur(rootComponent, null, 1, 0);

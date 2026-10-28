@@ -258,13 +258,22 @@ public class VbFrmFormatSerializer
 
     /// <summary>
     /// A property HexIDE does not model, replayed exactly as it was read but taking its place in the name
-    /// order like any other. The lines carry the indentation they were read with, so they go out as they are.
+    /// order like any other. Reindent moves the block to the current depth, retaining inner indentation.
     /// </summary>
-    public void WriteVerbatimProperty(string property, IReadOnlyList<string> lines) =>
+    public void WriteVerbatimProperty(string property, IReadOnlyList<string> lines, bool reindent = false) =>
         Collect(property, () =>
         {
+            var originalIndent = lines.Count == 0 ? 0 : lines[0].Length - lines[0].TrimStart().Length;
             foreach (var line in lines)
-                Sink.WriteLine(line);
+            {
+                if (reindent)
+                {
+                    WriteIndent();
+                    Sink.WriteLine(line[Math.Min(originalIndent, line.Length)..]);
+                }
+                else
+                    Sink.WriteLine(line);
+            }
         });
 
     public void BeginProperty(string name, string guid)

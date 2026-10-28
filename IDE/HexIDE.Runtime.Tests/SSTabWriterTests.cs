@@ -58,8 +58,8 @@ public class SSTabWriterTests
         lines.IndexOf("TabHeight", StringComparison.Ordinal).Should().BeLessThan(lines.IndexOf("TabCaption(0)", StringComparison.Ordinal));
         lines.IndexOf("TabCaption(0)", StringComparison.Ordinal).Should().BeLessThan(lines.IndexOf("Tab(0).ControlEnabled", StringComparison.Ordinal));
         lines.IndexOf("Tab(0).ControlCount", StringComparison.Ordinal).Should().BeLessThan(lines.IndexOf("TabCaption(1)", StringComparison.Ordinal));
-        // Membership-changing designer edits are still refused until the designer can maintain these lists.
-        form.CanSaveFaithfully.Should().BeFalse();
+        // The designer now maintains page metadata when membership changes (#2301).
+        form.CanSaveFaithfully.Should().BeTrue();
     }
 
     private sealed class Sink : IDeserializeErrorSink
