@@ -1597,6 +1597,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // (`Math`/`Strings`/…) are transparent and skipped permissively; multi-level object-graph chains are not
     // supported here (that is the deferred general member-chain wall).
 
+    internal static void RequireMemberReceiver(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
+    {
+        // Measured non-object Variant receivers (#257); other kinds keep their existing dispatch.
+        if (value.Type == Vb6Value.ValueType.EmptyVariant || value.Type == Vb6Value.ValueType.Null
+            || value.HeldAsVariant && (value.Type.IsArray || value.Type == Vb6Value.ValueType.Integer
+                || value.Type == Vb6Value.ValueType.String))
+            throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
+    }
+
     /// <summary>
     /// Resolve ONE member on a value: `.Name` applied to whatever the previous step produced.
     ///
@@ -1607,6 +1616,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        RequireMemberReceiver(variable, ctx);
         if (variable.Value is VBTabStrip strip && AvaloniaInterop.TabStripMembers.IsOwn(MemberName(member)))
             return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBToolbar toolbar)
@@ -1681,6 +1691,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return MemberArgs(member) is { } fieldArgs
                     ? FieldElement(variable, vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
                     : fieldVal;
+            if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
+                && string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+                && !FormMembers.IsMember(memberName, out _))
+                throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
             // own members, which VB6 refuses to let clash with them. Using one loads the form, as a control does.
             if (await interpreter.Loading((Form: vobj, Member: memberName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow)
