@@ -148,7 +148,7 @@ public partial class WatchesToolViewModel : Tool
     {
         if (showingExternal) return;
         foreach (var row in Rows)
-            row.Update(await _debug.EvaluateWatchAsync(row.Watch.Expression));
+            row.Update(await _debug.EvaluateScopedWatchAsync(row.Watch.Expression, row.Watch.Context));
     }
 
     private void Blank()

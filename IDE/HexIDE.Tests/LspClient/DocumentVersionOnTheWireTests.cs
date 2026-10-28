@@ -125,12 +125,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
     /// A started session for one document, returned once its open has reached the server, as an edit or a
     /// save comes after the open for anyone typing into a window.
     /// </summary>
-    /// <remarks>
-    /// <b>Synchronous, and a caller must not await before its last use of the document.</b> A
-    /// <see cref="TextDocument"/> accepts calls only from the thread that made it, and an await in a plain
-    /// test can resume on any pool thread. The running IDE keeps this on the UI thread by construction.
-    /// </remarks>
-    private (LspDocumentSession Session, TextDocument Document) Opened(
+    private async Task<(LspDocumentSession Session, TextDocument Document)> Opened(
         VBLspClient client, VersionRecordingServer server, string text)
     {
         var document = new TextDocument(text);
@@ -138,31 +133,30 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         _sessions.Add(session);
         session.Start();
 
-        SpinWait.SpinUntil(() => server.Opened.IsCompleted, TimeSpan.FromSeconds(10))
-            .Should().BeTrue("the open has to reach the server before anything is sent after it");
+        await server.Opened.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         return (session, document);
     }
 
     private static async Task FirstChange(VersionRecordingServer server) =>
         await server.Changed.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheDocumentIsOpenedAtTheOpeningVersion()
     {
         var (client, server) = await Connected();
-        Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
+        await Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
 
         server.Messages.Should().ContainSingle()
             .Which.Should().Be(new Received("didOpen", LspDocumentVersion.Opening, "Sub Main()\r\nEnd Sub\r\n"));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASingleEditIsSentAtAVersionAfterTheOpens()
     {
         // One edit, then the debounce's quiet: the shape #470 named. A second keystroke inside the window
         // would raise the count before the one send goes out, which is why ordinary typing hid it.
         var (client, server) = await Connected();
-        var (_, document) = Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
+        var (_, document) = await Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
 
         document.Insert(0, "'");
         await FirstChange(server);
@@ -173,12 +167,12 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         change.Text.Should().Be("'Sub Main()\r\nEnd Sub\r\n");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASaveBeforeAnyEditFlushesAtAVersionAfterTheOpens()
     {
         // The second path #470 named: saving flushes first, and a flush before any edit was the first change.
         var (client, server) = await Connected();
-        var (session, _) = Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
+        var (session, _) = await Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
 
         // The flush reads the buffer before its first await, so this is still the document's own thread.
         await session.NotifySavedAsync(TestContext.Current.CancellationToken);
@@ -188,13 +182,13 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         server.Messages[1].Version.Should().BeGreaterThan(server.Messages[0].Version);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task AServerThatOrdersByVersionKeepsTheFirstEdit()
     {
         // What the repeated version cost. The server's copy is the one its diagnostics, folds and symbols
         // describe, so a discarded edit is analysis of text the window no longer shows, until the next edit.
         var (client, server) = await Connected();
-        var (_, document) = Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
+        var (_, document) = await Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
 
         document.Text = "Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n";
         await FirstChange(server);
