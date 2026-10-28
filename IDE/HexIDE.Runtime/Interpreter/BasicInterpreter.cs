@@ -1309,6 +1309,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var arg in args) values.Add(arg.Value);
             return await CallLibraryMember(global, name, values);
         }
+        if (name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await CallByName(args, callerFrames);
+
         var flat = await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         if (await CallBuiltIn(name, flat, currentModule.PrePass.OptionCompareText) is { } result)
             return result.Value is LibraryObject && callerFrames is not null ? AdoptNewTemp(result, callerFrames) : result;

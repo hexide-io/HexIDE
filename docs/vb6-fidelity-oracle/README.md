@@ -10,6 +10,7 @@ date functions; graphics) should extend it the same way.
 > **Why this matters:** the oracle repeatedly overturned "documented" assumptions. Building from memory / the
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
+- [CallByName](callbyname.md) — #2519, supplied SP6 native/p-code class and in-box dispatch measurements.
 - [A UserControl's focus and access keys](usercontrol-focus-and-keys.md) — #1631 part B, SP6 native and p-code, real keystrokes.
 - [A UserControl’s extender members at run time](usercontrol-extender-members.md) — #1631 part A, SP6 native and p-code; includes the supervisor’s handle decision.
 - [Key events](key-events.md) — #2325, real input, SP6 native and p-code.

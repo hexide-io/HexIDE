@@ -290,6 +290,7 @@ internal static class VbSignatures
             ["CVErr"] = [new SignatureEntry("CVErr(ErrorCode As Long) As Variant", ["ErrorCode"], "Returns a Variant with error subtype containing the specified error code.")],
 
             // Object / misc
+            ["CallByName"] = [new SignatureEntry("CallByName(Object, ProcName, CallType, Args...)", ["Object", "ProcName", "CallType", "Args"], "Calls a member by name using VbMethod, VbGet, VbLet or VbSet.")],
             ["CreateObject"] = [new SignatureEntry("CreateObject(Class As String, [ServerName As String]) As Object", ["Class", "ServerName"], "Creates and returns a reference to an ActiveX object.")],
             ["GetObject"]    = [new SignatureEntry("GetObject([Pathname], [Class]) As Object", ["Pathname", "Class"], "Returns a reference to an object from a file.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],

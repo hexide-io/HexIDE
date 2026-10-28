@@ -1515,6 +1515,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!dollar && interpreter.GlobalMember(name) is { } global)
             return await interpreter.CallLibraryMember(global, name, await EvaluateCallArgs(argsCtx))
                 ?? throw new VBSubOrFunctionNotDefinedException(name);
+        if (!dollar && name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames);
         if (dollar && DollarRefused.Contains(name))
             throw new VBCompileErrorException(TypeCharacterMismatch);
         if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
@@ -1846,6 +1848,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var library = qualifier.Name!;
             while (true)
             {
+                if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+                    return await ThenTheRest(await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames));
                 var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
