@@ -283,3 +283,20 @@ view is hidden or detached.
 - **WHEN** an entry is recorded while the inspector is visible
 - **THEN** its pending indicator appears without adding or moving grid rows
 - **AND** Refresh fills the grid again and resets the pending indicator
+
+### Requirement: Conversation exports SHALL protect existing files
+The inspector SHALL ask for explicit replacement consent, naming every existing output, before writing
+its messages file or its derived manifest. Declining or dismissing that question SHALL write neither file.
+An output absent when consent is requested SHALL be created exclusively; a file arriving there while
+the question is open SHALL cause a reported export failure instead of being overwritten.
+The automation conversation export SHALL use a fresh temporary directory per call so a later export
+cannot replace the files returned by an earlier call.
+
+#### Scenario: Only the derived manifest already exists
+- **WHEN** the chosen messages path is unused but its derived manifest exists
+- **THEN** the inspector asks before writing either output
+- **AND** declining leaves the manifest intact and creates no messages file
+
+#### Scenario: Exporting twice through automation
+- **WHEN** an automation client exports two conversations
+- **THEN** both returned file pairs remain available with distinct paths

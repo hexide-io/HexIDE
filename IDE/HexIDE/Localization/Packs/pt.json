@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— resposta, {0} bytes —",
     "Str.Tool.ProtocolInspector.Copy": "Copiar como rastreio",
     "Str.Tool.ProtocolInspector.Export": "Exportar conversa...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Substituir estes ficheiros existentes?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Exportadas {0} mensagens para {1}, com o manifesto em {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "A exportação não foi concluída: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "O que sai é pseudonimizado.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "A cor dos pixels transparentes.",
     "Str.PropDesc.UseMaskColor": "Se a cor da máscara é usada.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
+    "Str.Dialog.Print.Configuration": "Cópias: 1; orientação: vertical.",
+    "Str.Dialog.Print.Unavailable": "A impressão não está implementada. OK devolve apenas as definições do diálogo.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

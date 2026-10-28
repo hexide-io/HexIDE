@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— відповідь, {0} байтів —",
     "Str.Tool.ProtocolInspector.Copy": "Копіювати як трасування",
     "Str.Tool.ProtocolInspector.Export": "Експортувати розмову...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Замінити ці наявні файли?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Експортовано {0} повідомлень до {1}, маніфест — у {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Експорт не завершено: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Те, що йде назовні, псевдонімізовано.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Колір прозорих пікселів.",
     "Str.PropDesc.UseMaskColor": "Чи використовувати колір маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показувати напрямні відступів",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення",
+    "Str.Dialog.Print.Configuration": "Копії: 1; орієнтація: книжкова.",
+    "Str.Dialog.Print.Unavailable": "Друк не реалізовано. OK повертає лише налаштування діалогу.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

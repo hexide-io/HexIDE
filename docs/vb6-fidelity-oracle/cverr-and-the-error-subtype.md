@@ -47,3 +47,59 @@ Measured on vb6.exe SP6, every row built native and as p-code, which logged the 
 | `s = e` | `[]` | | 13 |
 | `IsError(5)` | `False` | Boolean | 0 |
 | `IsError(Empty)` | `False` | Boolean | 0 |
+
+### Printing, ordering and branching on an Error value (2026-10-28, #2520)
+
+**The question.** The table above leaves out an Error value printed to a file, two Error values ordered, an Error value as
+a `Select Case` selector or an `If` condition, the unary operators and math functions, and the conversions other than
+`CLng`, `CInt` and `CDbl`. Found reviewing #2604, which guessed some of them. `e` is `CVErr(5)` in a Variant, every line
+runs under `On Error Resume Next`, and each value is logged through the probe's `Show`. The file is read back with
+`Line Input` and logged between brackets.
+
+| Expression, with `e = CVErr(5)` | Result | Type | Err |
+|---|---|---|---|
+| `e < CVErr(6)` | True | Boolean | 0 |
+| `e > CVErr(4)` | True | Boolean | 0 |
+| `e <> CVErr(6)` | True | Boolean | 0 |
+| `e <= CVErr(5)` | True | Boolean | 0 |
+| `Not e` |  |  | 13 |
+| `-e` |  |  | 13 |
+| `Int(e)` |  |  | 13 |
+| `Fix(e)` |  |  | 13 |
+| `Abs(e)` |  |  | 13 |
+| `Sgn(e)` |  |  | 13 |
+| `Val(e)` |  |  | 13 |
+| `Str(e)` |  |  | 13 |
+| `Hex(e)` |  |  | 13 |
+| `CBool(e)` | True | Boolean | 0 |
+| `CByte(e)` | 5 | Byte | 0 |
+| `CSng(e)` | 5 | Single | 0 |
+| `CCur(e)` | 5 | Currency | 0 |
+| `CDec(e)` |  |  | 13 |
+| `CDate(e)` |  |  | 13 |
+| `CVar(e)` | Error 5 | Error | 0 |
+| `IIf(True, e, 1)` | Error 5 | Error | 0 |
+| `e = Null` |  |  | 13 |
+| `e = Empty` |  |  | 13 |
+| `e Is Nothing` |  |  | 424 |
+
+| Statement | The line it wrote, between brackets | Err |
+|---|---|---|
+| `Print #f, e` | `[Error 5]` | 0 |
+| `Print #f, "a"; e; "b"` | `[aError 5b]` | 0 |
+| `Print #f, "a", e, "b"` | `[a             Error 5       b]` | 0 |
+| `Write #f, e` | `[#ERROR 5#]` | 0 |
+| `Write #f, "a", e, "b"` | `["a",#ERROR 5#,"b"]` | 0 |
+
+| Statement | What ran, under `On Error Resume Next` |
+|---|---|
+| `Select Case e` with `Case 5`, then `Case Else` | took Case 5, err 13 |
+| The same, after `End Select` | err 13 |
+| `Select Case e` with `Case CVErr(5)`, then `Case Else` | took Case CVErr(5), err 0 |
+| `Select Case e` with `Case Is > CVErr(4)`, then `Case Else` | took Case Is > CVErr(4), err 0 |
+| `If e Then` ... `Else` | took Then, err 13 |
+
+So two Error values compare by their number under every comparison operator, and a Case test against one does too; a
+Case test against a number is the same 13 as `e = 5`, and under `Resume Next` the Case's body runs. `Print #` writes
+`Error 5`, and `Write #` writes `#ERROR 5#`. The conversions to a numeric type other than Decimal take the number, `CBool`
+takes it as non-zero, and `CDec` and `CDate` are 13. The unary operators and the math functions are 13, as arithmetic is.

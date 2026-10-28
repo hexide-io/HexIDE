@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— vastaus, {0} tavua —",
     "Str.Tool.ProtocolInspector.Copy": "Kopioi jäljityslokina",
     "Str.Tool.ProtocolInspector.Export": "Vie keskustelu...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Korvataanko nämä olemassa olevat tiedostot?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Vietiin {0} viestiä kohteeseen {1}, manifesti kohteeseen {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Vienti ei valmistunut: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Ulos lähtevä on pseudonymisoitu.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Läpinäkyvien pikselien väri.",
     "Str.PropDesc.UseMaskColor": "Käytetäänkö maskin väriä.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Näytä sisennysohjaimet",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
+    "Str.Dialog.Print.Configuration": "Kopioita: 1; suunta: pysty.",
+    "Str.Dialog.Print.Unavailable": "Tulostusta ei ole toteutettu. OK palauttaa vain valintaikkunan asetukset.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

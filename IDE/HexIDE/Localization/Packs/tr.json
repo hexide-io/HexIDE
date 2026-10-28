@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— yanıt, {0} bayt —",
     "Str.Tool.ProtocolInspector.Copy": "İzleme olarak kopyala",
     "Str.Tool.ProtocolInspector.Export": "Konuşmayı dışa aktar...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Bu mevcut dosyalar değiştirilsin mi?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} ileti {1} konumuna aktarıldı; bildirim dosyası {2} konumunda.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Dışa aktarma tamamlanmadı: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Dışarı çıkanlar takma adlarla değiştirilir.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Saydam piksellerin rengi.",
     "Str.PropDesc.UseMaskColor": "Maske renginin kullanılıp kullanılmayacağı.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir",
+    "Str.Dialog.Print.Configuration": "Kopya: 1; yön: dikey.",
+    "Str.Dialog.Print.Unavailable": "Yazdırma uygulanmamıştır. Tamam yalnızca iletişim kutusu ayarlarını döndürür.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

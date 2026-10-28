@@ -113,6 +113,16 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         return new VbFileDialogAnswer(paths[0], null, paths.Skip(1).ToArray());
     }
 
+    public async Task<bool> ShowPrintDialog() =>
+        HostDialogs.Print is { } application
+            ? await application()
+            : throw new NotImplementedException("A CommonDialog's print dialog is not implemented outside the IDE (#2299)");
+
+    public async Task<int?> ShowColorDialog(int initial) =>
+        HostDialogs.Color is { } application
+            ? await application(initial)
+            : throw new NotImplementedException("A CommonDialog's color dialog is not implemented outside the IDE (#2299)");
+
     /// <summary>A CommonDialog's ShowFont (#1084): the application's font dialog, where it has one.</summary>
     public async Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
         HostDialogs.Font is { } application

@@ -246,19 +246,32 @@ public partial class VB6BuiltIns
     /// <paramref name="target"/> IN PLACE from 1-based <paramref name="start"/>, replacing at most
     /// <paramref name="length"/> chars and at most <c>replacement.Length</c> chars — the total length never changes.
     /// <paramref name="start"/> outside [1, Len(target)] raises Err 5 (oracle-verified vs vb6.exe). Returns the new
-    /// string (the caller writes it back to the target slot).</summary>
-    public static Vb6Value MidStatementReplace(Vb6Value target, Vb6Value start, Vb6Value? length, Vb6Value replacement)
+    /// string (the caller writes it back to the target slot). With <paramref name="bytes"/>, positions and lengths
+    /// count UTF-16 bytes instead of characters (#2623).</summary>
+    public static Vb6Value MidStatementReplace(Vb6Value target, Vb6Value start, Vb6Value? length, Vb6Value replacement, bool bytes = false)
     {
+        if (target.IsNull || replacement.IsNull) throw InvalidUseOfNull();
         string s = AsStr(target);
         string repl = AsStr(replacement);
         int st = AsInt(start);
-        if (st < 1 || st > s.Length) throw InvalidCall();
+        int units = bytes ? 2 : 1;
+        if (st < 1 || st > s.Length * units) throw InvalidCall();
         int from = st - 1;
-        int count = Math.Min(repl.Length, s.Length - from);
+        int count = Math.Min(repl.Length * units, s.Length * units - from);
         if (length is { } lv) count = Math.Min(count, Math.Max(0, AsInt(lv)));
         if (count <= 0) return new Vb6Value(s);
         var chars = s.ToCharArray();
-        for (int i = 0; i < count; i++) chars[from + i] = repl[i];
+        for (int i = 0; i < count; i++)
+        {
+            if (!bytes) chars[from + i] = repl[i];
+            else
+            {
+                // Replace just the addressed byte, keeping its neighbour even for an odd count or offset.
+                int at = from + i;
+                int shift = (at % 2) * 8;
+                chars[at / 2] = (char)((chars[at / 2] & ~(0xff << shift)) | ByteAt(repl, i) << shift);
+            }
+        }
         return new Vb6Value(new string(chars));
     }
 
@@ -448,13 +461,13 @@ public partial class VB6BuiltIns
         {
             int j = 2;
             while (j < s.Length && Uri.IsHexDigit(s[j])) j++;
-            return j > 2 ? Convert.ToInt64(s.Substring(2, j - 2), 16) : 0;
+            return j > 2 ? RadixNumber(Convert.ToInt64(s.Substring(2, j - 2), 16), Vb6Value.ValueType.Integer) : 0;
         }
         if (s.StartsWith("&O", StringComparison.OrdinalIgnoreCase))
         {
             int j = 2;
             while (j < s.Length && s[j] is >= '0' and <= '7') j++;
-            return j > 2 ? Convert.ToInt64(s.Substring(2, j - 2), 8) : 0;
+            return j > 2 ? RadixNumber(Convert.ToInt64(s.Substring(2, j - 2), 8), Vb6Value.ValueType.Integer) : 0;
         }
         int i = 0;
         if (i < s.Length && (s[i] == '+' || s[i] == '-')) i++;

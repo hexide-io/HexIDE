@@ -680,6 +680,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— respondo, {0} bajtoj —",
     "Str.Tool.ProtocolInspector.Copy": "Kopii kiel spuron",
     "Str.Tool.ProtocolInspector.Export": "Eksporti konversacion...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Ĉu anstataŭigi ĉi tiujn ekzistantajn dosierojn?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Eksportis {0} mesaĝojn al {1}, kun la manifesto ĉe {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "La eksporto ne kompletiĝis: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Kio eliras estas pseŭdonimigita.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "La koloro por travideblaj bilderoj.",
     "Str.PropDesc.UseMaskColor": "Ĉu uzi la maskan koloron.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
+    "Str.Dialog.Print.Configuration": "Kopioj: 1; orientiĝo: vertikala.",
+    "Str.Dialog.Print.Unavailable": "Presado ne estas realigita. Bone liveras nur la dialogajn agordojn.",
+    "Str.Dialog.Color.Rgb": "RVB (#RRGGBB)"
   }
 }

@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— پاسخ، {0} بایت —",
     "Str.Tool.ProtocolInspector.Copy": "کپی به‌صورت ردیابی",
     "Str.Tool.ProtocolInspector.Export": "برون‌بری گفت‌وگو...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "این فایل‌های موجود جایگزین شوند؟\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} پیام در {1} نوشته شد، همراه با مانیفست در {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "برون‌بری کامل نشد: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "آنچه بیرون می‌رود نام‌مستعارسازی شده است.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "رنگ پیکسل‌های شفاف.",
     "Str.PropDesc.UseMaskColor": "آیا رنگ ماسک استفاده شود.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
+    "Str.Dialog.Print.Configuration": "نسخه‌ها: ۱؛ جهت: عمودی.",
+    "Str.Dialog.Print.Unavailable": "چاپ پیاده‌سازی نشده است. تأیید فقط تنظیمات گفتگو را برمی‌گرداند.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

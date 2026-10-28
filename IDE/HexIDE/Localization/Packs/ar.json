@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— الرد، {0} بايت —",
     "Str.Tool.ProtocolInspector.Copy": "نسخ بصيغة التتبّع",
     "Str.Tool.ProtocolInspector.Export": "تصدير المحادثة...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "هل تريد استبدال هذه الملفات الموجودة؟\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "تم تصدير {0} رسالة إلى {1}، مع ملف البيان في {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "لم يكتمل التصدير: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "ما يخرج تُستبدل أسماؤه بأسماء مستعارة.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "اللون المستخدم للبكسلات الشفافة.",
     "Str.PropDesc.UseMaskColor": "ما إذا كان لون القناع مستخدمًا.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
+    "Str.Dialog.Print.Configuration": "النسخ: 1؛ الاتجاه: عمودي.",
+    "Str.Dialog.Print.Unavailable": "الطباعة غير منفذة. يعيد زر موافق إعدادات الحوار فقط.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

@@ -1122,3 +1122,10 @@ public record FileRename(
 public record FileOperationUri([property: JsonPropertyName("uri")] string Uri);
 public record FileOperationParams([property: JsonPropertyName("files")] FileOperationUri[] Files);
 public record RenameFilesParams([property: JsonPropertyName("files")] FileRename[] Files);
+
+public record WorkspaceFoldersChangeEvent(
+    [property: JsonPropertyName("added")] WorkspaceFolder[] Added,
+    [property: JsonPropertyName("removed")] WorkspaceFolder[] Removed);
+
+public record DidChangeWorkspaceFoldersParams(
+    [property: JsonPropertyName("event")] WorkspaceFoldersChangeEvent Event);

@@ -23,6 +23,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
     internal Task PendingRegeneration { get; private set; } = Task.CompletedTask;
     private bool _disposed;
     private readonly Dictionary<string, Func<WorkspaceArtifactContext, CancellationToken, Task>> _imports = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Func<CancellationToken, Task>> _folderUpdates = new(StringComparer.Ordinal);
     private readonly string? _stateFile;
     private readonly ConversationLog? _capture;
     private readonly IWorkspaceLibraryNames? _libraryNames;
@@ -53,6 +54,20 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         }
         catch (Exception ex) { _log.LogWarning(ex, "Could not read workspace artefact ownership."); }
         _workspace.ProjectChanged += OnProjectChanged;
+    }
+
+    public async Task TrackFoldersAsync(LanguageServerRegistration server, Func<CancellationToken, Task> update,
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_disposed) return;
+            _active[server.Id] = server;
+            _folderUpdates[server.Id] = update;
+            _ = _workspace.Projects; // Begin observing membership even without artefacts or imports.
+        }
+        finally { _gate.Release(); }
     }
 
     public async Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken)
@@ -324,12 +339,14 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(300), _timeProvider, token);
-            (LanguageServerRegistration Server, Func<WorkspaceArtifactContext, CancellationToken, Task>? Import)[] servers;
+            (LanguageServerRegistration Server, Func<WorkspaceArtifactContext, CancellationToken, Task>? Import,
+                Func<CancellationToken, Task>? Folders)[] servers;
             await _gate.WaitAsync(token);
-            try { servers = _active.Values.Select(server => (server, _imports.GetValueOrDefault(server.Id))).ToArray(); }
+            try { servers = _active.Values.Select(server => (server, _imports.GetValueOrDefault(server.Id), _folderUpdates.GetValueOrDefault(server.Id))).ToArray(); }
             finally { _gate.Release(); }
-            foreach (var (server, import) in servers)
+            foreach (var (server, import, folders) in servers)
             {
+                if (folders is not null) await folders(token);
                 if (server.ProjectImport is not null && import is not null)
                     await ImportAsync(server, import, token);
                 else await PrepareAsync(server, token);

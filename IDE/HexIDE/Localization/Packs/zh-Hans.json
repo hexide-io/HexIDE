@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— 响应，{0} 字节 —",
     "Str.Tool.ProtocolInspector.Copy": "复制为跟踪日志",
     "Str.Tool.ProtocolInspector.Export": "导出会话...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "要替换这些现有文件吗？\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "已将 {0} 条消息导出到 {1}，清单文件位于 {2}。",
     "Str.Tool.ProtocolInspector.ExportFailed": "导出未能完成：{0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "离开本机的内容已用虚构名称替换。",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "透明像素使用的颜色。",
     "Str.PropDesc.UseMaskColor": "是否使用遮罩颜色。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
+    "Str.Dialog.Print.Configuration": "份数：1；方向：纵向。",
+    "Str.Dialog.Print.Unavailable": "尚未实现打印。确定仅返回对话框设置。",
+    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）"
   }
 }
