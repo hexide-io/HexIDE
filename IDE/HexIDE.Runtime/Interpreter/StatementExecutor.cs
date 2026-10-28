@@ -809,6 +809,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBCompileErrorException($"{message} ({name})");
     }
 
+    // ReDim or Erase of a procedure's ParamArray is VB6's compile error "Invalid ParamArray use" (measured, #2462), raised here as
+    // the statement runs.
+    private void RefuseParamArray(string name)
+    {
+        if (currentEnv.TryGetVariableLocation(name, out var location) && interpreter.ExecutionContext.State.IsParamArray(location))
+            throw new VBCompileErrorException($"Invalid ParamArray use ({name})");
+    }
+
     public override async Task<ControlFlow> VisitEraseStmt(VB6Parser.EraseStmtContext context)
     {
         // `Erase a[, b, ...]` — a DYNAMIC array is freed (undimensioned: later LBound/UBound/index → Err 9), a FIXED
@@ -817,6 +825,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var name = vs.GetText();
             RefuseConstantTarget(name, "Expected array");
+            RefuseParamArray(name);
             Vb6Value v;
             if (vs is VB6Parser.VsICSContext field && await UdtArrayField(field.implicitCallStmt_InStmt()) is { } arrayField)
                 v = arrayField.Read();
@@ -3684,6 +3693,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var variableName = varOrProcCall?.ambiguousIdentifier().GetText() ?? fieldTarget!.Name;
             RefuseConstantTarget(variableName, "Expected array");
+            if (fieldTarget is null)
+                RefuseParamArray(variableName);
 
             Vb6Value value;
             if (fieldTarget is not null)

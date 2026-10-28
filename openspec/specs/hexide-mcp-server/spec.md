@@ -590,6 +590,17 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 - **WHEN** `get_window_state` is called with no `window`
 - **THEN** it reports the IDE's own window, named `ide`
 
+### Requirement: The window-state reply SHALL say what its numbers measure
+The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
+area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
+`set_window_state` takes them. Every reply SHALL carry `units`, which says the unit of each and which edge each
+measures. A window that is hidden or minimized SHALL have no rectangles, and `outer` and `frame` SHALL be left out
+where the platform reports no frame.
+
+#### Scenario: A form moved to 720, 360 screen pixels at 150%
+- **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
+- **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
+
 ### Requirement: Another window SHALL change as a person changes it
 `set_window_state` SHALL change a window other than the IDE's own as its minimize, maximize or restore box or its frame
 would, so a running form's own events run, and SHALL wait for the program as `interact`'s does. It SHALL refuse what a
@@ -1034,6 +1045,20 @@ which no platform sends as text. In a code window the key SHALL be judged as typ
 #### Scenario: A command chord
 - **WHEN** `press_key` presses A with Ctrl
 - **THEN** no text is sent, and a running TextBox's KeyPress is the 1 its runtime makes from the KeyDown
+
+### Requirement: type_text SHALL send keys to a control that takes typing itself
+In keyboard mode, `type_text` SHALL send its keys to the addressed control when nothing under it is a text box and it
+takes focus, as a person's keyboard sends them, and SHALL judge it by what it did with them, not by its class. When it
+handled the text of none of the keys that type a character, the reply SHALL say so, and that their KeyDown and KeyUp
+were raised. A control that does not take focus SHALL be refused, saying that a person's keys could not reach it.
+
+#### Scenario: A running form's RichTextBox
+- **WHEN** `type_text` types `abc` in keyboard mode into a running RichTextBox, whose KeyPress and Change log
+- **THEN** each key runs KeyPress and the edit runs Change, and the RichTextBox holds `abc`
+
+#### Scenario: Document mode
+- **WHEN** `type_text` in its default mode addresses a control that takes typing itself
+- **THEN** it is refused as having no text surface, and the refusal names keyboard mode
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

@@ -166,7 +166,7 @@ different result rather than reporting a problem.
 
 ### Requirement: Procedure calls SHALL bind parameters as VB6 does
 User-defined procedures SHALL be callable, SHALL pass parameters by reference unless declared otherwise, and
-SHALL support by-value, optional and named arguments. Each call SHALL keep only its own bindings
+SHALL support by-value, optional, named and ParamArray arguments. Each call SHALL keep only its own bindings
 (parameters, locals, return name and `Me`), falling back to the module or instance environment before
 project-wide names, without copying the module's bindings.
 
@@ -186,6 +186,11 @@ by value will run such a program to completion while producing the wrong answer.
 #### Scenario: A parameter declared by value
 - **WHEN** a parameter is declared by value and the procedure assigns to it
 - **THEN** the caller's variable is unchanged
+
+#### Scenario: A ParamArray parameter
+- **WHEN** a procedure declared with a ParamArray is called with arguments after its fixed parameters
+- **THEN** the ParamArray is a Variant array from 0 holding those arguments, empty when there are none
+- **AND** a store through one of its elements modifies the caller's variable, converted to that variable's type
 
 #### Scenario: An unspaced parenthesised member-call argument
 - **WHEN** a member call statement puts its parenthesised argument directly after the member name

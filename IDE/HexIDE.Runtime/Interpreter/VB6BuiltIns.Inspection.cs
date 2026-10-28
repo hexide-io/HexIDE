@@ -29,7 +29,9 @@ public partial class VB6BuiltIns
         // True only for an argument the caller left out, and only where there was nothing to put in its
         // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
         // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md.
-        d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
+        // A ParamArray is missing when the call gave it nothing, so it is empty (measured, #2462).
+        d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing
+            || a[0].Value is VBArray { IsParamArray: true } paramArray && paramArray.UpperBound() < paramArray.LowerBound());
 
         // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.
         // It is the only vbError value the model has: CVErr is still unimplemented, and when it lands it

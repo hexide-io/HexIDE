@@ -118,12 +118,12 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
-| Keywords and modifiers | 0 | 0 | 3 | 22 | 1 | 25 | 51 |
+| Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 81 | 16 | 0 | 26 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **138** | **447** | **20** | **578** | **1184** |
+| **Total** | **1** | **0** | **137** | **447** | **20** | **579** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 138 names
+## Dies mid-run — 137 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -355,7 +355,6 @@ most of the in-box object model.
 | `ObjPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin; not in BuildRegistry (VB6BuiltIns.cs), not in Grammar/VB6.g4, not even in the editor metadata (VbKeywordNormalizer.cs / VbSignatures.cs). A call… | VB6BuiltIns.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
-| `ParamArray` | **Dies** | throws `"ParamArray parameters are not yet supported"` — and DECLARES fine - the grammar's `arg` rule carries `(PARAMARRAY WS)?` and PrePass.ParseParams records `ParamArray: arg.PARAMARRAY() != null`. It… | BasicInterpreter.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `ParentControls.ParentControlsType` | **Dies** | On a Variant holder, current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType)". The owning ParentControls type does not… | Exceptions.cs |
 | `Partition` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Partition(n, lo, hi, size)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Partition)". Named in… | ExpressionExecutor.cs |
@@ -760,7 +759,7 @@ missing.
 | `StrReverse` | Supported | Registered as `d["StrReverse"] = (_, a, _) => NullOrStr(a[0], s => { var c = s.ToCharArray(); Array.Reverse(c); return new string(c); });`. Null propagates. Tested: StringFunctionsTests.cs. | VB6BuiltIns.Strings.cs |
 | `Trim` | Supported | Registered as `d["Trim"] = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));`. Trims only U+0020 from both ends (VB6's space-only semantics, not .NET's default whitespace trim); Null… | VB6BuiltIns.Strings.cs |
 
-### Keywords and modifiers — 51 names (3 absent, 22 partial, 1 no-op, 25 supported)
+### Keywords and modifiers — 51 names (2 absent, 22 partial, 1 no-op, 26 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -769,7 +768,7 @@ missing.
 | `GoSub` | **Dies** | throws `"GoSub not implemented"` — (goSubStmt, VB6.g4) and throws at run time. Verbatim: Measured. | StatementExecutor.cs |
 | `Line` | **Dies** | There is no standalone LINE token; `Line Input` is lexed as ONE token, `LINE_INPUT : L I N E ' ' I N P U T` (Grammar/VB6.g4), consumed by `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA… | StatementExecutor.cs |
 | `Output` | Supported | `Open ... For Output` truncates, as vb6.exe measured ([#1145](https://github.com/hexide-io/HexIDE/issues/1145)); a second Output of a file already open is 55. Pinned by `SequentialFileTests`. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it ran. | StatementExecutor.cs |
-| `ParamArray` | **Dies** | throws `"ParamArray parameters are not yet supported"` — and DECLARES fine - the grammar's `arg` rule carries `(PARAMARRAY WS)?` and PrePass.ParseParams records `ParamArray: arg.PARAMARRAY() != null`. It… | BasicInterpreter.cs |
+| `ParamArray` | Supported | **[#2462](https://github.com/hexide-io/HexIDE/issues/2462):** the arguments left over, as a Variant array from 0 whatever Option Base says. It is empty, and `IsMissing` of it True, when there are none, and a blank argument is Missing. Each element is its argument ByRef: a store through `a(i)` reaches the caller's variable or array element, converted to its type, so 5.7 into an Integer is 6 and "abc" is 13, as vb6.exe measured. `For Each`, a copy, `a = Array(...)` and passing it to another ParamArray, where it arrives as one element, all run. `ReDim`, `Erase` and passing the whole array ByRef are VB6's "Invalid ParamArray use", raised as the statement runs. Passing it as `a()` waits on [#2474](https://github.com/hexide-io/HexIDE/issues/2474), as every array does. A trailing comma, `Show 1, 2,`, is VB6's "Syntax error" and runs here with a Missing last element. Pinned by `ParamArrayTests`. | BasicInterpreter.cs, Vb6Value.cs |
 | `Random` | Supported | **[#1646](https://github.com/hexide-io/HexIDE/issues/1646):** `Open ... For Random`, with `Len =` the record length, 128 with none and with -1, 5 below 1 and 6 past an Integer; records from 1, `Loc` the last and `Seek` the next, 59 for a value longer than the record, all as vb6.exe measured. `Get` and `Put` have their own rows. | StatementExecutor.cs, VbFiles.Records.cs |
 | `Read` | Partial | `Access Read` is taken on an Input file, and a second Input of a file opened `Lock Read` is 55, as vb6.exe measured ([#1145](https://github.com/hexide-io/HexIDE/issues/1145)). **Partial:** a Lock holds against this program only, not another process, and on Random and Binary files `Access Read`, `Read Write` and `Lock Read` run since [#1646](https://github.com/hexide-io/HexIDE/issues/1646). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it ran. | StatementExecutor.cs |
 | `Shared` | Supported | Taken, as vb6.exe takes it ([#1145](https://github.com/hexide-io/HexIDE/issues/1145)): a Shared Input file reads as any other. HexIDE locks no file against another process, so Shared changes nothing here. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it ran. | StatementExecutor.cs |

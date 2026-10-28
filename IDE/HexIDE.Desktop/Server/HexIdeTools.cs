@@ -992,7 +992,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. 'name' is what to pass as 'window' to reach the same window again.")]
+    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. 'name' is what to pass as 'window' to reach the same window again.")]
     public async Task<WindowStateResult> GetWindowStateAsync(
         [Description(WindowStateParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -1021,7 +1021,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             : DescribeWindow(target), null);
     }
 
-    private static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
+    internal static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
     {
         var state = window.WindowState switch
         {
@@ -1031,8 +1031,29 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         };
         var pos  = window.Position;
         var size = window.ClientSize;
-        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name);
+        // The window's whole rectangle, the frame a person sees and the client area, all in device-independent pixels on
+        // the screen, beside the scale that turns them into screen pixels. x and y alone gave the platform's position in
+        // screen pixels, which on Windows includes an invisible resize border, and width and height gave the client in
+        // device-independent pixels, with nothing to say so or which edge each measured (#2454). They are kept, as
+        // set_window_state takes them.
+        var scale = window.DesktopScaling;
+        var outer = HexIDE.Automation.NativeWindowFrame.OuterRect(window) is { } o ? WindowRect.Of(o, scale) : null;
+        var frame = HexIDE.Automation.NativeWindowFrame.VisibleFrame(window) is { } f ? WindowRect.Of(f, scale) : null;
+        var client = window.IsVisible && window.WindowState != Avalonia.Controls.WindowState.Minimized
+            ? WindowRect.Of(window.PointToScreen(new Avalonia.Point(0, 0)), size, scale) : null;
+        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name,
+            Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits);
     }
+
+    /// <summary>What every get_window_state reply says of its numbers, since two of them are in one unit and two in another.</summary>
+    internal const string WindowStateUnits =
+        "x and y: the window's position as the platform reports it, in screen pixels, the top left of outer. width and "
+        + "height: the client area in device-independent pixels. set_window_state takes all four as these. outer, frame "
+        + "and client are in device-independent pixels on the screen (twips divided by 15); multiply by scale for screen "
+        + "pixels. outer is the window's whole rectangle, which on Windows includes an invisible resize border; frame is "
+        + "the window as drawn, title bar and border included; client is the area inside. None is given for a window "
+        + "that is hidden or minimized, and Windows puts a minimized window's x and y at -32000. outer and frame are "
+        + "also left out where the platform reports no frame.";
 
     /// <summary>
     /// Why a person couldn't make <paramref name="target"/> the state or size asked for: it has no minimize or maximize box,
@@ -1054,7 +1075,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     };
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
+    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. `x` and `y` are screen pixels and `width` and `height` the client area in device-independent pixels, as get_window_state reports them. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
@@ -2597,7 +2618,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [McpServerTool(Name = "type_text")]
     [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types, Shift's own key around a capital); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
-        [Description("A path from dump_visual_tree. A target that is not showing is refused. If the target is not itself a text surface, a descendant editor/textbox is used (AvaloniaEdit is preferred over incidental textboxes); the reply gives the path of the surface that took the text. A target holding more than one showing surface of the chosen kind is refused, with their paths listed. A dropdown that is not editable is refused with a pointer to select.")]
+        [Description("A path from dump_visual_tree. A target that is not showing is refused. If the target is not itself a text surface, a descendant editor/textbox is used (AvaloniaEdit is preferred over incidental textboxes); the reply gives the path of the surface that took the text. A target holding more than one showing surface of the chosen kind is refused, with their paths listed. In the default mode a dropdown that is not editable is refused with a pointer to select.")]
         string target, string text, [Description(WindowParameter)] string? window = null,
         [Description("\"document\" (the default) inserts the text at the caret in one edit, exact and untouched by "
                      + "auto-indent, completion or auto-close. \"keyboard\" types it as a person does, a key at a time, to "
@@ -2608,7 +2629,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "differ from what was sent, so read it back. A Tab that moves focus sends the rest to where focus "
                      + "went. The typing stops, and the reply says after how many keys, at a key a protected line refuses, "
                      + "or when a dialog opens, over this window or another. Nothing is typed while a modal dialog is open "
-                     + "over the window, as a person's keys would go to it. Its mechanism is \"keyboard\".")]
+                     + "over the window, as a person's keys would go to it. A control with no text box that takes focus, "
+                     + "such as a running form's RichTextBox, is sent the keys too, and the reply says if it took none of "
+                     + "their text. Its mechanism is \"keyboard\".")]
         string? mode = null,
         CancellationToken ct = default)
     {
@@ -3673,7 +3696,20 @@ internal record AddFileResult(
 
 /// <summary>A window's state, as <c>get_window_state</c> reports it. <c>Name</c> is what reaches it as 'window' again;
 /// <c>Error</c> says why no window was read.</summary>
-internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null);
+internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null,
+    double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null);
+
+/// <summary>A rectangle on the screen in device-independent pixels, to a tenth (#2454).</summary>
+internal record WindowRect(double X, double Y, double Width, double Height)
+{
+    public static WindowRect Of(Avalonia.PixelRect pixels, double scale) =>
+        new(Tenth(pixels.X / scale), Tenth(pixels.Y / scale), Tenth(pixels.Width / scale), Tenth(pixels.Height / scale));
+
+    public static WindowRect Of(Avalonia.PixelPoint origin, Avalonia.Size size, double scale) =>
+        new(Tenth(origin.X / scale), Tenth(origin.Y / scale), Tenth(size.Width), Tenth(size.Height));
+
+    private static double Tenth(double value) => Math.Round(value, 1);
+}
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
 internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);
