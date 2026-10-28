@@ -164,6 +164,10 @@ public class ProjectLoadWarningTests : IDisposable
     [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bars\r\nIndex = 0\r\nEnd\r\nEnd", "Bars")]
     [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bar\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Bar")]
     [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.UpDown Spins\r\nIndex = 0\r\nEnd\r\nEnd", "Spins", "MSComCtl2.UpDown")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Animation1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin mscomctl2.animation Animation1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Clips\r\nIndex = 0\r\nEnd\r\nEnd", "Clips", "MSComCtl2.Animation")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Clip\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Clip", "MSComCtl2.Animation")]
     public void A_carried_control_warns_only_when_HexIDE_does_not_run_it(string source, string? warned,
         string warnedType = "MSComctlLib.Toolbar")
     {
