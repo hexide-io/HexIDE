@@ -381,6 +381,20 @@ a reply SHALL say so: the reply of the save that took it, or else the next reply
 - **WHEN** a client arms two paths as one answer and a document without a file is saved
 - **THEN** nothing is written, and the save's reply fails, saying its picker answered as cancelled and why
 
+### Requirement: open_file SHALL put the caret at a line and column in the editor it opens
+Given a line, and a column if wanted, `open_file` SHALL put the caret there in the editor it opens, a code window's or
+a carried file's, numbering both from 1 as the editor does, against the text `get_file_content` returns. A place off
+the text SHALL be refused before anything opens. A fold over the caret SHALL be opened, and the note SHALL read the
+caret's line, column and offset back from the editor.
+
+#### Scenario: A carried file
+- **WHEN** `open_file` opens a carried file at line 3, column 5
+- **THEN** its editor's caret is there, and the note says so
+
+#### Scenario: A place off the text
+- **WHEN** `open_file` names a line past the file's last
+- **THEN** nothing opens, and the reply gives the lines it has
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name

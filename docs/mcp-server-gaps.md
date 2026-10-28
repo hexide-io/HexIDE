@@ -722,17 +722,3 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 **Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
-
-## `open_file` can't put the caret in a carried file
-
-**Symptom (2026-10-27, Windows, #1334's live check).** `open_file {"name":"twice.c","line":3,"column":27}`, on a
-project carrying `twice.c`, answered `{"success":false,"error":"'twice.c' is a carried file, which opens in the
-plain-text editor, where this does not put the caret; nothing was opened"}`. The refusal is deliberate: #700 placed the
-caret in the code window only.
-
-**Workaround.** `open_file` with no `line`, then walk the caret there with `press_key`: Ctrl+Home, Down per line, End or
-Right. That is a call per keystroke, and a wrapped line or a refused key misplaces it.
-
-**Suggested fix.** Place the caret in the carried-file editor, an AvaloniaEdit `TextEditor` like the code window's, with
-`CaretPlacement.Place` and the same rules, and read it back in the note. If a carried file must be treated differently,
-open it and say so, rather than refuse and open nothing. [#2403](https://github.com/hexide-io/HexIDE/issues/2403).
