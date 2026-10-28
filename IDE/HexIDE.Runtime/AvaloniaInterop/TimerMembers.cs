@@ -62,4 +62,51 @@ internal static class TimerMembers
         Check(name);
         throw new NotImplementedException($"Calling a Timer's {name} is not measured (#801)");
     }
+
+    /// <summary>A row of VB6's Locals window under a Timer: its value, or the text of the error its read raises, and the
+    /// member's declared type, which the row shows either way.</summary>
+    internal sealed record LocalsRow(string Name, Vb6Value Value, string? Error, string DeclaredType);
+
+    // What VB6's Locals window lists under a Timer, in its order: these seven and no others, neither Left and Top nor any
+    // member that raises 438. [_Default] is Enabled, the Timer's default member (measured on #2289, the table on #2329).
+    private static readonly (string Name, string Member, string Declared)[] Listed =
+    [
+        ("[_Default]", "Enabled", "Boolean"), ("Enabled", "Enabled", "Boolean"), ("Index", "Index", "Integer"),
+        ("Interval", "Interval", "Long"), ("Name", "Name", "String"), ("Parent", "Parent", "Form"), ("Tag", "Tag", "String"),
+    ];
+
+    /// <summary>The rows VB6's Locals window gives a Timer, each read as a program reads it (#2329). A read that raises is
+    /// listed with its error, as VB6's Index is for a Timer in no control array.</summary>
+    public static IReadOnlyList<LocalsRow> LocalsRows(Control timer) =>
+    [
+        .. Listed.Select(row =>
+        {
+            try
+            {
+                return new LocalsRow(row.Name, Read(timer, row.Member), null, row.Declared);
+            }
+            catch (VBRunTimeException e)
+            {
+                return new LocalsRow(row.Name, default, e.Error.Description, row.Declared);
+            }
+            // Not a raise VB6 would make, such as Parent outside a running form, but one shouldn't hide the other rows.
+            catch (Exception e)
+            {
+                return new LocalsRow(row.Name, default, e.Message.ReplaceLineEndings(" ").Trim(), row.Declared);
+            }
+        }),
+    ];
+
+    // The way the interpreter reads a Timer's member: Parent here, a bound property, then Name and Index.
+    private static Vb6Value Read(Control timer, string member)
+    {
+        if (TryGet(timer, member, out var parent))
+            return parent;
+        foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(member, []))
+            if (AvaloniaInteroperability.TryGet(timer, property, out var value))
+                return value;
+        return IdentityMembers.TryGet(timer, member, out var identity)
+            ? identity
+            : throw new NotImplementedException($"A Timer's {member} has no reader");
+    }
 }

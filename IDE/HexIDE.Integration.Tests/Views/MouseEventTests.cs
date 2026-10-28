@@ -639,7 +639,9 @@ public class MouseEventTests
     {
         // Measured: unlike every other control with a DblClick, the second press raises MouseDown too. Click comes only as
         // the option becomes selected, so the second click raises none.
-        using var run = Start(Form(Twips, Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n")),
+        // Keep the option unselected until the pointer arrives; showing a form now focuses its first tab stop (#2436).
+        using var run = Start(Form(Twips, Ctl("TextBox", "Text1", 2000, 240, 1215, 375, "      TabIndex = 0\r\n")
+            + Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n      TabIndex = 1\r\n")),
             Handlers("Option1", dblClick: true));
         var at = run.At("Option1", 10, 5);
 
@@ -653,7 +655,9 @@ public class MouseEventTests
     [AvaloniaFact]
     public void OptionButton_presses_outside_the_double_click_interval_raise_no_DblClick()
     {
-        using var run = Start(Form(Twips, Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n")),
+        // Keep the option unselected until the pointer arrives; showing a form now focuses its first tab stop (#2436).
+        using var run = Start(Form(Twips, Ctl("TextBox", "Text1", 2000, 240, 1215, 375, "      TabIndex = 0\r\n")
+            + Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n      TabIndex = 1\r\n")),
             Handlers("Option1", dblClick: true));
 
         run.ClickSequence(run.At("Option1", 10, 5), intervalMs: 600);

@@ -937,6 +937,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
                 return ControlFlow.Nothing;
             }
+            if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
+                && string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+                && !FormMembers.IsMember(identifier, out _))
+                throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             // A form's built-in method is its window's: `Call Me.Move 0, 0` (#822).
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)
@@ -951,6 +955,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return ControlFlow.Nothing;
         }
         var callArgs = await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall());
+        ExpressionExecutor.RequireMemberReceiver(value, context);
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
@@ -1899,7 +1904,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// The value a Let of a whole array stores: into a dynamic array variable, a ByRef array parameter, or the name of a
     /// Function or Property Get declared to return an array, `As Integer()` or `As Variant()`. Each takes only an array of
     /// exactly its element type, whose bounds it keeps (measured, #986, #998 and #1588, native and p-code, for every element
-    /// type, named and through a Variant). What VB6 can see is wrong while compiling is its compile error, raised here as the
+    /// type, named and through a Variant). For objects the class must match only for a named array; through a Variant any
+    /// object array is accepted (#999). What VB6 can see is wrong while compiling is its compile error, raised here as the
     /// statement runs: "Can't assign to array" for an array variable declared with another element type or a scalar whose
     /// type the statement itself shows, and "Invalid use of object" for `Nothing`. Anything else is 13, and the target is
     /// left as it was: Empty, Null, a number, a String, Nothing or an array of another type held by a Variant, or a call
@@ -1909,8 +1915,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// String variable or a Variant: "ab" is a Byte() 0 To 3 holding 97 0 98 0, and "" a Byte() 0 To -1 (measured).
     /// </para>
     /// </summary>
-    private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
+    private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context, string? declaredClass = null)
     {
+        // Object is not a wildcard in a named array assignment; through a Variant only the array type counts (#999).
+        if (value.Type == declared && value.Value is VBArray { ElementType: var element } source
+            && element == Vb6Value.ValueType.Object && IsDeclaredArrayVariable(context.valueStmt())
+            && !string.Equals(source.DeclaredClass, declaredClass, StringComparison.OrdinalIgnoreCase))
+            throw new VBCompileErrorException("Can't assign to array");
         if (value.Type == declared)
             return value;
         if (declared == ByteArray && value.Type == Vb6Value.ValueType.String)
@@ -2268,7 +2279,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 RefuseLetIntoObject(oldLet, identifier, context);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
-                value = ArrayStore(declaredReturn, value, context);
+                value = ArrayStore(declaredReturn, value, context, (oldLet.Value as VBArray)?.DeclaredClass);
             else if (currentEnv.TryGetVariableLocation(identifier, out var letLocation)
                      && interpreter.ExecutionContext.State.IsDeclaredArray(letLocation) && oldLet.Type.IsArray)
             {
@@ -2284,9 +2295,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 // A dynamic one takes what a Function declared with its type takes. The slot's array carries the declared
                 // type, since nothing else is ever stored there, and a ByRef parameter's is its caller's.
-                value = ArrayStore(oldLet.Type, value, context);
+                value = ArrayStore(oldLet.Type, value, context, (oldLet.Value as VBArray)?.DeclaredClass);
             }
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, interpreter.CopyForStore(value));
+            var stored = interpreter.CopyForStore(value);
+            if (IntoArray(context) && stored.Value is VBArray { ElementType: var storedElement } storedArray
+                && storedElement == Vb6Value.ValueType.Object)
+                storedArray.DeclaredClass = (oldLet.Value as VBArray)?.DeclaredClass;
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, stored);
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
             // that reference — release it (no-op unless the old value was an object). The new value is non-object
             // (guarded above), so no AddRef is needed.
@@ -2365,6 +2380,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 members = members[^1..];
             }
 
+            ExpressionExecutor.RequireMemberReceiver(variable, context);
+
             // A class instance member value-assign (`obj.Member = x`, no `Set`). A Property Let accessor wins
             // over a raw field write (the value coerces to the Let parameter's declared type inside the call);
             // otherwise write into the instance's own env slot (a UDT value is copied so the object owns it).
@@ -2428,6 +2445,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         static s => FormMembers.Write(s.Form, s.Name, s.Member, s.Value));
                     return default;
                 }
+                if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
+                    && string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+                    && !FormMembers.IsMember(fieldName, out _))
+                    throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
                 variable = await interpreter.Loading((Form: vobj, Member: fieldName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                     ? new Vb6Value(formWindow)
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
@@ -4634,6 +4655,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
                 return ControlFlow.Nothing;
             }
+            if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
+                && string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+                && !FormMembers.IsMember(identifier, out _))
+                throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             // A form's built-in method is its window's: `Me.Hide`, `Form1.Move 0, 0` (#822).
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)
@@ -4680,6 +4705,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return ControlFlow.Nothing;
         }
         var callArgs = await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall());
+        ExpressionExecutor.RequireMemberReceiver(value, context);
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
         {
