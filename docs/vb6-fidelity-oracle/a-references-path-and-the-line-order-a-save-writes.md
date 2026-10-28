@@ -97,6 +97,7 @@ synthetic project was saved twice:
 | `Object=`, `Reference=` ×2, `Form=` | **the same order** | `Reference=` ×2, `Object=`, `Form=` |
 | `Reference=`, `Object=`, `Reference=`, `Form=`, `Module=`, `Object=`, `IconForm=` | **the same order** | `Reference=` ×2, `Object=` ×2, `Form=`, `Module=`, `IconForm=` |
 | IIS Application: `Reference=` ×2, `Designer=`, `Reference=` | **the same order** | not run |
+| Data Project: `Reference=` ×3, `Object=` ×4, `Reference=` ×4, `Designer=` ×2, `Form=`, `Object=` | **the same order** | not run |
 
 So:
 - **A save with no edit writes every line where it was read.** That held for an `Object=` after the members, an
@@ -111,24 +112,31 @@ So:
 
 | Template | Change |
 |---|---|
-| All five | Every resolvable `Reference=` path rewritten from the registry and made relative, as above: the template's `..\VB\stdole2.tlb`, `D:\VB98\stdole2.tlb` and `..\..\..\..\..\VB6\stdole2.tlb` all became `..\..\Windows\SysWOW64\stdole2.tlb`. The description after the last `#` was kept as the file had it, a trailing space included |
+| All six | Every resolvable `Reference=` path rewritten from the registry and made relative, as above: the template's `..\VB\stdole2.tlb`, `D:\VB98\stdole2.tlb` and `..\..\..\..\..\VB6\stdole2.tlb` all became `..\..\Windows\SysWOW64\stdole2.tlb`. The description after the last `#` was kept as the file had it, a trailing space included |
 | DHTML Application | The library's path came from the registry even where the file name differed: `MSHTMPGD.DLL` became `...\designer\MSHTMPGR.DLL` |
 | ActiveX Document Dll | **The reference changed library:** `{BEF6E001-...}#2.0`, Standard OLE Types in `OLEPRO32.DLL`, was written as `{00020430-...}#2.0`, stdole2, with the description "Standard OLE Types" kept. It did so with `{BEF6E001-...}` registered and without it |
-| IIS Application | The ASP library, `{D97A6DA0-...}#2.0`, was not resolvable: only version 3.0 was registered, or none. Its line kept `#2.0#`, and its absolute path on the same drive was made relative: `C:\WINNT40\System32\inetsrvsp.dll` became `..\..\WINNT40\System32\inetsrvsp.dll` |
-| Activex Document Exe | **`Retained=0` added**, between `Unattended=0` and `ThreadPerObject=0`, where the template had none. The other four already had it |
+| IIS Application | The ASP library, `{D97A6DA0-...}#2.0`, was not resolvable: only version 3.0 was registered, or none. Its line kept `#2.0#`, and its absolute path on the same drive was made relative: `C:\WINNT40\System32\inetsrv\asp.dll` became `..\..\WINNT40\System32\inetsrv\asp.dll` |
+| Activex Document Exe | **`Retained=0` added**, between `Unattended=0` and `ThreadPerObject=0`, where the template had none. The other five already had it |
+| Data Project | **The reference changed library:** ADO 2.0, `{00000200-...}#2.0` in `msado15.dll`, was written as `{00000205-...}#2.5` in `msado25.tlb`, with the description "Microsoft ActiveX Data Objects 2.0 Library" kept. The Data Environment run time, unresolvable in the template, came back as the registered `..\..\Program Files (x86)\Common Files\designer\MSDERUN.DLL` |
 
 Every line not listed kept its text and its place, and each file kept its final CR LF.
 
-**Data Project could not be measured here.** VB6 reported "Error accessing the system registry" at its first `Object=`
-line, MSDatRep.ocx, and stopped loading at "Continue Loading Project?". A synthetic project with its late `mshflxgd.ocx`
-line gave the same error. The guest also lacks the Data Environment designer that its `DataEnv.Dsr` needs, and its run
-time. Both come from the VB6 media, and the licence keys for its data controls are the likeliest cause of the registry
-error, as with the MaskedEdBox (#1098). Before the load stopped, its ADO reference had been written as
-`{00000205-...}#2.5#0#...\msado25.tlb#Microsoft ActiveX Data Objects 2.0 Library`: the library and version the registry
-resolved, under the description the file had.
+**Data Project needed two things the oracle VM lacked, and only one of them was what this entry first said.** Its first
+loads stopped with "Error accessing the system registry" at its first `Object=` line, MSDatRep.ocx. This entry put that
+down to missing licence keys; it was elevation. VB6 was running unelevated, and a control it had never loaded before had
+no cached type information yet, which takes administrator rights to write. Loaded once from an elevated VB6, the same
+controls load unelevated from then on. The Data Environment designer that its `DataEnv.Dsr` needs was genuinely missing,
+and was added from the VB6 media with SP6 applied over it. Then the unedited save:
+- **kept its late `Object=` line, `mshflxgd.ocx` after the two `Designer=` lines and the `Form=` line, where it was read**,
+  and the four `Object=` lines between its references too. A plain Save Project wrote the same bytes as Save Project As;
+- changed only its `Reference=` lines, as in the table above.
+
+A save after a load that VB6 abandoned at the missing designer had dropped every line it never reached (`DataEnv.Dsr`,
+`frmDatEn.frm` and the late `Object=`), written `Startup="Sub Main"`, and written the `Object=` file names in capitals,
+`MSDATREP.OCX`, where the full load's save kept the file's own spelling. The capitals are recorded, not explained.
 
 **The saved files** are kept beside the templates in the round-trip corpus, outside this tree because they are derived
-from Microsoft's: `<template>.vbp.vb6-saved`, for the five templates above. That name keeps them out of the corpus's own
+from Microsoft's: `<template>.vbp.vb6-saved`, for all six templates. That name keeps them out of the corpus's own
 `*.vbp` search. Their `Reference=` paths are relative to the folder they were saved in on the oracle VM, two levels
 below `C:\`, so those fields can't be compared byte for byte from another folder or machine.
 
