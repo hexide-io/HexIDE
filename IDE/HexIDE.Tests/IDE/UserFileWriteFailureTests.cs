@@ -131,19 +131,30 @@ public sealed class UserFileWriteFailureTests : IDisposable
         await using var capture = new ConversationLog();
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(true);
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("conversation.jsonl"));
+        // The export asks before replacing an existing file (#2504); this test agrees, to reach the writer.
+        windows.MessageBox(default!).ReturnsForAnyArgs(MessageBoxResult.Yes);
         var vm = new ProtocolInspectorToolViewModel(capture, Substitute.For<ILocalizationService>(), new Pseudonymiser(), windows);
         await vm.ExportAsync();
         Preserved(target);
         vm.ExportStatus.Should().NotBeEmpty();
     }
 
+    // Each automation export has a directory of its own (#2504), so a failed write leaves an earlier export as it was,
+    // and no staging file behind.
     [Theory]
     [InlineData("hexide_lsp_conversation.jsonl")]
     [InlineData("hexide_lsp_conversation.manifest.json")]
-    public async Task AutomationExportPreservesEachTargetOnPartialWrite(string name)
+    public async Task AutomationExportFailsCleanlyAndLeavesEarlierExports(string name)
     {
-        var target = Target(name);
-        Fail(target);
+        var earlier = Target(name);
+        File.WriteAllText(earlier, "old bytes");
+        AtomicFileWriter.OpenStream.Value = path =>
+        {
+            if (!Path.GetFileName(path).StartsWith(name + ".", StringComparison.Ordinal))
+                return new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+            injected = true;
+            return new PartialFailureStream(path);
+        };
         await using var capture = new ConversationLog();
         using var context = new HexIDE.Desktop.Server.IdeContext(Substitute.For<IProjectManager>(),
             Substitute.For<IDocumentDockService>(), Substitute.For<HexIDE.Lsp.ILspClient>(), null!,
@@ -152,7 +163,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var tools = new HexIDE.Desktop.Server.HexIdeTools(context) { ConversationExportDirectory = root };
         Func<Task> export = () => tools.ExportLspConversationAsync(ct: TestContext.Current.CancellationToken);
         await export.Should().ThrowAsync<IOException>();
-        Preserved(target);
+        injected.Should().BeTrue("the export must reach the shared writer");
+        File.ReadAllBytes(earlier).Should().Equal("old bytes"u8.ToArray());
+        Directory.GetFiles(root, name + ".*.tmp", SearchOption.AllDirectories).Should().BeEmpty();
     }
 
     [Fact]

@@ -21,6 +21,11 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome". Misspelled
 `dump_visual_tree {"interactive_only": false}` now run with an explicit ignored-argument note and a suggestion
 of `interactiveOnly` (#1315); an omitted argument still uses its declared default.
 
+**Write-tool source audit (#2504, not a live probe).** The [file-safety audit](file-safety-audit.md)
+records missing disk recovery and project-root containment on source/property/control saves, with their
+entry points and remaining work. MCP conversation exports now preserve earlier exports; that fix does
+not close the other write-tool gaps. Tracked by [#2504](https://github.com/hexide-io/HexIDE/issues/2504).
+
 ---
 
 ## 3. Three tool calls while the IDE is down drop the tools until `/mcp` (narrowed 2026-10-12)

@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— الرد، {0} بايت —",
     "Str.Tool.ProtocolInspector.Copy": "نسخ بصيغة التتبّع",
     "Str.Tool.ProtocolInspector.Export": "تصدير المحادثة...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "هل تريد استبدال هذه الملفات الموجودة؟\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "تم تصدير {0} رسالة إلى {1}، مع ملف البيان في {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "لم يكتمل التصدير: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "ما يخرج تُستبدل أسماؤه بأسماء مستعارة.",
