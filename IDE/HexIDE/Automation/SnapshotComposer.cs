@@ -44,11 +44,12 @@ public static class SnapshotComposer
     }
 
     /// <summary>
-    /// A capture: the image, where the window's origin lies in it, the popups it left out, each with why, and, when the
-    /// compositor drew nothing in time, a note on the fallback that drew it instead.
+    /// A capture: the image, where the window's origin lies in it, the popups it left out, each with why, when the
+    /// compositor drew nothing in time, a note on the fallback that drew it instead, and, for a frame capture copied from
+    /// the screen, a note on what covers it.
     /// </summary>
-    public sealed record Snapshot(Bitmap Image, PixelPoint WindowOffset, IReadOnlyList<LeftOutPopup> LeftOut, string? Fallback)
-        : IDisposable
+    public sealed record Snapshot(Bitmap Image, PixelPoint WindowOffset, IReadOnlyList<LeftOutPopup> LeftOut, string? Fallback,
+        string? Frame = null) : IDisposable
     {
         public void Dispose() => Image.Dispose();
     }
@@ -64,6 +65,33 @@ public static class SnapshotComposer
         if (windowRect.Width <= 0 || windowRect.Height <= 0)
             return null;
 
+        var (placements, noArea, screens) = PopupPlacements(window, scaling);
+        var snapshot = await ComposeAsync(window, windowRect, placements, scaling, screens);
+        return noArea.Count > 0 ? snapshot with { LeftOut = [.. noArea, .. snapshot.LeftOut] } : snapshot;
+    }
+
+    /// <summary>
+    /// <paramref name="window"/> with its title bar and frame, as Windows renders it even where another window covers it
+    /// (#2182), and every open popup drawn over it as <see cref="CaptureAsync"/> draws them; or why it can't be captured.
+    /// </summary>
+    public static async Task<(Snapshot? Snapshot, string? Error)> CaptureFrameAsync(Window window)
+    {
+        if (NativeWindowFrame.Capture(window, out var error) is not { } frame)
+            return (null, error);
+        var scaling = window.DesktopScaling;
+        var client = new PixelRect(frame.ClientOrigin, PixelSize.FromSize(window.ClientSize, scaling));
+        var (placements, noArea, screens) = PopupPlacements(window, scaling);
+        var snapshot = await ComposeAsync(window, client, placements, scaling, screens, (frame.Image, frame.Frame));
+        return (snapshot with { LeftOut = [.. noArea, .. snapshot.LeftOut], Frame = frame.Note }, null);
+    }
+
+    /// <summary>
+    /// Where each open popup of <paramref name="window"/> is on screen, those with no area to draw, and the screens' bounds,
+    /// null where the platform reports none with an area.
+    /// </summary>
+    private static (List<(Visual Visual, PixelRect Rect)> Placements, List<LeftOutPopup> NoArea, IReadOnlyList<PixelRect>? Screens)
+        PopupPlacements(Window window, double scaling)
+    {
         var popups = new List<TopLevel>();
         CollectOpenPopupRoots(window, window, popups);
 
@@ -82,8 +110,7 @@ public static class SnapshotComposer
 
         // Where the platform reports no screens, or only ones with no area, none rules a popup out.
         var screens = window.Screens?.All.Select(s => s.Bounds).Where(b => b.Width > 0 && b.Height > 0).ToList();
-        var snapshot = await ComposeAsync(window, windowRect, placements, scaling, screens is { Count: > 0 } ? screens : null);
-        return noArea.Count > 0 ? snapshot with { LeftOut = [.. noArea, .. snapshot.LeftOut] } : snapshot;
+        return (placements, noArea, screens is { Count: > 0 } ? screens : null);
     }
 
     /// <summary>
@@ -103,15 +130,17 @@ public static class SnapshotComposer
     private static string KindOf(Visual popup) =>
         popup is ContentControl { Content: Control content } ? content.GetType().Name : popup.GetType().Name;
 
-    // Explicit screen rectangles let headless tests exercise desktop composition without overlay popups.
+    // Explicit screen rectangles let headless tests exercise desktop composition without overlay popups. A window already
+    // drawn, as a frame capture is, comes as 'drawn', the image and the screen rectangle it shows, and is not drawn again.
     internal static async Task<Snapshot> ComposeAsync(Visual window, PixelRect windowRect,
-        List<(Visual Visual, PixelRect Rect)> placements, double scaling, IReadOnlyList<PixelRect>? screens = null)
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, IReadOnlyList<PixelRect>? screens = null,
+        (Bitmap Image, PixelRect Rect)? drawn = null)
     {
         // A popup on no screen is not on screen, so a picture of what is on screen leaves it out. One that would make
         // the image too big to allocate is left out too, rather than costing the whole snapshot. Either is named. The
         // extent is reckoned in longs: a rectangle's right edge is an Int32, and a popup's own size can be the largest
         // one, which is what a cast from an infinite size gives.
-        var canvas = windowRect;
+        var canvas = drawn?.Rect ?? windowRect;
         var dropped = new List<LeftOutPopup>();
         placements = placements.Where(p =>
         {
@@ -136,12 +165,17 @@ public static class SnapshotComposer
         var fellBack = new List<string>();
 
         // The window as it is drawn, when nothing is composed around it.
-        if (windowOffset == default && placements.Count == 0)
+        if (drawn is { } alone && placements.Count == 0)
+            return new Snapshot(alone.Image, windowOffset, dropped, null);
+        if (drawn is null && windowOffset == default && placements.Count == 0)
             return new Snapshot(await DrawnAsync(window, windowRect.Size, scaling, fellBack), windowOffset, dropped,
                 FallbackNote(fellBack));
 
-        placements.Insert(0, (window, windowRect));
         var pieces = new List<(Bitmap Piece, PixelRect Rect)>();
+        if (drawn is { } first)
+            pieces.Add(first);
+        else
+            placements.Insert(0, (window, windowRect));
         try
         {
             foreach (var (visual, rect) in placements)

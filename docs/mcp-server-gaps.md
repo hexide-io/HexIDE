@@ -650,28 +650,6 @@ for a running form's Frame, PictureBox, Label and Image.
 author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
 discovery gap remains open.
 
-## No tool can see a running form's frame
-
-**Symptom (2026-10-23, #1575, Windows, Debug).** A change to a running form's window, its border, caption bar and
-buttons, could not be checked through the tools. `take_snapshot(window: "B3x1")` on a running Fixed Dialog returned
-a 252 × 150 image at scale 1.5: the form's 168 × 100 client area, with no caption bar, border or buttons.
-`inspect_element(target: "Window", window: "B3x1")` returned `boundingRect [0,0,168,100]`, `providers []` and
-`dataContextMembers []`, and nothing about whether the window can be resized, its decorations, its buttons or whether
-it is a tool window.
-
-**Workaround.** From outside the IDE: `GetWindowLong` with `GWL_STYLE` and `GWL_EXSTYLE` through a PowerShell
-P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
-real caller uses.
-
-**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
-`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
-There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
-explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
-This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
-
-**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
-the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
-
 ## No tool says which control has the focus, and `press_key` moves it there
 
 **Symptom (2026-10-23, #1583, Windows).** On a running form with Text1 focused, whose program logs every GotFocus,
@@ -723,28 +701,16 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-## `open_file` can't put the caret in a carried file
+## `take_snapshot` of a minimized window returns its last frame as if current
 
-**Symptom (2026-10-27, Windows, #1334's live check).** `open_file {"name":"twice.c","line":3,"column":27}`, on a
-project carrying `twice.c`, answered `{"success":false,"error":"'twice.c' is a carried file, which opens in the
-plain-text editor, where this does not put the caret; nothing was opened"}`. The refusal is deliberate: #700 placed the
-caret in the code window only.
+**Symptom (2026-10-27, Windows, #1925's minimized check).** After `set_window_state {"state":"Minimized","window":"Form1"}`
+had run the form's Resize, `take_snapshot {"window":"Form1"}` returned a 450×300 image, with the usual client
+`captureArea`, whose label read `resize 1, activate 1, state 0`: the form before it minimized. Restored, it read
+`resize 3`. A minimized window draws no new frames, and the compositor capture (#2306) returns the last one.
 
-**Workaround.** `open_file` with no `line`, then walk the caret there with `press_key`: Ctrl+Home, Down per line, End or
-Right. That is a call per keystroke, and a wrapped line or a refused key misplaces it.
+**Workaround.** Restore the window with `set_window_state` before capturing it, and treat a capture of a minimized
+window as stale.
 
-**Suggested fix.** Place the caret in the carried-file editor, an AvaloniaEdit `TextEditor` like the code window's, with
-`CaretPlacement.Place` and the same rules, and read it back in the note. If a carried file must be treated differently,
-open it and say so, rather than refuse and open nothing. [#2403](https://github.com/hexide-io/HexIDE/issues/2403).
-
-## `press_key` with a character key types nothing
-
-**Symptom (2026-10-27, Windows, #2422's live check).** `press_key {"target":"Window/Edit[Text1]","key":"K",
-"modifiers":"Shift","window":"Form1"}` on a running TextBox logged `D16/1 D75/1 U75/1 U16/0`: no KeyPress, and no
-text. The oracle puts KeyPress 75 between the KeyDown and KeyUp, and a person's press types K. The reply, `pressed
-Shift+K`, does not say nothing was typed. The raw key events carry no text, which a platform sends separately.
-
-**Workaround.** `type_text` with `mode: "keyboard"`, which logged `D16/1 D75/1 P75 U75/1 U16/0`.
-
-**Suggested fix.** Type the key's character between its KeyDown and KeyUp when it types one, as `type_text` does; or
-say in the reply that nothing was typed and name `type_text`. [#2428](https://github.com/hexide-io/HexIDE/issues/2428).
+**Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
+`set_window_state`; or render it fresh and say so. Never present the last frame as current.
+[#2416](https://github.com/hexide-io/HexIDE/issues/2416).

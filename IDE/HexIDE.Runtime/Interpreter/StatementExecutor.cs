@@ -971,6 +971,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (collection.Value is VBArray { ElementType: var elementType } && elementType == Vb6Value.ValueType.UserDefinedType)
             throw new VBCompileErrorException("For Each may not be used on array of user-defined type or fixed-length strings");
 
+        if (collection.Value is Components.InBox.TabStripTabs tabs)
+        {
+            var snapshot = tabs.Owner.Model.Tabs.ToArray();
+            var at = 0;
+            return await ForEachItem(context, varName, (out Vb6Value item) =>
+            {
+                if (!snapshot.SequenceEqual(tabs.Owner.Model.Tabs))
+                    throw TabStripMembers.Refused("collection mutation during For Each");
+                item = at < snapshot.Length ? new Vb6Value(tabs.Wrap(snapshot[at++])) : default;
+                return at <= snapshot.Length && item.Value is not null;
+            }, () => { });
+        }
         if (collection.Value is VbCollection items)
         {
             var cursor = items.StartEnumeration();
@@ -1936,6 +1948,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } selectionTarget
+            && selectionTarget.iCS_S_MemberCall().LastOrDefault() is { } lastSelection
+            && UdtFieldName(lastSelection).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
+            && value.Value is Components.InBox.TabStripTab)
+            return value;
         // #1485/#878: only the measured direct temporary / App forms clear a Variant on a failed
         // default-value read. Keep the original exception, including its number and message.
         try
@@ -2343,6 +2360,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
+            if (members[0].iCS_S_ProcedureOrArrayCall() is { } tabStripCall && tabStripCall.argsCall().Length == 1)
+            {
+                var tabName = UdtFieldName(members[0]);
+                if (variable.Value is VBTabStrip tabStrip && tabName.Equals("Tabs", StringComparison.OrdinalIgnoreCase))
+                {
+                    var indexes = await expressionExecutor.EvaluateCallArgs(tabStripCall.argsCall(0));
+                    if (indexes.Count != 1)
+                        throw TabStripMembers.Refused("Tabs index arguments");
+                    tabStrip.Model.Item(indexes[0]).Caption = Components.InBox.TabStripTabs.Text(value);
+                    return default;
+                }
+                if (variable.Value is Components.InBox.TabStripTabs tabCollection && tabName.Equals("Item", StringComparison.OrdinalIgnoreCase))
+                {
+                    var indexes = await expressionExecutor.EvaluateCallArgs(tabStripCall.argsCall(0));
+                    if (indexes.Count != 1)
+                        throw TabStripMembers.Refused("Tabs index arguments");
+                    tabCollection.Owner.Model.Item(indexes[0]).Caption = Components.InBox.TabStripTabs.Text(value);
+                    return default;
+                }
+            }
+
             if (variable.Value is VBSSTab tab && SSTabMembers.IsIndexed(UdtFieldName(members[0]))
                 && members[0].iCS_S_ProcedureOrArrayCall() is { } tabItem && tabItem.argsCall().Length == 1)
             {
@@ -2350,7 +2388,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await expressionExecutor.EvaluateCallArgs(tabItem.argsCall(0)), value);
                 return default;
             }
-
             // A list's List(i) = text and a ListBox's Selected(i) = b, the control members here that take an index (#821,
             // #1395).
             if (variable.Value is Control listControl && ListMembers.IsList(listControl)
@@ -2397,6 +2434,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
                 };
 
+            if (await TabStripMembers.Set(variable.Value, memberIdentifier, value, interpreter, currentModule, currentEnv))
+                return default;
             if (members[0].iCS_S_ProcedureOrArrayCall() is { } toolbarCall && toolbarCall.argsCall().Length == 1)
             {
                 ToolbarItems? collection = variable.Value switch
@@ -3328,6 +3367,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             IModuleExecutionRoot? evtRoot = null;
             if (evtListener != null && value.Value is Control heldControl)
             {
+                if (heldControl is VBTabStrip)
+                    throw TabStripMembers.Refused("WithEvents");
                 if (VBProps.GetIndex(heldControl) is not null)
                     throw new VBRunTimeException(context, VBStandardError.ThisComponentDoesntSupportTheSetOfEvents);
                 evtRoot = evtListener.FormWindow as IModuleExecutionRoot
@@ -3381,6 +3422,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBTabStrip or Components.InBox.TabStripTab
+                && membersCall.iCS_S_MemberCall() is { Length: > 0 } tabMembers)
+            {
+                var receiver = tabMembers.Length == 1 ? target
+                    : await expressionExecutor.ResolveMemberChain(target, tabMembers[..^1], 0, context);
+                var tabName = UdtFieldName(tabMembers[^1]);
+                if (await TabStripMembers.Set(receiver.Value, tabName, value, interpreter, currentModule, currentEnv))
+                    return default;
+                if (receiver.Value is Components.InBox.TabStripTab tab && tab.TrySetProperty(tabName, value))
+                    return default;
+            }
             if (setLead && target.Value is VBTreeView treeView
                 && membersCall.iCS_S_MemberCall().Length == 1
                 && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))

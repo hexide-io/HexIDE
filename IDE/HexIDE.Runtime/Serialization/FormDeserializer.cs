@@ -89,6 +89,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
@@ -118,6 +119,7 @@ public class FormDeserializer
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
+            TabStripPersistence.Validate(rootComponent);
             headerLines = vb.HeaderLines;
             designerText = vb.DesignerText;
             // The parser no longer reports a raw Begin depth. It counted every Begin without knowing what
@@ -572,6 +574,15 @@ public class FormDeserializer
                 capturedBlobs.UnionWith(records.Values);
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
+            }
+            if (componentClass is Components.InBox.TabStripComponentClass)
+            {
+                instance.SetProperty(TabStripPersistence.SavedProperty, serializedComponent);
+                if (!TabStripPersistence.CanWrite(serializedComponent)
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentX") is not int
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentY") is not int)
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnimplementedControlPersistence,
+                        "TabStrip persistence is not implemented (#1089).");
             }
             // An in-box control is written back under the type name it was read under, and with the extents it was read with
             // until it is sized (#1082).
