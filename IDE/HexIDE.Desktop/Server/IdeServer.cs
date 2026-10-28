@@ -76,6 +76,9 @@ internal static class IdeServer
         // Only now: this line used to be written before the bind was attempted, so a port already in use
         // left a log that said the server was listening.
         Log.Information("HexIDE MCP server listening on http://localhost:{Port}", port);
+        // And on screen, in the status bar, for the same reason (#2451).
+        HexIDE.Automation.AutomationServerStatus.Current.Listening(port, session, ToolFailures.WithoutProfile(
+            AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
         await app.WaitForShutdownAsync(ct);
     }
 }

@@ -35,6 +35,9 @@ public static class VBProperties
 
     public static PropertyClass<string?> ToolTipTextProperty = new PropertyClass<string?>("ToolTipText", "The tooltip shown when the pointer rests on the control.", PropertyCategory.Misc);
 
+    public static readonly PropertyClass<int> HelpContextIDProperty = new PropertyClass<int>("HelpContextID",
+        "The context number of the object's help topic.", PropertyCategory.Misc);
+
     public static PropertyClass<int> WhatsThisHelpIdProperty = new PropertyClass<int>("WhatsThisHelpID", "A context number that links the object to a help topic.", PropertyCategory.Misc);
 
     public static PropertyClass<VBFont> FontProperty = new PropertyClass<VBFont>("Font", "The font used for the object's text.", PropertyCategory.Appearance, VBFont.Default);
