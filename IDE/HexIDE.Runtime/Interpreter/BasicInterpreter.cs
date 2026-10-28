@@ -17,6 +17,9 @@ public interface IBasicStandardLibrary
 
     /// <summary>Where SaveSetting and GetSetting keep a program's settings (#1562): see <see cref="VbSettingsStores"/>.</summary>
     IVbSettingsStore Settings => throw new NotImplementedException("This host does not keep a program's settings (#1562)");
+
+    /// <summary>The screen the <c>Screen</c> object describes (#2431): see <see cref="IVbDisplay"/>.</summary>
+    IVbDisplay Display => throw new NotImplementedException("This host has no screen for the Screen object to describe (#2431)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
@@ -590,6 +593,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? formModules = null,
         CompilationConstants? compilationConstants = null)
     {
+        Err = new VbErr(() => ProjectName);
         ExecutionContext = executionContext;
         this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
@@ -675,6 +679,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
     public VbApp App { get; private set; } = new(AppInfo.None);
 
+    private VbScreen? screen;
+
+    /// <summary>
+    /// The program-global <c>Screen</c> object (#2431). Not a seeded variable, as <c>App</c> is: like <c>Clipboard</c>, the
+    /// name is reached only where nothing the program declares claims it, so a user's <c>Function Screen</c> or
+    /// <c>Dim Screen</c> still wins, and the Locals window does not list it.
+    /// </summary>
+    public VbScreen Screen => screen ??= new VbScreen(this, stdLib);
+
+    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431).</summary>
+    internal Vb6Value? UnclaimedLibraryObject(string name) =>
+        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen) : (Vb6Value?)null;
+
     /// <summary>
     /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program
     /// with no project behind it (the test harness, the bare interpreter) keeps <see cref="AppInfo.None"/>
@@ -682,6 +699,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public void SetAppInfo(AppInfo info)
     {
+        if (info.ProjectName is { } name)
+            ProjectName = name;
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
@@ -691,7 +710,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>The program-global <c>Err</c> object. Shared with the <c>Err</c> slot in every module env (see
     /// <see cref="SeedProgramGlobal"/>), so runtime error traps and user <c>Err.Number</c> reads see one state.</summary>
-    public readonly VbErr Err = new();
+    public readonly VbErr Err;
 
     // What a module's #If can name besides its own #Consts: the project's arguments and the built-ins (#1112).
     private readonly CompilationConstants compilationConstants;

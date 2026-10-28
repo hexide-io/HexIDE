@@ -174,6 +174,9 @@ public abstract class BaseVBTestFixture
     {
         public IVbSettingsStore Settings => settings ?? throw new NotImplementedException("This test keeps no settings (#1562)");
 
+        /// <summary>The screen of the oracle's probes, 1024 by 768, with four fonts in a fixed order (#2431).</summary>
+        public IVbDisplay Display => TestDisplay.Instance;
+
         public void DebugWrite(string text)
         {
             if (written is not null)
@@ -228,4 +231,13 @@ public abstract class BaseVBTestFixture
             lock (debug) debug.Add(value);
         }
     }
+}
+/// <summary>The screen the Runtime tests' programs see (#2431): the oracle probes' 1024 by 768, and four fonts in a fixed order.</summary>
+internal sealed class TestDisplay : IVbDisplay
+{
+    public static readonly TestDisplay Instance = new();
+
+    public Avalonia.Size Size => new(1024, 768);
+
+    public IReadOnlyList<string> Fonts { get; } = ["System", "Arial", "Courier New", "Times New Roman"];
 }

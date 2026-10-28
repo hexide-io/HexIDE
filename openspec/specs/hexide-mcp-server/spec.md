@@ -28,6 +28,16 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 - **WHEN** the target list or tree row is not selected
 - **THEN** the selection remains unchanged and the reply says the target was not selected
 
+### Requirement: Inspection SHALL give the text of every item a list holds
+`inspect_element` on a list, an open dropdown or a tab control SHALL give `items`, the text of each item as `select`
+matches it, including items whose rows are scrolled out of view, and SHALL leave the list where it was. It SHALL
+leave out items that do not show, and list at most 200, with `itemsNote` saying what was left out. For a dropdown
+that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it; it SHALL NOT open it.
+
+#### Scenario: Options' Language dropdown
+- **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
+- **THEN** `items` gives all 31 texts, and `select` takes any of them as written
+
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
@@ -544,6 +554,14 @@ the text SHALL be filled with the theme's highlight while a call runs, and SHALL
 - **WHEN** a call from another session is refused
 - **THEN** hovering over the section counts it and names the session it named, and it is not shown as the last call
 
+
+### Requirement: A snapshot SHALL NOT present a minimized window's last frame as current
+The default capture SHALL refuse a minimized window, as the frame capture does, naming the window and how to restore
+it with `set_window_state`, and SHALL capture nothing in its place.
+
+#### Scenario: A form minimized after its Resize changed its label
+- **WHEN** a running form is minimized with `set_window_state` and `take_snapshot` is asked for it
+- **THEN** it is refused, naming the form and the `set_window_state` call that restores it, and no image is written
 
 ### Requirement: Snapshots identify the title and capture area
 

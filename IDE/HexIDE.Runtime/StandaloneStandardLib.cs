@@ -85,6 +85,9 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     public ITextClipboard Clipboard => new AvaloniaTextClipboard(() => _parent.Clipboard);
     public IVbSettingsStore Settings => VbSettingsStores.ForThisUser();
 
+    private AvaloniaInterop.AvaloniaDisplay? display;
+    public IVbDisplay Display => display ??= new AvaloniaInterop.AvaloniaDisplay(() => _parent);
+
     /// <summary>A CommonDialog's Open or Save As (#1084), as the platform's own picker over the program's window.</summary>
     public async Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request)
     {
