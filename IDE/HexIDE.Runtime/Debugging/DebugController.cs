@@ -136,6 +136,9 @@ public sealed class DebugController : IDebugController
         _anyWatchBreaks = merged.Count > 0;
     }
 
+    public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
+        => MatchesBreakpoint(line, module) ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
+
     public ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame)
     {
         if (_isAborting)
@@ -195,6 +198,10 @@ public sealed class DebugController : IDebugController
     /// as <see cref="EvaluateAsync"/> — runs on the UI thread while the walk is suspended.</summary>
     public async Task<DebugEvalResult?> EvaluateWatchAsync(string expression)
         => _state == DebugState.Paused && _currentFrame is { } f ? await f.EvaluateTypedAsync(expression) : null;
+
+    public async Task<DebugEvalResult?> EvaluateScopedWatchAsync(string expression, string context)
+        => _state == DebugState.Paused && _currentFrame is { } f
+            ? await f.EvaluateScopedWatchAsync(expression, context) : null;
 
     /// <summary>The Call Stack (deepest/current frame first), or empty when not in Break mode.</summary>
     public IReadOnlyList<CallStackFrame> GetCallStack()

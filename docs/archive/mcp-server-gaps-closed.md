@@ -9,6 +9,703 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `interact`'s `click` pressed without moving the pointer there, so a program's MouseMove never ran from one — **CLOSED** (#2407, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's TreeView recheck, on #2353).** `click` raised a press and a release at the point,
+and no move first, so a running form's MouseMove never fired from a click. A person's click always arrives with the
+pointer having moved onto the control. A live check of a control's event order, MouseMove, MouseDown, MouseUp,
+Click, couldn't be made with `click` alone, and the recheck had to `hover` at the same points to get MouseMove at all.
+
+**Fixed (#2407).** `click` raises a `PointerMoved` on the element it presses, at the point, before the press, on its own
+pointer. That is the route a running form's MouseMove is raised from. A click where the last click left the pointer in
+that window moves nothing first, as a still pointer sends no move; a hover's end takes the pointer out of the window,
+so the next click arrives again. A double click's second press already moved nothing. The reply ends `the pointer moved
+there first, as a person's does` or `the pointer was already there from the last click, so it did not move first`.
+Guarded by `InteractClickTests` and `MouseEventTests`. The oracle's mouse probes logged no MouseMove, so whether VB6
+raises others around a click is unmeasured: #2412.
+
+**Live, against a real pointer (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+A twips form logged each mouse event into a label: `cMM`, `cMD`, `cMU` and `cC` for Command1's MouseMove, MouseDown,
+MouseUp and Click, and `fMM`, `fMD`, `fMU` and `fC` for the form's.
+
+| Input | Windows, through `click` | Linux under WSLg, through `click` | Linux, real X input from `xdotool` |
+|---|---|---|---|
+| click on Command1 | `cMM cMD cC cMU` | `cMM cMD cC cMU` | `cMM cMD cC cMU` |
+| click on the form at (333, 200) | `fMM fMD fMU fC` | `fMM fMD fMU fC` | `fMM fMD fMU fC` |
+| the same click again | `fMD fMU fC` | `fMD fMU fC` | `fMD fMU fC` (and `cMD cC cMU` on Command1) |
+
+- **The real pointer.** `xdotool mousemove` then `click 1`, so the X server's own input reached Avalonia's X11
+  backend. With the form not yet active, the first real click on Command1 gave `cMM` alone, as the window manager took
+  the press to activate the form; with it active, it gave the row above.
+- **Windows.** The real-pointer column couldn't be measured there: the session was locked, and posted mouse messages
+  don't reliably reach Avalonia's input on this host, as an earlier entry found. Three posted clicks left one
+  `fMM fMD fMU fC`, which says nothing either way.
+
+## `answer_next_file_dialog` armed one path, so a multi-select Open could not be answered with several files — **CLOSED** (#2408, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's live check of #2395, the CommonDialog).** A ShowOpen with AllowMultiselect and
+Explorer (`Flags = &H80200`) had to return two files, as in the oracle's row where `"a.txt" "b.txt"` is typed and
+FileName comes back as the folder, Chr(0), `a.txt`, Chr(0), `b.txt`. No call could give that answer.
+`answer_next_file_dialog(path: "<folder>\a.txt")` armed one path, which the Open picker returned as a one-element
+list. Calling it twice armed two answers, each spent by its own dialog, so the second went to the next picker rather
+than to the same pick. Only a person or the headless tests could reach a program's multi-file result. The IDE's own
+Add File, which allows several, had the same limit.
+
+**Fixed (#2408).** `answer_next_file_dialog` takes `paths`, every file of one answer in order, beside `path`; the reply
+lists them in `paths`. Only an Open that allows several takes them all. A save, or an Open that takes one file, answers
+the answer as cancelled, not with its first file, which no person could have chosen there; the answer is spent all the
+same, so it cannot redirect a later dialog. The save's own reply fails and says so. Where nothing replies for the
+dialog, as with a single-select Open from a menu or a running program, the next `answer_next_file_dialog` or
+`clear_file_dialog_answers` reply does, once. Both `path` and `paths`, an empty `paths` or a blank entry is refused, with
+nothing armed. Guarded by `ScriptedFileDialogsTests` and `AnswerNextFileDialogPathsTests`. A program's multi-file
+FileName is #2395's to format; this gives it the files.
+
+**Live (2026-10-27, a Debug build of the fix, headless `claude -p` through the hexide tools, a new Standard EXE).**
+
+- **Add File with two files.** `answer_next_file_dialog {"paths":["…\\Alpha.bas","…\\Beta.bas"]}`, then
+  `invoke_menu_item {"path":"Project/Add File"}`: `get_project_info` listed `"modules":["Alpha","Beta"]`, and
+  `clear_file_dialog_answers` then said `Nothing was armed.`
+- **A save.** `add_file` a module Gamma, arm two paths, then `set_file_content` Gamma: `{"success":false,"error":"The
+  new code is in the IDE. Module 'Gamma' still has no file: the save picker answered as cancelled, because the armed
+  answer named several files and it takes one (answer_next_file_dialog's paths is for an Open that allows several), so
+  nothing was written. …"}`, re-checked against the final build. The `clear_file_dialog_answers` after it said
+  `Nothing was armed.`: the save took the answer, and its reply had already reported the refusal.
+- **An Open that takes one file, from a menu.** Arm two paths, then `invoke_menu_item {"path":"Run/Start External
+  Debug Session"}`, which replied only `Invoked`. The next `answer_next_file_dialog {}` said `The next file dialog will
+  answer as cancelled. Earlier, an Open picker that takes one file took an answer of 2 paths, which it cannot take, so
+  it answered as cancelled.`
+- **Refused at arming.** `path` and `paths` together: `Pass path for one file or paths for several, not both.`; `paths`
+  empty: `paths must name at least one file, and none of them blank. …`; both with `Nothing was armed.`
+
+## `press_key` and `type_text` pressed a modified key without the modifier's own KeyDown and KeyUp — **CLOSED** (#2422, 2026-10-27)
+
+**Symptom (2026-10-27, hexide-frm's live check of #2418, the TextBox key events).** `press_key` with `modifiers`, and
+`type_text` in keyboard mode, sent the key with its modifiers as flags and never the modifier's own key. A person's
+Shift+K is Shift down, K down, K up, Shift up. The oracle's TextBox key table measures that pair, Shift 16, Ctrl 17
+and Alt 18 with mask 1, 2 or 4 while held and mask 0 on their own release, and none of it could be driven:
+`press_key(key: "A", modifiers: "Ctrl")`, `press_key(key: "X", modifiers: "Alt")` and
+`type_text(text: "K", mode: "keyboard")` each raised the main key's events alone. The keyboard twin of #2407.
+
+**Fixed (#2422).** Each modifier's own key goes down before the key, in the order Ctrl, Shift, Alt, Meta, holding
+what is down so far, and up after it in reverse, holding what is still down. The window input, the routed fallback
+and `type_text`'s keyboard mode all send the same chord. A modifier pressed alone reports itself held going down and
+not coming up, as Windows reports it. The replies name the keys: `pressed Shift+K; LeftShift went down before K and
+up after it, as a person holds it`, and `type_text`'s `LeftShift went down before the capital and up after it`.
+Guarded by `ModifierKeyChordTests`. A press of a key with nothing typed, such as Shift+K through `press_key`, is
+#2428.
+
+**Live (2026-10-27, Windows, a Debug build of this branch merged locally with #2418, headless `claude -p` through the
+hexide tools).** Text1's KeyDown, KeyPress and KeyUp each logged a token: `D<KeyCode>/<Shift>`, `P<KeyAscii>`,
+`U<KeyCode>/<Shift>`.
+
+| Call | Logged | The oracle |
+|---|---|---|
+| `press_key` K, `modifiers` Shift | `D16/1 D75/1 U75/1 U16/0` | the same, with KeyPress 75 before the KeyUp: #2428 |
+| `press_key` A, `modifiers` Ctrl | `D17/2 D65/2 P1 U65/2 U17/0` | KeyCode 65, KeyAscii 1 |
+| `press_key` X, `modifiers` Alt | `D18/4 D88/4 U88/4 U18/0` | KeyCode 88, no KeyPress |
+| `press_key` LeftShift | `D16/1 U16/0` | Shift 16, mask 1 held and 0 on release |
+| `type_text` "Kk", keyboard mode | `D16/1 D75/1 P75 U75/1 U16/0 D75/0 P107 U75/0` | K and k both 75, KeyAscii 75 and 107 |
+
+---
+
+## `set_window_state` reached only the IDE's own window — **CLOSED** (#2357, 2026-10-27)
+
+**Symptom.** `set_window_state` and `get_window_state` took no `window` and acted on the IDE's main window only, and no
+tool minimized, restored, moved or resized any other window. A running form's `Form_Resize`, a `WindowState` read in a
+Timer, and a layout that depends on the form's size couldn't be driven through the tools, and neither could a tool's own
+handling of a minimized window. Found twice. #1925's live check couldn't try `includeFrame`'s refusal for a minimized
+form. #2182's needed a form moved partly off the desktop and did it with `SetWindowPos` from a harness, which bypasses
+the surface being checked.
+
+**Fixed (#2357).** Both tools take the tree tools' `window`, and act on the IDE's own window when it is omitted, as
+before. The reply's `name` is what reaches the window again: `ide`, a running form's name, or a window's title.
+
+- **As a person does it.** Another window changes through the same Avalonia properties its caption buttons and frame
+  set, so a running form's Resize and Activate run as they do for a click. The reply waits for the program, as
+  `interact`'s does, then reads the window again.
+- **What a person couldn't do is refused**, with nothing changed:
+  - a state the window has no box for (a form's MinButton, MaxButton, ControlBox and BorderStyle decide);
+  - a size for a fixed border, where `x` and `y` alone still move it;
+  - any change to a disabled window or one under a modal dialog, through the refusal `interact` uses.
+- **An unknown name** is refused, listing the open windows. The message says the IDE's window is the default here, where
+  the tree tools' says `auto` is.
+
+Guarded by `WindowStateOtherWindowTests` and `ForegroundWindowTests`.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of the fix, headless `claude -p` through the hexide tools).** Form1
+(Sizable) counted its Resize and Activate into a label. Form2 was a Fixed Dialog with no minimize or maximize box.
+
+- **Omitted `window`.** `get_window_state {}` gave `{"state":"Normal","x":-11,"y":-11,"width":1280,"height":649,"name":"ide"}`,
+  as before, apart from `name`.
+- **Form1, from `resize 1, activate 1`.**
+  - Minimize answered `"state":"Minimized","x":-32000,"y":-32000`.
+  - Restore: `resize 3, activate 2, state 0, width 4500`.
+  - Maximize: `resize 6, activate 2, state 2, width 19200`.
+  - Normal at `x 200, y 150, width 500, height 300`: `resize 11, activate 2, state 0, width 7500`, at the position and
+    size asked for.
+- **Form2.**
+  - Minimize was refused: `'Form2' has no minimize box, so a person can't minimize it. …`.
+  - `width: 400` was refused: `'Form2' has a fixed border, so a person can't resize it; …`.
+  - `x: 700, y: 200` moved it.
+- **Form1 under the program's MsgBox.** Minimize was refused: `'Form1' is in a window a modal dialog has disabled:
+  'WinState' (a message box: "Hold", OK). …`. Once the MsgBox was answered, the same call minimized the form, a second
+  one found it minimized by name, and Normal restored it. The first run named the form by its class, `VBFormRuntime`,
+  which is fixed.
+- **An unknown name.** `get_window_state {"window":"Nope"}` answered `Unknown window 'Nope'. Use "ide" (the default
+  here: …), "auto" (…), or the name or title of an open window: Form2 ("Fixed"), Form1 ("Resize probe"). …`.
+- **The same changes from a person's caption buttons**, sent as the `WM_SYSCOMMAND` a click sends, gave the same
+  Resize counts as the tool's:
+  - maximize and restore from maximized, three each;
+  - minimize and restore from minimized, one each, with one Activate on the restore.
+
+  Three for a maximize is the runtime's own behaviour whichever route it comes by: #2389.
+
+## The code window's completion description: desktop snapshot composition needed a live check — **CLOSED** (#1334, 2026-10-27)
+
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+
+**Fixed in code, with headless regression tests (#1678).** The dump reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and commits it through the list's own commit path. The snapshot composer discovers the
+description's top-level root by the same route and composes it after the list, which headless rendering can't prove:
+a headless popup renders in the window's own overlay.
+
+**Why the check took a foreign server.** The bundled VB6 server sends no `detail` on any completion item, so with it
+alone no item has a description, and the tooltip never shows. The carried-file editor asks no server for completion
+(#266), so a C file carried by the project couldn't stand in either. clangd attached to `.bas` beside the bundled server
+can, once it parses the module: its first attempt answered `twice` as `"kind":1,"deprecated":true` with no `detail`,
+clangd's fallback for a file it can't parse, because `Attribute VB_Name = "Module1"` isn't C. A `.clangd` beside the
+probe adding `-xc` and `-DAttribute=char*` made that line a declaration missing its semicolon, which clang recovers from.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of main at 8ae02d39 plus #2401, which touches neither path; clangd
+22.1.6 from the foreign-server cache, attached for `.bas` in the session's own profile; headless `claude -p` through
+the hexide tools, with `--capture-lsp`).** Module1 read `int twice(int x);` and `int main(void) { return tw; }`.
+
+- `open_file {"name":"Module1","line":3,"column":27}` put the caret after `tw`, and `press_key` Ctrl+Space on the
+  editor opened the list: clangd's item first, then the bundled server's keywords.
+- `get_lsp_message` on clangd's completion response gave `{"detail":"int",…,"kind":3,"label":" twice(int x)",…}`.
+- `interact` `select` on `…/List[PART_ListBox]/Pane[PART_ScrollViewer]/ListItem[twice(int x)]` answered
+  `selected ' twice(int x)'`. `dump_visual_tree` rooted at the list then listed `…/List[PART_ListBox]/Text[int]`, a
+  `TextBlock` named `int`, beside the list's scroll viewer.
+- `take_snapshot {"window":"ide"}` drew the tooltip: a bordered box reading `int`, just right of the list, level with
+  the selected row, whole, with the list unclipped beside it. Checked by eye on the image as well as by the caller.
+
+**Found on the way.** `open_file` with a `line` refuses a carried file and opens nothing: #2403, in the live document.
+
+---
+
+## `hover` couldn't say that the real mouse, resting over the window, took the tip — **CLOSED** (#2376, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #1303's live check).** With the real cursor resting over the IDE's window, a second
+`hover` on `…/Button[Standard.AddForm]` answered `no tip opened within 1500ms (its ToolTip.ShowDelay may be longer than
+the watch, or a real pointer moved over the window and took the tip); declared tip: Add Form`, though the first had
+reported the tip. A first Auto Data Tip in break mode missed the same way. With the cursor on the taskbar, nine hovers
+running each reported their tip.
+
+**Cause.** Windows sends the window under a resting cursor a real mouse move when windows change around it, a tip's own
+popup among them. Avalonia's pointer goes back under the real cursor, and its tooltip service moves to whatever is there,
+as it does for a person. The reply offered that as one of two causes and couldn't say which; with no tip declared, as for
+quick info and Auto Data Tips, it offered none.
+
+**Workaround.** Move the real mouse off the window before hovering, which no tool can do.
+
+**Fixed (#2376).** While `hover` watches for a tip, `UiAutomationDriver.ForeignPointerWatch` reads the input manager's
+stream, which is what Avalonia's tooltip service follows, for pointer input the hover didn't send. Routed pointer events
+that `click` and `drag` raise on a control can't move a tip, never reach that stream, and aren't counted. Tool calls run
+concurrently, so the input is told apart by its device: every hover sends through one device of its own, and anything
+else is the platform's. When no tip opened and such input came, the reply says which, declared tip or not:
+
+- the real mouse: `the real mouse moved the pointer to (x, y) in the window, over …, during the watch, and the tip went
+  with it, as it would for a person: one resting over the window is sent such moves as windows change around it. Move it
+  off the window and hover again`;
+- another hover moving elsewhere, or ending: `another hover moved the pointer to (x, y) …` or `another hover ended during
+  the watch, …`, each ending `Hover one control at a time`.
+
+It names the control whose tip a person would now see, else the nearest named one. When nothing came, the ShowDelay
+explanation stands alone. `HoverThroughWindowInputTests` covers the hover's own move and a routed move, which aren't named,
+another hover's move and its end, and the headless platform's mouse standing in for the real one. Removing the watch, the
+device check or the hovered-point filter each fails it.
+
+**Live (2026-10-27, Windows at 150%, a Debug build of the fix, headless `claude -p` through the hexide tools).** A harness
+held the real cursor still and logged it every half second.
+
+- **Cursor over the IDE**, at (100, 540) on the screen. Of eleven hovers, five on Add Form, three on Add Project and three
+  of quick info on `count`, six reported their tip. Each of the five that didn't said `the real mouse moved the pointer to
+  (66.7, 337.3) in the window`, the cursor's point at 150% in window units. The quick-info miss, `no tip opened within
+  3000ms (the real mouse moved the pointer to (66.7, 337.3) in the window, over
+  ScrollContentPresenter[PART_ContentPresenter], …)`, would before this have said only that no tip opened.
+- **Cursor parked on the taskbar.** Disabled End and Break gave `…; no tip opened within 1500ms; declared tip: End` (and
+  `Break`), with no note: nothing is claimed when nothing came. Three Add Form hovers, then three pairs of Add Form and Add
+  Project sent as parallel calls, each reported its tip. The pairs didn't overlap enough to interfere, so the other-hover
+  wording is covered headless only.
+
+---
+
+## 7. `hover`'s move through the window's input was measured headless only — **CLOSED** (#1303, 2026-10-27)
+
+**The gap (narrowed 2026-10-21).** `hover` sends its move through the window's own input, so a declared `ToolTip.Tip`
+opens (#1265). That was shown headless only. Not yet run against the IDE: that a toolbar button reports `tip: Add Form`;
+where the tip is placed, now that the move updates the pointer position Avalonia tracks; that quick info and Auto Data
+Tips still open on Windows and Linux, the same identifier twice in a row; that a real mouse behaves normally after a
+hover ends; and that a disabled toolbar button says it is disabled.
+
+**Placement needed a change to measure (#1303).** A tip closes when the hover ends, before any snapshot could show it,
+so "a snapshot taken during the watch" could never be taken. `hover` now reads where an open tip is while it is open:
+`tipBounds` gives x, y, width and height in the window's device-independent units, as `inspect_element`'s `boundingRect`
+does, and `detail` gives its offset from the point hovered. `TipPlacementTests` covers both.
+
+**Measured (2026-10-27, headless `claude -p` through the hexide tools, on a Debug build of #1303's branch).** On Windows
+at 150%, and on Linux under WSLg (Ubuntu 26.04, X11). The project's Form1 held `Dim count As Integer`, `count = 42`,
+`Stop`.
+
+- **Toolbar tip.** `hover` on `…/Button[Standard.AddForm]`, whose `boundingRect` is `[23.3, 26, 22, 22]`, answered
+  `hovered (11, 11) through the window's input; tip: Add Form (its top-left 0.3 left of and 19.7 below the point
+  hovered)` with `"tipBounds":[34,56.7,63.3,22.7]` on Windows. On Linux the offset was 0 right and 20 below, with
+  `[34,54,68,20]`. Each was the same three times running.
+- **Placement.** The tip opens about 20 below the point hovered, as Avalonia places a tip at the pointer, not at the
+  real pointer's last position, as the old route did (the archived gap "7. A declarative `ToolTip.Tip` cannot be made to
+  open").
+  - A test harness then moved the real mouse to the same point. A screen capture showed its tip at about (34.7, 58.7)
+    in the window, where `tipBounds` put it.
+  - Quick info at the caret on `count` gave `tip: count As Integer (its top-left 0.5 left of and 19.4 below the point
+    hovered)`, `[108.7,224,98.7,22.7]`.
+- **Quick info and Auto Data Tips, on both systems.** Each was hovered three times running: quick info in design mode
+  (`count As Integer`), and Auto Data Tips paused at `Stop` (`count = 42`). All twelve reported their tip.
+  - With the real cursor resting over the IDE's window, a second toolbar hover and a first Auto Data Tip reported no
+    tip. Windows' real mouse moves put Avalonia's pointer back under the cursor, and the tip went with it, as it does
+    for a person.
+  - The reply can't say that was the cause: #2376.
+- **The real mouse afterwards.** A harness moved the real cursor onto Add Form, then Add Project, then over the
+  designer. Screen captures showed each button's tip and hover highlight, and nothing left behind once the cursor
+  moved away.
+- **A disabled toolbar button.** `hover` on `Standard.End`, and on `Standard.Break`, in design mode answered `hovered
+  (11, 11) through the window's input; the target is disabled, so it takes no pointer input and shows a tip only when
+  it sets ToolTip.ShowOnDisabled; no tip opened within 1500ms; declared tip: End` (and `Break`).
+
+**Also found.** On Linux, the project named on the command line by its absolute path wasn't opened, because a
+positional argument starting with `/` is taken for a flag: #2375.
+
+---
+
+## `set_tool_window_visible` hid every tool tabbed with the one it was asked to hide — **CLOSED** (#2362, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2351's live check).** With AI Chat and the Toolbox tabbed together in the left dock,
+`set_tool_window_visible {"name":"AI Chat","visible":false}` answered `{"success":true,"note":"AI Chat is now hidden."}`,
+and `get_tool_windows {}` then gave both `"Toolbox"` and `"AI Chat"` as `visible: false`. A person closing AI Chat's tab
+closes only AI Chat.
+
+**Workaround.** Close the tool with its own tab's close button through `interact`, or hide only tools alone in their dock.
+
+**Cause.** `MainViewViewModel.SetToolWindowVisible` closed the tool's parent dock, on the assumption that a dock holds
+exactly one tool. Since #2239 and #2277 a drag can put several tools in one dock as tabs. An add-in tool window
+unregistering closed its parent dock the same way.
+
+**Fixed (#2362).** Both close the tool itself, as its tab's close button does; its dock goes only when it is left
+empty. The reply names the window as `get_tool_windows` does, says when it was already in the state asked for, and
+names any other tool window that opened or closed with it. Two tests in `MainViewViewModelTests` tab Properties
+with the Toolbox, hide Properties and show it again; both fail with the dock closed instead.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** The session's
+saved layout put the Toolbox and Properties on the left, which builds them as two tabs of one dock; `dump_visual_tree`
+showed `…/TitleBar[Toolbox]/Pane[Toolbox]/Tab[PART_TabStrip]/…/TabItem[Properties]`.
+
+- `set_tool_window_visible {"name":"Properties","visible":false}` answered `{"success":true,"note":"Properties is now
+  hidden."}`. `get_tool_windows` then gave Toolbox `visible: true` and Properties `visible: false`, and the snapshot
+  showed the Toolbox filling the left panel with no tab strip.
+- `{"name":"Properties Window","visible":true}` answered `Properties is now shown.`, and both were visible again.
+- The same call with `"Properties"` answered `Properties is now shown, as it was already.`
+
+## `press_key` reported success on a disabled control — **CLOSED** (#2366, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #623's measurement on main at 759df134).** Options → Language's region combo is
+disabled while the language combo shows the system default.
+
+- `inspect_element {"target":"Window/Custom/Custom/ComboBox[#1]","window":"Options"}` gave `"isEnabled": false` and
+  `"isKeyboardFocusable": true`.
+- `press_key {"target":"Window/Custom/Custom/ComboBox[#1]","key":"Down","window":"Options"}` answered
+  `{"success":true,"mechanism":"routed-key","detail":"pressed Down"}`.
+
+`interact`'s `click` and `invoke` refuse the same control.
+
+**Workaround.** Read `isEnabled` with `inspect_element` before pressing.
+
+**Cause.** A disabled control can't take focus, so `PressKey` fell back to raising the key as a routed event on it, which
+no person's keyboard could do, and reported that as success. `inspect_element` took `isKeyboardFocusable` from the
+automation peer, which answers for `Focusable` alone.
+
+**Fixed (#2366).** `press_key` refuses a target that isn't effectively enabled, with the refusal `interact` gives every
+verb since #2223 (`DisabledInteractionRefusal`), which names a container that disables it. A modal dialog over the window was already refused, by `KeysTakenBy`.
+`isKeyboardFocusable` is false for a control that isn't effectively enabled. `PressKeyDisabledTests` covers a disabled
+combo, a disabled container and the focusable read; each fails with its half of the fix removed.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** On the same
+combo, `inspect_element` gave `"isEnabled": false` and `"isKeyboardFocusable": false`, and the same `press_key` answered
+`{"success":false,"mechanism":"keyboard","error":"'ComboBox' is disabled (\"isEnabled\": false). No person could use
+it, so 'press_key' was refused and nothing was done. Wait until it is enabled before trying again; inspect_element
+reports its current state"}`.
+
+---
+
+## A running Toolbar's dropdown menu, open, was in neither the dump nor the snapshot — **CLOSED** (#2323, 2026-10-27)
+
+**Symptom (2026-10-27, Windows at 150%, #2309's live check).** A click on a dropdown's arrow,
+`Window/Custom[Toolbar1]/Button[#4]/Text[▾]`, opened the menu: the program raised ButtonDropDown. But `take_snapshot`
+showed no menu and gave no note, and `dump_visual_tree` with `match: "First"` or `"MenuItem"` found nothing, in
+`Form1`, `auto` or `ide`. The next click landed on a `LightDismissOverlayLayer`, and Down then Enter raised
+ButtonMenuClick, so the menu was open. A caller who trusted the snapshot would conclude the dropdown never opened.
+
+**Cause.** On a desktop a popup is a window of its own, so the dump and the snapshot reach a control's context menu or
+flyout from the control that owns it (`AttachedPopupsOf`). `FlyoutsOf` read `Button.Flyout` for a Button and
+`FlyoutBase.GetAttachedFlyout` only for other controls. `VBToolbar.Press` attaches its MenuFlyout to the dropdown's
+Button with `SetAttachedFlyout` and opens it with `ShowAt`, so that route missed it.
+
+**Workaround.** None to see it. Keys reach it blind.
+
+**Fixed (#2323).** `FlyoutsOf` reads the attached flyout for every control, Buttons included, after a Button's own
+Flyout and before a ContextFlyout. The snapshot composer asks the same question, so the menu is drawn as well as
+listed. `LogicallyParentedPopupTests.An_open_flyout_attached_to_a_button_is_in_the_tree`, for a Button and a
+ToggleButton, asserts the owner route. Headlessly a popup is an overlay inside the window, so the walk finds the items
+either way, and the owner route is the part that fails with the old `FlyoutsOf`.
+
+**Live (2026-10-27, a Debug build of the fix cherry-picked onto #2309's branch on Windows at 150%, headless `claude -p`
+through the hexide tools).** The project was the Toolbar corpus form, with a ButtonMenuClick handler appending
+` MC:<key>` to the caption.
+
+- A click on the arrow opened the menu, and `take_snapshot` showed it under Menu ▾, with its one visible item, First.
+- `match: "First"` found `Window/Custom[Toolbar1]/Button[#4]/Pane/MenuItem[First]`, offering `invoke`.
+- Invoking it closed the menu and raised ButtonMenuClick: the caption became `Form1 MC:m1`.
+
+## `invoke_menu_item` couldn't reach an item with a control header, or a submenu filled when it opens — **CLOSED** (#2321, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2140's live check).** #2140's Window → Panel Layouts submenu has both kinds of item.
+
+- **A control header.** Each saved layout has a TextBlock header and an automation name. `invoke_menu_item
+  {"path":"Window/Panel Layouts/Beta/Switch"}` answered `No item 'Beta' in menu 'Panel Layouts'. It holds: Save Layout
+  As…, Full Editor, Avalonia.Controls.TextBlock, Avalonia.Controls.TextBlock`.
+- **A submenu filled when it opens.** The submenu holds a placeholder until its SubmenuOpened handler fills it. In a
+  fresh session, `"Window/Panel Layouts/Full Editor"` answered `It has no items.`, and the same call worked once
+  something had opened the submenu.
+
+**Workaround.** `interact` `expand` along the path, then `invoke` on the item by its tree path.
+
+**Cause.** `MenuPath` read a header by its `ToString`, which for a control is its type's name. It also walked a
+submenu's logical items without opening it, so a handler that fills the submenu when it opens had not run.
+
+**Fixed (#2321).** A header that is a control is read by the item's automation name, which the dump shows it by, or
+else its text. Each closed submenu on the path gets its SubmenuOpened before its items are read, as opening it does,
+without a popup. `MenuPathTests` covers both, and each test fails with its half of the fix removed.
+
+**Live (2026-10-27, a Debug build of the fix cherry-picked onto #2140's branch on Windows, headless `claude -p` through
+the hexide tools).**
+
+- In a fresh session, with no menu opened by hand, `Window/Panel Layouts/Full Editor` answered `Invoked 'Full Editor'.`
+- After saving a layout named Beta, a miss in Panel Layouts listed `Save Layout As…, Full Editor, Beta`.
+- `Window/Panel Layouts/Beta/Switch` answered `Invoked 'Switch'.`
+
+## `hover` reported a tooltip that is a control by its type name — **CLOSED** (#2336, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2309's re-check).** `hover` on the designer's box for a carried control,
+`…/List[ControlsContainer]/Pane[Toolbar1]`, answered `hovered (200, 22) through the window's input; tip:
+Avalonia.Controls.StackPanel`. The box's tip is a StackPanel of three text blocks, the control's name, its class and
+"Not supported in HexIDE" (`FormEditView.axaml`, `CarriedControlBox`). A person sees those; the reply read as an answer
+and wasn't one.
+
+**Cause.** `hover` read a tip by its `ToString`, for an open tip and a declared one alike, and a control's is its type's
+name.
+
+**Fixed (#2336).** `UiAutomationDriver.TipText` reads a string as it is, and a control by the text of its visible text
+blocks, in order, joined with ` / `. Anything that gives only a type name is reported as having no text to read. The
+fix's first live run answered `tip: a StackPanel with no text to read`: the tip counts as open a moment before its
+blocks have bound their text, and the first poll caught it then. So a tip read with no text keeps `hover` polling, and
+is reported only if no text comes before the dwell ends. `TipTextTests` covers the reading, and fails with control
+tips read by `ToString` again. The poll is guarded only by the live run below.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).** The
+project's Form1 held a Toolbar, which main carries. Three `hover`s on its designer box each answered `tip: Toolbar1 /
+MSComctlLib.Toolbar / Not supported in HexIDE`.
+
+---
+
+## No way to turn a lock key on for a running program, so a StatusBar key panel's on state couldn't be checked — **CLOSED** (#2296, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2254's live check).** A StatusBar panel of Style 1 to 4 draws its Text black while
+its key's toggle is on and grey while it's off. A live check could see the off state but not the on state. On Windows
+the StatusBar reads the toggle the operating system keeps, and `press_key` raises Avalonia's key events without
+changing it. On the test form, `press_key` targeting `Window` was also refused, since nothing there takes keyboard
+focus.
+
+**Workaround.** None live. The headless tests reached both states through an injected key reader.
+
+**Fixed (#2296).** A new DEBUG-only tool, `set_lock_key {key, state}`. It sets CapsLock, NumLock, Insert or ScrollLock
+`On` or `Off` as programs running in HexIDE read it, and `Keyboard` returns the key to the keyboard's own toggle. The
+state lives in `LockKeys` in the runtime, beside the keyboard read it overrides. A StatusBar prefers it, and repaints
+when it changes. Every reply lists all four keys, each with `on` and a `source` (`Set`, `Keyboard`, or `Window` where a
+host has no toggle to read). The machine's keyboard is untouched. A new tool rather than a change to `press_key`: a
+press can't set the OS toggle, and teaching the StatusBar to count automation's presses on top of the OS reading
+would double-count a real one. Guarded by `SetLockKeyTests` and by
+`StatusBarDrawingAndEventsTests.A_key_panel_follows_a_lock_key_set_by_automation`, whose four cases fail with the
+override ignored.
+
+**Live (2026-10-27, a Debug build of the fix on Windows at 150%, headless `claude -p` through the hexide tools).** The
+form was the StatusBar corpus form with its third panel made an enabled Caps panel reading `CAPS`.
+
+- With no arguments, the reply listed all four keys off, with source `Keyboard`, and changed nothing.
+- The running form's `CAPS` was grey. After `{"key":"CapsLock","state":"On"}` it was black, with no other pixel
+  of the window changed: 69 dark pixels in the text against none.
+- After `Off` it was grey again, as it was after `Keyboard`. Both pictures were identical to the first.
+- `Shift` and a key with no state were refused, each naming the accepted keys and states.
+
+## A double click sent no second press when its first click replaced what it landed on — **CLOSED** (#2324, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2309's live check).** `interact` `click` with `double` on a running Toolbar's
+`Button[New]` answered `…; the second click was not sent because the target is hidden or closed, or detached`. The
+same happened on `Window/Custom[Toolbar1]` with `16,22 double`, though the bar is never replaced. So the Toolbar's
+measured double-click couldn't be checked live: a second ButtonClick, and no DblClick (#1088).
+
+**Cause.** Before the second press, `SecondPress` required the element the first press landed on to be still attached.
+A Toolbar rebuilds its buttons on each release (`VBToolbar.Release` → `RefreshButtons`), so that element was always
+gone.
+
+**Workaround.** None. Two single clicks are not a double click.
+
+**Fixed (#2324).** The second press hit-tests the first press's point again and goes to whatever takes the pointer
+there, with a click count of 2, as a person's second press lands. It is refused only when the window is hidden or
+closed, or nothing is at the point. When it reaches a different element from the first, the reply says so and names
+it. The first live run of the fix still missed about one time in three: the second press found the bar's own presenter
+though the new button was laid out, attached and composited. Hit-testing reads the composition the render thread
+holds, which lagged the layout. So the second press now waits for the window's next frame and for the render thread to
+process a composition batch, each bounded at 250 ms. `DoubleClickReplacedTests` guards the hit-test, and fails with the
+old refusal back. The headless compositor doesn't lag, so the wait is guarded only by the live runs below.
+
+**Live (2026-10-27, a Debug build of the fix cherry-picked onto #2309's branch on Windows at 150%, headless `claude -p`
+through the hexide tools).** The project was the Toolbar corpus form, without its ImageList (#2309's branch predates
+it), with handlers appending ` BC:<key>` for each ButtonClick and ` DC` for each DblClick to the form's caption.
+
+- Without the frame and batch wait, three bar double-clicks in a row added one, two, then one ButtonClick. Diagnostics
+  showed the misses' hit chain going straight to the bar's presenter.
+- With them, six double-clicks on `Window/Custom[Toolbar1]` at `16,22` and two on `Button[New]` each added two
+  ButtonClicks and no DblClick, as #1088 measured. Each reply said the second press went to the new button's
+  `AccessText`, at `Window/Custom[Toolbar1]/Button[New]`.
+
+---
+
+## `inspect_element` reported `selectionItems: []` for a tree whatever was selected — **CLOSED** (#2288, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2287's live check).** After `interact select` on the Watches row `TreeItem[x]`
+answered `selected 'x'`, `inspect_element` on its `Tree` answered `"selectionItems":[]`. It gave the same after
+`remove_from_selection`, so a check that expected `[]` after clearing the row was checking nothing.
+
+**Cause.** `Inspect` filled `selectionItems` from the peer's `ISelectionProvider`, or else from a
+`SelectingItemsControl`. Avalonia's `TreeView` is neither: it derives from `ItemsControl`, and its peer offers no
+selection provider. So neither branch ran, and the default empty array went out as the answer. All four of the IDE's
+trees were affected: Watches, Locals, Project Explorer and the Options page tree.
+
+**Workaround.** None in the tree itself. #2287's check used a consequence instead: Debug → Edit Watch opens its dialog
+only while a row is selected.
+
+**Fixed (#2288).** `Inspect` reads a tree's `SelectedItems` and names each row as `remove_from_selection` does: by
+its container's label, falling back to `NameWithoutRow` for a row not realised. `InspectTreeSelectionTests` covers a
+tree of rows and a bound tree named the way the IDE's trees are. Both fail with the new branch disabled.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).**
+
+- **Project Explorer:** after selecting Form1's row, `selectionItems` was `["Form1 (Form1.frm)"]`.
+- **Watches:** with a watch on `x`, `selectionItems` was `[]` before selecting, `["x"]` after `select`, and `[]` after
+  `remove_from_selection`.
+- **Options:** the page tree read `["General"]` on opening and `["Formatting"]` after selecting Editor → Formatting.
+
+## `get_locals` failed with run-time error 393 on a form holding a Timer — **CLOSED** (#2289, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, #2281's live check).** Paused in any procedure of a form with a Timer, `get_locals {}`
+answered `'get_locals' failed with an unhandled HexIDE.Runtime.Interpreter.VBRunTimeException: Run-time error '393': Get
+not supported at runtime`. `get_locals {"maxDepth":1}` worked, because it doesn't expand `Me`. The Locals window
+listed Timer1 under `Me` with no expander.
+
+**Cause.** Not the tool's. The default depth of 3 expands `Me`, then Timer1, and a control expands to every property
+`AvaloniaInteroperability.ReadProperties` can read. A Timer's Left and Top raise 393 when read, as VB6's do (#2069),
+and the raise ended the whole read. The Locals window met the same throw when it asked for Timer1's children, and
+showed no expander.
+
+**Workaround.** `maxDepth` 1, which loses everything under `Me`.
+
+**Fixed (#2289).** `ReadProperties` catches a raising read one property at a time. The Locals tree lists that property
+with the raised error's own description in angle brackets and no type, and lists the rest as before. The angle brackets
+are VB6's own convention for a listed member whose read raises (measured on #2289), though VB6 lists no Left or Top for a
+Timer at all: which members Locals lists is #2329. Guarded by `ControlLocalsTests`, whose two new tests fail with the
+catch removed.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).** The project
+was a form holding Timer1, paused by a `Stop` in Form_Load.
+
+- `get_locals {}` succeeded. Under `Me`, Timer1 listed 13 rows, Left and Top among them as
+  `<Get not supported at runtime>` with an empty type, and Interval as `250`.
+- In the Locals window, Timer1 had an expandCollapse provider, and expanding it showed the same rows.
+- The same rows showed properties a VB6 Timer doesn't have, two of them reading `NaN`. That belongs to #801 and #2329, and
+  is recorded on #801.
+
+---
+
+## A drag can't stop before its release, and the designer's preview and grab handles were not in the tree — **CLOSED** (#2231, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's live check).** `click` with `to` presses, raises its held moves and releases in
+one call, so nothing that shows only while the button is down can be seen: the designer's draw preview
+(`NewControlSpawnerPhantom`), the rubber band, a control's outline while it moves or resizes, Dock's drop targets, and a
+running form's MouseMove with a button held. `dump_visual_tree {"window":"ide","match":"NewControlSpawner","interactiveOnly":false}`
+answered `Nothing matches 'NewControlSpawner'.`, though a drag's reply named `Canvas[NewControlSpawner]`. On 2026-10-27,
+#2232's live check found a selected control's grab handles missing too: `match "Resize"` found nothing, though a move
+drag's reply named `'ResizeAdorner'` as the pointer capturer.
+
+**Workaround.** Check only where a control lands. For a resize, press at a guessed point on the control's edge.
+
+**Part 1, fixed (#2231).** The preview, its canvas, the rubber band, the resize adorner and its eight handles carry
+AutomationIds, and the control view lists an adorner under the element it adorns. A handle is
+`…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]`, and `inspect_element` reads the preview's bounds.
+
+**Part 2, fixed (#2231).** `click … to x,y hold` stops after the held moves with the button still down, and the new
+`release` action lets it go in a later call, at an optional point it moves to first, with an unheld drag's reply. While
+it is held, every reply carries a `heldButton` note (`HeldButtonNote`, beside `OpenDialogNote`), `click`, `double_click`
+and `hover` are refused, and keys still go. After 120 s with no call the hold is abandoned, as decided on the issue:
+Escape, held moves back to the press, and a release there. The next reply says what the designer's undo stack recorded,
+if anything. Measured headlessly (`HeldButtonTests`): an abandoned move and an abandoned Dock drag change nothing, and an
+abandoned draw places a 2 by 2 control, `Add: Command1`.
+
+**Live (2026-10-27, a Debug build of the fix on Windows, headless `claude -p` through the hexide tools).**
+
+- With the Command tool on, `interact click` on `…/None[NewControlSpawner]` with `"20,20 to 100,60 hold"` replied that
+  the left button was still held and that the canvas had the pointer capture, with a `heldButton` note. `inspect_element`
+  on `…/None[NewControlSpawnerPhantom]` then had no `isHidden` and a `boundingRect` 80 by 40, and `take_snapshot` showed
+  the preview, a solid 2-pixel outline, on the form.
+- `get_project_info` carried the same `heldButton`. `click "5,5"` and `hover` were refused, naming the held button.
+- `release` with `"140,90"` replied as an unheld drag does, released at (140, 90), with no `heldButton` after it.
+- Holding `…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]` with `"4,4 to 44,34 hold"` grew Command1
+  from 121 by 65 to 160 by 88 while held. With nothing called for two minutes, the next `get_project_info` said the hold
+  was abandoned at 07:46:27 UTC: Escape went to the focused `ControlItem`, and it was let go where it was pressed.
+  Command1 was then 120 by 64, not 121 by 65: a resize returns to the grid, and a drawn control is a pixel larger than
+  its grid cells, so the note said `The designer recorded 'Resize: Command1' anyway, so it did not cancel; Undo takes it
+  back.` The call after that had no `heldButton`, and `release` was refused, since nothing was held.
+
+## `take_snapshot` left out text a control drew after popping a clip, above 100% scaling — **CLOSED** (#2293, 2026-10-27)
+
+**Symptom (2026-10-27, Windows, 150% scaling, #2254's live check).** `take_snapshot` of the running form in
+`corpus/inbox-controls/saved/statusbar` showed "Ready" in the StatusBar's first panel and nothing in its second, in a clean
+reply. The compositor's own frame of the same window showed the date there too. So the live check reported a StatusBar
+fault that wasn't there.
+
+**Cause.** An Avalonia.Skia defect that only a `RenderTargetBitmap` at a DPI other than 96 meets. Its scale is kept apart
+and multiplied into each transform set, `PopClip` rebuilds the current transform from the canvas matrix, which already
+holds the scale, and so the first transform pushed after a popped clip gets it twice. Drawing text pushes one for the
+text's origin, so above 100% the glyphs landed outside the bitmap. `SnapshotComposer` rendered at `96 * scaling` DPI, so
+it met this whenever a control's own `Render` drew text after popping a clip, as the StatusBar does per panel.
+
+**Workaround.** None in the tools. A diagnostic build saved the compositor's frame.
+
+**Fixed (#2293).** `SnapshotComposer` draws the window and each popup with `Compositor.CreateCompositionVisualSnapshot`,
+which is what the screen shows. A window in no frame yet, as one shown a moment ago is, is waited for. If the compositor
+gives no picture within 5 s, a render target draws it, and the reply's `note` says so, since that picture can lack such
+text. `SnapshotScalingTests` draws two clipped texts at 100%, 150% and 200%: the second is missing from a render target
+at 150% and 200% (0 dark pixels against 142 in the compositor's image at 150%), and present in the snapshot.
+
+**Live (2026-10-27, a Debug build of the fix on Windows at 150%, headless `claude -p` through the hexide tools).**
+
+- Merged locally with #2254, which isn't on main yet, the running StatusBar form's `take_snapshot` showed "Ready" in the
+  first panel and "27/10/2026" in the second, with no fallback note.
+- On the fix alone, the IDE, the File menu dropped down (a window of its own on the desktop, composed in place under
+  the menu bar), the Options dialog and a running form all captured as before, at scale 1.5.
+
+---
+
+## `set_window_state` with no window manager said the window manager hadn't confirmed, and to re-read — **CLOSED** (#2185, 2026-10-27)
+
+**Symptom (2026-10-26, openSUSE Leap 16 VM, Xvfb `:99` with no window manager, #1755's live check).**
+`set_window_state {"state":"Minimized"}` answered `"error":"The window manager has not confirmed the requested change."`
+with a note to re-read with `get_window_state`, and `Maximized` the same. Nothing would ever confirm either, and
+re-reading showed `Normal` every time. Nothing said that minimize and maximize couldn't work on that display while a
+restore with a position and size could.
+
+**Fixed (#2185).** When a minimize or maximize goes unconfirmed, HexIDE reads the X11 root window's
+`_NET_SUPPORTING_WM_CHECK`, which a window manager sets (`X11WindowManager`, libX11 through `LibraryImport`, in the
+DEBUG-only server). With none there, the reply says `No window manager is running on this display, so nothing will
+apply Minimized.`, explains why, and says Normal with x, y, width and height still works. A window manager that is
+there but slow, a display that can't be read, another platform, and an unconfirmed restore all keep the old text.
+Guarded by `WindowStateUnconfirmedTests`.
+
+**Live (2026-10-27, a Debug build of the fix under WSL, Ubuntu 26.04, headless `claude -p` through the hexide tools).**
+
+- On Xvfb `:99`, where `xprop -root _NET_SUPPORTING_WM_CHECK` finds no such atom, Minimized and Maximized each
+  answered with the new text, and `get_window_state` agreed with the reply's `window` field. A Normal with
+  `x 40, y 30, 900×640` was confirmed.
+- On WSLg's `:0`, whose root window carries `_NET_SUPPORTING_WM_CHECK`, the same build kept the old text for an
+  unconfirmed Minimized, and confirmed Maximized and the same Normal.
+
+## `set_ide_language`'s Keep didn't save the language — **CLOSED** (#2268, 2026-10-27)
+
+**Symptom (2026-10-27, rdcore's live check).** `set_ide_language` opened the confirmation gate, and Keep was pressed on
+it. The IDE stayed in the new language for the session, and the next start came back in the one saved before, *System
+default*. The reply said only that the gate "reverts on its own unless Keep is pressed", which a caller reads as Keep
+being the whole of confirming.
+
+**Cause.** The gate's Keep only leaves the language applied. The Options page saves it when the dialog closes with OK
+(`LanguagePageViewModel.SaveToSettings`), and the tool has no OK to press. The localization spec's *Confirming the
+change* says a confirmed language persists across restarts.
+
+**Fixed (#2268).** The tool saves the language to `ActiveLanguage` when its gate closes on Keep. Revert or the countdown
+saves nothing. It saves in the tool and not in the gate service, because there Cancel in Options still takes back a
+kept language. The reply says what Keep and Revert will do. Asking for the language already in use opens no gate, and
+the reply now says so, where before it claimed a gate was open. Guarded by `SetIdeLanguageSavesTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools, in the session's
+own profile).**
+
+- `set_ide_language {"id":"fr"}` replied `Switching to French ('fr'). A confirmation gate is open: Keep saves French
+  for later starts, as OK in Options does, and Revert or its countdown goes back to 'system' and saves nothing. …`.
+- `interact` invoked `Conserver  /  Keep`. The profile's `settings.json` then held `"activeLanguage": "fr"`.
+- After `shutdown_ide` and a relaunch, the menu bar and status bar were French from the start.
+- `set_ide_language {"id":"fr"}` then replied `French ('fr') is already the IDE's language, so no confirmation gate
+  was opened. It is saved for later starts.`, and no dialog was open.
+- The check also found the Properties description staying in English after the live switch, which is #2270.
+
+---
+
+## Every designer drag's reply said "nothing was docked" — **CLOSED** (#2232, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2216's and #2217's live checks).** All 18 drags on the form designer, moving, resizing
+and drawing controls, ended their replies with a sentence about Dock, though none of them involved it:
+`interact {"target":"…/List[ControlsContainer]/ListItem[Command1]","action":"click","value":"5,8 to 5,56","window":"ide"}`
+→ `dragged the left button at (5, 8) on 'ControlItem', … (pointer capturer); Dock's layout is unchanged, so nothing was
+docked: …`. Each drag did what it should. A first-time caller reads "nothing was docked" as the drag having failed.
+
+**Cause.** #2175 added the clause for every drag pressed inside a `DockControl`, and the designer is inside one.
+
+**Fixed (#2232).** The reply says what Dock moved whenever it moved something. It says the layout is unchanged only for a
+drag pressed on one of Dock's drag areas (`DockProperties.IsDragArea`: a tab, a tool window's title strip), which is
+where Dock itself starts a drag. Any other drag says nothing about Dock. Guarded by `DragDockTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).**
+
+- Moving Command1 by `5,8 to 45,58`, and drawing a TextBox with the toolbox's Text tool, replied without the clause.
+- Properties dragged along its own title strip still said the layout was unchanged, and dragged onto the Project dock
+  said `Dock moved 'Properties' from a dock of its own to the dock with 'Project Group - Group1'`.
+
+## `press_key` refused a chord written as one key as an unknown key — **CLOSED** (#2189, 2026-10-27)
+
+**Symptom (2026-10-26, Windows, #2030's live check, Sonnet).**
+`press_key {"target":"…/Custom[Root]/None[TextEditor]","key":"Ctrl+H","window":"ide"}` answered
+`unknown key 'Ctrl+H' — use an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, …)`. `H` was never the problem:
+modifiers go in their own parameter, and the refusal didn't say so. The caller gave up on the keyboard and opened
+Replace from the Edit menu.
+
+**Fixed (#2189).** A `key` with a `+` between two parts is read as its last part, with the parts before it as
+modifiers added to any `modifiers` given, and the reply says so: `pressed Control+H …; 'Ctrl+H' was read as key 'H'
+with modifiers 'Ctrl'`. A leading part that is not a modifier is refused naming it, and an unknown last part is named
+in the chord. Combined modifiers now read `Control+Shift+End`, not `Control, Shift+End`. Guarded by
+`UiAutomationDriverTests`.
+
+**Live (2026-10-27, Windows, a Debug build of the fix, headless `claude -p` through the hexide tools).** `Ctrl+H` in
+the code window opened Replace, as `H` with `Ctrl` does. `A+B` and `Ctrl+Nope` were refused naming the wrong part, and
+`Shift+End` with `Ctrl` replied `pressed Control+Shift+End …, added to 'Ctrl'`.
+
 ## Keyboard `type_text` counted a prompt-raising key as typed — **CLOSED** (#2035, 2026-10-26)
 
 **Symptom (2026-10-26, Windows, #1975's live check).** Keyboard `type_text` of `xyz` into the code window
@@ -4783,6 +5480,12 @@ and report an `itemCount` for a list or dropdown, which counts its items whether
 > rows. Guarded by `InspectItemCountTests` (a ComboBox closed and open, a ListBox, a TabControl, a menu and a button) and
 > `InspectElementDescriptionTests`.
 
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1287 said it was checked live without saying how, so it was checked again. A project
+> with Form1 and a module holding `Sub Main`, in Project ▸ Properties: `inspect_element` on the Startup Object
+> dropdown, `Window/Custom/Tab/ComboBox[#1]`, closed, gave `"selectionItems":["Form1"],"value":"Form1","itemCount":2`.
+> On the dialog's tab control, `Window/Custom/Tab`, it gave `"selectionItems":["General"]` and `"itemCount":5`.
+
 ## `get_bookmarks` did not say its lines count from 1 (#1261)
 
 **Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
@@ -4839,6 +5542,13 @@ dialog.
 > own, or "in a window of its own". It records the dialog as named, so the reply's note of open dialogs does not name it
 > a second time. `type_text`'s `mode` description says so. Guarded by `TypeKeysTests`.
 
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1291 said it was checked live without saying how, so it was checked again, with Form1
+> running and the caret on a blank line of its code. `type_text {"text":"abcdef","mode":"keyboard"}` into the code
+> window answered `key 1 of 6 was sent to TextEditor and raised 'HexIDE' (a message box: "This action will reset your
+> project, proceed anyway?", OK/Cancel) over the window; that key may not have landed. Nothing after it was sent.`
+> The IDE had the focus, so the prompt opened over its own window. Cancel left the line blank.
+
 ## `invoke` on a running form's menu item read the tick before the program's Click ran (#1255)
 
 `interact invoke` on a menu item adds "(now ticked)" or "(now unticked)" when the tick moved, read straight after
@@ -4858,6 +5568,13 @@ the tick moved, so a reply with none read as "it did not move".
 > Exit would run. It says the program sets the tick in the item's Click, and where to read it. Guarded by
 > `ProgramWaitTests`, with handlers that tick, untick, do both and do neither, and the click alone on an item whose Click
 > ticks it at once.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1289 said it was checked live without saying how, so it was checked again, on a running
+> form whose Game menu holds a control array, Beginner (ticked), Intermediate and Expert, and whose Click ticks the one
+> clicked. After `expand` on `Window/Menu/MenuItem[mnuGame]`, `invoke` on `…/MenuItem[mnuLevel(1)]` answered `invoked
+> MenuItem 'Intermediate' and closed the menu, as a click does; the program ticked 'Intermediate' and unticked
+> 'Beginner'`. `inspect_element` then gave Intermediate `"toggleState":true` and Beginner `"toggleState":false`.
 
 ## An action that started a DoEvents loop was replied to at its first DoEvents, with no note (#1254)
 
@@ -4879,6 +5596,12 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > replies at once. The wait note in the `interact`, `type_text` and `press_key` descriptions says a loop running before
 > the action, or a Timer's, is not waited for. Guarded by `ProgramWaitTests`, with no time slice so that `DoEvents` is
 > the loop's only yield.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1294 said it was checked live without saying how, so it was checked again, on a running
+> form whose Command1_Click counts Text1 from 1 to 200 with a `DoEvents` each pass, then sets it to "done". `interact
+> {"target":"Window/Button[Command1]","action":"invoke","window":"Form1"}` answered `invoked Button 'Loop'`, with no
+> note, and `inspect_element` on `Window/Edit[Text1]` straight after gave `"value":"done"`.
 
 ## `select` and `type_text` applied #1069's not-showing rule unevenly (#1256)
 
@@ -4903,6 +5626,13 @@ Three paths still acted on, or gave advice from, rows and template parts that do
 >   select its item.
 >
 > Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
+
+> **Live, through the hexide tools (2026-10-27, Windows at 150%, a Debug build of main at f9b5649c, headless
+> `claude -p`, #1330).** The review of #1293 said it was checked live without saying how, so it was checked again, with Form1
+> selected in the designer. `type_text {"text":"x"}` on the Properties window's
+> `…/Tab[TabProperties]/List[AlphabeticProperties]` answered `'ListBox[AlphabeticProperties]' holds 10 text boxes that
+> show, so which one to type into is not clear; nothing was typed. Address the one you mean: …`, naming each, and the
+> form kept its name. Keyboard `type_text` into the Immediate window still typed: `typed 5 key(s) into TextEditor`.
 
 ## inspect_element named a templated dropdown's selection by its view model's type (#1288)
 

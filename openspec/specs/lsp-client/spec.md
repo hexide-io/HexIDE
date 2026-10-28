@@ -265,14 +265,24 @@ teardown SHALL close only its connection. A launched pipe server SHALL get two s
 its remaining process tree is killed, including during bring-up. Both messages
 SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
-handle. The process exit code SHALL remain observable in the conversation during client stop.
+handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
+group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
 
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
 assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
 the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
 assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
-start suspended. Unix crash teardown remains cooperative pending the watchdog part of #406.
+start suspended.
+
+On Linux and macOS, stdio and launched pipe servers SHALL run under `HexIDE.LspGuard`, which
+SHALL create its own process group before starting the server with inherited stdin, stdout and stderr.
+Every 500 ms the guard SHALL check whether its parent has changed. On reparenting it SHALL send
+SIGTERM to its group and, after two seconds, SIGKILL. When the server exits on its own, it SHALL
+perform the same group cleanup, leaving the group before SIGKILL to preserve the server's exit code.
+After the normal transport grace period, a remaining guard SHALL be
+terminated with its group. Externally owned servers SHALL NOT be guarded. Descendants that leave
+the group are outside this guarantee.
 
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
@@ -283,10 +293,21 @@ still goes away.
 - **WHEN** the IDE process is killed without disposing the transport
 - **THEN** the OS ends both the server and its child by closing the IDE's job handle
 
+#### Scenario: The Unix IDE is killed without shutdown
+- **GIVEN** a launched stdio or pipe server and its child remain in the guard's process group
+- **WHEN** the IDE is killed without disposing the transport
+- **THEN** the guard detects reparenting and terminates the group, escalating after two seconds
+
 #### Scenario: Shutting down the IDE
 - **WHEN** the IDE shuts down
 - **THEN** an initialized server owned by HexIDE is asked to shut down and its process is ended
 - **AND** an externally owned pipe server is left running
+
+#### Scenario: A Unix server exits cleanly with a child still running
+- **GIVEN** a launched server has spawned a child in the guard's process group
+- **WHEN** the server exits on its own
+- **THEN** the guard sends SIGTERM to the group and SIGKILL after two seconds
+- **AND** a child that ignores SIGTERM is ended, and the guard preserves the server's exit code
 
 #### Scenario: A server never answers shutdown
 - **WHEN** the server receives `shutdown` but never answers it
@@ -883,9 +904,14 @@ A server that does not advertise the capability SHALL NOT be reported as deficie
 complete and correct answer — it publishes instead — and treating the absence as a missing feature would
 blame every conformant publishing server for the way it conforms.
 
-The client SHALL ask when a document is opened, after it changes, and when it is saved. It SHALL NOT
-introduce pacing of its own for this: the edit stream is already coalesced before it reaches the client, and
+The client SHALL ask when a document is opened, after it changes, and when it is saved. For these triggers
+it SHALL NOT introduce pacing of its own: the edit stream is already coalesced before it reaches the client, and
 a second authority over the same question would answer it differently.
+
+A document pull answered ContentModified (`-32801`) or ServerCancelled (`-32802`) SHALL be retried,
+unless ServerCancelled carries `data.retriggerRequest: false`. Retries SHALL wait 250 ms initially,
+doubling to a 4-second cap, and SHALL stop when the document closes, changes, a newer pull supersedes them,
+or the connection is replaced. Each retry SHALL be recorded as its own protocol request.
 
 A server MAY additionally ask to be asked again, and the client SHALL honour that by re-requesting every
 open document. It is the only means such a server has of reporting a change that is not a document — its
@@ -905,6 +931,18 @@ derived from a configuration that no longer exists, with no event that would eve
 #### Scenario: The document changes
 - **WHEN** an open document is edited
 - **THEN** the client asks again, and the answer replaces what that server last said about the document
+
+#### Scenario: A diagnostic pull is temporarily unavailable
+- **WHEN** a document pull is answered ContentModified and the document remains open and unchanged
+- **THEN** the client asks again after back-off and publishes the successful report
+
+#### Scenario: The server refuses a diagnostic retry
+- **WHEN** a document pull is answered ServerCancelled with `data.retriggerRequest: false`
+- **THEN** the client does not retry that request
+
+#### Scenario: The document closes during diagnostic back-off
+- **WHEN** the document closes before a retry is sent
+- **THEN** that retry is not sent
 
 #### Scenario: The server says its answers are stale
 - **WHEN** such a server asks for diagnostics to be refreshed
@@ -1174,12 +1212,19 @@ anyway, so it is recorded rather than defended.
 - **AND** the public add-in provider contract remains outside this change
 
 ### Requirement: Completion SHALL merge within a bounded popup budget
+The editor SHALL flush pending document changes before requesting completion, including requests triggered
+by letters and advertised trigger characters.
+
 The registry SHALL ask every document claimant concurrently and return when all answer or one
 second from the request elapses. It SHALL include only answers received within that budget and SHALL
 deduplicate by ordinal label and kind, retaining the complete item from the higher-priority server or the
 earlier registration on a tie. Late answers SHALL be dropped, logged at debug level, and recorded in the
 protocol inspector as answered after the popup opened. The underlying request SHALL retain its normal
 deadline and caller cancellation.
+
+#### Scenario: Typing requests completion before the debounce expires
+- **WHEN** a letter or advertised trigger character is typed with a pending document change
+- **THEN** the `didChange` carrying that character precedes `textDocument/completion` on the wire
 
 #### Scenario: A server returns a bare completion array
 - **WHEN** a completion reply is a `CompletionItem[]` rather than a `CompletionList`
@@ -1254,3 +1299,65 @@ version or detached view SHALL NOT be applied. Delta, range and refresh requests
 - **WHEN** a full request fails
 - **THEN** the editor keeps lexical colouring
 - **AND** a later edit schedules another full request
+
+### Requirement: Initialize UI locale
+
+The client SHALL send `initialize.locale` as the resolved Options Language setting's BCP 47 tag,
+using the same system-language resolution as the IDE and `en` for either pseudo-locale.
+The client SHALL read the locale at each handshake and SHALL NOT restart servers automatically
+when the UI language changes.
+
+#### Scenario: Language changes between connections
+- **WHEN** the UI language changes while a server is connected
+- **THEN** the existing connection stays open
+- **AND** the next connection's initialize request carries the newly resolved locale
+
+### Requirement: Explicit file-operation senders SHALL respect server filters
+The connection's explicit create, rename and delete notification entry points SHALL send only disk-file
+URIs selected by the corresponding `workspace.fileOperations` registration filters. Filters SHALL
+respect scheme, glob, file/folder kind and case options. Rename SHALL match either the old or new URI.
+A missing registration or an empty matching batch SHALL send no notification.
+
+The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
+file operations to every running connection whose operation filter matches, independently of document
+language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
+HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
+eligible for matching notifications. File operations SHALL NOT start a server.
+
+Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
+reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
+report file operations. Save As retains the original, so it SHALL NOT report a rename. Explorer name
+changes and removal without disk deletion SHALL NOT report file operations.
+
+Disk rename and Remove-with-delete hooks remain outstanding (#2248): current explorer operations change
+names and membership only.
+
+#### Scenario: A server requests only Basic modules
+- **GIVEN** a server registers `didCreate` with a `file` scheme and `**/*.bas` file pattern
+- **WHEN** the connection is explicitly told about a created `.bas` and `.frm` file
+- **THEN** one `workspace/didCreateFiles` notification contains only the `.bas` URI
+
+#### Scenario: A server has no delete registration
+- **WHEN** the connection is explicitly told about a deleted file
+- **THEN** no `workspace/didDeleteFiles` notification is sent
+
+#### Scenario: Save As creates a file
+- **GIVEN** a saved module and a destination that does not exist
+- **WHEN** Save As successfully writes the destination
+- **THEN** matching running servers receive creation of the destination
+- **AND** the original file remains and no rename is reported
+
+#### Scenario: A first save creates a form
+- **WHEN** a new form is successfully written for the first time
+- **THEN** matching running servers receive creation of its disk URI
+- **AND** saving it again reports no file creation
+
+#### Scenario: HexIDE generates the server's workspace artefact
+- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives no file-operation notification
+
+#### Scenario: The server owns its workspace artefact
+- **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification

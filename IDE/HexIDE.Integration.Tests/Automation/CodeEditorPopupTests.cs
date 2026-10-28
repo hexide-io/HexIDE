@@ -1,6 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Globalization;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Nerdbank.Streams;
+using StreamJsonRpc;
 using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -59,7 +67,7 @@ public class CodeEditorPopupTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private (Window Window, CodeEditorView View, TextEditor Editor) Show()
+    private (Window Window, CodeEditorView View, TextEditor Editor) Show(ILspClient? client = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -72,7 +80,7 @@ public class CodeEditorPopupTests : IDisposable
 
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
-            eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
+            eventBus, client ?? lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
@@ -270,5 +278,113 @@ public class CodeEditorPopupTests : IDisposable
         selected.Success.Should().BeTrue(selected.Error);
         CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList.SelectedItem
             .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("Mid");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(".", "textDocument/completion")]
+    [InlineData("x", "textDocument/completion")]
+    [InlineData("(", "textDocument/signatureHelp")]
+    public async Task Typed_request_follows_the_change_on_the_wire(string typed, string request)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var ct = timeout.Token;
+        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        await using var serverStream = serverSide;
+        var frames = new List<JsonElement>();
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loop = Task.Run(async () =>
+        {
+            while (await ReadFrameAsync(serverSide, ct) is { } json)
+            {
+                var frame = JsonDocument.Parse(json).RootElement.Clone();
+                lock (frames) frames.Add(frame);
+                var method = frame.GetProperty("method").GetString();
+                if (method == "textDocument/didOpen") opened.TrySetResult();
+                if (method == request) completed.TrySetResult();
+                if (method == "exit") return;
+                if (!frame.TryGetProperty("id", out var id)) continue;
+                var result = method == "initialize"
+                    ? """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"completionProvider":{"triggerCharacters":["."]},"signatureHelpProvider":{"triggerCharacters":["("]}}}"""
+                    : method is "shutdown" or "textDocument/signatureHelp" ? "null" : "[]";
+                await WriteFrameAsync(serverSide,
+                    "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":" + result + "}", ct);
+            }
+        }, ct);
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
+                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+        await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
+        var registry = new LspClientRegistry(
+            [new LanguageServerRegistration("test", "test", DocumentLanguage.Vb6Extensions, DocumentLanguage.Vb6, () => client)],
+            Substitute.For<ILogger<LspClientRegistry>>());
+        var (_, _, editor) = Show(registry);
+        await opened.Task.WaitAsync(ct);
+        editor.TextArea.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed });
+        var expected = editor.Document.Text;
+        expected.Should().Contain("    M" + typed);
+        await completed.Task.WaitAsync(ct);
+        lock (frames)
+        {
+            var completion = frames.FindIndex(f => f.GetProperty("method").GetString() == request);
+            frames.Take(completion).Should().Contain(f =>
+                f.GetProperty("method").GetString() == "textDocument/didChange"
+                && f.GetProperty("params").GetProperty("contentChanges")[0].GetProperty("text").GetString() == expected,
+                "the server must receive the typed character before answering the typing-triggered request");
+        }
+        await client.StopAsync();
+        await loop.WaitAsync(ct);
+    }
+
+    private static async Task<string?> ReadFrameAsync(Stream stream, CancellationToken ct)
+    {
+        var header = new List<byte>(64);
+        var one = new byte[1];
+
+        while (true)
+        {
+            if (await stream.ReadAsync(one.AsMemory(0, 1), ct) == 0) return null;
+            header.Add(one[0]);
+            if (header.Count >= 4
+                && header[^4] == (byte)'\r' && header[^3] == (byte)'\n'
+                && header[^2] == (byte)'\r' && header[^1] == (byte)'\n')
+            {
+                break;
+            }
+        }
+
+        var length = 0;
+        foreach (var line in Encoding.ASCII.GetString([.. header]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
+            {
+                length = int.Parse(line["Content-Length:".Length..].Trim(), CultureInfo.InvariantCulture);
+            }
+        }
+
+        if (length <= 0) return null;
+
+        var body = new byte[length];
+        var read = 0;
+        while (read < length)
+        {
+            var n = await stream.ReadAsync(body.AsMemory(read, length - read), ct);
+            if (n == 0) return null;
+            read += n;
+        }
+
+        return Encoding.UTF8.GetString(body);
+    }
+
+    private static async Task WriteFrameAsync(Stream stream, string json, CancellationToken ct)
+    {
+        // Collapse the interpolated literals' incidental newlines; the header must state the real length.
+        var compact = JsonSerializer.Serialize(JsonDocument.Parse(json).RootElement);
+        var body = Encoding.UTF8.GetBytes(compact);
+        await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), ct);
+        await stream.WriteAsync(body, ct);
+        await stream.FlushAsync(ct);
     }
 }

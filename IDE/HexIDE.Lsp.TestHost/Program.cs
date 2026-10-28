@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging.Abstractions;
 using StreamJsonRpc;
@@ -11,8 +12,32 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
-        if (args[0] == "child")
+        if (args[0] == "exit")
         {
+            Environment.Exit(int.Parse(args[1]));
+            return;
+        }
+        if (args[0] == "echo")
+        {
+            await Console.OpenStandardInput().CopyToAsync(Console.OpenStandardOutput());
+            return;
+        }
+        if (args[0] == "clean-server")
+        {
+            using var child = Process.Start(StartInfo(args[1], args[2]))!;
+            while (!File.Exists(args[2])) await Task.Delay(20);
+            Console.WriteLine(child.Id);
+            await Console.In.ReadLineAsync();
+            Environment.Exit(37);
+            return;
+        }
+        using var termination = (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            && args[0] is "server" or "child"
+            ? PosixSignalRegistration.Create(PosixSignal.SIGTERM, context => context.Cancel = true)
+            : null;
+        if (args[0] is "child" or "terminable-child")
+        {
+            if (args.Length > 1) await File.WriteAllTextAsync(args[1], "ready");
             await Task.Delay(TimeSpan.FromMinutes(1));
             return;
         }

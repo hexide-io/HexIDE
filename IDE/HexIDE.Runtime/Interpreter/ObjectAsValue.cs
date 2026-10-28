@@ -39,8 +39,13 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        VBCommonDialog => throw new VBRunTimeException(new VBStandardError(394, "Property is write-only")),
+        ToolbarItem item => item.DefaultValue,
+        Components.InBox.TreeNode node => new Vb6Value(node.Text),
+        VBSSTab => new Vb6Value((short)0),
         VbErr err => new Vb6Value(err.Number),
         VBRichTextBox box => new Vb6Value(box.WriteRtf()),
+        StatusBarPanel panel => new Vb6Value(panel.Text),
         // VB6 refuses both before the program runs: Debug is only ever Debug.Print or Debug.Assert ("Syntax error"),
         // and a control array needs an index ("Argument not optional"). Raised here as the statement runs.
         DebugProxy => throw new VBCompileErrorException("Syntax error"),
@@ -62,8 +67,12 @@ internal static class ObjectAsValue
     public static Vb6Value DefaultMemberIfAny(Vb6Value value) => value.Value switch
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
+        ToolbarItem item => item.DefaultValue,
+        Components.InBox.TreeNode node => new Vb6Value(node.Text),
+        VBSSTab => new Vb6Value((short)0),
         VbErr err => new Vb6Value(err.Number),
         VBRichTextBox box => new Vb6Value(box.WriteRtf()),
+        StatusBarPanel panel => new Vb6Value(panel.Text),
         _ => value,
     };
 

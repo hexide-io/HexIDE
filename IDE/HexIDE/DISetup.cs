@@ -130,7 +130,8 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IHeaderRefresher>(out var headerRefresher);
                 ctx.Inject<ArchiveProjectService>(out var archives);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives);
+                ctx.Inject<Func<ILspClient>>(out var lspClient);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -236,7 +237,8 @@ public partial class DISetup
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
                 var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
-                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms))
+                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    locale: () => localization.ResolvedLanguage)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and

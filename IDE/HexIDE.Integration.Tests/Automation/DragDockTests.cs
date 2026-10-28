@@ -21,9 +21,9 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </summary>
 public class DragDockTests
 {
-    private sealed record Layout(Window Window, DockControl Host, ToolDock Left, ToolDock Right, Tool Alpha, Tool Beta);
+    internal sealed record Layout(Window Window, DockControl Host, ToolDock Left, ToolDock Right, Tool Alpha, Tool Beta);
 
-    private static Layout Shown()
+    internal static Layout Shown()
     {
         var factory = new Factory();
         var alpha = new Tool { Id = "Alpha", Title = "Alpha" };
@@ -56,7 +56,7 @@ public class DragDockTests
         return new Layout(window, host, left, right, alpha, beta);
     }
 
-    private static ToolChromeControl ChromeOf(Layout layout, ToolDock dock) =>
+    internal static ToolChromeControl ChromeOf(Layout layout, ToolDock dock) =>
         layout.Host.GetVisualDescendants().OfType<ToolChromeControl>().Single(c => ReferenceEquals(c.DataContext, dock));
 
     [AvaloniaFact]
@@ -96,6 +96,30 @@ public class DragDockTests
             layout.Right.VisibleDockables.Should().Contain(layout.Beta);
             outcome.Detail.Should().EndWith("; Dock's layout is unchanged, so nothing was docked: the release was not over one "
                                             + "of Dock's drop targets, or dropped what it dragged where it was");
+        }
+        finally { layout.Window.Close(); }
+    }
+
+    // A drag pressed in Dock's layout but not on a tab or title strip, as every designer drag is, could not have docked,
+    // so the reply leaves Dock out: "nothing was docked" on all of them read as the drag having failed (#2232).
+    [AvaloniaFact]
+    public async Task A_drag_pressed_off_Dock_s_drag_areas_says_nothing_about_docking()
+    {
+        var layout = Shown();
+        try
+        {
+            var from = ChromeOf(layout, layout.Right);
+            var below = FormattableString.Invariant($"{from.Bounds.Width / 2:0.#},{from.Bounds.Height / 2:0.#}");
+            var onto = ChromeOf(layout, layout.Left);
+            var centre = onto.TranslatePoint(new Point(onto.Bounds.Width / 2, onto.Bounds.Height / 2), from)!.Value;
+
+            var outcome = await UiAutomationDriver.FinishAsync(
+                await UiAutomationDriver.InteractAsync(from, "click", FormattableString.Invariant($"{below} to {centre.X:0.#},{centre.Y:0.#}")));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            layout.Right.VisibleDockables.Should().Contain(layout.Beta);
+            outcome.Detail.Should().StartWith("dragged").And.EndWith("(pointer capturer)")
+                .And.NotContain("Dock's layout").And.NotContain("Dock moved").And.NotContain("docked");
         }
         finally { layout.Window.Close(); }
     }

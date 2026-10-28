@@ -174,12 +174,13 @@ public sealed class VBLspClient : ILspClient
     /// The session redactor for names this client supplies. URI fields stay real so the server can use
     /// them; folder display names are assigned their export pseudonym before they reach the wire.
     /// </param>
+    /// <param name="locale">Resolved UI language, read anew for each handshake.</param>
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
-        ConversationRedactor? workspaceNames = null)
+        ConversationRedactor? workspaceNames = null, Func<string>? locale = null)
     {
         _transport = transport;
         _logger = logger;
@@ -190,7 +191,10 @@ public sealed class VBLspClient : ILspClient
         _capture = capture;
         _connectionId = connectionId;
         _workspaceNames = workspaceNames;
+        _locale = locale ?? (() => "en");
     }
+
+    private readonly Func<string> _locale;
 
     /// <summary>
     /// Where this connection's conversation is recorded, and under what name. Null when nothing is
@@ -329,7 +333,7 @@ public sealed class VBLspClient : ILspClient
         if (_transport.Unobservable is { Length: > 0 } unobservable)
             Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
-        var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
+        var rpc = new LspJsonRpc(handler, new LspNotificationReceiver(this));
         var cancellation = new LspCancellationStrategy(rpc, _logger);
         rpc.CancellationStrategy = cancellation;
         rpc.AddLocalRpcTarget(cancellation);
@@ -540,6 +544,7 @@ public sealed class VBLspClient : ILspClient
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
             Trace: _trace,
+            Locale: _locale(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
@@ -571,7 +576,8 @@ public sealed class VBLspClient : ILspClient
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
-                    WorkspaceFolders: true),
+                    WorkspaceFolders: true,
+                    FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities()));
 
@@ -1065,15 +1071,33 @@ public sealed class VBLspClient : ILspClient
             ServerCapabilities.DiagnosticIdentifier(_capabilities?.Value),
             previousResultId);
 
+        var connection = Volatile.Read(ref _connection);
+        _openDocuments.TryGetValue(uri, out var document);
+        var delay = 250;
         JsonElement? raw;
-        try
+        while (true)
         {
-            raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
-        }
-        catch (Exception ex)
-        {
-            WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
-            return;
+            try
+            {
+                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
+                break;
+            }
+            catch (RemoteInvocationException ex) when (ShouldRetryDiagnostic(ex))
+            {
+                await Task.Delay(delay);
+                delay = Math.Min(delay * 2, 4000);
+                // A fresh pull owns a newer generation. A close/reopen or reconnect must not revive this one.
+                if (!_initialized || !ReferenceEquals(rpc, _rpc)
+                    || connection != Volatile.Read(ref _connection)
+                    || !_openDocuments.TryGetValue(uri, out var current) || current != document
+                    || !_pullGeneration.TryGetValue(uri, out var latest) || latest != generation)
+                    return;
+            }
+            catch (Exception ex)
+            {
+                WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
+                return;
+            }
         }
 
         // Checked and published under one gate, or a newer answer can publish between the two and this one land
@@ -1094,6 +1118,20 @@ public sealed class VBLspClient : ILspClient
             ApplyDiagnosticReport(uri, raw);
         }
     }
+
+    private sealed class LspJsonRpc(IJsonRpcMessageHandler handler, object target) : JsonRpc(handler, target)
+    {
+        // The default CommonErrorData discards LSP's retriggerRequest field.
+        protected override Type? GetErrorDetailsDataType(StreamJsonRpc.Protocol.JsonRpcError error) =>
+            error.Error?.Code == (StreamJsonRpc.Protocol.JsonRpcErrorCode)(-32802) ? typeof(JsonElement) : base.GetErrorDetailsDataType(error);
+    }
+
+    private static bool ShouldRetryDiagnostic(RemoteInvocationException ex) =>
+        ex.ErrorCode == -32801
+        || (ex.ErrorCode == -32802
+            && !(ex.ErrorData is JsonElement { ValueKind: JsonValueKind.Object } data
+                && data.TryGetProperty("retriggerRequest", out var retrigger)
+                && retrigger.ValueKind == JsonValueKind.False));
 
     /// <summary>
     /// Reads one diagnostic report and publishes what it means.
@@ -1211,6 +1249,39 @@ public sealed class VBLspClient : ILspClient
             href is null ? null : new CodeDescription(href));
     }
 
+    public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didCreate", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didCreateFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didCreateFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidRenameFilesAsync(FileRename[] files, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var matching = files.Where(file => FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.OldUri)
+            || FileOperationFilters.Matches(_capabilities?.Value, "didRename", file.NewUri)).ToArray();
+        if (matching.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didRenameFiles", new RenameFilesParams(matching)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didRenameFiles", ex, cancellationToken); }
+    }
+
+    public async Task DidDeleteFilesAsync(string[] uris, CancellationToken cancellationToken = default)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var files = uris.Where(uri => FileOperationFilters.Matches(_capabilities?.Value, "didDelete", uri))
+            .Select(uri => new FileOperationUri(uri)).ToArray();
+        if (files.Length == 0) return;
+        try { await rpc.NotifyWithParameterObjectAsync("workspace/didDeleteFiles", new FileOperationParams(files)); }
+        catch (Exception ex) { WarnRequestFailedOnce("workspace/didDeleteFiles", ex, cancellationToken); }
+    }
+
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
     {
         // No _openDocuments write, unlike its three siblings: a save changes neither the text nor the
@@ -1241,12 +1312,21 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !CanServe("hoverProvider")) return null;
+        var unavailable = _rpc is null ? "no RPC connection"
+            : !_initialized ? "initialization is incomplete"
+            : !CanServe("hoverProvider") ? "hoverProvider is unavailable" : null;
+        if (unavailable is not null)
+        {
+            _logger.LogDebug("textDocument/hover was not sent: {Reason}", unavailable);
+            return null;
+        }
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await InvokeRequestAsync<HoverResult?>(_rpc,
+            var result = await InvokeRequestAsync<HoverResult?>(_rpc!,
                 "textDocument/hover", p, cancellationToken);
+            if (result is null) _logger.LogDebug("textDocument/hover: server returned null");
+            return result;
         }
         catch (Exception ex)
         {

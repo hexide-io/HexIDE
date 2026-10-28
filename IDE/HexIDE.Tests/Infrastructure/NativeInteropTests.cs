@@ -11,7 +11,10 @@ public class NativeInteropTests
     [InlineData("HexIDE", "Controls/MDI/MDIWindow.axaml.cs", 2)]
     [InlineData("HexIDE.Desktop", "ConsoleOutput.cs", 5)]
     [InlineData("HexIDE.Desktop", "Server/ToolFailures.cs", 1)]
+    [InlineData("HexIDE.Desktop", "Server/X11WindowManager.cs", 6)]
     [InlineData("HexIDE.Runtime", "TypeLibrary/TypeLibReader.cs", 2)]
+    [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
+    [InlineData("HexIDE.LspGuard", "Program.cs", 4)]
     public void NativeDeclarationsUseSourceGeneration(string project, string file, int count)
     {
         var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", project, file));
@@ -24,7 +27,7 @@ public class NativeInteropTests
         foreach (var method in imports)
         {
             if (method.ParameterList.Parameters.Any(parameter => parameter.Type?.ToString() == "string"))
-                method.AttributeLists.ToString().Should().Contain("StringMarshalling.Utf16");
+                method.AttributeLists.ToString().Should().ContainAny("StringMarshalling.Utf16", "StringMarshalling.Utf8");
             if (method.ReturnType.ToString() == "bool")
                 method.AttributeLists.ToString().Should().Contain("return: MarshalAs(UnmanagedType.Bool)");
         }
@@ -34,6 +37,8 @@ public class NativeInteropTests
     [InlineData("HexIDE")]
     [InlineData("HexIDE.Desktop")]
     [InlineData("HexIDE.Runtime")]
+    [InlineData("HexIDE.Lsp")]
+    [InlineData("HexIDE.LspGuard")]
     public void UnsafeCompilationIsForGeneratedCodeOnly(string project)
     {
         var folder = Path.Combine(RepoTree.Root(), "IDE", project);

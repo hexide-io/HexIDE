@@ -235,3 +235,43 @@ explicitly.
 - **An intrinsic HexIDE doesn't implement at all** is answered, with names or without, by the "not implemented" its
   caller already gives.
 
+### LoadPicture and SavePicture (2026-10-27, for #2254)
+
+**The question.** `NamedParameterParityTests` needs LoadPicture's names before the StatusBar's PR can register it. Which
+names does it take, how many are required, and what does a wrong one say?
+
+**The probe.**
+- **The names** were read first from VB6.OLB's type information, where both are members of `VBGlobal`:
+  - `LoadPicture([FileName], [Size], [ColorDepth], [X], [Y])`, all Variants, all optional, returning an `IPictureDisp`;
+  - `SavePicture(Picture As IPictureDisp, FileName As String)`.
+- **The projects:** 22 of one call each, made native and p-code. Native code and p-code agreed on every line.
+- **The files:** an icon, `ARW01DN.ICO`, and a bitmap, `BELL.BMP`, from VB6's own Graphics folder.
+
+| Call | VB6 |
+|---|---|
+| `LoadPicture(FileName:=ico, Size:=vbLPCustom, ColorDepth:=vbLPColor, X:=32, Y:=32)` | an icon, Type 3, 847 HIMETRIC square: 32 pixels |
+| the same names in reverse order, X and Y 16 | Type 3, 423: 16 pixels |
+| `LoadPicture(filename:=bmp, SIZE:=vbLPSmall)` | the bitmap, Type 1: a name matches in any case |
+| `LoadPicture(ico, X:=16, Y:=16)`; `LoadPicture(ico, , , X:=16, Y:=16)` | Type 3, both |
+| `LoadPicture(Y:=F(…), X:=F(…), FileName:=F(…), Size:=F(…))` | evaluates FileName, Size, X, Y: parameter order |
+| `LoadPicture()`, and `LoadPicture` with no parentheses | **an empty picture:** Type 0, Handle 0. **None is required** |
+| `LoadPicture(Size:=vbLPLarge)`; `LoadPicture(X:=16, Y:=16)` | an empty picture, no error |
+| `LoadPicture(FileName:=bmp, Size:=vbLPLarge)` | the bitmap as it is, no error: Size is for icons and cursors |
+| `SavePicture Picture:=p, FileName:=f`, and in reverse order | saved, 382 bytes both ways |
+
+**The compile errors:**
+
+| Call | VB6's compile error |
+|---|---|
+| `LoadPicture(File:=bmp)`; `LoadPicture(FileName:=bmp, Width:=16)`; `SavePicture Pic:=p, FileName:=f` | Named argument not found |
+| `LoadPicture(FileName:=bmp, FileName:=ico)` | **Named argument already specified**, which no earlier row had met |
+| `LoadPicture(FileName:=ico, 16)`, positional after named | Syntax error |
+| `LoadPicture(ico, vbLPCustom, vbLPColor, 16, 16, 1)`, six | Wrong number of arguments or invalid property assignment |
+| `SavePicture FileName:=f`, Picture left out | Argument not optional |
+
+So the rows are:
+
+| Parameters, in order | Required | Intrinsic |
+|---|---|---|
+| `FileName, Size, ColorDepth, X, Y` | 0 | LoadPicture |
+| `Picture, FileName` | 2 | SavePicture |

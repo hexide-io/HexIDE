@@ -150,4 +150,25 @@ public class ProjectLoadWarningTests : IDisposable
         else if (suffix == "ParseFailed") sink.Arguments.Should().ContainSingle();
         else sink.Arguments.Should().BeEmpty();
     }
+
+    // #2327: a control HexIDE runs is carried without a warning, as the load would otherwise tell the user that a control
+    // which works did not. A Toolbar holding controls, or in a control array, is still refused at run time, so it warns.
+    [Theory]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Toolbar1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComDlg.CommonDialog CommonDialog1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bars\r\nIndex = 0\r\nEnd\r\nEnd", "Bars")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bar\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Bar")]
+    public void A_carried_control_warns_only_when_HexIDE_does_not_run_it(string source, string? warned)
+    {
+        var sink = new Sink();
+        new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, sink,
+            new Dictionary<int, byte[]>());
+        if (warned is null)
+            sink.Key.Should().BeNull();
+        else
+        {
+            sink.Key.Should().Be("Str.ProjectLoad.UnknownControl");
+            sink.Arguments.Should().Equal("MSComctlLib.Toolbar", warned);
+        }
+    }
 }

@@ -71,7 +71,7 @@ public static class AttachedEvents
     /// Avalonia registered first, so MouseUp follows it there. A control whose Click this class raises on release must
     /// attach the mouse events before its Click, so MouseUp comes first.</para>
     /// </remarks>
-    public static void AttachMouse<T>(DblClick dblClick = DblClick.None) where T : Control
+    public static void AttachMouse<T>(DblClick dblClick = DblClick.None, bool raiseDoubleClick = true) where T : Control
     {
         InputElement.PointerPressedEvent.AddClassHandler<T>((control, e) =>
         {
@@ -83,7 +83,7 @@ public static class AttachedEvents
                 SecondPresses.Remove(control);
             if (!second || dblClick == DblClick.AfterMouseDown)
                 RaiseMouse(control, e, ComponentBaseClass.MouseDownEvent);
-            if (second)
+            if (second && raiseDoubleClick)
                 control.ExecuteSub(ComponentBaseClass.DblClickEvent);
         }, handledEventsToo: true);
         InputElement.PointerReleasedEvent.AddClassHandler<T>(
@@ -194,7 +194,7 @@ public static class AttachedEvents
         client.AddHandler(InputElement.PointerMovedEvent, (_, e) => Handler(e, ComponentBaseClass.MouseMoveEvent), handledEventsToo: true);
     }
 
-    private static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass)
+    internal static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass)
     {
         if (!OwnsThePointerEvent(control, e.Source) || VBProps.GetName(control) is null)
             return;
@@ -205,7 +205,7 @@ public static class AttachedEvents
             : (control, VBScaleMode.Twip);
         // Its own handler, and each WithEvents variable holding it (#1556).
         Raise(e, eventClass, ControlEvents.Handlers(control, control.FindLogicalAncestorOfType<IModuleExecutionRoot>(), eventClass.Name),
-            VBProps.GetIndex(control), origin, mode, VBProps.GetClientInset(control));
+            VBProps.GetIndex(control), origin, mode, control is VBTreeView tree ? tree.ClientEdge : VBProps.GetClientInset(control));
     }
 
     private static void Raise(PointerEventArgs e, EventClass eventClass, IReadOnlyList<ControlEvents.Handler> all, int? index,

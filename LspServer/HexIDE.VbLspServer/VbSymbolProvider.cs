@@ -14,7 +14,7 @@ public static class VbSymbolProvider
         var inputStream = new AntlrInputStream(source);
         var lexer = new VisualBasic6Lexer(inputStream);
         lexer.RemoveErrorListeners();
-        var tokenStream = new CommonTokenStream(lexer);
+        var tokenStream = VbNextCounterList.Tokens(lexer);
 
         var parser = new VisualBasic6Parser(tokenStream);
         parser.RemoveErrorListeners();
