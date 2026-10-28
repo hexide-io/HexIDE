@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 13 | 46 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 28 | 56 | 0 | 69 | 153 |
+| Intrinsic functions | 0 | 0 | 27 | 57 | 0 | 69 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
-| In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
+| In-box objects | 0 | 0 | 65 | 23 | 0 | 35 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **116** | **457** | **20** | **590** | **1184** |
+| **Total** | **1** | **0** | **112** | **460** | **20** | **591** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -159,8 +159,8 @@ visitor, not changing how the language is understood.
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 12% of VB6's statements (13
-of 107) and 55% of the
-in-box surface (`App`, `Printer`, `Clipboard`; 68 of 123) are unavailable. Both
+of 107) and 53% of the
+in-box surface (`App`, `Printer`, `Clipboard`; 65 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 116 names
+## Dies mid-run — 112 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -286,13 +286,10 @@ most of the in-box object model.
 | `AmbientProperties.TextAlign` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UIDead` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UserMode` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `App.HelpFile` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (HelpFile in… | VbApp.cs |
 | `App.LogEvent` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
 | `App.LogMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogMode in… | VbApp.cs |
 | `App.LogPath` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogPath in… | VbApp.cs |
 | `App.StartLogging` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
-| `App.StartMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (StartMode in… | VbApp.cs |
-| `App.TaskVisible` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (TaskVisible in… | VbApp.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
@@ -330,7 +327,6 @@ most of the in-box object model.
 | `GoSub` | **Dies** | throws `"GoSub not implemented"` — (goSubStmt, VB6.g4) and throws at run time. Verbatim: Measured. | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")`… | StatementExecutor.cs |
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
-| `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
 | `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), which HexIDE has not got ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
 | `IPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -542,7 +538,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (28 absent, 56 partial, 69 supported)
+### Intrinsic functions — 153 names (27 absent, 57 partial, 69 supported)
 
 
 **array** (3)
@@ -653,7 +649,7 @@ missing.
 | `GetObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetObject)". docs/interpreter-gaps.md pairs it with… | ExpressionExecutor.cs |
 | `GetSetting` | Supported | **#1562:** runs as vb6.exe measured: the value as text, or the default, converted only when it is the answer, so a Null default is no error where the key is present. Names compare without case. A value another program wrote that is not REG_SZ is 5 | VB6BuiltIns.Settings.cs |
 | `IIf` | Supported | **[#1461](https://github.com/hexide-io/HexIDE/issues/1461), measured native and p-code:** both parts are evaluated before IIf chooses, the true part first, so a part that raises raises whichever is chosen: `IIf(n <> 0, 1 / n, 0)` with n 0 is 11. **That is VB6's answer, not a defect:** a guarded division in IIf is a bug in the program, and HexIDE raising 11 there is the faithful behaviour; do not "fix" it. The condition is read as CBool reads it, except that Null takes the false part with no error: "abc" is 13, "0", Empty and Null the false part, 0.4 the true part, and an object without a default member 438. The part comes back as itself, an object included (`Set o = IIf(True, k, Nothing)`), and reads as a Variant: `IIf(True, i, 6) * 7000` with i an Integer 5 is 35000. Two or four arguments do not compile. | VB6BuiltIns.Choice.cs |
-| `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
+| `IMEStatus` | Partial | Long 0 for the no-IME environment measured in #2551; active IME support is unimplemented and unmeasured arguments are refused as not implemented. | VB6BuiltIns.cs |
 | `LoadPicture` | Partial | **#1087:** one nonempty file path loads a BMP or ICO picture for Panel.Picture or Panels.Add. Named arguments use the measured FileName/Size/ColorDepth/X/Y signature (#2254); other formats, omitted/empty paths, optional value handling and file-error mapping still refuse. StdPicture submembers and other controls accepting these objects remain unimplemented. | PanelPicture.cs, VB6BuiltIns.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
@@ -901,7 +897,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (68 absent, 21 partial, 34 supported)
+### In-box objects — 123 names (65 absent, 23 partial, 35 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -923,13 +919,13 @@ missing.
 | `AmbientProperties.TextAlign` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UIDead` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UserMode` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `App.HelpFile` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (HelpFile in… | VbApp.cs |
+| `App.HelpFile` | Partial | Empty String without a project help file; String assignments read back unchanged (#2551). Nonempty project HelpFile= and non-String conversions are refused as not implemented. | VbApp.cs |
 | `App.LogEvent` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
 | `App.LogMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogMode in… | VbApp.cs |
 | `App.LogPath` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogPath in… | VbApp.cs |
 | `App.StartLogging` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
-| `App.StartMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (StartMode in… | VbApp.cs |
-| `App.TaskVisible` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (TaskVisible in… | VbApp.cs |
+| `App.StartMode` | Supported | Integer 0 (Standard EXE); assignment refuses with the measured read-only compile diagnostic as the statement executes (#2551). | VbApp.cs |
+| `App.TaskVisible` | Partial | Boolean True for a desktop run; Boolean assignments read back (#2551). Other conversions are refused as not implemented; no OS task-list integration. | VbApp.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |

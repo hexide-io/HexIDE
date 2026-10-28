@@ -311,6 +311,7 @@ internal static class VbSignatures
             ["Partition"]    = [new SignatureEntry("Partition(Number, Start, Stop, Interval) As String", ["Number", "Start", "Stop", "Interval"], "Returns the range, such as \" 20: 29\", that Number falls in.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],
             ["Command"]      = [new SignatureEntry("Command() As String", [], "Returns the command line the program was started with.")],
+            ["IMEStatus"]    = [new SignatureEntry("IMEStatus() As Long", [], "Returns zero when no input method editor is available.")],
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
             ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
             // Positional labels only: FileAttr's named arguments have not been measured (#2521).

@@ -182,6 +182,10 @@ public partial class VB6BuiltIns
         d["Command"] = (self, a, _) => a.Count == 0
             ? new Vb6Value(self.CommandLine)
             : throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        // No IME: Long zero, measured on en-GB in #2551.
+        d["IMEStatus"] = (_, a, _) => a.Count == 0
+            ? new Vb6Value(0L)
+            : throw new NotImplementedException("IMEStatus arguments are not implemented (#2551)");
         // FreeFile is an Integer, 1 with nothing open, and FreeFile(1) the first from 256 (measured, #1145).
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));
