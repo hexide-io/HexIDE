@@ -27,8 +27,5 @@ The #1483 comments' project-name and sourceless Raise measurements are recorded 
 The #2325 comments’ measured keyboard input is recorded in
 [Key events](vb6-fidelity-oracle/key-events.md).
 
-The #2515 measured numeric formatting functions are recorded in
-[Numeric format functions](vb6-fidelity-oracle/numeric-format-functions.md).
-
 The #2474 measurements of declared arrays named with empty parentheses are recorded in
 [Whole-array parentheses](vb6-fidelity-oracle/whole-array-parentheses.md).
