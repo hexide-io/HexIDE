@@ -15,6 +15,9 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBTimer)
+            TimerMembers.RefuseMethod(method);
+
         if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
         {
             if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))

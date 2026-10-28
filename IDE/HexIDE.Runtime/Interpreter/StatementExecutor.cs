@@ -2478,6 +2478,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Every member of a control Controls.Remove took out is 735 (measured, #1556).
             VBProps.RefuseIfRemoved(control);
 
+            if (control is VBTimer)
+                TimerMembers.CheckWrite(memberIdentifier);
+
             UserControlMembers.Check(variable, memberIdentifier);
             if (UserControlMembers.TrySet(control, memberIdentifier, value))
                 return default;
@@ -3438,6 +3441,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBTimer)
+            {
+                var timerMembers = membersCall.iCS_S_MemberCall();
+                if (timerMembers.Length != 1)
+                    throw new NotImplementedException("Set on a Timer member chain is not implemented (#801)");
+                TimerMembers.CheckWrite(UdtFieldName(timerMembers[0]));
+                throw new NotImplementedException("Set on a Timer member is not measured (#801)");
+            }
+
             if (setLead && target.Value is VBTabStrip or Components.InBox.TabStripTab
                 && membersCall.iCS_S_MemberCall() is { Length: > 0 } tabMembers)
             {
