@@ -62,6 +62,9 @@ public class MakeOutcomesTests : IDisposable
 
         await Make(Service());
         var first = await Ended(MakeOutcomes.Latest!);
+        // The second Make finds the first's archive and asks before replacing it (#2504); answer Yes, as a user would.
+        windows.MessageBox(Arg.Is<string>(text => text.StartsWith("Str.Tool.ProtocolInspector.ReplaceFiles")), Arg.Any<string?>(),
+            MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>()).Returns(MessageBoxResult.Yes);
         await Make(Service());
         var second = await Ended(MakeOutcomes.Latest!);
 
