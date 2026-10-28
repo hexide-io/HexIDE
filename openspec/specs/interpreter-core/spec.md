@@ -212,6 +212,20 @@ program that compiles and runs.
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
+### Requirement: Empty parentheses SHALL preserve a declared whole array
+A declared array named with empty parentheses SHALL evaluate as the whole array. Array parameters and
+ByRef Variant parameters SHALL share it; ByVal Variant parameters and a Let into a Variant SHALL copy it.
+A Variant holding an array, named with empty parentheses, SHALL raise "Expected Sub, Function, or Property"
+when the statement executes (measured, #2474). The ParamArray form remains deferred until after #2462.
+
+#### Scenario: Passing the whole array
+- **WHEN** `S arr()` or `Call S(arr())` passes `Dim arr(2) As Long` to `S(x() As Long)`
+- **THEN** `UBound(x)` is 2 and adding 1 to `x(0)` changes the caller's element to 1
+
+#### Scenario: Reading and copying the whole array
+- **WHEN** `w = arr()` assigns that array into a Variant
+- **THEN** w is a Long() with upper bound 2 and changing its elements leaves arr unchanged
+
 ### Requirement: A name read through a type character SHALL be the name's own read
 A variable, constant, Enum member, parameter or array read with a type-declaration character (`s$`, `i%`,
 `a%(1)`) SHALL be read as the name without it, and SHALL raise VB6's compile error "Type-declaration character
