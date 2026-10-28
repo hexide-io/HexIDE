@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
+| Intrinsic functions | 0 | 0 | 30 | 53 | 0 | 70 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
+| **Total** | **1** | **0** | **124** | **452** | **20** | **587** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 127 names
+## Dies mid-run — 124 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -324,10 +324,7 @@ most of the in-box object model.
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `FileAttr` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileAttr(1, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileAttr)"… | ExpressionExecutor.cs |
-| `FormatCurrency` | **Dies** | RegisterFormat registers exactly one name — `d["Format"]` (VB6BuiltIns.Format.cs); no occurrence of "FormatCurrency" under IDE/HexIDE.Runtime. `throw new… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FormatPercent` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (FormatPercent)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
+| `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `Forms` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `Forms.Count` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `Forms.Item` | **Dies** | Measured verbatim for the default-member form Forms(0).Caption: "Compile error: Sub or Function not defined (Forms)" - a parenthesised lead is routed to EvaluateProcedureOrArrayCall, which… | ExpressionExecutor.cs |
@@ -553,7 +550,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (33 absent, 53 partial, 67 supported)
+### Intrinsic functions — 153 names (30 absent, 53 partial, 70 supported)
 
 
 **array** (3)
@@ -716,10 +713,10 @@ missing.
 | `AscW` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** the first UTF-16 unit as a typed Integer, so a unit past &H7FFF is negative (`AscW(ChrW(&H8000))` is -32768), as vb6.exe measured. 5 for an empty string or Empty, 94 for Null; `AscW$` does not compile. | VB6BuiltIns.Strings.cs |
 | `ChrB` | **Dies** | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** refused as not implemented: it is always one byte, a String of an odd number of bytes, which HexIDE's whole-character strings cannot hold (measured: `ChrB(65) & ChrB(0) = "A"`). | VB6BuiltIns.Strings.cs |
 | `ChrW` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** a UTF-16 unit, -32768 to 65535, a negative code being its unsigned unit (`ChrW(&HF050)`, an Integer -4016, is U+F050), and 5 outside that, as vb6.exe measured. Rounds half to even, takes a numeric string, and is 94 for Null and 6 past a Long. A Variant, as `Chr` is; `ChrW$` a typed String. | VB6BuiltIns.Strings.cs |
-| `FormatCurrency` | **Dies** | RegisterFormat registers exactly one name — `d["Format"]` (VB6BuiltIns.Format.cs); no occurrence of "FormatCurrency" under IDE/HexIDE.Runtime. `throw new… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FormatPercent` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (FormatPercent)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
+| `FormatCurrency` | Supported | **#2515:** en-GB positional rows measured on vb6.exe SP6, native and p-code: String results, half-away rounding, optional flags, 99 digits and the 256-digit edge; Null/Empty give an empty String. Unmeasured named calls, missing required or surplus arguments, digit counts below -2 or above 99 (except 256), and tri-state values other than -2/-1/0/5 explicitly refuse as not implemented. | VB6BuiltIns.Format.cs |
+| `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
+| `FormatNumber` | Supported | **#2515:** en-GB positional rows measured on vb6.exe SP6, native and p-code: String results, half-away rounding, optional flags, 99 digits and the 256-digit edge; Null/Empty give an empty String. Unmeasured named calls, missing required or surplus arguments, digit counts below -2 or above 99 (except 256), and tri-state values other than -2/-1/0/5 explicitly refuse as not implemented. | VB6BuiltIns.Format.cs |
+| `FormatPercent` | Supported | **#2515:** en-GB positional rows measured on vb6.exe SP6, native and p-code: String results, half-away rounding, optional flags, 99 digits and the 256-digit edge; Null/Empty give an empty String. Unmeasured named calls, missing required or surplus arguments, digit counts below -2 or above 99 (except 256), and tri-state values other than -2/-1/0/5 explicitly refuse as not implemented. | VB6BuiltIns.Format.cs |
 | `InStrB` | Supported | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** a search by byte, so a match may start mid-character and the compare argument is ignored; an empty string2 is found at start only within string1 (measured). | VB6BuiltIns.Strings.cs |
 | `LeftB` | Partial | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** bytes, as measured, wherever the result is an even number of them; an odd number is refused. | VB6BuiltIns.Strings.cs |
 | `LenB` | Partial | **[#1510](https://github.com/hexide-io/HexIDE/issues/1510):** a String's byte count, a declared scalar's size as `Len` gives it, and twice a Variant's text, as measured; of a number that is not a variable it is "Variable required". Of a user-defined type it is refused: it is the Type's padded size in memory (8 for an Integer and a Long, where `Len` is 6), which HexIDE does not lay out. | VB6BuiltIns.Strings.cs |
