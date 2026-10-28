@@ -479,7 +479,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var field in bag.EnumerateFields())
                 await ReleaseRef(field.Value);
         }
-        else if (v.Value is VBArray array)
+        // A ParamArray's elements are its caller's arguments, and the copies it made of the rest are released with the call
+        // (#2462), so releasing the array itself, as `a = Array(7)` does, releases nothing.
+        else if (v.Value is VBArray { IsParamArray: false } array)
         {
             foreach (var element in array.EnumerateElements())
                 await ReleaseRef(element);

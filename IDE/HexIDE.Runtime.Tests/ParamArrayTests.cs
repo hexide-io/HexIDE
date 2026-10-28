@@ -191,6 +191,30 @@ public class ParamArrayTests : BaseVBTestFixture
             """));
     }
 
+    // The elements are the caller's arguments and hold no reference of their own, so giving the name another array releases
+    // nothing of the caller's: the object is the caller's until the caller lets it go. This is the reference-count invariant,
+    // not a row the oracle measured.
+    [Fact]
+    public async Task Reassigning_it_releases_nothing_the_caller_holds()
+    {
+        await RunClasses("""
+            Private Sub R(ParamArray a() As Variant)
+                a = Array(7)
+                Debug.Print "reassigned"
+            End Sub
+            Dim o As Ob
+            Set o = New Ob
+            o.Id = "1"
+            R o
+            Debug.Print "back"
+            Set o = Nothing
+            Debug.Print "done"
+
+            """, ("Ob", "Public Id As String\nPrivate Sub Class_Terminate()\nDebug.Print \"T:\" & Id\nEnd Sub\n"));
+
+        AssertDebugLog(["reassigned", "back", "T:1", "done"]);
+    }
+
     // VB6 refuses each of these at compile time, and the walk as the statement runs.
     [Theory]
     [InlineData("ReDim a(5)")]
