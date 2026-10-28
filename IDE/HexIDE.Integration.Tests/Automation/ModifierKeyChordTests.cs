@@ -76,7 +76,8 @@ public class ModifierKeyChordTests
         try
         {
             UiAutomationDriver.PressKey(box, "K", "Shift").Detail.Should().Be(
-                "pressed Shift+K; LeftShift went down before K and up after it, as a person holds it");
+                "pressed Shift+K; LeftShift went down before K and up after it, as a person holds it; it typed \"K\", "
+                + "as the key does");
             UiAutomationDriver.PressKey(box, "A", "Ctrl+Shift").Detail.Should().Be(
                 "pressed Control+Shift+A; LeftCtrl and LeftShift went down before A, in that order, and up after it in "
                 + "reverse, as a person holds them");
