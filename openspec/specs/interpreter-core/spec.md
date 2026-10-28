@@ -615,3 +615,14 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: Form termination order at the run's end
+
+At a normal run's end, the program SHALL terminate remaining form instances in the order the project lists
+its forms, and newest instance first within each form, as [#2496 measured](../../../docs/vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end).
+
+#### Scenario: Creation order differs from project order
+
+- **GIVEN** the project lists Form3, Form1, Form4, Form2
+- **WHEN** instances are made in the order Form4, Form2, Form1, Form3, then a second Form2
+- **THEN** termination runs Form3, Form1, Form4, the second Form2, then the first Form2

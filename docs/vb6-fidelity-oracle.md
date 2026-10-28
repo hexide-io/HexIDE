@@ -32,3 +32,6 @@ The #2474 measurements of declared arrays named with empty parentheses are recor
 
 The #881 comments’ measured compare validation order is recorded in
 [A compare argument, and when it is checked](vb6-fidelity-oracle/compare-argument-validation.md).
+
+The #2497 correction to form termination order, measured by #2496 in native and p-code builds, is recorded in
+[The Forms collection](vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end).
