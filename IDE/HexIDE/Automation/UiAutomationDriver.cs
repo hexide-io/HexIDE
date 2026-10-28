@@ -2214,7 +2214,7 @@ public static class UiAutomationDriver
     /// </remarks>
     internal static async Task AbandonHeldAsync(bool idleOnly = false)
     {
-        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.Idle())
+        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.IdleElseRearm())
             return;
         held.End();
         var keyed = held.Window.FocusManager?.GetFocusedElement() as Control ?? held.Pointer.Captured as Control ?? held.Window;
