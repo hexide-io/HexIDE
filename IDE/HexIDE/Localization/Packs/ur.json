@@ -2,6 +2,8 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "تصویر لوڈ کریں",
+    "Str.Tool.Properties.LoadPictureFailed": "”{0}“ سے تصویر لوڈ نہیں ہو سکتی۔",
     "Str.Designer.ShowTabOrder": "ٹیب کی ترتیب دکھائیں (کٹا ہوا: TabStop بند)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "اسکرول کرتے وقت سرخیاں برقرار رکھیں",
     "Str.Options.EditorGeneral.Display.StickyDepth": "پن کی گئی سرخیوں کی زیادہ سے زیادہ تعداد",

@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Φόρτωση εικόνας",
+    "Str.Tool.Properties.LoadPictureFailed": "Δεν είναι δυνατή η φόρτωση εικόνας από το «{0}».",
     "Str.Designer.ShowTabOrder": "Εμφάνιση σειράς Tab (διαγραφή: TabStop ανενεργό)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Μέγιστος αριθμός καρφιτσωμένων κεφαλίδων",

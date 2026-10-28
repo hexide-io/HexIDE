@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "載入圖片",
+    "Str.Tool.Properties.LoadPictureFailed": "無法從「{0}」載入圖片。",
     "Str.Designer.ShowTabOrder": "顯示 Tab 順序（刪除線：TabStop 關閉）",
     "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",
     "Str.Options.EditorGeneral.Display.StickyDepth": "固定標題的最大數量",

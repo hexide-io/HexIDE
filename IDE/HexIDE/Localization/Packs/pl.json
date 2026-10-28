@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Wczytaj obraz",
+    "Str.Tool.Properties.LoadPictureFailed": "Nie można wczytać obrazu z „{0}”.",
     "Str.Designer.ShowTabOrder": "Pokaż kolejność tabulacji (przekreślone: TabStop wyłączone)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Przypięte nagłówki podczas przewijania",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maksymalna liczba przypiętych nagłówków",

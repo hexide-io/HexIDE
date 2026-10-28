@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Indlæs billede",
+    "Str.Tool.Properties.LoadPictureFailed": "Kan ikke indlæse billedet fra ”{0}”.",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrækkefølge (overstreget: TabStop fra)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",

@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Charger une image",
+    "Str.Tool.Properties.LoadPictureFailed": "Impossible de charger l’image depuis « {0} ».",
     "Str.Designer.ShowTabOrder": "Afficher l’ordre de tabulation (barré : TabStop désactivé)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Nombre maximal d’en-têtes épinglés",

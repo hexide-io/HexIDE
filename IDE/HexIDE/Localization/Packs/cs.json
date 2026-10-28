@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Načíst obrázek",
+    "Str.Tool.Properties.LoadPictureFailed": "Nelze načíst obrázek ze souboru „{0}“.",
     "Str.Designer.ShowTabOrder": "Zobrazit pořadí tabulátoru (přeškrtnuté: TabStop vypnuto)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Přichycené záhlaví při posouvání",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maximální počet připnutých záhlaví",

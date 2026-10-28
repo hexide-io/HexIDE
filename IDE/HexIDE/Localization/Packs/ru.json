@@ -2,6 +2,8 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Загрузить изображение",
+    "Str.Tool.Properties.LoadPictureFailed": "Не удалось загрузить изображение из «{0}».",
     "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальное число закреплённых заголовков",
