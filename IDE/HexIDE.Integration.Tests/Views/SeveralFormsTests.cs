@@ -264,7 +264,7 @@ public class SeveralFormsTests
         Pump();
 
         run.Errors.Should().BeEmpty();
-        // The Terminates come at the run's end, in the order the forms were made.
+        // The Terminates come at the run's end, in project form order.
         run.Printed.Should().Equal("f2 initialize", "f2 load", "caption Form2", "f2 queryunload 1", "f2 unload",
             "f1 terminate", "f2 terminate");
         run.Task.IsCompleted.Should().BeTrue("no form is loaded");
@@ -952,7 +952,7 @@ public class SeveralFormsTests
     }
 
     [AvaloniaFact]
-    public void The_run_ends_when_the_last_loaded_form_unloads_and_the_Terminates_come_in_the_order_the_forms_were_made()
+    public void The_run_ends_when_the_last_loaded_form_unloads_and_the_Terminates_come_in_project_form_order()
     {
         using var run = Start("""
             Private Sub Command1_Click()

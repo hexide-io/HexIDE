@@ -16,9 +16,9 @@ public partial class VB6BuiltIns
     internal sealed record IntrinsicParameters(string[] Names, int Required, bool OmittedIsSyntaxError = false);
 
     // #1561 measured positional calls only, and so did #1510 for the byte-string functions. Refuse named calls
-    // explicitly until an oracle probe supplies them. #2516 likewise measures only positional FormatDateTime calls.
+    // explicitly until an oracle probe supplies them. #2516 and #2622 likewise measure only positional calls.
     private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
-    { "AscB", "ChrB", "CurDir", "Dir", "FileLen", "FileDateTime", "FormatDateTime", "GetAttr", "InStrB", "LeftB", "MidB", "RightB" };
+    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatDateTime", "GetAttr", "IMEStatus", "InStrB", "LeftB", "MidB", "ObjPtr", "Partition", "RightB" };
 
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {

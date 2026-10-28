@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— جواب، {0} بائٹس —",
     "Str.Tool.ProtocolInspector.Copy": "ٹریس کے طور پر کاپی کریں",
     "Str.Tool.ProtocolInspector.Export": "گفتگو برآمد کریں...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "کیا ان موجودہ فائلوں کو بدلنا ہے؟\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} پیغامات {1} میں برآمد کر دیے گئے، مینی فیسٹ {2} پر ہے۔",
     "Str.Tool.ProtocolInspector.ExportFailed": "برآمد مکمل نہیں ہوئی: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "جو باہر جاتا ہے وہ فرضی ناموں سے بدلا ہوا ہوتا ہے۔",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "شفاف پکسلز کا رنگ۔",
     "Str.PropDesc.UseMaskColor": "آیا ماسک کا رنگ استعمال کرنا ہے۔",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "انڈینٹ گائیڈ دکھائیں",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "قوسین کو تداخل کی گہرائی کے مطابق رنگ دیں",
+    "Str.Dialog.Print.Configuration": "نقول: 1؛ سمت: عمودی۔",
+    "Str.Dialog.Print.Unavailable": "طباعت نافذ نہیں ہے۔ ٹھیک ہے صرف مکالمے کی ترتیبات واپس کرتا ہے۔",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

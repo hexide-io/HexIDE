@@ -75,6 +75,17 @@ public class ControlPositionTests
     }
 
     [AvaloniaTheory]
+    [InlineData("0  'Manual")]
+    [InlineData("2  'CenterScreen")]
+    public void A_forms_Load_reads_the_outer_position_as_Singles(string startup)
+    {
+        var run = RunLoad(Form("   ClientLeft = 2000\r\n   ClientTop = 1500\r\n   StartUpPosition = " + startup + "\r\n", ""),
+            "S \"Left\", Me.Left\nS \"Top\", Me.Top");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Left = 1875 Single", "Top = 1035 Single");
+    }
+
+    [AvaloniaTheory]
     [InlineData("Left")]
     [InlineData("Top")]
     public void A_Timers_designer_position_cannot_be_read_at_run_time(string property)

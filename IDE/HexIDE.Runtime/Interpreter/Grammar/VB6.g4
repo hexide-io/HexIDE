@@ -480,7 +480,7 @@ loadStmt
    ;
 
 lockStmt
-   : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+   : LOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
    ;
 
 lsetStmt
@@ -691,7 +691,7 @@ unloadStmt
    ;
 
 unlockStmt
-   : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+   : UNLOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
    ;
 
 // operator precedence is represented by rule order

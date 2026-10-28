@@ -96,6 +96,10 @@ public static class AvaloniaInteroperability
 
     static AvaloniaInteroperability()
     {
+        Register<Window, double>(VBProperties.LeftProperty, w => FormPosition.Read(w, false) / VBScaleModeExtensions.PixelToTwips,
+            (w, value) => FormPosition.Write(w, false, value));
+        Register<Window, double>(VBProperties.TopProperty, w => FormPosition.Read(w, true) / VBScaleModeExtensions.PixelToTwips,
+            (w, value) => FormPosition.Write(w, true, value));
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
@@ -138,6 +142,7 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBUpDown>(tabStop: true);
         RegisterTabOrder<VBStatusBar>(tabStop: false);
         RegisterTabOrder<VBSSTab>(tabStop: true);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template

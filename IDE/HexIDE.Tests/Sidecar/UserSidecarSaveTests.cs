@@ -540,7 +540,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.LoadAsync(project);
 
         project.AbsolutePath = Elsewhere(project);
-        var blocker = SidecarOf(project) + ".tmp";
+        var blocker = SidecarOf(project);
         Directory.CreateDirectory(blocker);
         await sidecar.SaveAsync(project);
         Directory.Delete(blocker);
@@ -752,11 +752,11 @@ public sealed class UserSidecarSaveTests : IDisposable
     public async Task AWriteThatFailsIsMadeAgainWhenTheProjectCloses()
     {
         // Another program holding the file, say. The change stays owed rather than being dropped with the attempt.
-        // Here the temporary file's path is a directory, which no write can replace, on any system.
+        // Here the destination is a directory, which no write can replace, on any system.
         var project = Project();
         var bookmarks = new BookmarkService();
         var sidecar = Service(bookmarks);
-        var blocker = SidecarOf(project) + ".tmp";
+        var blocker = SidecarOf(project);
         Directory.CreateDirectory(blocker);
 
         bookmarks.SetBookmarks(Form1(project), [3]);

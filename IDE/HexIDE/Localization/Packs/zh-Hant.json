@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— 回應，{0} 位元組 —",
     "Str.Tool.ProtocolInspector.Copy": "複製為追蹤記錄",
     "Str.Tool.ProtocolInspector.Export": "匯出通訊記錄...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "要取代這些現有檔案嗎？\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "已將 {0} 則訊息匯出至 {1}，資訊清單位於 {2}。",
     "Str.Tool.ProtocolInspector.ExportFailed": "匯出未完成：{0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "輸出的內容已改用化名。",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "透明像素使用的色彩。",
     "Str.PropDesc.UseMaskColor": "是否使用遮罩色彩。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "顯示縮排參考線",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色",
+    "Str.Dialog.Print.Configuration": "份數：1；方向：直向。",
+    "Str.Dialog.Print.Unavailable": "尚未實作列印。確定僅傳回對話方塊設定。",
+    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）"
   }
 }

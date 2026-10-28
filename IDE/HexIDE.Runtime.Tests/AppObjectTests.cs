@@ -126,7 +126,7 @@ public class AppObjectTests
     [Fact]
     public async Task App_Title_is_writable_at_run_time()
     {
-        // VB6 allows it; the rest of App is read-only.
+        // VB6 allows the running program to change its title.
         var log = await Run("""
             App.Title = "Renamed"
             Debug.Print App.Title
@@ -140,6 +140,72 @@ public class AppObjectTests
     {
         var log = await Run("Debug.Print App.Title");
         log.Should().ContainSingle().Which.Value.Should().Be("");
+    }
+
+    // vb6.exe SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/2551.
+    [Fact]
+    public async Task App_HelpFile_is_an_empty_String_and_reads_back_the_assigned_String()
+    {
+        var log = await Run("""
+            Debug.Print App.HelpFile
+            App.HelpFile = "probe.hlp"
+            Debug.Print App.HelpFile
+            """);
+        log.Should().Equal(new Vb6Value(""), new Vb6Value("probe.hlp"));
+    }
+
+    [Fact]
+    public async Task App_StartMode_is_Integer_zero()
+    {
+        var log = await Run("Debug.Print App.StartMode");
+        log.Should().ContainSingle().Which.Should().Be(new Vb6Value(0));
+    }
+
+    [Fact]
+    public async Task App_StartMode_refuses_assignment()
+    {
+        var act = () => Run("App.StartMode = 0");
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Can't assign to read-only property*");
+    }
+
+    [Fact]
+    public async Task App_TaskVisible_starts_True_on_the_desktop_and_reads_back_Boolean_assignments()
+    {
+        var log = await Run("""
+            Debug.Print App.TaskVisible
+            App.TaskVisible = False
+            Debug.Print App.TaskVisible
+            App.TaskVisible = True
+            Debug.Print App.TaskVisible
+            """);
+        log.Should().Equal(new Vb6Value(true), new Vb6Value(false), new Vb6Value(true));
+    }
+
+    [Fact]
+    public async Task IMEStatus_is_Long_zero_without_an_IME()
+    {
+        var log = await Run("Debug.Print IMEStatus");
+        log.Should().ContainSingle().Which.Should().Be(new Vb6Value(0L));
+    }
+
+    [Theory]
+    [InlineData("App.HelpFile = 1")]
+    [InlineData("App.TaskVisible = 1")]
+    [InlineData("Debug.Print IMEStatus(1)")]
+    public async Task Unmeasured_conversions_and_IMEStatus_arguments_are_refused(string code)
+    {
+        var act = () => Run(code);
+        await act.Should().ThrowAsync<NotImplementedException>();
+    }
+
+    [Fact]
+    public async Task An_unmeasured_project_HelpFile_is_refused_until_assigned()
+    {
+        var info = AppInfo.FromProject(ProjectWith("Probe", "HelpFile=\"project.hlp\""));
+        var act = () => Run("Debug.Print App.HelpFile", info);
+        await act.Should().ThrowAsync<NotImplementedException>();
+        var log = await Run("App.HelpFile = \"probe.hlp\"\nDebug.Print App.HelpFile", info);
+        log.Should().ContainSingle().Which.Should().Be(new Vb6Value("probe.hlp"));
     }
 
     // ── deriving AppInfo from a real project ────────────────────────────────────────────────────────

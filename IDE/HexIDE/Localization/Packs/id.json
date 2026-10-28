@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— balasan, {0} bita —",
     "Str.Tool.ProtocolInspector.Copy": "Salin sebagai jejak",
     "Str.Tool.ProtocolInspector.Export": "Ekspor percakapan...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Ganti berkas yang sudah ada ini?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} pesan diekspor ke {1}, dengan manifes di {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Ekspor tidak selesai: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Yang keluar sudah disamarkan.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Warna piksel transparan.",
     "Str.PropDesc.UseMaskColor": "Apakah warna masker digunakan.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Tampilkan panduan indentasi",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Warnai tanda kurung menurut kedalaman penyarangan",
+    "Str.Dialog.Print.Configuration": "Salinan: 1; orientasi: potret.",
+    "Str.Dialog.Print.Unavailable": "Pencetakan belum diimplementasikan. OK hanya mengembalikan pengaturan dialog.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

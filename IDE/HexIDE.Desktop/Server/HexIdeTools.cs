@@ -907,7 +907,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run. It also says how much Debug.Print wrote, which 'printed' holds.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -927,9 +927,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ran and ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ran and ended.") + RaisedNote(outcome)));
     }
 
 
@@ -977,7 +977,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "stop_project")]
-    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode.")]
+    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode, and how much Debug.Print wrote since the run began or a reply last reported it, which 'printed' holds.")]
     public async Task<MutateResult> StopProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -985,9 +985,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (!ctx.ProjectRunnerService.CanEndProject)
                 return new MutateResult(false, "No project is currently running");
             ctx.ProjectRunnerService.EndProject();
-            return new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
+            return WithPrinted(new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
                 ? "Stop requested; the program has not ended yet. get_debug_state says when it has."
-                : "Stopped; the IDE is back in design mode.");
+                : "Stopped; the IDE is back in design mode."));
         });
     }
 
@@ -1700,12 +1700,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
                 ? "Break requested, and no statement has run since: the program is waiting for an event, and pauses "
                   + "at the next statement that runs."
-                : "The program ended.") + RaisedNote(outcome));
+                : "The program ended.") + RaisedNote(outcome)));
     }
 
     [McpServerTool(Name = "continue_program")]
@@ -1722,9 +1722,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome)));
     }
 
     /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
@@ -1794,6 +1794,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     private string PausedAt(StoppedInfo at) => $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason}).";
 
+    /// <summary>A successful run, step, break or stop reply with what the program printed since its run began or a reply
+    /// last reported it, in 'printed', and its note saying how much or that there was none (#2531).</summary>
+    private static MutateResult WithPrinted(MutateResult result)
+    {
+        var (printed, note) = ProgramPrinted.Report(ProgramPrinted.Shared.Take());
+        return result with { Note = result.Note + note, Printed = printed };
+    }
+
     private static string RaisedNote(RunOutcome outcome) =>
         outcome.NewError is { } error ? $" It raised {error}; get_last_runtime_error has it." : "";
 
@@ -1810,12 +1818,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
                 ? $"Still running {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s after the step began: the statement has not "
                   + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
-                : "The program ended before it reached another statement.") + RaisedNote(outcome));
+                : "The program ended before it reached another statement.") + RaisedNote(outcome)));
     }
 
     [McpServerTool(Name = "step_into")]
@@ -1861,11 +1869,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return Naming(refused, named);
 
-        return Naming(new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(Naming(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
                 ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s. get_debug_state says when it is."
-                : $"The program ended without reaching {target}.") + RaisedNote(outcome)), named);
+                : $"The program ended without reaching {target}.") + RaisedNote(outcome)), named));
     }
 
     [McpServerTool(Name = "set_next_statement")]
@@ -3443,8 +3451,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             : $"{lockKey} now follows the keyboard again."));
     }
 
+    internal string ConversationExportDirectory { get; set; } = System.IO.Path.GetTempPath();
+
     [McpServerTool(Name = "export_lsp_conversation")]
-    [Description("Writes the recorded conversation to two files and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Document names, paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one name stay distinguishable and a normalisation bug survives the redaction. That includes the name of a document with no file on disk, which goes on the wire as untitled:<project>/<document>: both segments are the developer's own words and both are replaced. Extensions and drive letters survive, so what a message was about is still legible. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit `connectionId` for the whole interleaved timeline.")]
+    [Description("Writes the recorded conversation to two files in a fresh temporary directory per call, preserving earlier exports, and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Document names, paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one name stay distinguishable and a normalisation bug survives the redaction. That includes the name of a document with no file on disk, which goes on the wire as untitled:<project>/<document>: both segments are the developer's own words and both are replaced. Extensions and drive letters survive, so what a message was about is still legible. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit `connectionId` for the whole interleaved timeline.")]
     public async Task<LspExportResult> ExportLspConversationAsync(
         string? connectionId = null, CancellationToken ct = default)
     {
@@ -3461,12 +3471,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var export = await ConversationExporter.ExportAsync(
             ctx.Capture, redactor, string.IsNullOrWhiteSpace(connectionId) ? null : connectionId);
 
-        var stem = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide_lsp_conversation");
+        // A fresh directory per export, under ConversationExportDirectory, so an export never replaces an earlier one
+        // (#2504). The writes are still staged and flushed (#2503).
+        var directory = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(
+            ConversationExportDirectory, "hexide-lsp-export-" + Guid.NewGuid().ToString("N")));
+        var stem = System.IO.Path.Combine(directory.FullName, "hexide_lsp_conversation");
         var messages = stem + ".jsonl";
         var manifest = stem + ".manifest.json";
 
-        await System.IO.File.WriteAllTextAsync(messages, export.Messages, ct);
-        await System.IO.File.WriteAllTextAsync(manifest, export.Manifest, ct);
+        ct.ThrowIfCancellationRequested();
+        AtomicFileWriter.WriteAllText(messages, export.Messages);
+        ct.ThrowIfCancellationRequested();
+        AtomicFileWriter.WriteAllText(manifest, export.Manifest);
 
         return new LspExportResult(
             messages, manifest, export.Lines, export.BodiesPresent, export.BodiesAbsent,
@@ -3692,7 +3708,8 @@ internal record DiagnosticItem(
 /// </param>
 /// <param name="Document">The document's own name, as the IDE spells it rather than as the call spelled it.</param>
 internal record MutateResult(
-    bool Success, string? Error, string? Note = null, string? Project = null, string? Document = null);
+    bool Success, string? Error, string? Note = null, string? Project = null, string? Document = null,
+    string? Printed = null);
 
 /// <summary>
 /// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not

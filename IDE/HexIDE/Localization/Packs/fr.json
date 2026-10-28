@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— réponse, {0} octets —",
     "Str.Tool.ProtocolInspector.Copy": "Copier comme trace",
     "Str.Tool.ProtocolInspector.Export": "Exporter la conversation...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Remplacer ces fichiers existants ?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} messages exportés vers {1}, avec le manifeste dans {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "L'exportation n'a pas abouti : {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Ce qui sort est pseudonymisé.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "La couleur des pixels transparents.",
     "Str.PropDesc.UseMaskColor": "Indique si la couleur du masque est utilisée.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
+    "Str.Dialog.Print.Configuration": "Copies : 1 ; orientation : portrait.",
+    "Str.Dialog.Print.Unavailable": "L’impression n’est pas implémentée. OK renvoie uniquement les paramètres du dialogue.",
+    "Str.Dialog.Color.Rgb": "RVB (#RRGGBB)"
   }
 }

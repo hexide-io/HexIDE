@@ -15,6 +15,9 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                              || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
         if (c is VBTimer)
             TimerMembers.RefuseMethod(method);
 
@@ -25,8 +28,6 @@ public static class AvaloniaMethodsInteroperability
             strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
             return Vb6Value.Nothing;
         }
-        if (c is VBTreeView)
-            throw new NotImplementedException();
         if (c is VBToolbar)
             VBToolbar.RefusePending(method);
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
@@ -91,6 +92,9 @@ public static class AvaloniaMethodsInteroperability
 
         if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (c is IFormView || c.Focusable))
             return SetFocus(c);
+
+        if (c is VBTreeView)
+            throw new NotImplementedException($"TreeView.{method} (#1086)");
 
         // A method VB6 has and HexIDE does not, such as Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so

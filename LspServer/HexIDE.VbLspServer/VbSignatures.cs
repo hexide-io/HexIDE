@@ -7,7 +7,16 @@ namespace HexIDE.VbLspServer;
 
 internal static class VbSignatures
 {
-    internal sealed record SignatureEntry(string Label, string[] Parameters, string? Documentation = null);
+    /// <param name="ParamArray">The last parameter takes any number of arguments where the label doesn't say so, as
+    /// <c>Array(ArgList)</c>'s doesn't. A label ending its list in <c>...</c> says so itself.</param>
+    internal sealed record SignatureEntry(string Label, string[] Parameters, string? Documentation = null, bool ParamArray = false)
+    {
+        /// <summary>
+        /// Whether every argument past the last parameter is still that parameter, so signature help keeps it active
+        /// (#2599). Without a list, an extra argument is a mistake VB6 refuses, and no parameter is active for it.
+        /// </summary>
+        public bool LastIsList => ParamArray || Label.Contains("...", StringComparison.Ordinal);
+    }
 
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
@@ -226,7 +235,7 @@ internal static class VbSignatures
             ["Array"] =
             [
                 new SignatureEntry("Array(ArgList) As Variant", ["ArgList"],
-                    "Returns a Variant containing an array.")
+                    "Returns a Variant containing an array.", ParamArray: true)
             ],
             ["UBound"] =
             [
@@ -285,6 +294,8 @@ internal static class VbSignatures
             ["IsNull"]    = [new SignatureEntry("IsNull(Expression) As Boolean",  ["Expression"], "Returns True if the expression evaluates to Null.")],
             ["IsEmpty"]   = [new SignatureEntry("IsEmpty(Expression) As Boolean", ["Expression"], "Returns True if the variable has been initialized.")],
             ["IsObject"]  = [new SignatureEntry("IsObject(Expression) As Boolean",["Expression"], "Returns True if the variable is an object reference.")],
+            // Descriptive positional label; VB6's parameter name and named calls remain unmeasured (#2622).
+            ["ObjPtr"]    = [new SignatureEntry("ObjPtr(object) As Long", ["object"], "Returns an object's identity; Nothing has identity zero. Named arguments are not implemented.")],
             ["IsArray"]   = [new SignatureEntry("IsArray(VarName) As Boolean",    ["VarName"],    "Returns True if the variable is an array.")],
             ["IsDate"]    = [new SignatureEntry("IsDate(Expression) As Boolean",  ["Expression"], "Returns True if the expression can be converted to a date.")],
             ["IsNumeric"] = [new SignatureEntry("IsNumeric(Expression) As Boolean",["Expression"],"Returns True if the expression can be evaluated as a number.")],
@@ -296,12 +307,17 @@ internal static class VbSignatures
             ["CVErr"] = [new SignatureEntry("CVErr(ErrorCode As Long) As Variant", ["ErrorCode"], "Returns a Variant with error subtype containing the specified error code.")],
 
             // Object / misc
+            ["CallByName"] = [new SignatureEntry("CallByName(Object, ProcName, CallType, Args...)", ["Object", "ProcName", "CallType", "Args"], "Calls a member by name using VbMethod, VbGet, VbLet or VbSet.")],
             ["CreateObject"] = [new SignatureEntry("CreateObject(Class As String, [ServerName As String]) As Object", ["Class", "ServerName"], "Creates and returns a reference to an ActiveX object.")],
             ["GetObject"]    = [new SignatureEntry("GetObject([Pathname], [Class]) As Object", ["Pathname", "Class"], "Returns a reference to an object from a file.")],
+            ["Partition"]    = [new SignatureEntry("Partition(Number, Start, Stop, Interval) As String", ["Number", "Start", "Stop", "Interval"], "Returns the range, such as \" 20: 29\", that Number falls in.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],
             ["Command"]      = [new SignatureEntry("Command() As String", [], "Returns the command line the program was started with.")],
+            ["IMEStatus"]    = [new SignatureEntry("IMEStatus() As Long", [], "Returns zero when no input method editor is available.")],
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
             ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
+            // Positional labels only: FileAttr's named arguments have not been measured (#2521).
+            ["FileAttr"]     = [new SignatureEntry("FileAttr(number, [attribute = 1]) As Long", ["number", "attribute"], "Returns an open file's mode. Only attribute 1 is supported; Input mode is unmeasured.")],
             ["EOF"]          = [new SignatureEntry("EOF(FileNumber As Integer) As Boolean", ["FileNumber"], "Returns whether a file has been read to its end.")],
             ["LOF"]          = [new SignatureEntry("LOF(FileNumber As Integer) As Long", ["FileNumber"], "Returns the length of an open file in bytes.")],
             ["Loc"]          = [new SignatureEntry("Loc(FileNumber As Integer) As Long", ["FileNumber"], "Returns the position in an open file, in 128-byte blocks for a sequential one.")],

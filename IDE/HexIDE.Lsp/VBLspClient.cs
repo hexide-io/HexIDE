@@ -567,7 +567,7 @@ public sealed class VBLspClient : ILspClient
         var initParams = new InitializeParams(
             ProcessId: Environment.ProcessId,
             RootUri: WorkspaceRootUri(),
-            WorkspaceFolders: WorkspaceFolders(),
+            WorkspaceFolders: _sentWorkspaceFolders = WorkspaceFolders(),
             // Sent even when it is off. The field is optional and off is its default, so this line changes
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
@@ -1787,6 +1787,32 @@ public sealed class VBLspClient : ILspClient
             WarnRequestFailedOnce("codeLens/resolve", ex, cancellationToken);
             return null;
         }
+    }
+
+    private WorkspaceFolder[]? _sentWorkspaceFolders;
+
+    public async Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return;
+        var capabilities = AdvertisedCapabilities;
+        if (capabilities is not { ValueKind: JsonValueKind.Object } caps
+            || !caps.TryGetProperty("workspace", out var workspace)
+            || workspace.ValueKind != JsonValueKind.Object
+            || !workspace.TryGetProperty("workspaceFolders", out var folders)
+            || folders.ValueKind != JsonValueKind.Object
+            || !folders.TryGetProperty("changeNotifications", out var notifications)
+            || !(notifications.ValueKind == JsonValueKind.True
+                || notifications.ValueKind == JsonValueKind.String)) return;
+
+        var current = (WorkspaceFolders() ?? []).DistinctBy(f => f.Uri).ToArray();
+        var previous = _sentWorkspaceFolders ?? [];
+        var added = current.Where(f => !previous.Any(p => p.Uri == f.Uri)).ToArray();
+        var removed = previous.Where(f => !current.Any(p => p.Uri == f.Uri)).ToArray();
+        if (added.Length == 0 && removed.Length == 0) return;
+        cancellationToken.ThrowIfCancellationRequested();
+        await _rpc.NotifyWithParameterObjectAsync("workspace/didChangeWorkspaceFolders",
+            new DidChangeWorkspaceFoldersParams(new WorkspaceFoldersChangeEvent(added, removed)));
+        _sentWorkspaceFolders = current;
     }
 
     private bool _serverRefreshesDiagnostics;

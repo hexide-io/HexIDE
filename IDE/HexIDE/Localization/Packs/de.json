@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— Antwort, {0} Bytes —",
     "Str.Tool.ProtocolInspector.Copy": "Als Trace kopieren",
     "Str.Tool.ProtocolInspector.Export": "Konversation exportieren...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Diese vorhandenen Dateien ersetzen?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} Nachrichten nach {1} exportiert, mit dem Manifest unter {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Der Export wurde nicht abgeschlossen: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Was hinausgeht, ist pseudonymisiert.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Die Farbe für transparente Pixel.",
     "Str.PropDesc.UseMaskColor": "Ob die Maskenfarbe verwendet wird.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
+    "Str.Dialog.Print.Configuration": "Kopien: 1; Ausrichtung: Hochformat.",
+    "Str.Dialog.Print.Unavailable": "Drucken ist nicht implementiert. OK gibt nur die Dialogeinstellungen zurück.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

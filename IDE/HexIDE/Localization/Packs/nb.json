@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— svar, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Kopier som sporing",
     "Str.Tool.ProtocolInspector.Export": "Eksporter samtale...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Erstatt disse eksisterende filene?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Eksporterte {0} meldinger til {1}, med manifestet i {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Eksporten ble ikke fullført: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Det som sendes ut, er pseudonymisert.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Fargen på gjennomsiktige piksler.",
     "Str.PropDesc.UseMaskColor": "Om maskefargen brukes.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis innrykkslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
+    "Str.Dialog.Print.Configuration": "Kopier: 1; retning: stående.",
+    "Str.Dialog.Print.Unavailable": "Utskrift er ikke implementert. OK returnerer bare dialoginnstillingene.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }
