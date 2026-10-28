@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Il colore dei pixel trasparenti.",
     "Str.PropDesc.UseMaskColor": "Indica se usare il colore della maschera.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostra guide di indentazione",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colora le parentesi per profondità di annidamento",
+    "Str.Dialog.Print.Configuration": "Copie: 1; orientamento: verticale.",
+    "Str.Dialog.Print.Unavailable": "La stampa non è implementata. OK restituisce solo le impostazioni della finestra.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

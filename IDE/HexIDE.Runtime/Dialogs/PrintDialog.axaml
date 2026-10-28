@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:HexIDE.Runtime.Dialogs"
+             x:DataType="local:PrintDialog"
+             x:Class="HexIDE.Runtime.Dialogs.PrintDialog">
+    <StackPanel Margin="12" Spacing="8" MaxWidth="400">
+        <TextBlock Text="{DynamicResource Str.Dialog.Print.Configuration}" TextWrapping="Wrap" />
+        <TextBlock Text="{DynamicResource Str.Dialog.Print.Unavailable}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Name="PART_Ok" Content="{DynamicResource Str.Dialog.MessageBox.Button.Ok}" IsDefault="True" Click="OkClick" />
+            <Button x:Name="PART_Cancel" Content="{DynamicResource Str.Dialog.MessageBox.Button.Cancel}" IsCancel="True" Click="CancelClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

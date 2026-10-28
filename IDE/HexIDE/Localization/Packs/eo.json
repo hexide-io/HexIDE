@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "La koloro por travideblaj bilderoj.",
     "Str.PropDesc.UseMaskColor": "Ĉu uzi la maskan koloron.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Montri deŝovajn gvidliniojn",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Kolorigi krampojn laŭ ingoprofundo",
+    "Str.Dialog.Print.Configuration": "Kopioj: 1; orientiĝo: vertikala.",
+    "Str.Dialog.Print.Unavailable": "Presado ne estas realigita. Bone liveras nur la dialogajn agordojn.",
+    "Str.Dialog.Color.Rgb": "RVB (#RRGGBB)"
   }
 }

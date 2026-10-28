@@ -494,3 +494,19 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
+
+### Requirement: CommonDialog uses managed colour and print dialogs
+The runtime SHALL route ShowColor and Action 3 to the host's managed colour chooser for measured Flags 0
+and 1, and ShowPrinter and Action 5 to the host's managed print dialog for measured Flags 0 with default
+page range and portrait orientation, accepting Copies 1 or 3. Unmeasured configurations and native printer
+DC requests SHALL be refused as not implemented. Actual printing remains not implemented.
+
+#### Scenario: Accepting the print dialog
+- **WHEN** the user accepts the supported print configuration
+- **THEN** Copies is 1, Orientation is 1 and hDC reads Long 0, with Flags unchanged
+- **AND** no print job is submitted
+
+#### Scenario: Cancelling either dialog
+- **WHEN** the user cancels the colour or print dialog
+- **THEN** its result properties are unchanged
+- **AND** CancelError True raises 32755

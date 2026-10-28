@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "La couleur des pixels transparents.",
     "Str.PropDesc.UseMaskColor": "Indique si la couleur du masque est utilisée.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Afficher les guides d’indentation",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorer les parenthèses selon la profondeur d’imbrication",
+    "Str.Dialog.Print.Configuration": "Copies : 1 ; orientation : portrait.",
+    "Str.Dialog.Print.Unavailable": "L’impression n’est pas implémentée. OK renvoie uniquement les paramètres du dialogue.",
+    "Str.Dialog.Color.Rgb": "RVB (#RRGGBB)"
   }
 }

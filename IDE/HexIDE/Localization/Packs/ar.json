@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "اللون المستخدم للبكسلات الشفافة.",
     "Str.PropDesc.UseMaskColor": "ما إذا كان لون القناع مستخدمًا.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "إظهار أدلة المسافة البادئة",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "تلوين الأقواس حسب عمق التداخل",
+    "Str.Dialog.Print.Configuration": "النسخ: 1؛ الاتجاه: عمودي.",
+    "Str.Dialog.Print.Unavailable": "الطباعة غير منفذة. يعيد زر موافق إعدادات الحوار فقط.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }
