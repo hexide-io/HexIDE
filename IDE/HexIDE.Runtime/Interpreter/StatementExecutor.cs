@@ -3012,7 +3012,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProcedure("Reset", [], currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
             return ControlFlow.Nothing;
         }
-        throw new NotImplementedException("Reset not implemented");
+        interpreter.BuiltIns.Files.CloseAll();
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitResumeStmt(VB6Parser.ResumeStmtContext context)

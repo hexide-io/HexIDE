@@ -115,15 +115,15 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
+| Statements | 1 | 0 | 15 | 44 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
+| Intrinsic functions | 0 | 0 | 32 | 54 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
+| **Total** | **1** | **0** | **125** | **453** | **20** | **585** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -158,7 +158,7 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
+damage is concentrated in **statements** and the **in-box object model**: 14% of VB6's statements (15
 of 107) and 58% of the
 in-box surface (`App`, `Printer`, `Clipboard`; 71 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 127 names
+## Dies mid-run — 125 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -323,7 +323,6 @@ most of the in-box object model.
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
-| `FileAttr` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileAttr(1, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileAttr)"… | ExpressionExecutor.cs |
 | `FormatCurrency` | **Dies** | RegisterFormat registers exactly one name — `d["Format"]` (VB6BuiltIns.Format.cs); no occurrence of "FormatCurrency" under IDE/HexIDE.Runtime. `throw new… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
@@ -376,7 +375,6 @@ most of the in-box object model.
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `PV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `Rate` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Rate)". Named in the deferral list at… | VB6BuiltIns.cs |
-| `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4). A bare call dispatches to the module's own Sub named `Reset`, including a private sibling in `Class_Initialize` (measured, #851). The file-closing statement still throws NotImplementedException: "Reset not implemented" when no local Sub matches. | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
 | `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
@@ -402,7 +400,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 16 absent, 44 partial, 46 supported)
+### Statements — 107 names (1 silently wrong, 15 absent, 44 partial, 47 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -445,7 +443,7 @@ missing.
 | `Print` | Partial | **#993:** parses with an optional output list, so an unreached statement no longer prevents form loading. In a form, reaching it takes the same not-implemented refusal as `Me.Print` (#989). In standard and class modules it stops with a not-implemented refusal naming #993; VB6 behaviour there is unmeasured. | StatementExecutor.cs |
 | `Print #` | Partial | **#2102:** date/time patterns and AM/PM designators use ordinary spaces in place of ICU U+202F/U+00A0. **#879:** an array item raises 13, as measured. **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured, a character it lacks as its best fit (Ā is "A", Ж "?", [#1511](https://github.com/hexide-io/HexIDE/issues/1511)): numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` move as measured ([#1380](https://github.com/hexide-io/HexIDE/issues/1380)). | StatementExecutor.cs |
 | `Put` | Partial | **[#1646](https://github.com/hexide-io/HexIDE/issues/1646):** writes a variable, element, field or expression to a Binary file's bytes or a Random file's record, in the bytes vb6.exe wrote, as `Get` reads them; an expression by its static type, a Variant's with its type first and a typed value bare. 59 for a value longer than the record, nothing written; a Variant holding an object writes its type then raises 13, as measured. **Partial:** an expression whose static type HexIDE does not know, such as `Timer > 0`, is refused; arrays of a Type and Types containing array fields (still refused after [#178](https://github.com/hexide-io/HexIDE/issues/178) enables runtime allocation), and fixed-length strings are not implemented. | StatementExecutor.Records.cs, VbRecordFormat.cs, VbFiles.Records.cs |
-| `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4). A bare call dispatches to the module's own Sub named `Reset`, including a private sibling in `Class_Initialize` (measured, #851). The file-closing statement still throws NotImplementedException: "Reset not implemented" when no local Sub matches. | StatementExecutor.cs |
+| `Reset` | Supported | Closes every open file, flushes buffered writes and releases file numbers; no files is a no-op (#2521). A module’s own Sub named Reset still wins, including a private sibling in Class_Initialize (#851). | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
 | `RmDir` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
@@ -553,7 +551,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (33 absent, 53 partial, 67 supported)
+### Intrinsic functions — 153 names (32 absent, 54 partial, 67 supported)
 
 
 **array** (3)
@@ -618,7 +616,7 @@ missing.
 | `FreeFile` | Supported | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** the lowest number not open, an Integer: from 1 for `FreeFile` and `FreeFile(0)`, from 256 for `FreeFile(1)`, and the same number until a file is opened on it (measured). | VB6BuiltIns.cs, VbFiles.cs |
 | `Dir` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `EOF` | Supported | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** True at the end of an Input file and at a Ctrl+Z in it, and always for an Output file; 52 for a number not open (measured). On a Binary or Random file True once a read has run past the end, until a `Seek` ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VB6BuiltIns.cs, VbFiles.cs |
-| `FileAttr` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileAttr(1, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileAttr)"… | ExpressionExecutor.cs |
+| `FileAttr` | Partial | Returns Long mode values Output 2, Append 8, Random 4, Binary 32; defaults to attribute 1. Attributes 0, 2, 3 raise 5; unopened numbers raise 52. File number converts as CInt (Null 94). Input mode, second-argument conversions from types other than Byte/Integer/Long and named arguments explicitly refuse as not implemented pending measurement (#2521). Error precedence remains unmeasured. | VB6BuiltIns.cs / VbFiles.cs |
 | `FileDateTime` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `FileLen` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `GetAttr` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |

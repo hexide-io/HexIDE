@@ -190,6 +190,14 @@ public partial class VB6BuiltIns
         d["FileDateTime"] = (self, a, _) => new Vb6Value(VbDate.FromDateTime(WholeSeconds(self.Files.FileDateTime(AsStr(a[0])))));
         d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
         d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
+        d["FileAttr"] = (self, a, _) =>
+        {
+            var number = Convert.ToInt32(NarrowNum(a[0], Vb6Value.ValueType.Integer).Value);
+            if (Supplied(a, 1) && a[1].Type != Vb6Value.ValueType.Integer
+                && a[1].Type != Vb6Value.ValueType.Long && a[1].Type != Vb6Value.ValueType.Byte)
+                throw new NotImplementedException("FileAttr attribute conversion is not implemented: its VB6 behaviour is unmeasured (#2521)");
+            return new Vb6Value(self.Files.FileAttr(number, Supplied(a, 1) ? Convert.ToInt64(a[1].Value) : 1));
+        };
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
         // LOF, Loc and Seek are Longs, and Input a String (measured, #1645). Input's file number may be written #n: the
         // expression executor reads it as a file number. InputB returns a byte string, which HexIDE has not got (#1510).
