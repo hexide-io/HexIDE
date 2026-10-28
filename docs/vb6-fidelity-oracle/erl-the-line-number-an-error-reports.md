@@ -5,8 +5,10 @@ logging `Erl` from its handler.
 
 **The rule the rows give:**
 - `Erl` is a Long, 0 until an error.
-- **When an error is raised, `Erl` becomes the last line number passed in the procedure that handles it.** An error on an
-  unnumbered line after line 20 is 20. One with no line numbers at all is 0. A named label doesn't count.
+- **When an error is raised, `Erl` becomes the line number at or above the place it was raised, in source order, in the
+  procedure that handles it, whether or not that numbered line ran.** An error on an unnumbered line after line 20 is 20.
+  One with no number above it in the procedure is 0. A named label doesn't count. (Corrected the same day: this said "the
+  last line number passed", which the rows below the follow-up overturn.)
 - An error in a callee, handled by the caller, is the **caller's** line: the call's, 40, whether or not the callee has
   numbers of its own (its line 6 is not reported).
 - **Every `On Error` statement and every `Resume` set it to 0**: `On Error GoTo`, `Resume Next` and `GoTo 0` alike, and
@@ -63,3 +65,34 @@ logging `Erl` from its handler.
 | Main's error on 80, then `Err.Raise 5` on an unnumbered line after it | 80, then 80 | |
 
 So `Erl` is program-wide, as `Err` is: a callee's `On Error` statement clears the caller's `Erl` with its `Err`.
+
+**Corrected 2026-10-28: source order, not the order lines ran.** The rule first written here was "the last line number
+passed", the obvious reading of the rows above, and every one of them fits it. Two cases separate it from the right rule:
+
+- After a `Then` part ran, an error past an unnumbered `End If` reads **40**, the number of a line in the `Else` part, which
+  never ran.
+- A loop's second pass reads the **`For` or `Do` line's** number, 10, not 20, the body's last line, which ran last. A
+  `Do While` condition with no number above it reads 0 when it is asked again, though line 30 ran just before.
+
+So `Erl` is the line number at or above the place the error was raised, in source order, in the procedure that trapped
+it. The call stands on a line of its own procedure, which is why an error in a callee reads the call's line.
+
+Native and p-code, one probe per row, each `Sub Main` with `On Error GoTo h` and a handler logging `err`, `erl`, `s` and `i`:
+
+| Probe | Lines | Logged, native | Logged, p-code |
+|---|---|---|---|
+| p-case-after-case | `10 Select Case i` / `Case 0` / `20 s = "zero"` / `40 Case 5` / `50 s = "five"` / `End Select` / `x = 1 / 0` | err 11 erl 50 [zero] i 0 | same |
+| p-caseelse-after-case | `10 Select Case i` / `Case 0` / `20 s = "zero"` / `40 Case Else` / `50 s = "other"` / `End Select` / `x = 1 / 0` | err 11 erl 50 [zero] i 0 | same |
+| p-do-body-top | `10 Do` / `If i = 1 Then x = 1 / 0` / `20 i = i + 1` / `Loop While i < 3` | err 11 erl 10 [] i 1 | same |
+| p-dowhile-body-top | `10 Do While i < 3` / `If i = 1 Then x = 1 / 0` / `20 i = i + 1` / `Loop` | err 11 erl 10 [] i 1 | same |
+| p-dowhile-loop-unnumbered | `10 Do While 1 / (2 - i) > -5` / `20 i = i + 1` / `Loop` | err 11 erl 10 [] i 2 | same |
+| p-dowhile-top-unnumbered | `Do While 1 / (2 - i) > -5` / `20 i = i + 1` / `30 Loop` | err 11 erl 0 [] i 2 | same |
+| p-else-after-then | `10 If i = 0 Then` / `20 s = "a"` / `30 Else` / `40 s = "b"` / `End If` / `x = 1 / 0` | err 11 erl 40 [a] i 0 | same |
+| p-elseif-after-then | `10 If i = 0 Then` / `20 s = "a"` / `30 ElseIf i = 5 Then` / `40 s = "b"` / `End If` / `x = 1 / 0` | err 11 erl 40 [a] i 0 | same |
+| p-endif | `10 If i = 0 Then` / `20 s = "a"` / `30 End If` / `x = 1 / 0` | err 11 erl 30 [a] i 0 | same |
+| p-endselect | `10 Select Case i` / `Case 0` / `20 s = "zero"` / `60 End Select` / `x = 1 / 0` | err 11 erl 60 [zero] i 0 | same |
+| p-endwith | `10 With c` / `20 .Add 1` / `30 End With` / `x = 1 / 0` | err 11 erl 30 [] i 0 | same |
+| p-for-body-top | `10 For i = 1 To 2` / `If i = 2 Then x = 1 / 0` / `20 s = s & i` / `Next` | err 11 erl 10 [1] i 2 | same |
+| p-for-next-unnumbered | `10 For b = 32766 To 32767` / `20 s = s & "x"` / `Next` | err 6 erl 20 [xx] i 0 | same |
+| p-foreach-body-top | `c.Add 1` / `c.Add 2` / `10 For Each v In c` / `If v = 2 Then x = 1 / 0` / `20 s = s & v` / `Next` | err 11 erl 10 [1] i 0 | same |
+| p-while-wend-unnumbered | `10 While 1 / (2 - i) > -5` / `20 i = i + 1` / `Wend` | err 11 erl 10 [] i 2 | same |
