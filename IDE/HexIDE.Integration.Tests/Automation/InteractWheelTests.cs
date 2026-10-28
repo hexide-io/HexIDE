@@ -114,7 +114,26 @@ public class InteractWheelTests
             outcome.Success.Should().BeTrue(outcome.Error);
             control.Bar.Value.Should().Be(6, "three rows a notch, two notches");
             outcome.Detail.Should().StartWith("turned the wheel 2 notches down at (40, 40)")
-                .And.Contain("its scroll bar 'ScrollBar").And.Contain("went from 0 to 6 of 0 to 26");
+                .And.Contain("its scroll bar 'ScrollBar").And.Contain("went from 0 to 6, in a range of 0 to 26")
+                .And.NotContain("as far as it goes");
+        }
+        finally { window.Close(); }
+    }
+
+    // Five notches where the bar has two to give: it stops, and the reply says it went as far as it goes.
+    [AvaloniaFact]
+    public void A_wheel_that_runs_into_the_end_of_a_bar_says_so()
+    {
+        var control = new SelfScrolling();
+        var window = Show(control);
+        try
+        {
+            control.Bar.Value = 6;
+
+            var outcome = UiAutomationDriver.Interact(control, "wheel", "up 5 40,40");
+
+            control.Bar.Value.Should().Be(0);
+            outcome.Detail.Should().EndWith("went from 6 to 0, in a range of 0 to 26, which is as far as it goes");
         }
         finally { window.Close(); }
     }
@@ -131,7 +150,7 @@ public class InteractWheelTests
             outcome.Success.Should().BeFalse();
             outcome.Error.Should().StartWith("found nothing that scrolls vertically for '")
                 .And.Contain("It draws a vertical scroll bar of its own, 'ScrollBar")
-                .And.Contain("at 0 of 0 to 26: set_range_value on that bar moves it")
+                .And.Contain("at 0, in a range of 0 to 26: set_range_value on that bar moves it")
                 .And.Contain("wheel turns the mouse wheel over the control");
         }
         finally { window.Close(); }

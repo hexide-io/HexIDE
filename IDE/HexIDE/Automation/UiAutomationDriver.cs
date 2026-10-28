@@ -2804,7 +2804,9 @@ public static class UiAutomationDriver
         for (var i = 0; i < bars.Count; i++)
             if (Math.Abs(bars[i].Value - barsBefore[i]) > 1e-9)
                 moved.Add($"its scroll bar {BarPathUnder(control, bars[i])} went from "
-                          + $"{barsBefore[i].ToString("0.###", CultureInfo.InvariantCulture)} to {BarPosition(bars[i])}");
+                          + $"{barsBefore[i].ToString("0.###", CultureInfo.InvariantCulture)} to {BarPosition(bars[i])}"
+                          // A wheel stops at an end with notches to spare, which a count alone wouldn't show.
+                          + (bars[i].Value <= bars[i].Minimum || bars[i].Value >= bars[i].Maximum ? ", which is as far as it goes" : ""));
 
         var turned = $"turned the wheel {notches.ToString(CultureInfo.InvariantCulture)} notch{(notches == 1 ? "" : "es")} "
                      + $"{WheelDirection(vertical, delta)} at {where}, which reached '{Describe(hit)}'";
@@ -2895,7 +2897,7 @@ public static class UiAutomationDriver
         PathWithin(control, string.Empty, bar) is { Length: > 1 } path ? $"'{path.TrimStart('/')}'" : $"'{Describe(bar)}'";
 
     private static string BarPosition(ScrollBar bar) =>
-        $"{bar.Value.ToString("0.###", CultureInfo.InvariantCulture)} of {bar.Minimum.ToString("0.###", CultureInfo.InvariantCulture)} "
+        $"{bar.Value.ToString("0.###", CultureInfo.InvariantCulture)}, in a range of {bar.Minimum.ToString("0.###", CultureInfo.InvariantCulture)} "
         + $"to {bar.Maximum.ToString("0.###", CultureInfo.InvariantCulture)}";
 
     /// <summary>
