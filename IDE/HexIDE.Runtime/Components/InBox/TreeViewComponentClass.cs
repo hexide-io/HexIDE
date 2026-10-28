@@ -40,7 +40,7 @@ internal sealed class TreeViewComponentClass : ComponentBaseClass
                 case "indentation":
                     tree.LoadHimetricIndentation(Convert.ToDouble(raw, System.Globalization.CultureInfo.InvariantCulture));
                     break;
-                case "hideselection" or "checkboxes" or "sorted" or "singlesel":
+                case "hideselection" or "checkboxes" or "sorted" or "singlesel" or "scroll":
                     tree.TrySetProperty(name, new Vb6Value(Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture) != 0));
                     break;
                 case "pathseparator": tree.TrySetProperty(name, new Vb6Value((string)raw)); break;
