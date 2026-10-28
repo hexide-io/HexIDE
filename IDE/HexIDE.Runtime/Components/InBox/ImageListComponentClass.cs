@@ -27,11 +27,7 @@ public sealed class ImageListComponentClass : InBoxComponentClass
     public override string ControlClassName => "ImageList";
     public override bool IsVisual => false;
     public override IEnumerable<RuntimeLibrary> Libraries => [ControlLibraries.MSComctlLib];
-    public override Control InstantiateForDesigner(ComponentInstance instance) => new Avalonia.Controls.Border
-    {
-        Width = 38, Height = 38,
-        Child = new Avalonia.Controls.TextBlock { Text = "▧", FontSize = 26, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center },
-    };
+    public override Control InstantiateForDesigner(ComponentInstance instance) => new ImageListDesignerIcon();
     public override (int Width, int Height) AddedSize => (570, 570);
     public override (int X, int Y) DefaultExtent => (1005, 1005);
     public override bool IsAlwaysWritten(PropertyClass property) => property == ImageBackColorProperty || property == MaskColorProperty;

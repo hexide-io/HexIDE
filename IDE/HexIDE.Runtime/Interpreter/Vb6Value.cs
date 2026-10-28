@@ -17,6 +17,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     {
         if (Type == other.Type)
         {
+            if (Type == ValueType.Error)
+                return ((ushort)Value!).CompareTo((ushort)other.Value!);
             if (Type == ValueType.Integer)
                 return ((int)Value!).CompareTo((int)other.Value!);
             if (Type == ValueType.Long)
@@ -185,6 +187,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public static Vb6Value NewCurrency(decimal value) => new Vb6Value(ValueType.Currency, Math.Round(value, 4, MidpointRounding.ToEven));
     public static Vb6Value NewDecimal(decimal value) => new Vb6Value(ValueType.Decimal, value);
 
+    // A boxed ushort keeps Error numbers out of the implicit numeric helpers. Explicit conversions unwrap it.
+    public static Vb6Value NewError(ushort number) => new Vb6Value(ValueType.Error, number);
+
     // A user-defined Type instance (the concrete type is on the VbUdt).
     public static Vb6Value NewUdt(VbUdt udt) => new Vb6Value(ValueType.UserDefinedType, udt);
 
@@ -307,6 +312,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         // live on the VbObject. A null Value = Nothing.
         public static readonly ValueType Object = new ValueType(ValueTypePrimitive.Object, false);
 
+        public static readonly ValueType Error = new ValueType(ValueTypePrimitive.Error, false);
         /// <summary>A blank argument slot. See <see cref="ValueTypePrimitive.Missing"/>.</summary>
         public static readonly ValueType Missing = new ValueType(ValueTypePrimitive.Missing, false);
 
@@ -367,7 +373,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         /// </summary>
         Missing,
 
-        AutomationUnsignedLong
+        AutomationUnsignedLong,
+        Error
     }
 
     public static implicit operator Vb6Value(int value) =>

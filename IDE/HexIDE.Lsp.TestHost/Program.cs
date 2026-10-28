@@ -12,6 +12,21 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
+        if (args[0] == "dispose-server")
+        {
+            Stream input = Console.OpenStandardInput();
+            if (args.Length > 2)
+            {
+                var pipe = new NamedPipeClientStream(".", args[2], PipeDirection.InOut, PipeOptions.Asynchronous);
+                await pipe.ConnectAsync();
+                input = pipe;
+            }
+            Console.Error.WriteLine("dispose-ready");
+            await input.CopyToAsync(Stream.Null);
+            if (args[1] == "hang") await Task.Delay(TimeSpan.FromMinutes(1));
+            Environment.Exit(37);
+            return;
+        }
         if (args[0] == "exit")
         {
             Environment.Exit(int.Parse(args[1]));
@@ -20,6 +35,32 @@ public static class Program
         if (args[0] == "echo")
         {
             await Console.OpenStandardInput().CopyToAsync(Console.OpenStandardOutput());
+            return;
+        }
+        if (args[0] == "launch-probe")
+        {
+            // LaunchConfigurationTests: what a configured launch handed this process, written where the test reads it,
+            // all at once, so the test never reads half of it.
+            var output = Environment.GetEnvironmentVariable("HEXIDE_LAUNCH_OUTPUT")!;
+            string[] received =
+            [
+                Environment.GetEnvironmentVariable("HEXIDE_LAUNCH_PROBE") ?? "",
+                Environment.GetEnvironmentVariable("PATH") ?? "",
+                .. args.Skip(1).Select(argument => "[" + argument + "]"),
+            ];
+            await File.WriteAllLinesAsync(output + ".tmp", received);
+            File.Move(output + ".tmp", output);
+            return;
+        }
+        if (args[0] == "teardown-probe")
+        {
+            // NamedPipeShutdownTests: a server still bringing up. It says it is running, waits for the test to start
+            // teardown, and exits that many milliseconds later, leaving a marker only if nothing killed it first.
+            await File.WriteAllTextAsync(args[1], "ready");
+            while (!File.Exists(args[2])) await Task.Delay(20);
+            await Task.Delay(int.Parse(args[4]));
+            await File.WriteAllTextAsync(args[3] + ".tmp", "done");
+            File.Move(args[3] + ".tmp", args[3]);
             return;
         }
         if (args[0] == "clean-server")

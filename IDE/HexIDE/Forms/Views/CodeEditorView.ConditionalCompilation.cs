@@ -24,6 +24,9 @@ public partial class CodeEditorView
     private IReadOnlyList<LineRange> _inactiveLines = [];
     private int _evaluatedLineCount;
 
+    // Evaluation runs synchronously on the dispatcher; once its timer is drained, the colours can be asserted.
+    internal bool IsConditionalCompilationPending => _conditionalTimer.IsEnabled;
+
     private void InstallConditionalCompilation()
     {
         var colorizer = new InactiveCodeColorizer(() => _inactiveLines);

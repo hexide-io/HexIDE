@@ -95,17 +95,21 @@ public class FormDeserializer
         Components.InBox.ToolbarComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
         Components.InBox.CommonDialogComponentClass.Instance,
+        Components.InBox.MaskedEdBoxComponentClass.Instance,
+        RichTextBoxComponentClass.Instance,
     ];
 
     /// <summary>
     /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
-    /// that holds no controls and is no control array's element (#1088). Loading one warns of nothing, and the designer's
-    /// box says it is view-only there rather than unsupported. A nested or arrayed Toolbar is still refused at run time.
+    /// (#1088) or an UpDown (#1093) that holds no controls and is no control array's element. Loading one warns of
+    /// nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed Toolbar or
+    /// UpDown is still refused at run time.
     /// </summary>
     public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
         type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
-        || !holdsControls && !inArray && componentsByTypeNames.TryGetValue(type, out var known)
-            && known is Components.InBox.ToolbarComponentClass;
+        || !holdsControls && !inArray
+            && (type.Equals("MSComCtl2.UpDown", StringComparison.OrdinalIgnoreCase)
+                || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass);
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
@@ -574,6 +578,21 @@ public class FormDeserializer
                 capturedBlobs.UnionWith(records.Values);
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
+            }
+            if (componentClass is Components.InBox.MaskedEdBoxComponentClass)
+            {
+                MaskedEdBoxPersistence.Loaded(instance, serializedComponent);
+                if (!MaskedEdBoxPersistence.CanWrite(serializedComponent))
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnimplementedControlPersistence,
+                        "MaskEdBox persistence is not implemented (#1098).");
+            }
+            if (componentClass is RichTextBoxComponentClass)
+            {
+                try { _ = RichTextBoxPersistence.RtfToWrite(instance); }
+                catch (NotImplementedException ex)
+                {
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, ex.Message);
+                }
             }
             if (componentClass is Components.InBox.TabStripComponentClass)
             {

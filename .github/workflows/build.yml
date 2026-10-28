@@ -22,10 +22,10 @@ concurrency:
 # 2026-10-26 (#883). Theory rows are counted by execution, not discovery. Raise floors as suites grow.
 # The async test-context lifetime fix is separate: https://github.com/hexide-io/HexIDE/issues/2194.
 env:
-  MIN_TESTS_RUNTIME: 6270       # 6600 measured (WSL, #2474); catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_RUNTIME: 6885       # 7248 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_TWINBASIC: 200      # 226
-  MIN_TESTS_IDE: 4249           # 4473 measured; catches short runs; raise to 95% of a new full total.
-  MIN_TESTS_INTEGRATION: 2850   # 3001 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_IDE: 4381           # 4612 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_INTEGRATION: 3379   # 3557 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_LSP_SERVER: 528     # 556 measured; catches short runs; raise to 95% of a new full total.
 
 jobs:
@@ -220,10 +220,12 @@ jobs:
         if: steps.translations.outcome == 'failure'
         run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
+      # --hangdump: after 10 minutes in which no test starts or finishes, write a mini dump and the names of the tests
+      # still running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530).
       - name: Run Integration Tests (headless Avalonia UI)
         id: integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Mini
 
       # xunit records a test case that threw before its test started as an error, and MTP never counts it, so a run
       # could lose hundreds of tests and still pass (#2486). xunit's own report keeps the count.
@@ -231,6 +233,16 @@ jobs:
         if: ${{ !cancelled() && steps.integration.outcome != 'skipped' }}
         shell: bash
         run: bash ../scripts/check-xunit-report.sh HexIDE.Integration.Tests/TestResults/integration-results.xml
+
+      - name: Name a hung Integration test
+        if: ${{ failure() && steps.integration.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Integration.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
 
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
       # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
@@ -432,16 +444,28 @@ jobs:
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
 
+      # --hangdump: after 10 minutes in which no test starts or finishes, write a mini dump and the names of the tests
+      # still running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530).
       - name: Run Integration Tests (headless Avalonia UI)
         id: integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Mini
 
       # As in build-ide: errors xunit records and MTP never counts (#2486).
       - name: Check xunit's report for errors MTP does not count
         if: ${{ !cancelled() && steps.integration.outcome != 'skipped' }}
         shell: bash
         run: bash ../scripts/check-xunit-report.sh HexIDE.Integration.Tests/TestResults/integration-results.xml
+
+      - name: Name a hung Integration test
+        if: ${{ failure() && steps.integration.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Integration.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
 
       - name: Upload test results on failure
         if: failure()

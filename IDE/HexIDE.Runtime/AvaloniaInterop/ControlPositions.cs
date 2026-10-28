@@ -47,7 +47,8 @@ internal static class ControlPositions
         // A Timer's Left and Top belong only to its designer icon (measured, #2069).
         if (control is VBTimer && (ReferenceEquals(property, VBProperties.LeftProperty)
                                   || ReferenceEquals(property, VBProperties.TopProperty)))
-            throw new VBRunTimeException(VBStandardError.PropertyGetCantBeExecutedAtRunTime);
+            throw new VBRunTimeException(new VBStandardError(VBStandardError.PropertyGetCantBeExecutedAtRunTime.ErrNo,
+                $"'{property.Name}' property cannot be read at run time"));
         // A form's own Width and Height are its outer size, its frame included (#1072).
         if (control is Window form && IsSize(property))
             return new Vb6Value((float)FormFrame.Read(form, IsVertical(property)));
@@ -68,9 +69,50 @@ internal static class ControlPositions
         // it (#1072, #1127).
         if (control is Window form && IsSize(property))
             return FormFrame.ClientFor(form, IsVertical(property), twips) + (IsVertical(property) ? MenuBarHeight(form) : 0);
-        if (control is VBLabel && IsSize(property) && twips < VBScaleModeExtensions.PixelToTwips)
-            twips = VBScaleModeExtensions.PixelToTwips;
+        if (IsSize(property))
+        {
+            if (control is VBComboBox && IsVertical(property))
+                throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
+            twips = Math.Max(twips, MinimumSize(control, IsVertical(property)));
+        }
         return twips / VBScaleModeExtensions.PixelToTwips;
+    }
+
+    // #1029: measured floors in twips, not host font metrics. Other font/border combinations stay as they were.
+    private static double MinimumSize(Control control, bool vertical)
+    {
+        var font = AttachedProperties.GetFont(control) ?? VBFont.Default;
+        var plain = font.Weight == VBFont.NormalWeight && !font.Italic && !font.Underline && !font.Strikethrough
+            && font.Charset == 0;
+        var standard = plain && string.Equals(font.FontFamilyName, "MS Sans Serif", StringComparison.OrdinalIgnoreCase)
+            && font.Size == 8.25;
+        var arial = plain && string.Equals(font.FontFamilyName, "Arial", StringComparison.OrdinalIgnoreCase)
+            && font.Size == 14.25;
+        switch (control)
+        {
+            case VBTextBox box when standard && box.VbBorderStyle == 0:
+                return vertical ? 195 : 75;
+            case VBTextBox box when standard && box.VbBorderStyle == 1:
+                return vertical ? 285 : 150;
+            case VBTextBox box when arial && box.VbBorderStyle == 1:
+                return vertical ? 450 : 240;
+            case VBCommandButton when standard:
+                return vertical ? 195 : 75;
+            case VBCommandButton when arial:
+                return vertical ? 330 : 120;
+            case VBCheckBox or VBOptionButton:
+                return vertical ? 195 : 75;
+            case VBComboBox:
+                return 390;
+            case VBListBox:
+                return vertical ? 255 : 135;
+            case VBScrollBar:
+                return 30;
+            case VBFrame or VBPictureBox or VBImage or VBShape or VBLabel:
+                return 15;
+            default:
+                return double.NegativeInfinity;
+        }
     }
 
     /// <summary>

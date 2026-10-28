@@ -174,7 +174,9 @@
     "Str.Menu.Format.HorizontalSpacing": "Odstęp p_oziomy",
     "Str.Menu.Format.VerticalSpacing": "Odstęp pio_nowy",
     "Str.Menu.Format.Spacing.MakeEqual": "Wyrówna_j odstępy",
+    "Str.Spinner.Increase": "Zwiększ",
     "Str.Menu.Format.Spacing.Increase": "_Zwiększ",
+    "Str.Spinner.Decrease": "Zmniejsz",
     "Str.Menu.Format.Spacing.Decrease": "Z_mniejsz",
     "Str.Menu.Format.Spacing.Remove": "_Usuń",
     "Str.Menu.Format.CenterInForm": "Wyśrod_kuj w formularzu",
@@ -681,6 +683,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— odpowiedź, {0} bajtów —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiuj jako ślad",
     "Str.Tool.ProtocolInspector.Export": "Eksportuj konwersację...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Zastąpić te istniejące pliki?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Wyeksportowano {0} komunikatów do {1}, a manifest do {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Eksport nie został ukończony: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "To, co opuszcza komputer, jest pseudonimizowane.",
@@ -926,6 +929,9 @@
     "Str.PropDesc.MaskColor": "Kolor przezroczystych pikseli.",
     "Str.PropDesc.UseMaskColor": "Czy używać koloru maski.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
+    "Str.Dialog.Print.Configuration": "Kopie: 1; orientacja: pionowa.",
+    "Str.Dialog.Print.Unavailable": "Drukowanie nie jest zaimplementowane. OK zwraca tylko ustawienia okna dialogowego.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

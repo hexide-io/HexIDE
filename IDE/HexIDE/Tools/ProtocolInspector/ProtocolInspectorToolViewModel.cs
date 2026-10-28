@@ -597,6 +597,7 @@ public partial class ProtocolInspectorToolViewModel : Document
             {
                 Title = _localization.GetString("Str.Tool.ProtocolInspector.Export"),
                 SuggestedFileName = "hexide-lsp-conversation.jsonl",
+                ShowOverwritePrompt = false, // Both outputs are confirmed together below.
                 DefaultExtension = "jsonl",
             });
 
@@ -607,8 +608,31 @@ public partial class ProtocolInspectorToolViewModel : Document
             // cites the messages file by line number, so a separated pair is a broken one.
             var manifest = System.IO.Path.ChangeExtension(chosen, null) + ".manifest.json";
 
-            await System.IO.File.WriteAllTextAsync(chosen, export.Messages);
-            await System.IO.File.WriteAllTextAsync(manifest, export.Manifest);
+            var existing = new[] { chosen, manifest }.Where(System.IO.File.Exists).ToArray();
+            if (existing.Length > 0 && await _windows.MessageBox(
+                    Format("Str.Tool.ProtocolInspector.ReplaceFiles", string.Join(Environment.NewLine, existing)),
+                    _localization.GetString("Str.Tool.ProtocolInspector.Export"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+                return;
+
+            Write(chosen, export.Messages);
+            Write(manifest, export.Manifest);
+
+            void Write(string path, string content)
+            {
+                // Consent covers only the files the question named. A replacement it agreed to is staged and flushed
+                // first (#2503); a path that was free when asked is created new, so a file that arrived while the
+                // question was open is never silently replaced (#2504).
+                if (existing.Contains(path))
+                {
+                    AtomicFileWriter.WriteAllText(path, content);
+                    return;
+                }
+                using var stream = new System.IO.FileStream(path, System.IO.FileMode.CreateNew,
+                    System.IO.FileAccess.Write, System.IO.FileShare.None);
+                stream.Write(new System.Text.UTF8Encoding(false, true).GetBytes(content));
+                stream.Flush(flushToDisk: true);
+            }
 
             ExportStatus = Format("Str.Tool.ProtocolInspector.Exported", export.Lines, chosen, manifest);
         }

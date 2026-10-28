@@ -18,11 +18,13 @@ namespace HexIDE.VbLspServer;
 /// </remarks>
 internal static class VbNextCounterList
 {
-    /// <summary>The lexer's tokens, with each comma of a Next's counter list expanded. Lexing happens here, so the
-    /// lexer's error listeners must be attached first.</summary>
+    /// <summary>The lexer's tokens, with each comma of a Next's counter list expanded, and a line number on a closing line
+    /// hidden (<see cref="VbClosingLineNumbers"/>). Lexing happens here, so the lexer's error listeners must be attached
+    /// first.</summary>
     public static CommonTokenStream Tokens(VisualBasic6Lexer lexer)
     {
         var tokens = lexer.GetAllTokens();
+        VbClosingLineNumbers.Hide(tokens);
         var commas = Commas(tokens);
         if (commas.Count == 0)
             return new CommonTokenStream(new ListTokenSource(tokens));

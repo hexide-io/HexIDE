@@ -567,7 +567,7 @@ public sealed class VBLspClient : ILspClient
         var initParams = new InitializeParams(
             ProcessId: Environment.ProcessId,
             RootUri: WorkspaceRootUri(),
-            WorkspaceFolders: WorkspaceFolders(),
+            WorkspaceFolders: _sentWorkspaceFolders = WorkspaceFolders(),
             // Sent even when it is off. The field is optional and off is its default, so this line changes
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
@@ -1789,6 +1789,32 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    private WorkspaceFolder[]? _sentWorkspaceFolders;
+
+    public async Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return;
+        var capabilities = AdvertisedCapabilities;
+        if (capabilities is not { ValueKind: JsonValueKind.Object } caps
+            || !caps.TryGetProperty("workspace", out var workspace)
+            || workspace.ValueKind != JsonValueKind.Object
+            || !workspace.TryGetProperty("workspaceFolders", out var folders)
+            || folders.ValueKind != JsonValueKind.Object
+            || !folders.TryGetProperty("changeNotifications", out var notifications)
+            || !(notifications.ValueKind == JsonValueKind.True
+                || notifications.ValueKind == JsonValueKind.String)) return;
+
+        var current = (WorkspaceFolders() ?? []).DistinctBy(f => f.Uri).ToArray();
+        var previous = _sentWorkspaceFolders ?? [];
+        var added = current.Where(f => !previous.Any(p => p.Uri == f.Uri)).ToArray();
+        var removed = previous.Where(f => !current.Any(p => p.Uri == f.Uri)).ToArray();
+        if (added.Length == 0 && removed.Length == 0) return;
+        cancellationToken.ThrowIfCancellationRequested();
+        await _rpc.NotifyWithParameterObjectAsync("workspace/didChangeWorkspaceFolders",
+            new DidChangeWorkspaceFoldersParams(new WorkspaceFoldersChangeEvent(added, removed)));
+        _sentWorkspaceFolders = current;
+    }
+
     private bool _serverRefreshesDiagnostics;
 
     public async Task<JsonElement?> ImportProjectAsync(ProjectImportSpec spec, string uri, string text,
@@ -1956,8 +1982,9 @@ public sealed class VBLspClient : ILspClient
             // object omits the member; JSON null on the wire is not equivalent to absence.
             //
             // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
-            // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
-            // that we never shut it down, and any supervisor reads every clean exit as a crash.
+            // shutdown preceded exit; LSP specifies 1 otherwise, but measured ruff returns 2 (#491).
+            // A server that refuses ours reports that we never shut it down, and any supervisor reads
+            // every clean exit as a crash.
             // See hexide-io/HexIDE#312.
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try

@@ -174,7 +174,9 @@
     "Str.Menu.Format.HorizontalSpacing": "가로 간격",
     "Str.Menu.Format.VerticalSpacing": "세로 간격",
     "Str.Menu.Format.Spacing.MakeEqual": "동일하게 만들기",
+    "Str.Spinner.Increase": "늘리기",
     "Str.Menu.Format.Spacing.Increase": "늘리기",
+    "Str.Spinner.Decrease": "줄이기",
     "Str.Menu.Format.Spacing.Decrease": "줄이기",
     "Str.Menu.Format.Spacing.Remove": "제거",
     "Str.Menu.Format.CenterInForm": "폼 가운데 맞춤",
@@ -681,6 +683,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— 응답, {0}바이트 —",
     "Str.Tool.ProtocolInspector.Copy": "추적 형식으로 복사",
     "Str.Tool.ProtocolInspector.Export": "대화 내보내기...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "이 기존 파일들을 바꾸시겠습니까?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "메시지 {0}개를 {1}에 내보냈으며, 매니페스트는 {2}에 있습니다.",
     "Str.Tool.ProtocolInspector.ExportFailed": "내보내기를 완료하지 못했습니다: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "밖으로 나가는 내용은 가명으로 대체됩니다.",
@@ -926,6 +929,9 @@
     "Str.PropDesc.MaskColor": "투명 픽셀에 사용하는 색입니다.",
     "Str.PropDesc.UseMaskColor": "마스크 색 사용 여부입니다.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "들여쓰기 안내선 표시",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
+    "Str.Dialog.Print.Configuration": "매수: 1; 방향: 세로.",
+    "Str.Dialog.Print.Unavailable": "인쇄는 구현되지 않았습니다. 확인은 대화 상자 설정만 반환합니다.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

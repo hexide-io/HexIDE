@@ -7,7 +7,7 @@
         <TextBox x:Name="PART_Input" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,4">
             <Button x:Name="PART_Ok" Content="OK" MinWidth="75" Click="OkClick" />
-            <Button Content="Cancel" MinWidth="75" Click="CancelClick" />
+            <Button x:Name="PART_Cancel" Content="Cancel" MinWidth="75" Click="CancelClick" />
         </StackPanel>
     </StackPanel>
 </UserControl>

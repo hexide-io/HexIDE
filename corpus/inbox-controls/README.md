@@ -1,9 +1,9 @@
 # In-box control corpus
 
 The saved fixtures cover ProgressBars from MSCOMCTL.OCX (`MSComctlLib`, 6.0) and COMCTL32.OCX (`ComctlLib`, 5.0),
-StatusBars, ImageLists, Toolbars, TabStrips and TreeViews from MSCOMCTL.OCX, and CommonDialogs from COMDLG32.OCX (`MSComDlg`). An in-box control's native persistence differs from an intrinsic's: the extender's
+StatusBars, ImageLists, Toolbars, TabStrips and TreeViews from MSCOMCTL.OCX, UpDowns from MSCOMCT2.OCX, CommonDialogs from COMDLG32.OCX (`MSComDlg`), and RichTextBoxes from RICHTX32.OCX (`RichTextLib`). An in-box control's native persistence differs from an intrinsic's: the extender's
 properties sort by name, followed by the control's own run, whose ordering and nested property bags are measured
-rather than inferred (hexide-io/HexIDE#1082, #1083, #1084, #1086, #1087, #1088).
+rather than inferred (hexide-io/HexIDE#1082, #1083, #1084, #1086, #1087, #1088, #1100).
 
 ## Two halves
 
@@ -58,8 +58,19 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 | `saved/treeview/` | Three TreeViews written by hand and saved by VB6: one with every property off its default, its lines scrambled and Indentation written as 529, which is HIMETRIC; one with only its size and `_Version`, which VB6 saved with `Appearance` alone, its Style being 0; and one with its defaults written out, which VB6 cut to `Style` and `Appearance` (#1086). The `.frx` is the ImageList's |
 | `saved/commondialog/` | Four CommonDialogs saved by VB6. Three were written by hand: one with every property off its default and its lines reversed, one with only its position and `_Version`, and one with its defaults written out, which VB6 cut back to the minimal block. The fourth, `CommonDialog4`, was double-clicked from the toolbox, and VB6 wrote it ahead of the other three (#1084). There is no `.frx` |
 | `saved/tabstrip/` | Three TabStrips saved by VB6: one written by hand with every property off its default, its lines reversed and three tabs with tags, tips and images by index and by key; a minimal block; and one double-clicked from the toolbox. Every one gets a Tabs block. The `.frx` is the ImageList's (#1089) |
+| `saved/richtextbox/` | Three RichTextBoxes saved by VB6: one written by hand with every property off its default, its lines reversed and its TextRTF inline, then Locked set in the Properties window (saved as `ReadOnly`); a minimal block; and one double-clicked from the toolbox. Every TextRTF is in the `.frx` (#1100) |
+| `saved/updown/` | Four UpDowns saved by VB6: off-default properties, a minimal block, a Text2 buddy binding and the toolbox default; provenance below (#1093). There is no `.frx` |
+| `saved/maskedbox/` | Four MaskEdBoxes from MSMASK32.OCX saved by VB6 (#1098), after a comment typed into the form's code made it dirty: a minimal block with no extents and no `PromptChar`, given 3000 x 1125 and `PromptChar "_"`; one written by hand with every own property off its default and its lines reversed, for VB6's order, which writes `OLEDragMode` and `OLEDropMode` twice; one with no `Mask` and a `Text`; and one with a `Mask` and no `Text`. VB6 dropped every `Text` line: it isn't saved, and the Properties window has no row for it. There is no `.frx`. The hand-written form is `input/maskedbox/` |
+
+The MaskedEdBox save is documented in [the MaskedEdBox oracle](../../docs/vb6-fidelity-oracle/the-maskededbox-mask-text-and-keystrokes.md).
+It moved from pending after `MaskedEdBoxSerializationTests` verified the save and input normalization.
+Saved own properties remain carried; their runtime binding and own-property editors are unfinished.
 
 The CommonDialog save was written on 2026-10-27 with COMDLG32.OCX 6.01.9782; its project is hand-written.
+
+The RichTextBox save was produced on 2026-10-27 (oracle PR #2250), including the second pass setting Locked
+in the Properties window. Its form and companion are both required byte-for-byte round-trip evidence;
+its accompanying `probe.vbp` is hand-written.
 
 ## ImageList saves
 
@@ -73,6 +84,15 @@ The round-trip lane walks their forms and companions. The original probe picture
 | `saved/imagelist/empty-key/` | Four pictures, 16 x 16: no Key and no Tag; Key `k2` and no Tag; Key `k3` and Tag `t3`; no Key and Tag `t4`. An empty Key writes `Key = ""`, and an empty Tag no line |
 | `input/imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
 
+## UpDown saves
+
+`saved/updown/` holds the four MSCOMCT2.OCX UpDowns VB6 SP6 saved on 2026-10-27 (#1093).
+One has its own properties off their defaults, one is minimal, one is bound to Text2 through the
+Properties window, and one was double-clicked from the toolbox. The bound block records BuddyControl,
+BuddyDispid, OrigLeft/Top/Right/Bottom and BuddyProperty = 0; Text2 is saved narrowed. There is no `.frx`.
+The round-trip lane walks the save; loaded UpDown blocks remain read-only in the designer and are
+preserved verbatim when the form is edited. The `.vbp` is hand-written, as in `input/`.
+
 ## Pending saves
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
@@ -85,14 +105,11 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `pending/sstab/` | An SSTab drawn in VB6's IDE: three tabs, with a CommandButton drawn on tab 0, a TextBox on tab 1 and a CheckBox on tab 2, tab 1 left showing. The hidden tabs' controls are 75000 twips left, and each tab has a `TabPicture` record in the `.frx` (#1090) |
 | `pending/sstab-resaved/` | Three SSTabs written by hand and saved by VB6, with a fourth double-clicked from the toolbox: one with every property off its default and its lines reversed, a minimal block, and one whose `ControlEnabled` flags and lists did not match its controls, which VB6 rewrote. See the oracle entry before taking it as a model (#1090) |
 | `pending/msflexgrid/` | Three MSFlexGrids saved by VB6: one written by hand with every property off its default and its lines reversed, a minimal block, and one double-clicked from the toolbox. There is no `.frx`: cell text is not saved, only FormatString (#1099) |
-| `pending/richtextbox/` | Three RichTextBoxes saved by VB6: one written by hand with every property off its default, its lines reversed and its TextRTF inline, then Locked set in the Properties window (saved as `ReadOnly`); a minimal block; and one double-clicked from the toolbox. Every TextRTF is in the `.frx` (#1100) |
 | `pending/defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |
 | `pending/slider/` | Five Sliders saved by VB6: one written by hand with every property off its default and its lines reversed, its `Text` line dropped as VB6 doesn't save it; a minimal block; an upright one; one with only `Value`; and one double-clicked from the toolbox. There is no `.frx` (#1091) |
-| `pending/updown/` | Four UpDowns from MSCOMCT2.OCX saved by VB6: one written by hand with every property but the buddy's off its default and its lines reversed; a minimal block; one bound to Text2 through the Properties window, which wrote `BuddyControl`, `BuddyDispid`, the four `Orig` lines and `BuddyProperty = 0` and narrowed Text2; and one double-clicked from the toolbox. There is no `.frx` (#1093) |
 | `pending/dtpicker/` | Seven DTPickers from MSCOMCT2.OCX, written by hand with their lines reversed and saved by VB6 untouched: a minimal block; one with only `MaxDate`; one with `MinDate`, `MaxDate`, `CurrentDate`, `CustomFormat` and Format 3; one with the five calendar colours, `CheckBox`, `UpDown`, `Enabled`, `MousePointer` and `OLEDropMode`; one with `CurrentDate` and an earlier save's `Format`; one with Format 0; and one with a `Font` block. Every block gains a `Format` line, whose high 16 bits differ between IDE sessions, and a `CurrentDate`; a block without one is saved as 36494. There is no `.frx` (#1094) |
 | `pending/dtpicker-added/` | Three DTPickers saved by VB6: two minimal blocks, the second of which had its Properties window shown and so saved the moment it was read as its `CurrentDate`, and one double-clicked from the toolbox, 1500 x 750 and written first. There is no `.frx` (#1094) |
 | `pending/monthview/` | Nine MonthViews from MSCOMCT2.OCX saved by VB6: a minimal block; six written by hand with their lines reversed, for the dates and selection, the appearance and switches, two months by two, the six colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. Every block gains `Appearance`, a `StartOfWeek` whose high 16 bits differ between IDE sessions, and a `CurrentDate`; the toolbox one has StartOfWeek 2, the locale's Monday. The ones that size themselves were rewritten at their new size. There is no `.frx` (#1095) |
 | `pending/imagecombo/` | Eight ImageCombos from MSCOMCTL.OCX and an ImageList, saved by VB6: a minimal block; five written by hand with their lines reversed, for `Text`, the `ImageList` binding with `Indentation` and `Locked`, the switches, the two colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. A minimal block gains nothing. The toolbox one gets the window colours and a `Text` of its name. The `Font` block was rewritten at its new height. There is no `.frx` (#1092) |
 | `pending/flatscrollbar/` | Seven FlatScrollBars from MSCOMCT2.OCX saved by VB6: a minimal block; four written by hand with their lines reversed, for the range and change sizes, `Orientation` 0, and the appearance and switches; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. `Arrows`, `Orientation` and `Appearance` are written with a high word, which a second IDE session wrote identically. The vertical block has no `Arrows` line. There is no `.frx` (#1097) |
 | `pending/animation/` | Six Animations from MSCOMCT2.OCX saved by VB6: a minimal block; one written by hand with every candidate line reversed, for VB6's order; one with only `FullWidth` and `FullHeight`; one with an explicit `Enabled = True`, which VB6 dropped; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first, with `Enabled`, `FullWidth` and `FullHeight`. VB6 writes `OleDropMode`, not `OLEDropMode`. There is no `.frx` (#1096) |
-| `pending/maskedbox/` | Four MaskEdBoxes from MSMASK32.OCX saved by VB6 (#1098), after a comment typed into the form's code made it dirty: a minimal block with no extents and no `PromptChar`, given 3000 x 1125 and `PromptChar "_"`; one written by hand with every own property off its default and its lines reversed, for VB6's order, which writes `OLEDragMode` and `OLEDropMode` twice; one with no `Mask` and a `Text`; and one with a `Mask` and no `Text`. VB6 dropped every `Text` line: it isn't saved, and the Properties window has no row for it. There is no `.frx`. The hand-written form is `input/maskedbox/` |
