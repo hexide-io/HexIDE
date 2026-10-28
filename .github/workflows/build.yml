@@ -221,8 +221,16 @@ jobs:
         run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
       - name: Run Integration Tests (headless Avalonia UI)
+        id: integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml
+
+      # xunit records a test case that threw before its test started as an error, and MTP never counts it, so a run
+      # could lose hundreds of tests and still pass (#2486). xunit's own report keeps the count.
+      - name: Check xunit's report for errors MTP does not count
+        if: ${{ !cancelled() && steps.integration.outcome != 'skipped' }}
+        shell: bash
+        run: bash ../scripts/check-xunit-report.sh HexIDE.Integration.Tests/TestResults/integration-results.xml
 
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
       # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
@@ -425,8 +433,15 @@ jobs:
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
 
       - name: Run Integration Tests (headless Avalonia UI)
+        id: integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml
+
+      # As in build-ide: errors xunit records and MTP never counts (#2486).
+      - name: Check xunit's report for errors MTP does not count
+        if: ${{ !cancelled() && steps.integration.outcome != 'skipped' }}
+        shell: bash
+        run: bash ../scripts/check-xunit-report.sh HexIDE.Integration.Tests/TestResults/integration-results.xml
 
       - name: Upload test results on failure
         if: failure()
@@ -558,6 +573,9 @@ jobs:
 
       - name: Self-test WSL test-count arguments
         run: bash scripts/test-linux.selftest.sh
+
+      - name: Self-test the xunit report check
+        run: bash scripts/check-xunit-report.selftest.sh
 
       # Before the guard, not after: this asks whether the guard can still SEE an untracked
       # file. Three of its scans could not, while its header said they could (#437), and CI
