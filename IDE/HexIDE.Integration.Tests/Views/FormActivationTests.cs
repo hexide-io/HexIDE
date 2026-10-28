@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using HexIDE.Runtime;
+using HexIDE.Automation;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -317,4 +318,108 @@ public class FormActivationTests
         run.Errors.Should().BeEmpty();
         run.Since(Started.Length).Should().Equal("f1 resize");
     }
+    private static void NativeSize(VBFormRuntime window, double width, double height)
+    {
+        var platform = window.PlatformImpl!;
+        // Resize() posts asynchronously headlessly; model a native notification with its backend size already updated.
+        var size = new Avalonia.Size(width, height);
+        platform.GetType().GetProperty("ClientSize")!.SetValue(platform, size);
+        var resized = (Action<Avalonia.Size, WindowResizeReason>)platform.GetType().GetProperty("Resized")!.GetValue(platform)!;
+        resized(size, WindowResizeReason.User);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(WindowState.Normal, WindowState.Maximized, true)]
+    [InlineData(WindowState.Maximized, WindowState.Normal, false)]
+    [InlineData(WindowState.Normal, WindowState.Minimized, false)]
+    [InlineData(WindowState.Minimized, WindowState.Normal, true)]
+    public async Task A_native_state_change_raises_one_Resize_then_Paint_only_when_the_client_grows(
+        WindowState from, WindowState to, bool paint)
+    {
+        // The automation route uses the same state setter, then waits for the queued window work.
+        foreach (var toolRoute in new[] { false, true })
+        {
+            using var run = Start("""
+                Private Sub Form_Resize()
+                    Debug.Print "resize " & Me.WindowState
+                    If Me.WindowState <> 1 Then Debug.Print "client " & Me.ScaleWidth & "x" & Me.ScaleHeight
+                End Sub
+                Private Sub Form_Paint()
+                    Debug.Print "paint"
+                End Sub
+                Private Sub Form_Activate()
+                    Debug.Print "activate"
+                End Sub
+                Private Sub Form_Deactivate()
+                    Debug.Print "deactivate"
+                End Sub
+                Private Sub Form_GotFocus()
+                    Debug.Print "focus"
+                End Sub
+                Private Sub Form_LostFocus()
+                    Debug.Print "blur"
+                End Sub
+                """, logEvents: false);
+            var window = run.Opened["Form1"];
+            window.WindowState = from;
+            NativeSize(window, from == WindowState.Maximized ? 1024 : 300, from == WindowState.Maximized ? 705 : 200);
+            Pump();
+            run.Printed.Clear();
+
+            var applied = toolRoute
+                ? WindowChange.ApplyAsync(window, to, null, null, null, null, TestContext.Current.CancellationToken)
+                : null;
+            if (!toolRoute)
+                window.WindowState = to;
+            if (to != WindowState.Minimized)
+            {
+                // A native state change can report intermediate client sizes before it settles.
+                NativeSize(window, 600, 400);
+                NativeSize(window, to == WindowState.Maximized ? 1024 : 300, to == WindowState.Maximized ? 705 : 200);
+            }
+            if (from == WindowState.Minimized)
+                window.Activate();
+            if (applied is not null)
+                (await applied).Should().BeTrue();
+            Pump();
+
+            run.Errors.Should().BeEmpty();
+            var expected = new List<string> { $"resize {(int)to}" };
+            if (to != WindowState.Minimized)
+                expected.Add(to == WindowState.Maximized ? "client 15360x10575" : "client 4500x3000");
+            if (paint)
+                expected.Add("paint");
+            run.Printed.Should().Equal(expected);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_native_border_or_corner_drag_raises_Resize_then_Paint_per_move_and_nothing_on_release(bool corner)
+    {
+        using var run = Start("""
+            Private Sub Form_Resize()
+                Debug.Print "resize"
+            End Sub
+            Private Sub Form_Paint()
+                Debug.Print "paint"
+            End Sub
+            """, logEvents: false);
+        var window = run.Opened["Form1"];
+        NativeSize(window, 300, 200);
+        Pump();
+        run.Printed.Clear();
+        for (var i = 1; i <= (corner ? 1 : 5); i++)
+        {
+            NativeSize(window, 300 + (corner ? 40 : 20 * i), 200 + (corner ? 30 : 0));
+            Pump();
+            run.Printed.Should().Equal(Enumerable.Range(0, i).SelectMany(_ => new[] { "resize", "paint" }));
+        }
+        run.Printed.Clear();
+        Pump();
+        run.Printed.Should().BeEmpty("releasing a border does not change the size");
+        run.Errors.Should().BeEmpty();
+    }
+
 }
