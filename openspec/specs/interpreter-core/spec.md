@@ -881,6 +881,46 @@ and unmeasured HelpContext conversions SHALL be refused as not implemented.
 - **WHEN** LastDllError is assigned 3
 - **THEN** execution refuses with Can't assign to read-only property
 
+### Requirement: Measured payment, future value and present value calculations
+
+The interpreter SHALL execute the measured positional `Pmt`, `FV` and `PV` calls from
+[#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving their exact Double bits and
+measured errors. It SHALL round the base `1 + rate` to Double before retaining higher-precision
+intermediates. Unmeasured named calls, argument errors and unsupported calculation domains SHALL
+fail clearly as unimplemented, rather than supply an invented VB6 result.
+
+#### Scenario: Ordinary loan payment retains intermediate precision
+- **WHEN** a program evaluates `Pmt(0.08 / 12, 120, 10000)`
+- **THEN** the result is a Double with bits `C05E54F74E50A768`
+
+#### Scenario: The zero-rate and fractional-period cases execute
+- **WHEN** a program evaluates a measured zero-rate or fractional-period call
+- **THEN** its exact Double bits agree with the issue's measured row
+
+#### Scenario: Measured invalid payment inputs report their errors
+- **WHEN** a program calls `Pmt(0.1, 0, 1000)` or `Pmt(Null, 10, 1000)`
+- **THEN** it raises error 5 or 94 respectively
+
+### Requirement: Measured periods, interest, principal and rate calculations
+
+The interpreter SHALL execute every measured positional NPer, IPmt, PPmt and Rate row in
+[#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving exact Double bits and errors.
+It SHALL use the fitted per-function spills described in
+[Financial precision](../../../docs/financial-precision-2523.md). Unmeasured argument conversions,
+named calls and unsupported domains SHALL refuse as unimplemented.
+
+#### Scenario: Beginning-period interest and zero-rate interest
+- **WHEN** the program evaluates the measured first-period beginning payment or zero-rate IPmt call
+- **THEN** it returns positive zero or negative zero respectively, as recorded in the issue
+
+#### Scenario: Rate depends on its initial guess
+- **WHEN** the program evaluates the measured Rate calls with omitted Guess or Guess 0.5
+- **THEN** each result preserves the distinct Double bits recorded in the issue
+
+#### Scenario: Invalid periods are measured errors
+- **WHEN** the program evaluates a measured invalid-period IPmt or PPmt call, or a measured failing Rate call
+- **THEN** it raises error 5
+
 ### Requirement: Shell SHALL launch programs with the measured argument and result contract
 `Shell` SHALL work as a function and a statement, launch asynchronously and return the process ID as
 Double. Explicit styles 0–4, 6 and 7 SHALL select the Windows startup show state; Unix hosts SHALL
