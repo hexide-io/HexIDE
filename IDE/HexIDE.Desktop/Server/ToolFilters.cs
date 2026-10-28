@@ -18,5 +18,9 @@ internal static class ToolFilters
     public static IMcpServerBuilder Register(IMcpServerBuilder builder, string? session) =>
         SessionGuard.Register(builder, session)
             .WithMessageFilters(filters => filters.AddIncomingFilter(ToolFailures.TextFilter))
-            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter));
+            // After the guard, so a refused call is not the last call; before failure reporting, so one refused for its
+            // arguments still counts (#2451).
+            .WithRequestFilters(filters => filters
+                .AddCallToolFilter(ActivityFilter.Filter)
+                .AddCallToolFilter(ToolFailures.Filter));
 }

@@ -59,9 +59,29 @@ public class ControlLibraryTests
     }
 
     [Fact]
-    public void A_library_HexIDE_does_not_know_is_none()
+    public void CommonDialog_has_a_library_record()
     {
         ObjectReference.TryParse(VbpDialog, out var reference).Should().BeTrue();
+        var library = ControlLibraries.For(reference);
+        library.Should().NotBeNull();
+        library!.Name.Should().Be("MSComDlg");
+        library.ProjectLine.Should().Be(VbpDialog);
+        library.Controls["CommonDialog"].Should().Be(1084);
+    }
+
+    [Fact]
+    public void CommonDialog_is_registered_under_its_type_name()
+    {
+        Serialization.FormDeserializer.TryGetComponentClass("MSComDlg.CommonDialog", out var component).Should().BeTrue();
+        component!.IsVisual.Should().BeFalse();
+        component.Events.Should().BeEmpty();
+        component.Properties.Select(p => p.Name).Should().BeEquivalentTo("(Name)", "Tag", "Left", "Top");
+    }
+
+    [Fact]
+    public void A_library_HexIDE_does_not_know_is_none()
+    {
+        ObjectReference.TryParse("Object={00000000-0000-0000-0000-000000000000}#1.0#0; unknown.ocx", out var reference).Should().BeTrue();
 
         ControlLibraries.For(reference).Should().BeNull();
     }
@@ -82,7 +102,7 @@ public class ControlLibraryTests
         form.HeaderLines.Add(Frm5);
         project.AddForm(form);
 
-        ControlLibraries.ReferencedBy(project).Select(l => l.Name).Should().Equal("ComctlLib", "MSComctlLib");
+        ControlLibraries.ReferencedBy(project).Select(l => l.Name).Should().Equal("MSComDlg", "ComctlLib", "MSComctlLib");
     }
 
     [Fact]

@@ -316,6 +316,8 @@ public static class VbNumeric
     /// </summary>
     public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx)
     {
+        if (v.Type == VT.AutomationUnsignedLong)
+            throw new NotImplementedException("Conversion of an unsigned Automation Long is not implemented (#1084)");
         if (v.Type == target)
             return v;
         // A declared scalar slot takes an object's default member (ObjectAsValue).

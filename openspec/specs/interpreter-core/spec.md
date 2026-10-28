@@ -166,7 +166,7 @@ different result rather than reporting a problem.
 
 ### Requirement: Procedure calls SHALL bind parameters as VB6 does
 User-defined procedures SHALL be callable, SHALL pass parameters by reference unless declared otherwise, and
-SHALL support by-value, optional and named arguments. Each call SHALL keep only its own bindings
+SHALL support by-value, optional, named and ParamArray arguments. Each call SHALL keep only its own bindings
 (parameters, locals, return name and `Me`), falling back to the module or instance environment before
 project-wide names, without copying the module's bindings.
 
@@ -187,6 +187,11 @@ by value will run such a program to completion while producing the wrong answer.
 - **WHEN** a parameter is declared by value and the procedure assigns to it
 - **THEN** the caller's variable is unchanged
 
+#### Scenario: A ParamArray parameter
+- **WHEN** a procedure declared with a ParamArray is called with arguments after its fixed parameters
+- **THEN** the ParamArray is a Variant array from 0 holding those arguments, empty when there are none
+- **AND** a store through one of its elements modifies the caller's variable, converted to that variable's type
+
 #### Scenario: An unspaced parenthesised member-call argument
 - **WHEN** a member call statement puts its parenthesised argument directly after the member name
 - **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
@@ -206,6 +211,52 @@ program that compiles and runs.
 #### Scenario: A private sibling Sub named Reset
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
+
+### Requirement: Empty parentheses SHALL preserve a declared whole array
+A declared array named with empty parentheses SHALL evaluate as the whole array. Array parameters and
+ByRef Variant parameters SHALL share it; ByVal Variant parameters and a Let into a Variant SHALL copy it.
+A Variant holding an array, named with empty parentheses, SHALL raise "Expected Sub, Function, or Property"
+when the statement executes (measured, #2474). The ParamArray form remains deferred until after #2462.
+
+#### Scenario: Passing the whole array
+- **WHEN** `S arr()` or `Call S(arr())` passes `Dim arr(2) As Long` to `S(x() As Long)`
+- **THEN** `UBound(x)` is 2 and adding 1 to `x(0)` changes the caller's element to 1
+
+#### Scenario: Reading and copying the whole array
+- **WHEN** `w = arr()` assigns that array into a Variant
+- **THEN** w is a Long() with upper bound 2 and changing its elements leaves arr unchanged
+
+### Requirement: A name read through a type character SHALL be the name's own read
+A variable, constant, Enum member, parameter or array read with a type-declaration character (`s$`, `i%`,
+`a%(1)`) SHALL be read as the name without it, and SHALL raise VB6's compile error "Type-declaration character
+does not match declared data type" when the character is not the name's type. A name nothing declares SHALL be
+declared by the read, with the character's type.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/a-name-read-with-a-type-character.md`, #742).
+
+#### Scenario: A String read through its character
+- **WHEN** `Dim s As String` holds "x" and the program reads `s$`
+- **THEN** the read SHALL give the String "x"
+
+#### Scenario: A character the name's type does not match
+- **WHEN** the program reads `v%` for `Dim v As Long`, or `v$` for a Variant
+- **THEN** the interpreter SHALL raise the compile error "Type-declaration character does not match declared data type"
+
+#### Scenario: A type that takes no character
+- **WHEN** the program reads a Variant, an object, a Byte, a Boolean or a Date through any character
+- **THEN** the interpreter SHALL raise the same compile error
+
+#### Scenario: An undeclared name under Option Explicit
+- **WHEN** a module with `Option Explicit` reads `u%` and nothing declares `u`
+- **THEN** the interpreter SHALL raise "Variable not defined"
+
+#### Scenario: An undeclared name read through a character
+- **WHEN** a module without `Option Explicit` reads `z@` before anything declares `z`
+- **THEN** the read SHALL give the Currency 0, and a bare `z` after it SHALL read the same Currency
+
+#### Scenario: A ByRef argument written with its character
+- **WHEN** `Bump i%` passes an Integer `i` to `Sub Bump(n As Integer)`, which adds 1 to `n`
+- **THEN** `i` SHALL be 1 greater afterwards
 
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
@@ -339,6 +390,21 @@ SHALL continue to accept a continuation between their words.
 - **WHEN** `Select _` is followed by `Case n` on the next physical line
 - **THEN** the interpreter executes a Select Case statement
 
+### Requirement: A declaration's type character SHALL be its As clause
+A `Dim`, `Private`, `Public` or `Static` declaration, a parameter, or a Property Get written with `%`, `&`, `!`, `#`,
+`@` or `$` after its name SHALL declare Integer, Long, Single, Double, Currency or String, as the As clause the
+character stands for would, arrays included. A variable or a parameter with an As clause as well SHALL raise VB6's
+compile error. A Property Get's As clause SHALL win over its character. These are measured in the oracle entry "A
+declaration written with a type character" (#2409).
+
+#### Scenario: A module-level declaration
+- **WHEN** a module declares `Dim n%, s$` and stores 7.5 into `n`
+- **THEN** the module loads, `s` is an empty String, and `n` is Integer 8
+
+#### Scenario: A parameter's character
+- **WHEN** `Sub TakeI(n%)` is called as `TakeI 2.6`
+- **THEN** `n` holds Integer 3
+
 ### Requirement: Expression execution SHALL guard available stack space
 The interpreter SHALL probe available host stack space during expression execution and raise trappable
 run-time error 28 (Out of stack space) before a long operator chain overflows the process stack.
@@ -436,3 +502,81 @@ Overflow (6), following p-code.
 #### Scenario: Subtraction without spaces
 - **WHEN** `x-1` is evaluated with Integer x holding 5
 - **THEN** the result is Integer 4
+
+### Requirement: Err.Source identifies the raising project
+
+A trapped run-time error SHALL report the raising project's Name as Err.Source, without a class
+suffix and independently of Title. Err.Raise SHALL retain an explicit source; with no source argument
+it SHALL fill an empty Source from the project name and preserve an already set Source. Err.Clear
+SHALL empty Source. Error provenance SHALL survive propagation across the managed library boundary.
+Native ActiveX DLL activation remains outside the implemented runtime surface.
+
+#### Scenario: A class raises into its caller
+
+- **WHEN** a class in project Probe raises a run-time error trapped by its caller
+- **THEN** Err.Source is Probe, even with Title set to Titled App
+
+#### Scenario: A managed library propagates an error
+
+- **WHEN** code in project ProbeDll raises an error into project Probe
+- **THEN** the caller's handler sees ProbeDll, or the source explicitly supplied to Err.Raise
+
+#### Scenario: A sourceless Raise follows a manual Source
+
+- **WHEN** Err.Source is Set and Err.Raise 7 supplies no source
+- **THEN** Err.Source remains Set
+
+### Requirement: Assignment targets with type characters
+
+The interpreter SHALL resolve an unqualified scalar assignment target with `$`, `%`, `&`, `!`, `#` or `@`
+by its bare name. It SHALL check the character against the slot's declared type, raising
+"Type-declaration character does not match declared data type" when they disagree, including a Variant.
+Without Option Explicit, a first assignment through a character SHALL create a variable of that type.
+A For counter, and the name on its Next, written with `%`, `&`, `!`, `#` or `@` SHALL name the variable of the
+bare name in the same way, at any scope. These behaviours are measured in the oracle's 2026-10-11 assignment
+probes and its 2026-10-27 entry "A For counter written with a type character" (#739).
+
+#### Scenario: A suffixed assignment reaches a declared variable
+
+- **WHEN** a String variable `s` is assigned through `s$ = "x"`
+- **THEN** a bare read of `s` returns `"x"`, at module level or locally, with or without Option Explicit
+
+#### Scenario: An implicit suffixed target has the character's type
+
+- **WHEN** an undeclared name is first assigned as `k% = 3` without Option Explicit
+- **THEN** a bare read of `k` returns Integer 3
+
+#### Scenario: A counter through its character uses the declared variable
+
+- **WHEN** a variable `c` declared As Long, locally, in the module or as another module's Public, is the counter of
+  `For c& = 1 To 2` closed by `Next` or `Next c&`
+- **THEN** the body reads 1 and 2 through the bare `c`, and a bare read after the loop returns Long 3
+
+#### Scenario: A counter character the declared type contradicts
+
+- **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
+- **THEN** the statement raises "Type-declaration character does not match declared data type"
+
+### Requirement: The Screen object SHALL answer as VB6's does
+`Screen` SHALL be a program global. Its size SHALL be the primary screen in twips, 15 to a device-independent pixel.
+`MousePointer` SHALL convert as a control's does, and every form SHALL show it while it is not 0. `ActiveForm` and
+`ActiveControl` SHALL be Nothing, with no error, when no form is active. A member a program cannot write SHALL raise
+382 or 383, naming it.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-object.md`, #2431).
+
+#### Scenario: Centring a form on the screen
+- **WHEN** a program reads `Screen.Width` on a screen 1024 device-independent pixels wide
+- **THEN** it SHALL read the Single 15360
+
+#### Scenario: The hourglass over a form
+- **WHEN** a program sets `Screen.MousePointer = vbHourglass` while a form is shown
+- **THEN** the form and every control on it SHALL show the hourglass, until the program sets it to 0
+
+#### Scenario: No form active
+- **WHEN** a program with no form shown reads `Screen.ActiveForm` or `Screen.ActiveControl`
+- **THEN** it SHALL read Nothing, and raise no error
+
+#### Scenario: A write to a member a program cannot write
+- **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
+- **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"

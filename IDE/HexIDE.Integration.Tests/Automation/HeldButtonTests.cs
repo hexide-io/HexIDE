@@ -268,18 +268,20 @@ public class HeldButtonTests : IDisposable
             }
             HeldButton.Current.Should().NotBeNull("each call restarts the clock");
 
-            for (var i = 0; i < 40 && HeldButton.Current is not null; i++)
+            // Wait for the completed abandonment, not just End(), which clears Current before the release.
+            // The timer and dispatcher can both be delayed when the full suite runs under load (#2368).
+            using var timeout = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            string? note;
+            do
             {
-                await Task.Delay(50);
-                Dispatcher.UIThread.RunJobs();
-            }
+                await Task.Delay(50, timeout.Token);
+                note = HeldButton.TakeNote();
+            } while (note is null || !note.StartsWith("The held left button was abandoned at ", StringComparison.Ordinal));
+
             HeldButton.Current.Should().BeNull();
-            for (var i = 0; i < 40 && Placements(designer) == 0; i++)
-            {
-                await Task.Delay(50);
-                Dispatcher.UIThread.RunJobs();
-            }
-            HeldButton.TakeNote().Should().StartWith("The held left button was abandoned at ").And.Contain("with no call for 0.3 s");
+            Placements(designer).Should().Be(1);
+            note.Should().Contain("with no call for 0.3 s");
         }
         finally { HeldButton.IdleLimit = limit; }
     }
