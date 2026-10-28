@@ -261,6 +261,50 @@ public sealed class RecoveryOffersTests : IDisposable
         Directory.Exists(run).Should().BeFalse();
     }
 
+    /// <summary>
+    /// A first session whose project is in the scratch folder <c>--newproject</c> makes, with Module1 and the project
+    /// file both captured as unsaved, and crashed.
+    /// </summary>
+    private async Task<(Session First, string Run)> CrashedScratch()
+    {
+        var first = await Opened(WriteProject(dir));
+        first.Project.WorkingDirectory = Path.GetDirectoryName(first.Project.AbsolutePath);
+        Module(first.Project, "Module1").UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+        first.Project.StartsAtSubMain = true;
+        var run = Crash(first);
+        var recorded = RecoveryRun.Read(run)!.Projects.Single();
+        recorded.Scratch.Should().BeTrue();
+        recorded.ProjectFile.Should().NotBeNull("the project file is compared too");
+        return (first, run);
+    }
+
+    [Fact]
+    public async Task A_scratch_project_its_files_already_hold_is_not_offered_at_start()
+    {
+        // #2678 makes every document in a scratch project count as unsaved, so a killed --newproject run leaves a
+        // backup whether or not anything was edited. Saving after the crash stands in for that: the files hold it.
+        var (first, run) = await CrashedScratch();
+        await first.Service.SaveProject(first.Project, saveAs: false);
+
+        var offers = Offers(new Session());
+
+        (await offers.OfferAtStartAsync()).Should().BeFalse();
+        shown.Should().BeEmpty();
+        Directory.Exists(run).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task An_edited_scratch_project_is_still_offered_at_start()
+    {
+        var (_, run) = await CrashedScratch();
+
+        var offers = Offers(new Session());
+        await offers.OfferAtStartAsync();
+
+        shown.Should().ContainSingle();
+        Directory.Exists(run).Should().BeTrue();
+    }
+
     [Fact]
     public async Task A_saved_project_s_work_waits_for_the_project_rather_than_being_offered_at_start()
     {

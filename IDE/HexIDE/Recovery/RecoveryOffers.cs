@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
@@ -79,9 +80,72 @@ public sealed class RecoveryOffers : IRecoveryOffers
     {
         Detect();
         var atStart = waiting.Where(w => w.Record.Path is null || w.Record.Scratch).ToList();
+
+        // A scratch project counts as unsaved whatever it holds (#2678), so a killed --newproject run leaves a
+        // backup even when nothing was edited. One its files on disk already hold, byte for byte, is not offered.
+        foreach (var w in atStart.Where(w => w.Record.Scratch && FilesHold(w)).ToList())
+        {
+            Log.Information("Crash recovery dropped the backup of {Project}: its scratch files already hold it", w.Record.Name);
+            Resolve(w);
+            atStart.Remove(w);
+        }
         if (atStart.Count == 0)
             return false;
         return await OfferAsync(atStart, opened: null) > 0;
+    }
+
+    // Whether every file w's backup holds is on disk already, as the bytes its save would write.
+    private static bool FilesHold(Waiting w)
+    {
+        UnsavedProject backup;
+        try
+        {
+            backup = w.Run.Read(w.Record);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+        if (backup.Path is not { } projectPath
+            || backup.ProjectFile is { } projectFile && !Holds(projectPath, projectFile.Text, backup.Encoding))
+            return false;
+        foreach (var document in backup.Documents)
+        {
+            if (document.Content is not { } content)
+                continue;
+            if (document.Path is not { } path || !Holds(path, content.Text, document.Encoding))
+                return false;
+            if (content is { CompanionFileName: { } companionName, Companion: { } companion }
+                && !Holds(Path.Combine(Path.GetDirectoryName(path) ?? "", companionName), companion))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool Holds(string path, string text, Vb6TextEncoding encoding)
+    {
+        byte[] bytes;
+        try
+        {
+            bytes = Vb6TextFile.Encode(text, encoding);
+        }
+        catch (EncoderFallbackException)
+        {
+            return false; // a save would refuse it, so the file can't hold it
+        }
+        return Holds(path, bytes);
+    }
+
+    private static bool Holds(string path, byte[] bytes)
+    {
+        try
+        {
+            return File.Exists(path) && File.ReadAllBytes(path).AsSpan().SequenceEqual(bytes);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public async Task ShowPendingAsync()

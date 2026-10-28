@@ -88,6 +88,10 @@ its files. A never-saved project has nothing to open, so start is its only chanc
 - **WHEN** the IDE ended uncleanly with work in a project it had saved into a scratch folder of its own
 - **THEN** that project is offered at start, as a never-saved one is, and restored into that folder while it is still there
 
+#### Scenario: A scratch project its files already hold
+- **WHEN** such a project's files on disk already hold, byte for byte, everything its backup does
+- **THEN** nothing is offered, and the backup is deleted
+
 ### Requirement: Restoring a saved project SHALL bring back its documents
 Restoring a saved project's work SHALL put each backed-up document's content in place of what was opened, unsaved, and
 SHALL add back any document the project no longer holds. Its other settings, such as its startup object, SHALL NOT be
