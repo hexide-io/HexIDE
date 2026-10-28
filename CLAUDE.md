@@ -1023,6 +1023,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   **This is now guarded, because it was the last drift-prone artefact here trusted to a habit.**
   `DesignRecordTests` fails the build when a change has every task ticked and is still sitting in
   `changes/`, and when an archived change's requirements are absent from the capability it targeted.
+  It also reports the file and line of any live requirement outside `## Requirements` (#2587): keep
+  requirements above later `##` headings such as `## Out of Scope`, where OpenSpec cannot read them.
   It was written after five changes were found unarchived at once, three of them `MODIFIED` deltas
   whose requirement headings existed in `specs/` while their bodies were weeks out of date — which is
   why a survey by heading reported those three as tidying and archiving them rewrote sixty-eight lines.

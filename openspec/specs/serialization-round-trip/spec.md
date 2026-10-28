@@ -736,17 +736,6 @@ SHALL leave those control copies unchanged (measured for #2062; see
 - **WHEN** Form1's font name becomes Tahoma
 - **THEN** both controls still read Arial
 
-## Out of Scope
-- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
-  carried, never read.
-- **Reproducing the original product's omissions.** The original product omits properties left at their
-  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
-  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
-  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
-  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of modelled form/control properties.** These properties are written in the
-  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
-
 ### Requirement: Made programs SHALL carry source text independently of the host code page
 
 Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without
@@ -887,3 +876,14 @@ unchanged because their insertion behaviour has not been measured.
 - **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
 - **THEN** Retained=0 is inserted between those lines
 - **AND** the remaining lines retain their order
+
+## Out of Scope
+- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
+  carried, never read.
+- **Reproducing the original product's omissions.** The original product omits properties left at their
+  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
+  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
+  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
+  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
