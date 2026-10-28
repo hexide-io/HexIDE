@@ -1402,6 +1402,18 @@ are unchanged: external-control members are tracked separately here.
 | SSTab saved HIMETRIC rounding beyond recorded samples | **Dies** | Only 0, 520 → 295 twips, 900 → 510 and 1500 → 850 are recorded. Other saved dimensions explicitly refuse pending a measured conversion/rounding rule. |
 | SSTab saved references to array elements or unresolved children | **Dies** | Only measured plain child names resolve. Unresolved references explicitly refuse rather than guessing membership. |
 
+## Intrinsic control minimum sizes (#1029)
+
+These member notes do not change the 1184-name language inventory or its counts.
+
+| Member | Status | Detail | Implementation |
+|---|---|---|---|
+| Existing intrinsic controls' Width / Height | Partial | Measured floors on assignment and Move. TextBox supports MS Sans Serif 8.25 with either recorded border and Arial 14.25 with the default border; CommandButton supports MS Sans Serif 8.25 and Arial 14.25. Other font/border combinations retain their previous behaviour, without an inferred formula. ComboBox Height writes raise 383. The form's desktop-dependent minimum is unchanged. | ControlPositions.cs |
+| DriveListBox.Width / Height | Dies | No runtime control implementation (#164); measured 270-twip Width floor and read-only Height (383) remain outstanding. F5 refuses the unmodelled control. | VBLoader.cs |
+| DirListBox.Width / Height | Dies | No runtime control implementation (#164); measured 135 × 315 twip floors remain outstanding. F5 refuses the unmodelled control. | VBLoader.cs |
+| FileListBox.Width / Height | Dies | No runtime control implementation (#164); measured 105 × 90 twip floors remain outstanding. F5 refuses the unmodelled control. | VBLoader.cs |
+| Data.Width / Height | Dies | No runtime control implementation; measured 105 × 300 twip floors remain outstanding. F5 refuses the unmodelled control. | VBLoader.cs |
+
 ### MSComDlg.CommonDialog — runtime control model (#1084)
 
 These require MSComDlg and are outside the intrinsic-name counts above. The scalar object-model slice implements
