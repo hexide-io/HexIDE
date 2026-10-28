@@ -65,3 +65,25 @@ Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60
 - `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
 - Source is still not filled with the project's name.
 
+
+## Err.Source after a run-time error and after Err.Raise (#1483)
+
+Provenance: hexide-int's measurement reported in #1483, committed to PR #2279 as
+4552d7cf; confirmed as this run's scope by the supervisor on 2026-10-27. vb6.exe SP6,
+two clients built both native and p-code; all four logs agreed. Both clients used
+`Name="Probe"`, one also used `Title="Titled App"`. A late-bound ActiveX DLL used
+`Name="ProbeDll"`.
+
+| Probe | Source logged |
+|---|---|
+| Run-time error, `Err.Raise 1000`, or `Error 5` in a standard module or form | `Probe` |
+| Same in a project class, trapped inside it or by its caller | `Probe` |
+| Same inside the DLL class, trapped inside it or by its caller | `ProbeDll` |
+| Late-bound call of a member absent from the DLL class (438) | `Probe` |
+| `Err.Raise 1001, "MySrc"`, in either project | `MySrc` |
+| `Err.Clear` | empty string |
+| `Err.Source = "Set"`, followed by `Err.Raise 7` without Source | `Set` |
+
+The project name has no class suffix, and Title does not affect it. A sourceless
+Raise fills an empty Source; the measured non-empty `Set` case keeps it. Other
+unmeasured Source combinations are not established by these probes.

@@ -1311,3 +1311,122 @@ when the UI language changes.
 - **WHEN** the UI language changes while a server is connected
 - **THEN** the existing connection stays open
 - **AND** the next connection's initialize request carries the newly resolved locale
+
+### Requirement: Project-import declarations SHALL be validated independently of server startup
+
+The configuration loader SHALL recognise a `projectImport` object containing a non-empty command and a
+JSON arguments array. Invalid declarations SHALL report configuration problems without rejecting the
+server entry. Valid declarations SHALL be retained for runtime dispatch.
+
+#### Scenario: An import declaration omits its argument array
+
+- **WHEN** an entry declares `projectImport` with a command but no arguments array
+- **THEN** the loader reports the invalid `projectImport.arguments` field and retains the server entry
+
+#### Scenario: A valid import declaration is retained
+
+- **WHEN** an entry declares a non-empty import command and an arguments array
+- **THEN** the loader recognises the declaration without an ignored-field warning
+
+### Requirement: Project-import templates SHALL preserve JSON values
+
+The template model SHALL substitute string values exactly equal to `{uri}` or `{text}` recursively in
+objects and arrays. It SHALL preserve property names, other string values, and non-string scalar types.
+Substituted values SHALL be JSON-escaped and SHALL NOT be interpreted as templates again.
+
+#### Scenario: Unsaved project text contains a placeholder token
+
+- **WHEN** a template's `{text}` value is expanded with project text containing `{uri}`
+- **THEN** the resulting text retains that token literally, along with its original quotes and line endings
+
+### Requirement: Declared project imports SHALL replace generated artefacts
+
+On a registry-started connection after initialization, and on the workspace artefact service's
+debounced project-change trigger, the client SHALL call each declared import command with each loaded project's saved URI and in-memory
+project text. The command MUST be advertised by the server. An importing entry SHALL skip workspace
+artefact generation. Reply notes SHALL reach the server log used for `window/logMessage`; object
+notes SHALL use their `message` text. Failures or unavailable saved paths
+SHALL be reported as configuration problems without disabling the connection.
+
+#### Scenario: Project membership changes before saving
+- **WHEN** a module is removed from a saved project's in-memory membership
+- **THEN** the debounced import sends the current project serialization without writing the `.vbp`
+
+### Requirement: Imports SHALL refresh open-document diagnostics until the server does
+
+After a successful import, the client SHALL invalidate previous diagnostic result identifiers and
+re-pull open documents. Once that connection receives `workspace/diagnostic/refresh`, the import
+fallback SHALL cease for that connection alone and the ordinary server-requested refresh handler SHALL
+remain responsible. The client SHALL declare `workspace.diagnostics.refreshSupport: true` during
+initialization.
+
+#### Scenario: The server starts issuing refresh requests
+- **WHEN** a connected importing server requests diagnostic refresh
+- **THEN** subsequent imports do not add a duplicate diagnostic pull
+
+#### Scenario: Another server refreshes
+- **WHEN** one connection requests diagnostic refresh
+- **THEN** a different connection continues re-pulling open documents after its imports
+### Requirement: Explicit file-operation senders SHALL respect server filters
+The connection's explicit create, rename and delete notification entry points SHALL send only disk-file
+URIs selected by the corresponding `workspace.fileOperations` registration filters. Filters SHALL
+respect scheme, glob, file/folder kind and case options. Rename SHALL match either the old or new URI.
+A missing registration or an empty matching batch SHALL send no notification.
+
+The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
+file operations to every running connection whose operation filter matches, independently of document
+language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
+HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
+eligible for matching notifications. File operations SHALL NOT start a server.
+
+Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
+reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
+report file operations. Save As retains the original, so it SHALL NOT report a rename. Explorer name
+changes and removal without disk deletion SHALL NOT report file operations.
+
+Disk rename and Remove-with-delete hooks remain outstanding (#2248): current explorer operations change
+names and membership only.
+
+#### Scenario: A server requests only Basic modules
+- **GIVEN** a server registers `didCreate` with a `file` scheme and `**/*.bas` file pattern
+- **WHEN** the connection is explicitly told about a created `.bas` and `.frm` file
+- **THEN** one `workspace/didCreateFiles` notification contains only the `.bas` URI
+
+#### Scenario: A server has no delete registration
+- **WHEN** the connection is explicitly told about a deleted file
+- **THEN** no `workspace/didDeleteFiles` notification is sent
+
+#### Scenario: Save As creates a file
+- **GIVEN** a saved module and a destination that does not exist
+- **WHEN** Save As successfully writes the destination
+- **THEN** matching running servers receive creation of the destination
+- **AND** the original file remains and no rename is reported
+
+#### Scenario: A first save creates a form
+- **WHEN** a new form is successfully written for the first time
+- **THEN** matching running servers receive creation of its disk URI
+- **AND** saving it again reports no file creation
+
+#### Scenario: HexIDE generates the server's workspace artefact
+- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives no file-operation notification
+
+#### Scenario: The server owns its workspace artefact
+- **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification
+
+### Requirement: Cancel superseded background work before document changes
+
+Before sending a document's didChange, the client SHALL cancel its outstanding diagnostic pulls,
+full semantic-token requests and folding requests through the LSP cancellation strategy, and SHALL
+send their cancellation notifications before the change notification. User requests and requests for
+other documents SHALL remain outstanding. A fresh diagnostic pull SHALL follow the change; editor
+refreshes SHALL request tokens and folds for the changed text.
+
+#### Scenario: Editing while analysis is pending
+- **WHEN** diagnostic, semantic-token or folding requests for a document are outstanding at a change
+- **THEN** their $/cancelRequest frames precede that document's didChange
+- **AND** pending hover or completion requests and requests for other documents are not cancelled
+- **AND** a fresh diagnostic pull follows didChange

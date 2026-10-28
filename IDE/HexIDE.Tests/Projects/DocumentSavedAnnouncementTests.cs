@@ -40,6 +40,9 @@ public class DocumentSavedAnnouncementTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    private readonly HexIDE.Lsp.ILspClient _lsp = Substitute.For<HexIDE.Lsp.ILspClient>();
+    private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
+
     private ProjectService MakeService()
     {
         var projectManager = Substitute.For<IProjectManager>();
@@ -53,7 +56,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
 
         return new ProjectService(
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
-            Substitute.For<IWindowManager>(),
+            _windows,
             _eventBus,
             projectManager,
             Substitute.For<IRecentProjectsService>(),
@@ -61,7 +64,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(), lspClient: () => _lsp);
     }
 
     private ProjectDefinition AProjectWith(params string[] moduleNames)
@@ -91,6 +94,114 @@ public class DocumentSavedAnnouncementTests : IDisposable
         };
         project.AddForm(form);
         return form;
+    }
+
+    [Theory]
+    [InlineData(ModuleKind.StandardModule)]
+    [InlineData(ModuleKind.ClassModule)]
+    public async Task FirstModuleWriteReportsCreationOnce(ModuleKind kind)
+    {
+        var project = AProjectWith("Module1");
+        var module = project.Modules[0];
+        // Both module kinds use the same writer.
+        if (kind == ModuleKind.ClassModule)
+        {
+            module = new ModuleDefinition(project, "Class1", kind)
+            { AbsolutePath = Path.Combine(_dir, "Class1.cls") };
+            project.AddModule(module);
+        }
+        var path = module.AbsolutePath!;
+        _lsp.When(c => c.DidCreateFilesAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>()))
+            .Do(_ => File.Exists(path).Should().BeTrue());
+        var service = MakeService();
+        await service.SaveModule(module, false);
+        await service.SaveModule(module, false);
+        await _lsp.Received(1).DidCreateFilesAsync(
+            Arg.Is<string[]>(uris => uris.Length == 1 && uris[0] == new Uri(path).AbsoluteUri),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FirstFormWriteReportsCreation()
+    {
+        var form = AddForm(AProjectWith(), "Form1");
+        await MakeService().SaveForm(form, false);
+        await _lsp.Received(1).DidCreateFilesAsync(
+            Arg.Is<string[]>(uris => uris.Length == 1 && uris[0] == new Uri(form.AbsolutePath!).AbsoluteUri),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SaveAsReportsTheNewFileAndKeepsTheOldFile()
+    {
+        var module = AProjectWith("Module1").Modules[0];
+        var service = MakeService();
+        await service.SaveModule(module, false);
+        var original = module.AbsolutePath!;
+        _lsp.ClearReceivedCalls();
+        var target = Path.Combine(_dir, "Copy.bas");
+        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(target);
+        await service.SaveModule(module, true);
+        File.Exists(original).Should().BeTrue();
+        File.Exists(target).Should().BeTrue();
+        await _lsp.Received(1).DidCreateFilesAsync(
+            Arg.Is<string[]>(uris => uris.Length == 1 && uris[0] == new Uri(target).AbsoluteUri),
+            Arg.Any<CancellationToken>());
+        await _lsp.DidNotReceive().DidRenameFilesAsync(Arg.Any<HexIDE.Lsp.Messages.FileRename[]>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SavingToDirectoryReportsEveryNewFile()
+    {
+        var project = AProjectWith("Module1");
+        AddForm(project, "Form1");
+        var target = Path.Combine(_dir, "new-directory");
+        await MakeService().SaveProjectToDirectory(project, target);
+        foreach (var name in new[] { "Module1.bas", "Form1.frm", "P.vbp" })
+        {
+            var uri = new Uri(Path.Combine(target, name)).AbsoluteUri;
+            await _lsp.Received(1).DidCreateFilesAsync(
+                Arg.Is<string[]>(uris => uris.Length == 1 && uris[0] == uri), Arg.Any<CancellationToken>());
+        }
+    }
+
+    [Fact]
+    public async Task ExplorerRemoveLeavesTheFileAndReportsNoDeletion()
+    {
+        var project = AProjectWith();
+        var form = AddForm(project, "Form1");
+        var service = MakeService();
+        await service.SaveForm(form, false);
+        _lsp.ClearReceivedCalls();
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { project });
+        var explorer = new HexIDE.Tools.ProjectToolViewModel(manager, _eventBus, service,
+            Substitute.For<IEditorService>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
+        explorer.SelectedForm = explorer.LoadedProjects[0].Elements.OfType<HexIDE.Tools.FormViewModel>().Single();
+        explorer.DeleteForm();
+        project.Forms.Should().BeEmpty();
+        File.Exists(form.AbsolutePath).Should().BeTrue();
+        await _lsp.DidNotReceive().DidDeleteFilesAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TemporaryCopiesDoNotReportCreation()
+    {
+        var module = AProjectWith("Module1").Modules[0];
+        await MakeService().SaveModuleCore(module, false, announceSave: false);
+        File.Exists(module.AbsolutePath).Should().BeTrue();
+        await _lsp.DidNotReceive().DidCreateFilesAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FailedWriteDoesNotReportCreation()
+    {
+        var module = AProjectWith("Module1").Modules[0];
+        module.AbsolutePath = _dir; // A directory cannot be replaced by a module file.
+        var save = () => MakeService().SaveModule(module, false);
+        (await save.Should().ThrowAsync<Exception>()).Which.Should()
+            .Match<Exception>(ex => ex is IOException || ex is UnauthorizedAccessException);
+        await _lsp.DidNotReceive().DidCreateFilesAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>());
     }
 
     // ── What counts ───────────────────────────────────────────────────────────────────────────────────
