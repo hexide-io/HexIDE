@@ -115,6 +115,8 @@ public partial class VB6BuiltIns
         VTP.Byte              => ("Byte", 17),
         VTP.Integer           => ("Integer", 2),
         VTP.Long              => ("Long", 3),
+        // CommonDialog's TypeName is unmeasured; retain its existing label while correcting VarType.
+        VTP.AutomationUnsignedLong => ("Long", 19),
         VTP.Single            => ("Single", 4),
         VTP.Double            => ("Double", 5),
         VTP.Currency          => ("Currency", 6),
@@ -142,7 +144,7 @@ public partial class VB6BuiltIns
     {
         switch (v.Value)
         {
-            case byte or int or long or float or double or decimal:
+            case byte or int or long or uint or float or double or decimal:
             case bool:
                 return true;
         }

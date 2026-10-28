@@ -3393,8 +3393,16 @@ public static class UiAutomationDriver
                   + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
             var selectionNote = replacedSelection is not null && AreaOf(start) is { } finalArea
                 ? "; " + replacedSelection.Left + SelectionState(finalArea) : "";
+            // Shift's own key around a capital, as DeliverKey sends it (#2422).
+            var capitals = keys.Count(k => k.Mods.HasFlag(KeyModifiers.Shift));
+            var shifted = capitals switch
+            {
+                0 => "",
+                1 => "; LeftShift went down before the capital and up after it",
+                _ => $"; LeftShift went down before each of the {capitals} capitals and up after it",
+            };
             return new InteractOutcome(true, KeyboardMechanism,
-                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}{selectionNote}", null);
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{shifted}{moved}{slow}{selectionNote}", null);
         }
         catch (OperationCanceledException)
         {
@@ -3421,9 +3429,21 @@ public static class UiAutomationDriver
     /// </summary>
     private static void DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
     {
-        if (key != Key.None)
+        if (key == Key.None)
         {
-            var down = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = mods, Source = at };
+            if (typed is not null)
+                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
+            return;
+        }
+        // Each modifier's own key around it, as a person holds a chord (#2422).
+        foreach (var (stroke, held, isDown) in Chord(key, mods))
+        {
+            if (!isDown)
+            {
+                at.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = stroke, KeyModifiers = held, Source = at });
+                continue;
+            }
+            var down = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = stroke, KeyModifiers = held, Source = at };
             for (Visual? v = at; v is not null && !down.Handled; v = v.GetVisualParent())
                 if (v is InputElement { KeyBindings: { Count: > 0 } bindings })
                     foreach (var binding in bindings.ToArray())
@@ -3432,11 +3452,66 @@ public static class UiAutomationDriver
                         binding.TryHandle(down);
                     }
             at.RaiseEvent(down);
+            if (stroke == key && typed is not null)
+                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
         }
-        if (typed is not null)
-            at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
-        if (key != Key.None)
-            at.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = key, KeyModifiers = mods, Source = at });
+    }
+
+    /// <summary>The keys a person holds for each modifier, in the order they press them; released in reverse.</summary>
+    private static readonly (KeyModifiers Flag, Key Key)[] ModifierKeys =
+        [(KeyModifiers.Control, Key.LeftCtrl), (KeyModifiers.Shift, Key.LeftShift), (KeyModifiers.Alt, Key.LeftAlt), (KeyModifiers.Meta, Key.LWin)];
+
+    /// <summary>The modifier <paramref name="key"/> is itself, or None.</summary>
+    private static KeyModifiers FlagOf(Key key) => key switch
+    {
+        Key.LeftCtrl or Key.RightCtrl => KeyModifiers.Control,
+        Key.LeftShift or Key.RightShift => KeyModifiers.Shift,
+        Key.LeftAlt or Key.RightAlt => KeyModifiers.Alt,
+        Key.LWin or Key.RWin => KeyModifiers.Meta,
+        _ => KeyModifiers.None,
+    };
+
+    /// <summary>
+    /// The key events of <paramref name="key"/> pressed with <paramref name="mods"/> held, as a person's chord sends them
+    /// (#2422): each modifier's own key down, holding what is down so far, then the key down and up, then each modifier's
+    /// key up in reverse, holding what is still down. A modifier key's own down reports itself held and its up does not,
+    /// as Windows reports them and VB6 shows them (Shift 16 with mask 1, then mask 0). Only the key went before, with its
+    /// modifiers as flags, so a program never saw the modifier's own KeyDown and KeyUp.
+    /// </summary>
+    internal static List<(Key Key, KeyModifiers Held, bool Down)> Chord(Key key, KeyModifiers mods)
+    {
+        var own = FlagOf(key);
+        var pressed = ModifierKeys.Where(m => mods.HasFlag(m.Flag) && m.Flag != own).ToList();
+        var held = KeyModifiers.None;
+        var strokes = new List<(Key, KeyModifiers, bool)>();
+        foreach (var (flag, modifier) in pressed)
+        {
+            held |= flag;
+            strokes.Add((modifier, held, true));
+        }
+        strokes.Add((key, held | own, true));
+        strokes.Add((key, held, false));
+        for (var i = pressed.Count - 1; i >= 0; i--)
+        {
+            held &= ~pressed[i].Flag;
+            strokes.Add((pressed[i].Key, held, false));
+        }
+        return strokes;
+    }
+
+    /// <summary>
+    /// What a reply says of the modifier keys <see cref="Chord"/> pressed around <paramref name="key"/>; "" when none.
+    /// </summary>
+    internal static string HeldNote(Key key, KeyModifiers mods)
+    {
+        var names = Chord(key, mods).Where(s => s.Down && s.Key != key).Select(s => s.Key.ToString()).ToList();
+        return names.Count switch
+        {
+            0 => "",
+            1 => $"; {names[0]} went down before {key} and up after it, as a person holds it",
+            _ => $"; {string.Join(", ", names.Take(names.Count - 1))} and {names[^1]} went down before {key}, in that order, "
+                 + "and up after it in reverse, as a person holds them",
+        };
     }
 
     /// <summary>What <see cref="TypeKeysAsync"/> reports as its mechanism: key events, as a keyboard sends them.</summary>
@@ -3594,7 +3669,8 @@ public static class UiAutomationDriver
                 ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
                   + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}{chordRead}", null);
+            return new InteractOutcome(true, mechanism,
+                $"{focusMove}pressed {chord}{parsedKey}{where}{HeldNote(parsedKey, mods)}{changed}{chordRead}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -4084,8 +4160,7 @@ public static class UiAutomationDriver
         public static bool Press(Control target, Key key, KeyModifiers mods)
         {
             Action<Avalonia.Input.Raw.RawInputEventArgs> input;
-            Avalonia.Input.Raw.RawInputEventArgs down;
-            Avalonia.Input.Raw.RawInputEventArgs up;
+            List<Avalonia.Input.Raw.RawInputEventArgs> strokes;
             try
             {
                 if (TopLevel.GetTopLevel(target) is not { PlatformImpl: { } impl } topLevel
@@ -4098,14 +4173,21 @@ public static class UiAutomationDriver
                 // AccessKeyHandler needs KeySymbol, Alt without Control, and focus inside its owner on every OS.
                 var physical = Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == key);
                 var symbol = physical.ToQwertyKeySymbol(mods.HasFlag(KeyModifiers.Shift));
-                var rawMods = (mods.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
-                    | (mods.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
-                    | (mods.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None)
-                    | (mods.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
-                object[] Args(Avalonia.Input.Raw.RawKeyEventType type) =>
-                    [keyboard, (ulong)Environment.TickCount64, root, type, key, rawMods, physical, symbol!, KeyDeviceType.Keyboard];
-                down = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyDown));
-                up = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyUp));
+                static RawInputModifiers Raw(KeyModifiers held) =>
+                    (held.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
+                    | (held.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
+                    | (held.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None)
+                    | (held.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
+                // Each modifier's own key around the key, as a person's chord sends them (#2422).
+                strokes = Chord(key, mods).Select(s =>
+                {
+                    var (strokePhysical, strokeSymbol) = s.Key == key ? (physical, symbol)
+                        : (Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == s.Key), null);
+                    object[] args = [keyboard, (ulong)Environment.TickCount64, root,
+                        s.Down ? Avalonia.Input.Raw.RawKeyEventType.KeyDown : Avalonia.Input.Raw.RawKeyEventType.KeyUp,
+                        s.Key, Raw(s.Held), strokePhysical, strokeSymbol!, KeyDeviceType.Keyboard];
+                    return (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(args);
+                }).ToList();
                 input = found;
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
@@ -4114,8 +4196,8 @@ public static class UiAutomationDriver
                 return false;
             }
             // A program exception must not cause a second delivery through the fallback.
-            input(down);
-            input(up);
+            foreach (var stroke in strokes)
+                input(stroke);
             return true;
         }
     }
