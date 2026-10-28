@@ -2598,7 +2598,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control; absent when showing. isOffscreen reports clipping and scroll position instead. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, keeps the active document, cutting hidden children then other branches; the 'note', written first, explains cuts.")]
+    [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -2682,7 +2682,34 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var (fitted, fitNote) = FitToReply(tree, activeDocumentPath);
             result = result with { Root = fitted, Note = fitNote ?? result.Note };
         }
-        return result;
+        var shown = result.Root is { } root2 ? [root2] : result.Matches ?? [];
+        return result with { FlagsNote = FlagsNote(shown) };
+    }
+
+    /// <summary>
+    /// What <c>isHidden</c> and <c>isOffscreen</c> mean, for the flags the reply's nodes carry, or null when none carries
+    /// either. Moved here from the description, which had no room for it (#2566), so it is read where the flags are.
+    /// </summary>
+    internal static string? FlagsNote(IEnumerable<UiNode> nodes)
+    {
+        bool hidden = false, offscreen = false;
+        var pending = new Stack<UiNode>(nodes);
+        while (pending.Count > 0 && !(hidden && offscreen))
+        {
+            var node = pending.Pop();
+            hidden |= node.IsHidden == true;
+            offscreen |= node.IsOffscreen;
+            foreach (var child in node.Children)
+                pending.Push(child);
+        }
+        var parts = new List<string>();
+        if (hidden)
+            parts.Add("isHidden true marks a control that is in the tree but does not show, and is absent on one that "
+                      + "shows; interact refuses all but invoke_command and set_property on it.");
+        if (offscreen)
+            parts.Add("isOffscreen true means a control is clipped or scrolled out of view, which says nothing about "
+                      + "whether it shows: scroll it into view, or 'select' an item by its text.");
+        return parts.Count == 0 ? null : string.Join(" ", parts);
     }
 
     /// <summary>
@@ -4248,6 +4275,8 @@ internal record LockKeyRow(HexIDE.Runtime.BuiltinControls.LockKey Key, bool? On,
 internal record VisualTreeResult(string? Error, string? Window, UiNode? Root, UiNode[]? Matches = null,
     [property: System.Text.Json.Serialization.JsonPropertyOrder(-1)] string? Note = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
-    string? FocusedPath = null, string? FocusReason = null);
+    string? FocusedPath = null, string? FocusReason = null,
+    // Ahead of the tree, so a caller reads what the flags mean before meeting them.
+    [property: System.Text.Json.Serialization.JsonPropertyOrder(-1)] string? FlagsNote = null);
 
 internal record InspectResult(string? Error, string? Window, UiNodeDetail? Element);
