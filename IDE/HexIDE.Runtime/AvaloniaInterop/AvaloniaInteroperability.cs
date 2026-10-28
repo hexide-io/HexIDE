@@ -485,6 +485,9 @@ public static class AvaloniaInteroperability
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
         VBProps.RefuseIfRemoved(c);
+        // Shape, Line and Timer have no MousePointer (measured, #1970).
+        if (ReferenceEquals(property, VBProperties.MousePointerProperty) && c is VBShape or VBLine or VBTimer)
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
         if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
         {

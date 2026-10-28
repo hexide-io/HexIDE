@@ -887,3 +887,15 @@ unchanged because their insertion behaviour has not been measured.
 - **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
 - **THEN** Retained=0 is inserted between those lines
 - **AND** the remaining lines retain their order
+
+### Requirement: Intrinsic MousePointer zero SHALL be omitted on save
+For the form and supported intrinsic controls with MousePointer, the writer SHALL omit a value of 0
+and write a nonzero value, matching the measured VB6 IDE save (#1970).
+
+#### Scenario: Explicit Default is saved
+- **WHEN** a form or supported intrinsic control has an explicit MousePointer = 0
+- **THEN** saving removes that line
+
+#### Scenario: Arrow is saved
+- **WHEN** a form or supported intrinsic control has MousePointer = 1
+- **THEN** saving keeps the value and its Arrow comment

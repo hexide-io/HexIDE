@@ -85,7 +85,7 @@ public class DesignerRootPropertiesTests
         var (_, designer) = Open("Form", "Form1");
 
         Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Enabled", "Font", "ForeColor", "Height", "Icon",
-            "KeyPreview", "Left", "MaxButton", "MinButton", "ShowInTaskbar", "StartUpPosition", "Tag", "Top", "Visible", "Width");
+            "KeyPreview", "Left", "MaxButton", "MinButton", "MousePointer", "ShowInTaskbar", "StartUpPosition", "Tag", "Top", "Visible", "Width");
     }
 
     // The designer finds the root of each kind, and its class is the kind the file names.

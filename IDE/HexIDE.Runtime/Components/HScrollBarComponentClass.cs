@@ -9,6 +9,7 @@ namespace HexIDE.Runtime.Components;
 public abstract class ScrollBarComponentClass : ComponentBaseClass
 {
     protected ScrollBarComponentClass() : base([CausesValidationProperty, EnabledProperty,
+        MousePointerProperty,
         SmallChangeProperty,
         LargeChangeProperty,
         MinProperty,

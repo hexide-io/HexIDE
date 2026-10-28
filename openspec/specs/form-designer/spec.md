@@ -332,3 +332,12 @@ command. A form the runtime loader cannot create SHALL report its existing unsup
 - **WHEN** the developer edits a text box, resizes the preview and closes it
 - **THEN** those edits are discarded and the designer remains unchanged
 - **AND** no Load, Resize, Click, QueryUnload or other VB event procedure runs
+
+
+### Requirement: Intrinsic MousePointer defaults SHALL agree with the runtime
+The form and supported intrinsic controls that have MousePointer SHALL default to 0 - Default in the
+designer, as measured on VB6 (#1970). Shape, Line and Timer SHALL NOT expose it.
+
+#### Scenario: A control has no saved MousePointer
+- **WHEN** a supported intrinsic control with MousePointer is created or loaded without a MousePointer line
+- **THEN** its designer property reads 0 - Default

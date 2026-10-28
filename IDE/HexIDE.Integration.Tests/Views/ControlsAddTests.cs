@@ -1302,6 +1302,48 @@ public class ControlsAddTests
             "stmt -> 0 count 6");
     }
 
+    // Measured on vb6.exe, native and p-code: #1970, oracle "MousePointer's names and pointers".
+    [AvaloniaTheory]
+    [InlineData("CommandButton")]
+    [InlineData("Label")]
+    [InlineData("TextBox")]
+    [InlineData("Frame")]
+    [InlineData("CheckBox")]
+    [InlineData("OptionButton")]
+    [InlineData("ComboBox")]
+    [InlineData("ListBox")]
+    [InlineData("HScrollBar")]
+    [InlineData("VScrollBar")]
+    [InlineData("PictureBox")]
+    [InlineData("Image")]
+    public void MousePointer_defaults_to_zero_loaded_and_added(string kind)
+    {
+        var designer = $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption = \"Form1\"\r\n   Begin VB.{kind} Control1\r\n      Left = 0\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        Printed($"""
+            Debug.Print CStr(Me.MousePointer)
+            Debug.Print CStr(Control1.MousePointer)
+            Dim c As Object
+            Set c = Controls.Add("VB.{kind}", "added")
+            Debug.Print CStr(c.MousePointer)
+            """, "", designer).Should().Equal("0", "0", "0");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Shape")]
+    [InlineData("Line")]
+    [InlineData("Timer")]
+    public void Controls_without_MousePointer_raise_438(string kind)
+    {
+        Printed($"""
+            On Error Resume Next
+            Dim c As Object
+            Set c = Controls.Add("VB.{kind}", "added")
+            Dim v As Variant
+            v = c.MousePointer
+            Debug.Print CStr(Err.Number)
+            """, "").Should().Equal("438");
+    }
+
     // vb6.exe answers an ActiveX ProgID from the registry, and makes the five VB controls HexIDE doesn't have.
     [AvaloniaTheory]
     [InlineData("MSComctlLib.ProgressBar")]

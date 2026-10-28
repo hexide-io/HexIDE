@@ -2,6 +2,7 @@ using System.Linq;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using HexIDE.Controls;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -30,6 +31,43 @@ public class MousePointerValuesTests
     }
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
+
+    [Theory]
+    [InlineData("Form")]
+    [InlineData("CommandButton")]
+    [InlineData("Label")]
+    [InlineData("TextBox")]
+    [InlineData("Frame")]
+    [InlineData("CheckBox")]
+    [InlineData("OptionButton")]
+    [InlineData("ComboBox")]
+    [InlineData("ListBox")]
+    [InlineData("HScrollBar")]
+    [InlineData("VScrollBar")]
+    [InlineData("PictureBox")]
+    [InlineData("Image")]
+    public void MousePointer_designer_default_and_save_match_VB6(string kind)
+    {
+        var block = kind == "Form" ? "" : $"Begin VB.{kind} Control1\r\nMousePointer = 0\r\nEnd\r\n";
+        var frm = "VERSION 5.00\r\nBegin VB.Form Form1\r\nMousePointer = 0\r\n" + block
+            + "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, frm, new NullSink())!;
+        var component = kind == "Form" ? form.Components[0] : form.Components[1];
+        component.BaseClass.Properties.Should().Contain(VBProperties.MousePointerProperty);
+        new ComponentInstance(component.BaseClass, "NewControl").GetPropertyOrDefault(VBProperties.MousePointerProperty)
+            .Should().Be(VBCursorType.Default);
+
+        var (written, _) = new FormSerializer().Serialize(form, "Form1.frm");
+        written.Should().NotContain("MousePointer");
+
+        component.SetProperty(VBProperties.MousePointerProperty, VBCursorType.Arrow);
+        (written, _) = new FormSerializer().Serialize(form, "Form1.frm");
+        written.Should().Contain("MousePointer    =   1  'Arrow");
+        var reloaded = new FormDeserializer().Deserialize(project, written, new NullSink())!;
+        var saved = kind == "Form" ? reloaded.Components[0] : reloaded.Components[1];
+        saved.GetPropertyOrDefault(VBProperties.MousePointerProperty).Should().Be(VBCursorType.Arrow);
+    }
 
     [Theory]
     [InlineData(4, "Icon")]
