@@ -129,6 +129,8 @@ public partial class VB6BuiltIns
         ["Command"] = "Named arguments not allowed",
         ["Date"] = "Syntax error",
         ["DoEvents"] = "Wrong number of arguments or invalid property assignment",
+        // `Erl(X:=1)` and `Erl(1)` alike (measured, #2528).
+        ["Erl"] = "Wrong number of arguments or invalid property assignment",
         ["Now"] = "Named arguments not allowed",
         ["Time"] = "Named arguments not allowed",
         ["Timer"] = "Wrong number of arguments or invalid property assignment",

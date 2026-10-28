@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -2643,8 +2644,15 @@ internal sealed class VbSignatureProvider : IOverloadProvider
 
             var label = sig.Label;
             if (sig.Parameters[activeParam].Label.RangeIn(label) is not { } range) return label;
-            return label[..range.Start] + "[" + label.Substring(range.Start, range.Length)
-                + "]" + label[(range.Start + range.Length)..];
+            return new TextBlock
+            {
+                Inlines =
+                [
+                    new Run(label[..range.Start]),
+                    new Run(label.Substring(range.Start, range.Length)) { FontWeight = FontWeight.Bold },
+                    new Run(label[(range.Start + range.Length)..])
+                ]
+            };
         }
     }
 

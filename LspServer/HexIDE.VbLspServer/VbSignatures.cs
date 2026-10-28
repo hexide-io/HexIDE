@@ -305,6 +305,7 @@ internal static class VbSignatures
             // Error handling
             ["Err"]   = [new SignatureEntry("Err.Number / Err.Description / Err.Source", [], "The Err object contains information about runtime errors.")],
             ["CVErr"] = [new SignatureEntry("CVErr(ErrorCode As Long) As Variant", ["ErrorCode"], "Returns a Variant with error subtype containing the specified error code.")],
+            ["Erl"]   = [new SignatureEntry("Erl() As Long", [], "The line number at or above where the error being handled was raised; 0 where there is none.")],
 
             // Object / misc
             ["CallByName"] = [new SignatureEntry("CallByName(Object, ProcName, CallType, Args...)", ["Object", "ProcName", "CallType", "Args"], "Calls a member by name using VbMethod, VbGet, VbLet or VbSet.")],

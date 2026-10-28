@@ -355,6 +355,12 @@ program that never fails.
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
 
+#### Scenario: The line an error was raised on
+- **WHEN** an error is raised on line 20 of a numbered procedure or below it with no number between, or in a procedure
+  it called there, and that procedure's handler reads `Erl`
+- **THEN** `Erl` SHALL read 20, a Long, until an `On Error` statement, a `Resume` or leaving the handler sets it to 0;
+  `Err.Clear` SHALL leave it (measured, #2528)
+
 #### Scenario: Diagnostic type names
 - **WHEN** an interpreter diagnostic formats a value's type
 - **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
@@ -850,6 +856,30 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
+
+### Requirement: Err help properties
+
+Err SHALL expose writable HelpFile and HelpContext and read-only LastDllError. Fresh Err and Clear
+SHALL provide an empty HelpFile and a zero Long HelpContext. Raise SHALL accept HelpFile and
+HelpContext as its fourth and fifth arguments, preserving them through trapping. An omitted
+HelpContext SHALL use 1000000 plus a built-in error number, or 1000095 for an application-defined
+error. LastDllError SHALL be a zero Long while Declare calls cannot execute. Non-string HelpFile
+and unmeasured HelpContext conversions SHALL be refused as not implemented.
+
+#### Scenario: Explicit and omitted help arguments
+
+- **WHEN** Err.Raise 5, , , "h.hlp" executes under On Error Resume Next
+- **THEN** HelpFile is h.hlp and HelpContext is 1000005
+- **WHEN** Err.Clear executes and then Err.Raise 5, , , , 9 executes
+- **THEN** HelpFile is empty and HelpContext is 9
+
+#### Scenario: Writable help fields and a read-only native error
+
+- **WHEN** HelpFile is assigned "mine.chm" and HelpContext is assigned "13"
+- **THEN** they read back as mine.chm and Long 13
+- **AND** LastDllError reads as Long 0
+- **WHEN** LastDllError is assigned 3
+- **THEN** execution refuses with Can't assign to read-only property
 
 ### Requirement: Shell SHALL launch programs with the measured argument and result contract
 `Shell` SHALL work as a function and a statement, launch asynchronously and return the process ID as

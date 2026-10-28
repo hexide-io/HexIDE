@@ -1266,6 +1266,8 @@ Empty lists for other documents SHALL NOT prevent applying edits to the current 
 
 The client SHALL accept signature-help parameter labels as strings or UTF-16 offset pairs into the
 signature label. The popup SHALL use the exact offset range for highlighting and parameter text.
+The header SHALL preserve the signature label verbatim and show only the active parameter range in bold,
+keeping the label's own optional-parameter brackets (#2632).
 String labels SHALL retain first-match highlighting; an out-of-bounds offset SHALL produce no highlight.
 A reply that fails deferred result deserialization SHALL be recorded as Failed with an answer-dropped
 explanation, retaining any captured reply body.
