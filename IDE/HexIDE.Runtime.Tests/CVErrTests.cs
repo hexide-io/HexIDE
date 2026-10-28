@@ -231,18 +231,31 @@ public class CVErrTests : BaseVBTestFixture
         AssertDebugLog(["case", new Vb6Value(error), new Vb6Value(error)]);
     }
 
-    [Fact]
-    public async Task A_selector_against_an_Error_case_value_is_refused_until_measured()
+    // The other way round: a selector of another type against an Error Case value (#2520, native and p-code).
+    [Theory]
+    [InlineData("Dim n", "n = 5", "Case e")]
+    [InlineData("Dim n As Long", "n = 5", "Case Is < e")]
+    [InlineData("Dim n As String", "n = \"5\"", "Case e To e")]
+    [InlineData("Dim n", "n = \"5\"", "Case e")]
+    [InlineData("Dim n", "n = Null", "Case Is < e")]
+    [InlineData("Dim n", "n = Empty", "Case e To e")]
+    public async Task A_selector_against_an_Error_case_value_is_type_mismatch(string declaration, string store, string test)
     {
-        var run = () => Run("""
-            Dim e, n
+        await Run($"""
+            On Error Resume Next
+            Dim e
+            {declaration}
             e = CVErr(5)
-            n = 5
+            {store}
             Select Case n
-            Case e
+            {test}
+                Debug.Print "case"
+                Debug.Print Err.Number
+            Case Else
+                Debug.Print "else"
             End Select
             """);
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Error Case value*#2520*");
+        AssertDebugLog(["case", new Vb6Value(13L)]);
     }
 
     [Fact]

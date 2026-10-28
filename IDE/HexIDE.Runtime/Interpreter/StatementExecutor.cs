@@ -3179,18 +3179,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException($"Unepexected Select-Case");
     }
 
-    /// <summary>An Error selector against a Case value of any other type, a number, a string, Null or Empty, in <c>Case x</c>,
-    /// <c>Is &gt; x</c> or <c>x To y</c>, is 13, and under Resume Next the Case's body runs (measured, native and p-code,
-    /// #2520). The other way round, a selector of another type against an Error Case value, has not been measured, so it
-    /// is refused rather than guessed.</summary>
+    /// <summary>An Error value against a value of any other type, a number, a string, Null or Empty, as the selector or as the
+    /// Case value, in <c>Case x</c>, <c>Is &gt; x</c> or <c>x To y</c>, is 13, and under Resume Next the Case's body runs
+    /// (measured both ways round, native and p-code, #2520). Two Error values compare by their numbers.</summary>
     private static void RefuseErrorAgainstOther(Vb6Value selector, Vb6Value caseValue)
     {
-        var selectorIsError = selector.Type == Vb6Value.ValueType.Error;
-        if (selectorIsError == (caseValue.Type == Vb6Value.ValueType.Error))
-            return;
-        if (selectorIsError)
+        if ((selector.Type == Vb6Value.ValueType.Error) != (caseValue.Type == Vb6Value.ValueType.Error))
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        throw new NotImplementedException("Select Case: a selector against an Error Case value has not been measured (#2520).");
     }
 
     /// <summary>Run a case arm's body, which the grammar makes OPTIONAL.
