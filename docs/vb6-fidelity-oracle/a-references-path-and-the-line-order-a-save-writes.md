@@ -63,7 +63,7 @@ Form=Form1.frm
 
 **Beside "The Components dialog and an in-box library's lines" (#1103).** That project had no `Reference=` line. Its
 `Object=` line, read after `Type=`, stayed there, and one added through the Components dialog went after the last
-`Form=` line. Together the two show the order VB6 writes:
+`Form=` line. Together the two showed this order after References was accepted (the follow-up below isolates that trigger):
 1. `Type=`;
 2. the references;
 3. the `Object=` lines it read;
@@ -73,10 +73,21 @@ Form=Form1.frm
 In both, every `Reference=` line comes before every `Object=` line.
 
 This bears on #2265. A bare class name binds to whichever library comes first in the `.vbp` ("In-box classes: a bare
-name binds to the first library"), so once VB6 has saved a project, a referenced type library outranks every component.
+name binds to the first library"), so after accepting References and saving, a referenced type library precedes every read component. An ordinary save
+alone does not establish that precedence.
 
 ### In HexIDE
 
-`ProjectSerializer` keeps an absolute reference path absolute and rebases only a relative one (#2274). It writes the lines
-in the order they were read, apart from an `Object=` line the Components dialog added, which goes after the last `Form=`
-line as #1103 measured. So an `Object=` line written before the references stays before them.
+`ProjectSerializer` now relativises supplied same-drive reference paths (#2274), without registry resolution.
+It retains read line order unless References was accepted; the follow-up below corrects the earlier blanket grouping
+rule. Components added in the session still follow the last Form (#1103).
+
+### A save with no edit keeps the order it read (2026-10-28)
+
+The follow-up SP6 console probes supplied in #2274 (#2279 at 66ec3741) isolated
+References OK as the regrouping trigger. See the [corrected save rules](reference-paths-and-save-order.md).
+A plain Save Project or Save Project As kept a late Object, an Object between
+members, and a Reference after Designer or members in place. References OK, even
+unchanged, grouped references, then read Objects, then members. Components did not
+regroup. Other edits remain unmeasured. The earlier grouped-order probe used
+References, so it does not establish a rule for an ordinary save.
