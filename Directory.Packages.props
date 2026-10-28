@@ -20,8 +20,11 @@
          11.2.x) — building against it fails with AVLIC0001 (no licence key). Deliberately NOT used; the debugger
          Locals pane uses a native Avalonia TreeView + a columnar row template instead. Do not re-add it. -->
     <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Headless" Version="12.0.2" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.2" />
+    <!-- Keep the two headless packages at Avalonia's version. 12.0.2's session started each test on whatever context its
+         thread was left holding, so a run could lose hundreds of tests to errors MTP does not count and still pass
+         (#2486, fixed in 12.0.4 by AvaloniaUI/Avalonia#21357). HeadlessTestContextTests checks it. -->
+    <PackageVersion Include="Avalonia.Headless" Version="12.0.4" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.4" />
     <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
     <PackageVersion Include="Avalonia.Themes.Simple" Version="12.0.4" />
     <!-- 12.0.1-beta1 is the Avalonia-12 build. The 11.3.0.3 assembly was compiled against Avalonia 11,

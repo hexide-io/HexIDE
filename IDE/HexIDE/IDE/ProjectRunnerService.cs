@@ -818,6 +818,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public IVbSettingsStore Settings => VbSettingsStores.ForThisUser();
 
+        private HexIDE.Runtime.AvaloniaInterop.AvaloniaDisplay? display;
+        public IVbDisplay Display => display ??= new HexIDE.Runtime.AvaloniaInterop.AvaloniaDisplay(() =>
+            (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+                ?.MainWindow);
+
         /// <summary>
         /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
         /// with answer_next_file_dialog as it answers the IDE's.
@@ -838,10 +843,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         && TopLevel.GetTopLevel(main)?.StorageProvider is { } provider
                 ? await VbFileDialogOptions.StartFolder(provider, request)
                 : null;
-            var path = request.Save
-                ? await windowManager.SaveFilePickerAsync(VbFileDialogOptions.Save(request, start))
-                : (await windowManager.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start)))?.FirstOrDefault();
-            return path is null ? null : new VbFileDialogAnswer(path, scriptedIndex);
+            if (request.Save)
+            {
+                var path = await windowManager.SaveFilePickerAsync(VbFileDialogOptions.Save(request, start));
+                return path is null ? null : new VbFileDialogAnswer(path, scriptedIndex);
+            }
+            var paths = await windowManager.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start));
+            return paths is { Count: > 0 }
+                ? new VbFileDialogAnswer(paths[0], scriptedIndex, paths.Skip(1).ToArray())
+                : null;
         }
 
         /// <summary>A CommonDialog's ShowFont (#1084), through the IDE's font dialog.</summary>

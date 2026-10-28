@@ -13,6 +13,17 @@ public class MenuBindingTests
         return Path.Combine(root!.FullName, "IDE", "HexIDE");
     }
 
+    [Theory]
+    [InlineData("Standard.End")]
+    [InlineData("Debug.End")]
+    public void EndToolbarUsesTheCommandIndependentOfWindowFocus(string automationId)
+    {
+        var button = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"))
+            .Descendants().Single(e => e.Name.LocalName == "Button" &&
+                (string?)e.Attribute("AutomationProperties.AutomationId") == automationId);
+        button.Attribute("Command")!.Value.Should().Be("{CompiledBinding EndProjectCommand}");
+    }
+
     [Fact]
     public void ReopenClosedWindowUsesTheRebindableShellCommandAndListsHistory()
     {

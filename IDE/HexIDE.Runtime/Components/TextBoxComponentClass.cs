@@ -11,7 +11,7 @@ public class TextBoxComponentClass : ComponentBaseClass
         BackColorProperty, ForeColorProperty, FontProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ChangeEvent, ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        ToolTipTextProperty], [KeyDownEvent, KeyPressEvent, KeyUpEvent, ChangeEvent, ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

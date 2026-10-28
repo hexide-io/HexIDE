@@ -70,26 +70,30 @@ What these show:
 - **`FormMoveTests`** runs the probe less the rows that are the window system's or need a run-time ScaleMode, which
   HexIDE can't set yet (#990). Every expected line is vb6.exe's.
 
-### Left and Top read and written at run time (#852)
+### Left and Top read and written at run time (2026-10-27, #852)
 
-The follow-up probe recorded in #852 (hexide-int's measurement comment, supervisor confirmed 2026-10-27;
-PR #2279, 5dbc44c6) used VB6.EXE SP6, native and p-code builds with identical output. Two forms had
-4500 x 3000 clients at ClientLeft 2000, ClientTop 1500, one Manual and one CenterScreen. The Windows 10
-console had a 1024 x 768 screen at 15 twips per pixel; session 0 used the classic frame.
+**The probe:** two forms, each with a 4500 x 3000 client at ClientLeft 2000, ClientTop 1500. FormM is
+`StartUpPosition = 0 'Manual`, and FormC is `2 'CenterScreen`. Each logs Left, Top, Width, Height and ScaleMode in
+`Form_Load`, after `Show`, and after each write below. The probe ran in the guest's console session, a 1024 x 768
+desktop at 15 twips a pixel with Windows 10's frame, and in session 0, whose frame is the classic one. Native and
+p-code logged the same lines in each.
 
-| Read or write | Console Left, Top | Session 0 Left, Top |
+| Step | Console: Left, Top | Session 0: Left, Top |
 |---|---|---|
-| Manual, Form_Load and after Show | 1875, 1035 | 1935, 1155 |
-| CenterScreen, Form_Load | 1875, 1035 | 1935, 1155 |
-| CenterScreen, after Show | 5310, 3960 | 5370, 4050 |
-| Left = 1200, Top = 900 | 1200, 900 | 1200, 900 |
-| Left = 1207 | 1207, 900 | 1207, 900 |
-| ScaleMode = 3, read again | 1207, 900 | 1207, 900 |
-| Left = 600 at ScaleMode 3 | 600, 900 | 600, 900 |
-| Move 300, 450 at ScaleMode 3 | 300, 450 | 300, 450 |
-| Left = -3000 | Left -3000 | Left -3000 |
+| FormM in `Form_Load`, and after `Show` | 1875, 1035 | 1935, 1155 |
+| FormC in `Form_Load` | 1875, 1035 | 1935, 1155 |
+| FormC after `Show` | 5310, 3960 | 5370, 4050 |
+| `Me.Left = 1200`, then `Me.Top = 900` | 1200, 900 | the same |
+| `Me.Left = 1207`, not a whole pixel | **1207**, 900 | the same |
+| `Me.ScaleMode = 3`, then a read | 1207, 900: still twips | the same |
+| `Me.Left = 600` at ScaleMode 3 | 600: **twips**, not pixels | the same |
+| `Me.Move 300, 450` at ScaleMode 3 | 300, 450 | the same |
+| `Me.Left = -3000` | -3000 | the same |
 
-Left's TypeName was Single. Position means the outer window origin, in twips even on a pixel form.
-The console's outer size was 4740 x 3585, session 0's 4620 x 3405. CenterScreen acts at Show,
-not Load, using the outer size and whole pixels. A written 1207 reads back unchanged despite the
-window occupying a whole pixel. No native/p-code difference was observed.
+- **Width and Height** read the outer size throughout: 4740 x 3585 on the console, and 4620 x 3405 in session 0.
+- **`TypeName(Me.Left)` is Single.**
+- **Before `Show`,** Left and Top are the client position less the frame: 125 and 465 on the console, 65 and 345 in
+  session 0. A CenterScreen form is placed only by `Show`: (15360 - 4740) / 2 = 5310, and 3960 is
+  (11520 - 3585) / 2 in whole pixels.
+- **A form's own Left, Top, Width and Height are twips whatever its ScaleMode.** A written value reads back as written,
+  1207 included, not rounded to the pixel the window moved to.

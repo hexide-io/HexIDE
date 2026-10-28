@@ -39,7 +39,7 @@ public class FormComponentClass : ComponentBaseClass
     /// </summary>
     public virtual string DesignerDoubleClickEvent => "Load";
 
-    private static readonly EventClass[] RootEvents = [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
+    private static readonly EventClass[] RootEvents = [KeyDownEvent, KeyPressEvent, KeyUpEvent, ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
     public override string Name => "Form";
     public override string VBTypeName => "VB.Form";
@@ -71,6 +71,7 @@ public class FormComponentClass : ComponentBaseClass
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             Position = new PixelPoint((int)instance.GetPropertyOrDefault(LeftProperty), (int)instance.GetPropertyOrDefault(TopProperty))
         };
+        AttachedProperties.SetKeyPreview(form, instance.GetPropertyOrDefault(KeyPreviewProperty));
         VBProps.SetName(form, instance.GetPropertyOrDefault(NameProperty));
         // The frame its Width and Height include at run time (#1072).
         // And the window that frame is drawn as: its border, caption bar and buttons (#1575).
