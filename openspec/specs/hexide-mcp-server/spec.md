@@ -38,6 +38,16 @@ that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it;
 - **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
 - **THEN** `items` gives all 31 texts, and `select` takes any of them as written
 
+### Requirement: Inspection SHALL report the mouse pointer a control shows
+`inspect_element` SHALL give `pointer` for a control showing a pointer set on it or above it: a running program's
+MousePointer by number and name, the pointer drawn, where it is set, and `setBy`, which says whether it is the
+control's own value, one set over it as `Screen.MousePointer` sets it, or a style's. A pointer the runtime did not make
+SHALL be reported as not recorded, never guessed, and a control with none set SHALL have no `pointer`.
+
+#### Scenario: Screen.MousePointer over a control's own
+- **WHEN** a running form's code sets `Screen.MousePointer = 11` over a button whose own MousePointer is 2
+- **THEN** the button's `pointer` is 11, Hourglass, set by Override, and after `Screen.MousePointer = 0` it is 2, Cross, its own
+
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
