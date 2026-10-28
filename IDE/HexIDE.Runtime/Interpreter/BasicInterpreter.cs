@@ -522,7 +522,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // never reaches this path (its count never hit zero); a shared field just decrements. (Inter-field
         // teardown order is unpinned — Dictionary order — no oracle constraint yet.)
         foreach (var slot in o.InstanceEnv.variableToLocation.Values)
-            await ReleaseRef(ExecutionContext.State[slot]);
+            if (!predeclaredSlots.Contains(slot))   // shared program names are not this instance's fields (#2555)
+                await ReleaseRef(ExecutionContext.State[slot]);
         // Then its procedures' Statics, in the order the module declares them (measured, #1491).
         if (o.Statics is { } statics)
             foreach (var slot in statics.InSourceOrder())
@@ -627,7 +628,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Standard, modCode, new ExecutionEnvironment()));
 
         // Class modules are TEMPLATES, not singletons — registered so `New`/`Dim As`/`TypeOf` resolve the name,
-        // but instantiated only by New (each instance gets its own field env), never run at program start.
+        // but instantiated only on use (each instance gets its own field env), never run at program start.
         if (classModules != null)
             foreach (var (name, modCode) in classModules)
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Class, modCode, new ExecutionEnvironment()));
@@ -669,6 +670,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Debug", () => new Vb6Value(new DebugProxy(stdLib)));
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
+
+        // A predeclared class name is a shared As New slot (#2555), separate from every explicit New.
+        foreach (var module in Modules.All)
+            if (module.Kind == InterpreterModuleKind.Class && module.PrePass.PredeclaredId)
+            {
+                SeedProgramGlobal(module.Name, () => Vb6Value.Nothing);
+                if (rootEnv.TryGetVariableLocation(module.Name, out var slot))
+                {
+                    ExecutionContext.State.MarkAutoNew(slot, module.Name, module.Name);
+                    predeclaredSlots.Add(slot);
+                }
+            }
 
         // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
         // (#880). Set after every module's pre-pass, which is what lists them.
@@ -849,6 +862,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 m.ModuleEnv.DefineVariable(name, slot);
     }
 
+    private readonly List<int> predeclaredSlots = new();
+
+    internal async Task ReleasePredeclaredInstances()
+    {
+        foreach (var slot in predeclaredSlots)
+        {
+            var value = ExecutionContext.State[slot];
+            ExecutionContext.State[slot] = Vb6Value.Nothing;
+            await ReleaseRef(value);
+        }
+    }
+
     public async Task Execute()
     {
         declarationsRun = true;
@@ -866,6 +891,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly (refcount teardown ran, suppressed) — swallow it.
+        }
+        finally
+        {
+            if (Forms is null)
+                await ReleasePredeclaredInstances();
         }
     }
 
@@ -927,6 +957,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            if (Forms is null)
+                await ReleasePredeclaredInstances();
             ReleaseLibraryGlobals();
         }
     }
