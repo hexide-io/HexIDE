@@ -29,3 +29,6 @@ The #2325 comments’ measured keyboard input is recorded in
 
 The #2474 measurements of declared arrays named with empty parentheses are recorded in
 [Whole-array parentheses](vb6-fidelity-oracle/whole-array-parentheses.md).
+
+The #881 comments’ measured compare validation order is recorded in
+[A compare argument, and when it is checked](vb6-fidelity-oracle/compare-argument-validation.md).
