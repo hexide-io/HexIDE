@@ -720,3 +720,8 @@ added afterwards.
 - [Err.HelpFile, Err.HelpContext and Err.LastDllError (2026-10-28, #2527)](err-helpfile-err-helpcontext-and-err-lastdllerror.md#errhelpfile-errhelpcontext-and-errlastdllerror-2026-10-28-2527)
 - [Erl: the line number an error reports (2026-10-28, #2528)](erl-the-line-number-an-error-reports.md#erl-the-line-number-an-error-reports-2026-10-28-2528)
 - [A line number on a closing or middle line of a block (2026-10-28, #2529)](a-line-number-on-a-closing-or-middle-line-of-a-block.md#a-line-number-on-a-closing-or-middle-line-of-a-block-2026-10-28-2529)
+- [App.HelpFile, App.StartMode, App.TaskVisible and IMEStatus (2026-10-28, #2551)](app-helpfile-app-startmode-app-taskvisible-and-imestatus.md#apphelpfile-appstartmode-apptaskvisible-and-imestatus-2026-10-28-2551)
+- [App's logging: StartLogging, LogEvent, LogMode and LogPath (2026-10-28, #2552)](app-s-logging-startlogging-logevent-logmode-and-logpath.md#apps-logging-startlogging-logevent-logmode-and-logpath-2026-10-28-2552)
+- [Lock and Unlock (2026-10-28, #2553)](lock-and-unlock.md#lock-and-unlock-2026-10-28-2553)
+- [Width # (2026-10-28, #2554)](width.md#width--2026-10-28-2554)
+- [A class with VB_PredeclaredId = True (2026-10-28, #2555)](a-class-with-vb-predeclaredid-true.md#a-class-with-vb_predeclaredid--true-2026-10-28-2555)
