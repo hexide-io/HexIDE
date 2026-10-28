@@ -26,7 +26,7 @@ internal static class TabOrder
     /// <summary>Whether the control has a TabIndex: every control VB6 gives one that HexIDE runs.</summary>
     public static bool HasTabIndex(Control c) =>
         UserControlMembers.HasTabIndex(c) || c is VBCheckBox or VBComboBox or VBCommandButton or VBFrame or VBScrollBar or VBLabel or VBListBox or VBOptionButton
-            or VBPictureBox or VBTextBox or VBProgressBar or VBStatusBar or VBSSTab;
+            or VBPictureBox or VBTextBox or VBProgressBar or VBStatusBar or VBSSTab or VBUpDown;
 
     /// <summary>Whether the control has a TabStop: those with a TabIndex but the Label, the Frame and the ProgressBar.</summary>
     public static bool HasTabStop(Control c) => (UserControlMembers.IsUserControl(c) ? UserControlMembers.HasTabStop(c) : HasTabIndex(c)) && c is not (VBLabel or VBFrame or VBProgressBar or VBStatusBar);

@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Färgen för genomskinliga pixlar.",
     "Str.PropDesc.UseMaskColor": "Om maskfärgen används.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
+    "Str.Dialog.Print.Configuration": "Kopior: 1; orientering: stående.",
+    "Str.Dialog.Print.Unavailable": "Utskrift är inte implementerad. OK returnerar endast dialoginställningarna.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

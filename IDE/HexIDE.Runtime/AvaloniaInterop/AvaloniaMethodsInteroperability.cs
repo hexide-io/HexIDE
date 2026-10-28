@@ -15,6 +15,9 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                              || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
         if (c is VBTimer)
             TimerMembers.RefuseMethod(method);
 
@@ -32,6 +35,7 @@ public static class AvaloniaMethodsInteroperability
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
         // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
         // is 438 late-bound (measured).
+        RichTextBoxMembers.RefuseMethod(c, method);
         if (c is VBSSTab && Components.InBox.SSTabComponentClass.Instance.Member(method) is { Implemented: false })
             throw new NotImplementedException($"SSTab {method} is not implemented");
         if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method)) is { } inBox)
@@ -232,6 +236,12 @@ public static class AvaloniaMethodsInteroperability
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBTreeView tree && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count != 0) throw new NotImplementedException();
+            await tree.StartLabelEditAsync();
+            return Vb6Value.Nothing;
+        }
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);

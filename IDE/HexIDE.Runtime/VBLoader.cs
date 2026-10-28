@@ -132,6 +132,39 @@ public class VBLoader
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
 
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            if (RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } upDownBlock)
+            {
+                var upDown = (VBUpDown)Components.InBox.UpDownComponentClass.Instance.Instantiate(
+                    new ComponentInstance(Components.InBox.UpDownComponentClass.Instance, upDownBlock.Name));
+                foreach (var (property, value) in upDownBlock.Properties)
+                {
+                    if (property is "Left" or "Top" or "Width" or "Height")
+                    {
+                        var pixels = Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) / 15;
+                        switch (property)
+                        {
+                            case "Left": Canvas.SetLeft(upDown, pixels); break;
+                            case "Top": Canvas.SetTop(upDown, pixels); break;
+                            case "Width": upDown.Width = pixels; break;
+                            case "Height": upDown.Height = pixels; break;
+                        }
+                    }
+                    else if (property == "TabIndex")
+                        Avalonia.Input.KeyboardNavigation.SetTabIndex(upDown, Convert.ToInt32(value.Value));
+                    else if (property == "Orientation" && Convert.ToInt32(value.Value) is 0 or 1)
+                        upDown.Horizontal = Convert.ToInt32(value.Value) == 1;
+                    else if (property == "Visible")
+                        upDown.IsVisible = Convert.ToInt32(value.Value) != 0;
+                }
+                upDown.LoadProperties(upDownBlock.Properties);
+                VBProps.SetName(upDown, upDownBlock.Name);
+                VBProps.SetRunTimeId(upDown);
+                canvas.Children.Add(upDown);
+                executionContext.AllocVariable(environment, upDownBlock.Name, new Vb6Value(upDown));
+                dialogs[block] = upDown;
+            }
+
         // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
         foreach (var (block, component) in toolbars)
         {
@@ -141,6 +174,17 @@ public class VBLoader
                 dialogs[block] = control;
             });
         }
+
+        // Saved references may name an ImageList later in the file (#2334).
+        foreach (var toolbar in placed.Values.OfType<VBToolbar>())
+        {
+            if (toolbar.SavedImageListName is not { } name) continue;
+            var matches = placed.Values.Where(c => VBProps.GetName(c) == name).ToArray();
+            if (matches.Length != 1 || matches[0] is not VBImageList images)
+                throw ToolbarItems.Unmeasured();
+            toolbar.TrySetProperty("ImageList", new Vb6Value((Control)images));
+        }
+
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
         foreach (var (component, control, parent) in menus)
@@ -165,6 +209,9 @@ public class VBLoader
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
         var controls = new FormControls(InFileOrder(element, placed, dialogs).OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups);
+        foreach (var (block, control) in dialogs)
+            if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
+                upDown.LoadBuddy(saved.Properties, controls);
         controls.Maker = (componentClass, name, container) => MakeAtRunTime(componentClass, name, container, canvas, element);
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
@@ -740,7 +787,7 @@ public class VBLoader
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block))
+            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
@@ -753,6 +800,40 @@ public class VBLoader
                 }
         if (lines.Count > 0)
             throw new NotImplementedException(string.Join("\n", lines.Distinct()));
+    }
+
+    /// <summary>
+    /// A block for a control HexIDE creates at run time from the block itself, the UpDown's (#1093): its name, and the
+    /// properties it sets, as code would set them. Null for any other block, and for one this can't create: one holding
+    /// a control, or an element of a control array.
+    /// </summary>
+    /// <remarks>The OCX's own properties, <c>_ExtentX</c>, <c>_ExtentY</c> and <c>_Version</c>, mean nothing to a running program.</remarks>
+    private static (string Name, List<(string Property, Vb6Value Value)> Properties)? RuntimeControlBlock(string block, string typeName)
+    {
+        var lines = block.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        if (lines.Count < 2)
+            return null;
+        var begin = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (begin.Length < 3 || !begin[0].Equals("Begin", StringComparison.OrdinalIgnoreCase)
+            || !begin[1].Equals(typeName, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var properties = new List<(string, Vb6Value)>();
+        foreach (var line in lines.Skip(1).SkipLast(1))
+        {
+            if (line.StartsWith("Begin", StringComparison.OrdinalIgnoreCase))
+                return null;
+            var equals = line.IndexOf('=');
+            if (equals < 0)
+                continue;
+            var name = line[..equals].Trim();
+            var text = line[(equals + 1)..].Trim();
+            if (name.Equals("Index", StringComparison.OrdinalIgnoreCase))
+                return null;
+            if (name.StartsWith('_'))
+                continue;
+            properties.Add((name, DesignTimeValue(text)));
+        }
+        return (begin[2], properties);
     }
 
     // A value as the .frm writes it: a quoted string, -1 or 0 for a Boolean, or a number, with any trailing comment
@@ -860,7 +941,7 @@ public class VBLoader
         // another form running (measured, #822).
         return StartAndShow(shown.Context, token, close: shown.Close, closeUnshown: shown.Close, showUntilClosed: () =>
         {
-            shown.Show();
+            shown.ShowForm();
             return new TaskCompletionSource().Task;
         });
     }

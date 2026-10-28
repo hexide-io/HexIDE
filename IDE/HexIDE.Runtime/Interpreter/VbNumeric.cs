@@ -260,6 +260,8 @@ public static class VbNumeric
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             return new Vb6Value(-d);
         }
+        if (v.Type == VT.Currency)
+            return MakeCurrency(-ToDecimal(v), ctx);   // -1@ remains Currency (#1073)
         var rt = rank <= 1 ? VT.Integer : CoreType(rank);   // Byte/Boolean negate into Integer
         if (rt == VT.Integer || rt == VT.Long)
             return NarrowLong(-ToLong(v), rt, ctx, v.HasFixedType);
@@ -338,7 +340,7 @@ public static class VbNumeric
         // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below
         // keep their decimal precision instead of going through a double.
         if (v.Type == VT.String)
-            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v)), target, ctx);
+            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v, allowCurrency: target == VT.Long)), target, ctx);
         return Narrow(v, target, ctx);
     }
 

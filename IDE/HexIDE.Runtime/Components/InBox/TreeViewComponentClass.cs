@@ -11,6 +11,8 @@ internal sealed class TreeViewComponentClass : ComponentBaseClass
     private TreeViewComponentClass() : base([VBProperties.TabIndexProperty, VBProperties.TabStopProperty],
         [ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseUpEvent, MouseMoveEvent,
             KeyDownEvent, KeyUpEvent,
+            new EventClass("BeforeLabelEdit", new EventClassArgument("Cancel", "Integer")),
+            new EventClass("AfterLabelEdit", new EventClassArgument("Cancel", "Integer"), new EventClassArgument("NewString", "String")),
             new EventClass("NodeClick", new EventClassArgument("Node", "Node")),
             new EventClass("NodeCheck", new EventClassArgument("Node", "Node")),
             new EventClass("Expand", new EventClassArgument("Node", "Node")),

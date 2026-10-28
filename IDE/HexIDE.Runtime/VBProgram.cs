@@ -458,6 +458,7 @@ public sealed class VBProgram : IFormProgram
         foreach (var instance in created.ToList())
             if (!instance.Terminated && contexts.TryGetValue(instance, out var context))
                 await context.TerminateAsync();
+        await interpreter.ReleasePredeclaredInstances();
         CloseAll();
         ended.TrySetResult();
     }

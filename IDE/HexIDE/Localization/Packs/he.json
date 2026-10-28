@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "הצבע של פיקסלים שקופים.",
     "Str.PropDesc.UseMaskColor": "האם להשתמש בצבע המסכה.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "הצג קווי הנחיה להזחה",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.Dialog.Print.Configuration": "עותקים: 1; כיוון: לאורך.",
+    "Str.Dialog.Print.Unavailable": "הדפסה אינה ממומשת. אישור מחזיר רק את הגדרות תיבת הדו־שיח.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

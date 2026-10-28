@@ -1527,6 +1527,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!dollar && interpreter.GlobalMember(name) is { } global)
             return await interpreter.CallLibraryMember(global, name, await EvaluateCallArgs(argsCtx))
                 ?? throw new VBSubOrFunctionNotDefinedException(name);
+        if (!dollar && name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames);
         // `Forms(i)`, where nothing the program declares claims the name: Forms' default member, Item (#2496).
         if (!dollar && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms forms })
             return forms.Item(await EvaluateCallArgs(argsCtx));
@@ -1606,6 +1608,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBToolbar toolbar)
         {
+            if (MemberArgs(member) is null && MemberName(member).ToLowerInvariant() is "hotimagelist" or "disabledimagelist"
+                && toolbar.TryGetProperty(MemberName(member), out var imageList)) return imageList;
             VBToolbar.RefusePending(MemberName(member));
             if (MemberName(member).Equals("Buttons", StringComparison.OrdinalIgnoreCase) && MemberArgs(member) is { } indexes)
                 return toolbar.Buttons.Item(await EvaluateCallArgs(indexes));
@@ -1739,6 +1743,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (AvaloniaInterop.UserControlContainers.TryGet(control, memberIdentifier, out var containerValue))
             return containerValue;
 
+        if (AvaloniaInterop.RichTextBoxMembers.TryGet(control, memberIdentifier, out var richTextValue))
+            return richTextValue;
+
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
              ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
@@ -1859,6 +1866,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var library = qualifier.Name!;
             while (true)
             {
+                if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+                    return await ThenTheRest(await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames));
                 var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
@@ -2429,6 +2438,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
+                VBUpDown => "MSComCtl2",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)

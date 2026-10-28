@@ -1,6 +1,6 @@
 VERSION 5.00
 Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "COMDLG32.OCX"
-Begin VB.Form frmNotepad
+Begin VB.Form frmNotepad 
    Caption         =   "Untitled - Notepad"
    ClientHeight    =   4500
    ClientLeft      =   60
@@ -9,15 +9,15 @@ Begin VB.Form frmNotepad
    ScaleHeight     =   4500
    ScaleWidth      =   6600
    StartUpPosition =   3  'Windows Default
-   Begin MSComDlg.CommonDialog dlgCommon
+   Begin MSComDlg.CommonDialog dlgCommon 
       Left            =   0
       Top             =   0
       _ExtentX        =   847
       _ExtentY        =   847
       _Version        =   393216
    End
-   Begin VB.TextBox txtEdit
-      BeginProperty Font
+   Begin VB.TextBox txtEdit 
+      BeginProperty Font 
          Name            =   "Lucida Console"
          Size            =   9.75
          Charset         =   0
@@ -37,8 +37,8 @@ Begin VB.Form frmNotepad
       Visible         =   0   'False
       Width           =   6600
    End
-   Begin VB.TextBox txtEdit
-      BeginProperty Font
+   Begin VB.TextBox txtEdit 
+      BeginProperty Font 
          Name            =   "Lucida Console"
          Size            =   9.75
          Charset         =   0
@@ -57,83 +57,83 @@ Begin VB.Form frmNotepad
       Top             =   0
       Width           =   6600
    End
-   Begin VB.Menu mnuFile
+   Begin VB.Menu mnuFile 
       Caption         =   "&File"
-      Begin VB.Menu mnuFileNew
+      Begin VB.Menu mnuFileNew 
          Caption         =   "&New"
          Shortcut        =   ^N
       End
-      Begin VB.Menu mnuFileOpen
+      Begin VB.Menu mnuFileOpen 
          Caption         =   "&Open..."
          Shortcut        =   ^O
       End
-      Begin VB.Menu mnuFileSave
+      Begin VB.Menu mnuFileSave 
          Caption         =   "&Save"
          Shortcut        =   ^S
       End
-      Begin VB.Menu mnuFileSaveAs
+      Begin VB.Menu mnuFileSaveAs 
          Caption         =   "Save &As..."
       End
-      Begin VB.Menu mnuFileSep1
+      Begin VB.Menu mnuFileSep1 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuFileExit
+      Begin VB.Menu mnuFileExit 
          Caption         =   "E&xit"
       End
    End
-   Begin VB.Menu mnuEdit
+   Begin VB.Menu mnuEdit 
       Caption         =   "&Edit"
-      Begin VB.Menu mnuEditCut
+      Begin VB.Menu mnuEditCut 
          Caption         =   "Cu&t"
          Shortcut        =   ^X
       End
-      Begin VB.Menu mnuEditCopy
+      Begin VB.Menu mnuEditCopy 
          Caption         =   "&Copy"
          Shortcut        =   ^C
       End
-      Begin VB.Menu mnuEditPaste
+      Begin VB.Menu mnuEditPaste 
          Caption         =   "&Paste"
          Shortcut        =   ^V
       End
-      Begin VB.Menu mnuEditDelete
+      Begin VB.Menu mnuEditDelete 
          Caption         =   "De&lete"
          Shortcut        =   {DEL}
       End
-      Begin VB.Menu mnuEditSep1
+      Begin VB.Menu mnuEditSep1 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuEditFind
+      Begin VB.Menu mnuEditFind 
          Caption         =   "&Find..."
          Shortcut        =   ^F
       End
-      Begin VB.Menu mnuEditFindNext
+      Begin VB.Menu mnuEditFindNext 
          Caption         =   "Find &Next"
          Shortcut        =   {F3}
       End
-      Begin VB.Menu mnuEditSep2
+      Begin VB.Menu mnuEditSep2 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuEditSelectAll
+      Begin VB.Menu mnuEditSelectAll 
          Caption         =   "Select &All"
          Shortcut        =   ^A
       End
-      Begin VB.Menu mnuEditTimeDate
+      Begin VB.Menu mnuEditTimeDate 
          Caption         =   "Time/&Date"
          Shortcut        =   {F5}
       End
    End
-   Begin VB.Menu mnuFormat
+   Begin VB.Menu mnuFormat 
       Caption         =   "F&ormat"
-      Begin VB.Menu mnuFormatWordWrap
+      Begin VB.Menu mnuFormatWordWrap 
          Caption         =   "&Word Wrap"
       End
-      Begin VB.Menu mnuFormatFont
+      Begin VB.Menu mnuFormatFont 
          Caption         =   "&Font..."
       End
    End
-   Begin VB.Menu mnuHelp
+   Begin VB.Menu mnuHelp 
       Caption         =   "&Help"
-      Begin VB.Menu mnuHelpAbout
+      Begin VB.Menu mnuHelpAbout 
          Caption         =   "&About Notepad"
       End
    End

@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Color punctorum perlucidorum.",
     "Str.PropDesc.UseMaskColor": "Utrum color personae adhibeatur.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Lineas indentationis monstrare",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare",
+    "Str.Dialog.Print.Configuration": "Exemplaria: 1; directio: verticalis.",
+    "Str.Dialog.Print.Unavailable": "Impressio nondum effecta est. Bene solas optiones dialogi reddit.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

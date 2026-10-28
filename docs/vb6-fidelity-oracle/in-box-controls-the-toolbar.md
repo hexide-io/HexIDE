@@ -478,22 +478,105 @@ Thirty-two rows:
 ImageList, DisabledImageList, HotImageList and the buttons aren't rows. They are set in the property pages, which
 weren't opened.
 
+### Caption widths (#2373)
+
+Measured in #1088, issuecomment-6445245253 (corrected; d4593637e): vb6.exe SP6,
+MSCOMCTL.OCX 6.01.9782, native and p-code matching, Windows 10 console at 96 dpi without visual styles.
+The host message font was Segoe UI 9. Caption widths below are single-line text extents; `&` counts.
+The rule is extent +7, minimum 23 px below, or +27, minimum 43 px right.
+
+| Caption | Segoe UI 9 extent (px) | Button below (px) |
+|---|---:|---:|
+| File | 18 | 25 |
+| Alpha | 31 | 38 |
+| Save As | 40 | 47 |
+| Alphabet | 48 | 55 |
+| iiiiiiii | 24 | 31 |
+| MMMMMMMM | 88 | 95 |
+| A much longer caption here | 148 | 155 |
+| &File | 28 | 35 |
+| Tabx | 24 | 32 |
+| Twolines | 45 | 53 |
+
+The last two exceed +7 by one pixel, unexplained. Do not special-case them to conceal that.
+Tabs and LF add 8 px each; CR adds 1 px. None draws: Tab-tab-x measured 40 px,
+Two-CRLF-lines 62, Two-LF-lines 61, Two-CR-lines 54. TextWidth's tab stops and
+multiline measurement do not describe these captions. `&File` displays File with the F underlined.
+The earlier Alpha dimensions came from session 0; the system-font explanation for that difference is inferred.
+
+All buttons share the widest caption width, recomputed after edits/add/remove. Clear retains the last
+ButtonWidth, ButtonHeight and bar height. Any caption gives 38 px button height below, otherwise 22 px;
+right alignment gives 22 px. Style 0 adds 4 px to the bar height and starts buttons at 2 px;
+flat Style 1 starts at 0 and adds nothing. Flat Alpha dropdowns measured 53 px (38 +15), separators 8 px.
+Six 55 px buttons on a 133 px bar wrapped into three rows of two, at Tops 2/40/78 and bar height 118.
+Wrappable False kept one row extending past the right edge, all Visible True, bar height 42.
+
+### Windows caption metric follow-up (#2334, supervisor measurement, 2026-10-28)
+
+GDI was measured on Windows with WinForms TextRenderer, Segoe UI 9 pt at 96 dpi,
+without padding. Whole-string and summed-character extents were:
+
+| Caption | Whole string (px) | Sum of characters (px) |
+|---|---:|---:|
+| OK | 16 | 16 |
+| iiiiiiii | 24 | 24 |
+| Save As | 40 | 40 |
+| MMMMMMMM | 88 | 88 |
+| Alphabet | 48 | 48 |
+| A much longer caption here | 148 | 148 |
+| Twolines | 46 | 47 |
+
+Whole-string GDI extents match the measured button widths. This supersedes the
+per-glyph rounding model: Skia's rounded advances give 147 for the long caption,
+and character sums also miss Twolines. The earlier TextWidth figure of 45 for
+Twolines remains recorded above; the whole-string extent of 46 accounts for its
+53 px button without a caption-specific correction. Windows uses GetTextExtentPoint32W
+with a font at its 96 dpi pixel height; other hosts retain per-glyph rounding.
+
+The console widths above used Windows 10 19044's Segoe UI (`segoeui.ttf`, 955,804 bytes,
+SHA-256 `ba32a222b23d727267cf1aba4e5296fe84ce99b9d910915103fc085d7931bc88`).
+The supervisor repeated GetTextExtentPoint32W with Segoe UI, height -12 and default quality
+on that VM and on Server 2025 build 26100 (2026-10-28):
+
+| Caption | Oracle VM (px) | Server 2025 (px) |
+|---|---:|---:|
+| Tabx | 25 | 25 |
+| Twolines | 46 | 47 |
+| OK | 16 | 16 |
+| MMMMMMMM | 88 | 88 |
+| A much longer caption here | 148 | 148 |
+
+Server 2025's font was 959,752 bytes, SHA-256 prefix `8134DBCD09E7B123…`.
+The installed font build changes the metrics: Twolines therefore gives a 54 px button
+there, versus the oracle's 53 px. Exact console expectations apply only to the oracle
+font digest; Windows sizing follows the installed font's GDI extent on other builds.
+
 ### In HexIDE
 
 The runtime-only portions of #1088 model a top-level MSComctlLib.Toolbar's scalar defaults and measured
 assignments, including no-effect size writes, and its Buttons/ButtonMenus collections and item scalar
-properties. Measured single-row geometry now supports the probed Alpha caption, separators and placeholders,
-including repositioning after width, style, visibility and collection edits. Populated
-ButtonWidth/ButtonHeight use the measured Alpha dimensions, with the measured TextAlignment 1 ButtonHeight.
-Arbitrary captions, dimensions after Clear, wrapping/overflow, non-default-style item Top/Height and right-
-aligned item geometry still refuse: the probes supply no general sizing or wrapping rule. Hidden Left/Top
+properties. #2373 measures captions on one line in the host font, using the later console measurement's
+padding/minima, shared widths, caption-driven height, Clear retention and wrapping/overflow rules.
+Tabs/LF/CR add their measured widths and do not draw; ampersands contribute to width and mark mnemonics.
+The ten oracle extents are pinned, including the two one-pixel discrepancies, without caption-specific fixes.
+Non-default-style item Top/Height remain refused. Hidden Left/Top
 refuse rather than reproduce build-dependent junk; hidden Width/Height remain zero. Unmeasured conversions
 refuse. The designer still carries every Toolbar block verbatim. Nested and control-array bars retain the load
 refusal. Designed top-level bars now load their Buttons and ButtonMenus property bags, including the measured Object.* aliases, numeric ImageIndex values, ToolTips and
 twips placeholder widths. Saved HIMETRIC button dimensions are not applied as runtime size assignments;
 runtime geometry still uses only the measured content cases. Runtime drawing and the measured pointer/dropdown
 menu events are implemented;
-ImageList binding remains unfinished. Part C verifies the existing verbatim preservation path against the saved
+#2334 adds the runtime ImageList binding slice: populated-list binding, index/key Image validation (including
+Buttons.Add), unbinding/reset and the bound-list Remove/Clear lock. HotImageList and DisabledImageList read
+the measured Nothing defaults; populated-list assignments now support the measured drawing probe. Empty-list binding raises 35613; replacing a bound list resets every Image
+to Integer 0 and recomputes geometry immediately, releasing the old list's shrink lock. Negative/empty/coerced
+selectors remain unfinished. Saved top-level bars now resolve their
+named populated ImageList after controls are created, including when the list follows the bar in the file,
+retaining saved Integer selectors and preserving both files byte for byte. Missing, ambiguous and wrong-type
+saved references refuse rather than guess an unmeasured result. The later #2334 drawing measurement supplies
+16 px captioned buttons at 38 px high below or 22 px right, and 32 px captioned buttons at 54 px high below
+with a 39 px minimum width; caption widths retain #2373's rule. Other populated image geometries refuse
+pending measurements. Image painting now follows #2334’s recorded offsets and paint-time UseMaskColor; populated alternate lists supply disabled images and flat-only hot images by position, and missing alternate indexes draw nothing. Alternate-list clearing/empty binding and hot/disabled rendering without an alternate list remain unmeasured. No new VB6 measurements were made. Part C verifies the existing verbatim preservation path against the saved
 Toolbar form and ImageList companion byte for byte, both unchanged and after a form-caption edit, and through a
 second save. This preserves `ToolTips`, BorderStyle after `_Version`, HIMETRIC button dimensions, twips placeholder
 widths and the nested ButtonMenus without modelling or rewriting them. The runtime loading slice does not yet

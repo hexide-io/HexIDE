@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Цвет прозрачных пикселей.",
     "Str.PropDesc.UseMaskColor": "Использовать ли цвет маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показывать направляющие отступов",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Цвет скобок по глубине вложенности",
+    "Str.Dialog.Print.Configuration": "Копии: 1; ориентация: книжная.",
+    "Str.Dialog.Print.Unavailable": "Печать не реализована. ОК возвращает только настройки диалога.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

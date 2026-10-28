@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Fargen på gjennomsiktige piksler.",
     "Str.PropDesc.UseMaskColor": "Om maskefargen brukes.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Vis innrykkslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
+    "Str.Dialog.Print.Configuration": "Kopier: 1; retning: stående.",
+    "Str.Dialog.Print.Unavailable": "Utskrift er ikke implementert. OK returnerer bare dialoginnstillingene.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }
