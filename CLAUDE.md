@@ -287,11 +287,20 @@ which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2
 test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
 error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
 read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
-`bash scripts/check-xunit-report.sh` on the file, which lands under the project's
-`bin/Debug/net10.0/TestResults/`. CI does both on every Integration step. The cause measured was
+`bash scripts/check-xunit-report.sh` on the file. A relative `--results-directory TestResults` puts it in the
+project's own `TestResults/`, on Windows and under WSL alike. CI does both on every Integration step. The cause measured was
 Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
 fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
 fails loudly if one starts a test on a leftover context again.
+
+**A hung Integration run ends 10 minutes after a test last started or finished, and names what was running**
+([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every Integration step passes
+`--hangdump --hangdump-timeout 10m --hangdump-type Mini` (`Microsoft.Testing.Extensions.HangDump`, kept at the
+Microsoft.Testing.Platform version xunit.v3 brings). The results directory then holds a `*_hang.log` listing each
+test still running and how long it had run, beside a mini dump with managed stacks
+(`dotnet-dump analyze <file> -c "clrstack -all"`). CI turns the log into an error annotation and uploads both.
+Before this, a hang ran out the 30-minute step limit and left no report at all. Add the same options after the
+`--` to get this locally.
 
 ## MCP Dev Loop
 
