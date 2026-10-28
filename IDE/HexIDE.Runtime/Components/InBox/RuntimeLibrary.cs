@@ -17,7 +17,7 @@ public sealed class RuntimeLibrary
     private readonly Lazy<Constants> constants;
 
     internal RuntimeLibrary(string name, string description, string guid, string version, string file, int persistedVersion,
-        IReadOnlyDictionary<string, int> controls, string? constantsResource = null)
+        IReadOnlyDictionary<string, int> controls, string? constantsResource)
     {
         Name = name;
         Description = description;
@@ -120,9 +120,8 @@ public sealed class RuntimeLibrary
 
     private Constants Load()
     {
-        if (constantsResource is null)
-            return new Constants(new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase),
-                new(StringComparer.OrdinalIgnoreCase));
+        if (constantsResource is null) return new Constants(new(StringComparer.OrdinalIgnoreCase),
+            new(StringComparer.OrdinalIgnoreCase), new(StringComparer.OrdinalIgnoreCase));
         var asm = typeof(RuntimeLibrary).Assembly;
         var resource = asm.GetManifestResourceNames().Single(n => n.EndsWith(constantsResource!, StringComparison.Ordinal));
         using var stream = asm.GetManifestResourceStream(resource)!;
@@ -194,10 +193,15 @@ public static class ControlLibraries
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["UpDown"] = 1093, ["DTPicker"] = 1081, ["MonthView"] = 1081, ["Animation"] = 1081, ["FlatScrollBar"] = 1081,
-        });
+        }, null);
+
+    // Its registry description is unmeasured; the dialog uses the recorded library name.
+    public static readonly RuntimeLibrary RichTextLib = new("RichTextLib", "RichTextLib",
+        "{3B7C8863-D78F-101B-B9B5-04021C009402}", "1.2", "RICHTX32.OCX", 393217,
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["RichTextBox"] = 1100 }, null);
 
     /// <summary>Every in-box control library HexIDE knows.</summary>
-    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, MSComCtl2];
+    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, MSComCtl2, RichTextLib];
 
     /// <summary>The library <paramref name="reference"/> names, or null for one HexIDE doesn't know.</summary>
     public static RuntimeLibrary? For(ObjectReference reference) => All.FirstOrDefault(l => l.IsNamedBy(reference));

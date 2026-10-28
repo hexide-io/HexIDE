@@ -47,6 +47,7 @@ internal static class ObjectAsValue
         Components.InBox.TreeNode node => new Vb6Value(node.Text),
         VBSSTab => new Vb6Value((short)0),
         VbErr err => new Vb6Value(err.Number),
+        VBRichTextBox box => new Vb6Value(box.WriteRtf()),
         StatusBarPanel panel => new Vb6Value(panel.Text),
         // VB6 refuses both before the program runs: Debug is only ever Debug.Print or Debug.Assert ("Syntax error"),
         // and a control array needs an index ("Argument not optional"). Raised here as the statement runs.
@@ -76,6 +77,7 @@ internal static class ObjectAsValue
         Components.InBox.TreeNode node => new Vb6Value(node.Text),
         VBSSTab => new Vb6Value((short)0),
         VbErr err => new Vb6Value(err.Number),
+        VBRichTextBox box => new Vb6Value(box.WriteRtf()),
         StatusBarPanel panel => new Vb6Value(panel.Text),
         _ => value,
     };
