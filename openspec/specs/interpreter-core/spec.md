@@ -207,6 +207,38 @@ program that compiles and runs.
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
+### Requirement: A name read through a type character SHALL be the name's own read
+A variable, constant, Enum member, parameter or array read with a type-declaration character (`s$`, `i%`,
+`a%(1)`) SHALL be read as the name without it, and SHALL raise VB6's compile error "Type-declaration character
+does not match declared data type" when the character is not the name's type. A name nothing declares SHALL be
+declared by the read, with the character's type.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/a-name-read-with-a-type-character.md`, #742).
+
+#### Scenario: A String read through its character
+- **WHEN** `Dim s As String` holds "x" and the program reads `s$`
+- **THEN** the read SHALL give the String "x"
+
+#### Scenario: A character the name's type does not match
+- **WHEN** the program reads `v%` for `Dim v As Long`, or `v$` for a Variant
+- **THEN** the interpreter SHALL raise the compile error "Type-declaration character does not match declared data type"
+
+#### Scenario: A type that takes no character
+- **WHEN** the program reads a Variant, an object, a Byte, a Boolean or a Date through any character
+- **THEN** the interpreter SHALL raise the same compile error
+
+#### Scenario: An undeclared name under Option Explicit
+- **WHEN** a module with `Option Explicit` reads `u%` and nothing declares `u`
+- **THEN** the interpreter SHALL raise "Variable not defined"
+
+#### Scenario: An undeclared name read through a character
+- **WHEN** a module without `Option Explicit` reads `z@` before anything declares `z`
+- **THEN** the read SHALL give the Currency 0, and a bare `z` after it SHALL read the same Currency
+
+#### Scenario: A ByRef argument written with its character
+- **WHEN** `Bump i%` passes an Integer `i` to `Sub Bump(n As Integer)`, which adds 1 to `n`
+- **THEN** `i` SHALL be 1 greater afterwards
+
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
 and the engine SHALL support VB6's error-handling statements, including continuing at the next statement,
@@ -339,6 +371,21 @@ SHALL continue to accept a continuation between their words.
 - **WHEN** `Select _` is followed by `Case n` on the next physical line
 - **THEN** the interpreter executes a Select Case statement
 
+### Requirement: A declaration's type character SHALL be its As clause
+A `Dim`, `Private`, `Public` or `Static` declaration, a parameter, or a Property Get written with `%`, `&`, `!`, `#`,
+`@` or `$` after its name SHALL declare Integer, Long, Single, Double, Currency or String, as the As clause the
+character stands for would, arrays included. A variable or a parameter with an As clause as well SHALL raise VB6's
+compile error. A Property Get's As clause SHALL win over its character. These are measured in the oracle entry "A
+declaration written with a type character" (#2409).
+
+#### Scenario: A module-level declaration
+- **WHEN** a module declares `Dim n%, s$` and stores 7.5 into `n`
+- **THEN** the module loads, `s` is an empty String, and `n` is Integer 8
+
+#### Scenario: A parameter's character
+- **WHEN** `Sub TakeI(n%)` is called as `TakeI 2.6`
+- **THEN** `n` holds Integer 3
+
 ### Requirement: Expression execution SHALL guard available stack space
 The interpreter SHALL probe available host stack space during expression execution and raise trappable
 run-time error 28 (Out of stack space) before a long operator chain overflows the process stack.
@@ -439,3 +486,34 @@ Native ActiveX DLL activation remains outside the implemented runtime surface.
 
 - **WHEN** Err.Source is Set and Err.Raise 7 supplies no source
 - **THEN** Err.Source remains Set
+
+### Requirement: Assignment targets with type characters
+
+The interpreter SHALL resolve an unqualified scalar assignment target with `$`, `%`, `&`, `!`, `#` or `@`
+by its bare name. It SHALL check the character against the slot's declared type, raising
+"Type-declaration character does not match declared data type" when they disagree, including a Variant.
+Without Option Explicit, a first assignment through a character SHALL create a variable of that type.
+A For counter, and the name on its Next, written with `%`, `&`, `!`, `#` or `@` SHALL name the variable of the
+bare name in the same way, at any scope. These behaviours are measured in the oracle's 2026-10-11 assignment
+probes and its 2026-10-27 entry "A For counter written with a type character" (#739).
+
+#### Scenario: A suffixed assignment reaches a declared variable
+
+- **WHEN** a String variable `s` is assigned through `s$ = "x"`
+- **THEN** a bare read of `s` returns `"x"`, at module level or locally, with or without Option Explicit
+
+#### Scenario: An implicit suffixed target has the character's type
+
+- **WHEN** an undeclared name is first assigned as `k% = 3` without Option Explicit
+- **THEN** a bare read of `k` returns Integer 3
+
+#### Scenario: A counter through its character uses the declared variable
+
+- **WHEN** a variable `c` declared As Long, locally, in the module or as another module's Public, is the counter of
+  `For c& = 1 To 2` closed by `Next` or `Next c&`
+- **THEN** the body reads 1 and 2 through the bare `c`, and a bare read after the loop returns Long 3
+
+#### Scenario: A counter character the declared type contradicts
+
+- **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
+- **THEN** the statement raises "Type-declaration character does not match declared data type"

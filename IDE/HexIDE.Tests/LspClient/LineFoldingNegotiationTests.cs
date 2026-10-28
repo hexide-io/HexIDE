@@ -49,7 +49,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         public void Initialized(JsonElement _) { }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheClientDoesNotDeclareLineOnlyFolding()
     {
         var server = new HandshakeRecorder();

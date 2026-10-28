@@ -92,6 +92,46 @@ public class InteractClickTests
         finally { scene.Window.Close(); }
     }
 
+    // A person's pointer arrives before it presses, so a running form's MouseMove comes before MouseDown; a click raised
+    // none (#2407). A still pointer sends no move, so a second click where the first left it moves nothing first, and a
+    // hover's end, which takes the pointer out of the window, makes the next click arrive again.
+    [AvaloniaFact]
+    public async Task A_click_moves_the_pointer_there_first_unless_it_is_already_there()
+    {
+        var scene = Build();
+        try
+        {
+            var seen = new List<string>();
+            scene.Pad.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+                seen.Add($"moved {e.GetPosition(scene.Pad).X},{e.GetPosition(scene.Pad).Y} "
+                         + (e.GetCurrentPoint(scene.Pad).Properties.IsLeftButtonPressed ? "held" : "free")),
+                RoutingStrategies.Bubble, handledEventsToo: true);
+            scene.Pad.AddHandler(InputElement.PointerPressedEvent, (_, _) => seen.Add("pressed"), RoutingStrategies.Bubble, handledEventsToo: true);
+            scene.Pad.AddHandler(InputElement.PointerReleasedEvent, (_, _) => seen.Add("released"), RoutingStrategies.Bubble, handledEventsToo: true);
+
+            var first = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "10,5"));
+            first.Success.Should().BeTrue(first.Error);
+            first.Detail.Should().EndWith("; the pointer moved there first, as a person's does");
+            seen.Should().Equal("moved 10,5 free", "pressed", "released");
+
+            seen.Clear();
+            var again = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "10,5"));
+            again.Success.Should().BeTrue(again.Error);
+            again.Detail.Should().EndWith("; the pointer was already there from the last click, so it did not move first");
+            seen.Should().Equal("pressed", "released");
+
+            seen.Clear();
+            (await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "30,20"))).Success.Should().BeTrue();
+            seen.Should().Equal("moved 30,20 free", "pressed", "released");
+
+            seen.Clear();
+            UiAutomationDriver.EndHover(scene.Pad);
+            (await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "30,20"))).Success.Should().BeTrue();
+            seen.Should().Equal("moved 30,20 free", "pressed", "released");
+        }
+        finally { scene.Window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task A_click_carries_the_point_the_button_and_the_keys_held()
     {
@@ -209,7 +249,8 @@ public class InteractClickTests
             outcome.Mechanism.Should().Be("pointer");
             (padPressed, coverPressed).Should().Be((0, 1));
             outcome.Detail.Should().Be("clicked the left button at (220, 20) on 'Border', which is (230, 80) in the window; "
-                + "(220, 20) is outside 'Border', which is 100 × 60, and the press landed on 'Border'");
+                + "(220, 20) is outside 'Border', which is 100 × 60, and the press landed on 'Border'; the pointer moved there "
+                + "first, as a person's does");
         }
         finally { scene.Window.Close(); }
     }
@@ -387,6 +428,7 @@ public class InteractClickTests
             Avalonia.Automation.AutomationProperties.SetAutomationId(scene.Cover, "Release pad");
             var seen = new List<string>();
             var moves = new List<Point>();
+            var arrivals = 0;
             scene.Pad.PointerPressed += (_, e) =>
             {
                 e.Pointer.Capture(capture ? scene.Pad : null);
@@ -394,6 +436,13 @@ public class InteractClickTests
             };
             scene.Pad.PointerMoved += (_, e) =>
             {
+                // The pointer arrives first, with no button held, as a person's does (#2407); every later move is held.
+                if (!e.GetCurrentPoint(scene.Pad).Properties.IsRightButtonPressed)
+                {
+                    seen.Should().BeEmpty("the pointer arrives before it presses");
+                    arrivals++;
+                    return;
+                }
                 seen.Should().Contain("press work");
                 e.GetCurrentPoint(scene.Pad).Properties.IsRightButtonPressed.Should().BeTrue();
                 e.KeyModifiers.Should().Be(KeyModifiers.Shift);
@@ -409,6 +458,7 @@ public class InteractClickTests
             var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click",
                 $"10,5 right shift to {path}:20,10"));
             outcome.Success.Should().BeTrue(outcome.Error);
+            arrivals.Should().Be(1);
             recipient.Should().Be(capture ? scene.Pad : scene.Cover);
             if (capture)
             {

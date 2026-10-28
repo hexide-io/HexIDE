@@ -107,7 +107,7 @@ public class MissingLanguageDocTests
         intro.Should().ContainSingle("the opening blockquote declares the inventory size in bold");
         Check("Intro names (At a glance Total)", int.Parse(intro[0].Groups[1].Value), int.Parse(total[^1]));
 
-        var wrongProse = Regex.Match(text, @"The (\w+) Silently wrong rows below");
+        var wrongProse = Regex.Match(text, @"The (\w+) Silently wrong rows? below");
         wrongProse.Success.Should().BeTrue("the prose declares the Silently wrong count");
         var numberWords = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
             "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" };

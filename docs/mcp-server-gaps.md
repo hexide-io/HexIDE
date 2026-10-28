@@ -554,30 +554,6 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
-## The code window's completion description: desktop snapshot composition still needs a live check
-
-**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
-The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
-`interact` `double_click` selected an item without committing it.
-[#1334](https://github.com/hexide-io/HexIDE/issues/1334).
-
-**Fixed in code, with headless regression tests.** The dump now reaches the open description popup through
-`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
-selects the target and requests insertion through the completion list's own commit path. The current list
-appends to the typed prefix rather than replacing it (#941); the test checks the resulting document text.
-
-**Still open.** The snapshot composer uses that same attached-popup route to discover the description's
-top-level root and compose it after the list. This has not been checked live. Headless popups render in the
-window's own overlay, so headless rendering cannot prove the desktop composition works. A running IDE
-`take_snapshot(window: "ide")` with a described completion selected remains required.
-
-**Workaround.** Read the description with `dump_visual_tree(window: "ide", interactiveOnly: false)`.
-For snapshot visibility, no verified workaround.
-
-**Suggested check.** In a running IDE select a completion with a description, then call
-`take_snapshot(window: "ide")` and confirm the tooltip's text, position and unclipped extent. Keep this
-entry open until that check passes.
-
 ## A document save reached through a menu, key or click can reply before its picker opens
 
 **Symptom.** Narrowed by headless measurements for [#1335](https://github.com/hexide-io/HexIDE/issues/1335),
@@ -674,28 +650,6 @@ for a running form's Frame, PictureBox, Label and Image.
 author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
 discovery gap remains open.
 
-## No tool can see a running form's frame
-
-**Symptom (2026-10-23, #1575, Windows, Debug).** A change to a running form's window, its border, caption bar and
-buttons, could not be checked through the tools. `take_snapshot(window: "B3x1")` on a running Fixed Dialog returned
-a 252 × 150 image at scale 1.5: the form's 168 × 100 client area, with no caption bar, border or buttons.
-`inspect_element(target: "Window", window: "B3x1")` returned `boundingRect [0,0,168,100]`, `providers []` and
-`dataContextMembers []`, and nothing about whether the window can be resized, its decorations, its buttons or whether
-it is a tool window.
-
-**Workaround.** From outside the IDE: `GetWindowLong` with `GWL_STYLE` and `GWL_EXSTYLE` through a PowerShell
-P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
-real caller uses.
-
-**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
-`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
-There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
-explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
-This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
-
-**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
-the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
-
 ## No tool says which control has the focus, and `press_key` moves it there
 
 **Symptom (2026-10-23, #1583, Windows).** On a running form with Text1 focused, whose program logs every GotFocus,
@@ -746,3 +700,17 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 **Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
+
+## `take_snapshot` of a minimized window returns its last frame as if current
+
+**Symptom (2026-10-27, Windows, #1925's minimized check).** After `set_window_state {"state":"Minimized","window":"Form1"}`
+had run the form's Resize, `take_snapshot {"window":"Form1"}` returned a 450×300 image, with the usual client
+`captureArea`, whose label read `resize 1, activate 1, state 0`: the form before it minimized. Restored, it read
+`resize 3`. A minimized window draws no new frames, and the compositor capture (#2306) returns the last one.
+
+**Workaround.** Restore the window with `set_window_state` before capturing it, and treat a capture of a minimized
+window as stale.
+
+**Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
+`set_window_state`; or render it fresh and say so. Never present the last frame as current.
+[#2416](https://github.com/hexide-io/HexIDE/issues/2416).

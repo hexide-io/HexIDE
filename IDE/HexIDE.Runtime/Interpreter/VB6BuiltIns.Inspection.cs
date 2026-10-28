@@ -61,6 +61,8 @@ public partial class VB6BuiltIns
     /// <summary>A control's class, as TypeName gives it and TypeOf matches it: <c>TextBox</c>, <c>CommonDialog</c>.</summary>
     internal static string ControlTypeName(Control control) => control switch
     {
+        // Preserve the old hosted Canvas name: #1631 did not measure a UserControl's TypeName.
+        HexIDE.Runtime.BuiltinControls.VBUserControl => nameof(Canvas),
         // A menu's separator is a Menu to a program, as every menu is (#1126).
         HexIDE.Runtime.BuiltinControls.VBMenuSeparator => "Menu",
         // One class draws both scroll bars, which VB6 names by their direction (measured, #1556): it was "ScrollBar", and
@@ -114,6 +116,8 @@ public partial class VB6BuiltIns
         VTP.Byte              => ("Byte", 17),
         VTP.Integer           => ("Integer", 2),
         VTP.Long              => ("Long", 3),
+        // CommonDialog's TypeName is unmeasured; retain its existing label while correcting VarType.
+        VTP.AutomationUnsignedLong => ("Long", 19),
         VTP.Single            => ("Single", 4),
         VTP.Double            => ("Double", 5),
         VTP.Currency          => ("Currency", 6),
@@ -141,7 +145,7 @@ public partial class VB6BuiltIns
     {
         switch (v.Value)
         {
-            case byte or int or long or float or double or decimal:
+            case byte or int or long or uint or float or double or decimal:
             case bool:
                 return true;
         }

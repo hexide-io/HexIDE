@@ -10,6 +10,12 @@ public interface ICSharpPropertyBag
     bool TrySetProperty(string name, Vb6Value value);
 }
 
+/// <summary>A property write that can wait for a host dialog before the next VB statement runs.</summary>
+public interface ICSharpAsyncPropertyBag
+{
+    ValueTask<bool> TrySetPropertyAsync(string name, Vb6Value value);
+}
+
 /// <summary>The global <c>Err</c> object (one per program, VB6-correct). Methods (<c>Raise</c>/<c>Clear</c>)
 /// arrive through <see cref="ICSharpProxy.Call"/>; the <c>Number</c>/<c>Description</c>/<c>Source</c> properties
 /// through <see cref="ICSharpPropertyBag"/>. The block-level error trap re-populates it via <see cref="Capture"/>.
