@@ -466,7 +466,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "not the summary's pixels: in the container's ScaleMode, twips on a form unless it says otherwise, "
                      + "twips inside a Frame, and a form's own Width and Height with its frame; the row's 'note' names the "
                      + "unit. 'settable' says whether set_control_property takes that text back; a "
-                     + "picture and the like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
+                     + "picture is loaded with its row's ... button in the Properties window (arm answer_next_file_dialog first). Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
         string? controlName = null,

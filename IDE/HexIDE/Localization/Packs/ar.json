@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "تحميل صورة",
+    "Str.Tool.Properties.LoadPictureFailed": "تعذر تحميل الصورة من «{0}».",
     "Str.Designer.ShowTabOrder": "إظهار ترتيب التنقل (المشطوب: TabStop معطل)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "التمرير الثابت",
     "Str.Options.EditorGeneral.Display.StickyDepth": "الحد الأقصى للعناوين المثبتة",

@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Afbeelding laden",
+    "Str.Tool.Properties.LoadPictureFailed": "Kan de afbeelding uit “{0}” niet laden.",
     "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maximumaantal vastgezette koppen",

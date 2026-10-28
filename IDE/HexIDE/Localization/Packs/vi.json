@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Tải hình ảnh",
+    "Str.Tool.Properties.LoadPictureFailed": "Không thể tải hình ảnh từ “{0}”.",
     "Str.Designer.ShowTabOrder": "Hiện thứ tự tab (gạch ngang: TabStop tắt)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Ghim tiêu đề khi cuộn",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Số tiêu đề được ghim tối đa",

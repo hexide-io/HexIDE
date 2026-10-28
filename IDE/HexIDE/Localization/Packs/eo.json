@@ -2,6 +2,8 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Ŝargi bildon",
+    "Str.Tool.Properties.LoadPictureFailed": "Ne eblas ŝargi bildon el «{0}».",
     "Str.Designer.ShowTabOrder": "Montri tabordon (trastrekita: TabStop malŝaltita)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fiksaj kaplinioj dum rulumado",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimuma nombro de fiksitaj kaplinioj",

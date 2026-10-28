@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "加载图片",
+    "Str.Tool.Properties.LoadPictureFailed": "无法从“{0}”加载图片。",
     "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）",
     "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",
     "Str.Options.EditorGeneral.Display.StickyDepth": "固定标题的最大数量",

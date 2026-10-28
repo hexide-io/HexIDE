@@ -331,7 +331,7 @@
 | String, numeric, boolean editors | Done | |
 | Colour picker editor | Done | |
 | Font picker editor | Done | |
-| Export picture property | Done | Right-click Picture, Icon, MouseIcon or DragIcon to export a VB6-framed StdPicture payload (#159). Read-only; no import or OCX property-bag export |
+| Load/export picture property | Done | Right-click Picture, Icon, MouseIcon or DragIcon to export a VB6-framed StdPicture payload (#159). The row’s ... button loads a picture through the IDE file picker as one undo step, validated by the existing BMP/ICO reader and saved through the companion writer (#2653). No OCX property-bag export |
 | Enum / dropdown editor | Done | |
 | Property value validation | Done | |
 | Real-time sync with designer | Done | Bidirectional |

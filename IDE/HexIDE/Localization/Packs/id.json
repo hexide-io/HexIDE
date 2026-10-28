@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Muat gambar",
+    "Str.Tool.Properties.LoadPictureFailed": "Tidak dapat memuat gambar dari “{0}”.",
     "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Jumlah maksimum judul yang disematkan",

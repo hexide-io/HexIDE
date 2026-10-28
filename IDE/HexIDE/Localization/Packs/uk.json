@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Завантажити зображення",
+    "Str.Tool.Properties.LoadPictureFailed": "Не вдалося завантажити зображення з «{0}».",
     "Str.Designer.ShowTabOrder": "Показати порядок табуляції (закреслено: TabStop вимкнено)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Максимальна кількість закріплених заголовків",

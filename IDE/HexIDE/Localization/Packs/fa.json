@@ -2,6 +2,8 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "بارگذاری تصویر",
+    "Str.Tool.Properties.LoadPictureFailed": "بارگذاری تصویر از «{0}» ممکن نیست.",
     "Str.Designer.ShowTabOrder": "نمایش ترتیب پیمایش (خط‌خورده: TabStop خاموش)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "سرصفحه‌های ثابت هنگام پیمایش",
     "Str.Options.EditorGeneral.Display.StickyDepth": "حداکثر سرصفحه‌های سنجاق‌شده",

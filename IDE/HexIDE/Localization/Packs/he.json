@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "טעינת תמונה",
+    "Str.Tool.Properties.LoadPictureFailed": "לא ניתן לטעון תמונה מתוך ״{0}״.",
     "Str.Designer.ShowTabOrder": "הצגת סדר טאבים (מחוק: TabStop כבוי)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",
     "Str.Options.EditorGeneral.Display.StickyDepth": "מספר מרבי של כותרות מוצמדות",
