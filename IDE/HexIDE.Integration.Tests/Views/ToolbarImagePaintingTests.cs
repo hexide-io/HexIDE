@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -110,6 +111,9 @@ public class ToolbarImagePaintingTests
                 var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
                 try { frame.CopyPixels(rect, pin.AddrOfPinnedObject(), pixels.Length, rect.Width * 4); }
                 finally { pin.Free(); }
+                if (frame.Format == PixelFormat.Rgba8888)
+                    for (var i = 0; i < pixels.Length; i += 4)
+                        (pixels[i], pixels[i + 2]) = (pixels[i + 2], pixels[i]);
                 return pixels;
             }
             var origin = button.TranslatePoint(default, bar)!.Value;
@@ -123,12 +127,27 @@ public class ToolbarImagePaintingTests
             {
                 var captionRect = new PixelRect((int)origin.X, (int)origin.Y + 23, (int)button.Width, 15);
                 var current = Pixels(captionRect);
-                // Recreate the old tree: both image and caption inherit the disabled Button's opacity.
+                // Recreate the old disabled Button independently, so changing the caption's
+                // parent or the production Button's opacity cannot change the reference too.
+                var caption = new TextBlock { Text = "One" };
+                var face = new Canvas { Width = button.Width, Height = button.Height };
+                face.SetValue(Avalonia.Controls.Documents.TextElement.FontFamilyProperty, bar.FontFamily);
+                face.SetValue(Avalonia.Controls.Documents.TextElement.FontSizeProperty, bar.FontSize);
+                face.Children.Add(caption);
+                caption.Measure(Size.Infinity);
+                Canvas.SetLeft(caption, (face.Width - caption.DesiredSize.Width) / 2);
+                Canvas.SetTop(caption, 23);
+                var reference = new Button
+                {
+                    Content = face, Width = button.Width, Height = button.Height,
+                    Padding = new Thickness(0), MinWidth = 0, MinHeight = 0, IsEnabled = false
+                };
+                var strip = (Canvas)button.Parent!;
                 ((Panel)image.Parent!).Children.Remove(image);
-                var face = (Canvas)button.Content!;
-                face.Children.Insert(0, image);
-                Canvas.SetLeft(image, 0);
-                Canvas.SetTop(image, 0);
+                strip.Children.Remove(button);
+                Canvas.SetLeft(reference, origin.X);
+                Canvas.SetTop(reference, origin.Y);
+                strip.Children.Add(reference);
                 window.UpdateLayout();
                 current.Should().Equal(Pixels(captionRect));
                 current.Where((_, i) => i % 4 != 3).Distinct().Count().Should().BeGreaterThan(2,

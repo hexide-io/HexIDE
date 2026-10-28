@@ -130,6 +130,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             object captionContent = displayCaption.Contains('&')
                 ? new AccessText { Text = displayCaption.Replace("_", "__").Replace("&", "_"), ShowAccessKey = true }
                 : displayCaption;
+            ToolbarImage? disabledImage = null;
             Control visual;
             switch (Convert.ToInt64(kind.Value))
             {
@@ -177,6 +178,13 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
                 captionVisual.Measure(Size.Infinity);
                 Canvas.SetLeft(captionVisual, TextBelow ? (face.Width - captionVisual.DesiredSize.Width) / 2 : face.Width - captionVisual.DesiredSize.Width - 4);
                 Canvas.SetTop(captionVisual, TextBelow ? ImageList.ImageHeight + 7 : (face.Height - captionVisual.DesiredSize.Height) / 2);
+                if (!(bool)enabled.Value! && image.SelectedPicture() is not null)
+                {
+                    // Keep the caption under the disabled theme; its image must not inherit Button opacity.
+                    face.Children.Remove(image);
+                    image.IsHitTestVisible = false;
+                    disabledImage = image;
+                }
                 imageButton.Content = face;
                 imageButton.PointerEntered += (_, _) => image.InvalidateVisual();
                 imageButton.PointerExited += (_, _) => image.InvalidateVisual();
@@ -196,6 +204,12 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             if (showTips && (string)tip.Value! != "") ToolTip.SetTip(visual, tip.Value);
             targets[visual] = (item, false);
             strip.Children.Add(visual);
+            if (disabledImage is not null)
+            {
+                Canvas.SetLeft(disabledImage, Buttons.Left(item) / 15);
+                Canvas.SetTop(disabledImage, Buttons.Top(item) / 15);
+                strip.Children.Add(disabledImage);
+            }
         }
         if (HasHadButtons)
         {
