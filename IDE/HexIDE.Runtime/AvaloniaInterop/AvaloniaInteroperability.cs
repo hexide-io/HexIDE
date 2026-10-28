@@ -273,6 +273,14 @@ public static class AvaloniaInteroperability
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(control))
+        {
+            if (value.Type != Vb6Value.ValueType.String)
+                throw new NotImplementedException("Font value conversion is not implemented (#934)");
+            // A value assignment writes Name; Set is handled separately by the statement executor.
+            _ = ControlFont.Get(control);
+            return FontMembers.TrySet(control, "FontName", value);
+        }
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -502,6 +510,11 @@ public static class AvaloniaInteroperability
         if (c is VBTimer timer && ReferenceEquals(property, VBProperties.IntervalProperty))
         {
             value = new Vb6Value((long)timer.Interval);
+            return true;
+        }
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(c))
+        {
+            value = new Vb6Value(ControlFont.Get(c));
             return true;
         }
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.

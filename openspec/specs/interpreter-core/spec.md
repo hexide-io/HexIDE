@@ -781,6 +781,26 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
+### Requirement: Control Font references SHALL retain identity and share mutations
+
+For the built-in font-bearing controls with runtime implementations, Font SHALL expose an object whose
+TypeName is `Font`, whose default member is Name, and whose Size reads as Currency. `Set X.Font = Y.Font`
+SHALL share that reference and propagate supported mutations to every owning control. Independent form
+and control fonts SHALL start as distinct references. `Set Font = Nothing` SHALL raise 380 without
+replacing the font. Font access on scroll bars, Timer, Shape, Line and Image SHALL raise 438.
+Unmeasured object-member conversions and writes SHALL refuse as not implemented. Standalone StdFont,
+the file controls and Data, and Locals expansion remain outside this implementation slice (#934).
+
+#### Scenario: Two controls share one Font
+
+- **WHEN** `Set Text1.Font = Label1.Font` executes, followed by `Label1.Font.Size = 9`
+- **THEN** `Text1.FontSize` is 9 and `Text1.Font Is Label1.Font` is True
+
+#### Scenario: A Font cannot be replaced by Nothing
+
+- **WHEN** `Set Label1.Font = Nothing` executes
+- **THEN** error 380 is raised and the original Font reference remains assigned
+
 ### Requirement: A literal's sign SHALL be an operator
 The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
 apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse

@@ -2384,6 +2384,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         if (call is not null && interpreter.LibraryClassFor(call.GetText()) is { } libraryClass)
             return interpreter.AdoptNewTemp(interpreter.NewLibraryObject(libraryClass), stmtFrames);
+        if (call?.GetText().Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase) == true)
+            throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
         // `New Collection`, and `New VBA.Collection`, the library's own (#1471).
         if (call?.iCS_S_MembersCall() is { } qualified && IsCollectionType(qualified.GetText()))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);

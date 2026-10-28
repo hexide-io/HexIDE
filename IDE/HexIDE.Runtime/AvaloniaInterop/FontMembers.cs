@@ -90,7 +90,8 @@ internal static class FontMembers
         value = default;
         if (Of(member) is not { } which || AttachedProperties.GetFont(control) is not { } font)
             return false;
-        var (size, family) = VbFontSizes.Snap(font.FontFamilyName, font.Size);
+        var (size, family) = ControlFont.TryDescriptor(control, out var shared)
+            ? (shared.Size, shared.FontFamilyName) : VbFontSizes.Snap(font.FontFamilyName, font.Size);
         value = which switch
         {
             Member.Name => new Vb6Value(family),
@@ -149,7 +150,7 @@ internal static class FontMembers
     }
 
     // The font with its size as VB6 gives it, which for a bitmap font may be Arial's, with Arial's charset.
-    private static VBFont Snapped(VBFont font)
+    internal static VBFont Snapped(VBFont font)
     {
         var (size, family) = VbFontSizes.Snap(font.FontFamilyName, font.Size);
         return family == font.FontFamilyName
