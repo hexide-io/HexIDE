@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
+| Intrinsic functions | 0 | 0 | 32 | 54 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
+| **Total** | **1** | **0** | **126** | **453** | **20** | **584** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 127 names
+## Dies mid-run — 126 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -392,7 +392,6 @@ most of the in-box object model.
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `Erl` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
-| `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `Cls` | **Dies** | **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Cls` is the form's method, refused as not implemented for the form, as `Me.Cls` is. — **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 
 ## Full inventory by category
@@ -553,7 +552,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (33 absent, 53 partial, 67 supported)
+### Intrinsic functions — 153 names (32 absent, 54 partial, 67 supported)
 
 
 **array** (3)
@@ -655,7 +654,7 @@ missing.
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `Command` | Partial | The project's Command Line Arguments (`Command32` in the .vbp), as VB6 gives them under F5, which is how HexIDE always runs: empty where there are none, as a String, spelt `Command`, `Command()` or `Command$` (measured in a made program run with none). A made program's own process arguments are not passed. | VB6BuiltIns.cs, VbApp.cs |
-| `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
+| `Shell` | Partial | **#2522:** function and statement launch a program and return its process ID as Double. Windows maps styles 0–4, 6 and 7 to show state; Unix accepts styles without window effects. CInt style conversion and errors 5/53/94 are measured. Other OS launch failures, unmeasured styles, non-string path conversions and successful launches with omitted WindowStyle remain explicitly not implemented pending measurements. | VB6BuiltIns.Shell.cs |
 | `CallByName` | **Dies** | Not registered by any Register* partial. Expression calls and library-qualified statement calls stop with an untrappable Sub or Function not defined; On Error Resume Next cannot skip the missing effect (#867). Bare statement calls stop as an unimplemented intrinsic. | ExpressionExecutor.cs |
 | `Choose` | Supported | **[#1464](https://github.com/hexide-io/HexIDE/issues/1464), measured native and p-code:** the index is **truncated, not rounded**: `Choose(1.6, "a", "b", "c")` is "a", `Choose(2.5, …)` "b" and `Choose(0.5, …)` Null. An index outside the choices is Null with no error, however far outside (`Choose(True, …)`, `Choose(40000, …)`, `Choose(1E+20, …)`), and so is `Choose(1)` with no choices; a Null index is 94, and "x" 13. Every choice is evaluated, in order, before Choose chooses, so `Choose(1, 1, 1 / 0)` is 11. The choice comes back as itself, an object included, and reads as a Variant. `Choose()` does not compile. | VB6BuiltIns.Choice.cs |
 | `CreateObject` | Partial | **#1107:** `CreateObject("Library.Class")` calls the managed factory of a class in a known, referenced library. COM activation such as `Excel.Application` remains unimplemented and retains the existing refusal. | BasicInterpreter.cs, BasicInterpreter.Libraries.cs |
@@ -1219,11 +1218,14 @@ and issuecomment-6427372779. The following gaps remain explicit refusals, rather
 
 A name the IDE describes is not a name the interpreter runs. `VbSignatures.cs` in the LSP server is
 **editor metadata with no execution path**: it feeds signature help and the `vb/builtinSymbols` response
-that populates the Object Browser's VBA library. Thirteen names are listed there, offer a full
-parameter tooltip, and then fail at run time:
+that populates the Object Browser's VBA library. The original comparison found thirteen names there
+that offered a full parameter tooltip and then failed at run time:
 
 `StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `AscW`, `ChrW`, `CreateObject`,
 `GetObject`, `CLDbl`.
+
+`Shell` now runs with an explicit measured window style (#2522); its remaining measurement gaps are
+listed in the inventory above.
 
 `CLDbl` is not a VB6 function at all. `Randomize` and `Err` are listed there too, and do work: one is a statement,
 the other an object. `RGB` and `QBColor` were on this list until they were implemented. Counted by comparing that

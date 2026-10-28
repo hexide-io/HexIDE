@@ -33,15 +33,6 @@ public class SilentFailureTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task ShellAsAStatement_Raises_InsteadOfLaunchingNothing()
-    {
-        // The headline case: this ran, launched nothing, and continued as if the process had started.
-        var act = async () => await Run("Shell \"notepad.exe\", vbNormalFocus\nDebug.Print 1\n");
-        (await act.Should().ThrowAsync<NotImplementedException>())
-            .Which.Message.Should().Contain("Shell");
-    }
-
-    [Fact]
     public async Task AnUnknownBareStatement_IsSubOrFunctionNotDefined()
     {
         // Not a VB6 intrinsic at all, so it gets VB6's own error rather than the not-implemented one.
