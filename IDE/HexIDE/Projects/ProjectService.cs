@@ -417,11 +417,13 @@ public class ProjectService : IProjectService
         var errorSink = new DeserializeErrorSink(localization);
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
-        var (project, serializedProject, readByteForByteList) = await new ProjectLoader
+        var (project, serializedProject, readByteForByteList, projectFileBytes) = await new ProjectLoader
         {
             HostAnsi = HostAnsi,
             FileRead = baselineStore.Record,
         }.LoadAsync(projectPath, errorSink);
+        // The project file too, as a save records it: crash recovery matches a moved project by it (#499).
+        baselineStore.Record(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
 
         projectManager.AddProject(project);

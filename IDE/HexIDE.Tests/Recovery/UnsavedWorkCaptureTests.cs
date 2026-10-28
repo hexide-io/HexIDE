@@ -130,6 +130,21 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
     }
 
     [Fact]
+    public async Task A_project_only_opened_is_fingerprinted_by_its_file_as_read()
+    {
+        File.WriteAllText(Path.Join(dir, "Module1.bas"),
+            "Attribute VB_Name = \"Module1\"\r\nPublic Sub Original()\r\nEnd Sub\r\n");
+        File.WriteAllText(Path.Join(dir, "Test.vbp"), "Type=Exe\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+        var service = MakeService();
+        await service.OpenProject(Path.Join(dir, "Test.vbp"));
+        loaded.Single().Modules[0].UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+
+        service.CaptureUnsavedWork().Single().ProjectFileHash
+            .Should().Be(FileHasher.Hash(File.ReadAllBytes(Path.Join(dir, "Test.vbp"))),
+                "a project edited and never saved this run is the case a moved project most needs matching for");
+    }
+
+    [Fact]
     public async Task A_form_with_no_file_yet_is_captured_and_named_in_the_project_file()
     {
         var (service, project) = await OpenSaved();
