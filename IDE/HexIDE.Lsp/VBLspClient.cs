@@ -1712,12 +1712,12 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default)
+    public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentFormattingProvider")) return [];
         var p = new DocumentFormattingParams(
             new TextDocumentIdentifier(uri),
-            new FormattingOptions(4, true));
+            options);
         try
         {
             return await InvokeRequestAsync<TextEdit[]?>(_rpc,
