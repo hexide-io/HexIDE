@@ -217,7 +217,9 @@ public static class UiAutomationDriver
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
                 ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
             itemTexts,
-            itemsNote);
+            itemsNote,
+            // The pointer it shows, and where that is set (#2453).
+            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null));
     }
 
     /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
@@ -5485,7 +5487,10 @@ public record UiNodeDetail(
     // The text of each item of a list, dropdown or tab control, as select matches it, rows scrolled out of view included,
     // and what was left out (#2450). Absent for a dropdown that is closed, which the note explains.
     string[]? Items = null,
-    string? ItemsNote = null);
+    string? ItemsNote = null,
+    // The mouse pointer it shows: a running program's MousePointer by number and name, and where it is set (#2453). Absent
+    // when none is set on it or above it, and the platform's arrow shows.
+    PointerState? Pointer = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
