@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 
@@ -34,6 +35,9 @@ internal sealed class LabelEditor : TextBox
         Text = text;
         Width = Height = MinWidth = MinHeight = 0;
         Padding = new Thickness(1, 0);
+        // A line high, as VB6's box is, which leaves a TextBox's scroll bars no room: shown, one covered the label.
+        ScrollViewer.SetVerticalScrollBarVisibility(this, ScrollBarVisibility.Hidden);
+        ScrollViewer.SetHorizontalScrollBarVisibility(this, ScrollBarVisibility.Hidden);
         BorderThickness = new Thickness(1);
         BorderBrush = Brushes.Black;
         Background = Brushes.White;

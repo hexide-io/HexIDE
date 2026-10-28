@@ -77,6 +77,28 @@ public class TreeViewLabelEditTests
         finally { window.Close(); }
     }
 
+    // The box is a line high, as VB6's is; a scroll bar in it covered the end of the label as it opened (#2360).
+    [AvaloniaFact]
+    public async Task The_opened_editor_shows_its_text_with_no_scroll_bar()
+    {
+        var tree = new VBTreeView { Width = 300, Height = 200 };
+        VBProps.SetName(tree, "TreeView1");
+        tree.Nodes.Add(text: "Node 1");
+        var node = tree.Nodes.Add(text: "Node 2");
+        var window = new Window { Content = new Root { Child = tree } };
+        window.Show();
+        try
+        {
+            tree.Nodes.SelectedItem = node;
+            await tree.CallAsync("StartLabelEdit", []);
+            window.UpdateLayout();
+            var editor = tree.GetVisualDescendants().OfType<TextBox>().Single();
+            editor.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>()
+                .Where(bar => bar.IsEffectivelyVisible).Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(Key.Enter, false, false)]
     [InlineData(Key.Enter, true, false)]
