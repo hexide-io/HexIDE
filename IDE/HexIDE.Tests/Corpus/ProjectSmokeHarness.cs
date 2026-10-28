@@ -12,7 +12,9 @@ namespace HexIDE.Tests.Corpus;
 internal sealed record ProjectSmokeResult(string Project, bool Opened, string Save, string[] Differences, Exception? Crash)
 {
     public string[] Normalisations { get; init; } = [];
-    public bool Failed => Crash is not null || Differences.Length != 0;
+    public SmokeStage Run { get; init; } = new("not completed");
+    public SmokeStage Make { get; init; } = new("not completed");
+    public bool Failed => Crash is not null || Differences.Length != 0 || Run.Failed || Make.Failed;
 }
 
 internal static class ProjectSmokeHarness
@@ -54,7 +56,8 @@ internal static class ProjectSmokeHarness
         .Select(Path.GetFullPath).Distinct(HostPathComparer).Order(StringComparer.Ordinal).ToArray();
 
     public static async Task<ProjectSmokeResult> Check(string root, string project,
-        Func<string, Task<Func<Task<string?>>>> open, string? evidenceDirectory = null, bool? caseInsensitivePaths = null, string? referenceDirectory = null)
+        Func<string, Task<Func<Task<string?>>>> open, string? evidenceDirectory = null, bool? caseInsensitivePaths = null, string? referenceDirectory = null,
+        Func<string, Task<SmokeStage>>? run = null, Func<string, Task<SmokeStage>>? make = null)
     {
         var comparer = caseInsensitivePaths is null ? HostPathComparer : PathComparer(caseInsensitivePaths.Value);
         var opened = false;
@@ -100,7 +103,18 @@ internal static class ProjectSmokeHarness
                     WriteEvidence("saved", after, difference);
                 }
             }
-            return new(project, true, refusal ?? (differences.Length == 0 ? "identical" : "different"), differences, null) { Normalisations = normalisations };
+            async Task<SmokeStage> Stage(Func<string, Task<SmokeStage>>? action)
+            {
+                if (action is null) return new("not completed");
+                try { return await action(Path.Join(scratch, relative)); }
+                catch (Exception exception) { return SmokeStage.FromException(exception); }
+            }
+            var runResult = await Stage(run);
+            var makeResult = await Stage(make);
+            return new(project, true, refusal ?? (differences.Length == 0 ? "identical" : "different"), differences, null)
+            {
+                Normalisations = normalisations, Run = runResult, Make = makeResult
+            };
         }
         catch (Exception exception)
         {
