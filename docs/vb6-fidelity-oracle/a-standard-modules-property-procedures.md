@@ -44,3 +44,28 @@ Native and p-code agreed on every row.
 So a standard module's Property procedures are reached by their bare name, as a Function is, with or without empty
 parentheses and through the module's name. Assigning to the name calls the Let, and `Set` calls the Set. The 91 for `PO =`
 with no Let is consistent with the Get being read and its Nothing given the value. That reading is ours, not measured.
+
+### A class's and a form's own properties, and a Let with no Get (2026-10-28, #977)
+
+**The question.** The table above names a standard module's properties from another module. Inside a class or a form, is
+its own property reached by its bare name, as implicit `Me`, and does it win over a standard module's Public property of
+the same name? Is a property with a Let and no Get assigned to? Found by reviewing the #977 fix, which first reached
+Module2's property from inside a class that declared its own; main reads Empty there.
+
+**The probe.** Every module is `Option Explicit`. Class1 keeps `Private mPG As Long`; its `Property Get PG` returns
+`1 + mPG`, its `Property Let PG(ByVal v As Long)` logs `own let` and stores `v`, `First` returns `"Ada"`, `Full` returns
+`First & "!"`, and its `Sub Go` logs `read ` & PG, assigns `PG = 9`, logs `after ` & PG and `full ` & Full. Module2's
+`PG` returns 5 and its Let logs `module let`; its `First` returns `"Module"`.
+
+| Probe | What it does | vb6.exe, native and p-code alike |
+|---|---|---|
+| c-own | Class1's `Go`, reading and writing its own `PG` bare, then `Full = First & "!"`, then Main reading `c.PG` and `c.Full` | read 1 · own let 9 · after 10 · full Ada! · c-own: outside 10 Ada! |
+| c-collide | The same Class1, with Module2 declaring Public `PG` and `First` too; then Class2, which declares neither, reading `PG`, writing `PG = 4` and reading `First`; then Main reading both | read 1 · own let 9 · after 10 · full Ada! · class2 read 5 · module let 4 · class2 first Module · c-collide: main 5 Module |
+| f-own | Form1 with the same code as Class1, and Module2's `PG` and `First` loaded; Main calls `Form1.Go` after `Load Form1` | read 1 · own let 9 · after 10 · full Ada! · f-own: outside 10 |
+| w-writeonly | Module2 with a `Property Let PW` and no Get; Main assigns `PW = 5`, then `Module2.PW = 6` | pw let 5 · pw let 6 · w-writeonly: done |
+| c-statement | A bare `PG` statement inside a class that declares `Property Get PG` | compile error "Invalid use of property" |
+
+So a class's or form's own property is reached by its bare name inside it, as `Me.PG` is, and the module's own scope
+comes before a standard module's Public name, as it does for a procedure. A class with no property of the name reaches
+the standard module's. A Let with no Get is assigned to, bare and qualified, and a Property Get named as a statement is
+"Invalid use of property" inside a class as in a standard module.

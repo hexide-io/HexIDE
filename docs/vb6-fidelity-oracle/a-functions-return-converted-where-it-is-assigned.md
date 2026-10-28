@@ -39,5 +39,5 @@ line was identical.
 
 A Function's return slot is allocated with its declared scalar type, as a `Dim`'s is, so a store into the name goes
 through the same conversion as a store into a variable. Every row above is pinned in `TypedReturnTests` except the
-standard module's Property Get, which HexIDE does not reach by name (#977). An Enum or UDT return is unchanged.
+standard module's Property Get. Its name lookup is fixed by #977; that scalar-conversion row is still not pinned here. An Enum or UDT return is unchanged.
 

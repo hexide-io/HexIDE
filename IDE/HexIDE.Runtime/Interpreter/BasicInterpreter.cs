@@ -720,7 +720,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // window and every save keep the module as written.
     private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env)
     {
-        var pp = new PrePass(env, ExecutionContext.State);
+        var pp = new PrePass(env, ExecutionContext.State, allowIndexedLet: kind == InterpreterModuleKind.Standard);
         pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
     }
@@ -1290,18 +1290,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         ExecutionEnvironment? callerEnv = null, Stack<List<Vb6Value>>? callerFrames = null)
     {
         if (TryResolveProcedure(name, currentModule, out var owner, out var proc))
-        {
-            // A bare call that resolves to a method OWNED by a class module (i.e. a sibling method called from
-            // inside the same class — implicit Me) must run on the CURRENT instance, not a clone of the class
-            // template. The instance is `Me` in the caller's env.
-            if (owner.Kind is InterpreterModuleKind.Class or InterpreterModuleKind.Form)
-            {
-                if (callerEnv != null && ExecutionContext.TryGetVariable(callerEnv, "Me", out var me) && me.Value is VbObject self)
-                    return await RunProcedure(owner, proc, args, self.InstanceEnv, me, callerFrames);
-                throw new VBRunTimeException((Antlr4.Runtime.ParserRuleContext?)null, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            }
-            return await RunProcedure(owner, proc, args, callerFrames: callerFrames);
-        }
+            return await RunNamed(owner, proc, args, callerEnv, callerFrames);
 
         if (GlobalMember(name) is { } global)
         {
@@ -1315,6 +1304,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (!ignoreMissing)
             throw new VBCompileErrorException("Sub or Function not defined (" + name + ')');
         return null;
+    }
+
+    /// <summary>Run a procedure a bare name resolved to. One that a class or form owns, a sibling named from inside it, is
+    /// implicit Me, so it runs on the CURRENT instance, the caller's <c>Me</c>, not on a clone of the class template.</summary>
+    internal async Task<Vb6Value?> RunNamed(ModuleInfo owner, ProcedureInfo proc, IReadOnlyList<CallArg> args,
+        ExecutionEnvironment? callerEnv, Stack<List<Vb6Value>>? callerFrames)
+    {
+        if (owner.Kind is InterpreterModuleKind.Class or InterpreterModuleKind.Form)
+        {
+            if (callerEnv != null && ExecutionContext.TryGetVariable(callerEnv, "Me", out var me) && me.Value is VbObject self)
+                return await RunProcedure(owner, proc, args, self.InstanceEnv, me, callerFrames);
+            throw new VBRunTimeException((Antlr4.Runtime.ParserRuleContext?)null, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        }
+        return await RunProcedure(owner, proc, args, callerFrames: callerFrames);
     }
 
     /// <summary>Run an already-resolved procedure in its owning module. Clones a base scope at call time
@@ -1533,13 +1536,30 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
 
+    // A module's procedure by name, or the Get of its property. A module's own properties are its names whatever its kind,
+    // so a class's or form's own wins over a standard module's Public one; another module's are reached only in a standard
+    // module (measured, #977).
+    internal static bool TryGetModuleProcedure(ModuleInfo module, string name, out ProcedureInfo procedure, bool own = false)
+    {
+        if (module.PrePass.Procedures.TryGetValue(name, out procedure!))
+            return true;
+        if ((own || module.Kind == InterpreterModuleKind.Standard)
+            && module.PrePass.Properties.TryGetValue(name, out var property) && property.Get is { } getter)
+        {
+            procedure = getter;
+            return true;
+        }
+        procedure = null!;
+        return false;
+    }
+
     /// <summary>Resolve a procedure name as seen from <paramref name="currentModule"/>: the current module's own
     /// procedures (any visibility) win first, then other standard modules' <c>Public</c> procedures — 2+ matches
     /// raise "Ambiguous name detected" (VB6 catches this at compile time; being CST-only we surface it at the
     /// call). Returns false when no user procedure matches, so the caller falls through to builtins.</summary>
     public bool TryResolveProcedure(string name, ModuleInfo currentModule, out ModuleInfo owner, out ProcedureInfo proc)
     {
-        if (currentModule.PrePass.Procedures.TryGetValue(name, out proc!))
+        if (TryGetModuleProcedure(currentModule, name, out proc!, own: true))
         {
             owner = currentModule;
             return true;
@@ -1553,7 +1573,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             if (ReferenceEquals(m, currentModule) || m.Kind != InterpreterModuleKind.Standard)
                 continue;
-            if (m.PrePass.Procedures.TryGetValue(name, out var p) && !p.IsPrivate)
+            if (TryGetModuleProcedure(m, name, out var p) && !p.IsPrivate)
             {
                 if (found != null)
                     throw new VBCompileErrorException("Ambiguous name detected: " + name);
@@ -1564,6 +1584,39 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (found != null) { owner = found; proc = foundProc!; return true; }
         return false;
     }
+
+    /// <summary>A property by name, as an assignment to it resolves it: the current module's own, whatever its kind, then
+    /// another standard module's with an accessor that is not Private, two of them being "Ambiguous name detected", as
+    /// <see cref="TryResolveProcedure"/> resolves a procedure. A property needs no Get: a Let alone is assigned to
+    /// (measured, #977).</summary>
+    internal bool TryResolveProperty(string name, ModuleInfo currentModule, out ModuleInfo owner, out PropertyInfo property)
+    {
+        owner = currentModule;
+        if (currentModule.PrePass.Properties.TryGetValue(name, out property!))
+            return true;
+        ModuleInfo? found = null;
+        PropertyInfo? foundProperty = null;
+        if (!currentModule.PrePass.Procedures.ContainsKey(name))
+        {
+            foreach (var m in Modules.All)
+            {
+                if (ReferenceEquals(m, currentModule) || m.Kind != InterpreterModuleKind.Standard
+                    || !m.PrePass.Properties.TryGetValue(name, out var p) || !IsVisibleOutside(p))
+                    continue;
+                if (found != null)
+                    throw new VBCompileErrorException("Ambiguous name detected: " + name);
+                found = m;
+                foundProperty = p;
+            }
+        }
+        if (found != null) { owner = found; property = foundProperty!; return true; }
+        property = null!;
+        return false;
+    }
+
+    // Whether another module can name the property: one of its accessors is not Private.
+    internal static bool IsVisibleOutside(PropertyInfo property) =>
+        property.Get is { IsPrivate: false } || property.Let is { IsPrivate: false } || property.Set is { IsPrivate: false };
 
     /// <summary>
     /// Resolve a UDT name as seen from <paramref name="from"/>, honouring module scope.

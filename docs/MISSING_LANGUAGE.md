@@ -115,7 +115,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
+| Statements | 0 | 0 | 16 | 45 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
@@ -123,7 +123,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
+| **Total** | **0** | **0** | **127** | **453** | **20** | **584** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -134,9 +134,8 @@ census — see the caveat above.
 **No construct in this inventory fails to parse.** The last one, a `Function` declared with a type
 character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)), parses now. Every
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
-value. The one Silently wrong row below is a wrong value counted as such; the `()` row records
-another under [#741](https://github.com/hexide-io/HexIDE/issues/741) and stays Partial, for the reason
-given there. The grammar comprehends essentially the whole of VB6; what is missing is execution.
+value. The zero Silently wrong rows below are the wrong values counted as such, since #977; the `()` row records one
+under [#741](https://github.com/hexide-io/HexIDE/issues/741) and stays Partial, for the reason given there. The grammar comprehends essentially the whole of VB6; what is missing is execution.
 
 It was four until numeric line labels were ported in from the LSP server's grammar, which already had
 the rule — see below. It went back to four when the suffixed `Function` was measured, and that one has
@@ -170,7 +169,7 @@ Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and `EOF`; `Input #` and 
 `LOF`, `Loc`, `Seek` and the `Input` function run since
 [#1645](https://github.com/hexide-io/HexIDE/issues/1645), and Random and Binary files, `Get` and `Put` since [#1646](https://github.com/hexide-io/HexIDE/issues/1646).
 
-## Silently wrong — 1 name
+## Silently wrong — 0 names
 
 **The six type characters used to be here ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** An
 assignment through one, `s$ = "x"`, wrote a second variable named `s$`, and a `For i%` counter ran on one. Both
@@ -219,13 +218,13 @@ to recognise the next one. The check keys off a list of VB6's *surface* rather t
 implementing a function does not require maintaining it. It could not have caught the type characters,
 which are the program's own names spelled with a suffix rather than names VB6 defines.
 
-**A standard module's Property Get is not reached by its name ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** `x = PG`, with
-`Property Get PG() As Long()` in a standard module, reads Empty here with no error, where VB6 reads the array; the name
-is taken for an undeclared variable. Found while fixing #975. A class's Property Get is unaffected.
+**A Property Get read by its name used to be here** ([#977](https://github.com/hexide-io/HexIDE/issues/977)). A standard
+module's `x = PG` read Empty with no error, taking the name for an undeclared variable, and inside a class or form its own
+`Full = First & "!"` gave `"!"`. Both now call the Get, with a class's or form's own property before a standard module's of
+the same name, as vb6.exe resolves them (measured, native and p-code).
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Property Get` | **Silently wrong** | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. **Re-rated from Partial by measurement ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** A standard module's Property Get is not reached by its name: `x = PG`, with `Property Get PG() As Long()` in a module, reads Empty here with no error, where VB6 reads the array (measured), and `PG()` is "Sub or Function not defined". A class's is unaffected, and one declared `As Long()` returns its array ([#975](https://github.com/hexide-io/HexIDE/issues/975), measured). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
 
 ## Won't load — 0 names
 
@@ -402,7 +401,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 16 absent, 44 partial, 46 supported)
+### Statements — 107 names (16 absent, 45 partial, 46 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -474,9 +473,9 @@ missing.
 | `Mid` | Partial | The `Mid(target, start[, length]) = replacement` STATEMENT is implemented, but NOT via VisitMidStmt — that visitor still throws `NotImplementedException("Mid not implemented")`… | StatementExecutor.cs, VB6BuiltIns.Strings.cs |
 | `On Error GoTo line` | Partial | **#767:** termination hooks are suppressed while an unimplemented fault unwinds, so cleanup cannot turn it into an error this handler traps.  Installs errorMode = ErrorMode.GoToLabel with the target text as handlerLabel (StatementExecutor.cs). ExecuteProcedureBody's catch captures the error into Err, records faultPc… **#877:** it clears Err, and leaving the procedure while its handler runs, by Exit or by its end, clears Err again, whatever On Error the handler said (measured). | StatementExecutor.cs |
 | `Property` | Partial | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. The three accessors are collected into a PropertyInfo keyed by property name and dispatched by ACCESS KIND: Get on read, Let on value-assign, Set on object-assign. TWO restrictions. (1)… | PrePass.cs, ExpressionExecutor.cs, StatementExecutor.cs |
-| `Property Get` | **Silently wrong** | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. **Re-rated from Partial by measurement ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** A standard module's Property Get is not reached by its name: `x = PG`, with `Property Get PG() As Long()` in a module, reads Empty here with no error, where VB6 reads the array (measured), and `PG()` is "Sub or Function not defined". A class's is unaffected, and one declared `As Long()` returns its array ([#975](https://github.com/hexide-io/HexIDE/issues/975), measured). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
-| `Property Let` | Partial | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. Sub-like: its single parameter receives the assigned value, coerced to that parameter's declared type, and it WINS over a raw field write on `obj.Member = v`. Works through a `With` target… | PrePass.cs |
-| `Property Set` | Partial | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. Sub-like, dispatched on `Set obj.Member = o` and winning over a raw object-field write; the reference flows through the accessor's parameter (counted on bind, released at scope-exit) so… | PrePass.cs, StatementExecutor.cs |
+| `Property Get` | Partial | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. **#977:** standard-module getters resolve by bare name, call or module qualifier, including parameters, Variant array result indexing and typed array returns. Private getters are visible inside their own module. A class's or form's own Get is read by its bare name inside it, as implicit `Me`, and wins over a standard module's of the name (measured). The measured invalid bare statement forms and Set without a setter are compile refusals, raised when executed. Bare and qualified Let and bare Set dispatch to their accessors, including the measured indexed Let. A missing Let on a scalar property is read-only; the measured object getter returning Nothing raises 91. Let without an accessor when the getter returns a live object is unmeasured and refused as not implemented. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
+| `Property Let` | Partial | **#977:** standard-module bare and qualified assignments dispatch to Let, including a parameterized bare assignment, and a Let with no Get; a class's or form's own Let is assigned to by its bare name inside it (measured); a String assigned to a Long raises 13 inside the accessor call. Without Let, scalar properties are read-only and an object getter returning Nothing raises 91. A live object returned without Let is unmeasured and refused as not implemented. **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. Sub-like: its single parameter receives the assigned value, coerced to that parameter's declared type, and it WINS over a raw field write on `obj.Member = v`. Works through a `With` target… | PrePass.cs |
+| `Property Set` | Partial | **#977:** bare assignment to a standard-module property, or to a class's or form's own inside it, dispatches to Set; indexed Set remains unmeasured and refused. Without Set it raises the measured Invalid use of property refusal. **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. Sub-like, dispatched on `Set obj.Member = o` and winning over a raw object-field write; the reference flows through the accessor's parameter (counted on bind, released at scope-exit) so… | PrePass.cs, StatementExecutor.cs |
 | `ReDim` | Partial | **#178:** UDT arrays and dynamic array fields can be resized; Preserve keeps every field of surviving records and initializes new elements independently (measured). **#1460:** refused with 10 while For Each holds the array lock, leaving the array unchanged (measured). **#849:** a bound is coerced as `CLng` coerces it, where only an Integer was accepted, and an omitted `Optional` is 13; an upper bound below its lower raises 9 and erases a variable declared an array or an array parameter, keeping its type, while a Variant keeps its array if any dimension's upper bound is one below its lower and is emptied with 7 otherwise; `ReDim b(2147483647)` and `b(1 To 2147483647)` are 7, Out of memory, and erase the array; a bound that cannot be coerced raises before anything changes (all measured). A `b() As Long` parameter is a `Long()` shared with its caller, where it was copied and taken for a Variant. A fixed array ReDimmed through an array parameter or an untyped one raises 10, "This array is fixed or temporarily locked", and is kept, after its bounds convert and before an inverted range's 9; named directly it is "Array already dimensioned" (both measured), where the callee's ReDim replaced the caller's fixed array. A `v As Variant` parameter is not refused yet, and given a caller's dynamic array its ReDim resizes only the parameter: `Sub GA(v As Variant): ReDim v(10)` leaves the caller at 0 To 3 here, where VB6 makes it 0 To 10 (measured, native and in the IDE; [#970](https://github.com/hexide-io/HexIDE/issues/970)). An untyped `v` sharing a caller's `Long()` ReDims it by the declared-array rule, so an inverted range raises 9 and erases it, where VB6 uses the Variant rule: 9 and kept one below the lower bound, 7 and erased further (measured, #970). An array assigned a fixed one, `d = f`, can be ReDimmed, as in VB6 (measured): fixedness is the declaration's. `ReDim Preserve` keeps the array's elements, as in VB6 (#1459, see the `Preserve` row). A Variant that never held an array can be ReDimmed, where it stopped with an internal error. VB6's full Long range, -2147483648 To 2147483647, wraps to no elements and raises nothing; HexIDE raises 7, by the Fidelity Principle — A plain ReDim of an already-declared simple variable works, including multi-dimensional bounds and a trailing `As T` clause - measured: `Dim a() / ReDim a(2,3) / a(1,1)=7` prints 7, and… | StatementExecutor.cs |
 | `Resume` | Partial | VisitResumeStmt throws a ResumeSignal(ResumeKind.Same) caught by ExecuteProcedureBody, which sets pc = faultPc to retry the faulting statement and clears the fault. A Resume with no active… **#877:** every Resume clears Err (measured). | StatementExecutor.cs |
 | `Resume Next` | Partial | ResumeSignal(ResumeKind.Next) -> `pc = faultPc + 1`. Tested by ErrorHandlingGoToTests.OnErrorGoTo_Handler_Then_ResumeNext. RESTRICTION is the same nested granularity as Resume: measured `On… **#877:** clears Err (measured). | StatementExecutor.cs |

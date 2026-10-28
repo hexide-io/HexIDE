@@ -229,7 +229,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   are ordinary VB6. `ClassifyRadixLiteral` (`ExpressionExecutor.cs:389`) already parses `&H`/`&O`,
   oracle-pinned.
 - ~~**Multi-level qualified member access**~~ — **READS FIXED 2026-09-02 (#173)**. A module qualifier is simply the first step of an ordinary chain; measured to four levels (`Module1.p.In1.Z`). Folded through the same `ResolveMemberChain` as unqualified chains — they were only ever different in the KIND of the first step. **Chained assignment (`a.b.c = 5`) is still refused**: the prefix may resolve to a UDT, which is a value type, so whether the write reaches its owner is an aliasing question with its own tests to write.
-- **Parameterized `Property Let`/`Set`** remain refused. A class's parameterized `Property Get` now
+- **Parameterized `Property Let`/`Set`** remain refused on class instances. Standard-module indexed Let
+  dispatches through the procedure binder (#977); indexed Set remains unmeasured and refused. A class's parameterized `Property Get` now
   passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
   compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
 - **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the
