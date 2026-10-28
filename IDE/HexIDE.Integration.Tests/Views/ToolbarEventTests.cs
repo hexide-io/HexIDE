@@ -116,7 +116,8 @@ public class ToolbarEventTests
         {
             window.Show();
             window.UpdateLayout();
-            var p = bar.TranslatePoint(new Point(5, 5), window)!.Value;
+            var button = bar.GetVisualDescendants().OfType<Button>().Single();
+            var p = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
             for (var i = 0; i < 2; i++)
             {
                 window.MouseDown(p, MouseButton.Left);
@@ -125,8 +126,9 @@ public class ToolbarEventTests
             }
             root.Calls.Select(c => c.Name).Should().Equal("Toolbar1_MouseDown", "Toolbar1_MouseUp", "Toolbar1_Click", "Toolbar1_ButtonClick", "Toolbar1_ButtonClick");
             root.Calls.Clear();
-            window.MouseDown(new Point(350, 5), MouseButton.Right);
-            window.MouseUp(new Point(350, 5), MouseButton.Right);
+            var empty = bar.TranslatePoint(new Point(bar.Bounds.Width - 1, bar.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(empty, MouseButton.Right);
+            window.MouseUp(empty, MouseButton.Right);
             root.Calls.Select(c => c.Name).Should().Equal("Toolbar1_MouseDown", "Toolbar1_MouseUp", "Toolbar1_Click");
             var item = (ToolbarItem)bar.Buttons.Item([new(1)]).Value!;
             item.TrySetProperty("Enabled", new(false));
@@ -135,6 +137,49 @@ public class ToolbarEventTests
             window.MouseUp(p, MouseButton.Left);
             window.UpdateLayout();
             root.Calls.Select(c => c.Name).Should().Equal("Toolbar1_MouseDown", "Toolbar1_MouseUp", "Toolbar1_Click");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(12, 1, true)]
+    [InlineData(1, 1, true)]
+    [InlineData(12, -1, true)]
+    [InlineData(1, -1, true)]
+    [InlineData(1, 0, true)]
+    [InlineData(14, 0, false)]
+    [InlineData(14, 0, false, true)]
+    public async Task Dropdown_uses_the_full_height_13_pixel_arrow_strip(int fromRight, int vertical, bool dropdown, bool wideGlyph = false)
+    {
+        var bar = new VBToolbar();
+        VBProps.SetName(bar, "Toolbar1");
+        var item = (ToolbarItem)(await bar.Buttons.CallAsync("Add", [Vb6Value.Missing, new("a"), new("Alpha"), new(5)]))!.Value.Value!;
+        var root = new RecordingRoot { Child = bar };
+        var window = new Window { Content = root, Width = 400, Height = 100 };
+        ContainerRuntimeHarness.MergeAppResources(window);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var button = bar.GetVisualDescendants().OfType<Button>().Single();
+            if (wideGlyph)
+            {
+                // Reproduce a glyph extending beyond the strip regardless of the host font.
+                button.Padding = new Thickness(0);
+                var arrow = bar.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "▾");
+                arrow.Width = 26;
+                arrow.TextAlignment = Avalonia.Media.TextAlignment.Center;
+                window.UpdateLayout();
+            }
+            var y = vertical switch { 1 => 1, -1 => button.Bounds.Height - 1, _ => button.Bounds.Height / 2 };
+            var p = button.TranslatePoint(new Point(button.Bounds.Width - fromRight, y), window)!.Value;
+            window.MouseDown(p, MouseButton.Left);
+            window.MouseUp(p, MouseButton.Left);
+            window.UpdateLayout();
+            root.Calls.Select(c => c.Name).Should().Equal(dropdown
+                ? ["Toolbar1_MouseDown", "Toolbar1_ButtonDropDown"]
+                : ["Toolbar1_MouseDown", "Toolbar1_MouseUp", "Toolbar1_Click", "Toolbar1_ButtonClick"]);
+            root.Calls.Last().Args![0].Value.Should().BeSameAs(item);
         }
         finally { window.Close(); }
     }
@@ -160,8 +205,8 @@ public class ToolbarEventTests
         {
             window.Show();
             window.UpdateLayout();
-            var arrow = bar.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "▾");
-            var p = arrow.TranslatePoint(new Point(arrow.Bounds.Width / 2, arrow.Bounds.Height / 2), window)!.Value;
+            var button = bar.GetVisualDescendants().OfType<Button>().Single();
+            var p = button.TranslatePoint(new Point(button.Bounds.Width - 1, button.Bounds.Height / 2), window)!.Value;
             window.MouseDown(p, MouseButton.Left);
             window.MouseUp(p, MouseButton.Left);
             window.UpdateLayout();
