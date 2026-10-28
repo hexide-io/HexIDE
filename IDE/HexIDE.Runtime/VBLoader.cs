@@ -41,7 +41,8 @@ public class VBLoader
         ExecutionEnvironment environment,
         IBasicStandardLibrary? standardLibrary = null,
         VbObject? form = null,
-        VBProgram? program = null)
+        VBProgram? program = null,
+        VBWindowContext? windowContext = null)
     {
         var toolbars = element.Components.Where(c => c.BaseClass is FormComponentClass)
             .SelectMany(c => c.PreservedChildSubtrees)
@@ -184,6 +185,21 @@ public class VBLoader
                 throw ToolbarItems.Unmeasured();
             toolbar.TrySetProperty("ImageList", new Vb6Value((Control)images));
         }
+
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            if (ImageComboBlock(block) is { } comboBlock)
+            {
+                var combo = new VBImageCombo(windowContext?.Events ?? new EventPump(), () =>
+                {
+                    windowContext?.ExecuteSub($"{comboBlock.Name}_Change");
+                    return Task.CompletedTask;
+                });
+                combo.Load(comboBlock);
+                VBProps.SetRunTimeId(combo);
+                canvas.Children.Add(combo);
+                executionContext.AllocVariable(environment, comboBlock.Name, new Vb6Value((Control)combo));
+                dialogs[block] = combo;
+            }
 
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
@@ -787,7 +803,7 @@ public class VBLoader
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
+            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null && ImageComboBlock(block) is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
@@ -800,6 +816,17 @@ public class VBLoader
                 }
         if (lines.Count > 0)
             throw new NotImplementedException(string.Join("\n", lines.Distinct()));
+    }
+
+    private static VBSerializedComponent? ImageComboBlock(string block)
+    {
+        var first = block.TrimStart().Split('\n', 2)[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (first.Length < 3 || !first[1].Equals("MSComctlLib.ImageCombo", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var (component, _) = new VbFrmFormatDeserializer().Deserialize(block);
+        if (component.SubComponents.Count != 0 || component.Properties.Keys.Any(k => k.Equals("Index", StringComparison.OrdinalIgnoreCase)))
+            return null;
+        return component;
     }
 
     /// <summary>
@@ -1035,7 +1062,7 @@ public class VBLoader
     {
         var program = new VBProgram(element, context, debugController, openForm);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
-            context.FormInstance, program));
+            context.FormInstance, program, context));
         context.HoldControlsUntilLoad();
         return program;
     }

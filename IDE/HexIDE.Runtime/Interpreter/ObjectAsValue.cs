@@ -51,6 +51,8 @@ internal static class ObjectAsValue
         VbErr err => new Vb6Value(err.Number),
         VBRichTextBox box => new Vb6Value(box.WriteRtf()),
         StatusBarPanel panel => new Vb6Value(panel.Text),
+        ImageComboItem item => new Vb6Value(item.Text),
+        ImageComboItems => throw ImageComboItems.Unmeasured(),
         // VB6 refuses both before the program runs: Debug is only ever Debug.Print or Debug.Assert ("Syntax error"),
         // and a control array needs an index ("Argument not optional"). Raised here as the statement runs.
         DebugProxy => throw new VBCompileErrorException("Syntax error"),
@@ -83,6 +85,8 @@ internal static class ObjectAsValue
         VbErr err => new Vb6Value(err.Number),
         VBRichTextBox box => new Vb6Value(box.WriteRtf()),
         StatusBarPanel panel => new Vb6Value(panel.Text),
+        ImageComboItem item => new Vb6Value(item.Text),
+        ImageComboItems => throw ImageComboItems.Unmeasured(),
         _ => value,
     };
 

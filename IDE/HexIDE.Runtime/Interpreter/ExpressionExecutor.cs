@@ -1329,6 +1329,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return items.Default(indices);
         if (value.Value is ImageListImages images)
             return images.Item(indices[0]);
+        if (value.Value is ImageComboItems comboItems)
+            return new Vb6Value(comboItems.Item(indices[0]));
         if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
@@ -1421,6 +1423,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return new Vb6Value(panels.Item(await EvaluateCallArgs(argsCtx)));
         if (named && maybeGroup.Value is ImageListImages images)
             return images.Item((await EvaluateCallArgs(argsCtx))[0]);
+        if (named && maybeGroup.Value is ImageComboItems comboItems)
+            return new Vb6Value(comboItems.Item((await EvaluateCallArgs(argsCtx))[0]));
         // A form's Controls held in a variable, `o(1)` (#1060).
         if (named && maybeGroup.Value is FormControls heldControls)
         {
