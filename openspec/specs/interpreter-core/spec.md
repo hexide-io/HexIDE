@@ -590,3 +590,28 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
+
+### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
+`Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
+forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
+position from 0, converted as CInt converts, with no keys: any other String and Null SHALL raise 13, and a position out
+of range 9.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-collection.md`, #2496).
+
+#### Scenario: Closing every form from the main form's Unload
+- **WHEN** Form1's `Form_Unload` runs `For Each f In Forms: Unload f: Next` with Form2 and Form3 loaded
+- **THEN** Form2 and Form3 SHALL each raise QueryUnload and Unload, the `Unload f` that reaches Form1 SHALL do nothing,
+  and the run SHALL end once Form1's Unload has returned
+
+#### Scenario: Unloading by index from 0
+- **WHEN** a program with Form1, Form2 and Form3 loaded runs `For i = 0 To Forms.Count - 1: Unload Forms(i): Next`
+- **THEN** Form1 and Form3 SHALL unload, `Forms(2)` SHALL raise 9, and Form2 SHALL stay loaded
+
+#### Scenario: A form reloaded goes at the end
+- **WHEN** Form2, Form1 and Form3 have loaded in that order, and Form2 is unloaded and loaded again
+- **THEN** `Forms` SHALL hold Form1, Form3, Form2
+
+#### Scenario: For Each walks the forms held when it began
+- **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
+- **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
