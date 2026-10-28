@@ -884,9 +884,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("Type hints not supported");
     }
 
+    // A Property Get named as a statement, `PG`, `Call PG` or `PG 5`, in a standard module or a class's own, is VB6's compile
+    // error, given here as the statement runs (measured, #977).
+    private void RefuseModulePropertyStatement(string name)
+    {
+        if (interpreter.TryResolveProcedure(name, currentModule, out _, out var procedure)
+            && procedure.Declaration is VB6Parser.PropertyGetStmtContext)
+            throw new VBCompileErrorException("Invalid use of property");
+    }
+
     public override async Task<ControlFlow> VisitECS_ProcedureCall(VB6Parser.ECS_ProcedureCallContext context)
     {
         var subName = context.ambiguousIdentifier().GetText();
+        RefuseModulePropertyStatement(subName);
         ThrowIfTypeHint(context.typeHint());
         var callArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
         await interpreter.CallProcedure(subName, callArgs, currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
@@ -1956,9 +1966,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     // The value a Let stores, with the refusals every Let makes of it.
-    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false)
+    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false, Vb6Value? evaluated = null)
     {
-        var value = await expressionExecutor.EvaluateValue(context.valueStmt());
+        var value = evaluated ?? await expressionExecutor.EvaluateValue(context.valueStmt());
 
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
             throw new NotImplementedException("+-/-= not implemented in variable assignment");
@@ -2061,10 +2071,51 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // ByRef parameters, class/UDT fields and other destinations remain unmeasured (#1485).
     }
 
+    private async Task StoreModuleProperty(ModuleInfo owner, PropertyInfo property,
+        VB6Parser.ArgsCallContext? indices, Vb6Value value, bool reference, ParserRuleContext context)
+    {
+        var accessor = reference ? property.Set : property.Let;
+        if (accessor is { IsPrivate: true } && !ReferenceEquals(owner, currentModule))
+            throw new NotImplementedException($"Assigning to {property.Name} from another module, where its {(reference ? "Set" : "Let")} " +
+                                              "is Private, is not measured (#977)");
+        if (accessor is null)
+        {
+            if (reference)
+                throw new VBCompileErrorException("Invalid use of property");
+            if (property.Get is not { ReturnsObject: true } getter)
+                throw new VBCompileErrorException("Can't assign to read-only property");
+            var getterArgs = await expressionExecutor.ResolveCallArgs(indices);
+            var held = await interpreter.RunNamed(owner, getter, getterArgs, currentEnv, stmtFrames);
+            if (held is { } result && result.Value is null)
+                throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+            throw new NotImplementedException("Let into a module property without Let returning a live object is not measured (#977)");
+        }
+        var args = await expressionExecutor.ResolveCallArgs(indices);
+        args.Add(new CallArg(value, null));
+        await interpreter.RunNamed(owner, accessor, args, currentEnv, stmtFrames);
+    }
+
+    private async Task<bool> TryStoreBareModuleProperty(VB6Parser.ImplicitCallStmt_InStmtContext target,
+        Vb6Value value, bool reference, ParserRuleContext context)
+    {
+        var bare = target.iCS_S_VariableOrProcedureCall();
+        var indexed = target.iCS_S_ProcedureOrArrayCall();
+        var name = bare?.ambiguousIdentifier()?.GetText() ?? indexed?.ambiguousIdentifier()?.GetText();
+        // A variable in scope comes first, and in a form's code the form's own members, as on a read (#822).
+        if (name is null || bare?.typeHint() is not null || bare?.dictionaryCallStmt() is not null
+            || indexed?.typeHint() is not null || indexed?.dictionaryCallStmt() is not null
+            || indexed?.argsCall().Length > 1 || currentEnv.TryGetVariableLocation(name, out _)
+            || FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, name, out _, out _)
+            || !interpreter.TryResolveProperty(name, currentModule, out var owner, out var property))
+            return false;
+        await StoreModuleProperty(owner, property, indexed?.argsCall().FirstOrDefault(), value, reference, context);
+        return true;
+    }
+
     // Resolve only the measured standard-module targets (#1006, #965), at the statement's point of use.
     // Keep the existing variable-first precedence; other qualifiers and unmeasured targets use the old path.
     private async Task<bool> TryStoreModuleMember(VB6Parser.ICS_S_MembersCallContext target, Vb6Value value,
-        bool reference, Antlr4.Runtime.ParserRuleContext context)
+        bool reference, Antlr4.Runtime.ParserRuleContext context, bool propertiesOnly = false)
     {
         // An enclosing With changes nothing here: only a leading-dot member reads the With object (measured, #1006).
         if (target.iCS_S_VariableOrProcedureCall() is not { } lead
@@ -2077,6 +2128,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var module = qualifier.Module!;
         var member = members[0];
         var name = UdtFieldName(member);
+        if (module.PrePass.Properties.TryGetValue(name, out var property)
+            && (ReferenceEquals(module, currentModule) || BasicInterpreter.IsVisibleOutside(property)))
+        {
+            if (member.iCS_S_ProcedureOrArrayCall() is { } indexed && indexed.argsCall().Length > 1)
+                return false;
+            await StoreModuleProperty(module, property, member.iCS_S_ProcedureOrArrayCall()?.argsCall().FirstOrDefault(), value, reference, context);
+            return true;
+        }
+        if (propertiesOnly)
+            return false;
         if (!module.PrePass.PublicVariables.Contains(name)
             && !(module.PrePass.ModuleConsts.TryGetValue(name, out var constant)
                  && (constant.Public || ReferenceEquals(module, currentModule))))
@@ -2146,7 +2207,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && chain.ambiguousIdentifier() is not null && chain.typeHint() is null && chain.dictionaryCallStmt() is null)
             return await LetIntoIndexChain(context, chain, chainGroups);
 
-        var value = await LetValue(context, IntoArray(context));
+        var value = await expressionExecutor.EvaluateValue(context.valueStmt());
+        if (context.PLUS_EQ() is null && context.MINUS_EQ() is null)
+        {
+            if (await TryStoreBareModuleProperty(context.implicitCallStmt_InStmt(), value, false, context))
+                return default;
+            if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } propertyTarget
+                && await TryStoreModuleMember(propertyTarget, value, false, context, propertiesOnly: true))
+                return default;
+        }
+        value = await LetValue(context, IntoArray(context), value);
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -3396,6 +3466,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && value.Type != Vb6Value.ValueType.CSharpProxyObject)
             throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
 
+        if (await TryStoreBareModuleProperty(context.implicitCallStmt_InStmt(), value, true, context))
+            return default;
+
         // Store the REFERENCE (never a copy — objects are reference types, so `Set b = a` shares).
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varCall)
         {
@@ -4638,6 +4711,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitICS_B_ProcedureCall(VB6Parser.ICS_B_ProcedureCallContext context)
     {
         var subName = context.certainIdentifier().GetText();
+        RefuseModulePropertyStatement(subName);
         // In a form's code, a method of the form: `Cls`, `Hide`, `Move 0, 0` (#995). Before another module's Public Sub of
         // the name, as the form's members come before the project's globals (measured, #822).
         if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, subName, out var form, out var formMember)

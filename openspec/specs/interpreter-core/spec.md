@@ -783,6 +783,55 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
 
+### Requirement: Properties SHALL be read by name
+A Property Get SHALL be read by its name as a Function is: a standard module's by bare name, call syntax or module
+qualifier, a private one only inside its module, and a class's or form's own by bare name inside it as implicit Me, before
+a standard module's of the same name. Arguments SHALL bind to declared parameters, or index a parameterless getter's
+Variant result. A Get named as a statement, `PG`, `Call PG` or `PG 5`, SHALL raise "Invalid use of property" when executed
+(#977).
+
+#### Scenario: Reading a public scalar getter from another module
+- **GIVEN** Module2 declares a public Property Get PG() As Long
+- **WHEN** another module reads PG, PG() or Module2.PG
+- **THEN** each read executes the getter and returns a Long
+
+#### Scenario: Indexing a Variant array returned by a getter
+- **GIVEN** PV is a parameterless getter returning Array(1, 2, 3)
+- **WHEN** the program reads PV(1) and PV()(2)
+- **THEN** the results are 2 and 3 respectively
+
+#### Scenario: A class's own property before a standard module's
+- **GIVEN** Class1 and Module2 each declare a Property Get and Let PG, Module2's Public
+- **WHEN** Class1's code reads PG and assigns PG = 9
+- **THEN** Class1's own Get and Let run, and Module2's do not
+
+### Requirement: Assigning to a property by name SHALL run its Let or Set
+An assignment to a property's name SHALL run its Let, or with Set its Set, resolved as a read is, and a property with a
+Let and no Get SHALL be assigned to. With no Let, a scalar property SHALL raise "Can't assign to read-only property", an
+object Get returning Nothing SHALL raise 91, and one returning a live object is unmeasured and SHALL be refused as not
+implemented. Set with no Set SHALL raise "Invalid use of property" (#977).
+
+#### Scenario: Assigning a scalar property
+- **GIVEN** Module2 declares Property Get PG() As Long and Property Let PG(v As Long)
+- **WHEN** another module executes PG = 5 or Module2.PG = 7
+- **THEN** the Let accessor receives the assigned value
+- **AND** PG = "x" raises runtime error 13
+
+#### Scenario: Assigning an indexed property
+- **GIVEN** PI declares a Get taking i As Long and a Let taking i As Long and v As Long
+- **WHEN** PI(3) = 100 executes
+- **THEN** Let receives i = 3 and v = 100
+
+#### Scenario: Assigning an object property
+- **GIVEN** PO declares a Collection getter and setter
+- **WHEN** Set PO = New Collection executes, followed by PO.Add 1
+- **THEN** PO.Count is 1
+
+#### Scenario: A property with no Get
+- **GIVEN** Module2 declares only Property Let PW
+- **WHEN** another module executes PW = 5 or Module2.PW = 6
+- **THEN** the Let receives each value
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a

@@ -7,8 +7,9 @@ public class PrePass : VB6BaseVisitor<object?>
 {
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
+    private readonly bool allowIndexedLet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
-    // Class `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
+    // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
     // Names this (class) module declares as `Public Event Foo(...)` — Phase 5. Recorded for completeness; dispatch
     // resolves by handler name, so the registry isn't strictly consulted (no pre-execution signature validation).
@@ -206,10 +207,11 @@ public class PrePass : VB6BaseVisitor<object?>
             NoteDefaultMember(body.GetChild(i));
     }
 
-    public PrePass(ExecutionEnvironment rootEnv, ExecutionState state)
+    public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false)
     {
         this.rootEnv = rootEnv;
         this.state = state;
+        this.allowIndexedLet = allowIndexedLet;
     }
 
     public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
@@ -729,14 +731,12 @@ public class PrePass : VB6BaseVisitor<object?>
         return prop;
     }
 
-    // A `Property Let`/`Property Set` accessor is Sub-like: its LAST (here, only) parameter receives the
-    // assigned value, coerced to that parameter's declared type. Exactly one parameter is required —
-    // parameterized properties (an index before the value) are a wall.
+    // A Property Let/Set accessor receives the assigned value in its last parameter, after any indices.
     private ProcedureInfo ParsePropertyMutator(string kind, string name, VB6Parser.ArgListContext? argList,
         VB6Parser.BlockContext? block, VB6Parser.VisibilityContext? visibility)
     {
         var args = ParseParams(argList);
-        if (args.Count != 1)
+        if (args.Count != 1 && !(allowIndexedLet && kind == "Let" && args.Count > 1))
             throw new NotImplementedException(
                 $"Property {kind} '{name}' must take exactly one (value) parameter — parameterized properties are not supported");
         return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility)));

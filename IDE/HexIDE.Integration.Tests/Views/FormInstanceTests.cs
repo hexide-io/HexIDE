@@ -106,6 +106,52 @@ public class FormInstanceTests
     }
 
     [AvaloniaFact]
+    public void The_forms_own_property_is_read_and_written_by_name_where_a_module_declares_one()
+    {
+        // Measured, native and p-code (#977, f-own): the form's own Property Get and Let, before Module1's of the name.
+        // Called from Form_Load here; the probe called Go from Sub Main after Load Form1.
+        var run = RunForm("""
+            Private mPG As Long
+            Public Property Get PG() As Long
+                PG = 1 + mPG
+            End Property
+            Public Property Let PG(ByVal v As Long)
+                Debug.Print "own let " & v
+                mPG = v
+            End Property
+            Public Property Get First() As String
+                First = "Ada"
+            End Property
+            Public Property Get Full() As String
+                Full = First & "!"
+            End Property
+            Public Sub Go()
+                Debug.Print "read " & PG
+                PG = 9
+                Debug.Print "after " & PG
+                Debug.Print "full " & Full
+            End Sub
+            Private Sub Form_Load()
+                Go
+            End Sub
+            """,
+            ("Module1", ModuleKind.StandardModule, """
+            Public Property Get PG() As Long
+                PG = 5
+            End Property
+            Public Property Let PG(ByVal v As Long)
+                Debug.Print "module let " & v
+            End Property
+            Public Property Get First() As String
+                First = "Module"
+            End Property
+            """));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("read 1", "own let 9", "after 10", "full Ada!");
+    }
+
+    [AvaloniaFact]
     public void The_forms_Caption_is_its_own_where_a_module_declares_one()
     {
         // Measured unqualified (`Caption = "set by form"`); the bare name is #995, so this goes through Me.

@@ -20,10 +20,9 @@ module-level `Dim modArr(3) As Long` with `modArr(1) = 7`, and `RetFixed = modAr
 | a class's `Public Property Get Items() As Long()`, `x = o.Items` (a second probe) | "Long()", `UBound` 3, `x(1)` 7 |
 
 **HexIDE, after #975.** The pre-pass reads a Function's or Property Get's `As T()` as the array type, so the return slot
-starts as an empty array of it and the array the body stores comes back as it is. Every row is pinned except the
-standard module's Property Get, which HexIDE does not reach by name at all: a bare `PG`, or a scalar `PS`, reads Empty
-with no error, and `PG()` is "Sub or Function not defined" (#977, found here). Whether the caller gets a copy of the
-array is #970's.
+starts as an empty array of it and the array the body stores comes back as it is. Every row is pinned. The standard-module Property Get row is covered by
+`ModulePropertyGetTests.TypedArrayRead` (#977); before that fix its name read Empty and `PG()` was
+"Sub or Function not defined". Whether the caller gets a copy of the array is #970's.
 
 ### What a typed-array return accepts (2026-10-14, #986)
 

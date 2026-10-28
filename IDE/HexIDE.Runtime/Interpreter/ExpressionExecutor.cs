@@ -869,6 +869,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // In a form's code, a member of the form heads the chain, `Controls.Count` (#1060), as it is read bare (#995).
         if (await BareFormMember(identifier) is { } formMember)
             return formMember;
+        // A Property Get by its name: a standard module's, or the class's or form's own, which is implicit Me (#977).
+        if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var getter)
+            && getter.Declaration is VB6Parser.PropertyGetStmtContext
+            && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } propertyResult)
+            return propertyResult;
         if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
         {
             // A function named Clipboard can supply the member-chain's object too, not just a bare value.
@@ -1954,7 +1959,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A character on the member, `Module2.pS$`, is checked as it is on the bare name (measured, #742).
         var module = qualifier.Module!;
         var memberHint = member.iCS_S_VariableOrProcedureCall()?.typeHint() ?? member.iCS_S_ProcedureOrArrayCall()?.typeHint();
-        if (module.PrePass.Procedures.TryGetValue(memberName, out var proc)
+        if (BasicInterpreter.TryGetModuleProcedure(module, memberName, out var proc)
             && (!proc.IsPrivate || ReferenceEquals(module, currentModule)))
         {
             if (memberHint is not null)
