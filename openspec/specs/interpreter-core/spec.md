@@ -643,3 +643,21 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: FormatDateTime SHALL use the program's locale
+`FormatDateTime(Date, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
+uses CStr's general date rendering, 1 the long date, 2 the short date, 3 the long time, and
+4 24-hour hours and minutes. It SHALL accept the date serials, date text, Empty, Null and
+True measured in [#2516](https://github.com/hexide-io/HexIDE/issues/2516).
+NamedFormat SHALL convert as CInt does and reject formats outside 0–4 with error 5.
+
+#### Scenario: Measured en-GB date and time
+- **WHEN** `FormatDateTime(#2026-10-28 14:05:09#)` runs in the measured en-GB regional settings
+- **THEN** it returns the String `28/10/2026 14:05:09`
+- **AND** format 4 returns `14:05`
+
+#### Scenario: Null date and invalid format
+- **WHEN** the date argument is Null and the format is omitted
+- **THEN** the result is an empty String
+- **WHEN** a date is supplied with NamedFormat Null or `"x"`
+- **THEN** the error is 94 or 13 respectively
