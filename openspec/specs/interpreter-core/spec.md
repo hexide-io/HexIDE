@@ -560,3 +560,23 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
+
+### Requirement: Measured payment, future value and present value calculations
+
+The interpreter SHALL execute the measured positional `Pmt`, `FV` and `PV` calls from
+[#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving their exact Double bits and
+measured errors. It SHALL round the base `1 + rate` to Double before retaining higher-precision
+intermediates. Unmeasured named calls, argument errors and unsupported calculation domains SHALL
+fail clearly as unimplemented, rather than supply an invented VB6 result.
+
+#### Scenario: Ordinary loan payment retains intermediate precision
+- **WHEN** a program evaluates `Pmt(0.08 / 12, 120, 10000)`
+- **THEN** the result is a Double with bits `C05E54F74E50A768`
+
+#### Scenario: The zero-rate and fractional-period cases execute
+- **WHEN** a program evaluates a measured zero-rate or fractional-period call
+- **THEN** its exact Double bits agree with the issue's measured row
+
+#### Scenario: Measured invalid payment inputs report their errors
+- **WHEN** a program calls `Pmt(0.1, 0, 1000)` or `Pmt(Null, 10, 1000)`
+- **THEN** it raises error 5 or 94 respectively

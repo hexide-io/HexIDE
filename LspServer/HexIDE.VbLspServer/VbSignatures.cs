@@ -12,6 +12,10 @@ internal static class VbSignatures
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            // Financial positional surface (#2523); these display names do not enable named runtime calls.
+            ["Pmt"] = [new SignatureEntry("Pmt(Rate, NPer, PV, [FV], [Type]) As Double", ["Rate", "NPer", "PV", "FV", "Type"])],
+            ["FV"] = [new SignatureEntry("FV(Rate, NPer, Pmt, [PV], [Type]) As Double", ["Rate", "NPer", "Pmt", "PV", "Type"])],
+            ["PV"] = [new SignatureEntry("PV(Rate, NPer, Pmt, [FV], [Type]) As Double", ["Rate", "NPer", "Pmt", "FV", "Type"])],
             // Filesystem positional surface (#1561); runtime named arguments await measurement.
             ["CurDir"] = [new SignatureEntry("CurDir([Drive]) As String", ["Drive"])],
             ["Dir"] = [new SignatureEntry("Dir([PathName], [Attributes]) As String", ["PathName", "Attributes"])],
