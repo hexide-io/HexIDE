@@ -3722,9 +3722,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitStopStmt(VB6Parser.StopStmtContext context)
     {
         // VB6 `Stop`: in the IDE debugger it enters Break mode (like a breakpoint on this line); in a compiled exe
-        // (here: no controller / headless) it ends the program. Either way, no longer a NotImplementedException.
+        // (here: no debugging host) it ends the program. Either way, no longer a NotImplementedException.
         currentLine = context.Start.Line;
-        if (interpreter.DebugController is { } dbg)
+        if (interpreter.DebugController is { CanBreak: true } dbg)
             await dbg.EnterBreakFromStopStatementAsync(currentLine, currentModule.Name, this);
         else
             throw new Debugging.StopExecutionSignal();
@@ -4657,7 +4657,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // No condition, or two, does not compile (measured).
             if (context.argsCall()?.argCall() is not [{ } condition] || context.argsCall().ChildCount != 1)
                 throw new VBCompileErrorException("Syntax error");
-            if (interpreter.DebugController is not { } dbg)
+            if (interpreter.DebugController is not { CanBreak: true } dbg)
                 return default;
             if (!await ConditionHolds(condition.valueStmt(), context))
             {
