@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Колір прозорих пікселів.",
     "Str.PropDesc.UseMaskColor": "Чи використовувати колір маски.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Показувати напрямні відступів",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Колір дужок за глибиною вкладення",
+    "Str.Dialog.Print.Configuration": "Копії: 1; орієнтація: книжкова.",
+    "Str.Dialog.Print.Unavailable": "Друк не реалізовано. OK повертає лише налаштування діалогу.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

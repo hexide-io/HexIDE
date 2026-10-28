@@ -260,6 +260,50 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
+    public async Task<int?> ShowColorDialog(int initial)
+    {
+        var dialog = new ColorDialog(initial);
+        int? result = null;
+        var title = _localization.GetString("Str.Automation.ChooseColor");
+        if (Static.SingleView)
+        {
+            var task = ShowManagedWindow(out var window, title, dialog, false);
+            dialog.ColorRequest += r => { result = r; window.CloseCommand.Execute(window.CloseCommandParameter); };
+            await task;
+        }
+        else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = MakeDialogWindow(title, dialog);
+            dialog.ColorRequest += r => { result = r; window.Close(); };
+            await window.ShowDialog(GetTopWindow(desktop));
+        }
+        else
+            throw new NotImplementedException();
+        return result;
+    }
+
+    public async Task<bool> ShowPrintDialog()
+    {
+        var dialog = new PrintDialog();
+        var result = false;
+        var title = _localization.GetString("Str.Tool.Project.Menu.Print");
+        if (Static.SingleView)
+        {
+            var task = ShowManagedWindow(out var window, title, dialog, false);
+            dialog.PrintRequest += r => { result = r; window.CloseCommand.Execute(window.CloseCommandParameter); };
+            await task;
+        }
+        else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = MakeDialogWindow(title, dialog);
+            dialog.PrintRequest += r => { result = r; window.Close(); };
+            await window.ShowDialog(GetTopWindow(desktop));
+        }
+        else
+            throw new NotImplementedException();
+        return result;
+    }
+
     public async Task<FontDialogResult?> ShowFontDialog(FontDialogResult? initial = null)
     {
         var vm = new FontDialogViewModel(initial);

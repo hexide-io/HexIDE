@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "A cor dos pixels transparentes.",
     "Str.PropDesc.UseMaskColor": "Se a cor da máscara é usada.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Mostrar guias de indentação",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
+    "Str.Dialog.Print.Configuration": "Cópias: 1; orientação: vertical.",
+    "Str.Dialog.Print.Unavailable": "A impressão não está implementada. OK devolve apenas as definições do diálogo.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

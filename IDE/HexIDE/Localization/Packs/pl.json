@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Kolor przezroczystych pikseli.",
     "Str.PropDesc.UseMaskColor": "Czy używać koloru maski.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Pokaż prowadnice wcięć",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
+    "Str.Dialog.Print.Configuration": "Kopie: 1; orientacja: pionowa.",
+    "Str.Dialog.Print.Unavailable": "Drukowanie nie jest zaimplementowane. OK zwraca tylko ustawienia okna dialogowego.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

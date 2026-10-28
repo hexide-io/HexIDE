@@ -62,7 +62,9 @@ What these show:
 
 - **A form's Move** is built as measured above: the argument shapes, the checks before anything moves, twips whatever
   the ScaleMode, and a single Resize for a change of size (`VBFormRuntime.ResizeOnce`).
-- **Left and Top go where an assignment to them puts them**, which doesn't yet move the window (#852).
+- **Left and Top move the window** and retain assigned twips between pixels (#852). A twip is a fifteenth of a
+  device-independent pixel, as `Screen`'s size is, so at 150% scaling `Left = 1200` puts the window 120 of the
+  screen's own pixels across, and CenterScreen centres it in the units `Screen.Width` reports.
 - **Not modelled:** the window system's smallest size. HexIDE's form takes the size asked for, as an assignment to Width
   does.
 - **Refused:** Move on a minimized or maximized form, which wasn't measured. Named arguments to Move are refused

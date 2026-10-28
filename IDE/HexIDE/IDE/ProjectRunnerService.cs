@@ -116,6 +116,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
             };
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
         HostDialogs.File = request => MDIStandaloneStandardLib.ShowFileDialog(windowManager, request);
+        HostDialogs.Print = windowManager.ShowPrintDialog;
+        HostDialogs.Color = windowManager.ShowColorDialog;
         HostDialogs.Font = initial => MDIStandaloneStandardLib.ShowFontDialog(windowManager, initial);
 
         // Break/Continue toggle the debug state without touching `runningProject`, so re-query the run commands
@@ -828,6 +830,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         /// with answer_next_file_dialog as it answers the IDE's.
         /// </summary>
         public Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) => ShowFileDialog(windowManager, request);
+
+        public Task<bool> ShowPrintDialog() => windowManager.ShowPrintDialog();
+
+        public Task<int?> ShowColorDialog(int initial) => windowManager.ShowColorDialog(initial);
 
         public Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) => ShowFontDialog(windowManager, initial);
 
