@@ -340,7 +340,7 @@ public static class VbNumeric
         // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below
         // keep their decimal precision instead of going through a double.
         if (v.Type == VT.String)
-            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v)), target, ctx);
+            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v, allowCurrency: target == VT.Long)), target, ctx);
         return Narrow(v, target, ctx);
     }
 
