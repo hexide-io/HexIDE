@@ -283,6 +283,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 RefreshModified();
         }));
         AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(_ => FlushComponentsToModel()));
+        AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
+        {
+            if (e.Module == formDefinition?.OwningModule)
+                RequestClose();
+        }));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
             if (e.Form == formDefinition)
