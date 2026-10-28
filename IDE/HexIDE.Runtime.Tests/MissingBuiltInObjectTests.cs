@@ -6,7 +6,7 @@ public class MissingBuiltInObjectTests : BaseVBTestFixture
 {
     public static IEnumerable<object[]> NamesAndDeclarationModes()
     {
-        foreach (var name in new[] { "Screen", "Printer", "Printers", "Forms", "sCrEeN" })
+        foreach (var name in new[] { "Printer", "Printers", "Forms", "pRiNtEr" })
             foreach (var explicitDeclarations in new[] { false, true })
                 yield return [name, explicitDeclarations];
     }

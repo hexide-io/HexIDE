@@ -85,6 +85,9 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     public ITextClipboard Clipboard => new AvaloniaTextClipboard(() => _parent.Clipboard);
     public IVbSettingsStore Settings => VbSettingsStores.ForThisUser();
 
+    private AvaloniaInterop.AvaloniaDisplay? display;
+    public IVbDisplay Display => display ??= new AvaloniaInterop.AvaloniaDisplay(() => _parent);
+
     /// <summary>A CommonDialog's Open or Save As (#1084), as the platform's own picker over the program's window.</summary>
     public async Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request)
     {
@@ -101,7 +104,13 @@ public class StandaloneStandardLib : IBasicStandardLibrary
                 : null;
         }
         var opened = await provider.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start));
-        return opened.Count > 0 && opened[0].TryGetLocalPath() is { } openedPath ? new VbFileDialogAnswer(openedPath, null) : null;
+        if (opened.Count == 0 || opened[0].TryGetLocalPath() is not { } firstPath)
+            return null;
+        var paths = new List<string> { firstPath };
+        foreach (var file in opened.Skip(1))
+            paths.Add(file.TryGetLocalPath()
+                      ?? throw new NotImplementedException("A CommonDialog non-local file selection is not implemented (#1084)"));
+        return new VbFileDialogAnswer(paths[0], null, paths.Skip(1).ToArray());
     }
 
     /// <summary>A CommonDialog's ShowFont (#1084): the application's font dialog, where it has one.</summary>

@@ -21,31 +21,52 @@ measured: guessing "the project name" is the obvious answer and it is wrong.
 **`App.ProductName` is empty at design time** but follows `Title` once compiled — it is read from the
 version resource, which only a built exe has.
 
-### Re-measured: the fallback is the `.vbp` file's name (2026-10-27, #2413)
+**With no `Title=` key at all**, a compiled `App.Title` falls back to the project `Name=` (measured
+separately: `Name="verify"`, no `Title=` → `App.Title` = `verify`).
 
-The September probe returned `verify` with `Name="verify"` and no `Title=`, but did not
-establish a distinction between the project name and its filename. The September closing-quote
-observations in the table above were also not reproduced by these later probes; they are superseded.
+### Re-measured: the fallback is the `.vbp` file's name, and no quote is kept (2026-10-27, #1483)
 
-Issue #2413 records vb6.exe SP6 probes compiled as p-code, saved as `probe.vbp`:
+Six projects, each `probe.vbp`, compiled as p-code on the guest's vb6.exe SP6. Each logged `App.Title`, `App.EXEName`
+and `App.ProductName`:
 
-| Project keys | `App.Title` | `App.EXEName` |
-|---|---|---|
-| `Name="Alpha"`, `ExeName32="beta.exe"`, no `Title=` | `probe` | `beta` |
-| `Title="TitleKey"`, `ExeName32="ExeNameKey.exe"`, `Name="NameKey"` | `TitleKey` | `ExeNameKey` |
-| `Title="Titled App"`, `Title=Unquoted`, or final-line `Title="LastKey"` | `Titled App`, `Unquoted`, or `LastKey`, respectively | `probe` |
-
-The later issue comment records runs on the guest console using `vb6.exe /run`:
-
-| Project file and keys | `App.Title` | `App.EXEName` | `App.ProductName` |
+| `.vbp` keys | `App.Title` | `EXEName` | `ProductName` |
 |---|---|---|---|
-| `probe.vbp`, `Name="Alpha"`, `ExeName32="beta.exe"`, no `Title=` | `probe` | `probe` | empty |
-| `Gamma.vbp`, same keys | `Gamma` | `Gamma` | empty |
-| `probe.vbp`, `Title="TitleKey"` | `TitleKey` | `probe` | empty |
+| `ExeName32="beta.exe"`, `Name="Alpha"`, no `Title=` | **`probe`** | `beta` | `probe` |
+| `Title="TitleKey"`, `ExeName32="ExeNameKey.exe"`, `Name="NameKey"` | **`TitleKey`** | `ExeNameKey` | `TitleKey` |
+| the same three keys, `Title=` after the other two | `TitleKey` | `ExeNameKey` | `TitleKey` |
+| `Title="Titled App"` | `Titled App` | `probe` | `Titled App` |
+| `Title=Unquoted` | `Unquoted` | `probe` | `Unquoted` |
+| `Title="LastKey"`, the file's last line | `LastKey` | `probe` | `LastKey` |
 
-Thus the absent-title fallback is the project filename without extension in both modes.
-Both remove the closing quote; HexIDE's quote stripping matches these measurements and is
-no longer recorded as a deliberate divergence. Unsaved projects were not measured.
+- **With no `Title=`, a compiled `App.Title` is the `.vbp` file's name.** It is not the project's `Name=` and not the
+  exe's. The 2026-09-01 "verify" row fits this reading as well as the `Name=` one, and could not tell them apart.
+- **No form of `Title=` kept its closing quote** on this guest, quoted or not, with a space or without, last line or
+  not. The section below, measured on 2026-09-01, could not be reproduced. The cause is unknown. It may be the VB6
+  build the oracle ran then (see "Which VB6 the oracle is"), or how that probe's file was written. The section is
+  kept as it was measured.
+- **Under F5 as well** (measured the same day). Each project was run in the VB6 IDE with `vb6.exe /run`, in the guest's
+  console session:
+
+  | `.vbp` | `App.Title` | `App.EXEName` | `App.ProductName` |
+  |---|---|---|---|
+  | `probe.vbp`: `Name="Alpha"`, `ExeName32="beta.exe"`, no `Title=` | `probe` | `probe` | empty |
+  | `Gamma.vbp`: the same keys | **`Gamma`** | `Gamma` | empty |
+  | `probe.vbp` with `Title="TitleKey"` | `TitleKey`, with no quote | `probe` | empty |
+
+  So the fallback is the `.vbp` file's name both ways, and under F5 too no quote was kept.
+
+### A VB6 defect: `Title=` keeps its closing quote
+
+`Title="TitleValue"` yields `App.Title` = **`TitleValue"`**. `Title=UnquotedTitle` reads back clean, so it
+is the quotes: VB6's `.vbp` reader strips the leading `"` and not the trailing one. It shows up under F5
+as well as compiled, so it is the project-file reader rather than the resource writer.
+
+This is not academic — **VB6's own templates write the key quoted**: `Title="Project1"` appears verbatim in
+the `VB98\Template` corpus. So real VB6 projects carry a stray `"` at the end of `App.Title`.
+
+**HexIDE strips both quotes.** Per the Fidelity Principle in `CLAUDE.md` — reproduce VB6's intended
+behaviour, not its bugs — a trailing quote in an application's title is a defect, not a design. Recorded
+here so the divergence is deliberate and traceable rather than a later "bug".
 
 ### Note on method
 
