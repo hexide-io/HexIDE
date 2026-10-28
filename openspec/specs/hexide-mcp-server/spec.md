@@ -714,6 +714,16 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
 
+### Requirement: An array or object that arrives as text SHALL be refused naming a stale schema
+When a string argument holds, as JSON, the array or object its parameter declares, the server SHALL refuse it, and
+the refusal SHALL say that a client holding an older schema of the tool sends that, that retrying in the same session
+sends it again, and that a new session loads the current schema. It SHALL NOT point the caller at the schema. A long
+string in any refusal SHALL be shown by its length and its start.
+
+#### Scenario: A parameter added after the session loaded the tool
+- **WHEN** a session that loaded `answer_next_file_dialog` before it took `paths` sends `paths` as an array
+- **THEN** the refusal names the stale schema and says a new session is needed, and nothing is armed
+
 ### Requirement: Integral argument overflow explains the storage limit
 The server SHALL refuse an integral argument outside its parameter's storage range with the argument
 name, supplied value, and whether it is larger or smaller than any whole number the argument can hold,
