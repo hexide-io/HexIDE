@@ -344,7 +344,7 @@ Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
 
 **The programs:**
 - **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
-  `corpus/inbox-controls/pending/richtextbox/`.
+  `corpus/inbox-controls/saved/richtextbox/`.
   - RichTextBox1 had every property off its default, its lines in reverse order, and an inline
     `TextRTF = "{\rtf1\ansi{\fonttbl{\f0 Arial;}}\f0\fs20 Hello \b bold\b0\par second line}"`.
   - RichTextBox2 had only its position, extents and `_Version`.
@@ -398,5 +398,50 @@ OLEDropMode, TextRTF, the Font block
 
 ### In HexIDE
 
-HexIDE doesn't model the RichTextBox (#1100). The designer draws it as an empty box (#157), and running a form that
-holds one is refused, as for any control HexIDE can't create (#857).
+HexIDE runs the code-driven text, selection and character-formatting surface, plus paragraph alignment.
+The measured saved `.frm` and `.frx` now round-trip byte for byte. Saved TextRTF loads through the model;
+MultiLine False keeps its first paragraph, including on subsequent Text assignments. Other saved own
+properties are carried without designer editors; runtime access still refuses except Enabled, Appearance, BorderStyle, Locked, MaxLength and read-only MultiLine/ScrollBars. RichTextLib is
+available in Components/the toolbox, and placement seeds the name as RTF. A first input/drawing slice now
+accepts typing, Enter and Backspace with the recorded event order, respects saved ReadOnly/MaxLength and
+protected text, and draws character formatting and inverse selection. Click/double-click selection, the recorded shortcuts, plain-text clipboard/Undo and caret scrolling now work.
+Undo retains the RTF model, including paragraph formatting. Shift-arrow, Shift+Home/End and command-arrow selection implement the endpoints above, including the hidden final break and punctuation stops. Modified clicks, drag selection and word
+selection outside the recorded ASCII word with its trailing space explicitly refuse. Formatted clipboard
+transfer also refuses. Saved BackColor, disabled text/background and flat/inset borders now draw. Enabled supports Boolean runtime access; Appearance and BorderStyle read saved/default values and refuse assignments with 383. Runtime BackColor access, paragraph drawing and character offsets remain deferred. Undo after a code edit explicitly refuses: that interaction is unmeasured. Non-ASCII KeyPress conversion is unmeasured
+and refuses before editing; code-driven ANSI text still works.
+
+Locked and SelProtected now expose Boolean runtime access through the existing input guards; code can
+still replace protected text. MultiLine/ScrollBars read saved/default values and reject writes with 383.
+MaxLength accepts the recorded 0, 5 and 20 values, truncates Text and drops SelText appended at the full
+limit. Other limit assignments, reducing below the existing length, other code selection replacements
+under a limit and RTF assignments under a limit refuse. No new conversion or RTF truncation rule is inferred.
+
+The checked-in save's first `.frx` record (the toolbox-created RichTextBox3) has the `\ansi\deff0`
+header, without `\ansicpg1252`, as the plain Text shape above does. That artifact is what the persistence
+and toolbox tests pin; the earlier third-shape description above is not used to change its bytes.
+Provenance: group 3's VB6-saved `Form1.frx` at offset 0, issuecomment-6433151637 (oracle PR #2250).
+No new VB6 measurements were made in this implementation run.
+
+The A0 foundation supplies the internal RTF reader/writer connected to the control. It reproduces the empty,
+plain-text and formatted Arial/Courier New documents above, including character runs and font/colour tables.
+It also reads the measured Arial input with a paragraph break and writes CR LF in plain Text as paragraph
+breaks. Paragraph runs retain alignment, left/right/first-line indents, tab stops and the recorded Symbol
+bullet groups. Accepted paragraph words retain their order; no additional rich-edit normalisation rule is
+claimed. The recorded empty SelRTF and the `slow` selection above are emitted byte for byte, with the latter
+carrying only its used font and colour. Mixed-format or paragraph selection output and selection font
+charset normalisation remain refused.
+Strikethrough, protection, paragraph resets, tab stops, group restoration and combined paragraph fragments
+have parser-invariant tests; these are not new VB6 measurements. The composed bullet test pins the recorded
+groups and Symbol table entry, not a newly measured whole document. Lone CR/LF output from plain Text, multiple bullet paragraphs, other
+bullet/table syntax and unknown words remain refused. The remaining control members and the rest of input/drawing remain separate parts. No additional VB6 measurements were made for this slice.
+
+Keyboard selection follows "Keyboard selection: where the endpoints land" above. Wrapped-line vertical endpoints, lone-break navigation and non-ASCII word endpoints remain refused. Collapsing a hidden-break selection and command-left collapse also remain refused as unmeasured.
+
+Plain Left/Right/Home/End/Up/Down without a selection now use the corresponding recorded Shift
+endpoints, as directed by the supervisor's 2026-10-28 comment on #1100; this is an implementation
+mapping, not a new VB6 measurement. Lone-break navigation and wrapped Home/End/Up/Down refuse,
+as do plain Home/End/Up/Down with a selection (their collapse endpoints are unmeasured).
+The designer uses the existing labelled, view-only placeholder even for unsupported RTF.
+Saved BackColor accepts hexadecimal and decimal OLE_COLOR spellings; the checked-in group-3
+save's RichTextBox1 uses decimal 12648447 (RGB 255, 255, 192). The runtime regression loads
+that saved form and its companion rather than substituting a handwritten hexadecimal colour.

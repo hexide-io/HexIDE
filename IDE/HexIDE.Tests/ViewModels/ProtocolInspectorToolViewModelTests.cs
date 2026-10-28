@@ -52,6 +52,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         {
             "Str.Tool.ProtocolInspector.Truncated" => "-- {0} of {1} bytes not kept --",
             "Str.Tool.ProtocolInspector.DetailHeader" => "#{0} {1} {2}",
+            "Str.Tool.ProtocolInspector.ReplaceFiles" => "Replace these files? {0}",
             "Str.Tool.ProtocolInspector.Exported" => "Exported {0} messages to {1} and {2}",
             var key => key,
         });
@@ -675,7 +676,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         // wrong one — most likely by concluding the record was empty.
         Frame("vb6", "initialize");
         _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>())
-                .Returns(Path.Combine(Path.GetTempPath(), "no-such-directory-here", "x.jsonl"));
+                .Returns(Path.GetTempPath());
 
         var vm = Sut();
         await vm.ExportAsync();
@@ -774,6 +775,99 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
             _windows.ShowDialog(Arg.Any<IDialog>());
             _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
         });
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task DecliningReplacementKeepsBothExportFiles(bool messagesExist, bool manifestExists)
+    {
+        var folder = Directory.CreateTempSubdirectory("hexide-export-test-");
+        try
+        {
+            var messages = Path.Combine(folder.FullName, "one.jsonl");
+            var manifest = Path.Combine(folder.FullName, "one.manifest.json");
+            if (messagesExist) File.WriteAllText(messages, "original messages");
+            if (manifestExists) File.WriteAllText(manifest, "original manifest");
+            PreviewAccepted();
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(messages);
+            _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning).Returns(MessageBoxResult.No);
+
+            var vm = Sut();
+            await vm.ExportAsync();
+
+            File.Exists(messages).Should().Be(messagesExist);
+            File.Exists(manifest).Should().Be(manifestExists);
+            if (messagesExist) File.ReadAllText(messages).Should().Be("original messages");
+            if (manifestExists) File.ReadAllText(manifest).Should().Be("original manifest");
+            vm.ExportStatus.Should().BeEmpty();
+        }
+        finally { folder.Delete(recursive: true); }
+    }
+
+    [Fact]
+    public async Task ReplacementAsksAboutBothExistingFilesBeforeWritingEither()
+    {
+        var folder = Directory.CreateTempSubdirectory("hexide-export-test-");
+        try
+        {
+            var messages = Path.Combine(folder.FullName, "one.jsonl");
+            var manifest = Path.Combine(folder.FullName, "one.manifest.json");
+            File.WriteAllText(messages, "original messages");
+            File.WriteAllText(manifest, "original manifest");
+            PreviewAccepted();
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(messages);
+            _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning).Returns(call =>
+                {
+                    call.ArgAt<string>(0).Should().Contain(messages).And.Contain(manifest);
+                    File.ReadAllText(messages).Should().Be("original messages");
+                    File.ReadAllText(manifest).Should().Be("original manifest");
+                    return MessageBoxResult.Yes;
+                });
+
+            var vm = Sut();
+            await vm.ExportAsync();
+
+            await _windows.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(),
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            await _windows.Received(1).SaveFilePickerAsync(
+                Arg.Is<FilePickerSaveOptions>(options => options.ShowOverwritePrompt == false));
+            File.ReadAllText(messages).Should().NotBe("original messages");
+            File.ReadAllText(manifest).Should().NotBe("original manifest");
+            vm.ExportStatus.Should().Contain("Exported");
+        }
+        finally { folder.Delete(recursive: true); }
+    }
+
+    [Fact]
+    public async Task AFileAppearingAfterReplacementConsentIsNotSilentlyReplaced()
+    {
+        var folder = Directory.CreateTempSubdirectory("hexide-export-test-");
+        try
+        {
+            var messages = Path.Combine(folder.FullName, "one.jsonl");
+            var manifest = Path.Combine(folder.FullName, "one.manifest.json");
+            File.WriteAllText(manifest, "original manifest");
+            PreviewAccepted();
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(messages);
+            _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning).Returns(_ =>
+                {
+                    File.WriteAllText(messages, "arrived while asking");
+                    return MessageBoxResult.Yes;
+                });
+
+            var vm = Sut();
+            await vm.ExportAsync();
+
+            File.ReadAllText(messages).Should().Be("arrived while asking");
+            File.ReadAllText(manifest).Should().Be("original manifest");
+            vm.ExportStatus.Should().Contain("Str.Tool.ProtocolInspector.ExportFailed");
+        }
+        finally { folder.Delete(recursive: true); }
     }
 
     // ── The pane's preview of what would leave ───────────────────────────────

@@ -260,6 +260,50 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
+    public async Task<int?> ShowColorDialog(int initial)
+    {
+        var dialog = new ColorDialog(initial);
+        int? result = null;
+        var title = _localization.GetString("Str.Automation.ChooseColor");
+        if (Static.SingleView)
+        {
+            var task = ShowManagedWindow(out var window, title, dialog, false);
+            dialog.ColorRequest += r => { result = r; window.CloseCommand.Execute(window.CloseCommandParameter); };
+            await task;
+        }
+        else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = MakeDialogWindow(title, dialog);
+            dialog.ColorRequest += r => { result = r; window.Close(); };
+            await window.ShowDialog(GetTopWindow(desktop));
+        }
+        else
+            throw new NotImplementedException();
+        return result;
+    }
+
+    public async Task<bool> ShowPrintDialog()
+    {
+        var dialog = new PrintDialog();
+        var result = false;
+        var title = _localization.GetString("Str.Tool.Project.Menu.Print");
+        if (Static.SingleView)
+        {
+            var task = ShowManagedWindow(out var window, title, dialog, false);
+            dialog.PrintRequest += r => { result = r; window.CloseCommand.Execute(window.CloseCommandParameter); };
+            await task;
+        }
+        else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = MakeDialogWindow(title, dialog);
+            dialog.PrintRequest += r => { result = r; window.Close(); };
+            await window.ShowDialog(GetTopWindow(desktop));
+        }
+        else
+            throw new NotImplementedException();
+        return result;
+    }
+
     public async Task<FontDialogResult?> ShowFontDialog(FontDialogResult? initial = null)
     {
         var vm = new FontDialogViewModel(initial);
@@ -352,26 +396,38 @@ public class WindowManager : IWindowManager
         }
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var owner = GetTopWindow(desktop);
-            var window = new DialogWindow()
-            {
-                Content = dialog,
-                DataContext = dialog,
-                SizeToContent = SizeToContent.WidthAndHeight,
-                CanResize = dialog.CanResize,
-                ShowActivated = true,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                // Inherit the chrome's reading direction so dialogs mirror under an RTL language.
-                FlowDirection = owner.FlowDirection
-            };
-            if (dialog.CanResize)
-            {
-                // Let the window measure itself at content size, then unlock for user resizing
-                window.Opened += (_, _) => window.SizeToContent = SizeToContent.Manual;
-            }
-            return await window.ShowDialog<bool>(owner);
+            return await ShowDialog(desktop, dialog);
         }
         throw new NotImplementedException();
+    }
+
+    internal async Task<bool> ShowDialog(IClassicDesktopStyleApplicationLifetime desktop, IDialog dialog)
+    {
+        var owner = GetTopWindow(desktop);
+        if (dialog is LanguageRevertGateViewModel)
+        {
+            // Activation can still point at the main window while Options is open (#623).
+            owner = desktop.MainWindow ?? owner;
+            while (owner.OwnedWindows.LastOrDefault(child => child.IsVisible) is { } child)
+                owner = child;
+        }
+        var window = new DialogWindow()
+        {
+            Content = dialog,
+            DataContext = dialog,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = dialog.CanResize,
+            ShowActivated = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            // Inherit the chrome's reading direction so dialogs mirror under an RTL language.
+            FlowDirection = owner.FlowDirection
+        };
+        if (dialog.CanResize)
+        {
+            // Let the window measure itself at content size, then unlock for user resizing
+            window.Opened += (_, _) => window.SizeToContent = SizeToContent.Manual;
+        }
+        return await window.ShowDialog<bool>(owner);
     }
 
     private static Window MakeDialogWindow(string title, Control content) => new Window

@@ -618,9 +618,22 @@ public class PropertyAssignmentTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Dim c\r\nc = Timer1.BackColor")]
     [InlineData("Dim c\r\nc = HScroll1.ForeColor")]
+    [InlineData("Dim c\r\nc = HScroll1.BackColor")]
+    [InlineData("HScroll1.ForeColor = vbRed")]
+    [InlineData("HScroll1.BackColor = vbRed")]
     public async Task A_colour_on_a_control_VB6_gives_none_is_refused_rather_than_read_as_black(string code)
+    {
+        (await Refusal(code)).Should().Contain("#801");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Dim v\nv = Timer1.ForeColor")]
+    [InlineData("Timer1.Parent = 5")]
+    [InlineData("Dim p As Object\nSet p = Timer1.Parent")]
+    [InlineData("Set Timer1.Parent = Nothing")]
+    [InlineData("Dim o As Object\nSet o = Timer1\nSet o.Parent = Nothing")]
+    public async Task Unmeasured_Timer_members_refuse_explicitly(string code)
     {
         (await Refusal(code)).Should().Contain("#801");
     }

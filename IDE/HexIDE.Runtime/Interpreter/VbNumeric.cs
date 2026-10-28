@@ -260,6 +260,8 @@ public static class VbNumeric
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             return new Vb6Value(-d);
         }
+        if (v.Type == VT.Currency)
+            return MakeCurrency(-ToDecimal(v), ctx);   // -1@ remains Currency (#1073)
         var rt = rank <= 1 ? VT.Integer : CoreType(rank);   // Byte/Boolean negate into Integer
         if (rt == VT.Integer || rt == VT.Long)
             return NarrowLong(-ToLong(v), rt, ctx, v.HasFixedType);
@@ -314,6 +316,10 @@ public static class VbNumeric
     /// </summary>
     public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx)
     {
+        if (v.Type == VT.Error && (target == VT.Long || target == VT.String))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        if (v.Type == VT.Error)
+            throw new NotImplementedException("Assignment of an Error Variant to this declared type is unmeasured (#2520)");
         if (v.Type == VT.AutomationUnsignedLong)
             throw new NotImplementedException("Conversion of an unsigned Automation Long is not implemented (#1084)");
         if (v.Type == target)
@@ -338,7 +344,7 @@ public static class VbNumeric
         // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below
         // keep their decimal precision instead of going through a double.
         if (v.Type == VT.String)
-            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v)), target, ctx);
+            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v, allowCurrency: target == VT.Long)), target, ctx);
         return Narrow(v, target, ctx);
     }
 

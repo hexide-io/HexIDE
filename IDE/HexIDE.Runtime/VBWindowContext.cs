@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Utils;
@@ -25,6 +26,8 @@ public class VBWindowContext : IModuleExecutionRoot
     // Set once StartAsync begins. A started form's declarations run there and nowhere else, so an event can never run
     // them late, after Load has used the variables they would re-create (#1010 review).
     private bool started;
+    private bool controlsStarted;
+    private bool controlsShown;
 
     public ModuleExecutionContext ExecutionContext { get; private set; } = new();
 
@@ -168,6 +171,14 @@ public class VBWindowContext : IModuleExecutionRoot
             existing.FormWindow = Window;
     }
 
+    internal void AttachControl(VBProgram program, ModuleInfo module)
+    {
+        Attach(program, module, "", new VbObject(module, module.ModuleEnv.Clone()) { FormLoaded = true });
+        formDeclarationsRun = false;
+        started = false;
+        program.Interpreter.AddRef(Vb6Value.NewObject(instance!));
+    }
+
     /// <summary>
     /// Make the instance's start before its load (#822): the modules' declarations, the form's own, then
     /// <c>Form_Initialize</c>, inside the walk that first used the form's name, as VB6 runs it (measured). An error in
@@ -194,7 +205,65 @@ public class VBWindowContext : IModuleExecutionRoot
         form.FormUnloaded = false;
         ExecutionContext.State.ClearPendingControls(form);
         Program?.Loaded(this);
+        await StartControls();
         await Report(() => interpreter!.RaiseFormEvent(form, "Form_Load"));
+    }
+
+    internal async Task ControlEvent(string name, IReadOnlyList<Vb6Value>? args = null)
+    {
+        await EnsureDeclarations();
+        await interpreter!.RaiseFormEvent(EnsureInstance(), name, args);
+    }
+
+    // The event is measured; PropertyBag operations are not part of #1631 and remain explicitly refused.
+    private sealed class UnimplementedPropertyBag : ICSharpProxy, ICSharpPropertyBag
+    {
+        public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"PropertyBag.{method}");
+        public bool TryGetProperty(string name, out Vb6Value value) => throw new NotImplementedException($"PropertyBag.{name}");
+        public bool TrySetProperty(string name, Vb6Value value) => throw new NotImplementedException($"PropertyBag.{name}");
+    }
+
+    private IEnumerable<VBUserControl> UserControls => EnsureInstance().Controls?.All.OfType<VBUserControl>()
+        .OrderBy(AvaloniaInterop.UserControlMembers.Windowless) ?? Enumerable.Empty<VBUserControl>();
+
+    private async Task StartControls()
+    {
+        if (controlsStarted)
+            return;
+        controlsStarted = true;
+        foreach (var control in UserControls)
+        {
+            if (control.Context is not { } context)
+                continue;
+            await context.ControlEvent("UserControl_Initialize");
+            await context.ControlEvent("UserControl_ReadProperties", [new Vb6Value(new UnimplementedPropertyBag())]);
+            if (!AvaloniaInterop.UserControlMembers.Invisible(control))
+                await context.ControlEvent("UserControl_Resize");
+        }
+    }
+
+    internal void ShowControls()
+    {
+        if (controlsShown)
+            return;
+        controlsShown = true;
+        foreach (var control in UserControls)
+            if (!AvaloniaInterop.UserControlMembers.Invisible(control))
+                control.ExecuteSub("UserControl_Show");
+    }
+
+    private async Task StopControls()
+    {
+        foreach (var control in UserControls)
+        {
+            if (control.Context is not { } context)
+                continue;
+            if (!AvaloniaInterop.UserControlMembers.Invisible(control))
+                await context.ControlEvent("UserControl_Hide");
+            await context.ControlEvent("UserControl_Terminate");
+        }
+        controlsStarted = false;
+        controlsShown = false;
     }
 
     // Whether the window has been shown since the form loaded, and its extent when Resize was last raised (#994).
@@ -211,6 +280,7 @@ public class VBWindowContext : IModuleExecutionRoot
     {
         if (shownSinceLoad || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
+        ShowControls();
         shownSinceLoad = true;
         resizedAt = view.Extent;
         ExecuteSub("Form_Resize");
@@ -223,15 +293,20 @@ public class VBWindowContext : IModuleExecutionRoot
     /// A size setter also reports while hidden (#1570), inside the assignment; Show still raises its own Resize.
     /// And a Move to the size the form has raises none in VB6 (measured).
     /// </summary>
-    public void WindowResized(bool sizeSet = false)
+    public void WindowResized(bool sizeSet = false, bool paintGrowth = false)
     {
         if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
         var now = view.Extent;
         if (now == resizedAt)
             return;
+        // Mixed growth and shrinkage was not measured; keep its existing lack of Paint (#2389).
+        var grew = now.Size.Width >= resizedAt.Size.Width && now.Size.Height >= resizedAt.Size.Height
+            && (now.Size.Width > resizedAt.Size.Width || now.Size.Height > resizedAt.Size.Height);
         resizedAt = now;
         ExecuteSub("Form_Resize");
+        if (paintGrowth && grew)
+            ExecuteSub("Form_Paint");
     }
 
     /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>
@@ -309,6 +384,7 @@ public class VBWindowContext : IModuleExecutionRoot
             unloading = false;
         }
         form.FormLoaded = false;
+        await StopControls();
         form.FormUnloaded = true;
         HoldControls(form);
         if (Window is not null)
@@ -433,6 +509,7 @@ public class VBWindowContext : IModuleExecutionRoot
                     form.FormLoaded = true;
                     ExecutionContext.State.ClearPendingControls(form);
                     Program?.Loaded(this);
+                    await StartControls();
                     if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) == Outcome.Over)
                         return false;
                 }
@@ -478,6 +555,32 @@ public class VBWindowContext : IModuleExecutionRoot
         });
     }
 
+    public async Task ExecuteEditEventAsync(string name, IList<Vb6Value> args)
+    {
+        if (interpreter is null) return;
+        await Events.Run(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded) return false;
+            return await Dispatch(async () =>
+            {
+                if (!started) await EnsureDeclarations();
+                var callArgs = new List<CallArg>();
+                for (var i = 0; i < args.Count; i++)
+                    callArgs.Add(new CallArg(args[i], null, new EditArgument(args, i)));
+                await interpreter.RaiseFormEvent(form, name, callArgs);
+            });
+        });
+    }
+
+    private sealed record EditArgument(IList<Vb6Value> Arguments, int Index) : IByRefTarget
+    {
+        public Vb6Value.ValueType? DeclaredType => Arguments[Index].Type;
+        public bool IsVariant => false;
+        public Vb6Value Read() => Arguments[Index];
+        public void Write(Vb6Value value) => Arguments[Index] = value;
+    }
+
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
@@ -505,6 +608,24 @@ public class VBWindowContext : IModuleExecutionRoot
         // Each element of a Timer array is a timer of its own, so its ticks are kept apart by Index.
         var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
         Raise(name, () => argList, EventCoalescing.Timer, key);
+    }
+
+    internal void ExecuteControlInput(string name, Func<Task> work)
+    {
+        if (interpreter is null)
+            return;
+        Events.Raise(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded || Program is not null && !form.FormLoaded)
+                return;
+            await Dispatch(async () =>
+            {
+                if (!started)
+                    await EnsureDeclarations();
+                await work();
+            });
+        });
     }
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,

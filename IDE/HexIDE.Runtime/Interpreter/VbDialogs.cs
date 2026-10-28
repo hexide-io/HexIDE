@@ -37,6 +37,10 @@ public sealed record VbFontChoice(string Name, float Size, bool Bold, bool Itali
 /// </summary>
 public static class HostDialogs
 {
+    public static Func<Task<bool>>? Print { get; set; }
+
+    public static Func<int, Task<int?>>? Color { get; set; }
+
     /// <summary>Open and Save As, or null for the platform's picker.</summary>
     public static Func<VbFileDialogRequest, Task<VbFileDialogAnswer?>>? File { get; set; }
 

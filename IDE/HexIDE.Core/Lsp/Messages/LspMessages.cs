@@ -282,7 +282,11 @@ public record WorkspaceClientCapabilities(
     /// negotiation and shipping either alone produces silence rather than an error.
     /// </remarks>
     [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null,
+    [property: JsonPropertyName("diagnostics")] WorkspaceDiagnosticsClientCapabilities? Diagnostics = null,
     [property: JsonPropertyName("fileOperations")] FileOperationsClientCapabilities? FileOperations = null);
+
+public record WorkspaceDiagnosticsClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record FileOperationsClientCapabilities(
     [property: JsonPropertyName("didCreate")] bool DidCreate = true,
@@ -1118,3 +1122,10 @@ public record FileRename(
 public record FileOperationUri([property: JsonPropertyName("uri")] string Uri);
 public record FileOperationParams([property: JsonPropertyName("files")] FileOperationUri[] Files);
 public record RenameFilesParams([property: JsonPropertyName("files")] FileRename[] Files);
+
+public record WorkspaceFoldersChangeEvent(
+    [property: JsonPropertyName("added")] WorkspaceFolder[] Added,
+    [property: JsonPropertyName("removed")] WorkspaceFolder[] Removed);
+
+public record DidChangeWorkspaceFoldersParams(
+    [property: JsonPropertyName("event")] WorkspaceFoldersChangeEvent Event);

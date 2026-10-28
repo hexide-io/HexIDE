@@ -84,6 +84,35 @@ public class UserControlSaveRoundTripTests : IDisposable
         return vbp;
     }
 
+    // #1631 supervisor live-check regression, 2026-10-27: hand-written instances may lack extents.
+    [AvaloniaTheory]
+    [InlineData("")]
+    [InlineData("_ExtentX = 3175")]
+    [InlineData("_ExtentY = 1588")]
+    public async Task Invisible_instance_without_both_extents_opens_read_only_and_refuses_save(string extents)
+    {
+        var vbp = WriteProject("");
+        var ctlPath = Path.Join(dir, "UserControl1.ctl");
+        File.WriteAllText(ctlPath, File.ReadAllText(ctlPath).Replace("Begin VB.UserControl UserControl1",
+            "Begin VB.UserControl UserControl1\r\n   InvisibleAtRuntime = -1"));
+        var formPath = Path.Join(dir, "Form1.frm");
+        var original = $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin Test.UserControl1 Dial1\r\n      Height = 900\r\n      Width = 1800\r\n      {extents}\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        File.WriteAllText(formPath, original);
+        File.AppendAllText(vbp, "Form=Form1.frm\r\n");
+        var svc = MakeService(out var loaded);
+        await svc.OpenProject(vbp);
+        var form = loaded().Forms.Single();
+        using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, new EventBus(), svc,
+            null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+
+        designer.IsReadOnly.Should().BeTrue();
+        designer.ReadOnlyReason.Should().Contain("extents");
+        svc.HasUnsavedChanges(form); // Rendering for a read-only query must also be safe.
+        (await svc.SaveForm(form, saveAs: false, interactive: false)).Should().BeFalse();
+        File.ReadAllBytes(formPath).Should().Equal(System.Text.Encoding.UTF8.GetBytes(original));
+    }
+
     private static int Occurrences(string haystack, string needle)
     {
         var n = 0;

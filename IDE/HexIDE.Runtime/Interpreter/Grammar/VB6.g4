@@ -61,7 +61,7 @@ moduleConfig
 // newline actually follows it, so the spaces before a comment are tokenized as WS and the rule has to
 // accept them. Without this, every .cls VB6 ever wrote fails to parse at line 3.
 moduleConfigElement
-   : ambiguousIdentifier WS? EQ WS? literal WS? NEWLINE
+   : ambiguousIdentifier WS? EQ WS? signedLiteral WS? NEWLINE
    ;
 
 moduleAttributes
@@ -124,11 +124,11 @@ cp_SingleProperty
 	;
 
 cp_PropertyName
-	: (OBJECT DOT)? ambiguousIdentifier (LPAREN literal RPAREN)? (DOT ambiguousIdentifier (LPAREN literal RPAREN)?)*
+	: (OBJECT DOT)? ambiguousIdentifier (LPAREN signedLiteral RPAREN)? (DOT ambiguousIdentifier (LPAREN signedLiteral RPAREN)?)*
 	;
 
 cp_PropertyValue
-    : DOLLAR? (literal | (LBRACE ambiguousIdentifier RBRACE) | POW ambiguousIdentifier)
+    : DOLLAR? (signedLiteral | (LBRACE ambiguousIdentifier RBRACE) | POW ambiguousIdentifier)
     ;
 
 cp_NestedProperty
@@ -150,7 +150,7 @@ moduleBlock
    ;
 
 attributeStmt
-   : ATTRIBUTE WS implicitCallStmt_InStmt WS? EQ WS? literal (WS? COMMA WS? literal)*
+   : ATTRIBUTE WS implicitCallStmt_InStmt WS? EQ WS? signedLiteral (WS? COMMA WS? signedLiteral)*
    ;
 
 block
@@ -480,7 +480,7 @@ loadStmt
    ;
 
 lockStmt
-   : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+   : LOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
    ;
 
 lsetStmt
@@ -691,7 +691,7 @@ unloadStmt
    ;
 
 unlockStmt
-   : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+   : UNLOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
    ;
 
 // operator precedence is represented by rule order
@@ -968,6 +968,12 @@ labelName
 // statement.
 lineNumber
    : INTEGERLITERAL
+   ;
+
+// File metadata keeps signed numeric values without giving expression literals a leading sign.
+signedLiteral
+   : literal
+   | (PLUS | MINUS) (INTEGERLITERAL | DOUBLELITERAL | OCTALLITERAL)
    ;
 
 literal
@@ -2310,13 +2316,14 @@ HEXLITERAL
 // it (measured, #1611). A .frx offset such as `:0D2C` is unaffected: FRX_OFFSET takes its colon too, so it is the
 // longer match there. A literal may end in its point, `5.` or `5.E1`, as vb6.exe compiles it (measured, #1615); `5..5`
 // is then two literals side by side, which the parser refuses, as vb6.exe does.
+// Leading signs are operators (#1073); exponent signs remain part of the literal.
 INTEGERLITERAL
-   : (PLUS | MINUS)? ('0' .. '9') + (('e' | 'E' | 'd' | 'D') INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : ('0' .. '9') + (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
 DOUBLELITERAL
-   : (PLUS | MINUS)? (('0' .. '9') + DOT ('0' .. '9')* | DOT ('0' .. '9') +) (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : (('0' .. '9') + DOT ('0' .. '9')* | DOT ('0' .. '9') +) (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
@@ -2325,7 +2332,7 @@ FILENUMBER
    ;
 
 OCTALLITERAL
-   : (PLUS | MINUS)? '&O' [0-7] + (AMPERSAND | PERCENT)?
+   : '&O' [0-7] + (AMPERSAND | PERCENT)?
    ;
 
 // misc

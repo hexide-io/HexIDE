@@ -237,21 +237,44 @@ public sealed class VBLspClient : ILspClient
     // Shared with initialize for consistency; a policy budget, not a measured server response time.
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
 
+    // Guard removal/disposal against cancellation while a change drains the wire notifications.
+    private readonly object _supersededGate = new();
+    private readonly Dictionary<CancellationTokenSource, (string Uri, RequestCancellation Scope)> _superseded = new();
+
+    private async Task CancelSupersededAsync(string uri)
+    {
+        Task[] sends;
+        lock (_supersededGate)
+        {
+            var requests = _superseded.Where(entry => entry.Value.Uri == uri).ToArray();
+            foreach (var request in requests) request.Key.Cancel();
+            sends = requests.Select(request => request.Value.Scope.CancellationSent).ToArray();
+        }
+        await Task.WhenAll(sends);
+    }
+
     private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
-        CancellationToken cancellationToken = default, TimeSpan? timeout = null)
+        CancellationToken cancellationToken = default, TimeSpan? timeout = null, string? supersededUri = null)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var scope = new RequestCancellation(_capture, _connectionId);
         var previous = RequestCancellation.Current.Value;
         Task<T> pending;
+        if (supersededUri is not null)
+            lock (_supersededGate) _superseded.Add(cancellation, (supersededUri, scope));
         try
         {
             RequestCancellation.Current.Value = scope;
             pending = rpc.InvokeWithParameterObjectAsync<T>(method, parameters, cancellation.Token);
         }
+        catch
+        {
+            lock (_supersededGate) _superseded.Remove(cancellation);
+            throw;
+        }
         finally { RequestCancellation.Current.Value = previous; }
 
-        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellationToken); }
+        try { return await pending.WaitAsync(timeout ?? RequestTimeout, cancellation.Token); }
         catch (Exception ex) when (ex is TimeoutException || ex is OperationCanceledException)
         {
             if (ex is TimeoutException) scope.Outcome = ConversationOutcome.TimedOut;
@@ -266,6 +289,10 @@ public sealed class VBLspClient : ILspClient
         {
             scope.DropAnswer(ex);
             throw;
+        }
+        finally
+        {
+            lock (_supersededGate) _superseded.Remove(cancellation);
         }
     }
 
@@ -283,6 +310,7 @@ public sealed class VBLspClient : ILspClient
     /// replays any tracked documents. Used for the first connect and for every reconnect.</summary>
     private async Task ConnectAndInitializeAsync(CancellationToken cancellationToken)
     {
+        _serverRefreshesDiagnostics = false;
         // A FRESH formatter per connection: StreamJsonRpc formatters carry per-connection state and
         // cannot be reused across JsonRpc instances — reusing one silently breaks every reconnect.
         // It still carries the AOT-safe LspJsonContext config so serialization is identical each time.
@@ -539,7 +567,7 @@ public sealed class VBLspClient : ILspClient
         var initParams = new InitializeParams(
             ProcessId: Environment.ProcessId,
             RootUri: WorkspaceRootUri(),
-            WorkspaceFolders: WorkspaceFolders(),
+            WorkspaceFolders: _sentWorkspaceFolders = WorkspaceFolders(),
             // Sent even when it is off. The field is optional and off is its default, so this line changes
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
@@ -577,6 +605,7 @@ public sealed class VBLspClient : ILspClient
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true,
+                    Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities()));
@@ -895,6 +924,7 @@ public sealed class VBLspClient : ILspClient
             var p = new DidChangeTextDocumentParams(
                 new VersionedTextDocumentIdentifier(uri, version),
                 [new TextDocumentContentChangeEvent(text)]);
+            await CancelSupersededAsync(uri);
             try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
             catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
 
@@ -1079,7 +1109,7 @@ public sealed class VBLspClient : ILspClient
         {
             try
             {
-                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p);
+                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p, supersededUri: uri);
                 break;
             }
             catch (RemoteInvocationException ex) when (ShouldRetryDiagnostic(ex))
@@ -1466,7 +1496,7 @@ public sealed class VBLspClient : ILspClient
             var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
                 .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
             var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
-                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken);
+                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri);
             if (result?.Data is not { Length: > 0 })
             {
                 if (_semanticWarnings.TryAdd(uri, 0))
@@ -1477,7 +1507,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            if (!cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
+            if (ex is not OperationCanceledException && !cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
                 _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
             return null;
         }
@@ -1490,7 +1520,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             return await InvokeRequestAsync<FoldingRange[]>(_rpc,
-                "textDocument/foldingRange", p, cancellationToken) ?? [];
+                "textDocument/foldingRange", p, cancellationToken, supersededUri: uri) ?? [];
         }
         catch (Exception ex)
         {
@@ -1759,6 +1789,61 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    private WorkspaceFolder[]? _sentWorkspaceFolders;
+
+    public async Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return;
+        var capabilities = AdvertisedCapabilities;
+        if (capabilities is not { ValueKind: JsonValueKind.Object } caps
+            || !caps.TryGetProperty("workspace", out var workspace)
+            || workspace.ValueKind != JsonValueKind.Object
+            || !workspace.TryGetProperty("workspaceFolders", out var folders)
+            || folders.ValueKind != JsonValueKind.Object
+            || !folders.TryGetProperty("changeNotifications", out var notifications)
+            || !(notifications.ValueKind == JsonValueKind.True
+                || notifications.ValueKind == JsonValueKind.String)) return;
+
+        var current = (WorkspaceFolders() ?? []).DistinctBy(f => f.Uri).ToArray();
+        var previous = _sentWorkspaceFolders ?? [];
+        var added = current.Where(f => !previous.Any(p => p.Uri == f.Uri)).ToArray();
+        var removed = previous.Where(f => !current.Any(p => p.Uri == f.Uri)).ToArray();
+        if (added.Length == 0 && removed.Length == 0) return;
+        cancellationToken.ThrowIfCancellationRequested();
+        await _rpc.NotifyWithParameterObjectAsync("workspace/didChangeWorkspaceFolders",
+            new DidChangeWorkspaceFoldersParams(new WorkspaceFoldersChangeEvent(added, removed)));
+        _sentWorkspaceFolders = current;
+    }
+
+    private bool _serverRefreshesDiagnostics;
+
+    public async Task<JsonElement?> ImportProjectAsync(ProjectImportSpec spec, string uri, string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) throw new InvalidOperationException("The server is not initialized.");
+        if (!ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, spec.Command))
+            throw new InvalidOperationException($"The server does not advertise project-import command {spec.Command}.");
+        var result = await InvokeRequestAsync<JsonElement?>(_rpc, "workspace/executeCommand",
+            new ExecuteCommandParams(spec.Command, spec.ExpandArguments(uri, text)), cancellationToken);
+        if (result is { ValueKind: JsonValueKind.Object } reply && reply.TryGetProperty("notes", out var notes))
+        {
+            var messages = notes.ValueKind == JsonValueKind.Array ? notes.EnumerateArray().ToArray() : [notes];
+            foreach (var note in messages)
+            {
+                var textValue = note.ValueKind == JsonValueKind.Object && note.TryGetProperty("message", out var message)
+                    ? message : note;
+                if (textValue.ValueKind != JsonValueKind.String) continue;
+                LogServerMessage(new LogMessageParams(LspMessageType.Info, textValue.GetString()!));
+            }
+        }
+        if (!_serverRefreshesDiagnostics)
+        {
+            _pullResultIds.Clear();
+            foreach (var document in _openDocuments.Keys) PullDiagnosticsInBackground(document);
+        }
+        return result;
+    }
+
     public async Task<System.Text.Json.JsonElement?> ExecuteCommandAsync(
         string command,
         System.Text.Json.JsonElement[]? arguments = null,
@@ -1985,6 +2070,13 @@ public sealed class VBLspClient : ILspClient
     }
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
+
+    private void LogServerMessage(LogMessageParams p)
+    {
+        _logger.Log(LspNotificationReceiver.LevelOf(p.Type), "[{Language} server] {Message}", _languageId, p.Message);
+        RaiseMessageLogged(p);
+    }
+
     internal void RaiseMessageLogged(LogMessageParams p) => MessageLogged?.Invoke(this, p);
     internal void RaiseTraceReceived(LogTraceParams p) => TraceReceived?.Invoke(this, p);
 
@@ -2077,8 +2169,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnLogMessage(LogMessageParams p)
         {
-            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
-            _client.RaiseMessageLogged(p);
+            _client.LogServerMessage(p);
         }
 
         /// <summary>
@@ -2208,6 +2299,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("workspace/diagnostic/refresh")]
         public void OnDiagnosticRefresh()
         {
+            _client._serverRefreshesDiagnostics = true;
             _client._logger.LogDebug("The server asked for diagnostics to be refreshed; re-requesting.");
             _client._pullResultIds.Clear();
             foreach (var uri in _client._openDocuments.Keys)
@@ -2276,7 +2368,7 @@ public sealed class VBLspClient : ILspClient
         /// where something we cannot read belongs.
         /// </para>
         /// </remarks>
-        private static LogLevel LevelOf(LspMessageType type) => type switch
+        internal static LogLevel LevelOf(LspMessageType type) => type switch
         {
             LspMessageType.Error => LogLevel.Error,
             LspMessageType.Warning => LogLevel.Warning,
