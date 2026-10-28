@@ -332,9 +332,9 @@ deleteSettingStmt
    ;
 
 doLoopStmt
-   : DO blockSep (block blockSep)? LOOP # doBlockLoop
-   | DO WS (WHILE | UNTIL) WS valueStmt blockSep (block blockSep)? LOOP # doWhileBlockLoop
-   | DO blockSep (block blockSep) LOOP WS (WHILE | UNTIL) WS valueStmt # doBlockWhileLoop
+   : DO (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) LOOP # doBlockLoop
+   | DO WS (WHILE | UNTIL) WS valueStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) LOOP # doWhileBlockLoop
+   | DO blockSep (block lineSep lineHead | block blockSep) LOOP WS (WHILE | UNTIL) WS valueStmt # doBlockWhileLoop
    ;
 
 endStmt
@@ -381,15 +381,15 @@ filecopyStmt
 
 // `For _ Each` — WS? between the two keywords; see the note on selectCaseStmt for why that is not a widening.
 forEachStmt
-   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (WS ambiguousIdentifier)?
+   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) NEXT (WS ambiguousIdentifier)?
    ;
 
 forNextStmt
-   : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (WS STEP WS valueStmt)? blockSep (block blockSep)? NEXT (WS ambiguousIdentifier typeHint?)?
+   : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (WS STEP WS valueStmt)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) NEXT (WS ambiguousIdentifier typeHint?)?
    ;
 
 functionStmt
-   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_FUNCTION
+   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_FUNCTION
    ;
 
 getStmt
@@ -434,12 +434,13 @@ ifThenElseStmt
    ;
 
 ifBlockStmt
-   : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+   : IF WS ifConditionStmt WS THEN (lineSep lineHead | blockSep ifBlockBody?)
    ;
 
-// Prefer a trailing label to a bare call whose colon would otherwise end the body (#223).
+// Prefer a head on the next line, `Skip: Else` or `30 End If`, to a bare call whose colon would otherwise end the body
+// (#223). A head follows a real line break only, as in `block`: after a colon VB6 reads `Skip` as a call (#2529).
 ifBlockBody
-   : block lineLabel WS?
+   : block lineSep lineHead
    | block blockSep
    ;
 
@@ -448,11 +449,11 @@ ifConditionStmt
    ;
 
 ifElseIfBlockStmt
-   : ELSEIF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+   : ELSEIF WS ifConditionStmt WS THEN (lineSep lineHead | blockSep ifBlockBody?)
    ;
 
 ifElseBlockStmt
-   : ELSE blockSep ifBlockBody?
+   : ELSE (lineSep lineHead | blockSep ifBlockBody?)
    ;
 
 implementsStmt
@@ -549,15 +550,15 @@ printStmt
    ;
 
 propertyGetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_PROPERTY
    ;
 
 propertySetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_PROPERTY
    ;
 
 propertyLetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_PROPERTY
    ;
 
 putStmt
@@ -633,8 +634,10 @@ selectCaseStmt
    : SELECT WS? CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
    ;
 
+// A head on the line of the next Case, or of End Select, belongs to the Case before it. None may stand before the first
+// Case: vb6.exe refuses one, "Statements and labels invalid between Select Case and first Case" (measured, #2529).
 sC_Case
-   : CASE WS sC_Cond WS? (COLON? NEWLINE* | blockSep) (block blockSep)?
+   : CASE WS sC_Cond WS? (lineSep lineHead | (COLON? NEWLINE* | blockSep) (block lineSep lineHead | block blockSep)?)
    ;
 
 // ELSE first, so that it is not interpreted as a variable call
@@ -666,7 +669,7 @@ stopStmt
    ;
 
 subStmt
-   : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_SUB
+   : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_SUB
    ;
 
 timeStmt
@@ -740,7 +743,7 @@ variableSubStmt
    ;
 
 whileWendStmt
-   : WHILE WS valueStmt blockSep (block blockSep)? WEND
+   : WHILE WS valueStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) WEND
    ;
 
 widthStmt
@@ -748,7 +751,7 @@ widthStmt
    ;
 
 withStmt
-   : WITH WS (NEW WS)? implicitCallStmt_InStmt blockSep (block blockSep)? END_WITH
+   : WITH WS (NEW WS)? implicitCallStmt_InStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_WITH
    ;
 
 writeStmt

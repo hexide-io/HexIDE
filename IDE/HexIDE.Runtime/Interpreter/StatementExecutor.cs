@@ -261,6 +261,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // after its gate; `_suspendedAtTopLevel` is true only while paused AT the top-level gate (false at a nested
     // If/For/Do block gate), so a move is refused when paused inside a nested construct.
     private VB6Parser.BlockStmtContext[]? _bodyStmts;
+    // Where a GoTo from outside a construct to a head on its closing line goes, by name (#2529), for this body.
+    private Dictionary<string, (int Pc, ParserRuleContext? Construct)> closingTargets = new();
+    // A Do ... Loop While that a GoTo to its Loop line entered: it tests its condition before running its body (#2529).
+    private ParserRuleContext? enterAtTest;
     private int? _setNextTargetPc;
     private bool _suspendedAtTopLevel;
 
@@ -499,6 +503,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmt)) { throw; }
+            catch (GoToSignal g) when (ClosingLabelsOf(OwnerOf(context)).Contains(g.Label))
+            {
+                // A GoTo to a head on the line that closes this block's construct, or opens its next part: the block
+                // ends here as if it had run to its end (#2529).
+                break;
+            }
             catch (VBRunTimeException ex) when (ResumesNext)
             {
                 // On Error Resume Next: a runtime error unwinds the C# stack to the innermost enclosing block;
@@ -739,9 +749,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         var until = context.UNTIL() != null;
         var block = context.block();   // optional in the grammar — null for an empty body
+        // Entered by a GoTo to its Loop line, it asks its condition first (#2529).
+        var atTest = ReferenceEquals(enterAtTest, context);
+        enterAtTest = null;
         while (true)
         {
-            if (block != null)
+            if (block != null && !atTest)
             {
                 var result = await Visit(block);
                 if (result == ControlFlow.ExitDo)
@@ -752,6 +765,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return result;
             }
 
+            atTest = false;
             // A condition that raised under Resume Next ends the loop: the next statement is the one after Loop.
             if (await ConditionMet(context.valueStmt(), context) is not { } conditionMet)
                 return ControlFlow.Nothing;
@@ -4924,6 +4938,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 labels[lbl.labelName().GetText()] = i;
         CollectLineHeads(block, stmts, labels);
         erlNumbers = LineNumbersOf(block);
+        closingTargets = ClosingTargetsOf(block, stmts);
 
         int pc = 0;
         int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
@@ -5152,8 +5167,153 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return error;
     }
 
-    private int ResolveLabel(Dictionary<string, int> labels, string label) =>
-        labels.TryGetValue(label, out var idx) ? idx : throw Raised(new VBCompileErrorException("Label not defined: " + label));
+    private int ResolveLabel(Dictionary<string, int> labels, string label)
+    {
+        if (labels.TryGetValue(label, out var idx))
+            return idx;
+        if (!closingTargets.TryGetValue(label, out var target))
+            throw Raised(new VBCompileErrorException("Label not defined: " + label));
+        // A head on a closing line, reached from outside its construct, or from a handler (measured, #2529).
+        switch (target.Construct)
+        {
+            case VB6Parser.SubStmtContext or VB6Parser.FunctionStmtContext or VB6Parser.PropertyGetStmtContext
+                or VB6Parser.PropertyLetStmtContext or VB6Parser.PropertySetStmtContext:
+                return target.Pc;   // End Sub: the procedure returns
+            case VB6Parser.BlockIfThenElseContext or VB6Parser.SelectCaseStmtContext or VB6Parser.WithStmtContext:
+                return target.Pc + 1;   // past End If or End Select, from an Else, ElseIf or Case line too
+            case VB6Parser.WhileWendStmtContext or VB6Parser.DoWhileBlockLoopContext or VB6Parser.DoBlockLoopContext:
+                return target.Pc;   // Wend and Loop go back to the test at the top, as entering does
+            case VB6Parser.DoBlockWhileLoopContext loop:
+                enterAtTest = loop;   // Loop While tests its condition, then runs the body if it holds
+                return target.Pc;
+            case VB6Parser.ForNextStmtContext or VB6Parser.ForEachStmtContext:
+                throw Raised(new NotImplementedException("GoTo " + label + " goes to the Next of a For loop from outside the loop. "
+                    + "vb6.exe hangs on it in native code and runs on with a counter it never set as p-code (#2529)."));
+            default:
+                throw Raised(new NotImplementedException("GoTo " + label + " goes to a line that closes a block nested in "
+                    + "another, from outside it, which is not supported (#2529)."));
+        }
+    }
+
+    // ── A head on a closing line (#2529) ─────────────────────────────────────────────────────────────────────────────
+    // A line number or label may stand on the line that closes a block or opens its next part: `30 Next`, `Skip: Next`,
+    // `Done: End If`, `40 Case Else`, `90 End Sub`. Measured, native and p-code alike: a GoTo to one from inside the
+    // construct ends the block it is in as if it had run to its end, so a loop goes round, and an If, Select Case or With
+    // is done (an Else part does not run, and a later Case is not tested). That is VisitBlock's catch. From outside, see
+    // ResolveLabel.
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ParserRuleContext, HashSet<string>> ClosingHeads = new();
+
+    // The names a construct's closing heads give, numbers and labels alike: every head in it outside its blocks.
+    private static HashSet<string> ClosingLabelsOf(ParserRuleContext? construct)
+    {
+        if (construct is null)
+            return NoNames;
+        return ClosingHeads.GetValue(construct, c =>
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var head in HeadsOutsideBlocks(c))
+            {
+                if (head.lineNumber() is { } number)
+                    names.Add(number.GetText());
+                if (head.lineLabel() is { } label)
+                    names.Add(label.labelName().GetText());
+            }
+            return names;
+        });
+    }
+
+    private static readonly HashSet<string> NoNames = new();
+
+    private static IEnumerable<VB6Parser.LineHeadContext> HeadsOutsideBlocks(IParseTree root)
+    {
+        var pending = new Stack<IParseTree>();
+        for (var i = root.ChildCount - 1; i >= 0; i--)
+            pending.Push(root.GetChild(i));
+        while (pending.Count > 0)
+        {
+            var node = pending.Pop();
+            if (node is VB6Parser.BlockContext)
+                continue;
+            if (node is VB6Parser.LineHeadContext head)
+            {
+                yield return head;
+                continue;
+            }
+            for (var i = node.ChildCount - 1; i >= 0; i--)
+                pending.Push(node.GetChild(i));
+        }
+    }
+
+    // The construct a block belongs to: an If for the block of any of its parts, a Select Case for a Case's.
+    private static ParserRuleContext? OwnerOf(VB6Parser.BlockContext block) => block.Parent switch
+    {
+        VB6Parser.IfBlockBodyContext body => body.Parent?.Parent as ParserRuleContext,
+        VB6Parser.SC_CaseContext @case => @case.Parent as ParserRuleContext,
+        _ => block.Parent as ParserRuleContext,
+    };
+
+    // The constructs a head on a closing line can belong to.
+    private static bool IsConstruct(IParseTree node) => node is VB6Parser.ForNextStmtContext or VB6Parser.ForEachStmtContext
+        or VB6Parser.DoBlockLoopContext or VB6Parser.DoWhileBlockLoopContext or VB6Parser.DoBlockWhileLoopContext
+        or VB6Parser.WhileWendStmtContext or VB6Parser.WithStmtContext or VB6Parser.BlockIfThenElseContext
+        or VB6Parser.SelectCaseStmtContext;
+
+    // For each closing head in a body, by name: the procedure's own, at the end; a top-level construct's, at its index; and
+    // one nested deeper, with no index, since a GoTo from outside into a nested block is refused.
+    private static Dictionary<string, (int Pc, ParserRuleContext? Construct)> ClosingTargetsOf(
+        VB6Parser.BlockContext body, VB6Parser.BlockStmtContext[] stmts)
+    {
+        var targets = new Dictionary<string, (int Pc, ParserRuleContext? Construct)>(StringComparer.OrdinalIgnoreCase);
+        if (OwnerOf(body) is { } procedure && procedure is VB6Parser.SubStmtContext or VB6Parser.FunctionStmtContext
+                or VB6Parser.PropertyGetStmtContext or VB6Parser.PropertyLetStmtContext or VB6Parser.PropertySetStmtContext)
+            foreach (var name in ClosingLabelsOf(procedure))
+                targets.TryAdd(name, (stmts.Length, procedure));
+        for (var i = 0; i < stmts.Length; i++)
+        {
+            // The statement's own context: a labelled alternative, such as an If block or a Do loop, is its subclass.
+            for (var c = 0; c < stmts[i].ChildCount; c++)
+            {
+                if (stmts[i].GetChild(c) is not ParserRuleContext construct || !IsConstruct(construct))
+                    continue;
+                foreach (var name in ClosingLabelsOf(construct))
+                    targets.TryAdd(name, (i, construct));
+                foreach (var nested in NestedClosingNames(construct))
+                    targets.TryAdd(nested, (-1, null));
+            }
+        }
+        return targets;
+    }
+
+    // The closing heads of every construct nested inside this one's blocks.
+    private static IEnumerable<string> NestedClosingNames(ParserRuleContext construct)
+    {
+        var pending = new Stack<IParseTree>();
+        pending.Push(construct);
+        while (pending.Count > 0)
+        {
+            var node = pending.Pop();
+            if (node is VB6Parser.LineHeadContext head && node.Parent is not VB6Parser.BlockContext
+                && !ReferenceEquals(NearestConstruct(head), construct))
+            {
+                if (head.lineNumber() is { } number)
+                    yield return number.GetText();
+                if (head.lineLabel() is { } label)
+                    yield return label.labelName().GetText();
+                continue;
+            }
+            for (var i = 0; i < node.ChildCount; i++)
+                pending.Push(node.GetChild(i));
+        }
+    }
+
+    private static IParseTree? NearestConstruct(IParseTree node)
+    {
+        for (var at = node.Parent; at is not null; at = at.Parent)
+            if (IsConstruct(at))
+                return at;
+        return null;
+    }
 
     // Internal control signals (not VB runtime errors — never trapped by On Error).
     private sealed class GoToSignal(string label, Antlr4.Runtime.ParserRuleContext context) : Exception

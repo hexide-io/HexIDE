@@ -48,6 +48,39 @@ public class LineLabelTests
             .Should().BeEmpty();
     }
 
+    // A number or label on the line that closes a block, or opens its next part, as vb6.exe compiles each (measured,
+    // #2529). A number had no place in the grammar there, so the line was a syntax error.
+    [Theory]
+    [InlineData("Sub S()\r\n10 For i = 1 To 2\r\n20 x = i\r\n30 Next\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 For i = 1 To 2\r\n20 x = i\r\n30 Next i\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 For Each v In c\r\n20 x = v\r\n30 Next\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 If x = 0 Then\r\n20 x = 1\r\n30 End If\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 If x = 1 Then\r\n20 x = 2\r\n30 Else\r\n40 x = 3\r\n50 End If\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 If x = 1 Then\r\n20 x = 2\r\n30 ElseIf x = 0 Then\r\n40 x = 3\r\n50 End If\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 Do\r\n20 x = x + 1\r\n30 Loop While x < 3\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 Do While x < 3\r\n20 x = x + 1\r\n30 Loop\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 While x < 3\r\n20 x = x + 1\r\n30 Wend\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 Select Case x\r\n    Case 0\r\n30 x = 1\r\n40 Case Else\r\n50 x = 2\r\n60 End Select\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 With c\r\n20 .Add 1\r\n30 End With\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 x = 1\r\n90 End Sub\r\n")]
+    [InlineData("Function F()\r\n10 F = 1\r\n90 End Function\r\n")]
+    [InlineData("Sub S()\r\n10 For i = 1 To 2\r\n30 Next\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n    For i = 1 To 3\r\n        If i = 2 Then GoTo Skip\r\n        x = i\r\nSkip: Next\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n    If x = 0 Then\r\n        GoTo Skip\r\nSkip: Else\r\n        x = 1\r\n    End If\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n    For i = 1 To 3\r\n30 Skip: Next\r\nEnd Sub\r\n")]
+    public void AHeadOnAClosingOrMiddleLineProducesNoDiagnostics(string code)
+    {
+        VbDiagnosticsProvider.GetDiagnostics(code).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ALineNumberBeforeTheFirstCaseIsStillAnError()
+    {
+        // vb6.exe refuses it: "Statements and labels invalid between Select Case and first Case" (measured, #2529).
+        VbDiagnosticsProvider.GetDiagnostics("Sub S()\r\n10 Select Case x\r\n20 Case 0\r\n30 x = 1\r\n40 End Select\r\nEnd Sub\r\n")
+            .Should().NotBeEmpty();
+    }
+
     [Fact]
     public void ALabelMayPrecedeABlockOpener()
     {
