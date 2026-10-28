@@ -2748,7 +2748,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitLockStmt(VB6Parser.LockStmtContext context)
     {
-        throw new NotImplementedException("Lock not implemented");
+        await FileLock(context.number, context.start, context.end, unlock: false);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitLsetStmt(VB6Parser.LsetStmtContext context)
@@ -3712,7 +3713,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitUnlockStmt(VB6Parser.UnlockStmtContext context)
     {
-        throw new NotImplementedException("Unlock not implemented");
+        await FileLock(context.number, context.start, context.end, unlock: true);
+        return ControlFlow.Nothing;
+    }
+
+    private async Task FileLock(VB6Parser.ValueStmtContext number, VB6Parser.ValueStmtContext? start,
+        VB6Parser.ValueStmtContext? end, bool unlock)
+    {
+        var file = await FileNumber(number);
+        async Task<long> Record(VB6Parser.ValueStmtContext value)
+        {
+            var record = await expressionExecutor.EvaluateValue(value);
+            if (record.Type != Vb6Value.ValueType.Byte && record.Type != Vb6Value.ValueType.Integer
+                && record.Type != Vb6Value.ValueType.Long)
+                throw new NotImplementedException("Lock range conversion from this type is not implemented: unmeasured in VB6");
+            return Convert.ToInt64(record.Value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        var first = start is null ? (long?)null : await Record(start);
+        var last = end is null ? (long?)null : await Record(end);
+        interpreter.BuiltIns.Files.Lock(file, first, last, unlock);
     }
 
     private void AllocImplicitVariant(string name) => AllocImplicitVariable(interpreter, currentEnv, currentModule, name);

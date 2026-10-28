@@ -946,3 +946,24 @@ error 5 for 256 and -1, and error 52 for an unopened number. Zero SHALL remove t
 - **WHEN** Width is used on an open Binary or Input file
 - **THEN** it SHALL accept the measured width of five without error
 - **AND** no effect in those modes is specified by this measurement
+
+### Requirement: File locks within a program
+
+The interpreter SHALL implement Lock and Unlock for a whole file, a single record, an inclusive
+`start To end` range, and `To end` with start 1, in accordance with the native and p-code measurements
+in [#2553](https://github.com/hexide-io/HexIDE/issues/2553). Binary ranges SHALL count bytes and Random
+ranges SHALL count records of the file's Len; sequential ranges SHALL cover the whole file. The
+runtime SHALL refuse a duplicate lock or non-exact unlock with error 70, an invalid range with 63,
+and an unopened number with 52. Unmeasured range conversions from types other than Byte, Integer or
+Long SHALL be refused as not implemented. Locks are scoped to this program; cross-process locking is not provided.
+
+#### Scenario: Another file number reads a locked range
+- **GIVEN** two Binary handles on one file and `Lock #1, 2 To 4`
+- **WHEN** `Get #2, 4, b` executes
+- **THEN** it raises error 70, while `Get #1, 4, b` may read its own lock
+- **AND** `Unlock #1, 2 To 3` raises 70 while `Unlock #1, 2 To 4` succeeds
+
+#### Scenario: Closing the owner releases locks
+- **GIVEN** two handles on a file and a range locked by number 1
+- **WHEN** number 1 closes
+- **THEN** number 2 can read the released range
