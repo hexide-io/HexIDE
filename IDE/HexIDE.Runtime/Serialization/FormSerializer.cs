@@ -390,13 +390,12 @@ public class FormSerializer
         || name.StartsWith("TabEnabled(", StringComparison.OrdinalIgnoreCase)
         || name.StartsWith("TabVisible(", StringComparison.OrdinalIgnoreCase);
 
-    // Page lists and their flags remain as read, including the tab-zero load trap. The designer
-    // stays read-only until it can maintain membership when controls are added, removed or renamed.
+    // Retain saved values, including the tab-zero load trap; generated page lines use the block's indent.
     private static void WriteSSTabProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
         CompanionCitations citations)
     {
         void Write(ComponentInstance.UnknownRawProperty raw) =>
-            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList(), reindent: true);
         foreach (var name in SSTabOwnOrder)
         {
             var found = false;

@@ -280,8 +280,8 @@ Drawing and input are separate slices; this requirement does not define tab-stri
 ### Requirement: SSTab loads saved page metadata
 The runtime SHALL load SSTab page lists independently of child positions, suppress listed TabStops
 according to ControlEnabled, and interpret recorded HIMETRIC dimensions. Saved runtime-only flags SHALL
-be ignored. Unmeasured conversions and child references SHALL refuse explicitly. SSTab forms SHALL
-remain read-only in the designer until edits can maintain the saved page membership.
+be ignored. Unmeasured conversions and child references SHALL refuse explicitly. Designer edits SHALL maintain saved page membership.
+SSTabs with array or unresolved references, or carried child blocks, SHALL remain read-only in the designer.
 
 #### Scenario: Saved pages switch without position repair
 - **GIVEN** a saved SSTab with tab one showing and tab zero's ControlEnabled False
@@ -300,7 +300,8 @@ remain read-only in the designer until edits can maintain the saved page members
 The writer SHALL emit extenders, extents and version, then SSTab own properties and page metadata in
 measured order. It SHALL retain saved HIMETRIC lengths, page lists, ControlEnabled flags and optional
 companion pictures. It SHALL always write TabHeight (520 when absent) and SHALL omit runtime-only
-TabEnabled and TabVisible.
+TabEnabled and TabVisible. Own properties and page metadata SHALL use the current block’s property
+indentation, including for newly drawn SSTabs nested inside containers.
 
 #### Scenario: VB6-designed forms round-trip
 - **WHEN** either measured SSTab corpus form is loaded and serialized without edits
@@ -312,7 +313,7 @@ TabEnabled and TabVisible.
 - **AND** it preserves page lists, flags and HIMETRIC lengths without inferring membership from positions
 - **AND** each page writes caption, optional picture, ControlEnabled, control references with Enabled suffixes, then ControlCount
 - **AND** even flags triggering the tab-zero load quirk remain as read
-- **AND** the designer remains read-only because membership-changing edits are not yet writable
+- **AND** designer membership edits regenerate control lists and counts
 
 
 ### Requirement: SSTab draws its runtime tab strip
@@ -322,7 +323,7 @@ without active bolding. TabMaxWidth SHALL cap tab lengths. Visible captions SHAL
 retaining their share when another tab is hidden. The active row SHALL be nearest the page, with other
 rows behind and offset. Side captions SHALL remain horizontal and clipped to the strip thickness.
 These requirements prescribe relationships, not exact pixel metrics. Appearance/picture member binding
-and the saved-state designer preview remain later slices of #1090.
+remains outstanding.
 
 #### Scenario: Selecting a tab in a back row
 - **GIVEN** five tabs with three tabs per row
@@ -372,3 +373,34 @@ caption mnemonic from a child SHALL switch to its enabled visible tab and then f
 - **GIVEN** a child control has focus and tab two has caption &Third
 - **WHEN** Alt+T is pressed
 - **THEN** tab two is selected and the SSTab receives focus
+
+
+### Requirement: SSTab previews its saved strip in the designer
+The designer SHALL apply the implemented saved strip properties and select the saved Tab, without
+running the runtime-only ControlEnabled tab-zero load quirk. The initial preview SHALL leave saved child
+positions and page metadata unchanged. Per-tab picture binding remains a later slice of #2301.
+
+#### Scenario: Preview a saved nonzero page
+- **GIVEN** an SSTab saved with tab one showing and custom captions
+- **WHEN** the designer renders its preview
+- **THEN** tab one is selected and the saved captions are used
+- **AND** counts, style, orientation, HIMETRIC dimensions, WordWrap and ShowFocusRect use the same
+  measured saved conversions as the runtime
+- **AND** ControlEnabled flags do not change the designer's showing page
+
+### Requirement: SSTab designer pages maintain saved membership
+The designer SHALL switch pages when a caption is clicked, moving departing children left by 75000 twips
+and restoring arriving children by the same amount. Drawn children and controls cut and pasted within the
+SSTab SHALL join the current page. Saving SHALL write child names, Enabled suffixes of zero and counts
+in the measured page order. A page switch SHALL add no undo entry until VB6 designer undo is measured.
+
+#### Scenario: Draw on a page and save another page showing
+- **GIVEN** tab one is showing in the designer
+- **WHEN** a control is drawn onto it and tab zero is clicked
+- **THEN** the control moves left by 75000 twips
+- **AND** its saved reference belongs to tab one, with the updated ControlCount
+
+#### Scenario: Move a child between pages by cut and paste
+- **WHEN** a child is cut from tab one and pasted with tab zero showing
+- **THEN** it belongs to tab zero and follows tab zero on subsequent switches
+- **AND** saving removes its old reference and writes its new reference

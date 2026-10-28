@@ -8,9 +8,9 @@ internal sealed class SSTabSavedState(IReadOnlyDictionary<string, object> proper
     internal static readonly PropertyClass<SSTabSavedState?> Property =
         new("(SSTabPages)", "Saved SSTab page metadata.", PropertyCategory.Internal);
 
-    private object? Value(string name) => properties.FirstOrDefault(p =>
+    internal object? Value(string name) => properties.FirstOrDefault(p =>
         p.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
-    private int Number(string name, int fallback) => Value(name) switch
+    internal int Number(string name, int fallback) => Value(name) switch
     {
         null => fallback,
         int value => value,
@@ -24,6 +24,8 @@ internal sealed class SSTabSavedState(IReadOnlyDictionary<string, object> proper
         _ => throw new NotImplementedException("SSTab saved Boolean conversion is not measured"),
     };
 
+    internal Dictionary<string, object> CopyProperties() => new(properties, StringComparer.OrdinalIgnoreCase);
+
     // Only the saved dimension conversions recorded by the oracle; no rounding rule was measured.
     private static double Dimension(int himetric, bool allowZero = false) => himetric switch
     {
@@ -34,7 +36,23 @@ internal sealed class SSTabSavedState(IReadOnlyDictionary<string, object> proper
         _ => throw new NotImplementedException("SSTab saved HIMETRIC rounding is not measured"),
     };
 
-    internal void Apply(VBSSTab tab)
+    internal bool CanDesign(ComponentInstance instance)
+    {
+        if (instance.PreservedChildSubtrees.Count > 0)
+            return false;
+        for (var page = 0; page < Number("Tabs", 3); page++)
+            for (var index = 0; index < Number($"Tab({page}).ControlCount", 0); index++)
+            {
+                var name = Value($"Tab({page}).Control({index})") as string;
+                var matches = instance.ContainedControls.Where(c => string.Equals(
+                    c.GetPropertyOrDefault(VBProperties.NameProperty), name, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (matches.Length != 1 || PropertyText.ArrayIndexOf(matches[0]) is not null)
+                    return false;
+            }
+        return true;
+    }
+
+    internal void Apply(VBSSTab tab, bool forDesigner = false)
     {
         // Set counts and orientation before placing children: loading trusts the saved positions.
         tab.Tabs = Number("Tabs", 3);
@@ -53,6 +71,9 @@ internal sealed class SSTabSavedState(IReadOnlyDictionary<string, object> proper
                 throw new NotImplementedException("SSTab saved caption conversion is not measured");
             tab.Caption(i, caption);
         }
+        // The designer shows the saved page; ControlEnabled's tab-zero quirk is runtime-only.
+        if (forDesigner)
+            tab.Tab = Number("Tab", 0);
     }
 
     internal void PlacePages(VBSSTab tab)

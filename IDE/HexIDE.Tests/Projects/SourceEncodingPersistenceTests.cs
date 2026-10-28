@@ -180,6 +180,8 @@ public class SourceEncodingPersistenceTests : IDisposable
             reader.ReadToEnd().Should().Contain("Public Sub Original()");
 
         module.UpdateCode(module.Code.Replace("Original", "SecondBuild"));
+        windowManager.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(MessageBoxResult.Yes);
         await svc.MakeProject(project);
 
         using var secondArchive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll"));

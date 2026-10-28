@@ -69,6 +69,8 @@ public sealed class UserFileWriteFailureTests : IDisposable
     {
         var target = Target(name);
         Fail(target);
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(MessageBoxResult.Yes);
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
@@ -81,6 +83,45 @@ public sealed class UserFileWriteFailureTests : IDisposable
         await make.Should().ThrowAsync<IOException>();
         Preserved(target);
         await windows.ReceivedWithAnyArgs().MessageBox(default!);
+    }
+
+    [Theory]
+    [InlineData(MessageBoxResult.Yes)]
+    [InlineData(MessageBoxResult.No)]
+    [InlineData(MessageBoxResult.Cancel)]
+    public async Task MakeAsksBeforeReplacingDerivedArchive(MessageBoxResult answer)
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Replace these existing files?\n{0}");
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            localization, Substitute.For<IHeaderRefresher>());
+        service.RuntimeDirectory = root;
+        Directory.CreateDirectory(Target("standalone"));
+        File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Target("Made.dll"), "user archive");
+        File.WriteAllText(Target("Made.exe"), "user executable");
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("Made.exe"));
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(answer);
+
+        Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
+        if (answer == MessageBoxResult.Yes)
+        {
+            await make();
+            using var archive = System.IO.Compression.ZipFile.OpenRead(Target("Made.dll"));
+            archive.Entries.Should().Contain(e => e.Name == "Made.vbp");
+            File.ReadAllText(Target("Made.exe")).Should().Be("runner");
+        }
+        else
+        {
+            await make.Should().ThrowAsync<OperationCanceledException>();
+            File.ReadAllText(Target("Made.dll")).Should().Be("user archive");
+            File.ReadAllText(Target("Made.exe")).Should().Be("user executable");
+        }
+        await windows.Received(1).MessageBox("Replace these existing files?\n" + Target("Made.dll"),
+            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning);
     }
 
     [Fact]

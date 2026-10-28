@@ -118,6 +118,22 @@ public sealed class UserSidecarSaveTests : IDisposable
     // ── A. A save rewrites the sidecar; it does not rebuild it ───────────────────────────────────────────
 
     [Fact]
+    public async Task SavingPreservesFileAtOldStagingName()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var sidecar = Service(bookmarks);
+        await sidecar.LoadAsync(project);
+        bookmarks.SetBookmarks(Form1(project), [1]);
+        File.WriteAllText(SidecarOf(project) + ".tmp", "user file");
+
+        await sidecar.SaveAsync(project);
+
+        Lines(Read(SidecarOf(project)), "codeBookmarks", "Form1").Should().Equal(1);
+        File.ReadAllText(SidecarOf(project) + ".tmp").Should().Be("user file");
+    }
+
+    [Fact]
     public async Task ContentThisVersionDoesNotRecogniseSurvivesASave()
     {
         // The user-sidecar spec's scenario, exactly as #466 reports it: the watches key used to vanish. The file is

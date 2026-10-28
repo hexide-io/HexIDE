@@ -39,6 +39,7 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        VBDTPicker picker => PickerValue(picker),
         VBUpDown upDown => new Vb6Value((long)upDown.Value),
         Components.InBox.TabStripTab tab => new Vb6Value(tab.Tab.Caption),
         VBTabStrip => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
@@ -74,6 +75,7 @@ internal static class ObjectAsValue
     public static Vb6Value DefaultMemberIfAny(Vb6Value value) => value.Value switch
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
+        VBDTPicker picker => PickerValue(picker),
         VBUpDown upDown => new Vb6Value((long)upDown.Value),
         ToolbarItem item => item.DefaultValue,
         Components.InBox.TreeNode node => new Vb6Value(node.Text),
@@ -85,6 +87,12 @@ internal static class ObjectAsValue
         StatusBarPanel panel => new Vb6Value(panel.Text),
         _ => value,
     };
+
+    private static Vb6Value PickerValue(VBDTPicker picker)
+    {
+        picker.TryGetProperty("Value", out var value);
+        return value;
+    }
 
     private static NotImplementedException DefaultMemberRefused(VbObject obj) =>
         new($"Using a {obj.ClassDef.Name} as a value reads its default member, which is not implemented for a class yet (#174). Name the member instead.");
