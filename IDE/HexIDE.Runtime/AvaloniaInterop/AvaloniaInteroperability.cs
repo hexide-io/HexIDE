@@ -130,6 +130,7 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
         RegisterToolTipText<VBStatusBar>();
+        RegisterToolTipText<VBAnimation>();
         // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
         RegisterTabOrder<VBCommandButton>(tabStop: true);
         RegisterTabOrder<VBTextBox>(tabStop: true);
@@ -143,6 +144,7 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
         RegisterTabOrder<VBUpDown>(tabStop: true);
+        RegisterTabOrder<VBAnimation>(tabStop: true);
         RegisterTabOrder<VBStatusBar>(tabStop: false);
         RegisterTabOrder<VBSSTab>(tabStop: true);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template

@@ -165,6 +165,19 @@ public class VBLoader
                 dialogs[block] = upDown;
             }
 
+        // Runtime-only until the Animation file slice (#1096); the designer keeps its block verbatim.
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            if (RuntimeControlBlock(block, "MSComCtl2.Animation") is { } animationBlock)
+            {
+                var animation = new VBAnimation();
+                animation.LoadProperties(animationBlock.Properties);
+                VBProps.SetName(animation, animationBlock.Name);
+                VBProps.SetRunTimeId(animation);
+                canvas.Children.Add(animation);
+                executionContext.AllocVariable(environment, animationBlock.Name, new Vb6Value(animation));
+                dialogs[block] = animation;
+            }
+
         // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
         foreach (var (block, component) in toolbars)
         {
@@ -208,7 +221,13 @@ public class VBLoader
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
-        var controls = new FormControls(InFileOrder(element, placed, dialogs).OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups);
+        var fileOrder = InFileOrder(element, placed, dialogs).ToList();
+        // Preserved Animation blocks share the file's stacking order with ordinary controls (#1096).
+        if (dialogs.Values.Any(control => control is VBAnimation))
+            foreach (var control in fileOrder.AsEnumerable().Reverse())
+                if (control.Parent is Panel parent)
+                    ControlStacking.PlaceOver(control, ControlStacking.IsWindowless(control), parent);
+        var controls = new FormControls(fileOrder.OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups);
         foreach (var (block, control) in dialogs)
             if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
                 upDown.LoadBuddy(saved.Properties, controls);
@@ -787,7 +806,8 @@ public class VBLoader
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
+            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null
+                && RuntimeControlBlock(block, "MSComCtl2.Animation") is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
