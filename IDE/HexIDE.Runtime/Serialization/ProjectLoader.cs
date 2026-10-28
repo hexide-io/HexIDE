@@ -36,7 +36,9 @@ public sealed class ProjectLoader
     /// The files the host's code page couldn't decode, which were read byte for byte instead: the project file by its name,
     /// a member by its path as the project file gives it.
     /// </param>
-    public sealed record Result(ProjectDefinition Project, SerializedProject Serialized, IReadOnlyList<string> ReadByteForByte);
+    /// <param name="ProjectFileBytes">The project file as it was on disk when it was read.</param>
+    public sealed record Result(ProjectDefinition Project, SerializedProject Serialized, IReadOnlyList<string> ReadByteForByte,
+        byte[] ProjectFileBytes);
 
     /// <summary>Load the project at <paramref name="projectPath"/>. Errors short of an unreadable project file go to the sink.</summary>
     public async Task<Result> LoadAsync(string projectPath, IDeserializeErrorSink errorSink)
@@ -46,7 +48,7 @@ public sealed class ProjectLoader
         var readByteForByte = new List<string>();
         var projectDir = Path.GetDirectoryName(projectPath)!;
 
-        var (projectText, _, projectEncoding, projectByteForByte) = await Vb6TextFile.ReadDocumentAsync(projectPath, null, HostAnsi);
+        var (projectText, projectBytes, projectEncoding, projectByteForByte) = await Vb6TextFile.ReadDocumentAsync(projectPath, null, HostAnsi);
         if (projectByteForByte)
             readByteForByte.Add(Path.GetFileName(projectPath));
         var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);
@@ -248,7 +250,7 @@ public sealed class ProjectLoader
             project.PreserveItemLine(serializedProject.PreservedItemLines[i], serializedProject.PreservedItemLineSlots[i]);
         project.ExtensionTail = serializedProject.ExtensionTail;
 
-        return new Result(project, serializedProject, readByteForByte);
+        return new Result(project, serializedProject, readByteForByte, projectBytes);
     }
 
     private async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(string path, Vb6TextEncoding? recorded)

@@ -121,6 +121,40 @@ public interface IProjectService
     /// <summary>The module counterpart: whether saving would change what was last loaded or saved.</summary>
     bool HasUnsavedChanges(ModuleDefinition module);
 
+    /// <summary>
+    /// Every loaded project that has something unsaved, with what a save would write for each of its unsaved files,
+    /// for crash recovery's backup (hexide-io/HexIDE#499). Writes nothing. Call it on the UI thread: it first brings in
+    /// whatever an open editor or designer holds ahead of its model, as a save does.
+    /// </summary>
+    IReadOnlyList<HexIDE.Recovery.UnsavedProject> CaptureUnsavedWork();
+
+    /// <summary>
+    /// Puts recovered work into <paramref name="form"/>, as a reload from disk would, but leaves its baselines as they
+    /// are, so it reads as unsaved and only a save writes it (hexide-io/HexIDE#499). False when the text can't be read.
+    /// </summary>
+    bool ApplyRecovered(FormDefinition form, HexIDE.Recovery.UnsavedFile content);
+
+    /// <summary>The module counterpart of <see cref="ApplyRecovered(FormDefinition, HexIDE.Recovery.UnsavedFile)"/>.</summary>
+    bool ApplyRecovered(ModuleDefinition module, HexIDE.Recovery.UnsavedFile content);
+
+    /// <summary>Whether <paramref name="form"/> already renders as <paramref name="content"/>, so restoring it would change nothing.</summary>
+    bool RecoveredMatches(FormDefinition form, HexIDE.Recovery.UnsavedFile content);
+
+    /// <summary>The module counterpart of <see cref="RecoveredMatches(FormDefinition, HexIDE.Recovery.UnsavedFile)"/>.</summary>
+    bool RecoveredMatches(ModuleDefinition module, HexIDE.Recovery.UnsavedFile content);
+
+    /// <summary>
+    /// Adds a recovered form or module that <paramref name="project"/> doesn't have, with no file, and returns it. Null
+    /// when it has no content, its name is taken, or its text can't be read.
+    /// </summary>
+    object? AddRecovered(ProjectDefinition project, HexIDE.Recovery.UnsavedDocument document);
+
+    /// <summary>
+    /// Rebuilds a project that had no file when its run ended, from its backup, as an unsaved project holding its
+    /// documents, and loads it. Null when the backup can't be put back.
+    /// </summary>
+    Task<ProjectDefinition?> RestoreUnsavedProject(HexIDE.Recovery.UnsavedProject backup);
+
     Task MakeProject();
     Task MakeProject(ProjectDefinition project);
     Task EditProjectProperties(ProjectDefinition project);

@@ -70,6 +70,9 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
   VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
   directory.
+- **Copies of unsaved work move with it.** [Crash recovery](crash-recovery.md) normally keeps them apart from
+  your settings, in a local directory that never roams. Under this flag they are in `Recovery` in this directory, so
+  a session's copies stay with the session.
 - **Logs are not per-user files** and stay in their usual place. IDE log pruning keeps at least the seven
   most recent sessions and deletes an older session only when all its parts were last modified more than
   seven days ago. Frequent launches across profiles do not shorten that window.
