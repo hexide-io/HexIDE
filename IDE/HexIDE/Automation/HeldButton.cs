@@ -212,7 +212,11 @@ public sealed class HeldButton
         + $"{Stopwatch.GetElapsedTime(since).TotalSeconds.ToString("0", CultureInfo.InvariantCulture)} s after click … hold pressed it; "
         + $"{capture()}. interact 'release' lets it go, with a value moving there first. Until then click, double_click and "
         + "hover are refused, and keys still go. With no call for "
-        + $"{IdleLimit.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)} s it is abandoned: Escape, then a release where it was pressed.";
+        + $"{IdleLimit.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)} s it is abandoned: Escape, then a release where it was pressed. "
+        // Moved here from interact's value description, which had no room for it (#2568).
+        + "What that does is the surface's: a Dock drag docks nothing and a designer move ends where it began, but a "
+        + "resize snaps to the grid and a draw still places a 2 by 2 control. The next reply says what it did, and names "
+        + "any designer step recorded, which Undo takes back.";
 
     internal static string Clock() => DateTime.UtcNow.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " UTC";
 
