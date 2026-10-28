@@ -568,6 +568,17 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 - **WHEN** `get_window_state` is called with no `window`
 - **THEN** it reports the IDE's own window, named `ide`
 
+### Requirement: The window-state reply SHALL say what its numbers measure
+The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
+area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
+`set_window_state` takes them. Every reply SHALL carry `units`, which says the unit of each and which edge each
+measures. A window that is hidden or minimized SHALL have no rectangles, and `outer` and `frame` SHALL be left out
+where the platform reports no frame.
+
+#### Scenario: A form moved to 720, 360 screen pixels at 150%
+- **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
+- **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
+
 ### Requirement: Another window SHALL change as a person changes it
 `set_window_state` SHALL change a window other than the IDE's own as its minimize, maximize or restore box or its frame
 would, so a running form's own events run, and SHALL wait for the program as `interact`'s does. It SHALL refuse what a
