@@ -25,8 +25,13 @@ internal static class VbPrint
         void Write(string text);
     }
 
+    // Error display is accepted by printing and MsgBox, but not by implicit string coercion (#2520, #2613).
+    internal static string ErrorText(Vb6Value value) =>
+        "Error " + ((ushort)value.Value!).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     public static string ItemText(Vb6Value value) => value.Value switch
     {
+        _ when value.Type == Vb6Value.ValueType.Error => ErrorText(value),
         _ when value.IsNull => "Null",
         null => "",
         string s => s,

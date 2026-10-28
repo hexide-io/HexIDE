@@ -1686,6 +1686,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // it is half of the measured rule.
             if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
                 return false;
+            if (value.Type == Vb6Value.ValueType.Error)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
             return VB6BuiltIns.CBool(value).Value is true;
         }
         catch (VBRunTimeException ex)
@@ -3278,8 +3280,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue, bool text)
     {
+        if (selector.Type == Vb6Value.ValueType.Error && caseValue.Type == Vb6Value.ValueType.Error)
+            return selector.TryCompareTo(caseValue);
         var s = KindOf(selector);
         var c = KindOf(caseValue);
+        if (selector.Type == Vb6Value.ValueType.Error && c == CaseKind.Number)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (s == CaseKind.Null || c == CaseKind.Null)
             return null;
         if (s == CaseKind.Other || c == CaseKind.Other)

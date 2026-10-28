@@ -19,16 +19,27 @@ public partial class VB6BuiltIns
         d["CCur"]  = (_, a, _) => NarrowNum(a[0], VT.Currency);
         d["CDec"]  = (_, a, _) => NarrowNum(a[0], VT.Decimal);
         d["CBool"] = (_, a, _) => CBool(a[0]);
-        d["CStr"]  = (_, a, _) => a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]));   // no leading space
+        d["CStr"]  = (_, a, _) => a[0].IsNull ? throw InvalidUseOfNull()
+            : new Vb6Value(a[0].Type == VT.Error
+                ? "Error " + ((ushort)a[0].Value!).ToString(CultureInfo.InvariantCulture) : AsStr(a[0]));   // no leading space
         d["CDate"] = (_, a, _) => CDate(a[0]);
         // CDate under its older name, and the same answer (measured: CVDate("36526") is 01/01/2000, CVDate("1.5") 01:05).
-        d["CVDate"] = (_, a, _) => CDate(a[0]);
+        d["CVDate"] = (_, a, _) => a[0].Type == VT.Error ? throw UnmeasuredErrorConversion() : CDate(a[0]);
         // Its argument as a Variant, keeping the argument's own type: Integer for 5, Null for Null, the array or the object
         // itself (measured, #1466). ExpressionExecutor reads the result as a Variant's, so CVar(5) * 7000 widens to a Long.
         d["CVar"]  = (_, a, _) => a[0];
+        d["CVErr"] = (_, a, _) =>
+        {
+            var number = (long)NarrowNum(a[0], VT.Long).Value!;
+            if (number is < 0 or > 65535) throw InvalidCall();
+            return Vb6Value.NewError((ushort)number).AsVariant();
+        };
         d["Hex"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 16));
         d["Oct"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 8));
     }
+
+    private static NotImplementedException UnmeasuredErrorConversion() =>
+        new("This conversion of an Error Variant is unmeasured (#2520)");
 
     private static VBRunTimeException InvalidUseOfNull() => new(VBStandardError.InvalidUseOfNull);
 
@@ -40,6 +51,12 @@ public partial class VB6BuiltIns
         // CLng and CInt of one are both 448, with no error. It read as 0.
         if (v.IsMissing)
             v = new Vb6Value(MissingArgumentNumber);
+        if (v.Type == VT.Error)
+        {
+            if (target == VT.Decimal)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            v = new Vb6Value((long)(ushort)v.Value!);
+        }
         v = RefuseNonScalar(v);
         if (v.Type == VT.String && (target == VT.Currency || target == VT.Decimal))
         {
@@ -178,6 +195,7 @@ public partial class VB6BuiltIns
 
     internal static Vb6Value CBool(Vb6Value v)
     {
+        if (v.Type == VT.Error) return new Vb6Value((ushort)v.Value! != 0);
         if (v.IsNull) throw InvalidUseOfNull();
         // An object, a control, an in-box object or Nothing, as for every other conversion. CBool was the one that never
         // asked, so each fell through ToNum to a trappable 13 (#847's review).
@@ -199,6 +217,7 @@ public partial class VB6BuiltIns
 
     internal static Vb6Value CDate(Vb6Value v)
     {
+        if (v.Type == VT.Error) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is VbDate) return v;
         if (v.Type == VT.String)

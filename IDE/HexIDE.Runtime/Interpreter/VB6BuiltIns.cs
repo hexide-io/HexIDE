@@ -272,7 +272,9 @@ public partial class VB6BuiltIns
 
     private async Task<Vb6Value> MsgBox(List<Vb6Value> args)
     {
-        var text = args.Count >= 1 ? VbDisplay.ToTextOrNull(args[0]) : "";
+        var text = args.Count >= 1
+            ? args[0].Type == Vb6Value.ValueType.Error ? VbPrint.ErrorText(args[0]) : VbDisplay.ToTextOrNull(args[0])
+            : "";
         // The style is a Long, coerced as CLng does. It was read only when it arrived as an Integer, so every Long
         // was style 0, an OK button and no icon: every in-box constant is a Long, so `vbYesNo + vbQuestion` showed
         // OK alone and its Yes branch could never run. Measured: a Long, "4" and 4.5 (banker's: 4) are all Yes/No;

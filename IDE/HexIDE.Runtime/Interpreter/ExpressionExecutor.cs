@@ -105,6 +105,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context);
+        if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
+            && leftValue.Type != rightValue.Type)
+            throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return (leftValue, rightValue);
 
@@ -2185,6 +2188,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // and Nothing Is Nothing — NOT Vb6Value equality (which would run numeric coercion).
             var leftObject = await EvaluateValue(context.valueStmt(0));
             var rightObject = await EvaluateValue(context.valueStmt(1));
+            if (leftObject.Type == Vb6Value.ValueType.Error || rightObject.Type == Vb6Value.ValueType.Error)
+                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
             return new Vb6Value(ReferenceEquals(leftObject.Value, rightObject.Value));
         }
         // Option Compare is the module's where the comparison is written: a Binary module's function called from a Text
@@ -2208,6 +2213,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
         if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
+        if (leftValue.Type == Vb6Value.ValueType.Error && rightValue.Type == Vb6Value.ValueType.Error)
+            return (Vb6Value)Holds(order, (ushort)leftValue.Value!, (ushort)rightValue.Value!);
         if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
             return (Vb6Value)Holds(order, leftInt, rightInt);
         if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))

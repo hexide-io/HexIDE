@@ -34,9 +34,7 @@ public partial class VB6BuiltIns
             || a[0].Value is VBArray { IsParamArray: true } paramArray && paramArray.UpperBound() < paramArray.LowerBound());
 
         // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.
-        // It is the only vbError value the model has: CVErr is still unimplemented, and when it lands it
-        // belongs here too.
-        d["IsError"]   = (_, a, _) => new Vb6Value(a[0].IsMissing);
+        d["IsError"]   = (_, a, _) => new Vb6Value(a[0].IsMissing || a[0].Type == VT.Error);
     }
 
     /// <summary>The debugger's Type-column label for a value — like <see cref="TypeNameOf"/> but names a
@@ -136,6 +134,7 @@ public partial class VB6BuiltIns
         // vbError (10). Deliberately not "Empty"/0: IsEmpty is False for it, and conflating the two is
         // what makes IsMissing impossible to express.
         VTP.Missing           => ("Error", 10),
+        VTP.Error             => ("Error", 10),
         VTP.Nothing           => ("Nothing", 9),
         VTP.Color             => ("Long", 3),   // VB6 has no colour type — a colour is a Long
         VTP.Object            => ("Object", 9),   // Object/class/Collection arrays (measured, #1482)
