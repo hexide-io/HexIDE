@@ -29,6 +29,28 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Read-only project resources
+
+The interpreter SHALL load the project's `ResFile32` file read-only when configured for a run,
+resolving its Windows-format path against the project folder. Its resource reader SHALL support
+ordinal and case-insensitive string type/name identifiers, DWORD-aligned headers and payloads,
+raw resource bytes and sixteen-slot counted UTF-16 string blocks. Missing, unreadable or malformed
+files SHALL supply no lookup results. A lookup matching more than one language SHALL refuse with
+not-implemented rather than select an unmeasured locale-dependent value (#2625).
+
+#### Scenario: A run reads the project's resource file
+
+- **WHEN** a saved project names `ResFile32="res\probe.res"`
+- **THEN** configuring the interpreter reads that file relative to the project folder
+- **AND** the run retains its own resource snapshot without keeping the file open
+
+#### Scenario: A string slot is empty
+
+- **WHEN** the counted string for an ID has length zero
+- **THEN** the reader reports no string for that ID
+
+The `LoadResString`, `LoadResData` and `LoadResPicture` intrinsic calls remain separate work (#2626).
+
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
 [#2622](https://github.com/hexide-io/HexIDE/issues/2622) (measuring PRs #2624 and #2628).
@@ -759,6 +781,26 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
+### Requirement: Control Font references SHALL retain identity and share mutations
+
+For the built-in font-bearing controls with runtime implementations, Font SHALL expose an object whose
+TypeName is `Font`, whose default member is Name, and whose Size reads as Currency. `Set X.Font = Y.Font`
+SHALL share that reference and propagate supported mutations to every owning control. Independent form
+and control fonts SHALL start as distinct references. `Set Font = Nothing` SHALL raise 380 without
+replacing the font. Font access on scroll bars, Timer, Shape, Line and Image SHALL raise 438.
+Unmeasured object-member conversions and writes SHALL refuse as not implemented. Standalone StdFont,
+the file controls and Data, and Locals expansion remain outside this implementation slice (#934).
+
+#### Scenario: Two controls share one Font
+
+- **WHEN** `Set Text1.Font = Label1.Font` executes, followed by `Label1.Font.Size = 9`
+- **THEN** `Text1.FontSize` is 9 and `Text1.Font Is Label1.Font` is True
+
+#### Scenario: A Font cannot be replaced by Nothing
+
+- **WHEN** `Set Label1.Font = Nothing` executes
+- **THEN** error 380 is raised and the original Font reference remains assigned
+
 ### Requirement: A literal's sign SHALL be an operator
 The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
 apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
@@ -1011,6 +1053,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: A form remembers its active control
+
+A form's `ActiveControl` SHALL return its last focused control while active, inactive or hidden,
+and Nothing when loaded but never shown or when no control has taken focus. Reading an unloaded
+form's member SHALL load it again with no remembered control. Measured in
+[#2437](https://github.com/hexide-io/HexIDE/issues/2437), oracle measurement #2279.
+This first slice does not restore focus or raise GotFocus on reactivation; initial focus remains #2436.
+
+#### Scenario: A hidden form remembers focus
+- **WHEN** a control takes focus and its form is hidden
+- **THEN** the form's ActiveControl still returns that control
+
+#### Scenario: A form loads again
+- **WHEN** an unloaded form's ActiveControl is read
+- **THEN** the form loads again and returns Nothing
 
 ### Requirement: App logging SHALL implement the measured file modes
 App.StartLogging and App.LogEvent SHALL implement the file output and mode/path values measured in

@@ -238,16 +238,7 @@ public sealed class VBProgram : IFormProgram
             if (active?.Window is not { } window
                 || Avalonia.Controls.TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Avalonia.LogicalTree.ILogical focused)
                 return null;
-            Avalonia.Controls.Control? found = null;
-            for (var element = focused; element is not null; element = element.LogicalParent)
-            {
-                if (ReferenceEquals(element, window))
-                    return found;
-                if (found is null && element is Avalonia.Controls.Control control && FormControls.TryOf(control, out _))
-                    found = control;
-            }
-            // Not in the active form's window: the focus is elsewhere, as on the IDE's own editor.
-            return null;
+            return VBFormRuntime.FindControl(window, focused);
         }
     }
 
