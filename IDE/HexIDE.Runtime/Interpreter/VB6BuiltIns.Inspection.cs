@@ -84,6 +84,8 @@ public partial class VB6BuiltIns
         ImageListImages => "IImages",
         ImageListImage => "IImage",
         ImageListPictureObject => "Picture",
+        Components.InBox.TreeNodes => "INodes",
+        Components.InBox.TreeNode => "INode",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         // So is a form's Controls: measured, `TypeName(Controls)` and `TypeName(Me.Controls)` (#1060).
@@ -112,6 +114,8 @@ public partial class VB6BuiltIns
         VTP.Byte              => ("Byte", 17),
         VTP.Integer           => ("Integer", 2),
         VTP.Long              => ("Long", 3),
+        // CommonDialog's TypeName is unmeasured; retain its existing label while correcting VarType.
+        VTP.AutomationUnsignedLong => ("Long", 19),
         VTP.Single            => ("Single", 4),
         VTP.Double            => ("Double", 5),
         VTP.Currency          => ("Currency", 6),
@@ -139,7 +143,7 @@ public partial class VB6BuiltIns
     {
         switch (v.Value)
         {
-            case byte or int or long or float or double or decimal:
+            case byte or int or long or uint or float or double or decimal:
             case bool:
                 return true;
         }

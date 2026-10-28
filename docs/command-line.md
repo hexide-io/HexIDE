@@ -27,7 +27,7 @@ most people will type today.
 | `--session` | a name | Serves automation only to the agent session of that name. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
-| *(positional)* | a path ending `.vbp`, `.vbg` or `.twinproj` | Opens that project or project group instead of showing the startup dialog; a `.twinproj` opens read-only. Relative to where you ran HexIDE from. |
+| *(positional)* | a path ending `.vbp`, `.vbg` or `.twinproj` | Opens that project or project group instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 

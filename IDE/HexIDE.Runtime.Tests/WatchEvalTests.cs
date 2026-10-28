@@ -60,4 +60,61 @@ public class WatchEvalTests : BaseVBTestFixture
         var (_, dbg) = NewDebuggable("Debug.Print 1\n", "Module1");
         (await dbg.EvaluateWatchAsync("1 + 1")).Should().BeNull();
     }
+    [Theory]
+    [InlineData("inner", "Module1", false, "<Expression not defined in context>", "Empty")]
+    [InlineData("total", "Module1", false, "<Expression not defined in context>", "Empty")]
+    [InlineData("nosuch", "Module1", false, "<Expression not defined in context>", "Empty")]
+    [InlineData("modvar", "Module1", false, "5", "Integer")]
+    [InlineData("inner", "Module1.Square", false, "49", "Integer")]
+    [InlineData("total", "Module1.Form_Load", false, "0", "Integer")]
+    [InlineData("inner", "Module1", true, "<Expression not defined in context>", "Empty")]
+    [InlineData("total", "Module1", true, "<Expression not defined in context>", "Empty")]
+    [InlineData("nosuch", "Module1", true, "<Expression not defined in context>", "Empty")]
+    [InlineData("modvar", "Module1", true, "5", "Integer")]
+    [InlineData("inner", "Module1.Square", true, "<Out of context>", "Empty")]
+    [InlineData("total", "Module1.Form_Load", true, "49", "Integer")]
+    public async Task StoredWatch_UsesMeasuredContext(string expression, string context, bool stepOut,
+        string display, string type)
+    {
+        var (vb, dbg) = NewDebuggable("""
+            Dim modvar As Integer
+            Form_Load
+            Sub Form_Load()
+                Dim total As Integer
+                modvar = 5
+                total = Square(7)
+                Stop
+                Debug.Print total
+            End Sub
+            Function Square(ByVal n As Integer) As Integer
+                Dim inner As Integer
+                inner = n * n
+                Stop
+                Square = inner
+            End Function
+            """, "Module1");
+        var stopped = NextStop(dbg);
+        var run = vb.Execute();
+        await stopped.Guarded();
+        try
+        {
+            if (stepOut)
+            {
+                stopped = NextStop(dbg);
+                dbg.StepOut();
+                await stopped.Guarded();
+            }
+            var result = await ((IDebugController)dbg).EvaluateScopedWatchAsync(expression, context);
+            result.Should().NotBeNull();
+            result!.Display.Should().Be(display);
+            result.TypeName.Should().Be(type);
+            result.Ok.Should().Be(type != "Empty");
+        }
+        finally
+        {
+            dbg.Stop();
+            await run.Guarded();
+        }
+    }
+
 }

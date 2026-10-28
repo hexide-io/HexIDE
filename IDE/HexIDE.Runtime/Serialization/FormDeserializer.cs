@@ -28,6 +28,7 @@ public class FormDeserializer
         TextBoxComponentClass.Instance,
         TimerComponentClass.Instance,
         VScrollBarComponentClass.Instance,
+        Components.InBox.TreeViewComponentClass.Instance,
     ];
 
     private static Dictionary<string, ComponentBaseClass> componentsByTypeNames;
@@ -88,10 +89,12 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
+        Components.InBox.CommonDialogComponentClass.Instance,
     ];
 
     /// <summary>
@@ -116,6 +119,7 @@ public class FormDeserializer
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
+            TabStripPersistence.Validate(rootComponent);
             headerLines = vb.HeaderLines;
             designerText = vb.DesignerText;
             // The parser no longer reports a raw Begin depth. It counted every Begin without knowing what
@@ -571,10 +575,26 @@ public class FormDeserializer
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
             }
+            if (componentClass is Components.InBox.TabStripComponentClass)
+            {
+                instance.SetProperty(TabStripPersistence.SavedProperty, serializedComponent);
+                if (!TabStripPersistence.CanWrite(serializedComponent)
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentX") is not int
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentY") is not int)
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnimplementedControlPersistence,
+                        "TabStrip persistence is not implemented (#1089).");
+            }
             // An in-box control is written back under the type name it was read under, and with the extents it was read with
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            else if (componentClass is Components.InBox.TreeViewComponentClass)
+            {
+                instance.SetProperty(Components.InBox.InBoxComponentClass.LoadedTypeNameProperty, serializedComponent.Type);
+                instance.SetProperty(Components.InBox.InBoxComponentClass.ExtentBasisProperty,
+                    new Components.InBox.InBoxComponentClass.ExtentBasis(
+                        instance.GetPropertyOrDefault(VBProperties.WidthProperty), instance.GetPropertyOrDefault(VBProperties.HeightProperty)));
+            }
             if (componentClass is Components.InBox.ImageListComponentClass
                 && serializedComponent.Properties.TryGetValue("Images", out var imagesValue)
                 && imagesValue is Dictionary<string, object> imageProperties)

@@ -198,11 +198,16 @@ public static class UiAutomationDriver
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
-            control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
-                window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null,
+            control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
                 ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
+    }
+
+    private static WindowFrameState ReadFrame(Window window)
+    {
+        var (style, exStyle, note) = NativeWindowFrame.Read(window);
+        return new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(), window.CanMinimize,
+            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle);
     }
 
     /// <summary>
@@ -782,8 +787,17 @@ public static class UiAutomationDriver
     // owning window's dialogs too. A peer can otherwise invoke through them, while click blames the hit test (#2184).
     // press_key refuses with it too, since its routed fallback pressed a key on a disabled control and reported
     // success (#2366).
-    private static string? DisabledInteractionRefusal(Control control, string verb)
+    /// <summary>
+    /// Why a person couldn't act on <paramref name="window"/> itself, its caption buttons or frame, through
+    /// <paramref name="verb"/>: a modal dialog over it, or the window disabled. Null when they could. It names the window
+    /// as <paramref name="name"/>, as the caller reached it: a running form's window is otherwise only its class.
+    /// </summary>
+    public static string? WindowRefusal(Window window, string verb, string? name = null) =>
+        DisabledInteractionRefusal(window, verb, name);
+
+    private static string? DisabledInteractionRefusal(Control control, string verb, string? name = null)
     {
+        var subject = name ?? Describe(control);
         var window = TopLevel.GetTopLevel(control) as Window ?? control.FindLogicalAncestorOfType<Window>();
         var open = OpenDialogs.Among(OpenWindows());
         var blocking = open.Where(d => OpenDialogs.Blocks(d, window)).ToList();
@@ -791,7 +805,7 @@ public static class UiAutomationDriver
         {
             foreach (var blocked in blocking)
                 OpenDialogs.NamedInReply(blocked);
-            return $"'{Describe(control)}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
+            return $"'{subject}' is in a window a modal dialog has disabled: {OpenDialogs.DescriptionOf(dialog)}. "
                    + $"No person could use it, so '{verb}' was refused and nothing was done. Answer the dialog first: "
                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it";
         }
@@ -804,7 +818,7 @@ public static class UiAutomationDriver
         var cause = control.IsEnabled && container is not null
             ? $" Its container '{Describe(container)}'{(window is null ? string.Empty : AddressOf(window, "Window", container))} disables it."
             : string.Empty;
-        return $"'{Describe(control)}' is disabled (\"isEnabled\": false).{cause} "
+        return $"'{subject}' is disabled (\"isEnabled\": false).{cause} "
                + $"No person could use it, so '{verb}' was refused and nothing was done. "
                + "Wait until it is enabled before trying again; inspect_element reports its current state";
     }
@@ -1633,7 +1647,8 @@ public static class UiAutomationDriver
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
     /// the element a real press there would reach, so a control's own press and release handlers run as they do for a
     /// person: a Button raises Click from its release, and a running form raises MouseDown, Click and MouseUp in the
-    /// order VB6 does (#974). <c>invoke</c> goes through an automation peer, which raises Click and no pointer event, and
+    /// order VB6 does (#974). A PointerMoved there comes first, as a person's pointer arrives before it presses, so a
+    /// running form's MouseMove does too, unless the last click left the pointer at that point (#2407). <c>invoke</c> goes through an automation peer, which raises Click and no pointer event, and
     /// <c>double_click</c> raises DoubleTapped, so this is the only verb that presses.
     /// </summary>
     /// <remarks>
@@ -1701,6 +1716,15 @@ public static class UiAutomationDriver
             .Any(Dock.Settings.DockProperties.GetIsDragArea) == true;
         // What an abandoned hold asks whether its release committed anything: the designer the press landed in (#2231).
         var surface = hold ? (hit as Visual)?.FindAncestorOfType<FormEditView>()?.DataContext as FormEditViewModel : null;
+        // A person's pointer arrives before it presses, so the element sees a move first and a running form raises
+        // MouseMove before MouseDown. A click raised no move, so a program's MouseMove never ran from one (#2407). A still
+        // pointer sends none, so a click where the last one left it moves nothing.
+        var arrived = !PointerAlreadyAt(topLevel, inWindow);
+        if (arrived)
+            hit.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, hit, pointer, topLevel, inWindow,
+                (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, PointerUpdateKind.Other), keys));
+        var arrival = arrived ? "; the pointer moved there first, as a person's does"
+            : "; the pointer was already there from the last click, so it did not move first";
         // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
         // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
         if (destination is not null)
@@ -1755,12 +1779,13 @@ public static class UiAutomationDriver
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
                 releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                PointerNowAt(topLevel, releasePoint);
                 var recipient = destination is null ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{(second ? secondLanding : "")}"
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
                     + (destination is null ? "" : $"; released at {releaseWhere}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
 #if DEBUG
@@ -3373,8 +3398,16 @@ public static class UiAutomationDriver
                   + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
             var selectionNote = replacedSelection is not null && AreaOf(start) is { } finalArea
                 ? "; " + replacedSelection.Left + SelectionState(finalArea) : "";
+            // Shift's own key around a capital, as DeliverKey sends it (#2422).
+            var capitals = keys.Count(k => k.Mods.HasFlag(KeyModifiers.Shift));
+            var shifted = capitals switch
+            {
+                0 => "",
+                1 => "; LeftShift went down before the capital and up after it",
+                _ => $"; LeftShift went down before each of the {capitals} capitals and up after it",
+            };
             return new InteractOutcome(true, KeyboardMechanism,
-                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}{selectionNote}", null);
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{shifted}{moved}{slow}{selectionNote}", null);
         }
         catch (OperationCanceledException)
         {
@@ -3401,9 +3434,21 @@ public static class UiAutomationDriver
     /// </summary>
     private static void DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
     {
-        if (key != Key.None)
+        if (key == Key.None)
         {
-            var down = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = mods, Source = at };
+            if (typed is not null)
+                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
+            return;
+        }
+        // Each modifier's own key around it, as a person holds a chord (#2422).
+        foreach (var (stroke, held, isDown) in Chord(key, mods))
+        {
+            if (!isDown)
+            {
+                at.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = stroke, KeyModifiers = held, Source = at });
+                continue;
+            }
+            var down = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = stroke, KeyModifiers = held, Source = at };
             for (Visual? v = at; v is not null && !down.Handled; v = v.GetVisualParent())
                 if (v is InputElement { KeyBindings: { Count: > 0 } bindings })
                     foreach (var binding in bindings.ToArray())
@@ -3412,11 +3457,93 @@ public static class UiAutomationDriver
                         binding.TryHandle(down);
                     }
             at.RaiseEvent(down);
+            if (stroke == key && typed is not null)
+                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
         }
-        if (typed is not null)
-            at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
-        if (key != Key.None)
-            at.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = key, KeyModifiers = mods, Source = at });
+    }
+
+    /// <summary>The keys a person holds for each modifier, in the order they press them; released in reverse.</summary>
+    private static readonly (KeyModifiers Flag, Key Key)[] ModifierKeys =
+        [(KeyModifiers.Control, Key.LeftCtrl), (KeyModifiers.Shift, Key.LeftShift), (KeyModifiers.Alt, Key.LeftAlt), (KeyModifiers.Meta, Key.LWin)];
+
+    /// <summary>The modifier <paramref name="key"/> is itself, or None.</summary>
+    private static KeyModifiers FlagOf(Key key) => key switch
+    {
+        Key.LeftCtrl or Key.RightCtrl => KeyModifiers.Control,
+        Key.LeftShift or Key.RightShift => KeyModifiers.Shift,
+        Key.LeftAlt or Key.RightAlt => KeyModifiers.Alt,
+        Key.LWin or Key.RWin => KeyModifiers.Meta,
+        _ => KeyModifiers.None,
+    };
+
+    /// <summary>
+    /// The key events of <paramref name="key"/> pressed with <paramref name="mods"/> held, as a person's chord sends them
+    /// (#2422): each modifier's own key down, holding what is down so far, then the key down and up, then each modifier's
+    /// key up in reverse, holding what is still down. A modifier key's own down reports itself held and its up does not,
+    /// as Windows reports them and VB6 shows them (Shift 16 with mask 1, then mask 0). Only the key went before, with its
+    /// modifiers as flags, so a program never saw the modifier's own KeyDown and KeyUp.
+    /// </summary>
+    internal static List<(Key Key, KeyModifiers Held, bool Down)> Chord(Key key, KeyModifiers mods)
+    {
+        var own = FlagOf(key);
+        var pressed = ModifierKeys.Where(m => mods.HasFlag(m.Flag) && m.Flag != own).ToList();
+        var held = KeyModifiers.None;
+        var strokes = new List<(Key, KeyModifiers, bool)>();
+        foreach (var (flag, modifier) in pressed)
+        {
+            held |= flag;
+            strokes.Add((modifier, held, true));
+        }
+        strokes.Add((key, held | own, true));
+        strokes.Add((key, held, false));
+        for (var i = pressed.Count - 1; i >= 0; i--)
+        {
+            held &= ~pressed[i].Flag;
+            strokes.Add((pressed[i].Key, held, false));
+        }
+        return strokes;
+    }
+
+    /// <summary>
+    /// The character <paramref name="key"/> types with <paramref name="mods"/> held, on the US layout press_key assumes;
+    /// null when it types none (#2428). A platform sends a key's character as text of its own between its KeyDown and
+    /// KeyUp: none with Ctrl, Alt or Meta held, whose chords are commands, and none for a control character such as
+    /// Enter's or Backspace's, which a running program's KeyPress takes from the key itself.
+    /// </summary>
+    internal static string? TypedBy(Key key, KeyModifiers mods)
+    {
+        if ((mods & ~KeyModifiers.Shift) != KeyModifiers.None)
+            return null;
+        var physical = Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == key);
+        if (physical == PhysicalKey.None)
+            return null;
+        var symbol = physical.ToQwertyKeySymbol(mods.HasFlag(KeyModifiers.Shift));
+        return string.IsNullOrEmpty(symbol) || symbol.Any(char.IsControl) ? null : symbol;
+    }
+
+    /// <summary>
+    /// Where a key that types <paramref name="typed"/> writes in a code window, for the protected-line check: over the
+    /// selection, or at the caret. Null when it types nothing, or over a selection only partly protected, whose editable
+    /// parts take it as type_text's typing does (#1040).
+    /// </summary>
+    private static EditedSpan? TypingSpan(TextArea area, string? typed) =>
+        typed is null || PartialSelection(area, deletes: false) is not null ? null
+        : area.Selection.IsEmpty ? new EditedSpan(area.Caret.Offset, 0, Deletes: false)
+        : new EditedSpan(area.Selection.SurroundingSegment.Offset, area.Selection.SurroundingSegment.Length, Deletes: false);
+
+    /// <summary>
+    /// What a reply says of the modifier keys <see cref="Chord"/> pressed around <paramref name="key"/>; "" when none.
+    /// </summary>
+    internal static string HeldNote(Key key, KeyModifiers mods)
+    {
+        var names = Chord(key, mods).Where(s => s.Down && s.Key != key).Select(s => s.Key.ToString()).ToList();
+        return names.Count switch
+        {
+            0 => "",
+            1 => $"; {names[0]} went down before {key} and up after it, as a person holds it",
+            _ => $"; {string.Join(", ", names.Take(names.Count - 1))} and {names[^1]} went down before {key}, in that order, "
+                 + "and up after it in reverse, as a person holds them",
+        };
     }
 
     /// <summary>What <see cref="TypeKeysAsync"/> reports as its mechanism: key events, as a keyboard sends them.</summary>
@@ -3534,8 +3661,10 @@ public static class UiAutomationDriver
             var partial = selectionDelete && deletionArea is not null
                 ? PartialSelection(deletionArea, deletes: true) : null;
             var lengthBefore = deletionArea?.Document.TextLength ?? 0;
+            // A key that types a character writes it, as a person's does, so it is judged as typing is (#2428).
+            var typedText = TypedBy(parsedKey, mods);
             if (AreaOf(target) is { } pressedIn
-                && EditSpan(pressedIn, parsedKey, mods) is { } span
+                && (EditSpan(pressedIn, parsedKey, mods) ?? TypingSpan(pressedIn, typedText)) is { } span
                 && partial is null
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
                 return selectionDelete && !pressedIn.Selection.IsEmpty
@@ -3562,7 +3691,7 @@ public static class UiAutomationDriver
             if (!throughWindow)
             {
                 mechanism = "routed-key";
-                DeliverKey(target, parsedKey, mods, typed: null);
+                DeliverKey(target, parsedKey, mods, typedText);
             }
 
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
@@ -3574,7 +3703,9 @@ public static class UiAutomationDriver
                 ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
                   + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}{chordRead}", null);
+            return new InteractOutcome(true, mechanism,
+                $"{focusMove}pressed {chord}{parsedKey}{where}{HeldNote(parsedKey, mods)}"
+                + (typedText is null ? "" : $"; it typed \"{typedText}\", as the key does") + $"{changed}{chordRead}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -3960,8 +4091,22 @@ public static class UiAutomationDriver
     public static void EndHover(Control control)
     {
         if (TopLevel.GetTopLevel(control) is { } topLevel)
+        {
             RawPointer.Leave(topLevel);
+            ClickPointer.Remove(topLevel);
+        }
     }
+
+    // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
+    // move. A hover's end takes the pointer out of the window, and forgets it (#2407).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, System.Runtime.CompilerServices.StrongBox<Point>>
+        ClickPointer = new();
+
+    private static bool PointerAlreadyAt(TopLevel topLevel, Point at) =>
+        ClickPointer.TryGetValue(topLevel, out var last) && Math.Abs(last.Value.X - at.X) < 0.5 && Math.Abs(last.Value.Y - at.Y) < 0.5;
+
+    private static void PointerNowAt(TopLevel topLevel, Point at) =>
+        ClickPointer.AddOrUpdate(topLevel, new System.Runtime.CompilerServices.StrongBox<Point>(at));
 
     /// <summary>
     /// Watches the input <paramref name="topLevel"/> receives while hover waits for a tip, for pointer input this hover did
@@ -4044,14 +4189,15 @@ public static class UiAutomationDriver
                     System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
             public static readonly System.Reflection.ConstructorInfo? NewEvent = typeof(Avalonia.Input.Raw.RawKeyEventArgs)
                 .GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 9);
+            public static readonly System.Reflection.ConstructorInfo? NewText = typeof(Avalonia.Input.Raw.RawTextInputEventArgs)
+                .GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 4);
             static Members() { }
         }
 
         public static bool Press(Control target, Key key, KeyModifiers mods)
         {
             Action<Avalonia.Input.Raw.RawInputEventArgs> input;
-            Avalonia.Input.Raw.RawInputEventArgs down;
-            Avalonia.Input.Raw.RawInputEventArgs up;
+            List<Avalonia.Input.Raw.RawInputEventArgs> strokes;
             try
             {
                 if (TopLevel.GetTopLevel(target) is not { PlatformImpl: { } impl } topLevel
@@ -4064,14 +4210,31 @@ public static class UiAutomationDriver
                 // AccessKeyHandler needs KeySymbol, Alt without Control, and focus inside its owner on every OS.
                 var physical = Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == key);
                 var symbol = physical.ToQwertyKeySymbol(mods.HasFlag(KeyModifiers.Shift));
-                var rawMods = (mods.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
-                    | (mods.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
-                    | (mods.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None)
-                    | (mods.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
-                object[] Args(Avalonia.Input.Raw.RawKeyEventType type) =>
-                    [keyboard, (ulong)Environment.TickCount64, root, type, key, rawMods, physical, symbol!, KeyDeviceType.Keyboard];
-                down = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyDown));
-                up = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyUp));
+                static RawInputModifiers Raw(KeyModifiers held) =>
+                    (held.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
+                    | (held.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
+                    | (held.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None)
+                    | (held.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
+                // Each modifier's own key around the key, as a person's chord sends them (#2422).
+                strokes = Chord(key, mods).Select(s =>
+                {
+                    var (strokePhysical, strokeSymbol) = s.Key == key ? (physical, symbol)
+                        : (Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == s.Key), null);
+                    object[] args = [keyboard, (ulong)Environment.TickCount64, root,
+                        s.Down ? Avalonia.Input.Raw.RawKeyEventType.KeyDown : Avalonia.Input.Raw.RawKeyEventType.KeyUp,
+                        s.Key, Raw(s.Held), strokePhysical, strokeSymbol!, KeyDeviceType.Keyboard];
+                    return (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(args);
+                }).ToList();
+                // The key's character, as text of its own after its KeyDown, where the platform sends it (#2428). Without a
+                // way to make one, the routed fallback delivers the key and its text instead.
+                if (TypedBy(key, mods) is { } text)
+                {
+                    if (Members.NewText is not { } newText)
+                        return false;
+                    var after = Chord(key, mods).FindIndex(s => s.Key == key && s.Down) + 1;
+                    strokes.Insert(after, (Avalonia.Input.Raw.RawInputEventArgs)newText.Invoke(
+                        [keyboard, (ulong)Environment.TickCount64, root, text]));
+                }
                 input = found;
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
@@ -4080,8 +4243,8 @@ public static class UiAutomationDriver
                 return false;
             }
             // A program exception must not cause a second delivery through the fallback.
-            input(down);
-            input(up);
+            foreach (var stroke in strokes)
+                input(stroke);
             return true;
         }
     }
@@ -5214,9 +5377,15 @@ public record UiNodeDetail(
     WindowFrameState? Frame = null,
     string? ExpandCollapseState = null);
 
-/// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
+/// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
-    bool ShowInTaskbar, string WindowState, string NativeStyleNote);
+    bool ShowInTaskbar, string WindowState,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? NativeStyleNote,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    uint? NativeStyle = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    uint? NativeExStyle = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
