@@ -138,10 +138,11 @@ public class ModuleExecutionContext
     }
 
     /// <summary>What <paramref name="name"/>'s slot was declared as, for the Locals window's Type column (#2700): its
-    /// scalar type, and its class or <c>Object</c>, both null for a Variant. Null when there is no such variable.</summary>
-    internal (Vb6Value.ValueType? Scalar, string? Class)? DeclarationOf(ExecutionEnvironment env, string name) =>
+    /// scalar type, its class or <c>Object</c>, and whether it is known to be a Variant. A slot with none of the three, a
+    /// UDT's or an array's, is one whose declaration the slot doesn't record. Null when there is no such variable.</summary>
+    internal (Vb6Value.ValueType? Scalar, string? Class, bool IsVariant)? DeclarationOf(ExecutionEnvironment env, string name) =>
         env.TryGetVariableLocation(name, out var location)
-            ? (state.DeclaredTypeOf(location), state.DeclaredViewOf(location))
+            ? (state.DeclaredTypeOf(location), state.DeclaredViewOf(location), state.IsVariant(location))
             : null;
 
     /// <summary>Allocate a slot for <paramref name="name"/>. Pass <paramref name="declaredType"/> for a

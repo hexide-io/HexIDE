@@ -249,8 +249,8 @@ public static class DebugInspector
             {
                 // A form's control is a member declared by its class, Timer/Timer, though its slot records no class.
                 var declared = Declared.Of(ctx, baseEnv, varName);
-                if (declared is { IsVariant: true } && ControlClassOf(varValue) is { } controlClass)
-                    declared = new Declared(controlClass, null);
+                if (declared is { Class: null, Scalar: null, IsVariant: false } && ControlClassOf(varValue) is { } controlClass)
+                    declared = new Declared(controlClass, null, false);
                 members.Add(ValueNode(varName, varValue, ctx, ancestors, depth + 1, declared));
             }
             kids.AddRange(SortedByName(members));
@@ -290,17 +290,16 @@ public static class DebugInspector
             StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>
-    /// What a row was declared as, for its Type column (#2700): a class or <c>Object</c>, a scalar type, or neither for
-    /// a Variant. A row with no declaration at all, as a watch's expression is, keeps its value's own type.
+    /// What a row was declared as, for its Type column (#2700): a class or <c>Object</c>, a scalar type, or a Variant. A
+    /// row with none of them, a UDT's, or with no declaration at all, as a watch's expression is, keeps its value's own
+    /// type.
     /// </summary>
-    private sealed record Declared(string? Class, Vb6Value.ValueType? Scalar)
+    private sealed record Declared(string? Class, Vb6Value.ValueType? Scalar, bool IsVariant)
     {
-        public static readonly Declared Variant = new(null, null);
-
-        public bool IsVariant => Class is null && Scalar is null;
+        public static readonly Declared Variant = new(null, null, true);
 
         public static Declared? Of(ModuleExecutionContext ctx, ExecutionEnvironment env, string name) =>
-            ctx.DeclarationOf(env, name) is { } d ? new Declared(d.Class, d.Scalar) : null;
+            ctx.DeclarationOf(env, name) is { } d ? new Declared(d.Class, d.Scalar, d.IsVariant) : null;
     }
 
     /// <summary>
@@ -342,11 +341,11 @@ public static class DebugInspector
     private static (Declared Element, string TypeName) ElementOf(VBArray arr, Declared declared)
     {
         if ((declared.Class ?? arr.DeclaredClass) is { } elementClass)
-            return (new Declared(elementClass, null), elementClass);
+            return (new Declared(elementClass, null, false), elementClass);
         if (arr.ElementType is { } scalar && scalar != Vb6Value.ValueType.EmptyVariant)
             return scalar == Vb6Value.ValueType.Object
-                ? (new Declared("Object", null), "Object")
-                : (new Declared(null, scalar), VB6BuiltIns.DebugTypeName(new Vb6Value(scalar)));
+                ? (new Declared("Object", null, false), "Object")
+                : (new Declared(null, scalar, false), VB6BuiltIns.DebugTypeName(new Vb6Value(scalar)));
         return (Declared.Variant, "Variant");
     }
 
@@ -376,11 +375,12 @@ public static class DebugInspector
         // Array — expand to elements by real subscript (capped). An undimensioned OR zero-length array (any
         // dimension with UBound < LBound, e.g. Split("") or ReDim a(1 To 0)) is a leaf — expanding it would index
         // an empty backing store and throw (review finding). A declared array is named and typed as VB6 writes it,
-        // Grid of type Long(1 to 2); a watch's array result keeps its name and value's type.
+        // Grid of type Long(1 to 2) (measured, #2329 and #2700). A watch's array result, and a Variant holding an array,
+        // which nothing has measured, keep their name and value's type.
         if (value.Type.IsArray && value.Value is VBArray arr)
         {
-            var (element, elementType) = declared is null ? (null, null) : ElementOf(arr, declared);
-            var header = declared is null ? name + "()" : name;
+            var (element, elementType) = declared is null || declared.IsVariant ? (null, null) : ElementOf(arr, declared);
+            var header = element is null ? name + "()" : name;
             if (element is not null)
                 type = ArrayType(arr, declared!, elementType!);
             if (arr.Rank == 0 || IsEmptyArray(arr) || depth >= MaxDepth)
@@ -453,7 +453,7 @@ public static class DebugInspector
         if (value.Value is VbCollection collection)
         {
             if (depth >= MaxDepth || collection.ItemCount == 0)
-                return new DebugNode(name, type, type);   // like a field-less class: its type, no expander
+                return new DebugNode(name, VB6BuiltIns.DebugTypeName(value), type);   // like a field-less class: its class, no expander
             return new DebugNode(name, string.Empty, type, () =>
             {
                 var values = collection.Snapshot();
