@@ -69,6 +69,8 @@ internal static class ControlPositions
         // it (#1072, #1127).
         if (control is Window form && IsSize(property))
             return FormFrame.ClientFor(form, IsVertical(property), twips) + (IsVertical(property) ? MenuBarHeight(form) : 0);
+        if (control is VBFlatScrollBar && IsSize(property) && twips == 0)
+            twips = 30;
         if (IsSize(property))
         {
             if (control is VBComboBox && IsVertical(property))

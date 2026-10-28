@@ -511,6 +511,11 @@ public class FormSerializer
         else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
 
+        if (inBox is FlatScrollBarComponentClass && instance.GetPropertyOrDefault(FlatScrollBarComponentClass.SavedProperty) is null)
+        {
+            vb.WriteProperty("Arrows", typeof(int), 65536);
+            vb.WriteProperty("Orientation", typeof(int), 1638401);
+        }
         if (inBox is MaskedEdBoxComponentClass)
         {
             MaskedEdBoxPersistence.Write(vb, instance);

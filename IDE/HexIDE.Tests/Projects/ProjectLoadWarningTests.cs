@@ -179,6 +179,19 @@ public class ProjectLoadWarningTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task VB6s_saved_FlatScrollBars_load_without_a_warning()
+    {
+        var path = Path.Combine(RepoTree.Root(), "corpus", "inbox-controls", "saved", "flatscrollbar", "Form1.frm");
+        var sink = new Sink();
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), sink, new Dictionary<int, byte[]>());
+        form.Should().NotBeNull();
+        form!.UnknownChildSubtreeTexts.Should().BeEmpty();
+        form.Components.Count(c => c.BaseClass is HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass).Should().Be(7);
+        sink.Keys.Should().BeEmpty();
+    }
+
     // #1093: VB6's own save of four UpDowns, one bound to a TextBox and one double-clicked from the toolbox, loads without
     // a word, as each of them runs.
     [Fact]
