@@ -53,6 +53,28 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void Removing_a_module_closes_only_its_code_editor()
+    {
+        Action<ModuleUnloadedEvent>? unloaded = null;
+        _eventBus.Subscribe<ModuleUnloadedEvent>(Arg.Any<Action<ModuleUnloadedEvent>>())
+            .Returns(ci =>
+            {
+                unloaded = ci.Arg<Action<ModuleUnloadedEvent>>();
+                return Substitute.For<IDisposable>();
+            });
+        var module = TestHelpers.CreateModule();
+        var vm = CreateSut().Initialize(module);
+        var closes = 0;
+        vm.CloseRequest += _ => closes++;
+
+        unloaded.Should().NotBeNull();
+        unloaded!(new ModuleUnloadedEvent(TestHelpers.CreateModule()));
+        closes.Should().Be(0);
+        unloaded(new ModuleUnloadedEvent(module));
+        closes.Should().Be(1);
+    }
+
+    [AvaloniaFact]
     public void RecentEdits_RecordsModuleEditsAfterInitialization()
     {
         var module = TestHelpers.CreateModule();

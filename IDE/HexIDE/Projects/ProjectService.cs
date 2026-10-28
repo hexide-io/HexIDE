@@ -242,6 +242,41 @@ public class ProjectService : IProjectService
         if (archives != null) await archives.Close();
     }
 
+    public async Task RemoveDocument(DocumentIdentity document)
+    {
+        if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
+            return;
+
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+        var changed = new SaveChangesViewModel();
+        if (document.Form is { } form && IsDirty(form)) changed.Add(form);
+        if (document.Module is { } module && IsDirty(module)) changed.Add(module);
+        if (changed.ChangedFiles.Count > 0)
+        {
+            changed.SelectedFiles.AddRange(changed.ChangedFiles);
+            if (!await windowManager.ShowDialog(changed))
+                throw new OperationCanceledException();
+            if (changed.SaveChanges && changed.SelectedFiles.Count > 0)
+            {
+                var saved = document.Form is { } toSave
+                    ? await SaveForm(toSave, false)
+                    : await SaveModule(document.Module!, false);
+                if (!saved) return;
+            }
+        }
+
+        if (document.Form is { } removedForm)
+        {
+            eventBus.Publish(new FormUnloadedEvent(removedForm));
+            document.Project.DeleteForm(removedForm);
+        }
+        else if (document.Module is { } removedModule)
+        {
+            eventBus.Publish(new ModuleUnloadedEvent(removedModule));
+            document.Project.DeleteModule(removedModule);
+        }
+    }
+
     public async Task UnloadProject(ProjectDefinition project)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());

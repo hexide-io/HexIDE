@@ -108,6 +108,7 @@ public partial class MainViewViewModel : ObservableObject
     }
 
     public DelegateCommand SaveFormCommand { get; }
+    public DelegateCommand RemoveDocumentCommand { get; }
     public DelegateCommand SaveFormAsCommand { get; }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
@@ -190,8 +191,35 @@ public partial class MainViewViewModel : ObservableObject
     public string RemoveProjectMenuHeader => FormatHeader("Str.Menu.File.RemoveProjectFormat", "Str.Menu.File.RemoveProjectFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
     public string MakeProjectMenuHeader => FormatHeader("Str.Menu.File.MakeProjectFormat", "Str.Menu.File.MakeProjectFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
     public string MakeWithVb6MenuHeader => FormatHeader("Str.Menu.File.MakeWithVb6Format", "Str.Menu.File.MakeWithVb6Fallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
-    public string RemoveFormMenuHeader => FormatHeader("Str.Menu.Project.RemoveFormFormat", "Str.Menu.Project.RemoveFormFallback", FocusedProjectUtil.FocusedForm?.Name);
+    public string RemoveFormMenuHeader => FormatHeader("Str.Menu.Project.RemoveFormFormat", "Str.Menu.Project.RemoveFormFallback", RemovableDocument?.Name);
     public string ProjectPropertiesMenuHeader => FormatHeader("Str.Menu.Project.PropertiesFormat", "Str.Menu.Project.PropertiesFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
+
+    private DocumentIdentity? RemovableDocument
+    {
+        get
+        {
+            var document = ProjectExplorer.SelectedForm is { } form ? DocumentIdentity.For(form.FormDefinition)
+                : ProjectExplorer.SelectedModule is { } module ? DocumentIdentity.For(module.ModuleDefinition)
+                : documentDockService.ActiveDocument?.OpenDocument;
+            return document != null && DocumentLookup.DocumentsOf(document.Project).Contains(document) ? document : null;
+        }
+    }
+
+    private void UpdateRemoveDocumentMenu()
+    {
+        OnPropertyChanged(nameof(RemoveFormMenuHeader));
+        RemoveDocumentCommand.RaiseCanExecutedChanged();
+    }
+
+    private async Task RemoveActiveDocument()
+    {
+        if (RemovableDocument is not { } document) return;
+        if (ProjectExplorer.HasRemovableSelection)
+            await ProjectExplorer.RemoveSelectedDocument();
+        else
+            await projectService.RemoveDocument(document);
+        UpdateRemoveDocumentMenu();
+    }
 
     private string FormatHeader(string formatKey, string fallbackKey, string? name) =>
         name is { } n ? string.Format(localization.GetString(formatKey), n) : localization.GetString(fallbackKey);
@@ -1197,6 +1225,9 @@ public partial class MainViewViewModel : ObservableObject
             };
         }
 
+        RemoveDocumentCommand = new DelegateCommand(() => RemoveActiveDocument().ListenErrors(),
+            () => RemovableDocument != null);
+        ProjectExplorer.ObservePropertyChanged(x => x.SelectedItem).Subscribe(_ => UpdateRemoveDocumentMenu());
         SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
             () => FocusedProjectUtil.FocusedForm != null);
         SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
@@ -1328,6 +1359,8 @@ public partial class MainViewViewModel : ObservableObject
                     _activeDesigner.UndoStack.Changed += _activeDesignerUndoHandler;
                 }
                 UpdateUndoHeaders();
+
+                UpdateRemoveDocumentMenu();
 
                 // Whether Find has anything to search is a property of the active document, so this is
                 // the only moment at which the answer can change.
