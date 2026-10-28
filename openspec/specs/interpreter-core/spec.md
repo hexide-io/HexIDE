@@ -857,6 +857,30 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
 
+### Requirement: Err help properties
+
+Err SHALL expose writable HelpFile and HelpContext and read-only LastDllError. Fresh Err and Clear
+SHALL provide an empty HelpFile and a zero Long HelpContext. Raise SHALL accept HelpFile and
+HelpContext as its fourth and fifth arguments, preserving them through trapping. An omitted
+HelpContext SHALL use 1000000 plus a built-in error number, or 1000095 for an application-defined
+error. LastDllError SHALL be a zero Long while Declare calls cannot execute. Non-string HelpFile
+and unmeasured HelpContext conversions SHALL be refused as not implemented.
+
+#### Scenario: Explicit and omitted help arguments
+
+- **WHEN** Err.Raise 5, , , "h.hlp" executes under On Error Resume Next
+- **THEN** HelpFile is h.hlp and HelpContext is 1000005
+- **WHEN** Err.Clear executes and then Err.Raise 5, , , , 9 executes
+- **THEN** HelpFile is empty and HelpContext is 9
+
+#### Scenario: Writable help fields and a read-only native error
+
+- **WHEN** HelpFile is assigned "mine.chm" and HelpContext is assigned "13"
+- **THEN** they read back as mine.chm and Long 13
+- **AND** LastDllError reads as Long 0
+- **WHEN** LastDllError is assigned 3
+- **THEN** execution refuses with Can't assign to read-only property
+
 ### Requirement: Shell SHALL launch programs with the measured argument and result contract
 `Shell` SHALL work as a function and a statement, launch asynchronously and return the process ID as
 Double. Explicit styles 0–4, 6 and 7 SHALL select the Windows startup show state; Unix hosts SHALL
