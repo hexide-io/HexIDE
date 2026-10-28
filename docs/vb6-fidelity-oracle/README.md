@@ -720,3 +720,6 @@ added afterwards.
 - [Err.HelpFile, Err.HelpContext and Err.LastDllError (2026-10-28, #2527)](err-helpfile-err-helpcontext-and-err-lastdllerror.md#errhelpfile-errhelpcontext-and-errlastdllerror-2026-10-28-2527)
 - [Erl: the line number an error reports (2026-10-28, #2528)](erl-the-line-number-an-error-reports.md#erl-the-line-number-an-error-reports-2026-10-28-2528)
 - [A line number on a closing or middle line of a block (2026-10-28, #2529)](a-line-number-on-a-closing-or-middle-line-of-a-block.md#a-line-number-on-a-closing-or-middle-line-of-a-block-2026-10-28-2529)
+- [LoadResString, LoadResData and LoadResPicture (2026-10-28, #2626)](loadresstring-loadresdata-and-loadrespicture.md#loadresstring-loadresdata-and-loadrespicture-2026-10-28-2626)
+- [ErrObject as a declared type (2026-10-28, #2627)](errobject-as-a-declared-type.md#errobject-as-a-declared-type-2026-10-28-2627)
+- [An Error value in Select Case, against every other kind (2026-10-28, #2520)](an-error-value-in-select-case-against-every-other-kind.md#an-error-value-in-select-case-against-every-other-kind-2026-10-28-2520)
