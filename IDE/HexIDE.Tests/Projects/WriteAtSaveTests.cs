@@ -197,4 +197,134 @@ public class WriteAtSaveTests : IDisposable
 
         File.ReadAllText(form.AbsolutePath!).Should().StartWith(header!);
     }
+    // #2678: --newproject writes the initial project into its recorded scratch folder.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Saving_a_scratch_project_asks_for_members_before_the_project(bool saveAs)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        var form = await svc.AddNewForm(project, "Form1", interactive: false);
+        var scratch = ProjectService.ProjectFilesDirectory(project);
+        try
+        {
+            await svc.SaveProjectToDirectory(project, scratch);
+            var dialogs = new List<string>();
+            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+                .Returns(ci =>
+                {
+                    var name = ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName!;
+                    dialogs.Add(name);
+                    Directory.GetFiles(dir).Should().BeEmpty("all dialogs precede every write");
+                    return Task.FromResult<string?>(Path.Join(dir, name));
+                });
+
+            await svc.SaveAllProjects(saveAs);
+
+            dialogs.Should().Equal("Form1.frm", "Project1.vbp");
+            Directory.GetFiles(dir).Select(Path.GetFileName).Should().BeEquivalentTo(["Form1.frm", "Project1.vbp"]);
+            File.ReadAllText(Path.Join(dir, "Project1.vbp")).ReplaceLineEndings("\n")
+                .Should().Contain("Form=Form1.frm\n").And.NotContain("..");
+            form.AbsolutePath.Should().Be(Path.Join(dir, "Form1.frm"));
+            svc.HasUnsavedChanges(form).Should().BeFalse();
+        }
+        finally { Directory.Delete(scratch, recursive: true); }
+    }
+
+    [Theory]
+    [InlineData("Form")]
+    [InlineData("Module")]
+    [InlineData("UserControl")]
+    public async Task Automation_persistence_writes_the_scratch_member_without_a_picker(string kind)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        var document = await AddNew(svc, project, kind, kind + "1");
+        var scratch = ProjectService.ProjectFilesDirectory(project);
+        try
+        {
+            await svc.SaveProjectToDirectory(project, scratch);
+            var path = document.AbsolutePath!;
+            const string code = "Private Sub Changed()\r\nEnd Sub\r\n";
+            if (document.Form is { } form)
+                form.UpdateCode(code);
+            else
+                document.Module!.UpdateCode(code);
+
+            ScriptedFileDialogs.WouldShowPicker(path).Should().BeFalse();
+            var saved = document.Form is { } savedForm
+                ? await svc.SaveForm(savedForm, saveAs: false, interactive: false)
+                : await svc.SaveModule(document.Module!, saveAs: false, interactive: false);
+
+            saved.Should().BeTrue();
+            document.AbsolutePath.Should().Be(path);
+            File.ReadAllText(path).ReplaceLineEndings("\n").Should().Contain(code.ReplaceLineEndings("\n"));
+            await windowManager.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+            Directory.GetFiles(dir).Should().BeEmpty();
+            (document.Form is { } dirtyForm ? svc.HasUnsavedChanges(dirtyForm) : svc.HasUnsavedChanges(document.Module!))
+                .Should().BeTrue("persistence does not give a scratch member a user-chosen home");
+        }
+        finally { Directory.Delete(scratch, recursive: true); }
+    }
+
+    [Fact]
+    public async Task Scratch_members_do_not_read_as_saved()
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        var form = await svc.AddNewForm(project, "Form1", interactive: false);
+        var module = await svc.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        var scratch = ProjectService.ProjectFilesDirectory(project);
+        try
+        {
+            await svc.SaveProjectToDirectory(project, scratch);
+
+            svc.HasUnsavedChanges(form).Should().BeTrue();
+            svc.HasUnsavedChanges(module).Should().BeTrue();
+        }
+        finally { Directory.Delete(scratch, recursive: true); }
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    [InlineData(true, 2)]
+    public async Task Cancelling_a_scratch_member_save_writes_nothing(bool saveAs, int cancelAt)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        var form = await svc.AddNewForm(project, "Form1", interactive: false);
+        var module = await svc.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        var scratch = ProjectService.ProjectFilesDirectory(project);
+        try
+        {
+            await svc.SaveProjectToDirectory(project, scratch);
+            form.UpdateCode("Private Sub Changed()\r\nEnd Sub\r\n");
+            var original = Directory.GetFiles(scratch).ToDictionary(path => path, File.ReadAllBytes);
+            var dialogs = new List<string>();
+            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+                .Returns(ci =>
+                {
+                    var name = ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName!;
+                    dialogs.Add(name);
+                    return Task.FromResult<string?>(dialogs.Count == cancelAt ? null : Path.Join(dir, name));
+                });
+
+            Func<Task> save = () => svc.SaveAllProjects(saveAs);
+            await save.Should().ThrowAsync<OperationCanceledException>();
+
+            dialogs.Should().Equal(new[] { "Form1.frm", "Module1.bas" }.Take(cancelAt));
+            Directory.GetFiles(dir).Should().BeEmpty();
+            foreach (var (path, bytes) in original)
+                File.ReadAllBytes(path).Should().Equal(bytes);
+            form.AbsolutePath.Should().Be(Path.Join(scratch, "Form1.frm"));
+            module.AbsolutePath.Should().Be(Path.Join(scratch, "Module1.bas"));
+            project.AbsolutePath.Should().Be(Path.Join(scratch, "Project1.vbp"));
+            svc.HasUnsavedChanges(form).Should().BeTrue();
+        }
+        finally { Directory.Delete(scratch, recursive: true); }
+    }
+
 }
