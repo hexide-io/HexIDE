@@ -4048,6 +4048,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         value = Vb6Value.Nothing;
                         declaredClass = "Collection";
                     }
+                    else if (qualifier is null && typeName.Equals("ErrObject", StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = Vb6Value.Nothing;
+                        declaredClass = "ErrObject";
+                    }
                     else if (!isArray && interpreter.ControlClassFor(ct.GetText()) is { } controlClass)
                     {
                         value = Vb6Value.Nothing;

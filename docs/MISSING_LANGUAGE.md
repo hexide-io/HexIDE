@@ -119,11 +119,11 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 32 | 53 | 0 | 68 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
-| Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
+| Literals, types and suffixes | 0 | 0 | 2 | 20 | 0 | 28 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **121** | **454** | **20** | **588** | **1184** |
+| **Total** | **1** | **0** | **120** | **454** | **20** | **589** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 121 names
+## Dies mid-run — 120 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -319,7 +319,6 @@ most of the in-box object model.
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
 | `Err.HelpFile` | **Dies** | Current diagnostic (#935): `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile)". No case in… | VbErr.cs |
 | `Err.LastDllError` | **Dies** | Current diagnostic (#935): "Method or data member not found (LastDllError)". | VbErr.cs |
-| `ErrObject` | **Dies** | as a complexType, throws at run time. BaseTypeMapper.Map has no ErrObject case and it is not a user class/UDT/Enum, so DeclareLocal falls to the final else. Measured verbatim:… | StatementExecutor.cs |
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
@@ -799,7 +798,7 @@ missing.
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
 | `WithEvents` | Supported | **#2065:** CommandButton.Value reads False; assigning True raises Click synchronously, its design-time handler before its WithEvents sinks (newest attachment first). False assignments remain refused pending measurement. **[#1556](https://github.com/hexide-io/HexIDE/issues/1556):** a control held in a form's WithEvents variable raises the variable's handlers after its own, the one set last first, and a control array element is 459 (measured). **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). **#1021:** WithEvents belongs to each declarator of a comma list; only marked names become sinks (measured R1–R5). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
-### Literals, types and suffixes — 50 names (3 absent, 20 partial, 27 supported)
+### Literals, types and suffixes — 50 names (2 absent, 20 partial, 28 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -817,7 +816,7 @@ missing.
 | `,` | Supported | Moves to the next 14-column print zone from where the line has got to, as vb6.exe measured ([#1145](https://github.com/hexide-io/HexIDE/issues/1145)): a zone boundary already reached still moves on, the column carries across statements and restarts at a line break inside an item, and a trailing comma leaves the line open. `Debug.Print` zones as `Print #` does ([#1380](https://github.com/hexide-io/HexIDE/issues/1380)). Pinned by `SequentialFileTests`. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it ran. | StatementExecutor.cs |
 | `:= (named argument)` | Partial | **#2516:** named arguments to FormatDateTime remain explicitly unimplemented: its measurements cover positional calls only. **[#1465](https://github.com/hexide-io/HexIDE/issues/1465):** a named argument goes to the parameter of its name, in any case, after the positional ones. This works in a call to the program's own Sub, Function or class method, and to the 73 intrinsics VB6 takes names for, with VB6's compile errors raised as the statement runs (measured: an unknown name is "Named argument not found", one given twice "Named argument already specified", a positional argument after a named one "Syntax error", and a ParamArray "Argument in ParamArray may not be named"). **Named arguments are evaluated in parameter order, not the order written** (measured: `Foo c:=F("c"), a:=F("a")` evaluates `a` first, and `Mid(Start:=…, String:=…)` evaluates String first). Twenty intrinsics refuse every name, as VB6 does ("Syntax error"): Abs, the `C…` conversions but CDec and CVDate, CVErr, Fix, InStr, Int, LBound, Len, Sgn, StrComp and UBound. The six with no parameters refuse a name as VB6 does, three ways ([#1475](https://github.com/hexide-io/HexIDE/issues/1475): Command, Now and Time "Named arguments not allowed", Date "Syntax error", DoEvents and Timer "Wrong number of arguments or invalid property assignment"). `RaiseEvent` refuses them too. Still refused, naming their issues: a named argument to a control's, a form's or an object's method ([#1474](https://github.com/hexide-io/HexIDE/issues/1474)). | NamedArguments.cs, VB6BuiltIns.NamedParameters.cs |
 | `;` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** in `Print #`, it joins two items, and at the end of the statement it keeps the line open, as measured. In `Write #` it still dies, with `Write #` itself. | StatementExecutor.cs |
-| `ErrObject` | **Dies** | as a complexType, throws at run time. BaseTypeMapper.Map has no ErrObject case and it is not a user class/UDT/Enum, so DeclareLocal falls to the final else. Measured verbatim:… | StatementExecutor.cs |
+| `ErrObject` | Supported | `As ErrObject` holds Err or Nothing; a Collection assignment raises 13 and preserves the reference. `New ErrObject` raises trappable -2147221164, "Class not registered" (#2627; VB6 SP6 native/p-code measurements in [#2624](https://github.com/hexide-io/HexIDE/issues/2624) and [#2628](https://github.com/hexide-io/HexIDE/issues/2628)). | StatementExecutor.cs, ExpressionExecutor.cs |
 | `Decimal` | Partial | `Decimal` has no token in the grammar's `baseType` rule (BOOLEAN, BYTE, COLLECTION, CURRENCY, DATE, DOUBLE, INTEGER, LONG, OBJECT, SINGLE, STRING, VARIANT), so `As Decimal` parses as a… | VB6.g4 |
 | `&H` | Partial | Implemented and oracle-faithful in `ClassifyRadixLiteral`, whose comment records the measurement: "VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with… | ExpressionExecutor.cs |
 | `&O` | Partial | The same `ClassifyRadixLiteral` path with radix 8. Measured `&O17` = 15 Integer; a trailing `&`/`%` forces the Long/Integer reading as for hex. RESTRICTION: `OCTALLITERAL : (PLUS \| MINUS)?… | ExpressionExecutor.cs |
