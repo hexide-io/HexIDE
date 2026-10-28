@@ -175,13 +175,22 @@ public class FunctionTypeCharacterTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task The_return_assigned_through_its_character_is_refused_until_739()
+    public async Task The_return_assigned_through_its_character_sets_it()
     {
-        // VB6 returns 7 (measured). Until assignment through a character works (#739), it stops the run rather than
-        // write a variable named BI% and return 0.
-        var run = () => Run("Debug.Print BI()\nFunction BI%()\n    BI% = 7\nEnd Function\n");
+        // Through the assignment's bare name (#739), which is the return slot.
+        await Run("Debug.Print TypeName(BI()) & \" \" & BI()\nDebug.Print TypeName(BS()) & \" \" & BS()\n"
+                  + "Function BI%()\n    BI% = 7\nEnd Function\nFunction BS$()\n    BS$ = \"b\"\nEnd Function\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*BI% = *#739*");
+        AssertDebugLog(Lines("Integer 7", "String b"));
+    }
+
+    [Fact]
+    public async Task The_return_assigned_through_another_character_is_a_compile_error()
+    {
+        var run = () => Run("Debug.Print F()\nFunction F%()\n    F& = 1\nEnd Function\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>())
+            .WithMessage("*Type-declaration character does not match declared data type*");
     }
 
     [Fact]

@@ -1361,6 +1361,9 @@ public partial class MainViewViewModel : ObservableObject
                 RaiseDynamicMenuHeaders();
             });
 
+        projectRunnerService.ObservePropertyChanged(x => x.CanEndProject)
+            .Subscribe(_ => EndProjectCommand.RaiseCanExecutedChanged());
+
         projectRunnerService.ObservePropertyChanged(x => x.IsRunning)
             .Subscribe(_ =>
             {

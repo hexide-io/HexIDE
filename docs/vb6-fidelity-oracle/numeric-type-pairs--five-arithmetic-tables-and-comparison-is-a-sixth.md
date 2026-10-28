@@ -130,6 +130,19 @@ this narrowing is not a checked conversion.
 
 `<`, `>` and `<>` agree with `=` on every pair, in both operand orders. `<=` and `>=` were **not probed**.
 
+**`<=` and `>=`, measured on 2026-10-27 (#229).** Native and p-code agreed. Each pair was typed, both orders, and two of
+them were repeated as Variants:
+
+| Pair | `=` | `<` | `>` | `<=` | `>=` | reversed `<=` | reversed `>=` |
+|---|---|---|---|---|---|---|---|
+| Single 0.1, Double 0.1 | T | F | F | T | T | T | T |
+| Single 16777216, Long 16777217 | F | T | F | T | F | F | T |
+| Currency 0.0312, Double 0.03125 | T | F | F | T | T | T | T |
+| Decimal 0.10000000000000001, Double 0.1 | F | F | T | F | T | T | F |
+| Single 100.5, Integer 100 | F | | | F | T | T | F |
+
+So `<=` and `>=` narrow as `=` does, pair by pair, and agree with `<` and `=` in both orders.
+
 ### Overflow — typed raises, with two silent exceptions
 
 | probe | result | Err |
@@ -199,6 +212,13 @@ Lo 16777217 + Sg 0        -> Double 16777217    (a Single result would be 167772
 `Date±Int → Date`, `Date+Dbl → Date`, `Date+Cur → Date`, `Date+Date → Date`, but
 **`Date-Date → Double`** and **`Date*Int → Double`**. `dt = CDbl(dt)` → True.
 
+**Boolean in a comparison, measured on 2026-10-27 (#229).** Native and p-code agreed. True compares as the Integer -1
+and False as 0, typed and as Variants, with no error:
+- `True = -1`, `True <= -1` and `True >= -1` are True, and `True < -1` is False.
+- `True < 0` is True, `True = 1` is False, `True > -1.5` is True, and `True = CDbl(-1)` is True.
+- `False = CByte(0)` and `False = CCur(0)` are True.
+- **`False < True` is False**, because -1 < 0.
+
 ### What resisted explanation — recorded, not tidied
 
 **(a) The Currency-vs-Double comparison narrows to 4 dp but never overflows, and no mechanism is offered.**
@@ -223,6 +243,10 @@ fact here**, because HexIDE raises where VB6 runs — a false rejection, the top
 domain" from "float domain" but not Single from Double, and no Byte- or Integer-valued pair can distinguish
 them, because every Integer value is exact in Single. Recorded as unmeasured rather than assumed — do not
 guess it when implementing.
+
+*Added 2026-10-27 (#229):* this one cannot be measured, because there is nothing to observe. A Single is exact in
+Double, and an Integer or a Byte is exact in both. So the two domains give the same answer for every such pair, and
+an implementation may use either.
 
 **(e) The comparison tie rule is only resolved for dyadic values.** `0.03125` and `0.09375` are the only 4-dp
 tie values a Double holds exactly, and both show half-to-even. A non-dyadic "tie" like `1.00005` is not a tie

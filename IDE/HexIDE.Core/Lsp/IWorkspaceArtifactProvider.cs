@@ -44,7 +44,7 @@ public interface IWorkspaceArtifactProvider
 /// can't read type libraries; a provider then uses the name the project file records.
 /// </param>
 public sealed record WorkspaceArtifactContext(string WorkspaceRoot, WorkspaceProjectSnapshot Project,
-    JsonElement? Settings = null, IWorkspaceLibraryNames? LibraryNames = null);
+    JsonElement? Settings = null, IWorkspaceLibraryNames? LibraryNames = null, Func<CancellationToken, Task<string>>? ProjectText = null);
 
 /// <summary>
 /// The identifier code qualifies a referenced library's members with, which a project file doesn't record: a

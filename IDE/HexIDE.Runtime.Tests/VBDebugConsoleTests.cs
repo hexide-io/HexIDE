@@ -5,6 +5,7 @@ namespace HexIDE.Runtime.Tests;
 
 // Covers the live Debug.Print sink (Immediate-window bridge). The ~400 interpreter tests exercise
 // Debug.Print via MockStdLib's capture list; this pins VBDebugConsole itself — the piece the live IDE uses.
+[Collection(typeof(VBDebugConsoleCollection))]
 public class VBDebugConsoleTests
 {
     [Fact]

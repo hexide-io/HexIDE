@@ -100,7 +100,7 @@ public class WatchesToolViewModelTests
     public async Task Stopped_EvaluatesEachWatch()
     {
         _debug.State.Returns(DebugState.Paused);
-        _debug.EvaluateWatchAsync("count").Returns(Task.FromResult<DebugEvalResult?>(OkResult("42", "Integer")));
+        _debug.EvaluateScopedWatchAsync("count", "Module1.Go").Returns(Task.FromResult<DebugEvalResult?>(OkResult("42", "Integer")));
         _watchService.Add(new WatchExpression("count", WatchType.Expression, "Module1.Go"));
         var sut = CreateSut();
 
@@ -115,7 +115,7 @@ public class WatchesToolViewModelTests
     public async Task Continued_BlanksValue()
     {
         _debug.State.Returns(DebugState.Paused);
-        _debug.EvaluateWatchAsync("count").Returns(Task.FromResult<DebugEvalResult?>(OkResult("42", "Integer")));
+        _debug.EvaluateScopedWatchAsync("count", "Module1.Go").Returns(Task.FromResult<DebugEvalResult?>(OkResult("42", "Integer")));
         _watchService.Add(new WatchExpression("count", WatchType.Expression, "Module1.Go"));
         var sut = CreateSut();
         _debug.Stopped += Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.Breakpoint, "Module1", 7));
