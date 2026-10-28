@@ -136,6 +136,11 @@ not be reverted before the user was already looking at it.
 - **AND** the Locals ready header and out-of-context watch values update immediately
 - **AND** displayed frame names, evaluated values and debugger errors remain intact
 
+#### Scenario: Properties window stays open during a language change
+- **WHEN** the IDE language changes while a property is selected
+- **THEN** existing property descriptions and category headers update to the active language
+- **AND** the selected property, its value and category expansion state are preserved
+
 ### Requirement: A language change SHALL be revertible without reading the new language
 After a language change the IDE SHALL offer to keep or undo it in a way that does not require reading the
 new language, and SHALL undo it automatically if not confirmed within a short period.
@@ -220,7 +225,9 @@ nothing.
 
 ### Requirement: Only one language change SHALL await confirmation at a time
 While a language change is awaiting confirmation, another language change SHALL be refused, and nothing SHALL
-be applied by the refused change.
+be applied by the refused change. On desktop, the confirmation SHALL be modal over the topmost visible
+window in the main window's ownership chain, regardless of activation, so Options cannot change Language or
+Region underneath it.
 
 A change that is not confirmed reverts to the language active when it was made. A second change made while the
 first is unconfirmed would record the first's unconfirmed language as the one to return to, so whichever
@@ -229,3 +236,8 @@ resolved last would decide where the IDE ended up. That could leave the IDE in a
 #### Scenario: A second change while the first is unconfirmed
 - **WHEN** a language change is awaiting confirmation and another change is requested
 - **THEN** the second is refused, the first's confirmation is still the only one open, and not confirming it returns the IDE to the language it had before either
+
+#### Scenario: Automation opens a gate while Options is open
+- **WHEN** a language confirmation opens while Options is open, regardless of which window is active
+- **THEN** the gate is owned by the topmost visible window in the main window's ownership chain
+- **AND** Options cannot accept Language or Region input until the gate closes

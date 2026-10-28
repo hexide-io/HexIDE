@@ -4,6 +4,38 @@ namespace HexIDE.Tests.Infrastructure;
 
 public class WorkflowActionTests
 {
+    [Fact]
+    public void DocsOnlyDesktopChecksMatchTheRealBuildsWithoutUsingDesktopRunners()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))
+            .ReplaceLineEndings("\n");
+        var jobs = Regex.Matches(workflow, @"(?ms)^  ([\w-]+):\n(.*?)(?=^  [\w-]+:|\z)")
+            .ToDictionary(match => match.Groups[1].Value, match => match.Groups[2].Value);
+
+        jobs.Should().ContainKey("build-ide-desktop-docs");
+        var docs = jobs["build-ide-desktop-docs"];
+        var builds = jobs["build-ide-desktop"];
+        docs.Should().Contain("needs: changes");
+        docs.Should().Contain("if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}");
+        builds.Should().Contain("if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}");
+        docs.Should().Contain("name: build-ide (${{ matrix.name }})");
+        builds.Should().Contain("name: build-ide (${{ matrix.name }})");
+        docs.Should().Contain("runs-on: ubuntu-latest");
+        builds.Should().Contain("runs-on: ${{ matrix.runner }}");
+
+        var names = Regex.Matches(builds, @"\{ name: (\w+), runner: ([\w-]+) \}");
+        names.Select(match => match.Groups[1].Value).Should().BeEquivalentTo(new[] { "windows", "macos" });
+        foreach (Match name in names)
+        {
+            docs.Should().MatchRegex(@"(?m)^          - \{ name: " + name.Groups[1].Value + @" \}$");
+            name.Groups[2].Value.Should().Be(name.Groups[1].Value + "-latest");
+        }
+
+        docs.Should().NotContain("uses:");
+        Regex.Matches(docs, @"(?m)^        run: (.+)$").Select(match => match.Groups[1].Value)
+            .Should().Equal("echo 'Build skipped for a docs-only change.'");
+    }
+
     [Theory]
     [InlineData("actions/checkout", "v7")]
     [InlineData("actions/cache", "v6")]

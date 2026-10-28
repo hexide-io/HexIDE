@@ -17,9 +17,23 @@ public static class AvaloniaMethodsInteroperability
         VBProps.RefuseIfRemoved(c);
         if (c is VBTimer)
             TimerMembers.RefuseMethod(method);
+
+        if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
+        {
+            if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))
+                throw TabStripMembers.Refused(method);
+            strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
+            return Vb6Value.Nothing;
+        }
+        if (c is VBTreeView)
+            throw new NotImplementedException();
+        if (c is VBToolbar)
+            VBToolbar.RefusePending(method);
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
         // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
         // is 438 late-bound (measured).
+        if (c is VBSSTab && Components.InBox.SSTabComponentClass.Instance.Member(method) is { Implemented: false })
+            throw new NotImplementedException($"SSTab {method} is not implemented");
         if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method)) is { } inBox)
             return inBox ? Vb6Value.Nothing : throw new VBMethodOrDataMemberNotFoundException(method, Vb6Value.ValueType.Control);
         // A form's Show and Hide, on a window the program drives (#822). Its load came first, where the member was looked

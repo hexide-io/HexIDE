@@ -43,7 +43,7 @@ VB6 discarded breakpoints when the project closed. HexIDE keeps them, stored per
 ### Requirement: Breakpoints SHALL only take effect in code loaded for the run
 A breakpoint SHALL cause a break only when it sits in code loaded into the interpreter for the current run.
 
-A form's run loads its code and the project's standard (`.bas`) and class (`.cls`) modules into the interpreter. UserControl (`.ctl`) and PropertyPage (`.pag`) modules are not loaded as free-standing modules by this path.
+A form's run loads its code and the project's standard (`.bas`) and class (`.cls`) modules into the interpreter. UserControl (`.ctl`) definitions with designer parts are registered as instance templates for placed controls, sharing the program interpreter; their declarations run per placed instance. PropertyPage (`.pag`) modules are not loaded by this path.
 
 #### Scenario: A breakpoint in a standard or class module
 - **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
@@ -63,6 +63,12 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 #### Scenario: Breaking into a running program
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
 - **THEN** the program suspends at the next executed statement and enters break mode
+
+#### Scenario: Breaking a DoEvents loop from the IDE
+- **WHEN** a running form has focus and its event handler loops with `DoEvents`
+- **THEN** the Standard and Debug toolbar Break buttons remain enabled
+- **AND** invoking Break suspends execution at the next statement
+- **AND** those controls disable while paused and enable again on Continue
 
 #### Scenario: Continuing from break mode
 - **WHEN** the developer presses F5 while paused
@@ -157,6 +163,11 @@ Locals is the primary inspection surface, showing what is in scope where executi
 - **WHEN** the developer expands an array, a user-defined type, or an object instance
 - **THEN** its elements or fields are shown, guarded against cycles and bounded in depth
 
+#### Scenario: Expanding a control whose property cannot be read
+- **WHEN** the developer expands a control one of whose listed properties raises when read
+- **THEN** that property is listed with the raised error's own description in angle brackets, and no type
+- **AND** the control's other properties are still listed, and the expansion does not fail
+
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.
 
@@ -248,6 +259,13 @@ Watches persist an expression across breaks, so the developer does not re-type i
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
+
+#### Scenario: Evaluating a stored watch context while paused
+- **WHEN** an expression watch names the paused module or one of its procedures
+- **THEN** a module-scoped watch SHALL exclude procedure locals
+- **AND** a procedure-scoped watch SHALL read that procedure's frame anywhere on the call stack
+- **AND** an undefined module-scoped name SHALL display `<Expression not defined in context>` with type `Empty`
+- **AND** a procedure that has returned SHALL display `<Out of context>` with type `Empty`
 
 #### Scenario: Selecting an expanded watch child
 - **WHEN** the developer selects a child of an expanded watch after selecting another watch
@@ -357,3 +375,29 @@ The IDE SHALL show localized design, run and break title tags, with break select
 - **THEN** the title shows the break tag and the running status message is cleared
 - **WHEN** execution continues
 - **THEN** the title shows the run tag and the running status message returns
+
+### Requirement: Procedure boundary stop positions
+
+The interpreter debugger SHALL honour breakpoints on Sub declarations before
+executing their bodies, and on Sub, Function and Property Get natural End lines after the last statement and before returning.
+A step from the last statement of a called Sub or Function SHALL stop on its End line; the following step
+SHALL reach the caller's next line. These positions retain the callee's frame until return (#2172).
+Entry procedures SHALL retain breakpoint-only End positions, so startup stepping advances from
+Initialize's last statement into Load's first statement.
+
+#### Scenario: Break on a procedure's natural End line
+- **WHEN** a procedure finishes its last statement with a breakpoint on its End line
+- **THEN** execution pauses on that line before the caller continues
+- **AND** the call stack still contains the callee
+
+#### Scenario: Step from a Function's last statement
+- **WHEN** Step Over runs the Function's last statement
+- **THEN** execution pauses on End Function
+- **AND** the next Step Over pauses on the caller's next line
+
+#### Scenario: Step through form startup
+- **WHEN** Step Into from design mode starts a form with Form_Initialize
+- **THEN** execution pauses on Initialize's first statement
+- **AND** a step from its last statement pauses on Load's first statement
+- **WHEN** the form has no Form_Initialize
+- **THEN** the initial step pauses on Load's first statement

@@ -82,6 +82,8 @@ public sealed record DebugEvalResult(bool Ok, string Display, string TypeName, b
     /// its type. VB6's text has 7 or 15 significant digits, so a change below them would not show in it (#772).
     /// </summary>
     public string? ChangeKey { get; init; }
+
+    internal bool UndefinedName { get; init; }
 }
 
 /// <summary>A paused activation, able to hand the debugger its Locals on demand. Implemented by the interpreter's
@@ -100,6 +102,10 @@ public interface IDebugFrame
     /// <see cref="EvaluateAsync"/>, but returns a <see cref="DebugEvalResult"/> (display / type / VB6 truthiness /
     /// expandable node), or <c>Ok = false</c> carrying the error message.</summary>
     System.Threading.Tasks.Task<DebugEvalResult> EvaluateTypedAsync(string expression);
+
+    /// <summary>Evaluate a stored context; legacy frames retain their current-frame evaluation.</summary>
+    System.Threading.Tasks.Task<DebugEvalResult> EvaluateScopedWatchAsync(string expression, string context)
+        => EvaluateTypedAsync(expression);
 
     /// <summary>The current call DEPTH (1 = outermost). The controller reads it at the gate to decide Step Over
     /// (break when depth &lt;= the depth at the step) and Step Out (break when depth &lt; it).</summary>
@@ -176,8 +182,7 @@ public static class DebugInspector
             nodes.Add(new DebugNode("Me", formObj.ClassName, formObj.ClassName, () =>
             {
                 var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(instanceWindow))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                kids.AddRange(PropertyNodes(instanceWindow));
                 var ancestors = NewAncestorSet();
                 ancestors.Add(formObj);
                 kids.AddRange(EnvChildren(baseEnv, ctx, ancestors, 1, selfName));
@@ -308,8 +313,7 @@ public static class DebugInspector
             return new DebugNode(name, FormatValue(value), type, () =>
             {
                 var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(control))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                kids.AddRange(PropertyNodes(control));
                 return kids;
             });
 
@@ -388,6 +392,14 @@ public static class DebugInspector
         return list;
     }
 
+    // A live control's or form's properties, name-sorted. One whose read raises shows the raised error's own description
+    // in angle brackets, with no type, and the rest are still listed (#2289). The angle brackets are VB6's own, for a member
+    // its Locals lists whose read raises (measured on #2289). Which members are listed, and an error row's type, are #2329.
+    private static IEnumerable<DebugNode> PropertyNodes(Control control) =>
+        AvaloniaInteroperability.ReadProperties(control).Select(p => p.Error is { } error
+            ? new DebugNode(p.Name, $"<{error}>", string.Empty)
+            : new DebugNode(p.Name, FormatValue(p.Value), VB6BuiltIns.DebugTypeName(p.Value)));
+
     // The Value-column text for a leaf value, following VB6 Locals conventions (approximation — see D9).
     private static string FormatValue(Vb6Value v)
     {
@@ -418,7 +430,8 @@ public static class DebugInspector
     // as a module's variable, and it is not one.
     private static bool IsFormName(ModuleExecutionContext ctx, ExecutionEnvironment env, string name)
         => env.TryGetVariableLocation(name, out var location)
-           && ctx.State[location].Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
+           && ctx.State.TryRead(location, out var value)
+           && value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
            && string.Equals(form.ClassName, name, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSelfRef(string name, string? selfName)

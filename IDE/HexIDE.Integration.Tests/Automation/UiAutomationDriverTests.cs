@@ -150,34 +150,82 @@ public class UiAutomationDriverTests
 
 
     [AvaloniaTheory]
-    [InlineData("click", false)]
     [InlineData("invoke", false)]
-    [InlineData("click", true)]
     [InlineData("invoke", true)]
-    public void Disabled_targets_are_refused_before_click_or_invoke(string action, bool modal)
+    [InlineData("click", false)]
+    [InlineData("toggle", false)]
+    [InlineData("set_value", false)]
+    [InlineData("select", false)]
+    [InlineData("add_to_selection", false)]
+    [InlineData("remove_from_selection", false)]
+    [InlineData("double_click", false)]
+    [InlineData("set_range_value", false)]
+    [InlineData("expand", false)]
+    [InlineData("collapse", false)]
+    [InlineData("scroll", false)]
+    [InlineData("close", false)]
+    public void Interact_OnADisabledControl_ExplainsTheRefusal_AndActsOnNothing(string action, bool disabledParent)
+    {
+        var clicks = 0;
+        var presses = 0;
+        var button = new Button { Content = "Break" };
+        button.Click += (_, _) => clicks++;
+        button.AddHandler(InputElement.PointerPressedEvent, (_, _) => presses++, handledEventsToo: true);
+        var check = new CheckBox { Content = "Hold" };
+        var text = new TextBox { Text = "kept" };
+        Control target = action switch { "toggle" => check, "set_value" => text, _ => button };
+        var panel = new StackPanel { Children = { button, check, text } };
+        if (disabledParent) panel.IsEnabled = false;
+        else target.IsEnabled = false;
+        var window = Show(panel);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(target, action, "x");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is disabled").And.Contain("\"isEnabled\": false")
+                .And.Contain($"'{action}' was refused and nothing was done").And.NotContain("threw");
+            clicks.Should().Be(0);
+            presses.Should().Be(0);
+            check.IsChecked.Should().BeFalse();
+            text.Text.Should().Be("kept");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("click")]
+    [InlineData("invoke")]
+    [InlineData("toggle")]
+    [InlineData("set_value")]
+    [InlineData("select")]
+    [InlineData("add_to_selection")]
+    [InlineData("remove_from_selection")]
+    [InlineData("double_click")]
+    [InlineData("set_range_value")]
+    [InlineData("expand")]
+    [InlineData("collapse")]
+    [InlineData("scroll")]
+    [InlineData("close")]
+    public void Modal_dialogs_refuse_every_control_action(string action)
     {
         UiAutomationDriver.TrackWindows();
         var clicks = 0;
         var presses = 0;
-        var button = new Button { Name = "Ask", Content = "Ask", IsEnabled = modal };
+        var button = new Button { Name = "Ask", Content = "Ask", IsEnabled = true };
         button.Click += (_, _) => clicks++;
         button.AddHandler(InputElement.PointerPressedEvent, (_, _) => presses++, handledEventsToo: true);
         var window = new Window { Title = "Loop", Content = button, Width = 200, Height = 150 };
         window.Show();
         var dialog = new Window { Title = "Reset prompt", Content = new Button { Content = "OK" } };
-        if (modal)
-            _ = dialog.ShowDialog(window);
+        _ = dialog.ShowDialog(window);
         Dispatcher.UIThread.RunJobs();
         try
         {
             var outcome = UiAutomationDriver.Interact(button, action, null);
             outcome.Success.Should().BeFalse();
-            outcome.Error.Should().Contain("disabled").And.Contain("nothing was pressed");
-            if (modal)
-                outcome.Error.Should().Contain("modal dialog").And.Contain("Reset prompt").And.Contain("Answer")
+            outcome.Error.Should().Contain("disabled").And.Contain($"'{action}' was refused and nothing was done");
+            outcome.Error.Should().Contain("modal dialog").And.Contain("Reset prompt").And.Contain("Answer")
                     .And.Contain("dump_visual_tree");
-            else
-                outcome.Error.Should().Contain("enabled").And.NotContain("modal dialog");
             clicks.Should().Be(0);
             presses.Should().Be(0);
         }
@@ -186,6 +234,26 @@ public class UiAutomationDriverTests
             dialog.Close();
             window.Close();
         }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("invoke")]
+    [InlineData("toggle")]
+    public void Disabled_Frame_is_named_as_the_disabling_parent(string action)
+    {
+        var button = new Button { Content = "Approve" };
+        var frame = new HexIDE.Runtime.BuiltinControls.VBFrame { Name = "ApprovalFrame", Header = "Approval", IsEnabled = false, Content = button };
+        frame.Template = new FuncControlTemplate<HexIDE.Runtime.BuiltinControls.VBFrame>((_, _) =>
+            new Avalonia.Controls.Presenters.ContentPresenter { Content = button });
+        var window = Show(frame);
+        try
+        {
+            button.IsEnabled.Should().BeTrue();
+            UiAutomationDriver.Interact(button, action, null).Error.Should()
+                .Contain("disabled").And.Contain("ApprovalFrame").And.Contain("container")
+                .And.Contain($"'{action}' was refused and nothing was done");
+        }
+        finally { window.Close(); }
     }
 
     // The refusal quotes the verb in its canonical spelling, whatever the caller typed: "no person could set_value
@@ -231,7 +299,7 @@ public class UiAutomationDriverTests
             var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
             error.Should().BeNull();
             UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing")
-                .And.NotContain("copy that shows");
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             clicks.Should().Be(0);
         }
         finally { window.Close(); }
@@ -442,7 +510,7 @@ public class UiAutomationDriverTests
             var refused = UiAutomationDriver.Interact(target, "select", byPath ? null : "BackColor");
             refused.Success.Should().BeFalse();
             refused.Error.Should().Contain($"'toggle' the Button in '{header}', which holds it")
-                .And.NotContain("copy that shows");
+                .And.NotContain("copy that shows").And.NotContain("showing copy").And.NotContain("showing copies");
             list.SelectedItem.Should().BeNull();
             category.IsExpanded.Should().BeFalse();
 
@@ -505,6 +573,49 @@ public class UiAutomationDriverTests
                     ? Avalonia.Automation.ExpandCollapseState.Collapsed : Avalonia.Automation.ExpandCollapseState.Expanded);
             ControlAutomationPeer.CreatePeerForElement(list.ContainerFromIndex(1)!)!
                 .GetProvider<Avalonia.Automation.Provider.IExpandCollapseProvider>().Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("invoke", false, 1)]
+    [InlineData("click", true, 1)]
+    [InlineData("invoke", false, 5)]
+    public void Interact_HiddenCopy_NamesShowingPaths(string action, bool byId, int count)
+    {
+        var clicks = 0;
+        var hidden = new Button { Content = "Approve" };
+        hidden.Click += (_, _) => clicks++;
+        AutomationProperties.SetAutomationId(hidden, "approval");
+        var panel = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { hidden } } } };
+        var shown = Enumerable.Range(0, count).Select(i => new Button { Content = byId ? "Continue" : "Approve" }).ToArray();
+        foreach (var button in shown)
+        {
+            if (byId) AutomationProperties.SetAutomationId(button, "approval");
+            button.Click += (_, _) => clicks++;
+            panel.Children.Add(button);
+        }
+        panel.Children.Add(new TextBlock { Text = "Approve" });
+        panel.Children.Add(new Button { Content = "Reject" });
+        var window = new Window { Content = panel, Width = 300, Height = 400 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var result = UiAutomationDriver.Interact(hidden, action, null);
+            result.Success.Should().BeFalse();
+            if (count == 1)
+                result.Error.Should().Contain($"a showing copy is at '{UiAutomationDriver.PathWithin(window, "Window", shown[0])}'; target that");
+            else
+            {
+                result.Error.Should().Contain("5 showing copies");
+                foreach (var button in shown.Take(3))
+                    result.Error.Should().Contain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+                foreach (var button in shown.Skip(3))
+                    result.Error.Should().NotContain($"'{UiAutomationDriver.PathWithin(window, "Window", button)}'");
+            }
+            result.Error.Should().NotContain("Make it show first");
+            clicks.Should().Be(0);
         }
         finally { window.Close(); }
     }

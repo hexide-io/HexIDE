@@ -40,9 +40,26 @@ they can read it.
 - **AND** closing and reopening it returns it to that region and records it as open for restart
 - **AND** the recreated left dock is nonempty and receives visible layout space
 
+#### Scenario: Showing a closed tool again
+- **WHEN** a resized tool is closed and shown again, including after restarting the IDE
+- **THEN** its last recorded region and dock proportion are restored
+- **AND** repeated close/show cycles preserve the allocated size
+- **AND** showing a closed member of a split during the session restores its own dock in that split
+
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted
 - **THEN** the same arrangement is restored
+
+#### Scenario: Reopening split docks
+- **WHEN** tool docks are arranged side by side or stacked, including nested splits, and the IDE restarts
+- **THEN** their split orientations, proportions, tab groups and active tool tabs are restored
+- **AND** older manifests without a split tree still restore through their recorded regions
+- **AND** a tool that registers after layout initialization receives its saved dock and ancestor proportions when it registers
+
+#### Scenario: A live tool in an unrecognized dock arrangement
+- **WHEN** a tool is still in the live layout tree but its dock cannot be mapped to a persisted region
+- **THEN** it SHALL be recorded as open in its home region
+- **AND** a tool absent from the live tree is still recorded as closed, even if its owner reference remains
 
 ### Requirement: Restoration SHALL degrade to a usable layout
 Where recorded state cannot be applied — because it is missing, unreadable, or describes an arrangement that

@@ -265,7 +265,8 @@ teardown SHALL close only its connection. A launched pipe server SHALL get two s
 its remaining process tree is killed, including during bring-up. Both messages
 SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
-handle. The process exit code SHALL remain observable in the conversation during client stop.
+handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
+group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
 
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
@@ -277,8 +278,9 @@ start suspended.
 On Linux and macOS, stdio and launched pipe servers SHALL run under `HexIDE.LspGuard`, which
 SHALL create its own process group before starting the server with inherited stdin, stdout and stderr.
 Every 500 ms the guard SHALL check whether its parent has changed. On reparenting it SHALL send
-SIGTERM to its group and, after two seconds, SIGKILL. It SHALL preserve the server's exit code when
-the server exits on its own. After the normal transport grace period, a remaining guard SHALL be
+SIGTERM to its group and, after two seconds, SIGKILL. When the server exits on its own, it SHALL
+perform the same group cleanup, leaving the group before SIGKILL to preserve the server's exit code.
+After the normal transport grace period, a remaining guard SHALL be
 terminated with its group. Externally owned servers SHALL NOT be guarded. Descendants that leave
 the group are outside this guarantee.
 
@@ -300,6 +302,12 @@ still goes away.
 - **WHEN** the IDE shuts down
 - **THEN** an initialized server owned by HexIDE is asked to shut down and its process is ended
 - **AND** an externally owned pipe server is left running
+
+#### Scenario: A Unix server exits cleanly with a child still running
+- **GIVEN** a launched server has spawned a child in the guard's process group
+- **WHEN** the server exits on its own
+- **THEN** the guard sends SIGTERM to the group and SIGKILL after two seconds
+- **AND** a child that ignores SIGTERM is ended, and the guard preserves the server's exit code
 
 #### Scenario: A server never answers shutdown
 - **WHEN** the server receives `shutdown` but never answers it
@@ -1303,3 +1311,67 @@ when the UI language changes.
 - **WHEN** the UI language changes while a server is connected
 - **THEN** the existing connection stays open
 - **AND** the next connection's initialize request carries the newly resolved locale
+
+### Requirement: Explicit file-operation senders SHALL respect server filters
+The connection's explicit create, rename and delete notification entry points SHALL send only disk-file
+URIs selected by the corresponding `workspace.fileOperations` registration filters. Filters SHALL
+respect scheme, glob, file/folder kind and case options. Rename SHALL match either the old or new URI.
+A missing registration or an empty matching batch SHALL send no notification.
+
+The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
+file operations to every running connection whose operation filter matches, independently of document
+language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
+HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
+eligible for matching notifications. File operations SHALL NOT start a server.
+
+Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
+reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
+report file operations. Save As retains the original, so it SHALL NOT report a rename. Explorer name
+changes and removal without disk deletion SHALL NOT report file operations.
+
+Disk rename and Remove-with-delete hooks remain outstanding (#2248): current explorer operations change
+names and membership only.
+
+#### Scenario: A server requests only Basic modules
+- **GIVEN** a server registers `didCreate` with a `file` scheme and `**/*.bas` file pattern
+- **WHEN** the connection is explicitly told about a created `.bas` and `.frm` file
+- **THEN** one `workspace/didCreateFiles` notification contains only the `.bas` URI
+
+#### Scenario: A server has no delete registration
+- **WHEN** the connection is explicitly told about a deleted file
+- **THEN** no `workspace/didDeleteFiles` notification is sent
+
+#### Scenario: Save As creates a file
+- **GIVEN** a saved module and a destination that does not exist
+- **WHEN** Save As successfully writes the destination
+- **THEN** matching running servers receive creation of the destination
+- **AND** the original file remains and no rename is reported
+
+#### Scenario: A first save creates a form
+- **WHEN** a new form is successfully written for the first time
+- **THEN** matching running servers receive creation of its disk URI
+- **AND** saving it again reports no file creation
+
+#### Scenario: HexIDE generates the server's workspace artefact
+- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives no file-operation notification
+
+#### Scenario: The server owns its workspace artefact
+- **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification
+
+### Requirement: Cancel superseded background work before document changes
+
+Before sending a document's didChange, the client SHALL cancel its outstanding diagnostic pulls,
+full semantic-token requests and folding requests through the LSP cancellation strategy, and SHALL
+send their cancellation notifications before the change notification. User requests and requests for
+other documents SHALL remain outstanding. A fresh diagnostic pull SHALL follow the change; editor
+refreshes SHALL request tokens and folds for the changed text.
+
+#### Scenario: Editing while analysis is pending
+- **WHEN** diagnostic, semantic-token or folding requests for a document are outstanding at a change
+- **THEN** their $/cancelRequest frames precede that document's didChange
+- **AND** pending hover or completion requests and requests for other documents are not cancelled
+- **AND** a fresh diagnostic pull follows didChange

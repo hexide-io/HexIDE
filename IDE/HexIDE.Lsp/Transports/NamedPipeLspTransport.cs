@@ -534,7 +534,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         try
         {
             // A server may still be starting children after initialize answers (#313).
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            await process.WaitForExitAsync().WaitAsync(LaunchedServerGuard.ExitTimeout);
         }
         catch { /* grace period elapsed, or already gone */ }
 

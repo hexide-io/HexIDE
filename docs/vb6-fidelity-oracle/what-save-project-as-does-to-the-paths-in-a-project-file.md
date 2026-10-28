@@ -34,8 +34,8 @@ sibling folder, `other\Saved2.vbp`. Each saved file was read back.
   `proj`, and VB6 wrote the path of the library registered for that GUID, named from the new folder, for all four
   references. So VB6 consults the registry, and does not resolve the old path.
 
-HexIDE now rebases `Designer=`, `ResFile32=`, `Path32=` and a reference's relative path the way it rebases member
-lines (`SerializedProject.RebaseItemLine` and `RebasePath`), and leaves `HelpFile=` as it was. Two differences from
+HexIDE rebases `Designer=`, `ResFile32=` and `Path32=` with member lines, and writes reference paths
+under the later [#2274 save rules](reference-paths-and-save-order.md), and leaves `HelpFile=` as it was. Two differences from
 VB6 remain:
 - **A reference's path is the file's own, rebased.** HexIDE cannot read the registry on every host. Where the library
   has not moved, the path is the same one VB6 writes.

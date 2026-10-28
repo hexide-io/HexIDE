@@ -35,6 +35,10 @@ public class ProjectSerializer
         bool includeRelatedDocuments = true)
     {
         var writer = new StringWriter { NewLine = "\r\n" };
+        var output = new List<string>();
+        var readObjects = project.UnknownPreSectionLines
+            .Where(u => u.PositionHint != ProjectDefinition.AfterFormsHint && u.RawLine.StartsWith("Object=", StringComparison.OrdinalIgnoreCase))
+            .Select(u => u.RawLine).ToList();
         // Sort by PositionHint so interleaving is correct even if unknowns were appended out of order
         // (e.g. by the loader). The trailing-remainder loop already guarantees none are lost; this
         // hardens their ORDER. OrderBy is stable, so equal-hint lines keep their insertion order.
@@ -55,14 +59,14 @@ public class ProjectSerializer
         {
             // Interleave unknown lines whose position hint falls at or before this known key
             while (unknownIdx < unknowns.Count && unknowns[unknownIdx].PositionHint <= knownKeyCount)
-                writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
+                output.Add(Kept(unknowns[unknownIdx++].RawLine));
             if (!omit)
-                writer.WriteLine(line);
+                output.Add(line);
             knownKeyCount++;
         }
 
         // The template order is the default for new lines and projects with no read slots. Existing lines
-        // return to their read slots: VB6 also writes Form before Reference (measured, #855).
+        // return to their read slots, unless the References dialog was accepted (#2274).
         var lines = new List<(string Text, int? Slot, bool Omit)>();
         void AddKnownLine(string line, int? slot = null, bool omit = false) => lines.Add((line, slot, omit));
 
@@ -74,12 +78,12 @@ public class ProjectSerializer
             // vb6.exe /make reports "could not be loaded" for a name-less reference even when the GUID
             // resolves via the registry. LibPath may be empty — VB6 then resolves the typelib from the GUID.
             //
-            // A relative LibPath is named from the folder the project file is written in, as VB6's Save As writes it
-            // (#1406). VB6 re-derives the path from the registry; this keeps the one the file had, which is the same
-            // path wherever the type library has not moved.
-            var libPath = keptFrom is null ? r.LibPath ?? "" : SerializedProject.RebasePath(r.LibPath ?? "", keptFrom, writtenIn);
+            // Registry lookup is unavailable here; an empty path stays empty (#2274).
+            // The destination may be a Windows path even on a non-Windows host.
+            var referenceDirectory = projectPath[..(projectPath.Length - SerializedProject.FileNameOf(projectPath).Length)];
+            var libPath = SerializedProject.ReferencePath(r.LibPath ?? "", keptFrom ?? referenceDirectory, referenceDirectory);
             var refName = r.Name ?? "";
-            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
+            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid:x}#{libPath}#{refName}");
         }
 
         var encodingPaths = new List<string>();
@@ -232,7 +236,22 @@ public class ProjectSerializer
 
         // Emit any remaining unknown lines that appeared after all known keys
         while (unknownIdx < unknowns.Count)
-            writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
+            output.Add(Kept(unknowns[unknownIdx++].RawLine));
+
+        // Accepting References regroups the next save, even with no selection change (#2274).
+        if (project.ReferencesDialogAccepted)
+        {
+            var prefix = output.Where(l => l.StartsWith("Type=", StringComparison.OrdinalIgnoreCase)
+                || l.StartsWith("Reference=", StringComparison.OrdinalIgnoreCase)).ToList();
+            prefix = prefix.OrderBy(l => l.StartsWith("Type=", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToList();
+            foreach (var line in prefix)
+                output.Remove(line);
+            foreach (var line in readObjects)
+                output.Remove(line);
+            output.InsertRange(0, prefix.Concat(readObjects));
+        }
+        foreach (var line in output)
+            writer.WriteLine(line);
 
         // Append the extension tail (third-party [SectionName]...EOF content)
         var extensionTail = ProjectEncodingRecords.Write(project.ExtensionTail, encodingPaths);

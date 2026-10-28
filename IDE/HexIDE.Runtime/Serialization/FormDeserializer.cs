@@ -28,6 +28,7 @@ public class FormDeserializer
         TextBoxComponentClass.Instance,
         TimerComponentClass.Instance,
         VScrollBarComponentClass.Instance,
+        Components.InBox.TreeViewComponentClass.Instance,
     ];
 
     private static Dictionary<string, ComponentBaseClass> componentsByTypeNames;
@@ -88,9 +89,23 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
+        Components.InBox.ToolbarComponentClass.Instance,
+        Components.InBox.SSTabComponentClass.Instance,
+        Components.InBox.CommonDialogComponentClass.Instance,
     ];
+
+    /// <summary>
+    /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
+    /// that holds no controls and is no control array's element (#1088). Loading one warns of nothing, and the designer's
+    /// box says it is view-only there rather than unsupported. A nested or arrayed Toolbar is still refused at run time.
+    /// </summary>
+    public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
+        type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
+        || !holdsControls && !inArray && componentsByTypeNames.TryGetValue(type, out var known)
+            && known is Components.InBox.ToolbarComponentClass;
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
@@ -104,6 +119,7 @@ public class FormDeserializer
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
+            TabStripPersistence.Validate(rootComponent);
             headerLines = vb.HeaderLines;
             designerText = vb.DesignerText;
             // The parser no longer reports a raw Begin depth. It counted every Begin without knowing what
@@ -146,8 +162,13 @@ public class FormDeserializer
         // what lets the writer put a preserved block back between the right two siblings.
         void LoadRecur(VBSerializedComponent serializedComponent, ComponentInstance? parent, int depth, int ordinal)
         {
-            if (!componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass) &&
-                (extraComponents == null || !extraComponents.TryGetValue(serializedComponent.Type, out componentClass)))
+            var known = componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass)
+                || extraComponents != null && extraComponents.TryGetValue(serializedComponent.Type, out componentClass);
+            // The designer carries Toolbar blocks verbatim; the runtime explicitly reads their property bags.
+            if (!known || componentClass is null || componentClass is Components.InBox.ToolbarComponentClass
+                && (extraComponents is null || !extraComponents.ContainsKey(serializedComponent.Type)
+                    || serializedComponent.SubComponents.Count != 0
+                    || serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))
             {
                 // Unknown component type — reconstruct raw text and preserve for round-trip.
                 //
@@ -172,9 +193,10 @@ public class FormDeserializer
                 // FormComponentClass — so parent is never null here.
                 parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines),
                     subtreeRecords.Count > 0 ? subtreeRecords : null);
-                // A CommonDialog is kept the same way, but it runs (#1084) and saves byte for byte, so there is nothing to
-                // warn of: the warning used to tell the user, as the project opened, that a control which works did not.
-                if (!serializedComponent.Type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
+                // A control HexIDE runs is kept the same way and saves byte for byte, so there is nothing to warn of: the
+                // warning used to tell the user, as the project opened, that a control which works did not (#1084, #2327).
+                if (!RunsWhenCarried(serializedComponent.Type, serializedComponent.SubComponents.Count != 0,
+                        serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))
                     errorSink.LogError("Str.ProjectLoad.UnknownControl", "Class {0} of control {1} is not a supported control class — preserved as unknown.", serializedComponent.Type, serializedComponent.Name);
 
                 // No depth contribution. The block is recorded on the component it was read from, indented
@@ -553,10 +575,26 @@ public class FormDeserializer
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
             }
+            if (componentClass is Components.InBox.TabStripComponentClass)
+            {
+                instance.SetProperty(TabStripPersistence.SavedProperty, serializedComponent);
+                if (!TabStripPersistence.CanWrite(serializedComponent)
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentX") is not int
+                    || serializedComponent.Properties.GetValueOrDefault("_ExtentY") is not int)
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnimplementedControlPersistence,
+                        "TabStrip persistence is not implemented (#1089).");
+            }
             // An in-box control is written back under the type name it was read under, and with the extents it was read with
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
                 inBox.Loaded(instance, serializedComponent.Type);
+            else if (componentClass is Components.InBox.TreeViewComponentClass)
+            {
+                instance.SetProperty(Components.InBox.InBoxComponentClass.LoadedTypeNameProperty, serializedComponent.Type);
+                instance.SetProperty(Components.InBox.InBoxComponentClass.ExtentBasisProperty,
+                    new Components.InBox.InBoxComponentClass.ExtentBasis(
+                        instance.GetPropertyOrDefault(VBProperties.WidthProperty), instance.GetPropertyOrDefault(VBProperties.HeightProperty)));
+            }
             if (componentClass is Components.InBox.ImageListComponentClass
                 && serializedComponent.Properties.TryGetValue("Images", out var imagesValue)
                 && imagesValue is Dictionary<string, object> imageProperties)
@@ -572,13 +610,21 @@ public class FormDeserializer
                             image.GetValueOrDefault("Object.Tag") as string ?? ""));
                     }
                 // Unknown group members stay in the carried block, rather than disappearing on the next save.
-                var known = imageProperties.Keys.All(k => k == "NumListImages" || k.StartsWith("ListImage", StringComparison.Ordinal))
+                var knownImages = imageProperties.Keys.All(k => k == "NumListImages" || k.StartsWith("ListImage", StringComparison.Ordinal))
                     && imageProperties.Values.OfType<Dictionary<string, object>>()
                         .All(image => image.Keys.All(k => k is "Picture" or "Key" or "Object.Tag")
                             && (!image.TryGetValue("Key", out var key) || key is string)
                             && (!image.TryGetValue("Object.Tag", out var tag) || tag is string));
-                if (known && imageProperties.GetValueOrDefault("NumListImages") is int count && pictures.Count == count)
+                if (knownImages && imageProperties.GetValueOrDefault("NumListImages") is int count && pictures.Count == count)
                     instance.SetProperty(Components.InBox.ImageListComponentClass.PicturesProperty, pictures);
+            }
+
+            if (componentClass is Components.InBox.SSTabComponentClass)
+            {
+                instance.SetProperty(Components.InBox.SSTabSavedState.Property,
+                    new Components.InBox.SSTabSavedState(serializedComponent.Properties));
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
+                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
             }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
@@ -640,6 +686,13 @@ public class FormDeserializer
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 $"it references companion binary content HexIDE cannot re-emit "
                 + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
+
+        // Rendering also serves dirty checks; only the save path may refuse missing extents (#1631).
+        if (components.Any(c => c.BaseClass is UserControlComponentClass uc && uc.Setting("InvisibleAtRuntime")
+            && (!c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase))
+                || !c.UnknownRawProperties.Any(p => p.Name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)))))
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.MissingUserControlExtents,
+                "it contains an invisible UserControl without both recorded extents; saving its size is not implemented");
 
         form.UpdateCode(code);
         form.UpdateComponents(components);
