@@ -84,6 +84,13 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public readonly ValueType Type;
     public readonly object? Value;
 
+    // A BSTR identity, independent of its text. Null denotes vbNullString or an unassigned String (#2622).
+    internal readonly object? StringBuffer;
+    internal Vb6Value CopyString() => Type == ValueType.String
+        ? new Vb6Value(Type, Value, HasFixedType, DeclaredAs, HeldAsVariant, StringBuffer is null ? null : new object())
+        : this;
+    internal static Vb6Value NullString => new(ValueType.String, "");
+
     /// <summary>
     /// True when this value carries a FIXED type rather than being a Variant that currently happens to
     /// hold one — a declared variable's value, or a literal.
@@ -117,14 +124,14 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public readonly bool HeldAsVariant;
 
     /// <summary>This value with a fixed type — a declared variable's value, or a literal.</summary>
-    public Vb6Value AsFixedType() => new Vb6Value(Type, Value, true, DeclaredAs);
+    public Vb6Value AsFixedType() => new Vb6Value(Type, Value, true, DeclaredAs, stringBuffer: StringBuffer);
 
     /// <summary>This value as neither typed nor a Variant's: no ceiling, so arithmetic widens rather than overflowing,
     /// and Select Case compares it as before (see <see cref="HeldAsVariant"/>).</summary>
-    public Vb6Value AsVariantSubtype() => new Vb6Value(Type, Value, false, DeclaredAs);
+    public Vb6Value AsVariantSubtype() => new Vb6Value(Type, Value, false, DeclaredAs, stringBuffer: StringBuffer);
 
     /// <summary>This value as a Variant's (see <see cref="HeldAsVariant"/>).</summary>
-    public Vb6Value AsVariant() => new Vb6Value(Type, Value, false, DeclaredAs, heldAsVariant: true);
+    public Vb6Value AsVariant() => new Vb6Value(Type, Value, false, DeclaredAs, heldAsVariant: true, stringBuffer: StringBuffer);
 
     /// <summary>
     /// The class or interface name this reference was READ THROUGH, for an object read out of a slot
@@ -145,13 +152,14 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public readonly string? DeclaredAs;
 
     /// <summary>This reference as read through <paramref name="declaredClass"/> (null = through a Variant).</summary>
-    public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass, HeldAsVariant);
+    public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass, HeldAsVariant, StringBuffer);
 
     /// <summary>This value with <paramref name="array"/> in place of the array it holds, keeping its type and flags.</summary>
     internal Vb6Value WithArray(VBArray array) => new Vb6Value(Type, array, HasFixedType, DeclaredAs, HeldAsVariant);
 
-    private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null, bool heldAsVariant = false)
+    private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null, bool heldAsVariant = false, object? stringBuffer = null)
     {
+        StringBuffer = stringBuffer;
         Type = type;
         Value = value;
         HasFixedType = hasFixedType;
@@ -199,7 +207,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public Vb6Value(float value) : this(ValueType.Single, value) {}
     public Vb6Value(double value) : this(ValueType.Double, value) {}
     public Vb6Value(bool value) : this(ValueType.Boolean, value) {}
-    public Vb6Value(string? value) : this(value == null ? ValueType.Null : ValueType.String, value) {}
+    public Vb6Value(string? value) : this(value == null ? ValueType.Null : ValueType.String, value, stringBuffer: value is null ? null : new object()) {}
 
     public Vb6Value(bool? b) : this(b.HasValue ? ValueType.Boolean : ValueType.Null, b) { }
 

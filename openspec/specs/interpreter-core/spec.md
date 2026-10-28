@@ -68,6 +68,33 @@ as not implemented.
 - **WHEN** `ObjPtr(5)` or `ObjPtr("a")` executes
 - **THEN** it SHALL raise run-time error 13 for VB6's compile-time Type mismatch
 
+### Requirement: StrPtr and VarPtr SHALL preserve measured identities
+`StrPtr` and `VarPtr` SHALL return Long identities satisfying the native/p-code relations in
+[issue #2622](https://github.com/hexide-io/HexIDE/issues/2622), measured in PRs #2624 and #2628.
+The identities SHALL NOT promise native addresses. Unmeasured conversions and target shapes SHALL
+be refused as not implemented.
+
+#### Scenario: String buffers and variable storage
+- **WHEN** StrPtr reads vbNullString or an unassigned String
+- **THEN** it SHALL return zero
+- **WHEN** a String is assigned empty text or copied from another assigned String
+- **THEN** its buffer identity SHALL be non-zero and separate from the source buffer
+- **AND** repeated reads SHALL preserve its identity
+- **WHEN** VarPtr reads variables
+- **THEN** each variable SHALL have a stable, distinct, non-zero identity separate from its String buffer
+
+#### Scenario: Array storage and parameter passing
+- **WHEN** VarPtr reads adjacent one-dimensional Long, Integer, Currency or Variant elements
+- **THEN** their identities SHALL differ by 4, 2, 8 or 16 respectively
+- **WHEN** a parameter is passed ByRef
+- **THEN** VarPtr and a String parameter's StrPtr SHALL match the caller's identities
+- **WHEN** it is passed ByVal
+- **THEN** those identities SHALL differ from the caller's
+
+#### Scenario: Measured temporary operands
+- **WHEN** StrPtr(5) or VarPtr(5) executes
+- **THEN** it SHALL return a non-zero Long identity
+
 ### Requirement: ErrObject assignments and creation SHALL match measured VB6 errors
 
 A variable declared `As ErrObject` SHALL accept Err and Nothing. Assigning a Collection SHALL
