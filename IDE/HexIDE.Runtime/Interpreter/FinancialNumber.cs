@@ -68,12 +68,12 @@ internal readonly struct FinancialNumber
         return comparison > 0 || (comparison == 0 && !q.IsEven) ? q + 1 : q;
     }
 
-    public FinancialNumber Pow(double periods)
+    public FinancialNumber Pow(double periods, bool signedIntegerBase = false)
     {
         // Bound work and refuse unmeasured extreme domains instead of inventing their VB6 errors.
-        if (numerator.Sign <= 0 || !double.IsFinite(periods) || Math.Abs(periods) > 10000)
+        if ((numerator.Sign <= 0 && !(signedIntegerBase && periods == Math.Truncate(periods))) || !double.IsFinite(periods) || Math.Abs(periods) > 10000)
             throw new NotImplementedException("This financial power domain is unmeasured (#2523)");
-        if (periods < 0) return 1 / Pow(-periods);
+        if (periods < 0) return 1 / Pow(-periods, signedIntegerBase);
         int whole = (int)periods;
         FinancialNumber result = new(BigInteger.Pow(numerator, whole), BigInteger.Pow(denominator, whole));
         double fraction = periods - whole;
@@ -93,10 +93,36 @@ internal readonly struct FinancialNumber
 
     private FinancialNumber RoundPrecision()
     {
+        if (numerator.IsZero) return this;
         int shift = 159 - BinaryExponent(BigInteger.Abs(numerator), denominator);
         return shift >= 0
             ? new(RoundQuotient(numerator << shift, denominator), BigInteger.One << shift)
             : new(RoundQuotient(numerator, denominator << -shift) << -shift, BigInteger.One);
+    }
+
+    public FinancialNumber Log()
+    {
+        if (numerator.Sign <= 0)
+            throw new NotImplementedException("This financial logarithm domain is unmeasured (#2523)");
+        int exponent = BinaryExponent(numerator, denominator);
+        var scaled = exponent >= 0 ? new FinancialNumber(numerator, denominator << exponent)
+            : new FinancialNumber(numerator << -exponent, denominator);
+        return LogSeries(scaled) + exponent * LogSeries(2);
+    }
+
+    private static FinancialNumber LogSeries(FinancialNumber value)
+    {
+        var z = ((value - 1) / (value + 1)).RoundPrecision();
+        var square = (z * z).RoundPrecision();
+        var term = z;
+        var sum = z;
+        // Range reduction bounds |z| by 1/3; 180 terms exceed the retained 160 bits.
+        for (int i = 1; i < 180; i++)
+        {
+            term = (term * square).RoundPrecision();
+            sum = (sum + term / (2 * i + 1)).RoundPrecision();
+        }
+        return 2 * sum;
     }
 
     private FinancialNumber Sqrt()

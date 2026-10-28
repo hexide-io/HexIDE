@@ -580,3 +580,23 @@ fail clearly as unimplemented, rather than supply an invented VB6 result.
 #### Scenario: Measured invalid payment inputs report their errors
 - **WHEN** a program calls `Pmt(0.1, 0, 1000)` or `Pmt(Null, 10, 1000)`
 - **THEN** it raises error 5 or 94 respectively
+
+### Requirement: Measured periods, interest, principal and rate calculations
+
+The interpreter SHALL execute every measured positional NPer, IPmt, PPmt and Rate row in
+[#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving exact Double bits and errors.
+It SHALL use the fitted per-function spills described in
+[Financial precision](../../../docs/financial-precision-2523.md). Unmeasured argument conversions,
+named calls and unsupported domains SHALL refuse as unimplemented.
+
+#### Scenario: Beginning-period interest and zero-rate interest
+- **WHEN** the program evaluates the measured first-period beginning payment or zero-rate IPmt call
+- **THEN** it returns positive zero or negative zero respectively, as recorded in the issue
+
+#### Scenario: Rate depends on its initial guess
+- **WHEN** the program evaluates the measured Rate calls with omitted Guess or Guess 0.5
+- **THEN** each result preserves the distinct Double bits recorded in the issue
+
+#### Scenario: Invalid periods are measured errors
+- **WHEN** the program evaluates a measured invalid-period IPmt or PPmt call, or a measured failing Rate call
+- **THEN** it raises error 5

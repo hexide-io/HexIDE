@@ -25,6 +25,28 @@ public class FinancialIntrinsicTests : BaseVBTestFixture
     [InlineData("PV(0.08 / 12, 240, -500)", "40ED3024AAD01C32", 0)]
     [InlineData("PV(0.08 / 12, 240, -500, 10000, 1)", "40EC643E47D8C3FB", 0)]
     [InlineData("PV(0, 10, -100)", "408F400000000000", 0)]
+    [InlineData("NPer(0.12 / 12, -100, 1000)", "40252D62CE7C6388", 0)]
+    [InlineData("NPer(0.12 / 12, -100, 1000, 0, 1)", "4024F4CF6EBEA3C7", 0)]
+    [InlineData("NPer(0, -100, 1000)", "4024000000000000", 0)]
+    [InlineData("NPer(0.1, 100, 1000)", "C01D1714F6039EE6", 0)]
+    [InlineData("NPer(0, 0, 1000)", "", 5)]
+    [InlineData("IPmt(0.1 / 12, 1, 36, 8000)", "C050AAAAAAAAAAAB", 0)]
+    [InlineData("IPmt(0.1 / 12, 36, 36, 8000)", "C00111231C2C226A", 0)]
+    [InlineData("IPmt(0.1 / 12, 1, 36, 8000, 0, 1)", "0000000000000000", 0)]
+    [InlineData("IPmt(0.1 / 12, 2, 36, 8000, 0, 1)", "C050222191C94996", 0)]
+    [InlineData("IPmt(0.1 / 12, 0, 36, 8000)", "", 5)]
+    [InlineData("IPmt(0.1 / 12, 37, 36, 8000)", "", 5)]
+    [InlineData("IPmt(0, 1, 36, 8000)", "8000000000000000", 0)]
+    [InlineData("PPmt(0.1 / 12, 1, 36, 8000)", "C067EF110BEE1BEF", 0)]
+    [InlineData("PPmt(0.1 / 12, 36, 36, 8000, 1000, 1)", "C071D9FDB740AD19", 0)]
+    [InlineData("PPmt(0, 1, 36, 8000)", "C06BC71C71C71C72", 0)]
+    [InlineData("PPmt(0.1 / 12, 0, 36, 8000)", "", 5)]
+    [InlineData("Rate(48, -200, 8000)", "3F7F8B94477C8BB2", 0)]
+    [InlineData("Rate(48, -200, 8000, 0, 1)", "3F807E14EFFCE5F5", 0)]
+    [InlineData("Rate(48, -200, 8000, 0, 0, 0.5)", "3F7F8B94477C6585", 0)]
+    [InlineData("Rate(10, -100, 1000)", "", 5)]
+    [InlineData("Rate(10, 100, 1000)", "", 5)]
+    [InlineData("Rate(0, -100, 1000)", "", 5)]
     public async Task MeasuredRow(string expression, string bits, int error)
     {
         using var locale = VbLocale.Use(System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
@@ -53,6 +75,10 @@ public class FinancialIntrinsicTests : BaseVBTestFixture
     [InlineData("FV(1, 2000, -1)")]
     [InlineData("FV(-1, 10, -100)")]
     [InlineData("PV(0.1, 10001, -100)")]
+    [InlineData("NPer(Null, -100, 1000)")]
+    [InlineData("IPmt(0.1, 1, 10)")]
+    [InlineData("PPmt(-1, 1, 10, 1000)")]
+    [InlineData("Rate(48, -200, 8000, 0, 0, Null)")]
     public async Task Unmeasured_edges_refuse(string expression)
     {
         var run = () => Run($"Dim answer\nanswer = {expression}\n");

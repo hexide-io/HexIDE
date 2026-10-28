@@ -13,6 +13,7 @@ Python 3 probes from the repository root, passing that file as the last argument
 python3 -B scripts/probes/financial-2523/probe.py issue-2523.md
 python3 -B scripts/probes/financial-2523/composed.py issue-2523.md
 python3 -B scripts/probes/financial-2523/rate.py issue-2523.md
+python3 -B scripts/probes/financial-2523/selected-rate.py issue-2523.md
 ```
 
 The probes parse all 41 measured rows. Inputs are binary64, including the division at the call site.
@@ -37,7 +38,7 @@ models, not a reconstruction of the runtime's internals.
 | NPer | 5 | Keep `1+r` extended; spill the denominator `payment*timing + pv*r` before the ratio and logarithms. |
 | IPmt | 7 | Spill base and payment; use the beginning-period recurrence described below. |
 | PPmt | 4 | Spill base and each division in the composed Pmt-minus-IPmt calculation. |
-| Rate | 6 | No complete model established: numeric targets occur inside candidate traces, but termination is unresolved. |
+| Rate | 6 | Secant from guess and guess/2; spill base, residual and iterate; stop at absolute residual below 1e-7. |
 
 These variants are not unique. Pmt, FV, PV and NPer have respectively 8, 128, 26 and 144 matching
 spill masks in the exact/high-precision pass, with the same counts in the 64-bit pass. PPmt has
@@ -63,12 +64,13 @@ For Rate, start the secant pair at `guess` and `guess/2`. With base, residual an
 | Rate(48, -200, 8000, 0, 1) | `3F807E14EFFCE5F5` | 10 |
 | Rate(48, -200, 8000, 0, 0, 0.5) | `3F7F8B94477C6585` | 23 |
 
-Continuing those traces until identical residuals instead yields respectively
-`3F7F8B94477C6553`, `3F807E14EFFCD676`, and `3F7F8B94477C67CC`. These are near misses,
-not accepted answers. The two measured failing nonzero-period calls both exhaust 40 iterations
-in this candidate; zero periods is rejected explicitly. A common stopping rule has not been
-established, so Rate remains unimplemented. Searching tolerances to fit three outputs would
-not independently establish the runtime's iteration contract.
+The final supervisor comment supplies the stopping rule: absolute residual below 1e-7.
+`selected-rate.py` applies that rule without using expected results in the calculation and matches
+all six rows at both 64 and 113 bits. The three successful traces stop at iterations 10, 10 and 23.
+The two measured failing nonzero-period calls exhaust 40 iterations; zero periods is rejected.
+The implementation keeps that 40-iteration cap, but the measurements do not pin the cap beyond
+requiring at least 23 iterations. The threshold and starting pair are fitted to these rows, not
+independently measured internal details of VB6.
 
 ## Implemented slice and remaining work
 
@@ -79,9 +81,14 @@ nearest/even from the rational quotient. All 19 measured rows are interpreter te
 unmeasured edges. The editor also carries positional signature help; its displayed names do
 not enable named runtime calls.
 
-NPer, IPmt, PPmt and Rate retain their existing refusal. The matching models above are candidates
-for the next slice; they have no runtime coverage in this change. Rate needs further work on
-termination before registration. No VB6 expected value was guessed or relaxed.
+The continuation registers NPer, IPmt, PPmt and Rate with the per-function models above.
+NPer uses range-reduced logarithms with 160-bit series intermediates. IPmt retains the rounded
+payment boundary and the beginning-period recurrence; PPmt rounds each division in its composed
+payment-minus-interest calculation. Rate spills base, residual and each iterate, retaining exact
+rational arithmetic elsewhere. Each model was selected because it matches every measured row;
+several spill masks match, so unmeasured inputs are not proven. None of these measurements
+distinguishes a 64-bit significand from the higher precision used here. All 41 issue rows are
+interpreter tests with exact Double bits and measured errors. No expected value was guessed or relaxed.
 
 Named calls, argument-count/missing-required errors, Date and nonnumeric conversions (except the measured
 Pmt rate String), Null outside Pmt's rate, singular powers, nonpositive bases and periods with
@@ -118,3 +125,26 @@ The skipped cases supply no coverage for this change:
 
 A supervisor's live editor check should type `Pmt(`, `FV(` and `PV(` and confirm their parameter
 lists and Double return labels appear in signature help. No live IDE check was performed here.
+
+## Continuation verification on 2026-10-28 (Linux)
+
+All 26 added tests fail with NPer/IPmt/PPmt/Rate registration disabled: 22 measured rows and
+four unmeasured-edge refusals. All 41 measured issue rows then pass, including signed zero,
+Double subtypes and all measured errors. The selected Rate probe matches all six rows at
+both 64 and 113 bits. The existing signature guard exposed missing tooltips for the newly
+registered functions; after adding them, all three parity tests pass. Named runtime calls
+remain explicitly unimplemented; the tooltip names describe the positional surface only.
+
+Both LF and CRLF MissingLanguageDocTests pass after changing exactly the counts they named:
+intrinsic Dies/Partial 30/56 becomes 26/60, overall 124/455 becomes 120/459. The inventory size
+stays 1,184. Tree hygiene passes with nine existing nonblocking warnings.
+
+For the supervisor's live editor check, type `NPer(`, `IPmt(`, `PPmt(` and `Rate(` and confirm
+the parameter lists and Double return labels appear. No live IDE check was performed here.
+
+The full runtime suite completed in 14 minutes 21 seconds: 6,809 passed, 13 skipped, one failed,
+zero xUnit errors. The failure was the signature tooltip guard, before the tooltip entries were
+added during that run; its subsequent focused rerun passes all three tests. The full suite was
+not repeated after that source-table correction. No runtime implementation changed during the
+full run. The 13 skipped cases are exactly the Windows-filesystem, missing-template and opt-in
+oracle cases listed for the first slice above; none supplies coverage for this continuation.
