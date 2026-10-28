@@ -1361,3 +1361,17 @@ names and membership only.
 - **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters
 - **WHEN** a file is created, renamed or deleted
 - **THEN** the server receives the corresponding notification
+
+### Requirement: Cancel superseded background work before document changes
+
+Before sending a document's didChange, the client SHALL cancel its outstanding diagnostic pulls,
+full semantic-token requests and folding requests through the LSP cancellation strategy, and SHALL
+send their cancellation notifications before the change notification. User requests and requests for
+other documents SHALL remain outstanding. A fresh diagnostic pull SHALL follow the change; editor
+refreshes SHALL request tokens and folds for the changed text.
+
+#### Scenario: Editing while analysis is pending
+- **WHEN** diagnostic, semantic-token or folding requests for a document are outstanding at a change
+- **THEN** their $/cancelRequest frames precede that document's didChange
+- **AND** pending hover or completion requests and requests for other documents are not cancelled
+- **AND** a fresh diagnostic pull follows didChange
