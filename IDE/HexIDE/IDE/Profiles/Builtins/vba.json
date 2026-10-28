@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "vba",
+  "projectTypes": [],
+  "menuVisibility": {
+    "project.references": false,
+    "tools.references": true
+  }
+}
