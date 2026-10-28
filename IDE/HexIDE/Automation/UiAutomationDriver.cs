@@ -173,6 +173,9 @@ public static class UiAutomationDriver
             note = string.Join(" ", new[] { note, BoundCommandNote(bound) }.Where(n => n is not null));
         }
 
+        var (itemTexts, itemsNote) = control is SelectingItemsControl listed and not (MenuItem or MenuBase)
+            ? Safe(() => ItemTexts(listed), ((string[]?)null, (string?)null)) : (null, null);
+
         return new UiNodeDetail(
             path,
             ControlTypeOf(peer),
@@ -200,7 +203,69 @@ public static class UiAutomationDriver
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
-                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
+                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
+            itemTexts,
+            itemsNote);
+    }
+
+    /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
+    internal const int ItemTextLimit = 200;
+
+    /// <summary>
+    /// The text of each of <paramref name="list"/>'s items, as select matches it, whether its row exists or not, and a note
+    /// on any it left out (#2450). A list makes rows only for what is on screen, so a dump and its match saw the first ten
+    /// of Options' 31 languages, and nothing said what the rest were called, or how to spell one for select.
+    /// </summary>
+    /// <remarks>
+    /// Each row missing is brought into view to be read, as <see cref="MatchAmongUnrealized"/> does, and the list is put
+    /// back where it was before anything is drawn, so a person sees nothing move. A dropdown that is closed has no rows to
+    /// bring into view: opening it is a person's action, not a read, so it is left closed and the note says so.
+    /// </remarks>
+    internal static (string[]? Items, string? Note) ItemTexts(SelectingItemsControl list)
+    {
+        if (list.ItemCount == 0)
+            return ([], null);
+        if (list is ComboBox { IsDropDownOpen: false })
+            return (null, "Its items are made only while it is open, so their text can't be read now: 'expand' it, then "
+                          + "inspect it again. Opening it is left to the caller, as it is a person's action, not a read.");
+        var scroller = list.GetRealizedContainers().FirstOrDefault()?.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault()
+                       ?? (list as ListBox)?.Scroll as ScrollViewer;
+        var original = scroller?.Offset;
+        var texts = new List<string>();
+        var (hidden, unread) = (0, 0);
+        var count = Math.Min(list.ItemCount, ItemTextLimit);
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var row = list.ContainerFromIndex(i) as Control;
+                if (row is null || HeldOutOfView(row))
+                {
+                    list.ScrollIntoView(i);
+                    list.UpdateLayout();
+                    row = list.ContainerFromIndex(i) as Control;
+                }
+                if (row is null) unread++;
+                else if (Shows(row) is not true) hidden++;
+                else texts.Add(LabelOf(row));
+            }
+        }
+        finally
+        {
+            if (scroller is not null && original is { } offset)
+            {
+                scroller.Offset = offset;
+                list.UpdateLayout();
+            }
+        }
+        var notes = new List<string>();
+        if (list.ItemCount > count)
+            notes.Add($"{list.ItemCount - count} item(s) after the first {count} are not listed");
+        if (hidden > 0)
+            notes.Add($"{hidden} item(s) that do not show are left out, as select passes over them");
+        if (unread > 0)
+            notes.Add($"{unread} item(s) could not be brought into view to be read");
+        return ([.. texts], notes.Count == 0 ? null : string.Join("; ", notes) + ".");
     }
 
     private static WindowFrameState ReadFrame(Window window)
@@ -3170,7 +3235,7 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, TypedMechanism, null, NotShowingRefusal(control, "type_text", shows));
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, TypedMechanism, null,
-                    NoTextSurface(control));
+                    NoTextSurface(control, keyboard: false));
             if (AmbiguousSurface(control, surface, controlPath) is { } ambiguous)
                 return new InteractOutcome(false, TypedMechanism, null, ambiguous);
 
@@ -3310,9 +3375,13 @@ public static class UiAutomationDriver
         {
             if (Shows(control) is not true and var shows)
                 return new InteractOutcome(false, KeyboardMechanism, null, NotShowingRefusal(control, "type_text", shows));
-            if (FindTextSurface(control) is not { } surface)
+            // A control that takes focus is sent the keys when nothing under it is a text box, as a person's keyboard sends
+            // them, and what it did with them is read from what came back, not judged from its class: a running form's
+            // RichTextBox takes typing in a TextInput handler of its own, and was refused as having no text surface (#2460).
+            if ((FindTextSurface(control) ?? (control.Focusable ? control : null)) is not { } surface)
                 return new InteractOutcome(false, KeyboardMechanism, null,
-                    NoTextSurface(control));
+                    NoTextSurface(control, keyboard: true));
+            var textBox = surface is TextEditor or TextArea or TextBox;
             if (AmbiguousSurface(control, surface, controlPath) is { } ambiguous)
                 return new InteractOutcome(false, KeyboardMechanism, null, ambiguous);
             var address = ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface);
@@ -3355,6 +3424,7 @@ public static class UiAutomationDriver
             static object Shown(Window dialog) => dialog.Content ?? dialog;
             var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
             var unanswered = 0;
+            var (sentText, tookText) = (0, 0);
             Control at = start;
             for (var i = 0; i < keys.Count; i++)
             {
@@ -3371,7 +3441,8 @@ public static class UiAutomationDriver
                     return refused;
 
                 var (key, mods, typed) = keys[i];
-                DeliverKey(at, key, mods, typed);
+                if (DeliverKey(at, key, mods, typed) is { } handled)
+                    (sentText, tookText) = (sentText + 1, tookText + (handled ? 1 : 0));
                 // The next key once what this one set off ahead of input has run, and the list or parameter info it
                 // asked the language server for has come back.
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
@@ -3406,8 +3477,17 @@ public static class UiAutomationDriver
                 1 => "; LeftShift went down before the capital and up after it",
                 _ => $"; LeftShift went down before each of the {capitals} capitals and up after it",
             };
+            // A control that is no text box is judged by what it did with the keys' text: a TextInput it handled is text it
+            // took, whatever it then made of it.
+            if (!textBox && sentText > 0 && tookText == 0)
+                return new InteractOutcome(false, KeyboardMechanism, null,
+                    $"sent {keys.Count} key(s) to {Describe(surface)} as a person types them, and it took the text of none of "
+                    + $"them: it handled no TextInput, so it takes no typing{moved}. Their KeyDown and KeyUp were raised, and "
+                    + "anything those drive ran");
+            var tookNote = textBox || tookText == sentText ? ""
+                : $"; it took the text of {tookText} of the {sentText} key(s) that type a character, handling no TextInput for the rest";
             return new InteractOutcome(true, KeyboardMechanism,
-                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{shifted}{moved}{slow}{selectionNote}", null);
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{shifted}{tookNote}{moved}{slow}{selectionNote}", null);
         }
         catch (OperationCanceledException)
         {
@@ -3430,15 +3510,16 @@ public static class UiAutomationDriver
     /// Delivers a key to <paramref name="at"/> as Avalonia's keyboard device delivers a real one: the key bindings on it
     /// and its ancestors are tried first, nearest first, and KeyDown is raised only when none took it; then the text
     /// it types, and KeyUp. Raising KeyDown alone skipped the bindings, so an Enter bound to a search did not search
-    /// (#943 review).
+    /// (#943 review). Returns whether the TextInput was handled, or null when the key types nothing (#2460).
     /// </summary>
-    private static void DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
+    private static bool? DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
     {
+        bool? took = null;
         if (key == Key.None)
         {
             if (typed is not null)
-                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
-            return;
+                took = RaiseText(at, typed);
+            return took;
         }
         // Each modifier's own key around it, as a person holds a chord (#2422).
         foreach (var (stroke, held, isDown) in Chord(key, mods))
@@ -3458,7 +3539,15 @@ public static class UiAutomationDriver
                     }
             at.RaiseEvent(down);
             if (stroke == key && typed is not null)
-                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
+                took = RaiseText(at, typed);
+        }
+        return took;
+
+        static bool RaiseText(Control at, string typed)
+        {
+            var input = new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at };
+            at.RaiseEvent(input);
+            return input.Handled;
         }
     }
 
@@ -4580,9 +4669,12 @@ public static class UiAutomationDriver
         static int Kind(Control c) => c switch { TextEditor => 0, TextArea => 1, _ => 2 };
     }
 
-    // Why there is nothing to type into: a dropdown that is not editable takes its text by select, once it is open.
-    private static string NoTextSurface(Control control) =>
+    // Why there is nothing to type into: a dropdown that is not editable takes its text by select, once it is open. In
+    // keyboard mode a control that takes focus is sent the keys, so it is refused only when it cannot take focus (#2460).
+    private static string NoTextSurface(Control control, bool keyboard) =>
         $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into"
+        + (keyboard ? ", and does not take focus, so a person's keys could not reach it"
+            : control.Focusable ? "; mode \"keyboard\" sends it keys as a person types, for a control that takes typing itself" : "")
         + (control is ComboBox { IsEditable: false }
             ? "; it is a dropdown that is not editable: 'expand' it, then 'select' its item by text" : "");
 
@@ -5375,7 +5467,11 @@ public record UiNodeDetail(
     bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     WindowFrameState? Frame = null,
-    string? ExpandCollapseState = null);
+    string? ExpandCollapseState = null,
+    // The text of each item of a list, dropdown or tab control, as select matches it, rows scrolled out of view included,
+    // and what was left out (#2450). Absent for a dropdown that is closed, which the note explains.
+    string[]? Items = null,
+    string? ItemsNote = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

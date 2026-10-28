@@ -88,6 +88,10 @@ public class FormSerializer
         // reproduces the block itself byte for byte.
         void WriteChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> children)
         {
+            // #1631: VB6 saves windowless siblings last, keeping their relative order.
+            if (children.Any(c => c.BaseClass is UserControlComponentClass))
+                children = children.OrderBy(c => c.BaseClass is UserControlComponentClass uc
+                    ? uc.Setting("Windowless") : c.BaseClass is ComponentBaseClass { IsWindowless: true }).ToList();
             var preserved = container.PreservedChildSubtrees;
             var before = CarriedOrder.ChildrenBefore(children.Count, preserved);
             var preservedIndex = 0;
@@ -278,9 +282,17 @@ public class FormSerializer
     private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
     {
         var inBox = instance.BaseClass as InBoxComponentClass;
+        var userControl = instance.BaseClass as UserControlComponentClass;
+        // StandardSize is a designer choice, never a .pag line (#1631, issuecomment-6426450412).
+        bool Omit(string name) => (instance.BaseClass is PropertyPageRootClass
+            && name.Equals("StandardSize", StringComparison.OrdinalIgnoreCase)) || userControl is not null &&
+            (userControl.Setting("InvisibleAtRuntime")
+                ? name.ToLowerInvariant() is not ("left" or "top" or "_extentx" or "_extenty")
+                : name.Equals("TabIndex", StringComparison.OrdinalIgnoreCase) && !userControl.Setting("CanGetFocus", true)
+                    && !userControl.Setting("ForwardFocus"));
         foreach (var prop in instance.BaseClass.Properties)
         {
-            if (prop == VBProperties.NameProperty)
+            if (Omit(prop.Name) || prop == VBProperties.NameProperty)
                 continue;
 
             // An in-box control's own properties go in the run after its extender's (#1082).
@@ -354,7 +366,7 @@ public class FormSerializer
         {
             if (instance.BaseClass is TreeViewComponentClass && TreeViewPersistence.IsOwn(raw.Name))
                 continue;
-            if (inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
+            if (Omit(raw.Name) || inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
                 || inBox is not null && IsOwnRunLine(inBox, raw.Name))
                 continue;
             if (instance.BaseClass.Properties.Any(p =>
