@@ -250,6 +250,15 @@ public class ProjectSerializer
                 output.Remove(line);
             output.InsertRange(0, prefix.Concat(readObjects));
         }
+        // #2459: only OleExe with these adjacent neighbours was measured. Other types,
+        // missing neighbours and other orders keep today's output until VB6 is measured.
+        if (project.ProjectType == VBProjectType.OleExe
+            && !output.Any(l => l.Split('=', 2)[0].Trim().Equals("Retained", StringComparison.OrdinalIgnoreCase)))
+        {
+            var unattended = output.IndexOf("Unattended=0");
+            if (unattended >= 0 && unattended + 1 < output.Count && output[unattended + 1] == "ThreadPerObject=0")
+                output.Insert(unattended + 1, "Retained=0");
+        }
         foreach (var line in output)
             writer.WriteLine(line);
 
