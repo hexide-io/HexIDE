@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— odpověď, {0} bajtů —",
     "Str.Tool.ProtocolInspector.Copy": "Kopírovat jako trasování",
     "Str.Tool.ProtocolInspector.Export": "Exportovat konverzaci...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Nahradit tyto existující soubory?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Exportováno {0} zpráv do {1}, manifest je v {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Export se nepodařilo dokončit: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Co odchází, je pseudonymizováno.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
     "Str.PropDesc.UseMaskColor": "Zda použít barvu masky.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.Dialog.Print.Configuration": "Kopie: 1; orientace: na výšku.",
+    "Str.Dialog.Print.Unavailable": "Tisk není implementován. OK vrátí pouze nastavení dialogu.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— antwoord, {0} bytes —",
     "Str.Tool.ProtocolInspector.Copy": "Als trace kopiëren",
     "Str.Tool.ProtocolInspector.Export": "Gesprek exporteren...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Deze bestaande bestanden vervangen?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} berichten geëxporteerd naar {1}, met het manifest in {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "De export is niet voltooid: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Wat naar buiten gaat, is gepseudonimiseerd.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "De kleur voor transparante pixels.",
     "Str.PropDesc.UseMaskColor": "Of de maskerkleur wordt gebruikt.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.Dialog.Print.Configuration": "Exemplaren: 1; afdrukstand: staand.",
+    "Str.Dialog.Print.Unavailable": "Afdrukken is niet geïmplementeerd. OK geeft alleen de dialooginstellingen terug.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

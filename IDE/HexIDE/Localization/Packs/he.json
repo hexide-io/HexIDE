@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— תשובה, {0} בתים —",
     "Str.Tool.ProtocolInspector.Copy": "העתק כיומן מעקב",
     "Str.Tool.ProtocolInspector.Export": "ייצא שיחה...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "להחליף את הקבצים הקיימים האלה?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "יוצאו {0} הודעות אל {1}, והמניפסט אל {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "הייצוא לא הושלם: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "מה שיוצא מכאן מוחלף בשמות בדויים.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "הצבע של פיקסלים שקופים.",
     "Str.PropDesc.UseMaskColor": "האם להשתמש בצבע המסכה.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "הצג קווי הנחיה להזחה",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
+    "Str.Dialog.Print.Configuration": "עותקים: 1; כיוון: לאורך.",
+    "Str.Dialog.Print.Unavailable": "הדפסה אינה ממומשת. אישור מחזיר רק את הגדרות תיבת הדו־שיח.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

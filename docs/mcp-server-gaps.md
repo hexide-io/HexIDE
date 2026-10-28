@@ -21,6 +21,11 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome". Misspelled
 `dump_visual_tree {"interactive_only": false}` now run with an explicit ignored-argument note and a suggestion
 of `interactiveOnly` (#1315); an omitted argument still uses its declared default.
 
+**Write-tool source audit (#2504, not a live probe).** The [file-safety audit](file-safety-audit.md)
+records missing disk recovery and project-root containment on source/property/control saves, with their
+entry points and remaining work. MCP conversation exports now preserve earlier exports; that fix does
+not close the other write-tool gaps. Tracked by [#2504](https://github.com/hexide-io/HexIDE/issues/2504).
+
 ---
 
 ## 3. Three tool calls while the IDE is down drop the tools until `/mcp` (narrowed 2026-10-12)
@@ -700,19 +705,6 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 **Workaround.** `interact {"target":"…/ListItem[Appearance]/Button","action":"toggle","window":"ide"}` operated the unnamed toggle beneath the row.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
-
-## No tool says which mouse pointer a control shows
-
-**Symptom (2026-10-28, Windows, #2448's live check).** `inspect_element {"target":"Window","window":"Form1"}` on a running
-form whose program had set `Screen.MousePointer = vbHourglass`, as its caption confirmed, has no cursor field.
-`take_snapshot` captures no OS cursor, and `dump_visual_tree` carries nothing about it. So neither `Screen.MousePointer`,
-nor a control's own `MousePointer`, nor a TextBox's I-beam can be checked in the running IDE.
-
-**Workaround.** None in the running IDE. A headless Integration test can read each control's `Cursor`, as
-`ScreenObjectRuntimeTests` does, and the program can read its own `MousePointer` back.
-
-**Suggested fix.** Report the effective pointer in `inspect_element`: the standard cursor type it was made from, or
-custom, and whether it was set above the control's own value. [#2453](https://github.com/hexide-io/HexIDE/issues/2453).
 
 ## `match: "TextEditor"` does not find the Immediate window, though the description says it does
 

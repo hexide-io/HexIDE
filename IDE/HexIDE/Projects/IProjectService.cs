@@ -9,6 +9,8 @@ public interface IProjectService
     Task CreateNewProject(IProjectTemplate template);
     Task UnloadAllProjects();
     Task UnloadProject(ProjectDefinition project);
+    /// <summary>Removes a form or module from its project, offering to save unsaved changes first.</summary>
+    Task RemoveDocument(DocumentIdentity document);
     Task OpenProject();
     Task OpenProject(string path);
     Task SaveProject(ProjectDefinition project, bool saveAs);

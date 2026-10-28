@@ -2,31 +2,32 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-  <!-- Avalonia UI. NOTE: not all on one version — Controls.DataGrid (12.0.0) and Headless (12.0.2) have
-       no 12.0.x patch matching the core's 12.0.4, so the app and the headless test host render slightly
-       different builds. True alignment needs the 12.1.0 minor, but 12.1.0 is a BREAKING migration here:
+  <!-- Avalonia UI. The packages built from Avalonia's own repository (Avalonia, .Browser, .Controls.ColorPicker,
+       .Desktop, .Headless, .Headless.XUnit, .Skia and .Themes.Simple) move together, on the newest 12.0.x patch. A note
+       here once said Headless had no patch matching the core. It had, and the note left it two patches behind, which
+       was the whole of #2486. Controls.DataGrid has a version stream of its own. 12.1.0 is a BREAKING migration here:
        it tightened compiled method-binding resolution (AVLN2000 — a bound method must be parameterless or
        take a single object), which HexIDE uses pervasively (~167 ExecutingCommand method bindings; e.g.
        MainViewViewModel.AddProject(IProjectTemplate?) fails to resolve). Deferred to a dedicated
-       post-launch migration. AvaloniaEdit, Classic.Avalonia, and Avalonia.Diagnostics are independent
+       migration (#868). AvaloniaEdit, Classic.Avalonia, and Avalonia.Diagnostics are independent
        packages with their own version streams. (Android/iOS dropped — those platforms are out of scope.) -->
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="12.0.4" />
+    <PackageVersion Include="Avalonia" Version="12.0.5" />
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
-    <PackageVersion Include="Avalonia.Browser" Version="12.0.1" />
-    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.4" />
+    <PackageVersion Include="Avalonia.Browser" Version="12.0.5" />
+    <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.5" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
     <!-- NB: Avalonia.Controls.TreeDataGrid 12.x is a COMMERCIAL "Avalonia Accelerate" product (MIT only through
          11.2.x) — building against it fails with AVLIC0001 (no licence key). Deliberately NOT used; the debugger
          Locals pane uses a native Avalonia TreeView + a columnar row template instead. Do not re-add it. -->
-    <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.0.5" />
     <!-- Keep the two headless packages at Avalonia's version. 12.0.2's session started each test on whatever context its
          thread was left holding, so a run could lose hundreds of tests to errors MTP does not count and still pass
          (#2486, fixed in 12.0.4 by AvaloniaUI/Avalonia#21357). HeadlessTestContextTests checks it. -->
-    <PackageVersion Include="Avalonia.Headless" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Themes.Simple" Version="12.0.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.0.5" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.5" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.0.5" />
+    <PackageVersion Include="Avalonia.Themes.Simple" Version="12.0.5" />
     <!-- 12.0.1-beta1 is the Avalonia-12 build. The 11.3.0.3 assembly was compiled against Avalonia 11,
          and its ClassicBorderDecorator.DrawRadioButtonBorder called
          StreamGeometryContext.ArcTo(Point, Size, double, bool, SweepDirection) — an overload Avalonia 12
@@ -89,6 +90,9 @@
          The package's own dependency is an open ">= 3.2.2", so NuGet resolves 4.0.0 happily and it fails
          only at test DISCOVERY — no build error, no restore warning. Raise this when #22072 closes. -->
     <PackageVersion Include="xunit.v3" Version="[3.2.2,4.0.0)" />
+    <!-- At the Microsoft.Testing.Platform version xunit.v3 brings (1.9.1), which the extension must match. CI runs
+         the Integration steps with hang dumps on, so a hung test is named and dumped inside the step limit (#2530). -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="1.9.1" />
   </ItemGroup>
   <!-- MCP server -->
   <ItemGroup>

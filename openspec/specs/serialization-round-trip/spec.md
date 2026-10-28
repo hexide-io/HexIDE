@@ -72,7 +72,8 @@ subset — and the developer discovers which parts by finding out what stopped w
 - **THEN** its carried Toolbar blocks retain `ToolTips`, BorderStyle after `_Version`, HIMETRIC ButtonWidth/ButtonHeight,
   twips placeholder widths and nested ButtonMenus verbatim, and its ImageList companion retains every byte
 - **AND** the separate runtime loader reads designed top-level Toolbar button/menu bags under their measured names,
-  retaining numeric image indexes without ImageList binding; designer editing/rewriting of these bags remains unsupported
+  retaining numeric image indexes and binding the saved ImageList name after all controls are created, including a list
+  appearing later in the file; designer editing/rewriting of these bags remains unsupported
 - **AND** carried Toolbars SHALL remain view-only, excluded from the Properties component list, including their own
   scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
   SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
@@ -736,17 +737,6 @@ SHALL leave those control copies unchanged (measured for #2062; see
 - **WHEN** Form1's font name becomes Tahoma
 - **THEN** both controls still read Arial
 
-## Out of Scope
-- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
-  carried, never read.
-- **Reproducing the original product's omissions.** The original product omits properties left at their
-  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
-  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
-  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
-  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of modelled form/control properties.** These properties are written in the
-  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
-
 ### Requirement: Made programs SHALL carry source text independently of the host code page
 
 Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without
@@ -875,6 +865,27 @@ SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273)
 - **THEN** their model values are 0, 9, 1033, 3082 and 3081
 - **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively
 
+### Requirement: Flushed replacement of saved files
+
+Project source, companion, project and group file saves, carried-document saves,
+Make archives and runners, resource and protocol exports (including automation), and project sidecars,
+SHALL write a unique sibling temporary file and flush its bytes to disk before closing it
+and replacing the target. The writer SHALL attempt temporary-file cleanup on failure
+and propagate the original write error. This is a per-file operation, not an atomic
+transaction across related files.
+
+#### Scenario: A staged write fails
+- **GIVEN** an existing saved file
+- **WHEN** writing its replacement fails before the rename
+- **THEN** the existing target bytes remain unchanged
+- **AND** cleanup of the temporary file is attempted
+
+#### Scenario: Publishing a standalone runner on Unix
+
+- **WHEN** Make replaces its runner executable on Unix
+- **THEN** the staged runner receives the source runner's Unix permissions before replacement
+- **AND** a copy failure leaves the old executable unchanged
+
 ### Requirement: ActiveX EXE saves add Retained at the measured location
 
 When saving `Type=OleExe` without a `Retained=` line, the writer SHALL insert `Retained=0`
@@ -887,3 +898,14 @@ unchanged because their insertion behaviour has not been measured.
 - **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
 - **THEN** Retained=0 is inserted between those lines
 - **AND** the remaining lines retain their order
+
+## Out of Scope
+- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
+  carried, never read.
+- **Reproducing the original product's omissions.** The original product omits properties left at their
+  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
+  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
+  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
+  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.

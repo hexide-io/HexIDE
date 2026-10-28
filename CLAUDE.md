@@ -287,11 +287,20 @@ which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2
 test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
 error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
 read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
-`bash scripts/check-xunit-report.sh` on the file, which lands under the project's
-`bin/Debug/net10.0/TestResults/`. CI does both on every Integration step. The cause measured was
+`bash scripts/check-xunit-report.sh` on the file. A relative `--results-directory TestResults` puts it in the
+project's own `TestResults/`, on Windows and under WSL alike. CI does both on every Integration step. The cause measured was
 Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
 fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
 fails loudly if one starts a test on a leftover context again.
+
+**A hung Integration run ends 10 minutes after a test last started or finished, and names what was running**
+([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every Integration step passes
+`--hangdump --hangdump-timeout 10m --hangdump-type Mini` (`Microsoft.Testing.Extensions.HangDump`, kept at the
+Microsoft.Testing.Platform version xunit.v3 brings). The results directory then holds a `*_hang.log` listing each
+test still running and how long it had run, beside a mini dump with managed stacks
+(`dotnet-dump analyze <file> -c "clrstack -all"`). CI turns the log into an error annotation and uploads both.
+Before this, a hang ran out the 30-minute step limit and left no report at all. Add the same options after the
+`--` to get this locally.
 
 ## MCP Dev Loop
 
@@ -783,7 +792,7 @@ nice-to-have.
   Facts are not code: a protocol's method names, wire shapes and semantics are free to read and implement.
   It is *expression* that must not cross — the same line already drawn for the VBA documentation.
 
-- **Avalonia 12.0.4 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.4` is the base theme (`<SimpleTheme />` in App.axaml).
+- **Avalonia 12.0.5 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.5` is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
 - **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.
 - **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Managed dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
@@ -1023,6 +1032,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   **This is now guarded, because it was the last drift-prone artefact here trusted to a habit.**
   `DesignRecordTests` fails the build when a change has every task ticked and is still sitting in
   `changes/`, and when an archived change's requirements are absent from the capability it targeted.
+  It also reports the file and line of any live requirement outside `## Requirements` (#2587): keep
+  requirements above later `##` headings such as `## Out of Scope`, where OpenSpec cannot read them.
   It was written after five changes were found unarchived at once, three of them `MODIFIED` deltas
   whose requirement headings existed in `specs/` while their bodies were weeks out of date — which is
   why a survey by heading reported those three as tidying and archiving them rewrote sixty-eight lines.

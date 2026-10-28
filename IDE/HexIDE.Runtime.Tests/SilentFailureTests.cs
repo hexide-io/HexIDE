@@ -23,22 +23,13 @@ public class SilentFailureTests : BaseVBTestFixture
     // ── An unimplemented intrinsic now says so ──────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("Erl")]
+    [InlineData("Printers")]
     public async Task ReadingAnUnimplementedIntrinsic_Raises_InsteadOfYieldingEmpty(string name)
     {
         // Each of these returned Empty before, with no error at all.
         var act = async () => await Run("Dim s\ns = " + name + "\nDebug.Print s\n");
         (await act.Should().ThrowAsync<NotImplementedException>())
             .Which.Message.Should().Contain(name);
-    }
-
-    [Fact]
-    public async Task ShellAsAStatement_Raises_InsteadOfLaunchingNothing()
-    {
-        // The headline case: this ran, launched nothing, and continued as if the process had started.
-        var act = async () => await Run("Shell \"notepad.exe\", vbNormalFocus\nDebug.Print 1\n");
-        (await act.Should().ThrowAsync<NotImplementedException>())
-            .Which.Message.Should().Contain("Shell");
     }
 
     [Fact]

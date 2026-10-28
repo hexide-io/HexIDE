@@ -127,7 +127,9 @@ public class FormSerializer
             vb.BeginSortedProperties();
             WriteAllProperties(vb, component, citations);
             vb.EndSortedProperties();
-            if (inBox is not null)
+            if (component.BaseClass is RichTextBoxComponentClass)
+                RichTextBoxPersistence.Write(vb, component, citations);
+            else if (inBox is not null)
                 WriteOwnProperties(vb, component, inBox, citations);
             if (component.BaseClass is TreeViewComponentClass)
                 TreeViewPersistence.Write(vb, component, citations);
@@ -366,6 +368,8 @@ public class FormSerializer
         {
             if (instance.BaseClass is TreeViewComponentClass && TreeViewPersistence.IsOwn(raw.Name))
                 continue;
+            if (instance.BaseClass is RichTextBoxComponentClass && RichTextBoxPersistence.IsOwnProperty(raw.Name))
+                continue;
             if (Omit(raw.Name) || inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
                 || inBox is not null && IsOwnRunLine(inBox, raw.Name))
                 continue;
@@ -447,6 +451,7 @@ public class FormSerializer
         name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
         || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
         || (inBox is TabStripComponentClass && TabStripPersistence.OwnLine(name))
+        || (inBox is MaskedEdBoxComponentClass && MaskedEdBoxPersistence.OwnLine(name))
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -506,6 +511,11 @@ public class FormSerializer
         else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
 
+        if (inBox is MaskedEdBoxComponentClass)
+        {
+            MaskedEdBoxPersistence.Write(vb, instance);
+            return;
+        }
         if (inBox is SSTabComponentClass)
         {
             WriteSSTabProperties(vb, instance, citations);

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The HexIDE Authors
 // Parses VB6 source (proleap / grammars-v4 grammar) and returns LSP diagnostics.
 
-using System.Diagnostics;   // Stopwatch (the reported parse only)
+using System.Diagnostics;   // Stopwatch
 using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;   // PredictionMode (two-stage SLL->LL prediction)
 using Antlr4.Runtime.Misc;  // ParseCanceledException (BailErrorStrategy)
@@ -76,8 +76,8 @@ public static class VbDiagnosticsProvider
     /// </summary>
     /// <remarks>
     /// A separate entry point rather than an extra out-parameter on the existing one, for two reasons.
-    /// Existing callers keep byte-for-byte what they get today. And nothing is measured unless someone
-    /// asked: a client that never turns tracing on never allocates a report and never reads a timestamp.
+    /// Existing callers keep the same diagnostics and tree. A client that never turns tracing on
+    /// never allocates a report; debug stage timings are independent of protocol tracing.
     /// The parse itself is identical either way — the report is written from inside it, and reading the
     /// stage cannot change it.
     /// </remarks>
@@ -171,7 +171,12 @@ public static class VbDiagnosticsProvider
         if (budget <= TimeSpan.Zero)
             return null;
 
-        var parseTask = Task.Run(work, CancellationToken.None);
+        var queued = Stopwatch.GetTimestamp();
+        var parseTask = Task.Run(() =>
+        {
+            Serilog.Log.Debug("Parse worker queue wait {QueueMs} ms", Stopwatch.GetElapsedTime(queued).TotalMilliseconds);
+            return work();
+        }, CancellationToken.None);
 
         using var delayCts = new CancellationTokenSource();
         var delayTask = Task.Delay(budget, delayCts.Token);
@@ -341,7 +346,7 @@ public static class VbDiagnosticsProvider
             try
             {
                 // SLL success ⇒ tree identical to LL's (Adaptive LL(*) guarantee).
-                var tree = parser.startRule();
+                var tree = TimedParse(parser, "SLL");
                 // After the call, not before: a bail or a depth abort must not be recorded as an SLL answer.
                 if (report is not null) report.Prediction = ParsePrediction.Sll;
                 // The lexer's errors still count here, though SLL itself reports none.
@@ -365,7 +370,7 @@ public static class VbDiagnosticsProvider
                 parser.Interpreter.PredictionMode = PredictionMode.LL;
                 if (errorListener is not null)
                     parser.AddErrorListener(errorListener);
-                var tree = parser.startRule();
+                var tree = TimedParse(parser, "LL");
                 leftOutAnError = errorListener?.LeftOutAny == true;
                 return tree;
             }
@@ -378,6 +383,18 @@ public static class VbDiagnosticsProvider
                 2));
             if (report is not null) report.Outcome = ParseOutcome.NestingTooDeep;
             return null;
+        }
+    }
+
+    private static VisualBasic6Parser.StartRuleContext TimedParse(VisualBasic6Parser parser, string stage)
+    {
+        var started = Stopwatch.GetTimestamp();
+        Serilog.Log.Debug("Parse {Stage} started", stage);
+        try { return parser.startRule(); }
+        finally
+        {
+            Serilog.Log.Debug("Parse {Stage} elapsed {ElapsedMs} ms", stage,
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }
 

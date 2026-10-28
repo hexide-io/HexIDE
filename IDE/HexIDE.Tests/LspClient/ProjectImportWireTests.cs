@@ -20,7 +20,9 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     private LspClientRegistry? _registry;
     private Task? _loop;
     private readonly Workspace _workspace = new();
+    private bool _useImport = true;
     private bool _failImport;
+    private string _folderNotifications = "true";
     private bool _declareCommand = true;
     private int _pulls;
     private readonly List<string> _notes = [];
@@ -36,6 +38,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     {
         Directory.CreateDirectory(_root);
         _workspace.Directory = _root;
+        _workspace.Folders = [new("Probe", _root)];
         _workspace.Projects = [new(_root, new("Probe", Path.Combine(_root, "Probe.vbp"), [], []), ProjectText: _ => Task.FromResult("Name=\"Unsaved\"\r\n"))];
         var (local, remote) = FullDuplexStream.CreatePair();
         _server = remote;
@@ -52,7 +55,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
                     var name = method.GetString();
                     var result = name switch
                     {
-                        "initialize" => "{\"capabilities\":{\"textDocumentSync\":1,\"diagnosticProvider\":{\"interFileDependencies\":true,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":" + (_declareCommand ? "[\"probe.import\"]" : "[]") + "}}}",
+                        "initialize" => "{\"capabilities\":{\"workspace\":{\"workspaceFolders\":{\"supported\":true,\"changeNotifications\":" + _folderNotifications + "}},\"textDocumentSync\":1,\"diagnosticProvider\":{\"interFileDependencies\":true,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":" + (_declareCommand ? "[\"probe.import\"]" : "[]") + "}}}",
                         "workspace/executeCommand" => "{\"notes\":" + _replyNotes + "}",
                         "textDocument/diagnostic" => "{\"kind\":\"full\",\"items\":[],\"resultId\":\"" + Interlocked.Increment(ref _pulls) + "\"}",
                         _ => "null"
@@ -70,10 +73,10 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
-        var client = new VBLspClient(transport, _output, "vb6");
+        var client = new VBLspClient(transport, _output, "vb6", workspace: _workspace);
         using var arguments = JsonDocument.Parse("[{\"uri\":\"{uri}\",\"text\":\"{text}\",\"overwrite\":true}]");
         var registration = new LanguageServerRegistration("probe", "Probe server", [".bas"], "vb6", () => client,
-            WorkspaceArtifact: new("generated.json", "probe"), ProjectImport: new("probe.import", arguments.RootElement.Clone()));
+            WorkspaceArtifact: _useImport ? new("generated.json", "probe") : null, ProjectImport: _useImport ? new("probe.import", arguments.RootElement.Clone()) : null);
         var providers = new WorkspaceArtifactProviderRegistry([new Provider()]);
         var consent = Substitute.For<IWorkspaceArtifactConsent>();
         consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
@@ -180,6 +183,83 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         Frames("workspace/executeCommand").Should().HaveCount(2);
     }
 
+    [Theory]
+    [InlineData("true")]
+    [InlineData("\"folder-registration\"")]
+    [InlineData("\"\"")]
+    public async Task FolderChangesAreDeduplicatedAndPrecedeTheDebouncedImport(string capability)
+    {
+        _folderNotifications = capability;
+        await StartAsync();
+        var outside = new LspWorkspaceFolder("Shared", Path.Combine(_root, "..", "Shared"));
+        _workspace.Folders = [new("Probe", _root), outside, outside];
+        for (var i = 0; i < 5; i++) _workspace.Change();
+        await UntilAsync(() => Frames("workspace/executeCommand").Length == 2);
+        var changes = Frames("workspace/didChangeWorkspaceFolders");
+        changes.Should().ContainSingle();
+        var change = changes[0].GetProperty("params").GetProperty("event");
+        change.GetProperty("added").GetArrayLength().Should().Be(1);
+        change.GetProperty("added")[0].GetProperty("uri").GetString().Should().Be(new Uri(outside.Directory).AbsoluteUri);
+        change.GetProperty("removed").GetArrayLength().Should().Be(0);
+        JsonElement[] frames;
+        lock (_frames) frames = _frames.ToArray();
+        Array.FindIndex(frames, f => f.TryGetProperty("method", out var m) && m.GetString() == "workspace/didChangeWorkspaceFolders")
+            .Should().BeLessThan(Array.FindLastIndex(frames, f => f.TryGetProperty("method", out var m) && m.GetString() == "workspace/executeCommand"));
+        _workspace.Folders = [new("Probe", _root)];
+        _workspace.Change();
+        await UntilAsync(() => Frames("workspace/executeCommand").Length == 3);
+        change = Frames("workspace/didChangeWorkspaceFolders")[1].GetProperty("params").GetProperty("event");
+        change.GetProperty("removed")[0].GetProperty("uri").GetString().Should().Be(new Uri(outside.Directory).AbsoluteUri);
+        change.GetProperty("removed").GetArrayLength().Should().Be(1);
+        change.GetProperty("added").GetArrayLength().Should().Be(0);
+        _workspace.Change();
+        await UntilAsync(() => Frames("workspace/executeCommand").Length == 4);
+        await _registry!.StopAsync();
+        Frames("workspace/didChangeWorkspaceFolders").Should().HaveCount(2);
+        Frames("workspace/executeCommand").Should().HaveCount(4);
+    }
+
+    [Fact]
+    public async Task FolderChangesAlsoReachConnectionsWithoutProjectImport()
+    {
+        _useImport = false;
+        await StartAsync();
+        _workspace.Folders = [new("Probe", _root), new("Shared", Path.Combine(_root, "Shared"))];
+        _workspace.Change();
+        await UntilAsync(() => Frames("workspace/didChangeWorkspaceFolders").Length == 1);
+        Frames("workspace/didChangeWorkspaceFolders")[0].GetProperty("params").GetProperty("event")
+            .GetProperty("added").GetArrayLength().Should().Be(1);
+        Frames("workspace/executeCommand").Should().BeEmpty();
+        _workspace.Projects = [];
+        _workspace.Folders = [];
+        _workspace.Change();
+        await UntilAsync(() => Frames("workspace/didChangeWorkspaceFolders").Length == 2);
+        Frames("workspace/didChangeWorkspaceFolders")[1].GetProperty("params").GetProperty("event")
+            .GetProperty("removed").GetArrayLength().Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("false")]
+    [InlineData("null")]
+    public async Task FolderChangesRequireServerConsent(string capability)
+    {
+        _folderNotifications = capability;
+        await StartAsync();
+        _workspace.Folders = [new("Probe", _root), new("Shared", Path.Combine(_root, "Shared"))];
+        _workspace.Change();
+        await UntilAsync(() => Frames("workspace/executeCommand").Length == 2);
+        await _registry!.StopAsync();
+        Frames("workspace/didChangeWorkspaceFolders").Should().BeEmpty();
+        // A consenting connection is the positive control: silence alone cannot prove capability gating.
+        await using var consenting = new ProjectImportWireTests();
+        await consenting.StartAsync();
+        consenting._workspace.Folders = [new("Probe", consenting._root),
+            new("Shared", Path.Combine(consenting._root, "Shared"))];
+        consenting._workspace.Change();
+        await consenting.UntilAsync(() => consenting.Frames("workspace/executeCommand").Length == 2);
+        consenting.Frames("workspace/didChangeWorkspaceFolders").Should().ContainSingle();
+    }
+
     [Fact]
     public async Task AServerRefreshDisablesTheFallbackAfterImport()
     {
@@ -250,7 +330,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     {
         public string? Directory { get; set; }
         public IReadOnlyList<WorkspaceArtifactContext> Projects { get; set; } = [];
-        public IReadOnlyList<LspWorkspaceFolder> Folders => [];
+        public IReadOnlyList<LspWorkspaceFolder> Folders { get; set; } = [];
         public event Action? ProjectChanged;
         public void Change() => ProjectChanged?.Invoke();
     }

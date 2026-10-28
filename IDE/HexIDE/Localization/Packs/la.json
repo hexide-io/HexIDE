@@ -680,6 +680,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— responsum, {0} octeti —",
     "Str.Tool.ProtocolInspector.Copy": "Describe ut vestigium",
     "Str.Tool.ProtocolInspector.Export": "Exporta colloquium...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Hos fasciculos exsistentes substituere?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} nuntii in {1} exportati sunt, cum indice apud {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Exportatio non perfecta est: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Quod exit nominibus fictis tegitur.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Color punctorum perlucidorum.",
     "Str.PropDesc.UseMaskColor": "Utrum color personae adhibeatur.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Lineas indentationis monstrare",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parentheses secundum gradum inclusionis colorare",
+    "Str.Dialog.Print.Configuration": "Exemplaria: 1; directio: verticalis.",
+    "Str.Dialog.Print.Unavailable": "Impressio nondum effecta est. Bene solas optiones dialogi reddit.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

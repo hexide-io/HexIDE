@@ -921,6 +921,51 @@ public class MouseEventTests
         run.Printed.Should().Equal("Image1 MouseDown 1 0 1170 870", "Image1 MouseUp 1 0 1170 870");
     }
 
+    // Real input on vb6.exe, native matching p-code (#861): the oracle's "An Image's Click across its whole rectangle".
+    [AvaloniaTheory]
+    [InlineData(50, 30, 750, 450)]
+    [InlineData(99, 59, 1485, 885)]
+    public void An_empty_Image_raises_Click_at_its_centre_and_far_corner(int x, int y, int twipsX, int twipsY)
+    {
+        using var run = Start(Form(Twips, Ctl("Image", "Image1", 300, 300, 1500, 900)),
+            Handlers("Image1") + Handlers("Form"));
+
+        run.Click(run.At("Image1", x, y));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal($"Image1 MouseDown 1 0 {twipsX} {twipsY}",
+            $"Image1 MouseUp 1 0 {twipsX} {twipsY}", "Image1 Click");
+    }
+
+    [AvaloniaFact]
+    public void One_pixel_past_an_empty_Images_right_edge_raises_only_the_forms_Click()
+    {
+        using var run = Start(Form(Twips, Ctl("Image", "Image1", 300, 300, 1500, 900)),
+            Handlers("Image1") + Handlers("Form"));
+
+        run.Click(run.At("Image1", 101, 30));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 1815 750", "Form MouseUp 1 0 1815 750", "Form Click");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_Image_inside_a_Frame_takes_Click_alone_and_the_Frames_empty_area_takes_its_own(bool image)
+    {
+        var frame = Ctl("Frame", "Frame1", 240, 1500, 2400, 1500,
+            children: Ctl("Image", "Image2", 300, 300, 1200, 900));
+        using var run = Start(Form(Twips, frame), Handlers("Image2") + Handlers("Frame1") + Handlers("Form"));
+
+        run.Click(image ? run.At("Image2", 40, 30) : run.At("Frame1", 133, 80));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(image
+            ? new[] { "Image2 MouseDown 1 0 600 450", "Image2 MouseUp 1 0 600 450", "Image2 Click" }
+            : new[] { "Frame1 MouseDown 1 0 1995 1200", "Frame1 MouseUp 1 0 1995 1200", "Frame1 Click" });
+    }
+
     [AvaloniaFact]
     public void An_unhandled_event_does_not_pass_to_the_container()
     {
