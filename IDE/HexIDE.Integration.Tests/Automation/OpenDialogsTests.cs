@@ -38,12 +38,14 @@ public class OpenDialogsTests
         return dialog;
     }
 
-    // Avalonia runs each job by restoring the context it was posted from, ExecutionContext.Restore and not Run, and leaves
-    // that context on the thread. The headless session gives a test no context of its own either. So a job posted before
-    // this test's OpenDialogs.During, and run here, put back the watch of whatever posted it, and the test's NamedInReply
-    // went to that watch instead: a flake that needed the job to still be queued, so it showed under load (#2029). The
-    // tools are not exposed to this: HexIDE's own code never pumps the dispatcher inline, and the tool's flow reaches
-    // NamedInReply through jobs it posted or awaits it took. OpenDialogNoteTests keeps the same helper for HexIDE.Tests.
+    // Avalonia 12.0.4 ran each job by restoring the context it was posted from, ExecutionContext.Restore and not Run, and
+    // left that context on the thread. So a job posted before this test's OpenDialogs.During, and run here, put back the
+    // watch of whatever posted it, and the test's NamedInReply went to that watch instead: a flake that needed the job to
+    // still be queued, so it showed under load (#2029). From 12.0.5 a job runs under its context and the thread's own comes
+    // back after it (AvaloniaUI/Avalonia#21627), so this helper no longer has anything to undo; it stays as the record of
+    // why the test pumps jobs this way. The tools were never exposed to this: HexIDE's own code never pumps the dispatcher
+    // inline, and the tool's flow reaches NamedInReply through jobs it posted or awaits it took. OpenDialogNoteTests keeps
+    // the same helper for HexIDE.Tests.
     private static void RunJobsKeepingContext()
     {
         var context = ExecutionContext.Capture();

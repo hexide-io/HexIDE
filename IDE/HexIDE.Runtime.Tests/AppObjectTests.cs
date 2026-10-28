@@ -166,21 +166,21 @@ public class AppObjectTests
     [Fact]
     public void FromProject_strips_both_quotes_from_Title()
     {
-        // VB6 writes this key quoted — `Title="Project1"` is in its own templates — and its reader then
-        // strips the LEADING quote only, so a real VB6 app shows `Project1"` in App.Title. A trailing
-        // quote in an application's name is a defect, not a design, so HexIDE removes both.
-        // See docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md.
+        // Re-measured under F5 and compiled p-code on 2026-10-27 (#2413).
         var info = AppInfo.FromProject(ProjectWith("NameKey", "Title=\"TitleKey\""));
 
         info.Title.Should().Be("TitleKey");
     }
 
-    [Fact]
-    public void FromProject_falls_back_to_the_project_name_when_there_is_no_Title()
+    [Theory]
+    [InlineData("probe")]
+    [InlineData("Gamma")]
+    public void FromProject_falls_back_to_the_project_file_when_there_is_no_Title(string fileName)
     {
-        var info = AppInfo.FromProject(ProjectWith("NameKey"));
+        var project = ProjectWith("Alpha", "ExeName32=\"beta.exe\"");
+        project.AbsolutePath = System.IO.Path.Combine(ProjectFolder, fileName + ".vbp");
 
-        info.Title.Should().Be("NameKey");
+        AppInfo.FromProject(project).Title.Should().Be(fileName);
     }
 
     [Fact]

@@ -4,9 +4,14 @@ namespace HexIDE.Runtime.Tests;
 
 public class MissingBuiltInObjectTests : BaseVBTestFixture
 {
-    public static IEnumerable<object[]> NamesAndDeclarationModes()
+    public static IEnumerable<object[]> NamesAndDeclarationModes() => Modes("Printer", "Printers", "pRiNtEr");
+
+    // Forms is implemented (#2496), and a declared name still claims it.
+    public static IEnumerable<object[]> DeclarableNamesAndDeclarationModes() => Modes("Printer", "Printers", "Forms", "pRiNtEr");
+
+    private static IEnumerable<object[]> Modes(params string[] names)
     {
-        foreach (var name in new[] { "Printer", "Printers", "Forms", "pRiNtEr" })
+        foreach (var name in names)
             foreach (var explicitDeclarations in new[] { false, true })
                 yield return [name, explicitDeclarations];
     }
@@ -34,7 +39,7 @@ public class MissingBuiltInObjectTests : BaseVBTestFixture
     }
 
     [Theory]
-    [MemberData(nameof(NamesAndDeclarationModes))]
+    [MemberData(nameof(DeclarableNamesAndDeclarationModes))]
     public async Task A_declared_variable_with_the_same_name_still_wins(string name, bool explicitDeclarations)
     {
         await Run((explicitDeclarations ? "Option Explicit\n" : "")
@@ -52,6 +57,13 @@ public class MissingBuiltInObjectTests : BaseVBTestFixture
     {
         await Run($"Function {name}() As String\n{name} = \"function\"\nEnd Function\nDebug.Print {name}\n");
         AssertDebugLog([new Vb6Value("function")]);
+    }
+
+    [Fact]
+    public async Task Forms_in_a_program_with_no_form_holds_none()
+    {
+        await Run("Option Explicit\nDebug.Print TypeName(Forms)\nDebug.Print Forms.Count\n");
+        AssertDebugLog([new Vb6Value("Object"), new Vb6Value(0)]);
     }
 
     [Fact]

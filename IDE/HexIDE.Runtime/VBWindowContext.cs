@@ -293,15 +293,20 @@ public class VBWindowContext : IModuleExecutionRoot
     /// A size setter also reports while hidden (#1570), inside the assignment; Show still raises its own Resize.
     /// And a Move to the size the form has raises none in VB6 (measured).
     /// </summary>
-    public void WindowResized(bool sizeSet = false)
+    public void WindowResized(bool sizeSet = false, bool paintGrowth = false)
     {
         if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
         var now = view.Extent;
         if (now == resizedAt)
             return;
+        // Mixed growth and shrinkage was not measured; keep its existing lack of Paint (#2389).
+        var grew = now.Size.Width >= resizedAt.Size.Width && now.Size.Height >= resizedAt.Size.Height
+            && (now.Size.Width > resizedAt.Size.Width || now.Size.Height > resizedAt.Size.Height);
         resizedAt = now;
         ExecuteSub("Form_Resize");
+        if (paintGrowth && grew)
+            ExecuteSub("Form_Paint");
     }
 
     /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>
@@ -548,6 +553,32 @@ public class VBWindowContext : IModuleExecutionRoot
                 completed(Convert.ToInt32(state[slot].Value));
             });
         });
+    }
+
+    public async Task ExecuteEditEventAsync(string name, IList<Vb6Value> args)
+    {
+        if (interpreter is null) return;
+        await Events.Run(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded) return false;
+            return await Dispatch(async () =>
+            {
+                if (!started) await EnsureDeclarations();
+                var callArgs = new List<CallArg>();
+                for (var i = 0; i < args.Count; i++)
+                    callArgs.Add(new CallArg(args[i], null, new EditArgument(args, i)));
+                await interpreter.RaiseFormEvent(form, name, callArgs);
+            });
+        });
+    }
+
+    private sealed record EditArgument(IList<Vb6Value> Arguments, int Index) : IByRefTarget
+    {
+        public Vb6Value.ValueType? DeclaredType => Arguments[Index].Type;
+        public bool IsVariant => false;
+        public Vb6Value Read() => Arguments[Index];
+        public void Write(Vb6Value value) => Arguments[Index] = value;
     }
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)

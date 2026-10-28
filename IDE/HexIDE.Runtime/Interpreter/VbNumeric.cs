@@ -260,6 +260,8 @@ public static class VbNumeric
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             return new Vb6Value(-d);
         }
+        if (v.Type == VT.Currency)
+            return MakeCurrency(-ToDecimal(v), ctx);   // -1@ remains Currency (#1073)
         var rt = rank <= 1 ? VT.Integer : CoreType(rank);   // Byte/Boolean negate into Integer
         if (rt == VT.Integer || rt == VT.Long)
             return NarrowLong(-ToLong(v), rt, ctx, v.HasFixedType);
