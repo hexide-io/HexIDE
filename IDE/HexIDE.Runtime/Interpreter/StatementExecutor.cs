@@ -2539,8 +2539,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException("Bang access (!) in an assignment target is not supported: "
                     + procedureOrArrayCall.GetText());
             if (procedureOrArrayCall.baseType() != null||
-                procedureOrArrayCall.iCS_S_NestedProcedureCall() != null ||
-                procedureOrArrayCall.typeHint() != null)
+                procedureOrArrayCall.iCS_S_NestedProcedureCall() != null)
                 throw new NotImplementedException();
 
             if (procedureOrArrayCall.argsCall().Length == 0)
@@ -2552,8 +2551,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             // Mid STATEMENT: `Mid(target, start[, length]) = replacement`. It routes HERE (not VisitMidStmt) because
             // the grammar's letStmt swallows the trailing `= value`, so `Mid(...)` looks like an array-element write.
-            // Mid is reserved, so it can't be a user array name — an identifier of "Mid" is unambiguously the statement.
-            if (string.Equals(identifier, "Mid", StringComparison.OrdinalIgnoreCase))
+            // The $ spellings use the same statement path; MidB counts bytes instead of characters (#2623).
+            var byteMid = string.Equals(identifier, "MidB", StringComparison.OrdinalIgnoreCase);
+            if ((string.Equals(identifier, "Mid", StringComparison.OrdinalIgnoreCase) || byteMid)
+                && (procedureOrArrayCall.typeHint() == null || procedureOrArrayCall.typeHint().GetText() == "$"))
             {
                 var midArgs = procedureOrArrayCall.argsCall(0).argCall();
                 if (midArgs.Length < 2)
@@ -2565,9 +2566,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var startVal = await expressionExecutor.EvaluateScalar(midArgs[1].valueStmt());
                 Vb6Value? lenVal = midArgs.Length >= 3 ? (Vb6Value?)await expressionExecutor.EvaluateScalar(midArgs[2].valueStmt()) : null;
                 interpreter.ExecutionContext.TryUpdateVariable(currentEnv, targetName,
-                    VB6BuiltIns.MidStatementReplace(midTarget, startVal, lenVal, value));
+                    VB6BuiltIns.MidStatementReplace(midTarget, startVal, lenVal, value, byteMid));
                 return default;
             }
+
+            if (procedureOrArrayCall.typeHint() != null)
+                throw new NotImplementedException();
 
             var indexes = await expressionExecutor.EvaluateCallArgs(procedureOrArrayCall.argsCall(0));
             // A Collection's item is read-only: `c(1) = x` is 424 once the index is found (measured, #1471, #1492).
