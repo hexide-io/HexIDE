@@ -142,8 +142,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   {Caption="Hi", Left=100, Width=120, …}, mCount=5}`; the control is a child of `Me`, never a top-level sibling.
   Class-instance / object nodes still expand to their declared fields.
 - **Since #2329:** a control array opens to `Item 1`, `Item 2` and on, as VB6's does. A Timer lists VB6's seven
-  rows, each with its declared type. A running form's `Me` reads `[_Default]` first, then its properties and controls
-  as one sorted list, then an `Item` row per control. All of that was measured by hexide-int, on #2289, #2329 and the
+  rows, each with its declared type. A running form's `Me` reads `[_Default]` first, then its properties, controls and
+  own variables as one sorted list, then an `Item` row per control. All of that was measured by hexide-int, on #2289, #2329 and the
   oracle's #2698. What is left is D30.
 - **Genuine residuals (separate, documented elsewhere — NOT this row):** **container-child nesting** (a control inside a Frame/PictureBox) shows
   flat under `Me` rather than under its container — the stated cause, that the runtime spawns all controls flat on
@@ -616,7 +616,8 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   - **The Type column:** an object row gives its class alone, as `Timer`.
   - **A Timer** lists VB6's seven rows, each with its declared type.
   - **Every other control** lists every property HexIDE can read, sorted by name, and a raising read shows no type.
-  - **A form's own variables** follow its sorted properties and controls under `Me`. Where VB6 puts them isn't measured.
+  - **An array** is a row named `Grid()` of type `Long()`, where VB6's is `Grid` of type `Long(1 to 2)` (measured on
+    #2698). It sorts by its name all the same.
 - **Why:** each control's member list, and the declared types its rows show, have to be measured on `vb6.exe` one class at
   a time. The Type column's form needs measuring for class instances, Variants, Nothing and arrays first (#2700).
 - **Status:** **open**.

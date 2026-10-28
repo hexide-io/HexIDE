@@ -45,7 +45,13 @@ public class TimerLocalsTests
       + "   End\r\n"
       + "End\r\n"
       + "Attribute VB_Name = \"Form1\"\r\n"
+      + "Private mCount As Long\r\n"
+      + "Public zLast\r\n"
+      + "Dim aFirst As String\r\n"
+      + "Public Score As Integer\r\n"
+      + "Dim Grid(1 To 2) As Long\r\n"
       + "Private Sub Form_Load()\r\n"
+      + "    mCount = 42: zLast = \"z\": aFirst = \"a\": Score = 7: Grid(1) = 5\r\n"
       + "End Sub\r\n";
 
     private static (DebugNode Me, IReadOnlyList<DebugNode> Rows, VBFormRuntime Window) LoadForm()
@@ -109,8 +115,9 @@ public class TimerLocalsTests
         finally { window.Close(); }
     }
 
-    // hexide-int measured the order with five controls on #2329 (the oracle's #2698): Me's members and controls are one
-    // list sorted by name, case ignored, after [_Default]; the Item rows follow, one per control, in the file's order.
+    // hexide-int measured the order on #2329 (the oracle's #2698): Me's members, controls and own variables, Public and
+    // Private alike, are one list sorted by name, case ignored, after [_Default]; the Item rows follow everything, one per
+    // control, in the file's order.
     [AvaloniaFact]
     public void Me_lists_its_default_member_then_members_and_controls_sorted_then_an_Item_row_per_control()
     {
@@ -120,10 +127,13 @@ public class TimerLocalsTests
             Read(rows.Take(1)).Should().Equal(
                 ("[_Default]", "<Wrong number of arguments or invalid property assignment>", "Object"));
             var sorted = rows.Skip(1).TakeWhile(r => !r.Name.StartsWith("Item ", System.StringComparison.Ordinal)).ToList();
-            sorted.Select(r => r.Name).Should().BeInAscendingOrder(System.StringComparer.OrdinalIgnoreCase)
-                .And.Contain("Timer1").And.Contain("Timer2").And.Contain("Caption");
-            rows.Skip(1 + sorted.Count).Select(r => (r.Name, r.TypeName))
-                .Should().Equal(("Item 1", "Timer"), ("Item 2", "Timer"));
+            var names = sorted.Select(r => r.Name.TrimEnd('(', ')')).ToList();
+            names.Should().BeInAscendingOrder(System.StringComparer.OrdinalIgnoreCase)
+                .And.Contain(["aFirst", "Caption", "Grid", "mCount", "Score", "Timer1", "Timer2", "zLast"]);
+            names.Last().Should().Be("zLast", "a variable sorts in with the properties, not after them");
+            var items = rows.Skip(1 + sorted.Count).ToList();
+            items.Select(r => (r.Name, r.TypeName)).Should().Equal(("Item 1", "Timer"), ("Item 2", "Timer"));
+            items[0].Expand().Single(r => r.Name == "Name").Value.Should().Be("\"Timer1\"", "Items follow the file's order");
         }
         finally { window.Close(); }
     }

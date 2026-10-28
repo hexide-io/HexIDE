@@ -181,8 +181,8 @@ Locals is the primary inspection surface, showing what is in scope where executi
 #### Scenario: Expanding a running form's Me
 - **WHEN** the developer expands `Me` on a running form
 - **THEN** its first row is `[_Default]`, reading VB6's "Wrong number of arguments" error with type `Object`
-- **AND** its properties and controls follow as one list sorted by name, case ignored, and an `Item` row per control
-  ends it, in the order the form's file holds them
+- **AND** its properties, controls and own variables follow as one list sorted by name, case ignored, and an `Item`
+  row per control ends it, in the order the form's file holds them
 
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.

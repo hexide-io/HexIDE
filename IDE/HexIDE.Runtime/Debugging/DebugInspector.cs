@@ -223,10 +223,10 @@ public static class DebugInspector
 
     /// <summary>
     /// A running form, as <c>Me</c> or a Timer's <c>Parent</c>, as VB6's Locals window lists it (measured, #2329 and the
-    /// oracle's #2698): its default member's row first; then its properties and its controls as one list, sorted by name
-    /// with case ignored, a control array as one node; then an <c>Item</c> row for each control, in the file's order with
-    /// each array element where its block is. The instance's own variables follow the sorted list, where VB6's are not yet
-    /// measured. VB6 opens a form however it was reached, Parent under Me included, so only the depth bounds it.
+    /// oracle's #2698): its default member's row first; then its properties, its controls and its own variables as one
+    /// list, sorted by name with case ignored, Public and Private alike and a control array as one node; then an
+    /// <c>Item</c> row for each control, in the file's order with each array element where its block is. VB6 opens a form
+    /// however it was reached, Parent under Me included, so only the depth bounds it.
     /// </summary>
     internal static DebugNode FormNode(string name, string value, VbObject formObj, Control window,
         ExecutionEnvironment baseEnv, ModuleExecutionContext ctx, string selfName, int depth,
@@ -242,11 +242,11 @@ public static class DebugInspector
             var ancestors = NewAncestorSet();
             ancestors.Add(formObj);
             var members = new List<DebugNode>(PropertyNodes(window));
-            var variables = new List<DebugNode>();
             foreach (var (varName, varValue) in VisibleVariables(baseEnv, ctx, selfName))
-                (IsControl(varValue) ? members : variables).Add(ValueNode(varName, varValue, ctx, ancestors, depth + 1));
-            kids.AddRange(members.OrderBy(n => n.Name, StringComparer.OrdinalIgnoreCase));
-            kids.AddRange(variables);
+                members.Add(ValueNode(varName, varValue, ctx, ancestors, depth + 1));
+            // An array sorts by its name, which VB6 writes without the parentheses HexIDE's row adds.
+            kids.AddRange(members.OrderBy(n => n.Name.EndsWith("()", StringComparison.Ordinal) ? n.Name[..^2] : n.Name,
+                StringComparer.OrdinalIgnoreCase));
             kids.AddRange(ItemNodes(formObj.Controls?.All ?? [], ctx, ancestors, depth + 1));
             return kids;
         }) { Repeats = above?.Contains(formObj) == true };
@@ -288,9 +288,7 @@ public static class DebugInspector
         }
     }
 
-    // A control or a control array, which a form lists among its members (#2329).
-    private static bool IsControl(Vb6Value value) =>
-        value.Type == Vb6Value.ValueType.Control || value.Value is ControlArrayGroup;
+
 
     // One row for a named value — a leaf for scalars/Nothing/controls, or an expandable node for arrays, UDTs and
     // live class instances. `name` is the bare variable name (array element names are derived from it).
