@@ -691,16 +691,19 @@ public class RichTextBoxInputTests
         finally { window.Close(); }
     }
 
+    // Blue, green, red, alpha on every host. CopyPixels copies the render target's own layout, which is RGBA on macOS,
+    // and every read in this file indexes BGRA.
     private static byte[] Pixels(VBRichTextBox box)
     {
         using var bitmap = new RenderTargetBitmap(new PixelSize(300, 100));
         bitmap.Render(box);
-        using var pixels = new WriteableBitmap(new PixelSize(300, 100), new Vector(96, 96),
-            Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
-        using var buffer = pixels.Lock();
-        bitmap.CopyPixels(new PixelRect(0, 0, 300, 100), buffer.Address, buffer.RowBytes * 100, buffer.RowBytes);
-        var bytes = new byte[buffer.RowBytes * 100];
-        Marshal.Copy(buffer.Address, bytes, 0, bytes.Length);
+        var bytes = new byte[300 * 4 * 100];
+        var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        try { bitmap.CopyPixels(new PixelRect(0, 0, 300, 100), handle.AddrOfPinnedObject(), bytes.Length, 300 * 4); }
+        finally { handle.Free(); }
+        if (bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888)
+            for (var i = 0; i < bytes.Length; i += 4)
+                (bytes[i], bytes[i + 2]) = (bytes[i + 2], bytes[i]);
         return bytes;
     }
 
