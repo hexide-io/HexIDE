@@ -59,7 +59,7 @@ public class VBLspClientTests
         (await sut.RequestDefinitionAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeNull();
         (await sut.RequestDocumentHighlightAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeNull();
         (await sut.RequestRenameAsync(uri, pos, "NewName", TestContext.Current.CancellationToken)).Should().BeNull();
-        (await sut.RequestFormattingAsync(uri, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await sut.RequestFormattingAsync(uri, new FormattingOptions(4, true), TestContext.Current.CancellationToken)).Should().BeEmpty();
     }
 
     [Fact]

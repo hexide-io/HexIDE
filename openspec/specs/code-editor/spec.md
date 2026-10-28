@@ -418,6 +418,22 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Formatting and auto-close use the configured indentation
+
+Document formatting, including format-on-save, SHALL send the editor's configured Tab Width as
+`FormattingOptions.tabSize` and SHALL set `insertSpaces` to true, matching the editor's conversion of
+tabs to spaces. Auto-close SHALL indent the inserted body by that Tab Width in spaces and leave the
+closer at the opener's indentation (#2669).
+
+#### Scenario: Formatting with a two-space tab width
+- **WHEN** the editor requests formatting with Tab Width set to 2
+- **THEN** the request carries `tabSize: 2` and `insertSpaces: true`
+
+#### Scenario: Auto-close with a configured tab width
+- **WHEN** Enter inserts a block closer with Tab Width set to 2 or 8
+- **THEN** the body is respectively 2 or 8 spaces deeper than the opener
+- **AND** the closer retains the opener's indentation
+
 ### Requirement: Indentation guides
 
 The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.

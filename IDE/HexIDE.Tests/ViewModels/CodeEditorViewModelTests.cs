@@ -866,13 +866,16 @@ public class CodeEditorViewModelTests : IDisposable
     {
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
+        _settingsService.TabWidth.Returns(2);
         var expected = Array.Empty<TextEdit>();
-        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>())
+        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", new FormattingOptions(2, true), Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestFormattingAsync();
 
         result.Should().BeSameAs(expected);
+        await _lspClient.Received(1).RequestFormattingAsync("untitled:TestProject/Form1.frm",
+            new FormattingOptions(2, true), Arg.Any<CancellationToken>());
     }
 
     // ── Dispose ──────────────────────────────────────────────────────
