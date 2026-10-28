@@ -7,7 +7,7 @@ namespace HexIDE.VbLspServer;
 
 /// <summary>
 /// A line number may stand on the line that closes a block, or opens its next part: <c>30 Next</c>, <c>30 End If</c>,
-/// <c>40 Case Else</c>. vb6.exe compiles every one (measured, #2529), and this grammar has no place
+/// <c>40 Case Else</c>, <c>90 End Sub</c>. vb6.exe compiles every one (measured, #2529), and this grammar has no place
 /// for a number there. Giving it one changed how the parser recovers from a broken line, which the diagnostics depend on,
 /// so instead the number is hidden from the parser before the parse. Nothing here needs it: the editor's diagnostics are
 /// about syntax, and a jump to it is the interpreter's business.
@@ -17,10 +17,6 @@ namespace HexIDE.VbLspServer;
 /// ("Statements and labels invalid between Select Case and first Case"). A label there, <c>Skip: Next</c>, needs nothing:
 /// this grammar reads it as a call, which is its recovery shape (#223), and a call is no syntax error. The interpreter's
 /// grammar takes a head on a closing line as a head, in <c>VB6.g4</c>.
-/// <para>
-/// A number on <c>End Sub</c>, <c>End Function</c> or <c>End Property</c> is not hidden, because the interpreter cannot
-/// load one yet (#2561): the editor and the interpreter must agree on what parses.
-/// </para>
 /// </remarks>
 internal static class VbClosingLineNumbers
 {
@@ -49,7 +45,8 @@ internal static class VbClosingLineNumbers
 
     private static bool Closes(int type) => type is VisualBasic6Lexer.NEXT or VisualBasic6Lexer.LOOP or VisualBasic6Lexer.WEND
         or VisualBasic6Lexer.END_IF or VisualBasic6Lexer.ELSE or VisualBasic6Lexer.ELSEIF or VisualBasic6Lexer.CASE
-        or VisualBasic6Lexer.END_SELECT or VisualBasic6Lexer.END_WITH;
+        or VisualBasic6Lexer.END_SELECT or VisualBasic6Lexer.END_WITH or VisualBasic6Lexer.END_SUB
+        or VisualBasic6Lexer.END_FUNCTION or VisualBasic6Lexer.END_PROPERTY;
 
     private static bool StartsLine(IList<IToken> tokens, int i)
     {

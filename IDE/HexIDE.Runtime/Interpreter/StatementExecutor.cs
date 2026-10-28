@@ -5295,7 +5295,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         or VB6Parser.SelectCaseStmtContext;
 
     // For each closing head in a body, by name: a top-level construct's, at its index; and one nested deeper, with no index,
-    // since a GoTo from outside into a nested block is refused. A procedure's End takes no head yet (#2561).
+    // since a GoTo from outside into a nested block is refused. A procedure's End has a head of its own, as a statement
+    // (ProcedureEndHeads, #2561).
     private static Dictionary<string, (int Pc, ParserRuleContext? Construct)> ClosingTargetsOf(
         VB6Parser.BlockContext body, VB6Parser.BlockStmtContext[] stmts)
     {
