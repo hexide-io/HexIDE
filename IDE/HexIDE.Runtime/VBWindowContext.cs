@@ -579,6 +579,24 @@ public class VBWindowContext : IModuleExecutionRoot
         Raise(name, () => argList, EventCoalescing.Timer, key);
     }
 
+    internal void ExecuteControlInput(string name, Func<Task> work)
+    {
+        if (interpreter is null)
+            return;
+        Events.Raise(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded || Program is not null && !form.FormLoaded)
+                return;
+            await Dispatch(async () =>
+            {
+                if (!started)
+                    await EnsureDeclarations();
+                await work();
+            });
+        });
+    }
+
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
         EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null)
     {
