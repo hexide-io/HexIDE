@@ -1047,3 +1047,23 @@ its forms, and newest instance first within each form, as [#2496 measured](../..
 - **GIVEN** the project lists Form3, Form1, Form4, Form2
 - **WHEN** instances are made in the order Form4, Form2, Form1, Form3, then a second Form2
 - **THEN** termination runs Form3, Form1, Form4, the second Form2, then the first Form2
+
+### Requirement: Mid statement spellings SHALL overwrite the existing string
+`Mid` and `Mid$` statements SHALL replace at most the supplied length, replacement length and remaining
+target length, without growing the target. A Variant target holding an Integer SHALL become a String. A Null target
+or replacement SHALL raise 94 without changing the target. `MidB` and `MidB$` statements SHALL overwrite
+bytes of the target's low-byte-first UTF-16 representation, preserving all untouched bytes and the total
+character length, including when the write crosses character boundaries or has an odd byte count.
+These outcomes are measured on vb6.exe SP6, native and p-code ([#2623](https://github.com/hexide-io/HexIDE/issues/2623)).
+
+#### Scenario: A character write is clamped
+- **WHEN** `s` is `"abcdef"` and `Mid$(s, 5) = "WXYZ"` runs
+- **THEN** `s` is `"abcdWX"`
+
+#### Scenario: A byte write crosses characters
+- **WHEN** `s` is `"abcdef"` and `MidB(s, 2, 2) = "X"` runs
+- **THEN** its character units are 22625, 0, 99, 100, 101, 102
+
+#### Scenario: A Null target is preserved
+- **WHEN** `v` holds Null and `Mid$(v, 1, 1) = "9"` runs
+- **THEN** error 94 is raised and `v` remains Null
