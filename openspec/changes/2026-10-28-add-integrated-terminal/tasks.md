@@ -64,7 +64,7 @@ Phases 1 and 2 wait on Jen's decisions D1 to D3 in `design.md`.
 - [ ] `read_terminal`, with its reply's empty and ended states, the wide-cell note, `waitFor`, `[DescribesEnum]` on
   every enum it renders, and its description under the cap. Check the generated schema's `required` array is empty.
 - [ ] A headless first-contact run told to work from the descriptions alone, recorded in `docs/mcp-first-contact.md`.
-- [ ] The automation name and value; file the missing text pattern as an issue against this change.
+- [ ] The automation name and value. The missing text pattern is #2508.
 
 ## 9. Clients
 

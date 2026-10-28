@@ -312,7 +312,7 @@ session that is already attached.
 Avalonia 12.0.4 offers no text provider, the automation pattern a screen reader uses to read a document by line and
 word. Its providers stop at value, range, selection, toggle, expand and collapse, invoke, scroll and embedded root.
 v1 gives the control an automation name (the session's) and its visible text as a read-only value. That is less
-than Windows Terminal gives Narrator, and the gap is filed as an issue against this change, not left as a footnote.
+than Windows Terminal gives Narrator, and the gap is #2508.
 
 ## Security
 
