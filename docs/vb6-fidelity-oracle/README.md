@@ -10,6 +10,10 @@ date functions; graphics) should extend it the same way.
 > **Why this matters:** the oracle repeatedly overturned "documented" assumptions. Building from memory / the
 > language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
 
+- [A UserControl's focus and access keys](usercontrol-focus-and-keys.md) — #1631 part B, SP6 native and p-code, real keystrokes.
+- [A UserControl’s extender members at run time](usercontrol-extender-members.md) — #1631 part A, SP6 native and p-code; includes the supervisor’s handle decision.
+- [Reference paths and project save order](reference-paths-and-save-order.md) — #2274, SP6 IDE save.
+- [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
 
 ---
@@ -624,12 +628,27 @@ added afterwards.
 - [A Let into an array variable (2026-10-23, #998, #1588)](a-let-into-an-array-variable.md#a-let-into-an-array-variable-2026-10-23-998-1588)
 - [StrComp, StrConv, Environ, Switch and Error(), and the case of a character (2026-10-23, #1560)](strcomp-strconv-environ-switch-and-error.md#strcomp-strconv-environ-switch-and-error-and-the-case-of-a-character-2026-10-23-1560)
 - [When Err is cleared, and what a running handler traps (2026-10-23, #877)](when-err-is-cleared-and-what-a-running-handler-traps.md#when-err-is-cleared-and-what-a-running-handler-traps-2026-10-23-877)
+- [Err.Source after a run-time error and after Err.Raise (2026-10-27, #1483)](err-source-after-a-run-time-error-and-err-raise.md#errsource-after-a-run-time-error-and-after-errraise-2026-10-27-1483)
 - [`Time`, and eight Dies rows that already ran (2026-10-23, #1633)](time-and-eight-dies-rows-that-already-ran.md#time-and-eight-dies-rows-that-already-ran-2026-10-23-1633)
 - [A Const declared with a type character (2026-10-23, #1614)](a-const-declared-with-a-type-character.md#a-const-declared-with-a-type-character-2026-10-23-1614)
+- [A For counter written with a type character (2026-10-27, #739)](a-for-counter-written-with-a-type-character.md#a-for-counter-written-with-a-type-character-2026-10-27-739)
+- [A Function declared with a type character (2026-10-27, #740)](a-function-declared-with-a-type-character.md#a-function-declared-with-a-type-character-2026-10-27-740)
+- [A name read with a type character (2026-10-27, #742)](a-name-read-with-a-type-character.md#a-name-read-with-a-type-character-2026-10-27-742)
+- [A member used on something that is not an object (2026-10-27, #257)](a-member-used-on-something-that-is-not-an-object.md#a-member-used-on-something-that-is-not-an-object-2026-10-27-257)
+- [A compare argument, and when it is checked (2026-10-27, #881)](a-compare-argument-and-when-it-is-checked.md#a-compare-argument-and-when-it-is-checked-2026-10-27-881)
+- [A standard module's Property procedures (2026-10-27, #977)](a-standard-modules-property-procedures.md#a-standard-modules-property-procedures-2026-10-27-977)
+- [A control's Font object (2026-10-27, #934)](a-controls-font-object.md#a-controls-font-object-2026-10-27-934)
+- [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
+- [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
+- [The control a shown form focuses (2026-10-28, #2436)](the-control-a-shown-form-focuses.md#the-control-a-shown-form-focuses-2026-10-28-2436)
+- [A form's own ActiveControl (2026-10-28, #2437)](a-forms-own-activecontrol.md#a-forms-own-activecontrol-2026-10-28-2437)
+- [A ParamArray parameter (2026-10-28, #2462)](a-paramarray-parameter.md#a-paramarray-parameter-2026-10-28-2462)
 - [A D exponent in a source literal (2026-10-23, #1611)](a-d-exponent-in-a-source-literal.md#a-d-exponent-in-a-source-literal-2026-10-23-1611)
 - [GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)](getsetting-savesetting-deletesetting-and-getallsettings.md#getsetting-savesetting-deletesetting-and-getallsettings-2026-10-23-1562)
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)
+- [Next closing several loops (2026-10-27, #2393)](next-closing-several-loops.md#next-closing-several-loops-2026-10-27-2393)
 - [LOF, Loc, Seek and the Input function (2026-10-23, #1645)](lof-loc-seek-and-the-input-function.md#lof-loc-seek-and-the-input-function-2026-10-23-1645)
+- [A declaration written with a type character (2026-10-27, #2409)](a-declaration-written-with-a-type-character.md#a-declaration-written-with-a-type-character-2026-10-27-2409)
 - [A numeric literal ending in its point (2026-10-23, #1615)](a-numeric-literal-ending-in-its-point.md#a-numeric-literal-ending-in-its-point-2026-10-23-1615)
 - [Random and Binary files, Get, Put and Len (2026-10-24, #1646)](random-and-binary-files-get-put-and-len.md#random-and-binary-files-get-put-and-len-2026-10-24-1646)
 - [Unknown library statement calls (#867)](unknown-library-statement-calls.md#unknown-library-statement-calls-867)
@@ -650,6 +669,8 @@ added afterwards.
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
 
+- [A UserControl's containers, drawing and events](usercontrol-containers-drawing-and-events.md) (#1631, part C).
+- [A UserControl instance's saved properties](usercontrol-files.md) (#1631, group 2A file-save subset).
 - [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
@@ -678,3 +699,5 @@ added afterwards.
 - [In-box controls: the MonthView (2026-10-27, #1095)](in-box-controls-the-monthview.md#in-box-controls-the-monthview-2026-10-27-1095)
 - [Key events: KeyDown, KeyPress and KeyUp (2026-10-27, #2325)](key-events-keydown-keypress-and-keyup.md#key-events-keydown-keypress-and-keyup-2026-10-27-2325)
 - [In-box controls: the ImageCombo (2026-10-27, #1092)](in-box-controls-the-imagecombo.md#in-box-controls-the-imagecombo-2026-10-27-1092)
+- [In-box controls: the FlatScrollBar (2026-10-27, #1097)](in-box-controls-the-flatscrollbar.md#in-box-controls-the-flatscrollbar-2026-10-27-1097)
+- [In-box controls: the Animation (2026-10-27, #1096)](in-box-controls-the-animation.md#in-box-controls-the-animation-2026-10-27-1096)

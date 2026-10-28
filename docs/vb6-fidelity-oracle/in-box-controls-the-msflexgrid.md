@@ -376,6 +376,84 @@ different order.
 - **KeyUp was raised for some of them and not others.** Home, End, Ctrl+Home, Ctrl+End, PageUp, PageDown and the
   Shift+arrows raised it; the plain arrows didn't. Native and p-code agreed on this, and no rule explains it.
 
+### Keyboard selection under each SelectionMode (2026-10-27)
+
+**The probe:**
+- **The grid:** the same 30 × 6 grid, rows 1 to 29 and columns 1 to 5 not fixed, 5000 × 3000 twips.
+- **The modes:** SelectionMode 0, 1 and 2, each with AllowBigSelection True and then False.
+- **The start:** before each group of keys, the program set the mode, TopRow and LeftCol 1, then **Row 3, Col 2, RowSel
+  3 and ColSel 2**, and gave the grid the focus.
+- **The input:** real keys from SendKeys on the guest's console. A Timer logged Row, Col, RowSel, ColSel, TopRow, LeftCol
+  and the count of SelChange events whenever they changed.
+- **The builds:** native and p-code logged the same lines. A first native run lost the Shift of one Shift+End to
+  SendKeys, and a second run matched p-code exactly.
+
+**AllowBigSelection made no difference to any key,** in any mode. It governs only a click on a heading, above.
+
+**Setting the selection from code isn't forced to the mode.** In modes 1 and 2 the start read RowSel 3 and ColSel 2, a
+single cell. The first key then widened it to the row or the column.
+
+**SelectionMode 0, free:**
+
+| Keys, from 3,2 | Row, Col | RowSel, ColSel | Scrolled |
+|---|---|---|---|
+| Shift+Down, twice | 3, 2 | 4, 2; then 5, 2 | |
+| Shift+Right | 3, 2 | 5, 3 | |
+| Shift+Up, three times | 3, 2 | 4, 3; 3, 3; **2, 3: past the anchor** | |
+| Shift+Left, twice | 3, 2 | 2, 2; **2, 1, the first non-fixed column** | |
+| Shift+Home; Shift+End; Shift+Home | 3, 2 | 3, 1; 3, 5; 3, 1 | LeftCol 3 at Shift+End, 1 again after |
+| Shift+PageDown; Shift+PageUp | 3, 2 | **13, 2: 10 rows on**; 3, 2 | TopRow 4; TopRow 3 |
+| Ctrl+Home | **1, 1** | 1, 1 | |
+| Ctrl+End | **29, 5** | 29, 5 | TopRow 20, LeftCol 3 |
+| Ctrl+Shift+End; Ctrl+Shift+Home | 3, 2 | **29, 5**; **1, 1** | TopRow 20, LeftCol 3; then 1, 1 |
+| Down; Right; Home; End | 4, 2; 4, 3; 4, 1; 4, 5 | the same: **a plain key collapses the selection** | LeftCol 3 at End |
+
+- **The anchor is Row and Col.** The Shift keys move only RowSel and ColSel, and Row and Col never moved.
+- **Each key that changed the selection raised one SelChange.**
+
+**SelectionMode 1, by row:**
+
+| Keys, from 3,2 | Row, Col | RowSel, ColSel | SelChange |
+|---|---|---|---|
+| Shift+Down, twice | 3, 2 | **4, 5**; 5, 5: the whole rows | one each |
+| Shift+Right | | nothing | none |
+| Shift+Up, three times | 3, 2 | 4, 5; 3, 5; 2, 5 | one each |
+| Shift+Left, twice | | nothing | none |
+| Shift+Home; Shift+End; Shift+Home | 3, 2 | 3, 5; then nothing; nothing | one, then none |
+| Shift+PageDown; Shift+PageUp | 3, 2 | 13, 5; 3, 5. TopRow 4; 3 | one each |
+| Ctrl+Home | **1, 2: Col stayed 2** | 1, 5 | **two** |
+| Ctrl+End | **29, 2** | 29, 5. TopRow 20, **LeftCol still 1** | two |
+| Ctrl+Shift+End; Ctrl+Shift+Home | 3, 2 | 29, 5, TopRow 20; 1, 5 | one each |
+| Down | 4, 2 | 4, 5 | two |
+| Right; Home; End | **4, 2: nothing moved** | 4, 5 | **two each** |
+
+- **Col never moved.** It stayed at 2, where the code put it, through Ctrl+Home and Ctrl+End. A click sets Col to 1, the
+  first non-fixed column, as measured above. A key doesn't.
+- **ColSel is always the last column,** and the grid never scrolled sideways.
+- **Left, Right, Home and End move nothing, with or without Shift.** Plain, they still raised SelChange twice.
+
+**SelectionMode 2, by column:**
+
+| Keys, from 3,2 | Row, Col | RowSel, ColSel | SelChange |
+|---|---|---|---|
+| Shift+Down | 3, 2 | **29, 2: the whole column** | one |
+| Shift+Down again; Shift+Up, three times | | nothing | none |
+| Shift+Right | 3, 2 | 29, 3 | one |
+| Shift+Left, twice | 3, 2 | 29, 2; 29, 1 | one each |
+| Shift+Home; Shift+End; Shift+Home | 3, 2 | 29, 1; 29, 5, LeftCol 3; 29, 1 | one each |
+| Shift+PageDown; Shift+PageUp | 3, 2 | 29, 2, **no scroll**; then nothing | one, then none |
+| Ctrl+Home | **3, 1: Row stayed 3** | 29, 1 | two |
+| Ctrl+End | **3, 5** | 29, 5. **TopRow still 1**, LeftCol 3 | two |
+| Ctrl+Shift+End; Ctrl+Shift+Home | 3, 2 | 29, 5, LeftCol 3; 29, 1 | one each |
+| Down | **3, 2: nothing moved** | 29, 2 | one |
+| Right; Home; End | 3, 3; 3, 1; 3, 5 | 29, 3; 29, 1; 29, 5 | two each |
+
+- **Row never moved.** It stayed at 3 through Ctrl+Home and Ctrl+End, and the grid never scrolled down.
+- **RowSel is always the last row.** Up, Down and the Page keys, with or without Shift, select nothing new.
+- **For the selection, mode 2 is mode 1 turned through a right angle.** The SelChange counts are as the tables give
+  them. This probe pressed no plain Up or Down in mode 2 after the selection had widened, so it doesn't show whether a
+  key that moves nothing raises two SelChanges here, as it does in mode 1.
+
 ### Drawing
 
 Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:

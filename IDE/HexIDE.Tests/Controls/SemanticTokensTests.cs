@@ -6,7 +6,7 @@ namespace HexIDE.Tests.Controls;
 
 public class SemanticTokensTests
 {
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("variable")]
     [InlineData("macro")]
     [InlineData("decorator")]
@@ -19,7 +19,7 @@ public class SemanticTokensTests
             new SemanticTokensColorizer.Token(8, 9, "Identifier"), new SemanticTokensColorizer.Token(13, 17, "Type"));
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(new int[] { 0, 0, 99, 0, 0 })]
     [InlineData(new int[] { 0, 0, 1, 9, 0 })]
     [InlineData(new int[] { 0, 0, 1 })]

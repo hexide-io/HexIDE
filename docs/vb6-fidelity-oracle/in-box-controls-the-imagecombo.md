@@ -80,6 +80,40 @@ window and window-text colours. A block without the lines reads the button colou
 - **After Clear, reading a held item's Text raises an error.** The line that read it failed whole, so the number wasn't
   logged.
 
+### Return types, Tag and the case of a key (2026-10-27)
+
+Read into a Variant and logged with TypeName and VarType, early-bound through `ImageCombo1` and a `ComboItem` variable
+and late-bound through `As Object`. The two bindings gave the same types. Native and p-code logged the same lines.
+
+| Read | Type |
+|---|---|
+| `ComboItems.Count`, empty and with items | **Long**, VarType 3 |
+| `ComboItem.Index` | **Long** |
+| `ComboItem.Indentation`, and the ImageCombo's own `Indentation` | **Integer**, VarType 2 |
+| `ComboItem.Image` and `SelImage`, never set | Integer 0 |
+| `ComboItem.Text` and `Key` | String |
+| `ComboItem.Selected` | Boolean |
+
+**A new item's Tag is an empty String,** VarType 8, not Empty. `IsEmpty(Tag)` is False and `Tag = ""` is True. That held
+for an item from `Add(, "abc", "Alpha")` and for one from `Add()`.
+
+**Tag is a Variant that keeps what it is given, except Empty:**
+
+| Assignment | Tag reads |
+|---|---|
+| `Tag = Empty` | **an empty String**, VarType 8 |
+| `Tag = Null` | Null, VarType 1, with no error |
+| `Tag = 5`, `= 2.5`, `= True`, `= "x"` | Integer 5, Double 2.5, Boolean True, String `x` |
+| `Set Tag = Text1` | the TextBox object |
+| `Tag = Text1`, without Set | the String `Text1`, the TextBox's default property |
+| `Set Tag = Nothing` | Nothing. `Tag Is Nothing` is True |
+
+**A key lookup is case-sensitive:**
+- With an item keyed `abc`, `ComboItems("abc")` found it, and **`ComboItems("ABC")` and `("Abc")` raised 35601**,
+  "Element not found".
+- **`Add(, "ABC", "Upper")` was then taken**, not refused as a duplicate. `ComboItems("ABC")` found the new item.
+- After `ComboItems(1).Key = "XYZ"`, `ComboItems("xyz")` raised 35601, and so did `Remove "xYz"`.
+
 ### SelectedItem and Text
 
 | Step | Result |
@@ -131,7 +165,154 @@ text was reached at 10, not 11.
 - OLEDragMode and OLEDropMode take 0 and 1, and 2 raises 380.
 - **Enabled and Locked take any number:** 1, 2 and -1 all read True.
 - `BackColor = vbRed` is taken. `hWnd = 0` raises 383.
-- **No event comes from code.** None was raised by `Text =`, Add, `Set SelectedItem` or Clear.
+- **Events from code are posted, so they arrive only once messages are pumped.** Group 1's probe logged no event from
+  `Text =`, Add, `Set SelectedItem` or Clear, but it never yielded while its handlers were logging. A later probe ran
+  `DoEvents` after each step, on the shown form and on a second instance loaded and never shown, which logged alike:
+
+  | From code | Event |
+  |---|---|
+  | `Text = "typed"`, and the same again, unchanged | **Change**, each time |
+  | `Set SelectedItem = item 1`, and the same item again | **Change**, each time |
+  | `Selected = True`; the selected item's `Text =`; `Text =` an item's text; `SelText =` | Change |
+  | Add, Remove, Clear, `Set SelectedItem = Nothing`, Enabled False and True | nothing |
+
+  **Code never raises Click.** The Change arrives after the statement that caused it has returned, and after any
+  later statements before the next yield.
+
+### Events, with real input
+
+**The probe:**
+- **The items:**
+
+  | Item | Image | SelImage | Indentation |
+  |---|---|---|---|
+  | Alpha | red | none | 0 |
+  | Bravo | green | none | 1 |
+  | Charlie | blue | red | 2 |
+  | Delta | none | none | 0 |
+
+- **The input.** The form was shown with Text1 focused and the combo empty. A driver on the guest's console clicked and
+  typed for real, and KeyPreview took the F keys to change the setup between steps.
+- **The log.** Every event was logged with Text, SelectedItem, SelStart and SelLength.
+- **The builds.** Native and p-code logged the same lines.
+
+| Action | Events, in order |
+|---|---|
+| A click 20 pixels in, on the space left for an image | **Dropdown, then GotFocus.** The list opened |
+| Type `B`, then `r` | KeyDown, KeyPress, **Change**, KeyUp for each. **No Click** |
+| Alt+Down, with the list open | the key events only. The list closed, with no event for closing it |
+| Down arrow, nothing selected | KeyDown, **Click** with Alpha selected and its text highlighted, KeyUp. **No Change** |
+| Enter | KeyDown, KeyPress 13, KeyUp. **SelectedItem became Nothing**, and Text stayed "Alpha" |
+| A click on the dropdown button | Dropdown |
+| A click on Charlie in the open list | **Click** only |
+| F4 | KeyDown, Dropdown, KeyUp |
+| Esc | KeyDown, KeyPress 27, KeyUp. The selection stayed |
+| Up arrow, then Down arrow, the list closed | Click with Bravo, then Click with Charlie |
+| Type `x` over the highlighted "Charlie" | KeyDown, KeyPress, **Change** with Text "x" and **SelectedItem Nothing**, KeyUp |
+| Locked True, then type `q` | the key events only. **The text didn't change** |
+| Up arrow, Locked, "x" with nothing selected | Click with **Charlie**. **Locked doesn't stop the arrow keys** |
+| Alt+Down, Locked | KeyDown, Dropdown, KeyUp. **Locked doesn't stop the list** |
+| `Enabled = False`, with the focus | **Validate during the statement**, then LostFocus after the handler returned |
+| `Enabled = True`, then `Set SelectedItem` to the item already selected | Change, after the handler returned |
+
+**Click means the selection changed, and Change means the text did.** A choice from the list, or by the arrow keys,
+changed Text and raised only Click. Typing raised only Change.
+
+**The arrow keys from no selection didn't follow one rule.** With "Br" typed and nothing selected, Down chose Alpha,
+the first item. With "x" typed over Charlie, which left nothing selected, Up chose Charlie, not Bravo.
+
+### Drawing
+
+These are screenshots at 96 dpi, without visual styles.
+- **The edit part leaves room for an image** at its left, even with nothing selected.
+- **The edit part draws the selected item's SelImage, not its Image.** With Charlie selected it drew red, with the focus
+  or without it.
+  - **With nothing selected it draws no image,** even with Text matching an item, as after Enter.
+  - **The edit part ignores Indentation.**
+  - **With the focus and the text highlighted,** the image is drawn blended with the highlight colour. Every other
+    pixel is the highlight colour, in a checkerboard.
+- **The open list draws each item's Image,** indented by **10 pixels per level**. Alpha's image starts at 108, Bravo's
+  at 118 and Charlie's at 128.
+  - **The highlighted row draws its SelImage,** blended in the same checkerboard, with a dotted focus rectangle round
+    its text.
+  - **Delta, which has no image, leaves the image's space blank,** and its text lines up with Alpha's.
+- **Disabled,** the text is grey and the image isn't.
+
+### The saved files
+
+**The pass.** A form was written by hand, holding an ImageList and seven ImageCombos 2400 × 330, and opened in VB6's IDE.
+- **ImageCombo1:** minimal.
+- **ImageCombo2 to 6:** each holds candidate lines in reverse of VB6's order:
+  - `Text = "hello"`;
+  - `ImageList = "ImageList1"`, `Indentation = 2` and `Locked = True`;
+  - Enabled False, MousePointer 11, OLEDragMode 1 and OLEDropMode 1;
+  - BackColor 255 and ForeColor 65280;
+  - an Arial 9.75 bold `Font` block.
+- **ImageCombo7:** minimal, with its Properties window read page by page.
+- **An eighth,** double-clicked from the toolbox.
+
+The form was dirtied with a comment and saved, and VB6 wrote no load log. VB6's save is
+`corpus/inbox-controls/pending/imagecombo/`. The hand-written form and the save were then read at run time, native and
+p-code, which logged the same values.
+
+**VB6's blocks, as it wrote them:**
+
+```
+   Begin MSComctlLib.ImageCombo ImageCombo8 
+      Height          =   330
+      Left            =   2850
+      TabIndex        =   7
+      Top             =   2325
+      Width           =   1500
+      _ExtentX        =   2646
+      _ExtentY        =   582
+      _Version        =   393216
+      ForeColor       =   -2147483640
+      BackColor       =   -2147483643
+      Text            =   "ImageCombo8"
+   End
+   Begin MSComctlLib.ImageCombo ImageCombo3 
+      …the same lines as far as _Version…
+      Indentation     =   2
+      Locked          =   -1  'True
+      ImageList       =   "ImageList1"
+   End
+```
+
+**The order:**
+1. ForeColor, BackColor;
+2. MousePointer, Enabled, OLEDragMode, OLEDropMode;
+3. Indentation, Locked;
+4. the `Font` block;
+5. Text;
+6. **ImageList, last.**
+
+**What the lines hold:**
+- **A minimal block gains nothing.** Unlike the DTPicker's and the MonthView's, VB6 wrote ImageCombo1 and ImageCombo7
+  back with only their position, extents and `_Version`.
+- **ImageList is written as the ImageList's name,** a string, and binds by that name at load.
+- **The ImageCombo takes its height from its font, in the IDE and at run time alike.** The Arial block, written 330
+  high, was read and saved as **375**, with `_ExtentY` 661.
+- **Every line read back as written.** A block without the colour lines reads the button colours, as in group 1.
+- **The Properties window has 34 rows:**
+  - (About), (Custom) and (Name);
+  - BackColor `&H8000000F` and ForeColor `&H80000012`;
+  - CausesValidation, then **DataBindings, DataField, DataFormat, DataMember and DataSource**;
+  - DragIcon, DragMode, Enabled, Font, Height, HelpContextID, Indentation, Index, Left, Locked, MouseIcon,
+    MousePointer, OLEDragMode and OLEDropMode;
+  - TabIndex, TabStop, Tag, Text, ToolTipText, Top, Visible, WhatsThisHelpID and Width.
+
+  **There is no ImageList row.** It is set on the (Custom) property pages.
+
+**Double-clicked from the toolbox,** an ImageCombo is written first in the file:
+- **It is 1500 × 330 at 2850, 2325, on a 7200 × 5400 form.** That is centred as if it were 750 high, `(5400 − 750) / 2`,
+  and the control then shrank to its font's height. The save of nine controls in `pending/defaults` agrees: 1875 on a
+  4500-high form.
+- **It gets three lines a hand-written block doesn't need:** ForeColor `-2147483640` and BackColor `-2147483643`, the
+  window-text and window colours, and **`Text` set to its own name**.
+
+So **a new ImageCombo and one read from a block without those lines differ.** The new one is white with "ImageCombo8"
+in it, and the block reads button-face grey and empty.
 
 ### In HexIDE
 

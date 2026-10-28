@@ -312,6 +312,90 @@ SelectedItem was the item that moved up into its Index.
 - `ListItems.Add` or `Remove`, or setting Sorted;
 - a column's Width, or EnsureVisible.
 
+### Mouse coordinates: from the client area (2026-10-27)
+
+**The probe:** a TreeView and a ListView with their default edges, and one of each with Appearance 0 and BorderStyle 0,
+flat and borderless, each 2400 × 1500 twips. A driver on the guest's console clicked each at 21,21 and at 40,30
+pixels from its outer top-left corner, from GetWindowRect. Native and p-code logged the same events, apart from where
+the pointer rested when the program started.
+
+| Control | Edge, each side, from GetClientRect | Click 21,21 px in: X, Y | Click 40,30 px in: X, Y |
+|---|---|---|---|
+| TreeView, Appearance 1, BorderStyle 0: the defaults | 2 px | **285, 285** | 570, 420 |
+| TreeView, Appearance 0, BorderStyle 0 | none | **315, 315** | 600, 450 |
+| ListView, Appearance 1, BorderStyle 1: its defaults | **3 px** | **270, 270** | 555, 405 |
+| ListView, Appearance 0, BorderStyle 0 | none | 315, 315 | 600, 450 |
+
+- **X and Y are measured from the client area, inside the edge,** in twips at 15 a pixel. A click 21 pixels in from
+  the outer corner of a default TreeView is 19 pixels into its client, 285 twips. On a flat one it is 315.
+- **MouseDown, MouseMove and MouseUp all report the same point** for a click.
+- The ListView's default edge is 3 pixels, where the TreeView's is 2: the ListView's defaults are BorderStyle 1 with
+  Appearance 1, the 3D edge and a line inside it.
+
+### Label editing, in full (2026-10-27, #1085)
+
+**The probe:**
+- **The form:** ListView1 in Report view (columns `Name`, 1500 twips, and `Size`), with items `Item 1` to `Item 5`, and
+  Text1 after it in tab order. A TreeView sat before it.
+- **The input:** real clicks, double-clicks and keys from a driver on the guest's console. Each case set the list up
+  afresh with item 2 selected and the focus on the list.
+- **What was logged:** every event, with its time. A Timer logged the edit box from `LVM_GETEDITCONTROL` whenever it
+  changed: its rectangle in the list's client coordinates, its text, the item's label rectangle from `LVM_GETITEMRECT`,
+  the selected item's Text, and the active control.
+- **The builds:** native and p-code logged the same lines, times and window handles aside. The TreeView behaved the
+  same way throughout, as its own entry records.
+
+**What starts an edit:**
+
+| Action | Result |
+|---|---|
+| **Click the selected item's label**, LabelEdit 0 | MouseDown, ItemClick, MouseUp, then **BeforeLabelEdit 500 to 520 ms after MouseUp**. GetDoubleClickTime was 500 |
+| Click an unselected item, then click it again | the first selects it, with no edit. The second edits it |
+| **Double-click the selected label** | MouseDown, ItemClick, MouseUp, DblClick, MouseUp, and **no edit** |
+| **Click the selected label, LabelEdit 1, manual** | MouseDown, ItemClick, MouseUp, and **no BeforeLabelEdit and no edit**, waited for 1.8 s. A key typed then raised the list's KeyDown |
+| LabelEdit 1: click an unselected label, then click it again | the first selects it. The second raises ItemClick again, and no edit |
+| LabelEdit 1: double-click the selected label | as with LabelEdit 0: DblClick, and no edit |
+| **F2** | **nothing but KeyDown 113**, with LabelEdit 0 or 1 |
+| StartLabelEdit, LabelEdit 0 or 1 | BeforeLabelEdit before StartLabelEdit returns, then the edit box |
+| StartLabelEdit with no item selected | nothing, and no error |
+| `Cancel = True` in BeforeLabelEdit | no edit box. A key typed then raised the list's KeyDown |
+
+**In BeforeLabelEdit:**
+- Cancel is an Integer, 0.
+- **The edit box already exists, holding the label's text,** at 0,0 and 0 × 0. It is placed after the event returns.
+
+**The edit box:**
+
+| When | Edit box, in the list's client coordinates | The label |
+|---|---|---|
+| opened on `Item 2` | **1,30, 47 × 17**, with the text all selected | 2,31, 98 × 14: the first column, less its margins |
+| after typing `abc` | **1,28, 36 × 21** | unchanged |
+| after typing 30 characters | 1,28, **177 × 21**: **over the `Size` column**, not clipped to its own | unchanged |
+
+- **The box starts 1 pixel left of the label and 1 above it,** sized to the text rather than the column, and is drawn
+  with a single dark line.
+- **After the first key it is 4 pixels taller and 2 pixels higher,** and from then on it follows the text's width.
+  The widths, 36 and 177, were the TreeView's for the same text. That is measured, not explained.
+
+**What Text reads during the edit: the old text.** The selected item's Text read `Item 2` while the box held `xyz`,
+inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
+
+**What ends an edit:**
+
+| Action | AfterLabelEdit | Then |
+|---|---|---|
+| Enter, the text changed | yes, NewString the box's text, a String | the item takes NewString |
+| Esc | **no** | the old text |
+| **Click another item's label** | **yes, before that click's MouseDown** | the edit is kept, and the click goes on to select the item it hit |
+| **Click Text1** | **yes**, before Text1's GotFocus | the edit is kept |
+| **Tab** | yes | the edit is kept, and **the focus moves to the next control in tab order**, Text1 |
+| Click Text1, the text unchanged | **no** | the focus moves |
+| `NewString = "Changed"` in AfterLabelEdit | | **the item takes `Changed`**, not what was typed |
+| `Cancel = True` in AfterLabelEdit | | the old text |
+
+- **Leaving the edit keeps what was typed,** by any route but Esc.
+- **NewString is the text the item will take.** A handler can change it.
+
 ### Drawing
 
 **Report view:**
