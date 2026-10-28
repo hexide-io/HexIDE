@@ -11,7 +11,6 @@ public class ComponentRegistry : IComponentRegistry
         PictureBoxComponentClass.Instance,
         LabelComponentClass.Instance,
         TextBoxComponentClass.Instance,
-        RichTextBoxComponentClass.Instance,
         FrameComponentClass.Instance,
         CommandButtonComponentClass.Instance,
         CheckBoxComponentClass.Instance,
