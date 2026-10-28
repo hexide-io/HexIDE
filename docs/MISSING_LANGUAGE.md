@@ -125,7 +125,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 58 | 28 | 0 | 38 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **1** | **87** | **479** | **20** | **597** | **1185** |
+| **Total** | **1** | **1** | **85** | **481** | **20** | **597** | **1185** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ most of the in-box object model.
 | `DataObject.SetData` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method SetData on <EmptyVariant>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `DataObjectFiles` | **Dies** | Measured for `Dim f As DataObjectFiles`: VBCompileErrorException: "User-defined type not defined: DataObjectFiles" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
-| `DDB` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial; the call resolves to no local array, no user procedure and no intrinsic, so ExpressionExecutor.cs throws… | VB6BuiltIns.cs |
+| `DDB` | **Dies** | Unregistered: #2524 precision probe matches nine of ten measured rows, but period 10 remains unmatched (closest spill model ends in 3791; measured 3797). Refused pending a model matching every row. | VB6BuiltIns.cs; scripts/probes/depreciation-2524.py |
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
@@ -358,8 +358,6 @@ most of the in-box object model.
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
-| `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `Cls` | **Dies** | **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Cls` is the form's method, refused as not implemented for the form, as `Me.Cls` is. — **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 
@@ -649,7 +647,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `DDB` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial; the call resolves to no local array, no user procedure and no intrinsic, so ExpressionExecutor.cs throws… | VB6BuiltIns.cs |
+| `DDB` | **Dies** | Unregistered: #2524 precision probe matches nine of ten measured rows, but period 10 remains unmatched (closest spill model ends in 3791; measured 3797). Refused pending a model matching every row. | VB6BuiltIns.cs; scripts/probes/depreciation-2524.py |
 | `FV` | Partial | **#2523:** measured positional future values, optional present value/Type, zero rate and zero periods; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date/nonnumeric/Null conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
 | `IPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
 | `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -660,8 +658,8 @@ missing.
 | `PPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
 | `PV` | Partial | **#2523:** measured positional present values, optional future value/Type and zero rate; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date/nonnumeric/Null conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
 | `Rate` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. Rate's iteration cap is not measured beyond 23. | VB6BuiltIns.Financial.cs |
-| `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
+| `SLN` | Partial | Positional straight-line depreciation returns bit-exact Double for every measured #2524 row; zero life raises 5, negative life gives a negative amount. Named arguments and other argument counts remain explicitly unimplemented pending measurement. | VB6BuiltIns.Depreciation.cs |
+| `SYD` | Partial | Positional sum-of-years depreciation returns bit-exact Double for every measured #2524 row, including fractional period; period outside 1 to life raises 5. Named arguments and other argument counts remain explicitly unimplemented pending measurement. | VB6BuiltIns.Depreciation.cs |
 | `Abs` | Partial | Registered; Abs preserves the operand's subtype (byte/int/long/float/double, Currency vs Decimal kept distinct). Oracle rows: Abs(-4) = 4 Integer, Abs(-4.5) = 4.5 Double; pinned by… | VB6BuiltIns.Math.cs |
 | `Atn` | Partial | Registered: new Vb6Value(Math.Atan(AsDouble(a[0]))) — returns Double, matching the file header's rule "Sqr/trig/Exp/Log -> Double (all verified against vb6.exe)". No domain guard is needed:… | VB6BuiltIns.Math.cs |
 | `Cos` | Partial | Registered: new Vb6Value(Math.Cos(AsDouble(a[0]))) -> Double. Pinned: Cos(0)=1.0 in MathFunctionsTests.Exp_Sin_Cos. | VB6BuiltIns.Math.cs |

@@ -184,6 +184,7 @@ public partial class VB6BuiltIns
         RegisterConversion(d);
         RegisterMath(d);
         RegisterFinancial(d);
+        RegisterDepreciation(d);
         RegisterArray(d);
         RegisterInspection(d);
         d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
