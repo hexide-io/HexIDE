@@ -173,6 +173,9 @@ public static class UiAutomationDriver
             note = string.Join(" ", new[] { note, BoundCommandNote(bound) }.Where(n => n is not null));
         }
 
+        var (itemTexts, itemsNote) = control is SelectingItemsControl listed and not (MenuItem or MenuBase)
+            ? Safe(() => ItemTexts(listed), ((string[]?)null, (string?)null)) : (null, null);
+
         return new UiNodeDetail(
             path,
             ControlTypeOf(peer),
@@ -200,7 +203,69 @@ public static class UiAutomationDriver
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
             control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
-                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
+                ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
+            itemTexts,
+            itemsNote);
+    }
+
+    /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
+    internal const int ItemTextLimit = 200;
+
+    /// <summary>
+    /// The text of each of <paramref name="list"/>'s items, as select matches it, whether its row exists or not, and a note
+    /// on any it left out (#2450). A list makes rows only for what is on screen, so a dump and its match saw the first ten
+    /// of Options' 31 languages, and nothing said what the rest were called, or how to spell one for select.
+    /// </summary>
+    /// <remarks>
+    /// Each row missing is brought into view to be read, as <see cref="MatchAmongUnrealized"/> does, and the list is put
+    /// back where it was before anything is drawn, so a person sees nothing move. A dropdown that is closed has no rows to
+    /// bring into view: opening it is a person's action, not a read, so it is left closed and the note says so.
+    /// </remarks>
+    internal static (string[]? Items, string? Note) ItemTexts(SelectingItemsControl list)
+    {
+        if (list.ItemCount == 0)
+            return ([], null);
+        if (list is ComboBox { IsDropDownOpen: false })
+            return (null, "Its items are made only while it is open, so their text can't be read now: 'expand' it, then "
+                          + "inspect it again. Opening it is left to the caller, as it is a person's action, not a read.");
+        var scroller = list.GetRealizedContainers().FirstOrDefault()?.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault()
+                       ?? (list as ListBox)?.Scroll as ScrollViewer;
+        var original = scroller?.Offset;
+        var texts = new List<string>();
+        var (hidden, unread) = (0, 0);
+        var count = Math.Min(list.ItemCount, ItemTextLimit);
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var row = list.ContainerFromIndex(i) as Control;
+                if (row is null || HeldOutOfView(row))
+                {
+                    list.ScrollIntoView(i);
+                    list.UpdateLayout();
+                    row = list.ContainerFromIndex(i) as Control;
+                }
+                if (row is null) unread++;
+                else if (Shows(row) is not true) hidden++;
+                else texts.Add(LabelOf(row));
+            }
+        }
+        finally
+        {
+            if (scroller is not null && original is { } offset)
+            {
+                scroller.Offset = offset;
+                list.UpdateLayout();
+            }
+        }
+        var notes = new List<string>();
+        if (list.ItemCount > count)
+            notes.Add($"{list.ItemCount - count} item(s) after the first {count} are not listed");
+        if (hidden > 0)
+            notes.Add($"{hidden} item(s) that do not show are left out, as select passes over them");
+        if (unread > 0)
+            notes.Add($"{unread} item(s) could not be brought into view to be read");
+        return ([.. texts], notes.Count == 0 ? null : string.Join("; ", notes) + ".");
     }
 
     private static WindowFrameState ReadFrame(Window window)
@@ -5402,7 +5467,11 @@ public record UiNodeDetail(
     bool? IsReadOnly = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     WindowFrameState? Frame = null,
-    string? ExpandCollapseState = null);
+    string? ExpandCollapseState = null,
+    // The text of each item of a list, dropdown or tab control, as select matches it, rows scrolled out of view included,
+    // and what was left out (#2450). Absent for a dropdown that is closed, which the note explains.
+    string[]? Items = null,
+    string? ItemsNote = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
