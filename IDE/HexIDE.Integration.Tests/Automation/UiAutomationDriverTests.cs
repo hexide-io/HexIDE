@@ -1420,9 +1420,11 @@ public class UiAutomationDriverTests
             typed.Success.Should().BeTrue(typed.Error);
             box.Text.Should().Be("abc");
 
-            var noSurface = await UiAutomationDriver.TypeKeysAsync(lone, "abc");
-            noSurface.Success.Should().BeFalse();
-            noSurface.Error.Should().Contain("has no text surface").And.NotContain("is not showing");
+            // A dropdown that is not editable takes focus, so it is sent the keys as a person's keyboard sends them (#2460).
+            var byKeys = await UiAutomationDriver.TypeKeysAsync(lone, "abc");
+            byKeys.Success.Should().BeTrue(byKeys.Error);
+            byKeys.Detail.Should().Be("typed 3 key(s) into ComboBox as a person types them");
+            lone.SelectedItem.Should().Be("a", "its text search takes the keys, as it takes a person's");
 
             var hidden = await UiAutomationDriver.TypeKeysAsync(hiddenPanel, "abc");
             hidden.Success.Should().BeFalse();
