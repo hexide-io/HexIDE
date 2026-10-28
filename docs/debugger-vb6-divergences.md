@@ -141,9 +141,11 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   set. Live-verified: a form with `Command0` paused in `Form_Load` → `Me` → `{form properties…, Command0 →
   {Caption="Hi", Left=100, Width=120, …}, mCount=5}`; the control is a child of `Me`, never a top-level sibling.
   Class-instance / object nodes still expand to their declared fields.
-- **Genuine residuals (separate, documented elsewhere — NOT this row):** **control arrays** collapse to one variable
-  (they aren't modelled as an indexed collection — interpreter-gaps "Runtime forms/controls surface" / E1); the
-  **`Controls` collection** isn't modelled; **container-child nesting** (a control inside a Frame/PictureBox) shows
+- **Since #2329:** a control array opens to `Item 1`, `Item 2` and on, as VB6's does. A Timer lists VB6's seven
+  rows, each with its declared type. A running form's `Me` reads `[_Default]` first, then its properties, controls and
+  own variables as one sorted list, then an `Item` row per control. All of that was measured by hexide-int, on #2289, #2329 and the
+  oracle's #2698. What is left is D30.
+- **Genuine residuals (separate, documented elsewhere — NOT this row):** **container-child nesting** (a control inside a Frame/PictureBox) shows
   flat under `Me` rather than under its container — the stated cause, that the runtime spawns all controls flat on
   one form canvas, stopped being true with #84 (a Frame and a PictureBox now host their contents on their own
   canvas), so what remains is that `DebugInspector`'s child provider enumerates the form's controls flat rather
@@ -604,6 +606,27 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
 - **Status:** **partial**, #2290. Remaining: design-time/after-End resolution and context selection/storage.
   Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
   keep their previous behavior.
+
+### D30. Locals rows for a control or a form, beyond what is measured (#2329, #2700)
+- **VB6:**
+  - **The Type column:** an object row's Type gives the declared type, then the class: `Object/Timer` for a `Dim t As
+    Object`, `Timer/Timer` for a control under `Me`, `Form/Form1` for a Timer's `Parent`, and `Variant/Object/Timer` for an
+    `Item` row.
+  - **The rows a control lists:** the members its type has, and no others. That is measured for a Timer, whose seven are
+    on #2329.
+- **HexIDE:**
+  - **The Type column:** an object row gives its class alone, as `Timer`.
+  - **A Timer** lists VB6's seven rows, each with its declared type.
+  - **Every other control** lists every property HexIDE can read, sorted by name, and a raising read shows no type.
+  - **An array** is a row named `Grid()` of type `Long()`, where VB6's is `Grid` of type `Long(1 to 2)` (measured on
+    #2698). It sorts by its name all the same.
+- **Why:** each control's member list, and the declared types its rows show, have to be measured on `vb6.exe` one class at
+  a time. The Type column's form needs measuring for class instances, Variants, Nothing and arrays first (#2700).
+- **Status:** **open**.
+  - The Type column is #2700.
+  - Other controls' member lists follow as each is measured.
+  - `get_locals` marks a row that reopens an object open above it, such as a Timer's `Parent` under `Me`, with `repeats`,
+    and leaves its children out. The Locals window opens it, as VB6's does.
 
 ---
 

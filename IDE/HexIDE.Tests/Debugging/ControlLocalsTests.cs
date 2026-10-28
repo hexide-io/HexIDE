@@ -34,25 +34,25 @@ public class ControlLocalsTests
         props.Select(p => p.Name).Should().BeInAscendingOrder();
     }
 
+    // VB6's seven rows in its order, and nothing else (#2329); TimerLocalsTests reads them on a running form.
     [AvaloniaFact]
-    public void A_Timer_lists_only_its_runtime_properties()
+    public void A_Timer_lists_VB6s_seven_rows_in_its_order()
     {
         var node = DebugInspector.NodeFor("Timer1", new Vb6Value(new VBTimer { Interval = 250 }), new ModuleExecutionContext());
 
         var props = node.Expand();
 
-        props.Select(p => p.Name).Should().BeInAscendingOrder().And.Contain(new[] { "Enabled", "Interval", "Tag" });
-        props.Select(p => p.Name).Should().NotContain(new[] { "Left", "Top", "Width", "Height", "Visible", "Font", "BackColor", "ForeColor", "MousePointer", "RightToLeft", "TabIndex", "ToolTipText" });
-        props.Single(p => p.Name == "Interval").Value.Should().Be("250");
+        props.Select(p => p.Name).Should().Equal("[_Default]", "Enabled", "Index", "Interval", "Name", "Parent", "Tag");
+        props.Single(p => p.Name == "Interval").Should().Match<DebugNode>(p => p.Value == "250" && p.TypeName == "Long");
     }
 
     [AvaloniaFact]
-    public void ReadProperties_omits_a_Timers_designer_positions()
+    public void A_Timers_rows_give_each_members_declared_type_and_leave_out_its_designer_positions()
     {
-        var props = AvaloniaInteroperability.ReadProperties(new VBTimer());
+        var rows = TimerMembers.LocalsRows(new VBTimer());
 
-        props.Select(p => p.Name).Should().NotContain(new[] { "Left", "Top" });
-        props.Should().OnlyContain(p => p.Error == null);
+        rows.Select(r => r.Name).Should().NotContain(["Left", "Top", "Width", "Height", "Visible"]);
+        rows.Select(r => r.DeclaredType).Should().Equal("Boolean", "Boolean", "Integer", "Long", "String", "Form", "String");
     }
 
     [AvaloniaFact]

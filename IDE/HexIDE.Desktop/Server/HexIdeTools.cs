@@ -1955,7 +1955,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root). A row with 'repeats' opens an object already open above it, such as a Timer's Parent under Me, so its children are left out.")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1981,7 +1981,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static LocalsRow MapLocalsNode(DebugNode node, int maxDepth, int depth, int[] budget)
     {
         LocalsRow[]? children = null;
-        if (node.HasChildren && depth < maxDepth && budget[0] > 0)
+        if (node.HasChildren && !node.Repeats && depth < maxDepth && budget[0] > 0)
         {
             var kids = new List<LocalsRow>();
             foreach (var c in node.Expand())
@@ -1993,7 +1993,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             children = kids.ToArray();
         }
         string expression = node.TruncatedRemaining > 0 ? $"… {node.TruncatedRemaining} more" : node.Name;
-        return new LocalsRow(expression, node.Value, node.TypeName, node.HasChildren, children);
+        return new LocalsRow(expression, node.Value, node.TypeName, node.HasChildren, children, node.Repeats);
     }
 
     [McpServerTool(Name = "get_call_stack")]
@@ -3833,7 +3833,11 @@ internal record DebugStateResult(
 
 internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
 
-internal record LocalsRow(string Expression, string Value, string Type, bool HasChildren, LocalsRow[]? Children);
+/// <param name="Repeats">The row opens an object already open above it, such as a Timer's Parent under Me, so its
+/// children, the same tree again, are left out (#2329). Absent otherwise.</param>
+internal record LocalsRow(string Expression, string Value, string Type, bool HasChildren, LocalsRow[]? Children,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool Repeats = false);
 
 internal record EvaluateResult(bool Success, string? Error, string? Result);
 
