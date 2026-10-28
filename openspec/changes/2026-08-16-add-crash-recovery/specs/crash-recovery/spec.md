@@ -84,6 +84,25 @@ its files. A never-saved project has nothing to open, so start is its only chanc
 - **WHEN** the IDE ended uncleanly with work in a project that had never been saved, and it is started again
 - **THEN** the developer is offered that project, and restoring it opens an unsaved project holding its documents
 
+#### Scenario: A project in the IDE's own scratch folder
+- **WHEN** the IDE ended uncleanly with work in a project it had saved into a scratch folder of its own
+- **THEN** that project is offered at start, as a never-saved one is, and restored into that folder while it is still there
+
+### Requirement: Restoring a saved project SHALL bring back its documents
+Restoring a saved project's work SHALL put each backed-up document's content in place of what was opened, unsaved, and
+SHALL add back any document the project no longer holds. Its other settings, such as its startup object, SHALL NOT be
+restored. A backup holding nothing the opened project's files don't SHALL NOT be offered, and SHALL be deleted.
+
+Such a backup is what a crash in the moment a project loads leaves, and every answer to it changes nothing.
+
+#### Scenario: A backup the files already hold
+- **WHEN** a project is opened whose backup matches its files on disk
+- **THEN** nothing is offered, and the backup is deleted
+
+#### Scenario: Restored work is unsaved
+- **WHEN** a saved project's work is restored
+- **THEN** its files on disk are unchanged, and the restored documents are saved only when the developer saves them
+
 ### Requirement: Recovery SHALL follow a moved project without matching a copy
 Recovered work SHALL be matched to a saved project by its path. Where nothing is at that path any more, it SHALL be
 matched by the project file's content. The offer SHALL say where the work came from.

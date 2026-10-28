@@ -35,6 +35,27 @@ public sealed record WatchedFileTarget(
     FormEditViewModel? Designer)
 {
     public bool IsOpen => CodeEditor is not null || Designer is not null;
+
+    /// <summary>
+    /// <paramref name="form"/> or <paramref name="module"/> with whichever code window and designer
+    /// <paramref name="openDocuments"/> holds for it.
+    /// </summary>
+    /// <remarks>
+    /// A plain form's designer binds the form itself; a UserControl/PropertyPage designer binds the module's
+    /// FormPart. Either is matched, so the designer is refreshed in both cases.
+    /// </remarks>
+    public static WatchedFileTarget For(string sourcePath, FormDefinition? form, ModuleDefinition? module,
+        IEnumerable<object> openDocuments)
+    {
+        var open = openDocuments.ToList();
+        var codeEditor = open.OfType<CodeEditorViewModel>().FirstOrDefault(vm =>
+            (form is not null && ReferenceEquals(vm.FormDefinition, form)) ||
+            (module is not null && ReferenceEquals(vm.ModuleDefinition, module)));
+        var designer = open.OfType<FormEditViewModel>().FirstOrDefault(vm =>
+            (form is not null && ReferenceEquals(vm.FormDefinition, form)) ||
+            (module?.FormPart is not null && ReferenceEquals(vm.FormDefinition, module.FormPart)));
+        return new WatchedFileTarget(sourcePath, form, module, codeEditor, designer);
+    }
 }
 
 /// <summary>

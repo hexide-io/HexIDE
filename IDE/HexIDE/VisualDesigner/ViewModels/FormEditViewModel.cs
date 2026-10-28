@@ -626,6 +626,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // watches, so the banner and the disabled surface would keep the old answer until the tab was reopened.
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        // As the code window's reload does: clean after a reload from disk, edited after a crash recovery restore (#499).
+        RefreshModified();
     }
 
     // AllComponents keeps the file's order; Components takes the order the canvas draws in.

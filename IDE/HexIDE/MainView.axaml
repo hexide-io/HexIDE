@@ -153,6 +153,7 @@
                         <MenuItem Header="{DynamicResource Str.Menu.File}">
                             <MenuItem Header="{DynamicResource Str.Menu.File.NewProject}" Command="{x:Static vb:ApplicationCommands.NewProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.File.OpenProject}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Open}" Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}"/>
+                            <MenuItem Header="{DynamicResource Str.Menu.File.RecoverUnsavedWork}" Command="{CompiledBinding RecoverUnsavedWorkCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.File.AddProject}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" />
                             <MenuItem Header="{CompiledBinding RemoveProjectMenuHeader}" Command="{x:Static vb:ApplicationCommands.RemoveProjectCommand}" />

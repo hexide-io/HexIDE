@@ -26,6 +26,9 @@ public interface IRecoveryService
     /// called: somebody answered for the unsaved work, or there was none.
     /// </summary>
     void EndRun();
+
+    /// <summary>This run's own recovery folder, or null when recovery is off this session.</summary>
+    string? RunFolder { get; }
 }
 
 /// <inheritdoc/>
@@ -80,6 +83,8 @@ public sealed class RecoveryService : IRecoveryService
 
     /// <summary>This run's folder, or null when recovery is off.</summary>
     internal string? Folder => run?.Folder;
+
+    public string? RunFolder => run?.Folder;
 
     public void Start()
     {

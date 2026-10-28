@@ -114,11 +114,12 @@ public sealed class RecoveryRun
                             companion = WriteBytes(documentFolder, SafeName(companionName, "companion"), bytes);
                     }
                     documents.Add(new(document.Name, document.Kind, document.Path,
-                        document.Encoding.CodePage, document.Encoding.Utf8Bom, text, companion));
+                        document.Encoding.CodePage, document.Encoding.Utf8Bom, text, companion, document.DiskHash));
                 }
 
                 records.Add(new(project.Name, project.Path, project.ProjectFileHash,
-                    project.Encoding.CodePage, project.Encoding.Utf8Bom, projectFile, documents));
+                    project.Encoding.CodePage, project.Encoding.Utf8Bom, projectFile, documents, project.RenderedAt,
+                    project.Scratch));
             }
         }
 
@@ -177,6 +178,8 @@ public sealed class RecoveryRun
             Add(project.Path);
             Add(project.ProjectFileHash);
             Add(project.Encoding.ToString());
+            Add(project.RenderedAt);
+            Add(project.Scratch.ToString());
             AddFile(project.ProjectFile);
             hash.AppendData(BitConverter.GetBytes(project.Documents.Count));
             foreach (var document in project.Documents)
@@ -185,6 +188,7 @@ public sealed class RecoveryRun
                 Add(document.Kind);
                 Add(document.Path);
                 Add(document.Encoding.ToString());
+                Add(document.DiskHash);
                 AddFile(document.Content);
             }
         }
@@ -192,8 +196,11 @@ public sealed class RecoveryRun
     }
 
     private void WriteRecord(string? capture, DateTime? savedAt, IReadOnlyList<ProjectRecord> projects) =>
-        AtomicFileWriter.WriteAllText(Path.Combine(Folder, RecordName),
-            JsonSerializer.Serialize(new RunRecord(Format, processId, processStart, savedAt, capture, projects), JsonOptions));
+        WriteRecord(Folder, new RunRecord(Format, processId, processStart, savedAt, capture, projects));
+
+    /// <summary>Writes <paramref name="record"/> as the run.json of the run in <paramref name="folder"/>.</summary>
+    internal static void WriteRecord(string folder, RunRecord record) =>
+        AtomicFileWriter.WriteAllText(Path.Combine(folder, RecordName), JsonSerializer.Serialize(record, JsonOptions));
 
     private string WriteText(string relativeFolder, string fileName, string text)
     {
@@ -249,9 +256,10 @@ public sealed class RecoveryRun
     /// <summary>A project in <see cref="RunRecord"/>. File paths are relative to the run's folder, with <c>/</c> between segments.</summary>
     internal sealed record ProjectRecord(
         string Name, string? Path, string? ProjectFileHash, int CodePage, bool Utf8Bom, string? ProjectFile,
-        IReadOnlyList<DocumentRecord> Documents);
+        IReadOnlyList<DocumentRecord> Documents, string RenderedAt = "", bool Scratch = false);
 
     /// <summary>A form or module in <see cref="ProjectRecord"/>; <see cref="File"/> is null when it had nothing unsaved.</summary>
     internal sealed record DocumentRecord(
-        string Name, string Kind, string? Path, int CodePage, bool Utf8Bom, string? File, string? Companion);
+        string Name, string Kind, string? Path, int CodePage, bool Utf8Bom, string? File, string? Companion,
+        string? DiskHash = null);
 }

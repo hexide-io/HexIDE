@@ -21,7 +21,7 @@ using Serilog;
 
 namespace HexIDE.Projects;
 
-public class ProjectService : IProjectService
+public partial class ProjectService : IProjectService
 {
     private readonly Func<NewProjectViewModel> newProjectVm;
     private readonly IWindowManager windowManager;
@@ -456,6 +456,8 @@ public class ProjectService : IProjectService
         await ReportReadByteForByte(readByteForByte);
         if (conflictingNames.Count > 0)
             await windowManager.MessageBox(string.Join("\n\n", conflictingNames), icon: MessageBoxIcon.Warning);
+
+        eventBus.Publish(new ProjectOpenedEvent(project));
     }
 
     /// <summary>
@@ -2151,7 +2153,7 @@ public class ProjectService : IProjectService
             {
                 var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + ".frm";
                 documents.Add(new(form.Name, "Form", form.AbsolutePath, form.TextEncoding,
-                    IsDirty(form) ? Unsaved(fileName, RenderForm(form, fileName)) : null));
+                    IsDirty(form) ? Unsaved(fileName, RenderForm(form, fileName)) : null, DiskHashOf(form.AbsolutePath)));
             }
             foreach (var module in project.Modules)
             {
@@ -2159,14 +2161,14 @@ public class ProjectService : IProjectService
                     ? Path.GetFileName(path)
                     : module.Name + "." + ModuleExtension(module.Kind);
                 documents.Add(new(module.Name, module.Kind.ToString(), module.AbsolutePath, module.TextEncoding,
-                    IsDirty(module) ? Unsaved(fileName, RenderModule(module, fileName)) : null));
+                    IsDirty(module) ? Unsaved(fileName, RenderModule(module, fileName)) : null, DiskHashOf(module.AbsolutePath)));
             }
 
             var projectDirty = IsDirty(project);
             if (!projectDirty && documents.All(document => document.Content is null))
                 continue;
 
-            var projectPath = project.AbsolutePath ?? Path.Combine(Path.GetTempPath(), project.Name + ".vbp");
+            var projectPath = project.AbsolutePath ?? NotionalProjectPath(project);
             var directory = Path.GetDirectoryName(projectPath) ?? "";
             string? PathOf(object member) => member switch
             {
@@ -2183,10 +2185,36 @@ public class ProjectService : IProjectService
                     ? new HexIDE.Recovery.UnsavedFile(Path.GetFileName(projectPath),
                         new ProjectSerializer().Serialize(project, projectPath, PathOf))
                     : null,
-                documents));
+                documents,
+                projectPath,
+                IsInScratchFolder(project)));
         }
         return captured;
     }
+
+    private string? DiskHashOf(string? path) => path is null ? null : baselineStore.TryGet(path)?.Hash;
+
+    /// <summary>Whether <paramref name="project"/>'s file is in the scratch folder the IDE made for it, as <c>--newproject</c> saves it.</summary>
+    private static bool IsInScratchFolder(ProjectDefinition project) =>
+        project.AbsolutePath is { } saved && project.WorkingDirectory is { Length: > 0 } scratch
+        && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(saved) ?? ""),
+            Path.TrimEndingDirectorySeparator(scratch), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A private place, kept for the session, to render a never-saved project's file against: its members are named
+    /// relative to it, so a restore that puts the files back there finds each of them again.
+    /// </summary>
+    /// <remarks>
+    /// One per project instance, as <see cref="ProjectFilesDirectory"/> is, and for its reason: two never-saved
+    /// projects are both called Project1. Not that directory itself, whose assignment the language layer would hear as
+    /// a new working directory.
+    /// </remarks>
+    private static string NotionalProjectPath(ProjectDefinition project) =>
+        NotionalProjectPaths.GetValue(project, p => Path.Combine(Path.GetTempPath(),
+            $"hexide_recovered_{Guid.NewGuid():N}", SanitiseForPath(p.Name) + ".vbp"));
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, string>
+        NotionalProjectPaths = new();
 
     private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, (string Text, byte[]? Companion) rendered) =>
         rendered.Companion is { Length: > 0 } companion

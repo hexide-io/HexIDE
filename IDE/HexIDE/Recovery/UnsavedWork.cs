@@ -12,13 +12,23 @@ namespace HexIDE.Recovery;
 /// <param name="Encoding">The project file's code page, which a restore writes it in, as a save would.</param>
 /// <param name="ProjectFile">The project file's text, when a save would change it; otherwise null.</param>
 /// <param name="Documents">Every form and module the project holds, unsaved or not, so a never-saved project can be rebuilt whole.</param>
+/// <param name="RenderedAt">
+/// Where <paramref name="ProjectFile"/>'s text was rendered: <paramref name="Path"/>, or for a project with no file, a
+/// private folder of its own. The text names each member relative to it, so a restore puts the files back there.
+/// </param>
+/// <param name="Scratch">
+/// The project is in a scratch folder the IDE made, as <c>--newproject</c>'s is. Nobody opens a project from there, so
+/// its work is offered at start, as a never-saved project's is.
+/// </param>
 public sealed record UnsavedProject(
     string Name,
     string? Path,
     string? ProjectFileHash,
     Vb6TextEncoding Encoding,
     UnsavedFile? ProjectFile,
-    IReadOnlyList<UnsavedDocument> Documents);
+    IReadOnlyList<UnsavedDocument> Documents,
+    string RenderedAt = "",
+    bool Scratch = false);
 
 /// <summary>A form or module in an <see cref="UnsavedProject"/>.</summary>
 /// <param name="Name">Its name within the project, which is how a restore finds it again.</param>
@@ -26,7 +36,12 @@ public sealed record UnsavedProject(
 /// <param name="Path">Its file, or null when it has none yet.</param>
 /// <param name="Encoding">The code page a save writes it in.</param>
 /// <param name="Content">What a save would write, or null when it has nothing unsaved.</param>
-public sealed record UnsavedDocument(string Name, string Kind, string? Path, Vb6TextEncoding Encoding, UnsavedFile? Content);
+/// <param name="DiskHash">
+/// The hash of its file as this run last read or wrote it, so a restore can say when the file has changed since.
+/// Null when it has no file.
+/// </param>
+public sealed record UnsavedDocument(
+    string Name, string Kind, string? Path, Vb6TextEncoding Encoding, UnsavedFile? Content, string? DiskHash = null);
 
 /// <summary>
 /// A file as a save would write it: its text under the file name it would have, and its binary companion when it has

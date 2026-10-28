@@ -141,6 +141,11 @@ public partial class MainViewViewModel : ObservableObject
 
     public DelegateCommand AddFileCommand { get; }
 
+    /// <summary>File › Recover Unsaved Work: lists the work crash recovery is still holding (hexide-io/HexIDE#499).</summary>
+    public DelegateCommand RecoverUnsavedWorkCommand { get; }
+
+    private readonly HexIDE.Recovery.IRecoveryOffers? recoveryOffers;
+
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
 
@@ -1102,8 +1107,13 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
         RecentEditsToolViewModel recentEdits,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
     {
+        this.recoveryOffers = recoveryOffers;
+        RecoverUnsavedWorkCommand = new DelegateCommand(
+            () => (recoveryOffers?.ShowPendingAsync() ?? Task.CompletedTask).ListenErrors(),
+            () => recoveryOffers is not null);
         RecentEdits = recentEdits;
         Personality = personalityService;
         AddinMenuService = addinMenuService;
@@ -1476,12 +1486,20 @@ public partial class MainViewViewModel : ObservableObject
             : localization.GetString("Str.Menu.Edit.Redo");
     }
 
-    public void OnInitialized()
+    public void OnInitialized() => StartAsync().ListenErrors();
+
+    /// <summary>
+    /// Offers back the unsaved work of a run that ended without a clean exit (hexide-io/HexIDE#499), then opens what
+    /// the start asks for. A project named on the command line opens either way. The new-project prompt is not shown
+    /// when a project was just restored, since there is one to work in.
+    /// </summary>
+    private async Task StartAsync()
     {
+        var restored = recoveryOffers is not null && await recoveryOffers.OfferAtStartAsync();
         if (Static.StartupProjectHook is { } hook)
-            hook(projectService, projectManager).ListenErrors();
-        else if (settingsService.PromptForProjectOnStartup)
-            projectService.CreateNewProject().ListenErrors();
+            await hook(projectService, projectManager);
+        else if (settingsService.PromptForProjectOnStartup && !restored)
+            await projectService.CreateNewProject();
     }
 
     public void Exit()

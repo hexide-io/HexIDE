@@ -1065,6 +1065,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // reads the verdict live; this is for the banner (#475).
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        // The tab's marker follows the model just replaced: clean after a reload from disk, edited after crash
+        // recovery restores unsaved work into it (#499).
+        RefreshModelModified();
 
         if (string.Equals(Document.Text, whole, StringComparison.Ordinal))
             return;
