@@ -299,6 +299,7 @@ internal static class VbSignatures
             ["CallByName"] = [new SignatureEntry("CallByName(Object, ProcName, CallType, Args...)", ["Object", "ProcName", "CallType", "Args"], "Calls a member by name using VbMethod, VbGet, VbLet or VbSet.")],
             ["CreateObject"] = [new SignatureEntry("CreateObject(Class As String, [ServerName As String]) As Object", ["Class", "ServerName"], "Creates and returns a reference to an ActiveX object.")],
             ["GetObject"]    = [new SignatureEntry("GetObject([Pathname], [Class]) As Object", ["Pathname", "Class"], "Returns a reference to an object from a file.")],
+            ["Partition"]    = [new SignatureEntry("Partition(Number, Start, Stop, Interval) As String", ["Number", "Start", "Stop", "Interval"], "Returns the range, such as \" 20: 29\", that Number falls in.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],
             ["Command"]      = [new SignatureEntry("Command() As String", [], "Returns the command line the program was started with.")],
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
