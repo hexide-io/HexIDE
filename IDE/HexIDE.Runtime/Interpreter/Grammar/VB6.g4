@@ -389,7 +389,7 @@ forNextStmt
    ;
 
 functionStmt
-   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_FUNCTION
+   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_FUNCTION
    ;
 
 getStmt
@@ -550,15 +550,15 @@ printStmt
    ;
 
 propertyGetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_PROPERTY
    ;
 
 propertySetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_PROPERTY
    ;
 
 propertyLetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_PROPERTY
    ;
 
 putStmt
@@ -669,7 +669,7 @@ stopStmt
    ;
 
 subStmt
-   : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_SUB
+   : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_SUB
    ;
 
 timeStmt

@@ -334,9 +334,9 @@ deleteSettingStmt
     ;
 
 doLoopStmt
-    : DO (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) LOOP
-    | DO WS (WHILE | UNTIL) WS valueStmt (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) LOOP
-    | DO (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) LOOP WS (WHILE | UNTIL) WS valueStmt
+    : DO blockSep (block blockSep)? LOOP
+    | DO WS (WHILE | UNTIL) WS valueStmt blockSep ( block blockSep)? LOOP
+    | DO blockSep (block blockSep)? LOOP WS (WHILE | UNTIL) WS valueStmt
     ;
 
 endStmt
@@ -377,7 +377,7 @@ filecopyStmt
 
 // `For _ Each` - WS? between the two keywords; see the note on selectCaseStmt.
 forEachStmt
-    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) NEXT (
+    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (
         WS ambiguousIdentifier
     )?
     ;
@@ -385,13 +385,13 @@ forEachStmt
 forNextStmt
     : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (
         WS STEP WS valueStmt
-    )? (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) NEXT (WS ambiguousIdentifier typeHint?)?
+    )? blockSep (block blockSep)? NEXT (WS ambiguousIdentifier typeHint?)?
     ;
 
 functionStmt
     : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier typeHint? (WS? argList)? (
         WS asTypeClause
-    )? (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) END_FUNCTION
+    )? blockSep (block blockSep)? END_FUNCTION
     ;
 
 getStmt
@@ -431,7 +431,7 @@ ifThenElseStmt
     ;
 
 ifBlockStmt
-    : IF WS ifConditionStmt WS THEN (blockSep ifBlockBody? | lineSep lineHead)
+    : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
     ;
 
 // The LSP already accepts labelled End If via block/blockSep. Keep that recovery shape: unlike the
@@ -439,7 +439,6 @@ ifBlockStmt
 // after an incomplete member access (#223).
 ifBlockBody
     : block blockSep
-    | block lineSep lineHead
     ;
 
 ifConditionStmt
@@ -447,11 +446,11 @@ ifConditionStmt
     ;
 
 ifElseIfBlockStmt
-    : ELSEIF WS ifConditionStmt WS THEN ((WS | NEWLINE)+ ifBlockBody? | lineSep lineHead)
+    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ ifBlockBody?
     ;
 
 ifElseBlockStmt
-    : ELSE (blockSep ifBlockBody? | lineSep lineHead)
+    : ELSE blockSep ifBlockBody?
     ;
 
 implementsStmt
@@ -554,15 +553,19 @@ printStmt
 propertyGetStmt
     : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (
         WS asTypeClause
-    )? (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) END_PROPERTY
+    )? blockSep (block blockSep)? END_PROPERTY
     ;
 
 propertySetStmt
-    : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) END_PROPERTY
+    : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? blockSep (
+        block blockSep
+    )? END_PROPERTY
     ;
 
 propertyLetStmt
-    : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) END_PROPERTY
+    : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? blockSep (
+        block blockSep
+    )? END_PROPERTY
     ;
 
 putStmt
@@ -635,7 +638,7 @@ selectCaseStmt
     ;
 
 sC_Case
-    : CASE WS sC_Cond WS? ((COLON? NEWLINE* | blockSep) (block blockSep | block lineSep lineHead)? | lineSep lineHead)
+    : CASE WS sC_Cond WS? (COLON? NEWLINE* | blockSep) (block blockSep)?
     ;
 
 // ELSE first, so that it is not interpreted as a variable call
@@ -667,7 +670,9 @@ stopStmt
     ;
 
 subStmt
-    : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) END_SUB
+    : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? blockSep (
+        block blockSep
+    )? END_SUB
     ;
 
 timeStmt
@@ -735,7 +740,7 @@ variableSubStmt
     ;
 
 whileWendStmt
-    : WHILE WS valueStmt (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) WEND
+    : WHILE WS valueStmt blockSep (block blockSep)? WEND
     ;
 
 widthStmt
@@ -743,7 +748,7 @@ widthStmt
     ;
 
 withStmt
-    : WITH WS (NEW WS)? implicitCallStmt_InStmt (blockSep (block blockSep | block lineSep lineHead)? | lineSep lineHead) END_WITH
+    : WITH WS (NEW WS)? implicitCallStmt_InStmt blockSep (block blockSep)? END_WITH
     ;
 
 writeStmt

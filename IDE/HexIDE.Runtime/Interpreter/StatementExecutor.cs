@@ -5176,9 +5176,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A head on a closing line, reached from outside its construct, or from a handler (measured, #2529).
         switch (target.Construct)
         {
-            case VB6Parser.SubStmtContext or VB6Parser.FunctionStmtContext or VB6Parser.PropertyGetStmtContext
-                or VB6Parser.PropertyLetStmtContext or VB6Parser.PropertySetStmtContext:
-                return target.Pc;   // End Sub: the procedure returns
             case VB6Parser.BlockIfThenElseContext or VB6Parser.SelectCaseStmtContext or VB6Parser.WithStmtContext:
                 return target.Pc + 1;   // past End If or End Select, from an Else, ElseIf or Case line too
             case VB6Parser.WhileWendStmtContext or VB6Parser.DoWhileBlockLoopContext or VB6Parser.DoBlockLoopContext:
@@ -5197,7 +5194,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     // ── A head on a closing line (#2529) ─────────────────────────────────────────────────────────────────────────────
     // A line number or label may stand on the line that closes a block or opens its next part: `30 Next`, `Skip: Next`,
-    // `Done: End If`, `40 Case Else`, `90 End Sub`. Measured, native and p-code alike: a GoTo to one from inside the
+    // `Done: End If`, `40 Case Else`. Measured, native and p-code alike: a GoTo to one from inside the
     // construct ends the block it is in as if it had run to its end, so a loop goes round, and an If, Select Case or With
     // is done (an Else part does not run, and a later Case is not tested). That is VisitBlock's catch. From outside, see
     // ResolveLabel.
@@ -5259,16 +5256,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         or VB6Parser.WhileWendStmtContext or VB6Parser.WithStmtContext or VB6Parser.BlockIfThenElseContext
         or VB6Parser.SelectCaseStmtContext;
 
-    // For each closing head in a body, by name: the procedure's own, at the end; a top-level construct's, at its index; and
-    // one nested deeper, with no index, since a GoTo from outside into a nested block is refused.
+    // For each closing head in a body, by name: a top-level construct's, at its index; and one nested deeper, with no index,
+    // since a GoTo from outside into a nested block is refused. A procedure's End takes no head yet (#2561).
     private static Dictionary<string, (int Pc, ParserRuleContext? Construct)> ClosingTargetsOf(
         VB6Parser.BlockContext body, VB6Parser.BlockStmtContext[] stmts)
     {
         var targets = new Dictionary<string, (int Pc, ParserRuleContext? Construct)>(StringComparer.OrdinalIgnoreCase);
-        if (OwnerOf(body) is { } procedure && procedure is VB6Parser.SubStmtContext or VB6Parser.FunctionStmtContext
-                or VB6Parser.PropertyGetStmtContext or VB6Parser.PropertyLetStmtContext or VB6Parser.PropertySetStmtContext)
-            foreach (var name in ClosingLabelsOf(procedure))
-                targets.TryAdd(name, (stmts.Length, procedure));
         for (var i = 0; i < stmts.Length; i++)
         {
             // The statement's own context: a labelled alternative, such as an If block or a Do loop, is its subclass.
