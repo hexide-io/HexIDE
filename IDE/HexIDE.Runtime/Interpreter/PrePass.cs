@@ -218,6 +218,16 @@ public class PrePass : VB6BaseVisitor<object?>
         return node is VB6Parser.ValueStmtContext ? null : base.VisitChildren(node);
     }
 
+    public bool PredeclaredId { get; private set; }
+
+    public override object? VisitModuleAttributes(VB6Parser.ModuleAttributesContext context)
+    {
+        foreach (var attribute in context.attributeStmt())
+            if (attribute.implicitCallStmt_InStmt().GetText().Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
+                PredeclaredId = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+        return base.VisitModuleAttributes(context);
+    }
+
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)
     {
         topLevelBlocks.Add(context.block());
