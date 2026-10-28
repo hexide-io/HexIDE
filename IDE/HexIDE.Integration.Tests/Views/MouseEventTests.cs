@@ -978,7 +978,7 @@ public class MouseEventTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal($"Image1 MouseDown 1 0 {twipsX} {twipsY}",
-            $"Image1 MouseUp 1 0 {twipsX} {twipsY}", "Image1 Click");
+            $"Image1 MouseUp 1 0 {twipsX} {twipsY}", "Image1 Click", $"Image1 MouseMove 0 0 {twipsX} {twipsY}");
     }
 
     [AvaloniaFact]
@@ -990,7 +990,8 @@ public class MouseEventTests
         run.Click(run.At("Image1", 101, 30));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Form MouseDown 1 0 1815 750", "Form MouseUp 1 0 1815 750", "Form Click");
+        run.Printed.Should().Equal("Form MouseDown 1 0 1815 750", "Form MouseUp 1 0 1815 750", "Form Click",
+            "Form MouseMove 0 0 1815 750");
     }
 
     [AvaloniaTheory]
@@ -1006,7 +1007,7 @@ public class MouseEventTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal(image
-            ? new[] { "Image2 MouseDown 1 0 600 450", "Image2 MouseUp 1 0 600 450", "Image2 Click" }
+            ? new[] { "Image2 MouseDown 1 0 600 450", "Image2 MouseUp 1 0 600 450", "Image2 Click", "Image2 MouseMove 0 0 600 450" }
             : new[] { "Frame1 MouseDown 1 0 1995 1200", "Frame1 MouseUp 1 0 1995 1200", "Frame1 Click" });
     }
 
