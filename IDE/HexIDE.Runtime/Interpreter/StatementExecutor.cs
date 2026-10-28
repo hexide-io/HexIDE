@@ -2502,6 +2502,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
                 };
 
+            if (variable.Value is ListViewItem viewItem && UdtFieldName(members[0]).Equals("SubItems", StringComparison.OrdinalIgnoreCase)
+                && members[0].iCS_S_ProcedureOrArrayCall() is { } subCall && subCall.argsCall().Length == 1)
+            {
+                viewItem.SetSubItem(await expressionExecutor.EvaluateCallArgs(subCall.argsCall(0)), value);
+                return default;
+            }
             if (await TabStripMembers.Set(variable.Value, memberIdentifier, value, interpreter, currentModule, currentEnv))
                 return default;
             if (members[0].iCS_S_ProcedureOrArrayCall() is { } toolbarCall && toolbarCall.argsCall().Length == 1)
@@ -3555,6 +3561,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
+            if (setLead && target.Value is VBListView or ListViewItem or ListViewTextObject
+                && membersCall.iCS_S_MemberCall().Length == 1
+                && !MemberHasArgs(membersCall.iCS_S_MemberCall()[0])
+                && ((ICSharpPropertyBag)target.Value).TrySetProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value))
+                return default;
             if (setLead && target.Value is VBTimer)
             {
                 var timerMembers = membersCall.iCS_S_MemberCall();

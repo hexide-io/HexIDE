@@ -111,17 +111,17 @@ public class InBoxToolboxTests
 
     // Each referenced library offers its implemented controls after the intrinsic controls.
     [AvaloniaFact]
-    public void Each_referenced_library_offers_its_ProgressBar_after_the_intrinsic_controls()
+    public void Each_referenced_library_offers_its_implemented_controls_after_the_intrinsics()
     {
         var (_, toolbox, _, _) = Designer(ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
 
         InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib,
-            ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
+            ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
         var shape = toolbox.Components.ToList().FindIndex(c => c.BaseClass is ShapeComponentClass);
         toolbox.Components[shape + 1].BaseClass.Should().BeSameAs(ProgressBarComponentClass.Instance);
         toolbox.Components[shape + 1].Name.Should().Be("ProgressBar");
         toolbox.Components.Where(c => c.Library is not null).Select(c => c.VBTypeName)
-            .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.StatusBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
+            .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.ListView", "MSComctlLib.StatusBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
     }
 
     // The Components dialog is how a project comes to reference a library, and the toolbox follows it both ways.
@@ -133,9 +133,9 @@ public class InBoxToolboxTests
 
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = true;
         dialog.ApplyCommand.Execute(null);
-        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib);
+        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib);
 
-        toolbox.SelectedComponent = toolbox.Components.First(c => c.Library is not null);
+        toolbox.SelectedComponent = toolbox.Components.Single(c => c.VBTypeName == "MSComctlLib.ListView");
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = false;
         dialog.ApplyCommand.Execute(null);
         InBoxLibraries(toolbox).Should().BeEmpty();

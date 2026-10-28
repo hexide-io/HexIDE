@@ -598,6 +598,14 @@ public class VBWindowContext : IModuleExecutionRoot
     public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
         Raise(name, args, coalescing, when: when);
 
+    public async Task ExecuteControlEventAsync(string name, IReadOnlyList<CallArg> args)
+    {
+        if (interpreter is null)
+            return;
+        await EnsureDeclarations();
+        await interpreter.RaiseFormEvent(EnsureInstance(), name, args);
+    }
+
     /// <inheritdoc/>
     public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);
 

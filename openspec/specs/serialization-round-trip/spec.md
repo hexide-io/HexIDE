@@ -784,6 +784,28 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
 
+### Requirement: ListView saves preserve read-only own properties
+
+The serializer SHALL carry a loaded MSComctlLib ListView's own property runs and flat column blocks,
+including repeated OLEDragMode/OLEDropMode lines and binary citations, while writing editable extender
+properties from the designer model. A resize SHALL recompute extents from whole pixels. Own properties
+and columns without an edit writer SHALL remain unavailable for designer editing. ImageList bindings
+SHALL be preserved without implying runtime binding support.
+
+#### Scenario: Saving a designed ListView without edits
+- **WHEN** either saved ListView corpus form is loaded and saved without edits
+- **THEN** its form text and companion bytes are unchanged
+
+#### Scenario: Resizing a ListView with bound column images
+- **WHEN** the designer resizes a loaded ListView and changes its Tag
+- **THEN** its geometry, Tag and extents reflect the edits
+- **AND** its column blocks, image binding strings and companion records survive unchanged
+
+#### Scenario: Previewing bindings that the runtime cannot resolve
+- **WHEN** a loaded ListView is displayed in the designer
+- **THEN** the preview shows its name and optional checkbox without resolving ImageList bindings
+- **AND** report headers are not displayed
+
 ### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
 A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value
 in the `.pag`. A save SHALL omit StandardSize, including a carried line from a loaded file, because

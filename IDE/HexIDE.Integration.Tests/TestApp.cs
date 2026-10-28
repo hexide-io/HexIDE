@@ -16,49 +16,67 @@ public class TestApp : Application
 {
     public override void Initialize()
     {
+        Console.Error.WriteLine("1085 probe: Initialize entered");
         HeadlessFontWarmUp.Run();
+        Console.Error.WriteLine("1085 probe: font warmup finished");
         RequestedThemeVariant = ThemeVariant.Light;
+        Console.Error.WriteLine("1085 probe: theme start");
         Styles.Add(new SimpleTheme());
+        Console.Error.WriteLine("1085 probe: theme end");
         Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
+        Console.Error.WriteLine("1085 probe: dock theme end");
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),
-        });
+        }) ; Console.Error.WriteLine("1085 probe: resource 1");
         // As App.axaml does. Without it a TextEditor has no template, so its TextArea is not in the tree at
         // all: a test that walks or resolves a path through an editor was walking a shape the running IDE
         // never has, and one assertion passed only because of it (#611's test named TextEditor as the leaf).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
-        });
+        }) ; Console.Error.WriteLine("1085 probe: resource 2");
         // As App.axaml does: code reads left to right under a right-to-left language (#1944).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://HexIDE/Themes/CodeDirection.axaml"),
-        });
+        }) ; Console.Error.WriteLine("1085 probe: resource 3");
         // As App.axaml does: access-key captions name their controls without the "_" marker (#578).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://HexIDE/Automation/AccessKeyNames.axaml"),
-        });
+        }) ; Console.Error.WriteLine("1085 probe: resource 4");
         // As App.axaml does: the IDE's colours, the 25 VB6 system colours among them. A system colour is looked up on the
         // application, not on a window, so without this every one fell back to DeepPink here, and a test comparing a
         // painted pixel with vbButtonFace compared pink with pink (#908).
         Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
-        });
+        }) ; Console.Error.WriteLine("1085 probe: resource 5");
         // As App.axaml does: the running controls' own templates. Without them a Frame has no template, so the controls
         // it contains are not in the visual tree at all, and real pointer input passes through them (#974).
         foreach (var dictionary in new[] { "VBTimer.axaml", "VBLabel.axaml", "Resources.axaml" })
-            Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+        {
+            Console.Error.WriteLine("1085 probe: loading " + dictionary);
+            try
             {
-                Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary),
-            });
+                Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+                {
+                    Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary),
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("1085 probe: " + ex);
+                throw;
+            }
+            Console.Error.WriteLine("1085 probe: loaded " + dictionary);
+        }
         // The running IDE has every window in its lifetime's list, which the headless host has not got: a window a test showed
         // before its first call to the driver went untracked, and a test that ran first saw it as opening later.
         HexIDE.Automation.UiAutomationDriver.TrackWindows();
         WindowLeakGuard.Track();
+        Console.Error.WriteLine("1085 probe: Initialize finished");
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

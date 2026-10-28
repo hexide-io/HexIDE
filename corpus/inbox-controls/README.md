@@ -1,9 +1,9 @@
 # In-box control corpus
 
 The saved fixtures cover ProgressBars from MSCOMCTL.OCX (`MSComctlLib`, 6.0) and COMCTL32.OCX (`ComctlLib`, 5.0),
-StatusBars, ImageLists, Toolbars, TabStrips and TreeViews from MSCOMCTL.OCX, UpDowns from MSCOMCT2.OCX, CommonDialogs from COMDLG32.OCX (`MSComDlg`), and RichTextBoxes from RICHTX32.OCX (`RichTextLib`). An in-box control's native persistence differs from an intrinsic's: the extender's
+ListViews, StatusBars, ImageLists, Toolbars, TabStrips and TreeViews from MSCOMCTL.OCX, UpDowns from MSCOMCT2.OCX, CommonDialogs from COMDLG32.OCX (`MSComDlg`), and RichTextBoxes from RICHTX32.OCX (`RichTextLib`). An in-box control's native persistence differs from an intrinsic's: the extender's
 properties sort by name, followed by the control's own run, whose ordering and nested property bags are measured
-rather than inferred (hexide-io/HexIDE#1082, #1083, #1084, #1086, #1087, #1088, #1100).
+rather than inferred (hexide-io/HexIDE#1082, #1083, #1084, #1085, #1086, #1087, #1088, #1100).
 
 ## Two halves
 
@@ -61,6 +61,11 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 | `saved/richtextbox/` | Three RichTextBoxes saved by VB6: one written by hand with every property off its default, its lines reversed and its TextRTF inline, then Locked set in the Properties window (saved as `ReadOnly`); a minimal block; and one double-clicked from the toolbox. Every TextRTF is in the `.frx` (#1100) |
 | `saved/updown/` | Four UpDowns saved by VB6: off-default properties, a minimal block, a Text2 buddy binding and the toolbox default; provenance below (#1093). There is no `.frx` |
 | `saved/maskedbox/` | Four MaskEdBoxes from MSMASK32.OCX saved by VB6 (#1098), after a comment typed into the form's code made it dirty: a minimal block with no extents and no `PromptChar`, given 3000 x 1125 and `PromptChar "_"`; one written by hand with every own property off its default and its lines reversed, for VB6's order, which writes `OLEDragMode` and `OLEDropMode` twice; one with no `Mask` and a `Text`; and one with a `Mask` and no `Text`. VB6 dropped every `Text` line: it isn't saved, and the Properties window has no row for it. There is no `.frx`. The hand-written form is `input/maskedbox/` |
+| `saved/listview/` | Three ListViews written by hand and saved by VB6. The first has every property off its default, its lines scrambled, and two columns with Key, Tag, Width and ImageIndex: VB6 put the lines in its own order, wrote SortOrder 1 and TextBackground 1 as `-1  'True`, and OLEDragMode and OLEDropMode twice. The second was written with only its size and `_Version`, and the third flat with a border (#1085). The `.frx` is the ImageList's |
+| `saved/listview-columns/` | A form like `saved/listview/`, whose first ListView has HideColumnHeaders, AllowReorder and ColHdrIcons set and three plain columns, saved after a column's Icon Index was set and a column inserted in that ListView's Column Headers property page: VB6 wrote the icon as `ImageIndex` and the new column's 1440 twips as `Object.Width = 2540`, which is HIMETRIC, and moved the later columns' SubItemIndex up (#1085) |
+
+The ListView saves were written by VB6 SP6 on the oracle VM’s console, 2026-10-26.
+Their hand-written projects and carried ImageList records do not imply runtime ImageList binding support.
 
 The MaskedEdBox save is documented in [the MaskedEdBox oracle](../../docs/vb6-fidelity-oracle/the-maskededbox-mask-text-and-keystrokes.md).
 It moved from pending after `MaskedEdBoxSerializationTests` verified the save and input normalization.
@@ -100,8 +105,6 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 
 | Folder | What it is |
 |---|---|
-| `pending/listview/` | Three ListViews written by hand and saved by VB6. The first has every property off its default, its lines scrambled, and two columns with Key, Tag, Width and ImageIndex: VB6 put the lines in its own order, wrote SortOrder 1 and TextBackground 1 as `-1  'True`, and OLEDragMode and OLEDropMode twice. The second was written with only its size and `_Version`, and the third flat with a border (#1085). The `.frx` is the ImageList's |
-| `pending/listview-columns/` | A form like `pending/listview/`, whose first ListView has HideColumnHeaders, AllowReorder and ColHdrIcons set and three plain columns, saved after a column's Icon Index was set and a column inserted in that ListView's Column Headers property page: VB6 wrote the icon as `ImageIndex` and the new column's 1440 twips as `Object.Width = 2540`, which is HIMETRIC, and moved the later columns' SubItemIndex up (#1085) |
 | `pending/sstab/` | An SSTab drawn in VB6's IDE: three tabs, with a CommandButton drawn on tab 0, a TextBox on tab 1 and a CheckBox on tab 2, tab 1 left showing. The hidden tabs' controls are 75000 twips left, and each tab has a `TabPicture` record in the `.frx` (#1090) |
 | `pending/sstab-resaved/` | Three SSTabs written by hand and saved by VB6, with a fourth double-clicked from the toolbox: one with every property off its default and its lines reversed, a minimal block, and one whose `ControlEnabled` flags and lists did not match its controls, which VB6 rewrote. See the oracle entry before taking it as a model (#1090) |
 | `pending/msflexgrid/` | Three MSFlexGrids saved by VB6: one written by hand with every property off its default and its lines reversed, a minimal block, and one double-clicked from the toolbox. There is no `.frx`: cell text is not saved, only FormatString (#1099) |
