@@ -86,6 +86,9 @@ internal static class DesktopStartup
                     signal.Cancel = true;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
+                        // Closes without the save prompt, as shutdown_ide does, but nobody chose to lose the work, so
+                        // it is backed up and kept for the next start (#499).
+                        setup.Recovery.KeepForRecovery();
                         IdeShutdown.Prepare(ctx, force: true);
                         IdeShutdown.CloseMainWindow();
                     });

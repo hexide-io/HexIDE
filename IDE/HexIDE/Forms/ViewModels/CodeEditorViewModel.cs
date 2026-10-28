@@ -293,6 +293,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 // writing the composed text back would put the designer block into Code, where the
                 // interpreter compiles it as VB.
                 var body = BufferBody;
+                var ahead = formDefinition is { } form && !string.Equals(body, form.Code, StringComparison.Ordinal)
+                    || moduleDefinition is { } module && !string.Equals(body, module.Code, StringComparison.Ordinal);
+                if (e.OnlyWhereAhead && !ahead)
+                    return;
                 formDefinition?.UpdateCode(body);
                 if (moduleDefinition is not null)
                     moduleDefinition.UpdateCode(body);

@@ -2119,6 +2119,78 @@ public class ProjectService : IProjectService
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
     public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// <b>Dirty means what it means to the save prompt,</b> and each unsaved file is rendered by the helper its save
+    /// uses, so a backup holds exactly what a save would have written. A file with no path yet is named as
+    /// <c>Name.ext</c>, and a form's text cites its companion by that name.
+    /// </para>
+    /// <para>
+    /// <b>Only what has run ahead is flushed.</b> This runs every few seconds, and an unconditional flush would
+    /// rebuild every open designer each time (<see cref="ApplyAllUnsavedChangesEvent.OnlyWhereAhead"/>).
+    /// </para>
+    /// <para>
+    /// <b>A member with no file is named in the project file's text where a save would put it, beside the project
+    /// file,</b> or the serializer leaves it out (#1359). A project that was never saved has no folder, so its text
+    /// is rendered as though it were in the temporary directory. Only the relative paths of members that have files
+    /// depend on that, and a restore takes those from <see cref="UnsavedDocument.Path"/> instead.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<HexIDE.Recovery.UnsavedProject> CaptureUnsavedWork()
+    {
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent { OnlyWhereAhead = true });
+
+        var captured = new List<HexIDE.Recovery.UnsavedProject>();
+        foreach (var project in projectManager.LoadedProjects)
+        {
+            var documents = new List<HexIDE.Recovery.UnsavedDocument>();
+            foreach (var form in project.Forms)
+            {
+                var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + ".frm";
+                documents.Add(new(form.Name, "Form", form.AbsolutePath, form.TextEncoding,
+                    IsDirty(form) ? Unsaved(fileName, RenderForm(form, fileName)) : null));
+            }
+            foreach (var module in project.Modules)
+            {
+                var fileName = module.AbsolutePath is { } path
+                    ? Path.GetFileName(path)
+                    : module.Name + "." + ModuleExtension(module.Kind);
+                documents.Add(new(module.Name, module.Kind.ToString(), module.AbsolutePath, module.TextEncoding,
+                    IsDirty(module) ? Unsaved(fileName, RenderModule(module, fileName)) : null));
+            }
+
+            var projectDirty = IsDirty(project);
+            if (!projectDirty && documents.All(document => document.Content is null))
+                continue;
+
+            var projectPath = project.AbsolutePath ?? Path.Combine(Path.GetTempPath(), project.Name + ".vbp");
+            var directory = Path.GetDirectoryName(projectPath) ?? "";
+            string? PathOf(object member) => member switch
+            {
+                FormDefinition { AbsolutePath: null } form => Path.Combine(directory, form.Name + ".frm"),
+                ModuleDefinition { AbsolutePath: null } module =>
+                    Path.Combine(directory, module.Name + "." + ModuleExtension(module.Kind)),
+                _ => null,
+            };
+
+            captured.Add(new(project.Name, project.AbsolutePath,
+                project.AbsolutePath is { } projectFile ? baselineStore.TryGet(projectFile)?.Hash : null,
+                project.TextEncoding,
+                projectDirty
+                    ? new HexIDE.Recovery.UnsavedFile(Path.GetFileName(projectPath),
+                        new ProjectSerializer().Serialize(project, projectPath, PathOf))
+                    : null,
+                documents));
+        }
+        return captured;
+    }
+
+    private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, (string Text, byte[]? Companion) rendered) =>
+        rendered.Companion is { Length: > 0 } companion
+            ? new(fileName, rendered.Text, Path.ChangeExtension(fileName, CompanionBinaryExtension(fileName)), companion)
+            : new(fileName, rendered.Text);
+
     private bool IsDirty(FormDefinition form)
     {
         var path = form.AbsolutePath;

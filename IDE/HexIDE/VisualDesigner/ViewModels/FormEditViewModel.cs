@@ -282,7 +282,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 || (e.Module is not null && ReferenceEquals(e.Module, formDefinition?.OwningModule)))
                 RefreshModified();
         }));
-        AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(_ => FlushComponentsToModel()));
+        AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(e =>
+        {
+            if (!e.OnlyWhereAhead || HasComponentsNotInModel)
+                FlushComponentsToModel();
+        }));
         AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
         {
             if (e.Module == formDefinition?.OwningModule)

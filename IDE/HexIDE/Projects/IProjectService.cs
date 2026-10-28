@@ -121,6 +121,13 @@ public interface IProjectService
     /// <summary>The module counterpart: whether saving would change what was last loaded or saved.</summary>
     bool HasUnsavedChanges(ModuleDefinition module);
 
+    /// <summary>
+    /// Every loaded project that has something unsaved, with what a save would write for each of its unsaved files,
+    /// for crash recovery's backup (hexide-io/HexIDE#499). Writes nothing. Call it on the UI thread: it first brings in
+    /// whatever an open editor or designer holds ahead of its model, as a save does.
+    /// </summary>
+    IReadOnlyList<HexIDE.Recovery.UnsavedProject> CaptureUnsavedWork();
+
     Task MakeProject();
     Task MakeProject(ProjectDefinition project);
     Task EditProjectProperties(ProjectDefinition project);

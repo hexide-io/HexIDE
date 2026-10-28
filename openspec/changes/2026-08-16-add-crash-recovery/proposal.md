@@ -3,8 +3,7 @@
 > Converted from the `crash-recovery` design record (2026-08-16). **Amended 2026-10-28 for #499**, now Beta gate 3
 > (#2057: unsaved work survives a crash). The amendment keys recovery by IDE run rather than by path, keeps the text
 > of unsaved documents in a private local store, and recovers a project that was never saved. That last was a
-> documented limitation in the original. **The design is pending the maintainer's answer on #499**, and nothing is
-> built yet.
+> documented limitation in the original. **The maintainer approved the design on #499 on 2026-10-28.**
 
 ## Why
 
@@ -39,7 +38,7 @@ module until the project is saved. A path can't key it, and a fingerprint can't 
 
 ## Decisions
 
-These were proposed on #499 on 2026-10-28 and are pending the maintainer's answer there.
+These were proposed on #499 on 2026-10-28, and the maintainer approved them there the same day.
 
 1. **Keyed by run, not by path.** A run's folder records, for each project it held:
    - the project's path, if it has one;
