@@ -128,6 +128,18 @@ public static class UiAutomationDriver
                 value = shown;
         }
 
+        // An editor has no value provider, so the Immediate window's text could be read only from its view's members, on
+        // another node, and nothing said so (#2513). A code window's document is a project file, which get_file_content
+        // returns with its open edits, so that one is still left out (#562). Its writability goes with it, as a value
+        // provider's does.
+        bool? editorReadOnly = null;
+        if (value is null && control is TextEditor { Document: { } document } shownEditor
+            && control.DataContext is not HexIDE.Forms.ViewModels.ISearchableDocument)
+        {
+            value = Safe<string?>(() => Capped(document.Text), null);
+            editorReadOnly = shownEditor.IsReadOnly;
+        }
+
         bool? toggle = null;
         if (peer.GetProvider<IToggleProvider>() is { } tp)
             toggle = Safe<bool?>(() => tp.ToggleState switch
@@ -200,7 +212,7 @@ public static class UiAutomationDriver
             note,
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
-            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
+            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : editorReadOnly,
             control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
                 ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
@@ -341,6 +353,10 @@ public static class UiAutomationDriver
     /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
     private const int MaxValueLength = 4000;
 
+    private static string Capped(string text) => text.Length > MaxValueLength
+        ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
+        : text;
+
     /// <summary>
     /// A property's current value as text, or null when it cannot be read as text.
     /// </summary>
@@ -395,9 +411,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is { Length: > MaxValueLength }
-                ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
-                : text;
+            return text is null ? null : Capped(text);
         }, null);
     }
 
