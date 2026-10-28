@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— balasan, {0} bita —",
     "Str.Tool.ProtocolInspector.Copy": "Salin sebagai jejak",
     "Str.Tool.ProtocolInspector.Export": "Ekspor percakapan...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Ganti berkas yang sudah ada ini?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} pesan diekspor ke {1}, dengan manifes di {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Ekspor tidak selesai: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Yang keluar sudah disamarkan.",

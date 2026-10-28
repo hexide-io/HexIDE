@@ -755,6 +755,11 @@ assertion would be guarding against nothing.
 
 ## Reading the conversation
 
+Conversation exports ask before replacing any existing messages or derived manifest file, naming both
+when both exist. Declining writes neither file. Automation exports each use a fresh temporary directory,
+so a later export preserves earlier returned files (#2504). The broader
+[file-safety audit](file-safety-audit.md) records the remaining write-path risks.
+
 **The protocol inspector is how you see what crossed the wire**, and it is the answer to the question a
 diagnostics list cannot settle: whether a request was even sent, what came back, and how long it took. A
 `Tools → Protocol Inspector` tab shows one interleaved timeline across every attached server; the same

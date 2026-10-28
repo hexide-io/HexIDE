@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— 응답, {0}바이트 —",
     "Str.Tool.ProtocolInspector.Copy": "추적 형식으로 복사",
     "Str.Tool.ProtocolInspector.Export": "대화 내보내기...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "이 기존 파일들을 바꾸시겠습니까?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "메시지 {0}개를 {1}에 내보냈으며, 매니페스트는 {2}에 있습니다.",
     "Str.Tool.ProtocolInspector.ExportFailed": "내보내기를 완료하지 못했습니다: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "밖으로 나가는 내용은 가명으로 대체됩니다.",
