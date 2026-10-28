@@ -136,6 +136,14 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: Converting a hex or octal String
+- **WHEN** CInt, CLng, CByte, CDbl, CCur, CSng, CDec or Val reads a hex or octal String
+- **THEN** width follows the unsigned value, independent of leading zeros
+- **AND** CInt and Val read signed 16 bits through &HFFFF; the other conversions retain that unsigned value
+- **AND** values from &H10000 through &HFFFFFFFF are read as signed 32 bits before range checking
+- **AND** above &HFFFFFFFF CInt, CByte and Val retain low 32 bits, CLng raises 6, and the other conversions read the whole value
+- **AND** numeric conversions refuse a trailing `&` with error 13 (the literal form remains valid)
+
 #### Scenario: A For body changes its integral numeric counter
 - **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
 - **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
@@ -467,6 +475,36 @@ syntax errors for modules and expressions, and returning null for unparseable st
 - **WHEN** SLL cancels parsing a module or Immediate-window entry
 - **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
 
+### Requirement: Timer runtime member table
+
+The interpreter SHALL resolve Timer members through the measured table rather than shared visual-control
+bindings. Enabled, Index, Interval, Name, Parent and Tag SHALL resolve; Interval SHALL read as Long and
+Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 382 on writes. Measured
+absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
+except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
+
+Implementation gap (#801): TabIndex and ToolTipText reads currently use that compile error through Object references too,
+where the measured late-bound result is trappable 438.
+Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
+
+#### Scenario: Timer size is absent
+- **WHEN** code reads Timer1.Width or assigns o.Width with o holding a Timer
+- **THEN** error 438 is raised and can be trapped
+- **AND** the shared property bindings do not expose Width in the Timer's property listing
+
+#### Scenario: Locals omits unavailable Timer and scroll-bar properties
+- **WHEN** the debugger expands a Timer or scroll bar
+- **THEN** it SHALL omit the Timer's designer-only Left and Top and members outside its measured runtime table
+- **AND** it SHALL omit scroll-bar BackColor and ForeColor rather than displaying their refusal as error rows
+
+#### Scenario: Timer extender members remain absent
+- **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
+- **THEN** the missing-member compile error is raised rather than swallowed by the handler
+
+#### Scenario: Timer Interval arithmetic
+- **WHEN** a Timer with Interval 1000 is read and multiplied by 40
+- **THEN** Interval has type Long and the product is 40000
+
 ### Requirement: Procedure activation storage is reclaimed on exit
 The interpreter SHALL reclaim storage allocated by a procedure activation after its scope-exit reference
 releases, on normal return, early exit, error unwind and parameter-binding failure. Caller storage aliased
@@ -482,6 +520,26 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 #### Scenario: A retained debugger frame
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
+
+### Requirement: A literal's sign SHALL be an operator
+The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
+apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
+subtraction without requiring spaces. Negation of `&H8000` or a typed Integer holding -32768 SHALL raise
+Overflow (6), following p-code.
+
+#### Scenario: Negation after power
+- **WHEN** `-2 ^ 2` or `Const C = -2 ^ 2` is evaluated
+- **THEN** the result is Double -4
+- **AND** `(-2) ^ 2` is Double 4
+
+#### Scenario: Digits determine the type before negation
+- **WHEN** `-32768` or `-2147483648` is evaluated
+- **THEN** the result is respectively Long -32768 or Double -2147483648
+- **AND** an explicitly typed Integer constant or assignment can hold -32768
+
+#### Scenario: Subtraction without spaces
+- **WHEN** `x-1` is evaluated with Integer x holding 5
+- **THEN** the result is Integer 4
 
 ### Requirement: Err.Source identifies the raising project
 
@@ -560,3 +618,28 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
+
+### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
+`Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
+forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
+position from 0, converted as CInt converts, with no keys: any other String and Null SHALL raise 13, and a position out
+of range 9.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-collection.md`, #2496).
+
+#### Scenario: Closing every form from the main form's Unload
+- **WHEN** Form1's `Form_Unload` runs `For Each f In Forms: Unload f: Next` with Form2 and Form3 loaded
+- **THEN** Form2 and Form3 SHALL each raise QueryUnload and Unload, the `Unload f` that reaches Form1 SHALL do nothing,
+  and the run SHALL end once Form1's Unload has returned
+
+#### Scenario: Unloading by index from 0
+- **WHEN** a program with Form1, Form2 and Form3 loaded runs `For i = 0 To Forms.Count - 1: Unload Forms(i): Next`
+- **THEN** Form1 and Form3 SHALL unload, `Forms(2)` SHALL raise 9, and Form2 SHALL stay loaded
+
+#### Scenario: A form reloaded goes at the end
+- **WHEN** Form2, Form1 and Form3 have loaded in that order, and Form2 is unloaded and loaded again
+- **THEN** `Forms` SHALL hold Form1, Form3, Form2
+
+#### Scenario: For Each walks the forms held when it began
+- **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
+- **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4

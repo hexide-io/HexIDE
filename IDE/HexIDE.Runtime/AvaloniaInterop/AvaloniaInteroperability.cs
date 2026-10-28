@@ -264,6 +264,11 @@ public static class AvaloniaInteroperability
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
         VBProps.RefuseIfRemoved(control);
+        if (control is VBTimer && !TimerMembers.HasProperty(property.Name))
+            return false;
+        RefuseUnmeasuredColour(control, property);
+        if (control is VBTimer && ControlPositions.IsPosition(property))
+            throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -471,21 +476,27 @@ public static class AvaloniaInteroperability
         return Enum.IsDefined(type, number) ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
-    /// <summary>
-    /// Whether <paramref name="property"/> is a colour <paramref name="control"/> has nowhere, so the binding would read
-    /// its null as black. Every control with colours loads them as it is made, a Label's BackColor onto VBLabel's own
-    /// property, which is bound ahead of the attached one (#795). A Timer and the scroll bars have no colours in VB6,
-    /// but bind them as every templated control does, so a read of one is refused (#801).
-    /// </summary>
-    internal static bool IsUnsetColour(Control control, PropertyClass property) =>
-        control is TemplatedControl templated
-        && !(templated is VBLabel && ReferenceEquals(property, VBProperties.BackColorProperty))
-        && ((ReferenceEquals(property, VBProperties.BackColorProperty) && AttachedProperties.GetBackColor(templated) is null)
-            || (ReferenceEquals(property, VBProperties.ForeColorProperty) && AttachedProperties.GetForeColor(templated) is null));
+    private static void RefuseUnmeasuredColour(Control control, PropertyClass property)
+    {
+        if (control is VBScrollBar && (ReferenceEquals(property, VBProperties.BackColorProperty)
+                                      || ReferenceEquals(property, VBProperties.ForeColorProperty)))
+            throw new NotImplementedException($"A scroll bar's {property.Name} is not measured (#801)");
+    }
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBTimer && !TimerMembers.HasProperty(property.Name))
+        {
+            value = default;
+            return false;
+        }
+        RefuseUnmeasuredColour(c, property);
+        if (c is VBTimer timer && ReferenceEquals(property, VBProperties.IntervalProperty))
+        {
+            value = new Vb6Value((long)timer.Interval);
+            return true;
+        }
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
         if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
         {
@@ -542,11 +553,10 @@ public static class AvaloniaInteroperability
 
     /// <summary>Enumerate the VB6 properties readable on a live control (name → current value), NAME-SORTED — the
     /// Locals property surface (P8/D7). A property is included only when a registered binding applies to this
-    /// control's type (the same rule <see cref="TryGet"/> uses); duplicates by name are collapsed.</summary>
+    /// control's runtime members; duplicates by name are collapsed.</summary>
     /// <remarks>
     /// A property whose read raises is listed with the raised error's own description and no value, rather than ending
-    /// the read. A Timer's Left and Top raise 393 when read, as VB6's do (#2069), so one Timer on a form
-    /// made expanding <c>Me</c> fail, in the Locals window and in get_locals alike (#2289).
+    /// the read (#2289). A Timer's designer positions and absent members aren't listed by VB6's Locals (#801).
     /// </remarks>
     public static IReadOnlyList<(string Name, Vb6Value Value, string? Error)> ReadProperties(Control c)
     {
@@ -554,6 +564,13 @@ public static class AvaloniaInteroperability
         foreach (var property in bindingsByProperty.Keys)
         {
             if (byName.ContainsKey(property.Name))
+                continue;
+            if (c is VBTimer && (!TimerMembers.HasProperty(property.Name)
+                                 || ReferenceEquals(property, VBProperties.LeftProperty)
+                                 || ReferenceEquals(property, VBProperties.TopProperty)))
+                continue;
+            if (c is VBScrollBar && (ReferenceEquals(property, VBProperties.BackColorProperty)
+                                    || ReferenceEquals(property, VBProperties.ForeColorProperty)))
                 continue;
             try
             {

@@ -91,7 +91,7 @@ Platform: 4 · Partial: 12 · Other: 0.
 _Original per-item findings (retained for detail; dispositions above supersede the "Undocumented" notes):_
 
 - **Beep / AppActivate / SendKeys** — all three visitors throw `NotImplementedException` (StatementExecutor.cs:101-114, 911-914); real VB6 statements (system tone / activate another app / send keystrokes). Undocumented.
-- **Load / Unload** — a form's `Load`, and `Unload` of any form, are implemented (#973, #822): a run is one program of every form, a form's name makes its default instance on first use, and a use of its control or built-in member loads it, as VB6 does. `Load` and `Unload` of a control-array element are as before. `Show vbModal` and a `Sub Main` that shows forms followed in slice 2a.2. What is still to come is #822's `New Form2` and `Forms`.
+- **Load / Unload** — a form's `Load`, and `Unload` of any form, are implemented (#973, #822): a run is one program of every form, a form's name makes its default instance on first use, and a use of its control or built-in member loads it, as VB6 does. `Load` and `Unload` of a control-array element are as before. `Show vbModal` and a `Sub Main` that shows forms followed in slice 2a.2. `Forms`, the loaded forms in load order, followed in #2496. What is still to come is #822's `New Form2`.
 - **DoEvents** — wholly absent from the interpreter (0 hits); VB6 intrinsic that yields to the message queue and returns the open-form count. Undocumented.
 - **Erase** — `VisitEraseStmt` throws (StatementExecutor.cs:253-255); VB6 reinitialises fixed arrays / frees dynamic-array storage. Undocumented.
 - **Mid statement** (`Mid(s,i,n) = ...`) — `VisitMidStmt` throws (StatementExecutor.cs:675); VB6 replaces chars in place without lengthening. Every doc reference is to the Mid *function*. Undocumented.
@@ -310,8 +310,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   - **Assigning to a control property converts** to the property's type, with VB6's range checks (#768, #774). Refused as
     not implemented rather than answered wrong: a palette colour (#786); and a control or an array on the right, where VB6 reads a control's default property (#790). A class
     instance on the right raises 438, or is refused naming #174, and Err stands for its Number (#840). Still
-    different: `Tag` holds what it is given until #211; a hex String's width and
-    trailing `&` (#788). Positions are whole twips, in the container's ScaleMode, since #933 (#791). A colour read in code is the Long, since #789. Detail
+    different: `Tag` holds what it is given until #211. Hex/octal String widths and
+    a trailing `&` now follow the measured conversions (#788). Positions are whole twips, in the container's ScaleMode, since #933 (#791). A colour read in code is the Long, since #789. Detail
     and measurements: `vb6-fidelity-oracle/assigning-to-a-control-property.md`, "HexIDE, after #774". Reversed scroll bars now preserve their loaded Value and map thumb positions in reverse (#787).
   - ~~**A running form's `Me.Tag` leaked the runtime's internal show-completion object**~~ — **FIXED 2026-08-10.** `VBLoader.RunForm` used to park its show-completion `TaskCompletionSource` in the form window's Avalonia `Control.Tag`, which backs the VB6 `Tag` property, so `Me.Tag` (and the Locals property surface, D7) read back `"System.Threading.Tasks.TaskCompletionSource"`. The handler now captures the `tcs` in its closure (recovering the window from `sender`, since the `out` window can't be captured) instead of round-tripping through `Tag`. Surfaced by the P8/D7 Locals property surface; live-verified (run → stop → re-run cycle intact, `Me.Tag` now reads the interpreter's Tag default). **Residual, since fixed (#774):** an unset `Tag` read back `Null`, not VB6's `""`, for forms and child controls alike. A running program now reads `""`; the slot itself is still null, so the debugger's Locals window shows it as such.
 

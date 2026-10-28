@@ -55,7 +55,7 @@ public partial class VB6BuiltIns
             }
             catch (OverflowException) { throw new VBRunTimeException(VBStandardError.Overflow); }
         }
-        var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v, allowCurrency: target == VT.Long)) : v;
+        var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v, target, allowCurrency: target == VT.Long)) : v;
         return VbNumeric.Narrow(num, target, null);
     }
 
@@ -106,22 +106,20 @@ public partial class VB6BuiltIns
     /// <summary>The number of the error value VB6 passes for an omitted argument (DISP_E_PARAMNOTFOUND): 448, "Named argument not found".</summary>
     private const long MissingArgumentNumber = 448;
 
-    internal static double ToNum(Vb6Value v, bool allowCurrency = false)
+    internal static double ToNum(Vb6Value v, VT? target = null, bool allowCurrency = false)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool bo) return bo ? -1 : 0;
         if (v.Type == VT.String)
         {
             var s = AsStr(v).Trim();
-            // `&H`/`&O` prefixed strings are numbers to VB6, everywhere a string is coerced — measured:
-            // CDbl("&H10") and Val("&H10") are both 16, `Dim i As Integer : i = "&H10"` stores 16, and
-            // "&O17" is 15. A trailing `&` (the Long type character) is allowed on the literal form. (#190)
+            // Hex/octal Strings use the value's width; a literal's trailing & is not accepted here (#788).
             if (s.Length > 2 && s[0] == '&' && (s[1] == 'H' || s[1] == 'h' || s[1] == 'O' || s[1] == 'o'))
             {
-                var digits = s.Substring(2).TrimEnd('&');
+                var digits = s.Substring(2);
                 try
                 {
-                    return Convert.ToInt64(digits, s[1] is 'H' or 'h' ? 16 : 8);
+                    return RadixNumber(Convert.ToInt64(digits, s[1] is 'H' or 'h' ? 16 : 8), target);
                 }
                 catch (Exception e) when (e is FormatException or OverflowException or ArgumentException)
                 {
@@ -145,6 +143,17 @@ public partial class VB6BuiltIns
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    // SP6 native and p-code (#788): CInt/Val sign-extend 16 bits only while V fits;
+    // above that use 32 bits, retaining the low bits for CInt/CByte/Val beyond a Long.
+    private static double RadixNumber(long value, VT? target)
+    {
+        if (value >= 0 && value <= ushort.MaxValue && target == VT.Integer)
+            return unchecked((short)value);
+        if (value >= 0 && (value <= uint.MaxValue || target == VT.Integer || target == VT.Byte))
+            return unchecked((int)value);
+        return value;
     }
 
     // SP6 en-GB, native and p-code (#1446): separators after a digit disappear even after the point.

@@ -95,6 +95,8 @@ public partial class VB6BuiltIns
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         // So is a form's Controls: measured, `TypeName(Controls)` and `TypeName(Me.Controls)` (#1060).
         FormControls => "Object",
+        // TypeName(Forms) is "Object", as a form's Controls is (measured, #2496).
+        VbForms => "Object",
         _ => StripVb(px.GetType().Name),
     };
 

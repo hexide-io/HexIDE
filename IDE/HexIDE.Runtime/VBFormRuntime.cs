@@ -137,6 +137,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         windowContext.ExecuteSub(name, args);
     }
 
+    public System.Threading.Tasks.Task ExecuteEditEventAsync(string name, IList<Vb6Value> args) =>
+        windowContext.ExecuteEditEventAsync(name, args);
+
     public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when) =>
         windowContext.ExecuteSubIf(name, args, when);
 
