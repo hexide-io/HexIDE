@@ -11,3 +11,6 @@ The #178 issue comments' measured whole-record copy and array behavior is record
 
 The #2325 comments’ measured keyboard input is recorded in
 [Key events](vb6-fidelity-oracle/key-events.md).
+
+The #2474 measurements of declared arrays named with empty parentheses are recorded in
+[Whole-array parentheses](vb6-fidelity-oracle/whole-array-parentheses.md).
