@@ -193,6 +193,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         positioned = true;
         ShowActivated = IsEnabled;
         Show();
+        // Me.Show in Load raises Activate and initial GotFocus before the next statement (#2436).
+        if (windowContext.Loading && IsEnabled)
+            windowContext.Program?.Activated(windowContext);
     }
 
     public void HideForm() => Hide();
