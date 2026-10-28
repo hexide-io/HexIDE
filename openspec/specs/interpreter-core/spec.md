@@ -29,6 +29,23 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: ObjPtr SHALL preserve object identity
+`ObjPtr` SHALL return Long identities satisfying the relations measured in
+[#2622](https://github.com/hexide-io/HexIDE/issues/2622) (measuring PRs #2624 and #2628).
+These identities need not be native addresses. Unmeasured non-object operand types SHALL be refused
+as not implemented.
+
+#### Scenario: Nothing and live object aliases
+- **WHEN** `ObjPtr` reads Nothing, an unset Object or an Object set to Nothing
+- **THEN** it SHALL return zero as a Long
+- **WHEN** two names reference the same live object
+- **THEN** their identities SHALL be equal and non-zero
+- **AND** a different live object SHALL have a different identity
+
+#### Scenario: Measured invalid operands
+- **WHEN** `ObjPtr(5)` or `ObjPtr("a")` executes
+- **THEN** it SHALL raise run-time error 13 for VB6's compile-time Type mismatch
+
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
 interpreter, and there SHALL NOT be a separate simplified engine for any of them.
