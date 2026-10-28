@@ -6,16 +6,20 @@ using Avalonia.VisualTree;
 using Dock.Avalonia.Controls;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
+using HexIDE.Addins;
 using HexIDE.Automation;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Forms.ViewModels.Options;
 using HexIDE.Forms.Views;
 using HexIDE.IDE;
+using HexIDE.Keymaps;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Themes;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
 using HexIDE.VisualDesigner;
@@ -38,8 +42,9 @@ public class AutomationNameGuardTests
             .Select(n => $"{surface}: {n.Path}: {n.TypeNameAsName}"));
         var rows = nodes.Where(n => n.ControlType is "TreeItem" or "ListItem").ToList();
         rows.Should().NotBeEmpty(surface + " must realize its rows for the guard to cover them");
-        failures.AddRange(rows.Where(n => string.IsNullOrWhiteSpace(n.Name))
-            .Select(n => $"{surface}: {n.Path}: unnamed row"));
+        failures.AddRange(nodes.Where(n => n.ControlType is "TreeItem" or "ListItem" or "ComboBox")
+            .Where(n => string.IsNullOrWhiteSpace(n.Name))
+            .Select(n => $"{surface}: {n.Path}: unnamed {n.ControlType}"));
     }
 
     private static void RequireItem<T>(Window window)
@@ -51,7 +56,7 @@ public class AutomationNameGuardTests
     }
 
     [AvaloniaFact]
-    public void Rendered_IDE_surfaces_have_no_type_names_or_unnamed_rows()
+    public void Rendered_IDE_surfaces_have_no_type_names_or_unnamed_rows_or_combo_boxes()
     {
         var failures = new List<string>();
         var window = ToolbarAutomationNameTests.ShowMainView();
@@ -130,8 +135,23 @@ public class AutomationNameGuardTests
             };
             RequireItem<ProjectTemplateViewModel>(window);
             Check(window, "New Project dialog", failures);
+            var settings = Substitute.For<ISettingsService>();
+            settings.ActiveLanguage.Returns("system");
+            var languageSwitch = Substitute.For<ILanguageSwitchService>();
+            languageSwitch.AvailableLanguages.Returns([new LanguageInfo("system", "System default", "ltr")]);
+            var devMode = Substitute.For<IDeveloperModeService>();
+            devMode.IsEnabled.Returns(true);
+            var options = new OptionsViewModel(settings, Substitute.For<IThemeService>(),
+                Substitute.For<IKeymapService>(), languageSwitch, Substitute.For<IAddinRegistry>(),
+                new AddinOptionsService(), devMode, loc, bus);
+            window.Content = new OptionsView { DataContext = options };
+            foreach (var node in options.RootNodes.Concat(options.RootNodes.SelectMany(n => n.Children)).Where(n => n.Page != null))
+            {
+                options.SelectedNode = node;
+                Check(window, "Options / " + node.Title, failures);
+            }
             string.Join(Environment.NewLine, failures).Should().BeEmpty(
-                "rendered IDE controls must not be named after loaded types, and list/tree rows must have names");
+                "rendered IDE controls must not be named after loaded types, and list/tree rows and combo boxes must have names");
         }
         finally { window.Close(); }
     }

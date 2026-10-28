@@ -162,7 +162,7 @@
 | Add Procedure… | — | Done | Generates Sub/Function/Property/Event stubs |
 | Procedure Attributes… | — | Stub | Bound to `NYICommand` ([#62](https://github.com/hexide-io/HexIDE/issues/62)). Since #273 the `Attribute` lines this dialog writes are read-only in the code window, so it is the only way the IDE could change them. Until it exists they cannot be edited in the IDE, and a save keeps them, re-qualified when their member is renamed (see Code Editor Window) |
 | Menu Editor… | Ctrl+E | Done | Full menu tree editor |
-| Options… | — | Done | 2-pane TreeView redesign (Phase 46, complete): Environment/Editor/Form Designer/Advanced pages; per-page + global reset-to-defaults; Add-Ins section with per-add-in details, activate/deactivate, and add-in-contributed settings pages (`host.Options.RegisterOptionsPage`) |
+| Options… | — | Done | 2-pane TreeView redesign (Phase 46, complete): Environment/Editor/Form Designer/Advanced pages; per-page + global reset-to-defaults; localized accessible names for Language, Region, Theme and Keymap lists (#2449); Add-Ins section with per-add-in details, activate/deactivate, and add-in-contributed settings pages (`host.Options.RegisterOptionsPage`) |
 
 ---
 

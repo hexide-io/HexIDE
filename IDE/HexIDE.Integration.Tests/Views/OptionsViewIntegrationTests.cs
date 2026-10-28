@@ -83,6 +83,72 @@ public class OptionsViewIntegrationTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("system")]
+    public void LanguageAndRegion_AreNamedByTheirLabels_InEveryShippedPack(string selection)
+    {
+        var (settings, _, _, languageSwitch, _, _) = Mocks();
+        settings.ActiveLanguage.Returns(selection);
+        languageSwitch.AvailableLanguages.Returns([new LanguageInfo("system", "System default", "ltr"), new LanguageInfo("en", "English", "ltr")]);
+        var loc = new LocalizationService();
+        var view = new LanguagePageView
+        {
+            DataContext = new LanguagePageViewModel(settings, languageSwitch, loc, () => { }),
+        };
+        var window = new Window { Content = view, Width = 480, Height = 360 };
+        window.Show();
+        try
+        {
+            foreach (var id in LanguageManifest.Packs.Select(p => p.Id).Append("en-GB"))
+            {
+                var language = loc.GetStringFrom(id, "Str.Options.Language.LanguageLabel");
+                var region = loc.GetStringFrom(id, "Str.Options.Language.RegionLabel");
+                view.Resources["Str.Options.Language.LanguageLabel"] = language;
+                view.Resources["Str.Options.Language.RegionLabel"] = region;
+                Dispatcher.UIThread.RunJobs();
+                using var frame = window.CaptureRenderedFrame();
+                frame.Should().NotBeNull();
+                var boxes = view.GetVisualDescendants().OfType<ComboBox>().ToArray();
+                boxes.Should().HaveCount(2);
+                boxes[1].IsEnabled.Should().Be(selection != "system");
+                if (selection == "system") boxes[1].ItemCount.Should().Be(0);
+                ControlAutomationPeer.CreatePeerForElement(boxes[0]).GetName()
+                    .Should().Be(MenuPath.StripAccessKey(language), id);
+                ControlAutomationPeer.CreatePeerForElement(boxes[1]).GetName()
+                    .Should().Be(MenuPath.StripAccessKey(region), id);
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("theme", "Str.Options.Theme.ThemeLabel")]
+    [InlineData("keymap", "Str.Options.Keymap.Label")]
+    public void OtherOptionsLists_AreNamedByTheirLocalizedLabel(string field, string key)
+    {
+        var (settings, theme, keymap, _, _, _) = Mocks();
+        Control view = field == "theme"
+            ? new ThemePageView { DataContext = new ThemePageViewModel(settings, theme) }
+            : new KeymapPageView { DataContext = new KeymapPageViewModel(settings, keymap) };
+        var loc = new LocalizationService();
+        var window = new Window { Content = view, Width = 480, Height = 360 };
+        window.Show();
+        try
+        {
+            foreach (var id in LanguageManifest.Packs.Select(p => p.Id).Append("en-GB"))
+            {
+                var caption = loc.GetStringFrom(id, key);
+                view.Resources[key] = caption;
+                Dispatcher.UIThread.RunJobs();
+                var box = view.GetVisualDescendants().OfType<ComboBox>().Single();
+                ControlAutomationPeer.CreatePeerForElement(box).GetName()
+                    .Should().Be(MenuPath.StripAccessKey(caption), id);
+            }
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void OptionsView_RendersTwoPane_WithoutErrors()
     {
