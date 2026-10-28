@@ -3,7 +3,8 @@ using HexIDE.Forms.ViewModels;
 namespace HexIDE.Automation;
 
 /// <summary>
-/// Puts a code window's caret at a line and column, as the code window numbers them, for open_file (#700).
+/// Puts an editor's caret at a line and column, as the editor numbers them, for open_file: a code window's (#700), or a
+/// carried file's (#2403).
 /// </summary>
 public static class CaretPlacement
 {
@@ -36,7 +37,7 @@ public static class CaretPlacement
     /// Puts <paramref name="editor"/>'s caret at (<paramref name="line"/>, <paramref name="column"/>), 1-based, if its
     /// text has that place; false, with the caret left alone, if it has not.
     /// </summary>
-    public static bool Place(CodeEditorViewModel editor, int line, int column)
+    public static bool Place(ISearchableDocument editor, int line, int column)
     {
         if (Refusal(editor.Document.Text, line, column) is not null) return false;
         editor.CaretOffset = editor.Document.GetLineByNumber(line).Offset + column - 1;
@@ -47,7 +48,7 @@ public static class CaretPlacement
     /// Where <paramref name="editor"/>'s caret is, read back rather than echoed, and whether that is where
     /// (<paramref name="line"/>, <paramref name="column"/>) asked for it.
     /// </summary>
-    public static string Where(CodeEditorViewModel editor, int line, int column)
+    public static string Where(ISearchableDocument editor, int line, int column)
     {
         var at = editor.Document.GetLocation(editor.CaretOffset);
         var where = $"The caret is at line {at.Line}, column {at.Column}: offset {editor.CaretOffset} in the text "

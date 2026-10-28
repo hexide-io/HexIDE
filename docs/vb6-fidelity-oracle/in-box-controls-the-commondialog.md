@@ -7,6 +7,10 @@ The two agree where they overlap.
 - **The control:** its form line is
   `Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "COMDLG32.OCX"`, and its block is
   `Begin MSComDlg.CommonDialog`.
+- **The library record:** the oracle VM's type-library dump already committed as
+  `IDE/HexIDE.Runtime/Interpreter/Data/comdlg32-constants.json` identifies the library as `MSComDlg`, with the
+  description `Microsoft Common Dialog Control 6.0`. Its 102 constants and this metadata came from
+  `scripts/dump-typelib-constants.ps1` against COMDLG32.OCX (#1148); these are existing dump results, not a new probe.
 - **The object-model program:** a Sub Main showing a form holding a CommonDialog. It drives the control late-bound
   under `On Error Resume Next`, logging each value with its `TypeName`, or the error.
 - **The dialogs program:** the same form, where each step opens a dialog and logs the properties after it returns.
@@ -231,7 +235,7 @@ A driver answered each dialog with real keys, as for the ShowX rows above. The t
   - The third had its defaults written out.
   - A second save of the same form also had a fourth CommonDialog double-clicked from the toolbox.
 - **The run-time read:** an EXE read every property back from VB6's save, natively and as p-code.
-- **The corpus:** VB6's save is in `corpus/inbox-controls/pending/commondialog/`.
+- **The corpus:** VB6's save is in `corpus/inbox-controls/saved/commondialog/`.
 
 **Double-clicked onto a 6000×4500-twip form,** VB6 writes:
 
@@ -273,4 +277,18 @@ PrinterDefault, ToPage, Orientation
 
 ### In HexIDE
 
-HexIDE runs ShowOpen, ShowSave and ShowFont through the IDE's own dialogs, and keeps the control's block in the file as it was read. The oracle's "The CommonDialog control" (2026-10-17) has what it does and what it refuses. What this entry adds has not been checked against it (#1084). For one: that entry left `cdlOFNExtensionDifferent` unmeasured and HexIDE doesn't set it, and here Windows set it on every pick whose extension differed from DefaultExt, an empty DefaultExt included.
+ShowOpen, ShowSave and ShowFont run through the host (#1148). The scalar object-model slice of #1084
+adds the measured defaults and assignment checks; hDC reads remain refused because no native printer DC is owned.
+The control now loads through the MSComDlg library record and its component class, with own file properties carried
+verbatim. Color reads preserve VarType 19 and the unsigned value; assigning -1 overflows. Unmeasured unsigned numeric
+conversions remain refused. Single-file Open/Save now add PathMustExist even on Cancel, set ExtensionDifferent for an extension differing from
+DefaultExt (including an empty one), complete DefaultExt or a simple selected Save filter extension, and raise 20476
+when Open returns a path exceeding MaxFileSize. An unavailable selected filter or an unmeasured complex filter completion
+is refused. Save buffer errors, exact buffer-fit boundaries, extension casing and resetting an existing ExtensionDifferent bit remain
+unmeasured; their previous behavior is unchanged. Multi-select now passes every picked path through both hosts and formats the measured same-folder results above.
+Cross-folder selections and old-format paths with spaces are refused because their encoding is unmeasured.
+Action 1–6 now dispatches to the corresponding Show methods, awaiting their results; integral writes 0, 7, 8 and -1 raise 380. Non-integral assignment conversions remain refused. ShowHelp returns for the measured commands 0, 2 and 3; other commands are refused. ShowColor and ShowPrinter remain refused at their method entry points.
+The old native dialog appearance and uppercase CurDir side effect, the remaining dialogs and their return
+semantics remain outstanding. The measured CommonDialog save now round-trips byte for byte in the saved corpus lane;
+explicit own-property defaults are omitted in the measured order, with six separate font lines and no Font block.
+ShowHelp does not start HelpPane.exe as Windows 10 does: the supervisor directed HexIDE to return without launching it (#1084).

@@ -68,12 +68,13 @@ public class DesignerRootPropertiesTests
         Listed(designer).Should().BeSubsetOf(Vb6UserControl);
     }
 
+    // #1631, issuecomment-6426450412: HelpContextID belongs in the PropertyPage Properties window.
     [AvaloniaFact]
     public void A_PropertyPage_lists_only_properties_VB6s_PropertyPage_has()
     {
         var (_, designer) = Open("PropertyPage", "PropertyPage1");
 
-        Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Font", "ForeColor", "Height", "KeyPreview", "Tag", "Width");
+        Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Font", "ForeColor", "Height", "HelpContextID", "KeyPreview", "Tag", "Width");
         Listed(designer).Should().BeSubsetOf(Vb6PropertyPage);
     }
 

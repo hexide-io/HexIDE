@@ -17,6 +17,17 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class WindowContextFaultTests
 {
+    [Fact]
+    public void Visibility_before_a_form_load_does_not_start_its_controls()
+    {
+        // A managed window's initial IsVisible notification arrives while its constructor is still running (#1631).
+        var context = new VBWindowContext(new StandardLibrary(() => Task.FromResult(MessageBoxResult.Ok)));
+        var shown = () => context.Shown();
+
+        shown.Should().NotThrow();
+        context.Interpreter.Should().BeNull();
+    }
+
     private sealed class StandardLibrary(Func<Task<MessageBoxResult>> msgBox) : IBasicStandardLibrary
     {
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
