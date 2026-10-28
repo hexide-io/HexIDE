@@ -145,7 +145,7 @@ public class McpGapsDocTests
 
         headings.Except(IndexSections).Should().BeEmpty(
             "a new gap goes in docs/mcp-gaps/open/<issue>.md, not in docs/mcp-server-gaps.md, which is the index");
-        File.Exists(Path.Combine(RepoTree.Root(), "docs", "archive", "mcp-server-gaps-closed.md")).Should().BeFalse(
+        File.Exists(Path.Combine(RepoTree.Root(), "docs/archive", "mcp-server-gaps-closed.md")).Should().BeFalse(
             "a closed gap is its own file in docs/mcp-gaps/closed/");
     }
 }
