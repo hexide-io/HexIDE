@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -12,11 +13,15 @@ using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Runtime;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.RichText;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -65,7 +70,9 @@ public class RichTextBoxInputTests
             box.Document.Slice(6, 1).Single().Format.Should().BeEquivalentTo(new RtfCharacterFormat(Bold: true, Color: 255));
             events.Calls.Should().Equal("r_KeyDown", "r_KeyPress", "r_SelChange", "r_Change", "r_KeyUp");
             Action unmeasuredKey = () => window.KeyTextInput("€");
-            unmeasuredKey.Should().Throw<NotImplementedException>().WithMessage("*non-ASCII KeyPress*#1100*");
+            // Refused, and sent to the form: Input_refusals_reach_the_program_as_its_run_time_error.
+            unmeasuredKey.Should().NotThrow();
+            box.Document.Text.Should().Be("alpha x gamma");
         }
         finally { window.Close(); }
     }
@@ -213,7 +220,8 @@ public class RichTextBoxInputTests
             events.Calls.Where(c => c is "r_SelChange" or "r_Change").Should().Equal("r_SelChange", "r_Change");
             box.SetText("assigned from code");
             Action undo = () => Shortcut(window, Key.Z);
-            undo.Should().Throw<NotImplementedException>().WithMessage("*Undo after a code edit*#1100*");
+            undo.Should().NotThrow();
+            box.Document.Text.Should().Be("assigned from code");
         }
         finally { window.Close(); }
     }
@@ -267,7 +275,7 @@ public class RichTextBoxInputTests
             box.Select(6, 4);
             box.FormatSelection(f => f with { Bold = true });
             Action copy = () => Shortcut(window, Key.C);
-            copy.Should().Throw<NotImplementedException>().WithMessage("*formatted clipboard*#1100*");
+            copy.Should().NotThrow();
         }
         finally { window.Close(); }
     }
@@ -332,7 +340,7 @@ public class RichTextBoxInputTests
         {
             box.Select(7, 5);
             Action navigate = () => window.KeyPress(Enum.Parse<Key>(key), RawInputModifiers.None, PhysicalKey.None, null);
-            navigate.Should().Throw<NotImplementedException>().WithMessage("*endpoints*#1100*");
+            navigate.Should().NotThrow();
             box.Start.Should().Be(7);
             box.Length.Should().Be(5);
         }
@@ -356,7 +364,7 @@ public class RichTextBoxInputTests
         try
         {
             Action navigate = () => window.KeyPress(Enum.Parse<Key>(key), RawInputModifiers.None, PhysicalKey.None, null);
-            navigate.Should().Throw<NotImplementedException>().WithMessage("*endpoints*#1100*");
+            navigate.Should().NotThrow();
             box.Start.Should().Be(0);
             box.Length.Should().Be(0);
         }
@@ -470,7 +478,7 @@ public class RichTextBoxInputTests
                 edge is "non-ASCII" or "collapse" ? (RawInputModifiers)CommandModifiers
                     : edge == "hidden-break-collapse" ? RawInputModifiers.None : RawInputModifiers.Shift,
                 PhysicalKey.None, null);
-            navigate.Should().Throw<NotImplementedException>().WithMessage("*endpoints*#1100*");
+            navigate.Should().NotThrow();
         }
         finally { window.Close(); }
     }
@@ -540,7 +548,7 @@ public class RichTextBoxInputTests
                     if (gesture == "punctuation") window.MouseDown(point, MouseButton.Left);
                 }
             };
-            select.Should().Throw<NotImplementedException>().WithMessage("*selection*#1100*");
+            select.Should().NotThrow();
         }
         finally { window.Close(); }
     }
@@ -772,5 +780,88 @@ public class RichTextBoxInputTests
             RedPixels().Should().BeGreaterThan(small);
         }
         finally { window.Close(); }
+    }
+
+    private sealed class NullSink : IDeserializeErrorSink
+    {
+        public void LogError(string _) { }
+    }
+
+    // A refusal met while handling input is the program's run-time error. Thrown out of the input handler it would reach
+    // the UI thread, and end the IDE (#643).
+    [AvaloniaTheory]
+    [InlineData("navigation", "*endpoints*#1100*")]
+    [InlineData("undo", "*Undo after a code edit*#1100*")]
+    [InlineData("copy", "*formatted clipboard*#1100*")]
+    [InlineData("non-ASCII", "*non-ASCII KeyPress*#1100*")]
+    [InlineData("modified-press", "*modified mouse selection*#1100*")]
+    [InlineData("drag", "*drag selection*#1100*")]
+    public void Input_refusals_reach_the_program_as_its_run_time_error(string input, string message)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var source = "VERSION 5.00\r\nBegin VB.Form Form1\r\nClientWidth = 4500\r\nClientHeight = 3000\r\n"
+            + "Begin RichTextLib.RichTextBox r\r\nWidth = 3000\r\nHeight = 1500\r\nEnd\r\nEnd\r\n"
+            + "Attribute VB_Name = \"Form1\"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n";
+        project.AddForm(new FormDeserializer().Deserialize(project, source, new NullSink())!);
+        using var cancel = new CancellationTokenSource();
+        var context = ExecutionContext.Capture();
+        VBFormRuntime? window = null;
+        var faults = new List<Exception>();
+        void Faulted(VBWindowContext faulted, Exception error)
+        {
+            if (window != null && ReferenceEquals(faulted, ((IFormView)window).Context))
+                faults.Add(error);
+        }
+        VBWindowContext.Faulted += Faulted;
+        try
+        {
+            _ = VBLoader.RunForm(project.StartupForm!, cancel.Token, out window);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            var box = window.GetVisualDescendants().OfType<VBRichTextBox>().Single();
+            box.SetText(input == "navigation" ? KeyboardProbe : "alpha beta gamma");
+            box.Focus();
+            Point At(int character) => box.TranslatePoint(AtCharacter(box, character), window)!.Value;
+            Action act = input switch
+            {
+                "navigation" => () =>
+                {
+                    box.Select(7, 5);
+                    window.KeyPress(Key.Home, RawInputModifiers.None, PhysicalKey.None, null);
+                },
+                "undo" => () =>
+                {
+                    box.Select(16, 0);
+                    window.KeyTextInput("x");
+                    box.SetText("assigned from code");
+                    Shortcut(window, Key.Z);
+                },
+                "copy" => () =>
+                {
+                    box.Select(6, 4);
+                    box.FormatSelection(f => f with { Bold = true });
+                    Shortcut(window, Key.C);
+                },
+                "non-ASCII" => () => window.KeyTextInput("€"),
+                "modified-press" => () => window.MouseDown(At(4), MouseButton.Left, RawInputModifiers.Shift),
+                _ => () =>
+                {
+                    window.MouseDown(At(4), MouseButton.Left);
+                    window.MouseUp(At(10), MouseButton.Left);
+                },
+            };
+            act.Should().NotThrow();
+            for (var i = 0; i < 5; i++) Dispatcher.UIThread.RunJobs();
+            faults.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+                .Which.Message.Should().Match(message);
+        }
+        finally
+        {
+            VBWindowContext.Faulted -= Faulted;
+            cancel.Cancel();
+            window?.Close();
+            Dispatcher.UIThread.RunJobs();
+            if (context != null) ExecutionContext.Restore(context);
+        }
     }
 }

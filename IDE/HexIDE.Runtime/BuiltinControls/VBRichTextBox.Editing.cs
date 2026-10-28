@@ -18,8 +18,8 @@ public sealed partial class VBRichTextBox
     {
         AttachedEvents.AttachMouse<VBRichTextBox>(AttachedEvents.DblClick.InPlaceOfMouseDown);
         AttachedEvents.AttachClick<VBRichTextBox>();
-        PointerPressedEvent.AddClassHandler<VBRichTextBox>((box, e) => box.Press(e));
-        PointerReleasedEvent.AddClassHandler<VBRichTextBox>((box, e) => box.Release(e));
+        PointerPressedEvent.AddClassHandler<VBRichTextBox>((box, e) => box.Guarded(e, () => box.Press(e)));
+        PointerReleasedEvent.AddClassHandler<VBRichTextBox>((box, e) => box.Guarded(e, () => box.Release(e)));
     }
 
     private void RememberEdit()
@@ -95,7 +95,12 @@ public sealed partial class VBRichTextBox
     private static async void CopyText(Avalonia.Input.Platform.IClipboard clipboard, string text) =>
         await clipboard.SetTextAsync(text);
 
-    private async void PasteFromKey() => await PasteInput();
+    // An async void that throws reaches the UI thread's context, so its refusal takes the same route as the handlers'.
+    private async void PasteFromKey()
+    {
+        try { await PasteInput(); }
+        catch (NotImplementedException refusal) { Refuse(refusal); }
+    }
 
     internal async Task PasteInput()
     {

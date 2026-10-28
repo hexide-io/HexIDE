@@ -547,7 +547,13 @@ The platform command shortcuts SHALL select all, insert a tab, copy/paste plain 
 and undo the previous input edit through the RTF model. Bold and underline shortcuts SHALL raise KeyPress
 without changing formatting. The control SHALL scroll to keep the caret visible and use the same offset
 when hit-testing the mouse. Copying formatted selections and pasting sources carrying non-text formats SHALL refuse rather than flatten text. Undo after a code edit SHALL refuse
-until that interaction is measured.
+until that interaction is measured. A refusal met while handling the keyboard or mouse SHALL reach the running program as
+its run-time error, and SHALL NOT leave the input handler, where it would end the IDE.
+
+#### Scenario: A refused key
+- **WHEN** the user presses plain Home over a selection set by code
+- **THEN** the selection is unchanged and the program stops on its run-time error
+- **AND** the IDE keeps running
 
 #### Scenario: Double-click a word
 - **WHEN** the user double-clicks beta in `alpha beta gamma`

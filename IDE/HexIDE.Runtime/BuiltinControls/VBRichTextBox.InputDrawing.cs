@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
@@ -44,18 +45,41 @@ public sealed partial class VBRichTextBox
         InvalidateVisual();
     }
 
+    // A refusal met while handling input reaches the program as its run-time error, through the form's event queue as
+    // the TabStrip's do. Thrown out of an Avalonia input handler it would reach the UI thread and end the IDE (#643).
+    private void Guarded(RoutedEventArgs e, Action input)
+    {
+        try { input(); }
+        catch (NotImplementedException refusal)
+        {
+            e.Handled = true;
+            Refuse(refusal);
+        }
+    }
+
+    private void Refuse(NotImplementedException refusal)
+    {
+        if (this.FindLogicalAncestorOfType<IFormView>() is { } form)
+            form.Context.ExecuteControlInput($"{VBProps.GetName(this)}_Input", () => Task.FromException(refusal));
+    }
+
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        if (e.Handled || string.IsNullOrEmpty(e.Text)) return;
-        if (e.Text.Any(c => c > 127))
+        if (e.Handled || e.Text is not { Length: > 0 } text) return;
+        Guarded(e, () => TypeInput(text));
+        e.Handled = true;
+    }
+
+    private void TypeInput(string text)
+    {
+        if (text.Any(c => c > 127))
             throw new NotImplementedException("RichTextBox non-ASCII KeyPress conversion is not implemented (#1100)");
-        foreach (var character in e.Text)
+        foreach (var character in text)
         {
             RaiseKey(ComponentBaseClass.KeyPressEvent, character);
             InsertFromInput(character.ToString());
         }
-        e.Handled = true;
     }
 
     private bool CanEdit => !InputLocked && !SelectedRuns.Any(r => r.Format.Protected);
@@ -74,6 +98,11 @@ public sealed partial class VBRichTextBox
     {
         base.OnKeyDown(e);
         if (e.Handled) return;
+        Guarded(e, () => KeyDownInput(e));
+    }
+
+    private void KeyDownInput(KeyEventArgs e)
+    {
         if (KeyCode(e.Key) is { } code) RaiseKey(ComponentBaseClass.KeyDownEvent, code, e.KeyModifiers);
         if (Navigate(e) || Shortcut(e))
         {
