@@ -46,7 +46,8 @@ public class ComponentsViewModelTests
 
         vm.Controls.Select(c => (c.Name, c.Location, c.IsSelected)).Should().Equal(
             ("Microsoft Windows Common Controls 5.0 (SP2)", "COMCTL32.OCX", false),
-            ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true));
+            ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true),
+            ("RichTextLib", "RICHTX32.OCX", false));
         vm.Controls.Should().OnlyContain(c => c.CanChange);
     }
 

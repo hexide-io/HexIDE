@@ -802,6 +802,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // TextBox and Text = "Combo1" for a ComboBox (measured, #926). Only where the class has the property.
         if (baseClass.Properties.Contains(VBProperties.CaptionProperty))
             instance.SetProperty(VBProperties.CaptionProperty, newName);
+        if (baseClass is RichTextBoxComponentClass)
+            RichTextBoxPersistence.Seed(instance, newName);
         if (baseClass.Properties.Contains(VBProperties.TextProperty))
             instance.SetProperty(VBProperties.TextProperty, newName);
         var newComponent = new ComponentInstanceViewModel(this, instance)

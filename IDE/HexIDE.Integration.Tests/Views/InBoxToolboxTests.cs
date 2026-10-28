@@ -46,6 +46,26 @@ public class InBoxToolboxTests
         toolbox.Components.Where(c => c.BaseClass is InBoxComponentClass).Select(c => c.Library).ToArray();
 
     [AvaloniaFact]
+    public void RichTextBox_toolbox_placement_seeds_its_name_and_declares_its_library()
+    {
+        var library = ControlLibraries.All.Single(l => l.Name == "RichTextLib");
+        var (_, toolbox, vm, form) = Designer(library);
+        toolbox.Components.Single(c => c.BaseClass is RichTextBoxComponentClass).Library.Should().BeSameAs(library);
+        vm.SpawnControlCenter(RichTextBoxComponentClass.Instance, library);
+        vm.CommitLayout();
+        form.HeaderLines.Should().Equal("Object = \"{3B7C8863-D78F-101B-B9B5-04021C009402}#1.2#0\"; \"RICHTX32.OCX\"");
+        var box = form.Components.Single(c => c.BaseClass is RichTextBoxComponentClass);
+        box.GetPropertyOrDefault(VBProperties.WidthProperty).Should().Be(100);
+        box.GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(50);
+        box.BaseClass.Properties.Should().NotContain(p => p.Name == "TextRTF" || p.Name == "Font" || p.Name == "MultiLine" || p.Name == "Locked",
+            "saved own properties are carried until their designer editing is faithful");
+        var (text, bytes) = new FormSerializer().Serialize(form, "Form1.frm");
+        text.Should().Contain("Begin RichTextLib.RichTextBox RichTextBox1").And.NotContain("Text            =");
+        System.Text.Encoding.ASCII.GetString(bytes!, 4, bytes!.Length - 4).Should().Be(
+            "{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fnil\\fcharset0 MS Sans Serif;}}\r\n\\viewkind4\\uc1\\pard\\lang1033\\f0\\fs17 RichTextBox1\r\n\\par }\r\n");
+    }
+
+    [AvaloniaFact]
     public void A_project_that_references_no_library_offers_no_in_box_control()
     {
         var (_, toolbox, _, _) = Designer();

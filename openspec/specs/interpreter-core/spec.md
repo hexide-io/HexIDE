@@ -386,3 +386,152 @@ syntax errors for modules and expressions, and returning null for unparseable st
 #### Scenario: SLL cannot parse an entry
 - **WHEN** SLL cancels parsing a module or Immediate-window entry
 - **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
+
+### Requirement: Code-driven RichTextBox document members
+
+A minimal `RichTextLib.RichTextBox` form SHALL run with Text, TextRTF, SelStart, SelLength, SelText,
+SelRTF, the measured Sel character formatting properties and SelAlignment backed by the in-tree RTF
+model. Its default member SHALL be TextRTF. Unsupported members and RTF conversions SHALL refuse with
+HexIDE's not-implemented error rather than return a guessed value. Runtime access to remaining
+RichTextBox properties remains outside this slice (#1100); the first input/drawing slice is specified below.
+Non-Null SelColor reads SHALL refuse until
+the measured Variant subtype 19 is represented; mixed colours SHALL still read Null.
+
+#### Scenario: Format a selection and read RTF
+- **WHEN** a program loads the oracle's Arial RTF, replaces `quick` with `slow`, selects `slow`, and applies
+  bold, italic, underline, red, Courier New and 14-point formatting
+- **THEN** TextRTF and SelRTF reproduce the recorded whole-document and selection RTF byte for byte
+- **AND** a mixed character selection reads Null for properties whose values differ
+
+#### Scenario: Invalid paragraph alignment preserves the prior value
+- **WHEN** a program assigns SelAlignment 3, 4, 100, -1 or Null
+- **THEN** error 380 is raised and the existing alignment is kept
+
+### Requirement: RichTextBox saved text
+
+RichTextBox SHALL load saved TextRTF through its RTF model and round-trip the measured form and companion
+byte for byte. Unsupported inline RTF normalization SHALL hold the designer read-only. Single-line
+loading and Text assignment SHALL keep only the first paragraph. Unmeasured empty first-paragraph
+RTF output, single-line TextRTF and selection paragraph insertion SHALL refuse.
+
+#### Scenario: Save a RichTextBox form
+- **WHEN** the recorded RichTextBox form is saved
+- **THEN** extents are recomputed and own properties follow the measured order, with Enabled and TextRTF always written
+- **AND** handwritten Locked is ignored; ReadOnly is the persisted spelling
+- **AND** TextRTF is a dollar-prefixed companion citation of a four-byte little-endian length and RTF bytes without a terminator
+
+#### Scenario: Load single-line text
+- **WHEN** a saved RichTextBox has MultiLine False and TextRTF containing several paragraphs
+- **THEN** only the first paragraph survives loading and saving
+- **AND** assigning Text containing CR LF at runtime also keeps only its first paragraph
+
+### Requirement: RichTextBox designer placement and editing limits
+
+RichTextLib SHALL be offered in Components and its control in the referenced project's toolbox.
+Saved own properties SHALL remain unavailable for designer editing until faithfully modelled.
+RTF edits with a nonzero MaxLength SHALL refuse until their truncation semantics are measured.
+
+#### Scenario: Place a RichTextBox
+- **WHEN** a developer places a RichTextBox from the toolbox
+- **THEN** its form declares RICHTX32.OCX, its size is 1500 by 750 twips, and its RTF contains its own name as text
+
+### Requirement: RichTextBox typing and character drawing
+
+A running RichTextBox SHALL accept typed text over its selection through the RTF model, preserving
+character formatting. Enter SHALL insert CR LF and Backspace immediately after CR LF SHALL remove
+both characters. Typing and Enter SHALL raise KeyDown, KeyPress, SelChange, Change, KeyUp; Backspace
+SHALL raise its KeyPress after SelChange and Change. Saved ReadOnly/MaxLength and protected runs
+SHALL constrain real input. Character runs SHALL draw their face, size, colour, bold, italic, underline
+and strikethrough. Selection SHALL draw black with white text and hide on focus loss by default.
+Paragraph drawing, formatted clipboard transfer and unmeasured keyboard navigation/drag-selection edges
+remain outside this input/drawing slice (#1100). Non-ASCII KeyPress conversion SHALL refuse until measured;
+code-driven ANSI text remains supported.
+
+#### Scenario: Type over formatted text
+- **WHEN** a user types a character over a bold selection
+- **THEN** that character replaces the selection, retains bold, and moves the caret after it
+- **AND** SelChange precedes Change
+
+#### Scenario: Backspace after a paragraph break
+- **WHEN** a user presses Backspace immediately after CR LF
+- **THEN** both characters are deleted and the edit events precede KeyPress
+
+
+### Requirement: RichTextBox measured selection and editing shortcuts
+
+RichTextBox SHALL select the clicked caret position after MouseDown, MouseUp and Click. A double-click
+SHALL select the measured ASCII word with its trailing space after DblClick. Modified clicks, drag selection
+and other word boundaries SHALL refuse until their endpoints are measured. Right-click SHALL raise Click.
+The platform command shortcuts SHALL select all, insert a tab, copy/paste plain text, align the paragraph
+and undo the previous input edit through the RTF model. Bold and underline shortcuts SHALL raise KeyPress
+without changing formatting. The control SHALL scroll to keep the caret visible and use the same offset
+when hit-testing the mouse. Copying formatted selections and pasting sources carrying non-text formats SHALL refuse rather than flatten text. Undo after a code edit SHALL refuse
+until that interaction is measured.
+
+#### Scenario: Double-click a word
+- **WHEN** the user double-clicks beta in `alpha beta gamma`
+- **THEN** DblClick precedes SelChange selecting `beta `
+
+#### Scenario: Undo paragraph alignment
+- **WHEN** the user right-aligns, then left-aligns a paragraph, then invokes Undo
+- **THEN** the paragraph is right-aligned again and SelChange precedes Change
+
+
+### Requirement: RichTextBox box drawing
+
+RichTextBox SHALL use saved BackColor while enabled and draw disabled text in grey on button face.
+Re-enabling SHALL restore the saved background and character colours. BorderStyle 0 SHALL omit the
+border; a bordered control SHALL use its saved Appearance for flat or inset edges. Enabled SHALL
+support Boolean runtime reads and writes. Appearance and BorderStyle SHALL read their saved/default
+values and reject runtime assignments with error 383. Runtime BackColor access, paragraph drawing
+and character offsets remain outside this slice (#1100).
+
+#### Scenario: Disable and re-enable coloured text
+- **WHEN** a RichTextBox with coloured text and background is disabled
+- **THEN** the text is grey and the background is button face
+- **AND** re-enabling restores the saved background and the document's character colours
+
+#### Scenario: Runtime border assignment
+- **WHEN** a program assigns Appearance or BorderStyle
+- **THEN** error 383 is raised and the saved value remains unchanged
+
+### Requirement: RichTextBox measured keyboard selection
+
+RichTextBox SHALL extend selection with Shift+arrows and Shift+Home/End using the measured
+unwrapped CRLF endpoints. Line-end extension SHALL include the break, including the hidden
+final break at Len(Text)+2. A code selection SHALL initially move its upper end; a keyboard
+selection SHALL retain its anchor. Plain Left/Right SHALL collapse an existing selection to
+the pressed side. Command+Right SHALL only collapse an existing selection. Command+arrows
+SHALL use the recorded word stops, with punctuation runs separate and the apostrophe in
+`it's` within the word. Wrapped vertical endpoints, lone-break navigation and non-ASCII word
+endpoints SHALL refuse until measured. Collapsing a selection containing the hidden final break
+and command-left collapse SHALL also refuse until measured.
+
+#### Scenario: Extend across an empty paragraph
+- **GIVEN** the unwrapped 67-character keyboard probe recorded in the RichTextBox oracle
+- **WHEN** Shift+Down is pressed three times from position 3
+- **THEN** selection is successively 3+41, 3+61 and 3+66
+
+#### Scenario: Select the hidden final break
+- **GIVEN** the caret is at position 67 in that probe
+- **WHEN** Shift+Right is pressed
+- **THEN** SelStart is 67 and SelLength is 2
+
+### Requirement: RichTextBox measured runtime editing limits
+
+RichTextBox SHALL expose Boolean Locked and SelProtected access through its input guards while allowing
+code to edit locked or protected text. Mixed protection SHALL read Null. MultiLine and ScrollBars SHALL
+read saved/default values and reject runtime assignments with 383. MaxLength SHALL accept the recorded
+0, 5 and 20 values, truncate Text to the limit, and drop SelText appended at a full limit. Unmeasured
+limit assignments, reduction below existing text, other code selection replacements with a limit,
+and RTF assignments with a limit SHALL refuse with the not-implemented error.
+
+#### Scenario: Assign text at a limit of five
+- **WHEN** a program sets MaxLength to 5 and assigns Text `1234567890`
+- **THEN** Text reads `12345`
+- **AND** appending SelText `abc` at its end leaves the text unchanged
+
+#### Scenario: Protect text from real input
+- **WHEN** a program locks the box or protects a selected run and the user types over it
+- **THEN** key events are raised without changing the text
+- **AND** code can still replace the text

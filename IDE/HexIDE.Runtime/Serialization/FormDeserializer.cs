@@ -88,6 +88,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        RichTextBoxComponentClass.Instance,
     ];
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -545,6 +546,14 @@ public class FormDeserializer
                 capturedBlobs.UnionWith(records.Values);
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
+            }
+            if (componentClass is RichTextBoxComponentClass)
+            {
+                try { _ = RichTextBoxPersistence.RtfToWrite(instance); }
+                catch (NotImplementedException ex)
+                {
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, ex.Message);
+                }
             }
             // An in-box control is written back under the type name it was read under, and with the extents it was read with
             // until it is sized (#1082).

@@ -123,7 +123,9 @@ public class FormSerializer
             vb.BeginSortedProperties();
             WriteAllProperties(vb, component, citations);
             vb.EndSortedProperties();
-            if (inBox is not null)
+            if (component.BaseClass is RichTextBoxComponentClass)
+                RichTextBoxPersistence.Write(vb, component, citations);
+            else if (inBox is not null)
                 WriteOwnProperties(vb, component, inBox, citations);
             WriteChildren(component, ChildrenOf(component));
             vb.End();
@@ -350,6 +352,8 @@ public class FormSerializer
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)
         {
+            if (instance.BaseClass is RichTextBoxComponentClass && RichTextBoxPersistence.IsOwnProperty(raw.Name))
+                continue;
             if (inBox is not null && IsOwnRunLine(inBox, raw.Name))
                 continue;
             if (instance.BaseClass.Properties.Any(p =>

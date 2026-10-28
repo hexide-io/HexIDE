@@ -2063,6 +2063,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VBRichTextBox richTextBox)
+                {
+                    VBProps.RefuseIfRemoved(richTextBox);
+                    RichTextBoxMembers.TrySet(richTextBox, "TextRTF", value);
+                    return default;
+                }
                 RefuseLetIntoObject(oldLet, identifier, context);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
@@ -2269,6 +2275,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
             // Every member of a control Controls.Remove took out is 735 (measured, #1556).
             VBProps.RefuseIfRemoved(control);
+
+            if (RichTextBoxMembers.TrySet(control, memberIdentifier, value))
+                return default;
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
             if (ProgressBarMembers.TrySet(control, memberIdentifier, value) is { } inBox)
