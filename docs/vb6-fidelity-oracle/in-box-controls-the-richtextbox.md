@@ -436,3 +436,12 @@ groups and Symbol table entry, not a newly measured whole document. Lone CR/LF o
 bullet/table syntax and unknown words remain refused. The remaining control members and the rest of input/drawing remain separate parts. No additional VB6 measurements were made for this slice.
 
 Keyboard selection follows "Keyboard selection: where the endpoints land" above. Wrapped-line vertical endpoints, lone-break navigation and non-ASCII word endpoints remain refused. Collapsing a hidden-break selection and command-left collapse also remain refused as unmeasured.
+
+Plain Left/Right/Home/End/Up/Down without a selection now use the corresponding recorded Shift
+endpoints, as directed by the supervisor's 2026-10-28 comment on #1100; this is an implementation
+mapping, not a new VB6 measurement. Lone-break navigation and wrapped Home/End/Up/Down refuse,
+as do plain Home/End/Up/Down with a selection (their collapse endpoints are unmeasured).
+The designer uses the existing labelled, view-only placeholder even for unsupported RTF.
+Saved BackColor accepts hexadecimal and decimal OLE_COLOR spellings; the checked-in group-3
+save's RichTextBox1 uses decimal 12648447 (RGB 255, 255, 192). The runtime regression loads
+that saved form and its companion rather than substituting a handwritten hexadecimal colour.

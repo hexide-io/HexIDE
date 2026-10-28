@@ -294,6 +294,76 @@ public class RichTextBoxInputTests
     private const string KeyboardProbe = "Hello, world. Foo-bar baz! it's 3.14 (x)\r\n\r\nSecond line, here.\r\nEnd";
 
     [AvaloniaTheory]
+    [InlineData(0, "Right", 1)]
+    [InlineData(5, "Left", 4)]
+    [InlineData(40, "Right", 42)]
+    [InlineData(44, "Left", 42)]
+    [InlineData(9, "Home", 0)]
+    [InlineData(9, "End", 42)]
+    [InlineData(3, "Down", 44)]
+    [InlineData(3, "Up", 0)]
+    [InlineData(66, "Down", 69)]
+    [InlineData(67, "Right", 69)]
+    [InlineData(67, "Home", 64)]
+    public void Plain_navigation_moves_to_the_recorded_Shift_endpoint(int start, string key, int expected)
+    {
+        var (window, box, _) = Open(KeyboardProbe);
+        try
+        {
+            window.Width = 1000;
+            window.UpdateLayout();
+            box.Select(start, 0);
+            window.KeyPress(Enum.Parse<Key>(key), RawInputModifiers.None, PhysicalKey.None, null);
+            box.Start.Should().Be(expected);
+            box.Length.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Home")]
+    [InlineData("End")]
+    [InlineData("Up")]
+    [InlineData("Down")]
+    public void Plain_navigation_with_a_selection_refuses_unmeasured_non_arrow_collapse(string key)
+    {
+        var (window, box, _) = Open(KeyboardProbe);
+        try
+        {
+            box.Select(7, 5);
+            Action navigate = () => window.KeyPress(Enum.Parse<Key>(key), RawInputModifiers.None, PhysicalKey.None, null);
+            navigate.Should().Throw<NotImplementedException>().WithMessage("*endpoints*#1100*");
+            box.Start.Should().Be(7);
+            box.Length.Should().Be(5);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("a\nb", "Right")]
+    [InlineData("a\nb", "Left")]
+    [InlineData("a\nb", "Home")]
+    [InlineData("a\nb", "End")]
+    [InlineData("a\nb", "Up")]
+    [InlineData("a\nb", "Down")]
+    [InlineData("wrapped", "Home")]
+    [InlineData("wrapped", "End")]
+    [InlineData("wrapped", "Up")]
+    [InlineData("wrapped", "Down")]
+    public void Plain_navigation_refuses_unmeasured_lone_break_and_wrapped_line_endpoints(string text, string key)
+    {
+        var (window, box, _) = Open(text == "wrapped" ? new string('a', 300) : text);
+        try
+        {
+            Action navigate = () => window.KeyPress(Enum.Parse<Key>(key), RawInputModifiers.None, PhysicalKey.None, null);
+            navigate.Should().Throw<NotImplementedException>().WithMessage("*endpoints*#1100*");
+            box.Start.Should().Be(0);
+            box.Length.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
     [InlineData(0, "Right,Left", "0+1,0+0")]
     [InlineData(5, "Left,Left", "4+1,3+2")]
     [InlineData(40, "Right,Right,Right", "40+2,40+4,40+5")]
@@ -535,8 +605,7 @@ public class RichTextBoxInputTests
             window.UpdateLayout();
             var pixels = Pixels(box);
             pixels.Skip((50 * 300 + 150) * 4).Take(4).Should().Equal(0, 0, 255, 255);
-            Action unmeasured = () => SavedBox("BackColor = 255");
-            unmeasured.Should().Throw<NotImplementedException>().WithMessage("*saved BackColor conversion*#1100*");
+
         }
         finally { window.Close(); }
     }

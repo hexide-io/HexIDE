@@ -490,6 +490,7 @@ RTF output, single-line TextRTF and selection paragraph insertion SHALL refuse.
 
 RichTextLib SHALL be offered in Components and its control in the referenced project's toolbox.
 Saved own properties SHALL remain unavailable for designer editing until faithfully modelled.
+The designer SHALL draw a labelled, view-only placeholder, including for RTF unsupported at runtime.
 RTF edits with a nonzero MaxLength SHALL refuse until their truncation semantics are measured.
 
 #### Scenario: Place a RichTextBox
@@ -540,7 +541,8 @@ until that interaction is measured.
 
 ### Requirement: RichTextBox box drawing
 
-RichTextBox SHALL use saved BackColor while enabled and draw disabled text in grey on button face.
+RichTextBox SHALL read saved BackColor in hexadecimal or decimal OLE_COLOR form and use it while
+enabled. Disabled text SHALL draw in grey on button face.
 Re-enabling SHALL restore the saved background and character colours. BorderStyle 0 SHALL omit the
 border; a bordered control SHALL use its saved Appearance for flat or inset edges. Enabled SHALL
 support Boolean runtime reads and writes. Appearance and BorderStyle SHALL read their saved/default
@@ -567,6 +569,13 @@ SHALL use the recorded word stops, with punctuation runs separate and the apostr
 `it's` within the word. Wrapped vertical endpoints, lone-break navigation and non-ASCII word
 endpoints SHALL refuse until measured. Collapsing a selection containing the hidden final break
 and command-left collapse SHALL also refuse until measured.
+Without a selection, plain Left/Right/Home/End/Up/Down SHALL move to the corresponding recorded
+Shift endpoint. Plain Home/End/Up/Down with a selection SHALL refuse their unmeasured endpoints.
+
+#### Scenario: Move without extending selection
+- **GIVEN** the caret is at position 9 in the unwrapped keyboard probe
+- **WHEN** plain End is pressed
+- **THEN** SelStart is 42 and SelLength is 0
 
 #### Scenario: Extend across an empty paragraph
 - **GIVEN** the unwrapped 67-character keyboard probe recorded in the RichTextBox oracle

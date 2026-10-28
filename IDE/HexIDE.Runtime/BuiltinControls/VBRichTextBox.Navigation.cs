@@ -16,8 +16,8 @@ public sealed partial class VBRichTextBox
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var word = (e.KeyModifiers & command) == command;
         if ((e.KeyModifiers & ~(command | KeyModifiers.Shift)) != 0) return false;
-        // Only the measured selection gestures and plain selection collapse are enabled here.
-        if (!shift && !word && (Length == 0 || e.Key is not (Key.Left or Key.Right))) return false;
+        if (!shift && !word && Length > 0 && e.Key is not (Key.Left or Key.Right))
+            throw new NotImplementedException("RichTextBox plain navigation selection endpoints are not implemented (#1100)");
         if (word && e.Key is not (Key.Left or Key.Right)) return false;
         var anchor = selectionAnchor ?? Start;
         var end = selectionAnchor.HasValue ? selectionEnd : Start + Length;

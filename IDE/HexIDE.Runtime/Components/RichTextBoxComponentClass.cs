@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.BuiltinControls;
@@ -46,7 +47,10 @@ public sealed class RichTextBoxComponentClass : InBoxComponentClass
             if (property.Lines.Count > 0)
             {
                 var line = property.Lines[0];
-                if (VBColor.TryParse(line[(line.IndexOf('=') + 1)..].Trim(), out var color)) return color;
+                var value = line[(line.IndexOf('=') + 1)..].Split('\'')[0].Trim();
+                if (VBColor.TryParse(value, out var color)) return color;
+                if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ole)
+                    && VBColor.TryParse($"&H{ole:X8}&", out color)) return color;
             }
             throw new NotImplementedException("RichTextBox saved BackColor conversion is not implemented (#1100)");
         }
@@ -54,7 +58,8 @@ public sealed class RichTextBoxComponentClass : InBoxComponentClass
     }
 
     // The designer must still open a carried, unsupported RTF document.
-    public override Control InstantiateForDesigner(ComponentInstance instance) => new Control();
+    public override Control InstantiateForDesigner(ComponentInstance instance) =>
+        PlaceholderComponentClass.ForType(VBTypeName).Instantiate(instance);
 
     public static readonly EventClass SelChangeEvent = new("SelChange");
     public static RichTextBoxComponentClass Instance { get; } = new();

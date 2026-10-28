@@ -1,5 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Avalonia.Controls;
+using Avalonia.VisualTree;
+using HexIDE.Runtime.BuiltinTypes;
 using System.Threading;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -47,6 +52,66 @@ public class RichTextBoxRuntimeTests
             VBDebugConsole.Output -= print;
         }
         return printed;
+    }
+
+    private static FormDefinition RecordedForm()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
+        root.Should().NotBeNull();
+        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "richtextbox", "Form1.frm");
+        var source = File.ReadAllText(path);
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, source, new NullSink(),
+            FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
+        project.AddForm(form);
+        return form;
+    }
+
+    [AvaloniaFact]
+    public void Recorded_saved_form_runs_with_its_decimal_background_colour()
+    {
+        using var cancel = new CancellationTokenSource();
+        VBFormRuntime? window = null;
+        var context = System.Threading.ExecutionContext.Capture();
+        try
+        {
+            _ = VBLoader.RunForm(RecordedForm(), cancel.Token, out window);
+            window.UpdateLayout();
+            var boxes = window.GetVisualDescendants().OfType<VBRichTextBox>().ToList();
+            boxes.Should().HaveCount(3);
+            var box = boxes.Single(b => VBProps.GetName(b) == "RichTextBox1");
+            box.SavedBackColor.Should().Be(VBColor.FromColor(255, 255, 192));
+            box.Document.Text.Should().Be("Hello bold");
+        }
+        finally
+        {
+            cancel.Cancel();
+            window?.Close();
+            Dispatcher.UIThread.RunJobs();
+            if (context != null) System.Threading.ExecutionContext.Restore(context);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Recorded_saved_boxes_have_labelled_view_only_designer_placeholders()
+    {
+        var form = RecordedForm();
+        var instances = form.Components.Where(c => c.BaseClass is RichTextBoxComponentClass).ToList();
+        instances.Should().HaveCount(3);
+        foreach (var instance in instances)
+        {
+            var visual = RichTextBoxComponentClass.Instance.InstantiateForDesigner(instance);
+            var border = visual.Should().BeOfType<Border>().Subject;
+            border.Background.Should().NotBeNull();
+            border.BorderBrush.Should().NotBeNull();
+            border.Child.Should().BeOfType<TextBlock>().Which.Text.Should().Be("RichTextBox");
+            visual.Focusable.Should().BeFalse();
+        }
+        // Unsupported RTF must still open as a placeholder without invoking the runtime reader.
+        var unsupported = new ComponentInstance(RichTextBoxComponentClass.Instance, "r");
+        unsupported.UnknownRawProperties.Add(new("TextRTF", ["TextRTF = \"{\\rtf1\\unknown1 x}\""]));
+        RichTextBoxComponentClass.Instance.InstantiateForDesigner(unsupported).Should().BeOfType<Border>();
     }
 
     [AvaloniaFact]
