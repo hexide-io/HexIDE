@@ -1003,6 +1003,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
     }
 
+    [McpServerTool(Name = "get_process_windows")]
+    [Description("Describes the top-level windows of a program that a VB6 program run in this IDE started with Shell, which "
+                 + "no other tool reaches: pass the process ID Shell returned as 'pid'. The processes it started in turn are "
+                 + "included, since a launcher can hand off to another program and exit. Each window gives 'processId', "
+                 + "'title', 'state' (Normal, Minimized, Maximized or Hidden), 'visible', 'bounds' ([left, top, width, height] in "
+                 + "screen pixels), 'isForeground' and 'className'. Omit 'pid' to list what has been started, each with the "
+                 + "window style Shell was given and whether it still runs. Only processes started with Shell can be read, so "
+                 + "no other program's window is reachable, and nothing is sent to any window. The note says when the process "
+                 + "has exited, when its ID has passed to another process, and when it has no window yet. Windows only.")]
+    public Task<ProcessWindowsResult> GetProcessWindowsAsync(
+        [Description("The process ID Shell returned. Omit it to list the processes started with Shell.")] int? pid = null,
+        CancellationToken ct = default) =>
+        ProcessWindowsTool.DescribeAsync(pid, ct);
+
     private const string WindowStateParameter =
         "Which window. Omitted, or \"ide\", is the IDE's own, as before this parameter existed. A running form's name such "
         + "as \"Form2\", or a window's title, reaches that window, minimized ones included, and \"auto\" picks as "
@@ -1014,7 +1028,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var (target, _, error) = ResolveActiveWindow(string.IsNullOrWhiteSpace(window) ? "ide" : window, ideByDefault: true);
         if (target is null)
-            return (null, null, error);
+            // Another program's window was what the first caller looked for here (#2591).
+            return (null, null, error + " A window of another program, one a running program started with Shell, is read "
+                                + "with get_process_windows.");
         return (target, StateNameOf(target), null);
     }
 
