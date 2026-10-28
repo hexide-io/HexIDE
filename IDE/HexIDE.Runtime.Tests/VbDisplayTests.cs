@@ -11,6 +11,7 @@ namespace HexIDE.Runtime.Tests;
 /// measurements are the ones about what the oracle cannot show: values VB6 cannot make, and locales other than
 /// en-GB. Each says so.
 /// </summary>
+[Collection(typeof(VBDebugConsoleCollection))]
 public class VbDisplayTests : BaseVBTestFixture
 {
     // #879: measured on vb6.exe, native and in the IDE (oracle: "An array used as text").
