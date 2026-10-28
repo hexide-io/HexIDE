@@ -833,6 +833,37 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
 
+### Requirement: Measured intrinsic control minimum sizes
+
+Assignments to an existing intrinsic control's Width and Height SHALL apply the minimum sizes measured in the
+oracle's "A control's position at run time" (#1029), after conversion to whole twips. Move SHALL use the same
+floors. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
+font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
+The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
+remain outside this implementation.
+
+#### Scenario: The default TextBox is assigned a tiny size
+
+- **WHEN** a TextBox in MS Sans Serif 8.25 with its default border receives Width 7 and Height 7 on a twips form
+- **THEN** it reads Width 150 and Height 285, including through Move
+
+#### Scenario: A recorded font or border changes the minimum
+
+- **WHEN** a TextBox in Arial 14.25 with its default border receives Width 7 and Height 7
+- **THEN** it reads 240 and 450
+- **WHEN** a TextBox in MS Sans Serif 8.25 with BorderStyle 0 receives those sizes
+- **THEN** it reads 75 and 195
+- **WHEN** a CommandButton receives those sizes in MS Sans Serif 8.25 or Arial 14.25
+- **THEN** it reads 75 × 195 or 120 × 330 respectively
+
+#### Scenario: Other existing controls receive tiny sizes
+
+- **WHEN** Width 7 and Height 7 are assigned to a CheckBox or OptionButton, a ListBox, either scroll bar,
+  or a Frame, PictureBox, Image, Shape or Label
+- **THEN** their sizes read 75 × 195, 135 × 255, 30 × 30, or 15 × 15 respectively
+- **WHEN** a ComboBox is assigned Width 7 or Height 7
+- **THEN** its Width reads 390, and the Height assignment raises 383
+
 ### Requirement: The Screen object SHALL answer as VB6's does
 `Screen` SHALL be a program global. Its size SHALL be the primary screen in twips, 15 to a device-independent pixel.
 `MousePointer` SHALL convert as a control's does, and every form SHALL show it while it is not 0. `ActiveForm` and
