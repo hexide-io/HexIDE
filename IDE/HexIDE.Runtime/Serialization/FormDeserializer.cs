@@ -95,6 +95,7 @@ public class FormDeserializer
         Components.InBox.ToolbarComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
         Components.InBox.CommonDialogComponentClass.Instance,
+        Components.InBox.MaskedEdBoxComponentClass.Instance,
         RichTextBoxComponentClass.Instance,
     ];
 
@@ -575,6 +576,13 @@ public class FormDeserializer
                 capturedBlobs.UnionWith(records.Values);
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
+            }
+            if (componentClass is Components.InBox.MaskedEdBoxComponentClass)
+            {
+                MaskedEdBoxPersistence.Loaded(instance, serializedComponent);
+                if (!MaskedEdBoxPersistence.CanWrite(serializedComponent))
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnimplementedControlPersistence,
+                        "MaskEdBox persistence is not implemented (#1098).");
             }
             if (componentClass is RichTextBoxComponentClass)
             {

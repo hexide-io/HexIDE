@@ -15,6 +15,8 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBMaskEdBox && Components.InBox.MaskedEdBoxComponentClass.Instance.Member(method) is not null)
+            throw VBMaskEdBox.Refused(method);
         if (c is VBTimer)
             TimerMembers.RefuseMethod(method);
 

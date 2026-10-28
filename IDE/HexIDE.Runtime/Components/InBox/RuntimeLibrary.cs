@@ -186,13 +186,19 @@ public static class ControlLibraries
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["CommonDialog"] = 1084 },
         "comdlg32-constants.json");
 
+    /// <summary>MSMASK32.OCX: identity and constants measured in the MaskedEdBox oracle (#1098).</summary>
+    public static readonly RuntimeLibrary MSMask = new("MSMask", "MSMask",
+        "{C932BA88-4374-101B-A56C-00AA003668DC}", "1.1", "MSMASK32.OCX", 393216,
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["MaskEdBox"] = 1098 },
+        "msmask32-constants.json");
+
     // Its registry description is unmeasured; the dialog uses the recorded library name.
     public static readonly RuntimeLibrary RichTextLib = new("RichTextLib", "RichTextLib",
         "{3B7C8863-D78F-101B-B9B5-04021C009402}", "1.2", "RICHTX32.OCX", 393217,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["RichTextBox"] = 1100 }, null);
 
     /// <summary>Every in-box control library HexIDE knows.</summary>
-    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, RichTextLib];
+    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, MSMask, RichTextLib];
 
     /// <summary>The library <paramref name="reference"/> names, or null for one HexIDE doesn't know.</summary>
     public static RuntimeLibrary? For(ObjectReference reference) => All.FirstOrDefault(l => l.IsNamedBy(reference));
