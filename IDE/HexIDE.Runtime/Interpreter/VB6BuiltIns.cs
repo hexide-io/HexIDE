@@ -49,6 +49,13 @@ public partial class VB6BuiltIns
     /// <summary>What <c>Command</c> answers: the project's command line arguments, empty where it has none.</summary>
     internal string CommandLine { get; set; } = "";
 
+    /// <summary>
+    /// What <c>Erl</c> answers, a Long (#2528): the line number at or above where the latest trapped error was raised, in the
+    /// procedure that trapped it and in source order, set as the error is trapped, and 0 again wherever VB6 clears Err itself.
+    /// The program's own <c>Err.Clear</c> leaves it.
+    /// </summary>
+    internal long Erl { get; set; }
+
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
@@ -186,6 +193,9 @@ public partial class VB6BuiltIns
         d["IMEStatus"] = (_, a, _) => a.Count == 0
             ? new Vb6Value(0L)
             : throw new NotImplementedException("IMEStatus arguments are not implemented (#2551)");
+        d["Erl"] = (self, a, _) => a.Count == 0
+            ? new Vb6Value(self.Erl)
+            : throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
         // FreeFile is an Integer, 1 with nothing open, and FreeFile(1) the first from 256 (measured, #1145).
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));

@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 9 | 50 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 25 | 58 | 0 | 70 | 153 |
+| Intrinsic functions | 0 | 0 | 24 | 58 | 0 | 71 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
-| Literals, types and suffixes | 0 | 0 | 2 | 20 | 0 | 28 | 50 |
+| Literals, types and suffixes | 0 | 1 | 2 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 61 | 25 | 0 | 37 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **100** | **467** | **20** | **596** | **1184** |
+| **Total** | **1** | **1** | **99** | **467** | **20** | **596** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -226,40 +226,42 @@ is taken for an undeclared variable. Found while fixing #975. A class's Property
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `Property Get` | **Silently wrong** | **#79, phase 1:** storage allocated by the call is reclaimed on return and error unwind. **Re-rated from Partial by measurement ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** A standard module's Property Get is not reached by its name: `x = PG`, with `Property Get PG() As Long()` in a module, reads Empty here with no error, where VB6 reads the array (measured), and `PG()` is "Sub or Function not defined". A class's is unaffected, and one declared `As Long()` returns its array ([#975](https://github.com/hexide-io/HexIDE/issues/975), measured). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
+## Won't load — 1 name
+One construct is on the list (#2529). A parse failure takes the entire module down — nothing in the file runs and the editor
+**`Function` declared with a type character used to be here** ([#740](https://github.com/hexide-io/HexIDE/issues/740)). `Function GetName$()` did not parse, so its module never loaded: the interpreter's `functionStmt` had no `typeHint?` after the name, though the LSP server's had one. All six characters were measured on vb6.exe, native and p-code, and the rule ported across. Both rows are Partial again, as they were before the character was measured, since the body may assign the return through it too ([#739](https://github.com/hexide-io/HexIDE/issues/739)).
+**A literal ending in its point, and the `D` exponent, used to be here.** vb6.exe compiles `5.` and `5.D1`, and both
+([#1611](https://github.com/hexide-io/HexIDE/issues/1611), [#1615](https://github.com/hexide-io/HexIDE/issues/1615)).
+**Multiple file numbers on one line used to fail here** ([#1146](https://github.com/hexide-io/HexIDE/issues/1146)).
+The date-literal token swallowed the text between two `#`s, so `Line Input #1, s: Print #2, s` and
+`Close #1, #2` prevented a whole module from parsing. Both grammars now delimit date/time components instead of
+arbitrary text. Real dates still win where VB6 gives them that meaning: `#1, 2#` is a date, even after `Print`.
+`10 Debug.Print 1` with no syntax error and the module then refused to load. HexIDE's two halves
+disagreed about what VB6 is. `GrammarParityTests` now compares the two rule inventories so the next such
+which is the cheaper kind to close. It runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112), with `#Const`, and the named-argument
+operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/HexIDE/issues/1465).
+| Name | Status | Detail | Source |
+| `Line number` | Won't load | **[#2529](https://github.com/hexide-io/HexIDE/issues/2529):** a number on a closing or middle line of a block, `30 Next`, `End If`, `Else`, `ElseIf`, `Loop`, `Wend`, a later `Case`, `End Select`, `End With` or `End Sub`, is a syntax error, so the module doesn't load. vb6.exe accepts every one, and refuses only a number between `Select Case` and its first `Case` (measured). Tools that number lines for `Erl` number these too. On a statement a number parses, and works as a `GoTo`, `On Error GoTo` and `Resume` target. | VB6.g4, VisualBasic6Parser.g4 |
 
-## Won't load — 0 names
 
 Nothing is on the list now. A parse failure takes the entire module down — nothing in the file runs and the editor
 cannot open it usefully — so however obscure each construct below looked, it had a blast radius of a file rather
 than a statement. That is why each was fixed ahead of far more commonly used constructs that merely throw.
 
-**`Function` declared with a type character used to be here** ([#740](https://github.com/hexide-io/HexIDE/issues/740)). `Function GetName$()` did not parse, so its module never loaded: the interpreter's `functionStmt` had no `typeHint?` after the name, though the LSP server's had one. All six characters were measured on vb6.exe, native and p-code, and the rule ported across. Both rows are Partial again, as they were before the character was measured, since the body may assign the return through it too ([#739](https://github.com/hexide-io/HexIDE/issues/739)).
 
-**A literal ending in its point, and the `D` exponent, used to be here.** vb6.exe compiles `5.` and `5.D1`, and both
 grammars needed a digit after the point and lexed no `D` in a whole number. Both were measured and are read now
-([#1611](https://github.com/hexide-io/HexIDE/issues/1611), [#1615](https://github.com/hexide-io/HexIDE/issues/1615)).
 
-**Multiple file numbers on one line used to fail here** ([#1146](https://github.com/hexide-io/HexIDE/issues/1146)).
-The date-literal token swallowed the text between two `#`s, so `Line Input #1, s: Print #2, s` and
-`Close #1, #2` prevented a whole module from parsing. Both grammars now delimit date/time components instead of
-arbitrary text. Real dates still win where VB6 gives them that meaning: `#1, 2#` is a date, even after `Print`.
 
 **Numeric line labels used to be here**, and how they were found is the useful part: the LSP server's
 grammar already had a working `lineNumber` rule that the interpreter's lacked, so the *editor* accepted
-`10 Debug.Print 1` with no syntax error and the module then refused to load. HexIDE's two halves
-disagreed about what VB6 is. `GrammarParityTests` now compares the two rule inventories so the next such
 gap is a build failure rather than a bug report. It compares inventories, though, not what each rule
 accepts, which is how the suffixed `Function` got past it: both grammars have a `functionStmt`, and only
 the LSP server's lets a type character follow the name.
 
 Worth noting what is *not* here: `#If` parsed fine and threw, an execution gap rather than a grammar gap,
-which is the cheaper kind to close. It runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112), with `#Const`, and the named-argument
-operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/HexIDE/issues/1465).
 
-| Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 100 names
+## Dies mid-run — 99 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -365,7 +367,6 @@ most of the in-box object model.
 | `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `VarPtr` | **Dies** | **#2622 remaining:** unregistered; variable and temporary identity, ByRef/ByVal aliasing and the measured array element steps remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
-| `Erl` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
 | `Cls` | **Dies** | **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Cls` is the form's method, refused as not implemented for the form, as `Me.Cls` is. — **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 
 ## Full inventory by category
@@ -526,7 +527,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (25 absent, 58 partial, 70 supported)
+### Intrinsic functions — 153 names (24 absent, 58 partial, 71 supported)
 
 
 **array** (3)
@@ -607,7 +608,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Erl` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
+| `Erl` | Supported | **[#2528](https://github.com/hexide-io/HexIDE/issues/2528):** a Long, the line number at or above where the error was raised, in the procedure that trapped it and in source order, whether or not that line ran: an error in a callee is the caller's call line, a loop's second pass reads the For or Do line's number, an error with no number above it is 0, and the number wraps at 65536 (line 70000 reads 4464). Every `On Error` statement, every `Resume` and leaving a handler set it to 0, as they clear `Err`; the program's own `Err.Clear` does not (measured, native and p-code). A number on a closing line such as `Next` doesn't parse yet (#2529). | VB6BuiltIns.cs, StatementExecutor.cs |
 | `Error` | Supported | **#1560:** `Error(n)` answers from vb6.exe's measured table of all 65,536 numbers, past 65535 being 6; `Error` with no number is Err's Description or its number's text. | VB6BuiltIns.Interaction.cs, VbErrorMessages.cs |
 | `ObjPtr` | Partial | **#2622, object-identity slice:** returns a Long identity: zero for Nothing or an unset Object, non-zero for live objects, shared by aliases and distinct for different objects. Integer and String operands raise run-time 13. Named arguments, other non-object operand types and argument counts other than one are unmeasured and explicitly refused as not implemented. Identities are not native addresses. Measured native/p-code relations: [issue #2622](https://github.com/hexide-io/HexIDE/issues/2622), measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and [#2628](https://github.com/hexide-io/HexIDE/pull/2628); `ObjPtrTests`. | VB6BuiltIns.Inspection.cs |
 | `StrPtr` | **Dies** | **#2622 remaining:** unregistered; string-buffer identity, vbNullString versus assigned empty text, copying and ByRef/ByVal relations remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
@@ -778,7 +779,7 @@ missing.
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
 | `WithEvents` | Supported | **#2065:** CommandButton.Value reads False; assigning True raises Click synchronously, its design-time handler before its WithEvents sinks (newest attachment first). False assignments remain refused pending measurement. **[#1556](https://github.com/hexide-io/HexIDE/issues/1556):** a control held in a form's WithEvents variable raises the variable's handlers after its own, the one set last first, and a control array element is 459 (measured). **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). **#1021:** WithEvents belongs to each declarator of a comma list; only marked names become sinks (measured R1–R5). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
-### Literals, types and suffixes — 50 names (2 absent, 20 partial, 28 supported)
+### Literals, types and suffixes — 50 names (3 absent, 20 partial, 27 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -789,7 +790,7 @@ missing.
 | `&` | Partial | **#739 fixed:** a suffixed assignment updates the bare variable, with or without Option Explicit, at module level and locally; a contradictory character raises "Type-declaration character does not match declared data type". An undeclared target takes the character’s type. Measured in the oracle’s 2026-10-11 assignment probes. A read through it is the variable of the bare name, checked against its type the same way, and a name nothing declares is declared by the read with the character's type (#742, measured, oracle "A name read with a type character"). A declaration with it takes that type (#2409). Still refused rather than guessed: `Date$` and `Time$` read bare, and a character on a form's member. Numeric literal suffixes are unaffected. | StatementExecutor.cs, ExpressionExecutor.cs |
 | `@` | Partial | **#739 fixed:** a suffixed assignment updates the bare variable, with or without Option Explicit, at module level and locally; a contradictory character raises "Type-declaration character does not match declared data type". An undeclared target takes the character’s type. Measured in the oracle’s 2026-10-11 assignment probes. A read through it is the variable of the bare name, checked against its type the same way, and a name nothing declares is declared by the read with the character's type (#742, measured, oracle "A name read with a type character"). A declaration with it takes that type (#2409). Still refused rather than guessed: `Date$` and `Time$` read bare, and a character on a form's member. Numeric literal suffixes are unaffected. | StatementExecutor.cs, ExpressionExecutor.cs |
 | `DExponentLiteral` | Supported | **[#1611](https://github.com/hexide-io/HexIDE/issues/1611):** `D` or `d` is an exponent marker wherever `E` is, as vb6.exe compiles it: `2.5D2` is the Double 250, `1D3@` a Currency, and `1D3%` "Syntax error", as `1E3%` is (measured, native and p-code). A literal vb6.exe refuses to build is its "Syntax error" here too, E or D: an exponent with `%` or `&`, or a value beyond its type, as in `1E400`. A literal ending in its point, `5.D1`, is [#1615](https://github.com/hexide-io/HexIDE/issues/1615)'s. | VB6.g4, ExpressionExecutor.cs |
-| `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
+| `Line number` | Won't load | **[#2529](https://github.com/hexide-io/HexIDE/issues/2529):** a number on a closing or middle line of a block, `30 Next`, `End If`, `Else`, `ElseIf`, `Loop`, `Wend`, a later `Case`, `End Select`, `End With` or `End Sub`, is a syntax error, so the module doesn't load. vb6.exe accepts every one, and refuses only a number between `Select Case` and its first `Case` (measured). Tools that number lines for `Erl` number these too. On a statement a number parses, and works as a `GoTo`, `On Error GoTo` and `Resume` target. | VB6.g4, VisualBasic6Parser.g4 |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `# (file number)` | **Dies** | and it is the one piece of this batch that fails even outside a file statement. `#1` lexes as its own token, `FILENUMBER : HASH LETTERORDIGIT+` (Grammar/VB6.g4), and FILENUMBER is an… | ExpressionExecutor.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |

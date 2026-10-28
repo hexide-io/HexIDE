@@ -355,6 +355,12 @@ program that never fails.
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
 
+#### Scenario: The line an error was raised on
+- **WHEN** an error is raised on line 20 of a numbered procedure or below it with no number between, or in a procedure
+  it called there, and that procedure's handler reads `Erl`
+- **THEN** `Erl` SHALL read 20, a Long, until an `On Error` statement, a `Resume` or leaving the handler sets it to 0;
+  `Err.Clear` SHALL leave it (measured, #2528)
+
 #### Scenario: Diagnostic type names
 - **WHEN** an interpreter diagnostic formats a value's type
 - **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper

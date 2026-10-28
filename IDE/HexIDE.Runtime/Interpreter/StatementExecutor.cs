@@ -42,6 +42,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // In an On Error GoTo handler, where a further fault propagates rather than being trapped again. A field, not a local
     // of the body's loop, because a halt asks every caller's activation whether it would trap (#1011).
     private bool inHandler;
+    // The source line this activation is at, for Erl (#2528): the statement running, or the condition, Case or Next being
+    // run on a line of its own. Erl is the line number at or above it in this body, from erlNumbers, kept by source line.
+    private int erlLine;
+    private (int Line, long Number)[] erlNumbers = [];
 
     /// <summary>Whether the program was entered at this activation: an event's procedure, a RaiseEvent sink or Sub Main.
     /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
@@ -474,6 +478,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 await DebugGate(dbg);
             }
             retry = false;
+            erlLine = stmt.Start.Line;
 
             ControlFlow ret;
             try
@@ -500,7 +505,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // record it in the global Err and continue with the next statement. Only VBRunTimeException is
                 // trapped — engine-limit NotImplementedExceptions propagate as real gaps. This per-block trap
                 // gives correct nested-block and cross-procedure semantics for free.
-                interpreter.Err.Capture(ex);
+                CaptureError(ex);
                 continue;
             }
             catch (VBRunTimeException ex) when (HaltsHere())
@@ -976,7 +981,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     "This For Each's collection raised under On Error Resume Next. VB6 then runs the body once and empties "
                     + "the loop variable unless the collection is declared as an array, and this expression's "
                     + "declaration is unavailable (#969): " + context.valueStmt().GetText() + ".");
-            interpreter.Err.Capture(ex);
+            CaptureError(ex);
             return await RunUninitialisedForEach(context, varName, empties);
         }
 
@@ -1037,7 +1042,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             };
             if (!ResumesNext)
                 throw refusal;
-            interpreter.Err.Capture(refusal);
+            CaptureError(refusal);
             // P-code and the IDE skip Next with a failed For Each over Nothing when it directly follows
             // on the same line (#1486). The grammar gives this form no block; token lines distinguish
             // it from an empty multi-line loop. Returning consumes the loop, leaving any following
@@ -1071,6 +1076,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return ControlFlow.Nothing;
                 if (result != ControlFlow.Nothing)
                     return result;
+                erlLine = context.NEXT().Symbol.Line;
             }
             // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
             // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
@@ -1137,7 +1143,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 catch (VBRunTimeException ex) when (ResumesNext)
                 {
-                    interpreter.Err.Capture(ex);
+                    CaptureError(ex);
                     if (!first)
                         return ControlFlow.Nothing;
                 }
@@ -1150,6 +1156,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return ControlFlow.Nothing;
                 if (result != ControlFlow.Nothing)
                     return result;
+                erlLine = context.NEXT().Symbol.Line;
             }
         }
         finally
@@ -1237,7 +1244,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         catch (VBRunTimeException ex) when (ResumesNext)
         {
-            interpreter.Err.Capture(ex);
+            CaptureError(ex);
             // In p-code a header that raised still steps by 1 when there is no Step clause, but only for an Integer or
             // Long counter. Every other type steps by the step it last evaluated, 0 before it has (measured).
             var impliedStep = context.valueStmt(2) is null
@@ -1270,7 +1277,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
         while (stepL >= 0 ? i <= toL : i >= toL)
         {
-            if (await RunLoopBodyOnce(block) is { } left)
+            if (await RunLoopBodyOnce(block, context.NEXT()) is { } left)
                 return left;
             i = AdvanceForCounter(context, variable, stepL, i);
         }
@@ -1350,6 +1357,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (ret != ControlFlow.Nothing)
                     return ret;
             }
+            erlLine = context.NEXT().Symbol.Line;
             // Next reads a Variant counter back as the body left it (measured, #841). Single, Double, Currency and Date
             // counters, and a Variant the body left holding something that isn't a number, are unmeasured and keep the step.
             if (variant && interpreter.ExecutionContext.TryGetVariable(currentEnv, variable, out var held)
@@ -1488,7 +1496,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var block = context.block();
         if (counterType is null)
         {
-            if (await RunLoopBodyOnce(block) is { } left)
+            if (await RunLoopBodyOnce(block, context.NEXT()) is { } left)
                 return left;
             throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
         }
@@ -1511,7 +1519,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.Ending || interpreter.DebugController is { IsAborting: true })
                     throw new Debugging.StopExecutionSignal();
-                if (await RunLoopBodyOnce(block) is { } left)
+                if (await RunLoopBodyOnce(block, context.NEXT()) is { } left)
                     return left;
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var held);
                 var (stored, tested) = ForNextValue(VbNumeric.Narrow(held, type, context), stepValue, context);
@@ -1527,7 +1535,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // The body may be empty, and a Step 0 loop then has no statement of its own at which an abort can reach it.
             if (interpreter.Ending || interpreter.DebugController is { IsAborting: true })
                 throw new Debugging.StopExecutionSignal();
-            if (await RunLoopBodyOnce(block) is { } left)
+            if (await RunLoopBodyOnce(block, context.NEXT()) is { } left)
                 return left;
 
             var next = AdvanceForCounter(context, counter, (long)step);
@@ -1561,7 +1569,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task<ControlFlow> RunUninitialisedForEach(VB6Parser.ForEachStmtContext context, string element, bool emptiesElement)
     {
-        if (await RunLoopBodyOnce(context.block()) is { } left)
+        if (await RunLoopBodyOnce(context.block(), context.NEXT()) is { } left)
             return left;
         if (emptiesElement)
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, element, Vb6Value.Variant);
@@ -1570,14 +1578,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>Run a loop body once. Null when it reaches its <c>Next</c>; otherwise
     /// the flow that left it, with an <c>Exit For</c> spent here.</summary>
-    private async Task<ControlFlow?> RunLoopBodyOnce(VB6Parser.BlockContext? block)
+    private async Task<ControlFlow?> RunLoopBodyOnce(VB6Parser.BlockContext? block, ITerminalNode next)
     {
-        if (block == null)
-            return null;
-        var ret = await Visit(block);
+        var ret = block == null ? ControlFlow.Nothing : await Visit(block);
         if (ret == ControlFlow.ExitFor)
             return ControlFlow.Nothing;
-        return ret == ControlFlow.Nothing ? null : ret;
+        if (ret != ControlFlow.Nothing)
+            return ret;
+        erlLine = next.Symbol.Line;
+        return null;
     }
 
     /// <summary>
@@ -1731,6 +1740,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task<bool?> ConditionMet(Antlr4.Runtime.Tree.IParseTree condition, Antlr4.Runtime.ParserRuleContext statement)
     {
+        // A pre-tested loop's condition, asked again, is on the Do or While line; a Loop Until's and an ElseIf's on their own.
+        erlLine = (condition as Antlr4.Runtime.ParserRuleContext ?? statement).Start.Line;
         while (true)
         {
             try
@@ -1744,7 +1755,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             catch (VBRunTimeException ex) when (ResumesNext)
             {
-                interpreter.Err.Capture(ex);
+                CaptureError(ex);
                 return null;
             }
             catch (VBRunTimeException ex) when (HaltsHere())
@@ -2816,7 +2827,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitOnErrorStmt(VB6Parser.OnErrorStmtContext context)
     {
         // Every form clears Err, so a helper's On Error Resume Next starts clean whatever its caller left (measured, #877).
-        interpreter.Err.Clear();
+        ClearError();
         if (context.RESUME() != null)
         {
             errorMode = ErrorMode.ResumeNext;   // On Error Resume Next
@@ -3147,6 +3158,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var value = await expressionExecutor.EvaluateScalar(context.valueStmt());
         foreach (var @case in context.sC_Case())
         {
+            erlLine = @case.Start.Line;
             var cond = @case.sC_Cond();
             if (cond is VB6Parser.CaseCondElseContext)
                 return await RunCaseBody(@case);
@@ -3164,7 +3176,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 catch (VBRunTimeException ex) when (ResumesNext)
                 {
-                    interpreter.Err.Capture(ex);
+                    CaptureError(ex);
                     matched = true;
                 }
                 if (matched)
@@ -4406,7 +4418,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         catch (VBRunTimeException ex) when (ResumesNext)
         {
             // Resume Next goes on into the body with no object, so every leading-dot member raises 91 (measured, #839).
-            interpreter.Err.Capture(ex);
+            CaptureError(ex);
             target = Vb6Value.Nothing;
         }
         withTargets.Push(target);
@@ -4911,6 +4923,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (stmts[i].lineLabel() is { } lbl)
                 labels[lbl.labelName().GetText()] = i;
         CollectLineHeads(block, stmts, labels);
+        erlNumbers = LineNumbersOf(block);
 
         int pc = 0;
         int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
@@ -4946,6 +4959,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Set Next Statement (P7b): apply a pc repoint requested while paused at this top-level gate, so the
             // resumed walk executes from the target instead of the paused statement.
             if (_setNextTargetPc is { } snt) { pc = snt; _setNextTargetPc = null; currentLine = stmts[pc].Start.Line; }
+            erlLine = stmts[pc].Start.Line;
 
             try
             {
@@ -4977,7 +4991,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
-                interpreter.Err.Clear();   // every Resume clears it (measured, #877)
+                ClearError();   // every Resume clears it (measured, #877)
                 pc = r.Kind switch
                 {
                     ResumeKind.Same => faultPc,        // retry the faulting statement
@@ -4988,14 +5002,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             catch (VBRunTimeException ex) when (errorMode == ErrorMode.GoToLabel && !inHandler)
             {
-                interpreter.Err.Capture(ex);
+                CaptureError(ex);
                 faultPc = pc;
                 inHandler = true;
                 pc = ResolveLabel(labels, handlerLabel!);
             }
             catch (VBRunTimeException ex) when (ResumesNext)
             {
-                interpreter.Err.Capture(ex);
+                CaptureError(ex);
                 faultPc = pc;
                 pc++;
             }
@@ -5017,8 +5031,68 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private void LeaveHandler()
     {
         if (inHandler)
-            interpreter.Err.Clear();
+            ClearError();
     }
+
+    // A trapped error: into Err, and into Erl the line number at or above where it was raised, in this body in source order,
+    // whether or not that line ran, wrapped at 65536 (line 70000 reads 4464), or 0 with none above it (measured, #2528).
+    // After a Then part ran, an error past an unnumbered End If reads the Else part's number; a loop's second pass reads the
+    // For line's, not the body's last.
+    private void CaptureError(VBRunTimeException error)
+    {
+        interpreter.Err.Capture(error);
+        interpreter.BuiltIns.Erl = LineNumberAtOrAbove(erlLine) % 65536;
+    }
+
+    private long LineNumberAtOrAbove(int line)
+    {
+        long number = 0;
+        foreach (var (at, n) in erlNumbers)
+        {
+            if (at > line)
+                break;
+            number = n;
+        }
+        return number;
+    }
+
+    // Where VB6 clears Err itself, on an On Error statement, a Resume or leaving a handler, it clears Erl too. The program's
+    // own Err.Clear clears Err alone (measured, #2528).
+    private void ClearError()
+    {
+        interpreter.Err.Clear();
+        interpreter.BuiltIns.Erl = 0;
+    }
+
+    // A body's line numbers and the source lines they stand on, in order, nested blocks included. Kept per body, since a
+    // procedure runs many times.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VB6Parser.BlockContext, (int Line, long Number)[]> LineNumbers = new();
+
+    private static (int Line, long Number)[] LineNumbersOf(VB6Parser.BlockContext body) =>
+        LineNumbers.GetValue(body, _ =>
+        {
+            var found = new List<(int Line, long Number)>();
+            var pending = new Stack<IParseTree>();
+            pending.Push(body);
+            while (pending.Count > 0)
+            {
+                var node = pending.Pop();
+                if (node is VB6Parser.LineNumberContext number)
+                {
+                    if (long.TryParse(number.GetText(), out var n))
+                        found.Add((number.Start.Line, n));
+                    continue;
+                }
+                // Not into a procedure: module-level statements, which only a test runs, have only their own.
+                if (node is VB6Parser.SubStmtContext or VB6Parser.FunctionStmtContext or VB6Parser.PropertyGetStmtContext
+                    or VB6Parser.PropertyLetStmtContext or VB6Parser.PropertySetStmtContext)
+                    continue;
+                for (var c = 0; c < node.ChildCount; c++)
+                    pending.Push(node.GetChild(c));
+            }
+            found.Sort((a, b) => a.Line.CompareTo(b.Line));
+            return found.ToArray();
+        });
 
     /// <summary>
     /// Whether a run-time error raised in this activation is one nothing handles, so the program halts at the statement
