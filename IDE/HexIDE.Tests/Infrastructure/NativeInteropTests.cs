@@ -14,7 +14,7 @@ public class NativeInteropTests
     [InlineData("HexIDE.Desktop", "Server/X11WindowManager.cs", 6)]
     [InlineData("HexIDE.Runtime", "TypeLibrary/TypeLibReader.cs", 2)]
     [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
-    [InlineData("HexIDE.LspGuard", "Program.cs", 3)]
+    [InlineData("HexIDE.LspGuard", "Program.cs", 4)]
     public void NativeDeclarationsUseSourceGeneration(string project, string file, int count)
     {
         var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", project, file));

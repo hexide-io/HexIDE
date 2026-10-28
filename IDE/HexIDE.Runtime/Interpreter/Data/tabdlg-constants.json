@@ -1,0 +1,21 @@
+{
+  "note": "Measured type-library constants recorded in the SSTab fidelity oracle (#1090).",
+  "containers": {
+    "StyleConstants": {
+      "kind": "enum",
+      "members": {
+        "ssStyleTabbedDialog": 0,
+        "ssStylePropertyPage": 1
+      }
+    },
+    "TabOrientationConstants": {
+      "kind": "enum",
+      "members": {
+        "ssTabOrientationTop": 0,
+        "ssTabOrientationBottom": 1,
+        "ssTabOrientationLeft": 2,
+        "ssTabOrientationRight": 3
+      }
+    }
+  }
+}

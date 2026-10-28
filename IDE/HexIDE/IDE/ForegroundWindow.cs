@@ -50,8 +50,12 @@ public static class ForegroundWindow
     /// picks the IDE's own window; a window's title or a running form's name picks that window. A program
     /// of several forms (#822) needs a name to reach a form the default does not pick.
     /// </param>
+    /// <param name="ideByDefault">
+    /// Whether the caller's own default is the IDE's window rather than <c>"auto"</c>, as get_window_state's and
+    /// set_window_state's is (#2357). It changes only how an unknown name's refusal describes the choices.
+    /// </param>
     public static (Window? Window, string? Error) Pick(
-        string? scope, Window mainWindow, IReadOnlyList<Window> windows)
+        string? scope, Window mainWindow, IReadOnlyList<Window> windows, bool ideByDefault = false)
     {
         if (string.IsNullOrWhiteSpace(scope) || scope.Equals("auto", StringComparison.OrdinalIgnoreCase))
             return (Pick(mainWindow, windows), null);
@@ -78,8 +82,13 @@ public static class ForegroundWindow
         // window the default would not have given them, so falling back would answer a different question
         // than the one asked and look like it worked.
         var open = windows.Where(w => w != mainWindow && w.IsVisible).ToList();
-        return (null, $"Unknown window '{scope}'. Use \"auto\" (the default: any visible window other than the IDE's own, a dialog first), "
-                    + "\"ide\" (the IDE window, even while a program is running), or the name or title of an open "
+        return (null, $"Unknown window '{scope}'. Use "
+                    + (ideByDefault
+                        ? "\"ide\" (the default here: the IDE window, even while a program is running), \"auto\" (any visible "
+                          + "window other than the IDE's own, a dialog first), "
+                        : "\"auto\" (the default: any visible window other than the IDE's own, a dialog first), \"ide\" (the "
+                          + "IDE window, even while a program is running), ")
+                    + "or the name or title of an open "
                     + (open.Count == 0
                         ? "window, and none is open beside the IDE."
                         : $"window: {Titles(open)}. A form's name is the stable handle: its caption can be empty, or change "

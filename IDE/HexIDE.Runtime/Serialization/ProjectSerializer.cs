@@ -79,7 +79,7 @@ public class ProjectSerializer
             // path wherever the type library has not moved.
             var libPath = keptFrom is null ? r.LibPath ?? "" : SerializedProject.RebasePath(r.LibPath ?? "", keptFrom, writtenIn);
             var refName = r.Name ?? "";
-            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
+            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid:x}#{libPath}#{refName}");
         }
 
         var encodingPaths = new List<string>();

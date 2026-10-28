@@ -589,6 +589,22 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
 
 ---
 
+### D27. Watch context outside break mode (#2290)
+- **VB6:** module-wide watches cannot see procedure locals. An undefined name shows
+  `<Expression not defined in context>` with type `Empty`, including at design time and after End.
+  A valid but inactive context shows `<Out of context>` with type `Empty`.
+  [Measured table](vb6-fidelity-oracle/a-watch-and-its-context.md).
+- **HexIDE:** paused watches now respect the stored module/procedure scope and read a caller's frame.
+  Outside break mode all rows still show the localized out-of-context value with a blank type.
+- **Why:** design-time resolution needs collected declarations without a live interpreter frame; this first
+  slice changes evaluation of live frames only. The all-procedures placeholder still lacks a stored module
+  at design time and uses the paused module. Explicit module contexts are supported within that module.
+- **Status:** **partial**, #2290. Remaining: design-time/after-End resolution and context selection/storage.
+  Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
+  keep their previous behavior.
+
+---
+
 ## Deferred debugger surfaces (not divergences yet — just not built)
 
 Immediate USER-CALL execution (calling a user Sub/Function from the Immediate window — the deadlock-prone part, D15;

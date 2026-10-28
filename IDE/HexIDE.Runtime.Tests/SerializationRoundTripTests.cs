@@ -511,6 +511,43 @@ public class SerializationRoundTripTests
 
     // ── References: VB6 reference line format (*\G{GUID}#Ver#LCID#Path#Name) ───
 
+    // Measured by vb6.exe SP6: docs/vb6-fidelity-oracle/a-references-lcid-is-lowercase-hex.md.
+    [Theory]
+    [InlineData("0", 0, "0")]
+    [InlineData("9", 9, "9")]
+    [InlineData("409", 1033, "409")]
+    [InlineData("c0a", 3082, "c0a")]
+    [InlineData("C09", 3081, "c09")]
+    public void ProjectRoundTrip_ReferenceLcid_ReadsHexAndWritesLowercase(string input, int expected, string output)
+    {
+        const string prefix = "Reference=*\\G{11111111-0000-0000-0000-000000000001}#1.0#";
+        const string suffix = "#libs\\probe.tlb#Probe Library";
+        var sp = new ProjectDeserializer().Deserialize(prefix + input + suffix + "\r\n", NullSink.Instance);
+
+        sp.References.Should().ContainSingle().Which.Lcid.Should().Be(expected);
+        var project = ProjectFromSerialized(sp);
+        var text = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
+        text.ReplaceLineEndings("\n").Split('\n').Where(line => line.StartsWith("Reference="))
+            .Should().Equal(prefix + output + suffix);
+    }
+
+    [Theory]
+    [InlineData(0, "0")]
+    [InlineData(9, "9")]
+    [InlineData(1033, "409")]
+    [InlineData(3082, "c0a")]
+    [InlineData(3081, "c09")]
+    public void ProjectSerializer_ReferenceLcid_WritesUnpaddedHex(int lcid, string expected)
+    {
+        var project = MakeProject();
+        project.AddReference(new VbReference(
+            "{11111111-0000-0000-0000-000000000001}", "1.0", lcid, null, "Probe Library"));
+
+        var text = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
+
+        text.Should().Contain($"#1.0#{expected}##Probe Library");
+    }
+
     [Fact]
     public void ProjectSerializer_Reference_IncludesName()
     {

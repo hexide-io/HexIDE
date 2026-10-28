@@ -315,7 +315,8 @@ public static class VbDiagnosticsProvider
         if (errorListener is not null)
             lexer.AddErrorListener(errorListener);
 
-        var tokenStream = new CommonTokenStream(lexer);
+        // `Next j, i` is expanded to `Next j: Next i` on the way, as the interpreter does (#2393).
+        var tokenStream = VbNextCounterList.Tokens(lexer);
         // Force full tokenisation so every lexer (token-recognition) error is reported. proleap has NO
         // ERRORCHAR token — unrecognised characters surface as lexer errors through the listener above.
         // The filled buffer is reused by the LL re-parse below (the lexer never runs twice).

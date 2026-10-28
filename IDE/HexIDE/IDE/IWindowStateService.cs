@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Dock.Model.Core;
 
 namespace HexIDE.IDE;
 
@@ -15,11 +16,15 @@ public enum DockRegion
 }
 
 /// <summary>One tool window's persisted placement. <see cref="Proportion"/> is the tool's share within
-/// its region's vertical stack (right/bottom); <c>null</c> lets Dock distribute evenly. Left and document
-/// tools ignore it.</summary>
+/// its containing dock; <c>null</c> lets Dock distribute evenly. Document tools ignore it.</summary>
 public sealed record ToolLayoutState(string Key, bool Open, DockRegion Region, int Order, double? Proportion);
 
-/// <summary>The IDE dock layout, captured as a flat per-tool manifest (the canonical-region model).
+/// <summary>A split, tool tab group or document placeholder in the saved dock tree.</summary>
+public sealed record DockLayoutNode(
+    string Kind, double? Proportion, Orientation Orientation, Alignment Alignment, string? Context,
+    IReadOnlyList<string> Tools, string? ActiveTool, IReadOnlyList<DockLayoutNode> Children);
+
+/// <summary>The IDE dock layout, with per-tool fallback placements and an optional split tree.
 /// A present <c>dock-layout.json</c> overrides <see cref="Default"/>; Reset Window Layout restores it.</summary>
 public sealed record LayoutManifest(
     int Version,
@@ -27,6 +32,8 @@ public sealed record LayoutManifest(
     double RightProportion,
     IReadOnlyList<ToolLayoutState> Tools)
 {
+    public DockLayoutNode? Topology { get; init; }
+
     public const int CurrentVersion = 2;
     public const double DefaultLeftProportion = 0.06;
     public const double DefaultRightProportion = 0.2155;

@@ -389,7 +389,7 @@ forNextStmt
    ;
 
 functionStmt
-   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_FUNCTION
+   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_FUNCTION
    ;
 
 getStmt
