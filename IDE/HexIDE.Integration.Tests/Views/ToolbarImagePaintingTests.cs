@@ -48,7 +48,7 @@ public class ToolbarImagePaintingTests
         finally { window.Close(); }
     }
 
-    private static ImageListPictureObject Picture()
+    private static ImageListPictureObject Picture(byte blue = 0xc0, byte green = 0xc0, byte red = 0xc0)
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
@@ -62,7 +62,12 @@ public class ToolbarImagePaintingTests
         writer.Write((ushort)1);
         writer.Write((ushort)24);
         for (var i = 0; i < 6; i++) writer.Write(0);
-        for (var i = 0; i < 16 * 16 * 3; i++) writer.Write((byte)0xc0);
+        for (var i = 0; i < 16 * 16; i++)
+        {
+            writer.Write(blue);
+            writer.Write(green);
+            writer.Write(red);
+        }
         var payload = stream.ToArray();
         using var record = new MemoryStream();
         using var framing = new BinaryWriter(record);
@@ -72,6 +77,65 @@ public class ToolbarImagePaintingTests
         framing.Write(payload.Length);
         framing.Write(payload);
         return new ImageListPictureObject(record.ToArray());
+    }
+
+    // #2334, #2490 issuecomment-6462915346: the disabled list's navy stays navy.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Disabled_image_is_opaque_and_caption_keeps_its_previous_pixels(bool compareCaption)
+    {
+        var images = ToolbarImageListTests.Images();
+        var disabled = ToolbarImageListTests.Images();
+        await disabled.Images.CallAsync("Clear", []);
+        await disabled.Images.CallAsync("Add", [Vb6Value.Missing, new Vb6Value("navy"), new Vb6Value(Picture(128, 0, 0))]);
+        var bar = new VBToolbar();
+        bar.TrySetProperty("ImageList", new Vb6Value((Control)images));
+        bar.TrySetProperty("DisabledImageList", new Vb6Value((Control)disabled));
+        await bar.Buttons.CallAsync("Add", [Vb6Value.Missing, new Vb6Value("one"), new Vb6Value("One"), new Vb6Value(0), new Vb6Value(1)]);
+        var item = (ToolbarItem)bar.Buttons.Item([new Vb6Value(1)]).Value!;
+        item.TrySetProperty("Enabled", new Vb6Value(false));
+        var window = new Window { Content = bar, Background = Avalonia.Media.Brushes.Red };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var image = bar.GetVisualDescendants().OfType<ToolbarImage>().Single();
+            var button = bar.GetVisualDescendants().OfType<Button>().Single();
+            byte[] Pixels(PixelRect rect)
+            {
+                using var frame = new RenderTargetBitmap(new PixelSize((int)bar.Bounds.Width, (int)bar.Bounds.Height));
+                frame.Render(bar);
+                var pixels = new byte[rect.Width * rect.Height * 4];
+                var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+                try { frame.CopyPixels(rect, pin.AddrOfPinnedObject(), pixels.Length, rect.Width * 4); }
+                finally { pin.Free(); }
+                return pixels;
+            }
+            var origin = button.TranslatePoint(default, bar)!.Value;
+            if (!compareCaption)
+            {
+                var bounds = ToolbarImage.BoundsFor(button.Width, 16, true);
+                Pixels(new PixelRect((int)(origin.X + bounds.X + 4), (int)(origin.Y + bounds.Y + 4), 1, 1))
+                    .Should().Equal(128, 0, 0, 255);
+            }
+            else
+            {
+                var captionRect = new PixelRect((int)origin.X, (int)origin.Y + 23, (int)button.Width, 15);
+                var current = Pixels(captionRect);
+                // Recreate the old tree: both image and caption inherit the disabled Button's opacity.
+                ((Panel)image.Parent!).Children.Remove(image);
+                var face = (Canvas)button.Content!;
+                face.Children.Insert(0, image);
+                Canvas.SetLeft(image, 0);
+                Canvas.SetTop(image, 0);
+                window.UpdateLayout();
+                current.Should().Equal(Pixels(captionRect));
+                current.Where((_, i) => i % 4 != 3).Distinct().Count().Should().BeGreaterThan(2,
+                    "the comparison must include the rendered caption");
+            }
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]
