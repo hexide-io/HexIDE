@@ -64,7 +64,8 @@ public sealed class VBProgram : IFormProgram
     private readonly Dictionary<string, FormDefinition> definitions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
-    private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
+    // The loaded forms, in the order they loaded, as VB6's Forms holds them (measured, #2496).
+    private readonly List<VbObject> loaded = [];
     // The modal forms displayed, innermost last.
     private readonly List<VBWindowContext> modals = [];
     // The form Activate was last raised for, until another is activated or it unloads.
@@ -411,9 +412,14 @@ public sealed class VBProgram : IFormProgram
     internal void Loaded(VBWindowContext context)
     {
         var instance = context.FormInstance!;
-        if (loaded.Add(instance))
-            interpreter.AddRef(Vb6Value.NewObject(instance));
+        if (loaded.Exists(form => ReferenceEquals(form, instance)))
+            return;
+        loaded.Add(instance);
+        interpreter.AddRef(Vb6Value.NewObject(instance));
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<VbObject> LoadedForms => loaded;
 
     /// <summary>
     /// A form has unloaded: the program lets go of it there, inside the statement that unloaded it, so a
@@ -425,8 +431,11 @@ public sealed class VBProgram : IFormProgram
         if (ReferenceEquals(active, context))
             active = null;
         var instance = context.FormInstance!;
-        if (loaded.Remove(instance))
-            await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
+        var at = loaded.FindIndex(form => ReferenceEquals(form, instance));
+        if (at < 0)
+            return;
+        loaded.RemoveAt(at);
+        await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
     }
 
     /// <summary>

@@ -182,6 +182,12 @@ internal static class VbSignatures
                     "Returns a string formatted according to instructions in a format expression.")
             ],
 
+            ["FormatDateTime"] =
+            [
+                new SignatureEntry("FormatDateTime(Date, [NamedFormat]) As String", ["Date", "NamedFormat"],
+                    "Formats a date or time using the program's locale and the selected named format.")
+            ],
+
             // Type conversion
             ["CStr"]  = [new SignatureEntry("CStr(Expression) As String",  ["Expression"], "Converts an expression to String.")],
             ["CInt"]  = [new SignatureEntry("CInt(Expression) As Integer", ["Expression"], "Converts an expression to Integer.")],

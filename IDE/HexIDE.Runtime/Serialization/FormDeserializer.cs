@@ -95,6 +95,7 @@ public class FormDeserializer
         Components.InBox.ToolbarComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
         Components.InBox.CommonDialogComponentClass.Instance,
+        RichTextBoxComponentClass.Instance,
     ];
 
     /// <summary>
@@ -574,6 +575,14 @@ public class FormDeserializer
                 capturedBlobs.UnionWith(records.Values);
                 instance.UnknownRawProperties.Add(
                     new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
+            }
+            if (componentClass is RichTextBoxComponentClass)
+            {
+                try { _ = RichTextBoxPersistence.RtfToWrite(instance); }
+                catch (NotImplementedException ex)
+                {
+                    form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, ex.Message);
+                }
             }
             if (componentClass is Components.InBox.TabStripComponentClass)
             {

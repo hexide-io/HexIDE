@@ -1,15 +1,84 @@
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
+using Avalonia.Threading;
+using Dock.Avalonia.Controls;
+using Dock.Controls.ProportionalStackPanel;
+using Dock.Model.Core;
+using Dock.Model.Controls;
 
 namespace HexIDE.Addins;
 
 public partial class AddinToolWindowView : UserControl
 {
-    public AddinToolWindowView() => InitializeComponent();
+    public AddinToolWindowView()
+    {
+        InitializeComponent();
+        LayoutUpdated += (_, _) => EnsureUsableWidth();
+    }
+
+    private void EnsureUsableWidth()
+    {
+        if (DataContext is not AddinToolWindowViewModel { Content: IToolWindowMinimumWidth minimum } tool)
+            return;
+        var dock = this.GetVisualAncestors().OfType<ToolDockControl>()
+            .Select(c => c.DataContext).OfType<IToolDock>().FirstOrDefault();
+        if (dock is null || tool.SizedDocks.Contains(dock)) return;
+
+        if (tool.KeepSavedWidth)
+        {
+            tool.KeepSavedWidth = false;
+            tool.SizedDocks.Add(dock);
+            return;
+        }
+
+        // A vertically stacked tool grows its whole column, borrowing only the document column's slack.
+        IDockable column = dock;
+        while (column.Owner is IProportionalDock { Orientation: Orientation.Vertical } vertical)
+            column = vertical;
+        if (column.Owner is not IProportionalDock { Orientation: Orientation.Horizontal } parent) return;
+        var document = parent.VisibleDockables?.FirstOrDefault(ContainsDocument);
+        if (document is null || ReferenceEquals(document, column)) return;
+        column.GetVisibleBounds(out _, out _, out var width, out _);
+        document.GetVisibleBounds(out _, out _, out var documentWidth, out _);
+        if (!(width > 0) || !(documentWidth > 0)) return;
+
+        var required = minimum.MeasureMinimumUsableWidth() + Math.Max(0, width - Bounds.Width);
+        if (!double.IsFinite(required) || required <= 0) return;
+        tool.SizedDocks.Add(dock);
+        var growth = Math.Min(Math.Max(0, required - width), Math.Max(0, documentWidth - DocumentMinimum(document)));
+        if (growth <= 0) return;
+        var total = parent.VisibleDockables!.Where(d => d is not IProportionalDockSplitter).Sum(d =>
+        {
+            d.GetVisibleBounds(out _, out _, out var w, out _);
+            return w;
+        });
+        var panel = this.GetVisualAncestors().OfType<ProportionalStackPanel>()
+            .FirstOrDefault(p => p.Children.Any(c => ReferenceEquals(c.DataContext, column)));
+        if (panel is null) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            column.Proportion = (width + growth) / total;
+            document.Proportion = (documentWidth - growth) / total;
+            // Dock's panel assigns local attached values, which take precedence over its model bindings.
+            foreach (var child in panel.Children)
+                if (ReferenceEquals(child.DataContext, column))
+                    child.SetCurrentValue(ProportionalStackPanel.ProportionProperty, column.Proportion);
+                else if (ReferenceEquals(child.DataContext, document))
+                    child.SetCurrentValue(ProportionalStackPanel.ProportionProperty, document.Proportion);
+        });
+    }
+
+    private static bool ContainsDocument(IDockable item) => item is IDocumentDock
+        || item is IDock dock && dock.VisibleDockables?.Any(ContainsDocument) == true;
+
+    private static double DocumentMinimum(IDockable item) => Math.Max(
+        double.IsFinite(item.MinWidth) ? item.MinWidth : 0,
+        item is IDock dock ? dock.VisibleDockables?.Select(DocumentMinimum).DefaultIfEmpty(0).Max() ?? 0 : 0);
 
     // An addin tool window's Content is a single, stateful Control (created once by the addin's factory).
     // Dock re-materialises this view when the tool window is dragged to a new dock, so two views can briefly
