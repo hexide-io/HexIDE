@@ -198,7 +198,7 @@ public class PrePass : VB6BaseVisitor<object?>
             && attribute.implicitCallStmt_InStmt().GetText() is var name
             && (name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
                 || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
-            && attribute.literal().Length == 1 && attribute.literal(0).GetText() == "0")
+            && attribute.signedLiteral().Length == 1 && attribute.signedLiteral(0).GetText() == "0")
         {
             DeclaresDefaultMember = true;
             return;

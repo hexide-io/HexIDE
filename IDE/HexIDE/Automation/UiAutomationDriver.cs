@@ -109,7 +109,11 @@ public static class UiAutomationDriver
         var providers = DescribeProviders(peer, control);
 
         string[] selection = [];
-        if (peer.GetProvider<ISelectionProvider>() is { } sel)
+        // A list first: from Avalonia 12.0.5 its peer offers a selection provider, but that names only the rows that
+        // exist, so a selected item scrolled out of view, or in a list too short to show it, went missing (#2026).
+        if (control is ListBox listBox)
+            selection = Safe(() => SelectedNames(listBox).ToArray(), []);
+        else if (peer.GetProvider<ISelectionProvider>() is { } sel)
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
         else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
@@ -126,6 +130,18 @@ public static class UiAutomationDriver
             selection = [.. selection.Select(s => IsDefaultText(s, item) ? shown : s)];
             if (value is not null && IsDefaultText(value, item))
                 value = shown;
+        }
+
+        // An editor has no value provider, so the Immediate window's text could be read only from its view's members, on
+        // another node, and nothing said so (#2513). A code window's document is a project file, which get_file_content
+        // returns with its open edits, so that one is still left out (#562). Its writability goes with it, as a value
+        // provider's does.
+        bool? editorReadOnly = null;
+        if (value is null && control is TextEditor { Document: { } document } shownEditor
+            && control.DataContext is not HexIDE.Forms.ViewModels.ISearchableDocument)
+        {
+            value = Safe<string?>(() => Capped(document.Text), null);
+            editorReadOnly = shownEditor.IsReadOnly;
         }
 
         bool? toggle = null;
@@ -200,12 +216,14 @@ public static class UiAutomationDriver
             note,
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
-            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
+            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : editorReadOnly,
             control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
                 ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
             itemTexts,
-            itemsNote);
+            itemsNote,
+            // The pointer it shows, and where that is set (#2453).
+            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null));
     }
 
     /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
@@ -341,6 +359,10 @@ public static class UiAutomationDriver
     /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
     private const int MaxValueLength = 4000;
 
+    private static string Capped(string text) => text.Length > MaxValueLength
+        ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
+        : text;
+
     /// <summary>
     /// A property's current value as text, or null when it cannot be read as text.
     /// </summary>
@@ -395,9 +417,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is { Length: > MaxValueLength }
-                ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
-                : text;
+            return text is null ? null : Capped(text);
         }, null);
     }
 
@@ -493,8 +513,9 @@ public static class UiAutomationDriver
     /// <summary>
     /// The action tokens a control actually accepts. Mostly its automation providers, but not only:
     /// <see cref="Interact"/> has fallbacks for controls whose peer offers nothing, and a token missing
-    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes <b>no providers at all</b>, so
-    /// reporting the peer verbatim would advertise a menu as undrivable while every verb on it works.
+    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes no invoke or expandCollapse provider,
+    /// and from 12.0.5 only a toggle that skips the click, so reporting the peer verbatim would advertise a menu as
+    /// undrivable while every verb on it works.
     /// </summary>
     public static string[] DescribeProviders(AutomationPeer peer, Control? control = null)
     {
@@ -533,6 +554,9 @@ public static class UiAutomationDriver
 
         if (control is MenuItem menuItem)
         {
+            // Avalonia 12.0.5's peer offers a toggle on a checkable item that only sets IsChecked, and Interact refuses
+            // toggle on every menu item for that reason, so advertising it would promise a verb that only refuses.
+            list.Remove("toggle");
             if (!list.Contains("invoke")) list.Add("invoke");
             // Only where there is a submenu to open: advertising expandCollapse on a leaf would promise
             // an action that correctly refuses.
@@ -629,8 +653,8 @@ public static class UiAutomationDriver
                         return outcome;
 #endif
                     }
-                    // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
-                    // expandCollapse — so every verb failed on a menu and none of it was reachable.
+                    // MenuItemAutomationPeer exposes no invoke and no expandCollapse provider, so every verb failed
+                    // on a menu and none of it was reachable.
                     // ClickMenuItem clicks it as Avalonia's menu does: it moves a checkable item's tick, raises
                     // Click, whose class handler executes Command, so plain Click handlers and bound commands
                     // fire once, then closes the menu. Raising Click alone was the #947 defect.
@@ -658,12 +682,15 @@ public static class UiAutomationDriver
                 case "toggle":
                     // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
                     // tick to its program, in its Click, so the refusal does not steer a caller to run an item such as Exit
-                    // for its tick, and says where the tick is read (#1255 review).
-                    if (peer.GetProvider<IToggleProvider>() is null && control is HexIDE.Runtime.BuiltinControls.VBMenu)
+                    // for its tick, and says where the tick is read (#1255 review). From Avalonia 12.0.5 the peer of a
+                    // checkable item offers a toggle, but it only sets IsChecked: no Click is raised, so neither the
+                    // program's handler nor the command behind an IDE tick runs. So a menu item is refused whatever its
+                    // peer offers.
+                    if (control is HexIDE.Runtime.BuiltinControls.VBMenu)
                         return Err("a running form's menu item has no toggle of its own: its program sets the tick, in the "
                                    + "item's Click, which 'invoke' runs as a click does. inspect_element reads the tick as "
                                    + "toggleState; nothing was done");
-                    if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
+                    if (control is MenuItem toggleItem)
                         return Err(toggleItem.ToggleType == MenuItemToggleType.None
                             ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
                               + "does; nothing was done"
@@ -1292,7 +1319,8 @@ public static class UiAutomationDriver
         if (!matchEmptyValue) value = NullIfEmpty(value);
         if (value is null)
         {
-            if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
+            // A tree's item is selected through its tree, as before Avalonia 12.0.5 gave its peer a provider of its own.
+            if (control is not TreeViewItem && peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
             {
                 // Named before the dropdown closes over it, as invoke names a button before it closes its dialog.
                 var label = LabelOf(control, peer);
@@ -2214,7 +2242,7 @@ public static class UiAutomationDriver
     /// </remarks>
     internal static async Task AbandonHeldAsync(bool idleOnly = false)
     {
-        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.Idle())
+        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.IdleElseRearm())
             return;
         held.End();
         var keyed = held.Window.FocusManager?.GetFocusedElement() as Control ?? held.Pointer.Captured as Control ?? held.Window;
@@ -5471,7 +5499,10 @@ public record UiNodeDetail(
     // The text of each item of a list, dropdown or tab control, as select matches it, rows scrolled out of view included,
     // and what was left out (#2450). Absent for a dropdown that is closed, which the note explains.
     string[]? Items = null,
-    string? ItemsNote = null);
+    string? ItemsNote = null,
+    // The mouse pointer it shows: a running program's MousePointer by number and name, and where it is set (#2453). Absent
+    // when none is set on it or above it, and the platform's arrow shows.
+    PointerState? Pointer = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

@@ -238,3 +238,19 @@ column and keep closed tools closed. A new tool SHALL use the right column by de
 - **WHEN** the developer resets the window layout with add-in tools registered
 - **THEN** open add-in tools return to the default right column
 - **AND** closed add-in tools remain closed
+
+### Requirement: Contributed tools SHALL declare a measured usable width
+A contributed tool's content MAY implement `IToolWindowMinimumWidth` to measure the width at which its
+controls fit. On first display in a dock, the IDE SHALL grow that dock's column to the measured width,
+borrowing only space above the document column's minimum. This SHALL NOT impose a permanent resize
+minimum. A saved width and later user resizing SHALL be retained. Tools without a declaration SHALL
+keep their existing sizing.
+
+#### Scenario: AI Chat opens in the default left dock
+- **WHEN** AI Chat is first displayed in the narrow left dock
+- **THEN** the column grows to fit its measured prompt, Send and New row, subject to the document minimum
+- **AND** the Toolbox alone retains its narrow default
+
+#### Scenario: The developer narrows the dock afterwards
+- **WHEN** the developer resizes a dock after its initial usable width has been applied
+- **THEN** subsequent layout passes and showing that tool again retain the chosen width
