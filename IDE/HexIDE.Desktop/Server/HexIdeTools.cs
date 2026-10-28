@@ -2332,7 +2332,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "IDE's own, whether or not it is on top: a dialog, the Find window, or a running VB6 program's form, INCLUDING "
         + "while it is paused at a breakpoint; among several, a dialog wins, then the one with focus, then the one opened "
         + "last, else the IDE's own. \"ide\" reaches the IDE's own window; a window's title, or a running form's name such as \"Form2\", reaches that "
-        + "window, which is how a form behind another form of the program is reached. An unknown name is refused with "
+        + "window, or of two stacked under one name the one on top, which is how a form behind another form of the program is reached. An unknown name is refused with "
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
