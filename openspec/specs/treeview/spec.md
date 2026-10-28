@@ -7,6 +7,24 @@ Describe the runtime drawing, input and native file persistence of MSComctlLib.T
 
 ## Requirements
 
+### Requirement: Dispatch shared control methods
+
+A running TreeView SHALL use the shared SetFocus, Move and ZOrder paths (#2557).
+Remaining unsupported method calls, including Refresh, SHALL raise HexIDE's not-implemented
+error naming the member and tracking issue #1086. This changes dispatch only; the
+[measured TreeView surface](../../../docs/vb6-fidelity-oracle/in-box-controls-the-treeview.md)
+remains the source for its own methods.
+
+#### Scenario: Move or focus a running tree
+
+- **WHEN** code calls TreeView1.SetFocus, Move or ZOrder
+- **THEN** the shared control implementation handles the call
+
+#### Scenario: Refuse a pending method
+
+- **WHEN** code calls TreeView1.HitTest
+- **THEN** the not-implemented error names HitTest and #1086
+
 ### Requirement: Draw the runtime hierarchy
 
 The control SHALL draw visible nodes in sibling order, descending into expanded nodes, with
