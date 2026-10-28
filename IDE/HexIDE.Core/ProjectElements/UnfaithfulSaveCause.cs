@@ -14,7 +14,7 @@ public enum UnfaithfulSaveCause
 {
     None = 0,
 
-    /// <summary>SSTab page lists cannot yet be regenerated after designer edits (#1090).</summary>
+    /// <summary>SSTab children or page references cannot be modelled for designer edits (#2301).</summary>
     SSTabPageMetadata = 1 << 2,
 
     /// <summary>A registered control whose faithful writer is not implemented yet.</summary>
