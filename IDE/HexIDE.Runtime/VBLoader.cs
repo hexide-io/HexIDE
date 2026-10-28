@@ -165,6 +165,33 @@ public class VBLoader
                 dialogs[block] = upDown;
             }
 
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            if (RuntimeControlBlock(block, "MSComCtl2.FlatScrollBar") is { } savedFlat)
+            {
+                var bar = (VBFlatScrollBar)Components.InBox.FlatScrollBarComponentClass.Instance.Instantiate(
+                    new ComponentInstance(Components.InBox.FlatScrollBarComponentClass.Instance, savedFlat.Name));
+                foreach (var (property, value) in savedFlat.Properties)
+                {
+                    switch (property.ToLowerInvariant())
+                    {
+                        case "left": Canvas.SetLeft(bar, Convert.ToDouble(value.Value) / 15); break;
+                        case "top": Canvas.SetTop(bar, Convert.ToDouble(value.Value) / 15); break;
+                        case "width": bar.Width = Convert.ToDouble(value.Value) / 15; break;
+                        case "height": bar.Height = Convert.ToDouble(value.Value) / 15; break;
+                        case "tabindex": Avalonia.Input.KeyboardNavigation.SetTabIndex(bar, Convert.ToInt32(value.Value)); break;
+                        case "visible": bar.IsVisible = Convert.ToInt32(value.Value) != 0; break;
+                        case "tag": bar.Tag = value.Value; break;
+                        case "tooltiptext": ToolTip.SetTip(bar, value.Value); break;
+                    }
+                }
+                bar.LoadProperties(savedFlat.Properties);
+                VBProps.SetName(bar, savedFlat.Name);
+                VBProps.SetRunTimeId(bar);
+                canvas.Children.Add(bar);
+                executionContext.AllocVariable(environment, savedFlat.Name, new Vb6Value(bar));
+                dialogs[block] = bar;
+            }
+
         // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
         foreach (var (block, component) in toolbars)
         {
@@ -787,7 +814,8 @@ public class VBLoader
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
+            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null
+                && RuntimeControlBlock(block, "MSComCtl2.FlatScrollBar") is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)

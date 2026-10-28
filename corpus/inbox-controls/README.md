@@ -93,6 +93,13 @@ BuddyDispid, OrigLeft/Top/Right/Bottom and BuddyProperty = 0; Text2 is saved nar
 The round-trip lane walks the save; loaded UpDown blocks remain read-only in the designer and are
 preserved verbatim when the form is edited. The `.vbp` is hand-written, as in `input/`.
 
+## FlatScrollBar saves
+
+`saved/flatscrollbar/` holds the seven MSCOMCT2.OCX FlatScrollBars VB6 SP6 saved on 2026-10-27
+(#1097). The file-loading tests round-trip the form byte for byte, including its enum high words,
+Min-before-Max order and vertical block without Arrows. All seven bars load as selectable designer components; their saved own properties stay verbatim
+after a form-caption edit and are not exposed as editable Properties fields. There is no `.frx`; the `.vbp` is hand-written.
+
 ## Pending saves
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
@@ -111,5 +118,5 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `pending/dtpicker-added/` | Three DTPickers saved by VB6: two minimal blocks, the second of which had its Properties window shown and so saved the moment it was read as its `CurrentDate`, and one double-clicked from the toolbox, 1500 x 750 and written first. There is no `.frx` (#1094) |
 | `pending/monthview/` | Nine MonthViews from MSCOMCT2.OCX saved by VB6: a minimal block; six written by hand with their lines reversed, for the dates and selection, the appearance and switches, two months by two, the six colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. Every block gains `Appearance`, a `StartOfWeek` whose high 16 bits differ between IDE sessions, and a `CurrentDate`; the toolbox one has StartOfWeek 2, the locale's Monday. The ones that size themselves were rewritten at their new size. There is no `.frx` (#1095) |
 | `pending/imagecombo/` | Eight ImageCombos from MSCOMCTL.OCX and an ImageList, saved by VB6: a minimal block; five written by hand with their lines reversed, for `Text`, the `ImageList` binding with `Indentation` and `Locked`, the switches, the two colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. A minimal block gains nothing. The toolbox one gets the window colours and a `Text` of its name. The `Font` block was rewritten at its new height. There is no `.frx` (#1092) |
-| `pending/flatscrollbar/` | Seven FlatScrollBars from MSCOMCT2.OCX saved by VB6: a minimal block; four written by hand with their lines reversed, for the range and change sizes, `Orientation` 0, and the appearance and switches; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. `Arrows`, `Orientation` and `Appearance` are written with a high word, which a second IDE session wrote identically. The vertical block has no `Arrows` line. There is no `.frx` (#1097) |
+| `saved/flatscrollbar/` | Seven FlatScrollBars from MSCOMCT2.OCX saved by VB6: a minimal block; four written by hand with their lines reversed, for the range and change sizes, `Orientation` 0, and the appearance and switches; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. `Arrows`, `Orientation` and `Appearance` are written with a high word, which a second IDE session wrote identically. The vertical block has no `Arrows` line. There is no `.frx` (#1097) |
 | `pending/animation/` | Six Animations from MSCOMCT2.OCX saved by VB6: a minimal block; one written by hand with every candidate line reversed, for VB6's order; one with only `FullWidth` and `FullHeight`; one with an explicit `Enabled = True`, which VB6 dropped; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first, with `Enabled`, `FullWidth` and `FullHeight`. VB6 writes `OleDropMode`, not `OLEDropMode`. There is no `.frx` (#1096) |

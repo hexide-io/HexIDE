@@ -130,6 +130,7 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
         RegisterToolTipText<VBStatusBar>();
+        RegisterToolTipText<VBFlatScrollBar>();
         // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
         RegisterTabOrder<VBCommandButton>(tabStop: true);
         RegisterTabOrder<VBTextBox>(tabStop: true);

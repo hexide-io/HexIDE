@@ -18,6 +18,14 @@ public static class AvaloniaMethodsInteroperability
         if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                               || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
+        if (c is VBFlatScrollBar)
+        {
+            if (method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase))
+                throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            if (method.Equals("Refresh", StringComparison.OrdinalIgnoreCase)
+                || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException($"FlatScrollBar {method} is not implemented (#1097)");
+        }
         if (c is VBMaskEdBox && Components.InBox.MaskedEdBoxComponentClass.Instance.Member(method) is not null)
             throw VBMaskEdBox.Refused(method);
         if (c is VBTimer)

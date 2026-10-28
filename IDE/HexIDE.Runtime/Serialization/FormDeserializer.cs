@@ -97,18 +97,20 @@ public class FormDeserializer
         Components.InBox.CommonDialogComponentClass.Instance,
         Components.InBox.MaskedEdBoxComponentClass.Instance,
         RichTextBoxComponentClass.Instance,
+        Components.InBox.FlatScrollBarComponentClass.Instance,
     ];
 
     /// <summary>
     /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
-    /// (#1088) or an UpDown (#1093) that holds no controls and is no control array's element. Loading one warns of
-    /// nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed Toolbar or
-    /// UpDown is still refused at run time.
+    /// (#1088), UpDown (#1093) or FlatScrollBar (#1097) that holds no controls and is no control array's element. Loading
+    /// one warns of nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed
+    /// Toolbar, UpDown or FlatScrollBar is still refused at run time.
     /// </summary>
     public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
         type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
         || !holdsControls && !inArray
             && (type.Equals("MSComCtl2.UpDown", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("MSComCtl2.FlatScrollBar", StringComparison.OrdinalIgnoreCase)
                 || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass);
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -169,7 +171,9 @@ public class FormDeserializer
             var known = componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass)
                 || extraComponents != null && extraComponents.TryGetValue(serializedComponent.Type, out componentClass);
             // The designer carries Toolbar blocks verbatim; the runtime explicitly reads their property bags.
-            if (!known || componentClass is null || componentClass is Components.InBox.ToolbarComponentClass
+            if (!known || componentClass is null
+                || componentClass is Components.InBox.FlatScrollBarComponentClass && !Components.InBox.FlatScrollBarComponentClass.CanModel(serializedComponent)
+                || componentClass is Components.InBox.ToolbarComponentClass
                 && (extraComponents is null || !extraComponents.ContainsKey(serializedComponent.Type)
                     || serializedComponent.SubComponents.Count != 0
                     || serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))
@@ -227,6 +231,9 @@ public class FormDeserializer
             // Every component stays in the flat list, menus included. The tree below is additive, so
             // nothing that reads FormDefinition.Components needs to know it exists.
             components.Add(instance);
+
+            if (componentClass is Components.InBox.FlatScrollBarComponentClass)
+                instance.SetProperty(Components.InBox.FlatScrollBarComponentClass.SavedProperty, serializedComponent);
 
             var isMenu = componentClass is MenuComponentClass;
             var parentIsMenu = parent?.BaseClass is MenuComponentClass;

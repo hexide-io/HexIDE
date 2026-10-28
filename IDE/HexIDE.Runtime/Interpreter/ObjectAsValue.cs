@@ -39,6 +39,7 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        VBFlatScrollBar bar => new Vb6Value(bar.Value),
         VBUpDown upDown => new Vb6Value((long)upDown.Value),
         Components.InBox.TabStripTab tab => new Vb6Value(tab.Tab.Caption),
         VBTabStrip => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
@@ -74,6 +75,7 @@ internal static class ObjectAsValue
     public static Vb6Value DefaultMemberIfAny(Vb6Value value) => value.Value switch
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
+        VBFlatScrollBar bar => new Vb6Value(bar.Value),
         VBUpDown upDown => new Vb6Value((long)upDown.Value),
         ToolbarItem item => item.DefaultValue,
         Components.InBox.TreeNode node => new Vb6Value(node.Text),

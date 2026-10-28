@@ -956,6 +956,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
         {
+            VBFlatScrollBar.RefuseEarlyBound(value, identifier);
             UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
@@ -2253,6 +2254,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (oldLet.Value is StatusBarPanel panel)
                 {
                     panel.SetText(value);
+                    return default;
+                }
+                if (oldLet.Value is VBFlatScrollBar flat)
+                {
+                    flat.TrySetProperty("Value", value);
                     return default;
                 }
                 if (oldLet.Value is VBUpDown upDown)
@@ -4682,6 +4688,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
+            VBFlatScrollBar.RefuseEarlyBound(value, identifier);
             UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
