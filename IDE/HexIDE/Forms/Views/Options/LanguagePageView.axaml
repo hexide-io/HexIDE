@@ -13,7 +13,7 @@
             <AccessText x:Name="LanguageLabel" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,6"
                         Text="{DynamicResource Str.Options.Language.LanguageLabel}" />
             <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"
-                      AutomationProperties.Name="{CompiledBinding #LanguageLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
+                      AutomationProperties.Name="{CompiledBinding #LanguageLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}"
                       ItemsSource="{CompiledBinding AvailableLanguages}"
                       SelectedItem="{CompiledBinding SelectedLanguage}"
                       HorizontalAlignment="Left" Width="200">
@@ -28,7 +28,7 @@
                         Text="{DynamicResource Str.Options.Language.RegionLabel}"
                         IsEnabled="{CompiledBinding IsRegionEnabled}" />
             <ComboBox Grid.Row="1" Grid.Column="1"
-                      AutomationProperties.Name="{CompiledBinding #RegionLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
+                      AutomationProperties.Name="{CompiledBinding #RegionLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}"
                       ItemsSource="{CompiledBinding AvailableRegions}"
                       SelectedItem="{CompiledBinding SelectedRegion}"
                       IsEnabled="{CompiledBinding IsRegionEnabled}"
