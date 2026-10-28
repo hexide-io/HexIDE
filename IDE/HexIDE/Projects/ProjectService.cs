@@ -1212,6 +1212,13 @@ public class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
+        // The picker only confirms the executable; the interpreter's archive is a separate output (#2504).
+        var archivePath = Path.ChangeExtension(exePath, "dll")!;
+        if (File.Exists(archivePath) && await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), archivePath),
+                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+            throw new OperationCanceledException();
+
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
 
         Directory.CreateDirectory(tempPath);
@@ -1271,7 +1278,6 @@ public class ProjectService : IProjectService
             EncodePackageSources(projectDefinition);
 
             // This is not a .dll file, but it will look better :wink: :wink:
-            var archivePath = Path.ChangeExtension(exePath, "dll")!;
             AtomicFileWriter.Write(archivePath, stream => ZipFile.CreateFromDirectory(tempPath, stream));
         }
         finally
