@@ -12,6 +12,22 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Optional non-nullable protocol members are omitted when unset
+The client SHALL omit unset optional members whose LSP types exclude null, using property-level
+serialization rules. It SHALL preserve explicit values and members whose protocol types permit null.
+
+#### Scenario: Default formatting options
+- **WHEN** the client sends formatting options without a trailing-whitespace preference
+- **THEN** `trimTrailingWhitespace` is absent from the options object
+
+#### Scenario: Unadvertised folding capability
+- **WHEN** the client initializes without a folding-range capability object
+- **THEN** `foldingRange` is absent from the text-document capabilities
+
+#### Scenario: Nullable initialize fields
+- **WHEN** initialize has no process ID, root URI or workspace folders
+- **THEN** those members may still carry explicit null
+
 ### Requirement: The IDE SHALL depend only on the language-service contract
 Editor and view-model code SHALL obtain every language feature — diagnostics, hover, completion, document
 symbols, folding, signature help, definition, document highlight, rename, formatting — through one
