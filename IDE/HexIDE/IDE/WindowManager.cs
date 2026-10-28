@@ -293,8 +293,9 @@ public class WindowManager : IWindowManager
         // one stops the automation server answering at all. An armed answer replaces the question a person
         // would have answered, and nothing else: every line below the picker is the code a real click
         // reaches. Compiled out of a shipped build along with the server it exists for.
-        if (ScriptedFileDialogs.TryTake(out var scripted))
-            return scripted is null ? null : [scripted];
+        if (ScriptedFileDialogs.TryTake(options.AllowMultiple, out var scripted,
+                options.AllowMultiple ? "an Open picker" : "an Open picker that takes one file"))
+            return scripted;
 #endif
 
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime classic)
@@ -313,7 +314,8 @@ public class WindowManager : IWindowManager
     public async Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options)
     {
 #if DEBUG
-        if (ScriptedFileDialogs.TryTake(out var scripted)) return scripted;
+        if (ScriptedFileDialogs.TryTake(takesSeveral: false, out var scripted, "a save picker"))
+            return scripted?[0];
 #endif
 
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime classic)
@@ -350,26 +352,38 @@ public class WindowManager : IWindowManager
         }
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var owner = GetTopWindow(desktop);
-            var window = new DialogWindow()
-            {
-                Content = dialog,
-                DataContext = dialog,
-                SizeToContent = SizeToContent.WidthAndHeight,
-                CanResize = dialog.CanResize,
-                ShowActivated = true,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                // Inherit the chrome's reading direction so dialogs mirror under an RTL language.
-                FlowDirection = owner.FlowDirection
-            };
-            if (dialog.CanResize)
-            {
-                // Let the window measure itself at content size, then unlock for user resizing
-                window.Opened += (_, _) => window.SizeToContent = SizeToContent.Manual;
-            }
-            return await window.ShowDialog<bool>(owner);
+            return await ShowDialog(desktop, dialog);
         }
         throw new NotImplementedException();
+    }
+
+    internal async Task<bool> ShowDialog(IClassicDesktopStyleApplicationLifetime desktop, IDialog dialog)
+    {
+        var owner = GetTopWindow(desktop);
+        if (dialog is LanguageRevertGateViewModel)
+        {
+            // Activation can still point at the main window while Options is open (#623).
+            owner = desktop.MainWindow ?? owner;
+            while (owner.OwnedWindows.LastOrDefault(child => child.IsVisible) is { } child)
+                owner = child;
+        }
+        var window = new DialogWindow()
+        {
+            Content = dialog,
+            DataContext = dialog,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = dialog.CanResize,
+            ShowActivated = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            // Inherit the chrome's reading direction so dialogs mirror under an RTL language.
+            FlowDirection = owner.FlowDirection
+        };
+        if (dialog.CanResize)
+        {
+            // Let the window measure itself at content size, then unlock for user resizing
+            window.Opened += (_, _) => window.SizeToContent = SizeToContent.Manual;
+        }
+        return await window.ShowDialog<bool>(owner);
     }
 
     private static Window MakeDialogWindow(string title, Control content) => new Window

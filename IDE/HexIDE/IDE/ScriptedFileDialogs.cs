@@ -32,10 +32,16 @@ public static class ScriptedFileDialogs
 {
     private static readonly object Lock = new();
     // Numbered as they are armed, so a save can tell the answers armed before it from any armed while it ran (#810).
-    private static readonly Queue<(long Serial, string? Path)> Answers = new();
+    // Paths is null for a cancel, and holds several only for a multi-select Open (#2408).
+    private static readonly Queue<(long Serial, IReadOnlyList<string>? Paths)> Answers = new();
     private static long _armed;
     private static long _cancelsTaken;
     private static long _taken;
+    // Answers of several paths spent by a picker that takes one, which answered as cancelled (#2408), and how many of
+    // those a reply has told the caller about.
+    private static long _refusalsTaken;
+    private static long _refusalsReported;
+    private static string _lastRefusal = "";
 
     /// <summary>How many answers are queued, for a tool that has to report what it armed.</summary>
     public static int Pending { get { lock (Lock) return Answers.Count; } }
@@ -50,7 +56,24 @@ public static class ScriptedFileDialogs
     /// </remarks>
     public static void AnswerNextWith(string? path)
     {
-        lock (Lock) Answers.Enqueue((++_armed, string.IsNullOrWhiteSpace(path) ? null : path));
+        lock (Lock) Answers.Enqueue((++_armed, string.IsNullOrWhiteSpace(path) ? null : [path]));
+    }
+
+    /// <summary>
+    /// Arms one answer of several files, as a person selects them in a multi-select Open picker (#2408). Every path
+    /// must be non-blank; one path is the same answer as <see cref="AnswerNextWith"/>.
+    /// </summary>
+    /// <remarks>
+    /// It is still one answer, spent by the next dialog to open. A picker that takes one file, a save or an Open
+    /// without multi-select, cannot take it: a person could not have made that choice there. That picker answers as
+    /// cancelled rather than taking the first path, which would be a wrong answer that runs, and the refusal is told
+    /// to the caller by <see cref="CancelWatch.After"/> or by <see cref="TakeUnreportedRefusal"/>.
+    /// </remarks>
+    public static void AnswerNextWithMany(IReadOnlyList<string> paths)
+    {
+        if (paths.Count == 0 || paths.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException("Every path must be non-blank, and there must be at least one.", nameof(paths));
+        lock (Lock) Answers.Enqueue((++_armed, [.. paths]));
     }
 
     /// <summary>Discards every armed answer, so a failed script cannot affect the next one.</summary>
@@ -99,7 +122,7 @@ public static class ScriptedFileDialogs
         // Only a document without a file opens a picker. Which answer the picker takes needs no peek: only a
         // cancel moves the count.
         lock (Lock)
-            return new CancelWatch(absolutePath is null, _cancelsTaken, _taken, _armed);
+            return new CancelWatch(absolutePath is null, _cancelsTaken, _taken, _armed, _refusalsTaken);
     }
 
     /// <summary>
@@ -109,13 +132,66 @@ public static class ScriptedFileDialogs
     public static CancelWatch WatchForUiProjectSave()
     {
         lock (Lock)
-            return new CancelWatch(true, _cancelsTaken, _taken, _armed, "this save opened no picker");
+            return new CancelWatch(true, _cancelsTaken, _taken, _armed, _refusalsTaken, "this save opened no picker");
+    }
+
+    /// <summary>
+    /// The sentence for a refusal no reply has reported yet, or "" (#2408). Reporting it marks it reported, so the
+    /// caller is told once.
+    /// </summary>
+    /// <remarks>
+    /// A refusal reached through a save tool is reported in that tool's reply. One reached any other way, through Add
+    /// File or a running program's Open, has no reply of its own, so answer_next_file_dialog and
+    /// clear_file_dialog_answers report it: the caller arms or clears next, having seen the dialog do nothing.
+    /// </remarks>
+    public static string TakeUnreportedRefusal()
+    {
+        lock (Lock)
+        {
+            if (_refusalsReported >= _refusalsTaken) return "";
+            var count = _refusalsTaken - _refusalsReported;
+            _refusalsReported = _refusalsTaken;
+            return count == 1
+                ? $" Earlier, {_lastRefusal}."
+                : $" Earlier, {count} answers of several paths were refused that way; the last time, {_lastRefusal}.";
+        }
     }
 
     /// <summary>Whether a save was answered by the armed cancel that was next when it began.</summary>
     public readonly struct CancelWatch(bool armed, long takenBefore, long anyTakenBefore, long armedBefore,
-        string? pendingReason = null)
+        long refusalsBefore, string? pendingReason = null)
     {
+        /// <summary>
+        /// True when the document had no file and its picker, which takes one file, was answered with several paths
+        /// since <see cref="WatchForCancel"/>, so it answered as cancelled (#2408).
+        /// </summary>
+        public bool Refused
+        {
+            get
+            {
+                lock (Lock)
+                    return armed && _refusalsTaken > refusalsBefore;
+            }
+        }
+
+        /// <summary>
+        /// How the save's picker was answered when it wrote nothing: an armed cancel, or several paths it cannot
+        /// take. For a reply's "…, so nothing was written".
+        /// </summary>
+        public string HowAnswered
+        {
+            get
+            {
+                if (!Refused) return "the armed answer cancelled the save picker";
+                lock (Lock)
+                {
+                    _refusalsReported = Math.Max(_refusalsReported, _refusalsTaken);
+                    return "the save picker answered as cancelled, because the armed answer named several files and "
+                           + "it takes one (answer_next_file_dialog's paths is for an Open that allows several)";
+                }
+            }
+        }
+
         /// <summary>
         /// True when the document had no file and a picker has taken an armed cancel since
         /// <see cref="WatchForCancel"/>.
@@ -176,6 +252,14 @@ public static class ScriptedFileDialogs
         public string? After(string? text)
         {
             var still = StillArmed;
+            // Unless HowAnswered has already said it, in the same reply.
+            if (Refused)
+                lock (Lock)
+                    if (_refusalsReported < _refusalsTaken)
+                    {
+                        _refusalsReported = _refusalsTaken;
+                        still = $" {char.ToUpperInvariant(_lastRefusal[0])}{_lastRefusal[1..]}." + still;
+                    }
             if (still.Length == 0) return text;
             if (string.IsNullOrWhiteSpace(text)) return still.TrimStart();
             // A message ending without a stop, as an exception's can, would otherwise run into the sentence.
@@ -184,20 +268,45 @@ public static class ScriptedFileDialogs
         }
     }
 
-    /// <summary>Takes the next armed answer, if there is one. False means show the real dialog.</summary>
+    /// <summary>
+    /// Takes the next armed answer for a picker that returns one file, a save or a single-select Open, if there is
+    /// one. False means show the real dialog. An answer of several paths answers as cancelled; see
+    /// <see cref="AnswerNextWithMany"/>.
+    /// </summary>
     public static bool TryTake(out string? path)
+    {
+        var taken = TryTake(takesSeveral: false, out var paths, picker: "a save picker or an Open that takes one file");
+        path = paths is { Count: > 0 } ? paths[0] : null;
+        return taken;
+    }
+
+    /// <summary>
+    /// Takes the next armed answer, if there is one. False means show the real dialog. Null paths is a cancel.
+    /// </summary>
+    /// <param name="takesSeveral">Whether the picker lets a person select several files: an Open that allows them.</param>
+    /// <param name="picker">The picker as the refusal names it, should it be answered with several paths it cannot take.</param>
+    public static bool TryTake(bool takesSeveral, out IReadOnlyList<string>? paths, string picker)
     {
         lock (Lock)
         {
             if (Answers.Count == 0)
             {
-                path = null;
+                paths = null;
                 return false;
             }
 
-            path = Answers.Dequeue().Path;
+            paths = Answers.Dequeue().Paths;
             _taken++;
-            if (path is null)
+            if (paths is { Count: > 1 } && !takesSeveral)
+            {
+                // Spent, as every answer is by the first dialog to open, so it cannot redirect a later one; and not
+                // its first path, which no person could have chosen here.
+                _refusalsTaken++;
+                _lastRefusal = $"{picker} took an answer of {paths.Count} paths, which it cannot take, so it answered "
+                               + "as cancelled";
+                paths = null;
+            }
+            else if (paths is null)
                 _cancelsTaken++;
             return true;
         }

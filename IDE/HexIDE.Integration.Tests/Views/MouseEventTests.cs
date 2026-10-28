@@ -538,27 +538,30 @@ public class MouseEventTests
     [InlineData(-1L)]
     public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs)
     {
-        // Same vb6.exe order as A_double_click_on_the_form_raises_DblClick... above (#1031).
+        // Same vb6.exe order as A_double_click_on_the_form_raises_DblClick... above (#1031). Those probes logged no
+        // MouseMove, so they say nothing of one (#2412). The pointer's arrival raises one first, as a person's does (#2407), and
+        // the second press, where the first left it, raises none.
         using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true), Debugger(timeSliceMs));
         var outcome = await AutomationClick(run, "300,10 double");
         outcome.Success.Should().BeTrue(outcome.Error);
         outcome.Detail.Should().Contain("double-clicked").And.Contain("left button").And.Contain("(300, 10)");
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
-            "Form DblClick", "Form MouseUp 1 0 4500 150");
+        run.Printed.Should().Equal("Form MouseMove 0 0 4500 150", "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150",
+            "Form Click", "Form DblClick", "Form MouseUp 1 0 4500 150");
     }
 
     [AvaloniaFact]
     public async Task Automation_click_right_double_runs_the_forms_DblClick_in_the_measured_order()
     {
-        // Oracle: A click with real input, form right double click: the left order with Button 2.
+        // Oracle: A click with real input, form right double click: the left order with Button 2. Its probe logged no
+        // MouseMove; the pointer's arrival raises one first (#2407).
         using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true));
         var outcome = await AutomationClick(run, "300,10 right double");
         outcome.Success.Should().BeTrue(outcome.Error);
         outcome.Detail.Should().Contain("double-clicked").And.Contain("right button");
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Form MouseDown 2 0 4500 150", "Form MouseUp 2 0 4500 150", "Form Click",
-            "Form DblClick", "Form MouseUp 2 0 4500 150");
+        run.Printed.Should().Equal("Form MouseMove 0 0 4500 150", "Form MouseDown 2 0 4500 150", "Form MouseUp 2 0 4500 150",
+            "Form Click", "Form DblClick", "Form MouseUp 2 0 4500 150");
     }
 
     [AvaloniaTheory]
@@ -572,8 +575,10 @@ public class MouseEventTests
         outcome.Success.Should().BeFalse();
         outcome.Error.Should().Contain("second click").And.Contain("hidden or closed");
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().HaveCount(3).And.NotContain("Form DblClick");
-        run.Printed[2].Should().Be("first click");
+        // The pointer's arrival, MouseDown, MouseUp, then the first Click, which removes the form (#2407).
+        run.Printed.Should().HaveCount(4).And.NotContain("Form DblClick");
+        run.Printed[0].Should().StartWith("Form MouseMove 0 0 ");
+        run.Printed[3].Should().Be("first click");
     }
 
     [AvaloniaFact]

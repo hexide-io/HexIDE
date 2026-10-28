@@ -129,6 +129,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
             windowContext.WindowResized();
     }
 
+    public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed) =>
+        windowContext.ExecuteKeyboardEvent(name, args, writable, completed);
+
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         windowContext.ExecuteSub(name, args);

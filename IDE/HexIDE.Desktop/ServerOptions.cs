@@ -256,7 +256,7 @@ internal static class ServerOptions
                 var value = option.TakesValue && i + 1 < args.Length ? args[i + 1] : null;
                 if (option.Apply(value) && value is not null) i++;
             }
-            else if (!arg.StartsWith('-') && !arg.StartsWith('/') &&
+            else if (!arg.StartsWith('-') &&
                      (arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase) ||
                       arg.EndsWith(".vbg", StringComparison.OrdinalIgnoreCase) ||
                       arg.EndsWith(".twinproj", StringComparison.OrdinalIgnoreCase)))

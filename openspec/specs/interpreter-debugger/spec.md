@@ -43,7 +43,7 @@ VB6 discarded breakpoints when the project closed. HexIDE keeps them, stored per
 ### Requirement: Breakpoints SHALL only take effect in code loaded for the run
 A breakpoint SHALL cause a break only when it sits in code loaded into the interpreter for the current run.
 
-A form's run loads its code and the project's standard (`.bas`) and class (`.cls`) modules into the interpreter. UserControl (`.ctl`) and PropertyPage (`.pag`) modules are not loaded as free-standing modules by this path.
+A form's run loads its code and the project's standard (`.bas`) and class (`.cls`) modules into the interpreter. UserControl (`.ctl`) definitions with designer parts are registered as instance templates for placed controls, sharing the program interpreter; their declarations run per placed instance. PropertyPage (`.pag`) modules are not loaded by this path.
 
 #### Scenario: A breakpoint in a standard or class module
 - **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
@@ -259,6 +259,13 @@ Watches persist an expression across breaks, so the developer does not re-type i
 #### Scenario: Watching a value across breaks
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
+
+#### Scenario: Evaluating a stored watch context while paused
+- **WHEN** an expression watch names the paused module or one of its procedures
+- **THEN** a module-scoped watch SHALL exclude procedure locals
+- **AND** a procedure-scoped watch SHALL read that procedure's frame anywhere on the call stack
+- **AND** an undefined module-scoped name SHALL display `<Expression not defined in context>` with type `Empty`
+- **AND** a procedure that has returned SHALL display `<Out of context>` with type `Empty`
 
 #### Scenario: Selecting an expanded watch child
 - **WHEN** the developer selects a child of an expanded watch after selecting another watch
