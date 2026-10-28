@@ -386,3 +386,28 @@ syntax errors for modules and expressions, and returning null for unparseable st
 #### Scenario: SLL cannot parse an entry
 - **WHEN** SLL cancels parsing a module or Immediate-window entry
 - **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
+
+### Requirement: Timer runtime member table
+
+The interpreter SHALL resolve Timer members through the measured table rather than shared visual-control
+bindings. Enabled, Index, Interval, Name, Parent and Tag SHALL resolve; Interval SHALL read as Long and
+Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 382 on writes. Measured
+absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
+except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
+
+Implementation gap (#801): TabIndex and ToolTipText reads currently use that compile error through Object references too,
+where the measured late-bound result is trappable 438.
+Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
+
+#### Scenario: Timer size is absent
+- **WHEN** code reads Timer1.Width or assigns o.Width with o holding a Timer
+- **THEN** error 438 is raised and can be trapped
+- **AND** the shared property bindings do not expose Width in the Timer's property listing
+
+#### Scenario: Timer extender members remain absent
+- **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
+- **THEN** the missing-member compile error is raised rather than swallowed by the handler
+
+#### Scenario: Timer Interval arithmetic
+- **WHEN** a Timer with Interval 1000 is read and multiplied by 40
+- **THEN** Interval has type Long and the product is 40000

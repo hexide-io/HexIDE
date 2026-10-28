@@ -592,3 +592,11 @@ item — VB6's watch-based Break-When-True/Changed shipped in P6b). Tracked in
 compiled backend over DAP. *(Landed since this list was written: Watches + Break-When-True/Changed + Data Tips (P6), Run To Cursor
 + Set Next Statement + Immediate assignment/Set (P7), the Locals property/control surface incl. the form-`Me` +
 child-control tree (P8 + D7 residual-1/3, D7 now RESOLVED).)*
+
+### D28. A refused control property can abort Locals expansion (#2289)
+- **VB6:** the Timer runtime errors are measured; its IDE's Locals presentation is unmeasured.
+- **HexIDE:** `ReadProperties` propagates a getter's exception, so Timer.Left/Top's 393 can abort the
+  whole expansion. #801 makes absent Timer members non-matches at the binding boundary, but does not
+  add the per-property error rows tracked by #2289.
+- **Why:** the property list eagerly reads every binding before returning any rows.
+- **Status:** open, #2289; observed by code inspection during #801, not a live UI measurement.

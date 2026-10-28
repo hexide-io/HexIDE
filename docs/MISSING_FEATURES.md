@@ -354,7 +354,7 @@
 | ListBox | Done | Takes the focus itself, raising one GotFocus and one LostFocus however its items take it (#1101). Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Selected(i)`, `SelCount` and `Text`, read and written, as vb6.exe gives them on a single-select list (#1395). `MultiSelect`, Simple and Extended, with vb6.exe's mouse, keys and code, `ListIndex` the focused item (#1413). No `Sorted` |
 | HScrollBar | Done | Takes the focus, raising GotFocus and LostFocus (#1101). |
 | VScrollBar | Done | Takes the focus, raising GotFocus and LostFocus (#1101). |
-| Timer | Done | Interval defaults to 0, so an enabled Timer stays quiet until given a nonzero interval (#2068). Left and Top are designer positions; run-time reads raise 393 (#2069, measured). Writes remain unmeasured. |
+| Timer | Done | Interval defaults to 0, so an enabled Timer stays quiet until given a nonzero interval (#2068). Left and Top are designer positions; run-time reads raise 393 and writes 382. The measured member table rejects absent members with 438, reads Interval as Long and returns the owning form from Parent (#801). Unmeasured members refuse explicitly. |
 | DriveListBox | Missing | Not in toolbox. Tracked with its two siblings as one item — the VB6 idiom is the change-event chain, so one without the others is unusable ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |
 | DirListBox | Missing | Not in toolbox — see DriveListBox |
 | FileListBox | Missing | Not in toolbox — see DriveListBox |

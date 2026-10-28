@@ -1529,6 +1529,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
 
+        if (control is VBTimer && TimerMembers.TryGet(control, memberIdentifier, out var timerValue))
+            return timerValue;
+
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
              ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
@@ -1538,11 +1541,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         foreach (var prop in props)
         {
-            // A Timer's or scroll bar's colour, which VB6 does not have and which would read as black. Refused until
-            // #801 resolves a property the control does not declare, rather than read wrong.
-            if (AvaloniaInteroperability.IsUnsetColour(control, prop))
-                throw new NotImplementedException(
-                    $"Reading {memberIdentifier} from this control is not implemented: VB6 gives it no {memberIdentifier} (#801)");
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
