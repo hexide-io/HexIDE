@@ -21,6 +21,9 @@ The #1631 brief's measured PropertyPage HelpContextID and StandardSize file hand
 The #178 issue comments' measured whole-record copy and array behavior is recorded in
 [A UDT copied whole, and arrays of a UDT](vb6-fidelity-oracle/a-udt-copied-whole-and-arrays-of-a-udt.md).
 
+The #788 comments' measured hex/octal String conversion widths, leading zeros and malformed inputs are
+recorded in [Assigning to a control property](vb6-fidelity-oracle/assigning-to-a-control-property.md).
+
 The #1483 comments' project-name and sourceless Raise measurements are recorded in
 [Err.Source after a run-time error and after Err.Raise](vb6-fidelity-oracle/when-err-is-cleared-and-what-a-running-handler-traps.md#errsource-after-a-run-time-error-and-after-errraise-1483).
 

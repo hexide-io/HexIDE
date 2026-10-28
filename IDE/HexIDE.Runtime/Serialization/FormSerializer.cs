@@ -127,7 +127,9 @@ public class FormSerializer
             vb.BeginSortedProperties();
             WriteAllProperties(vb, component, citations);
             vb.EndSortedProperties();
-            if (inBox is not null)
+            if (component.BaseClass is RichTextBoxComponentClass)
+                RichTextBoxPersistence.Write(vb, component, citations);
+            else if (inBox is not null)
                 WriteOwnProperties(vb, component, inBox, citations);
             if (component.BaseClass is TreeViewComponentClass)
                 TreeViewPersistence.Write(vb, component, citations);
@@ -365,6 +367,8 @@ public class FormSerializer
         foreach (var raw in instance.UnknownRawProperties)
         {
             if (instance.BaseClass is TreeViewComponentClass && TreeViewPersistence.IsOwn(raw.Name))
+                continue;
+            if (instance.BaseClass is RichTextBoxComponentClass && RichTextBoxPersistence.IsOwnProperty(raw.Name))
                 continue;
             if (Omit(raw.Name) || inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
                 || inBox is not null && IsOwnRunLine(inBox, raw.Name))

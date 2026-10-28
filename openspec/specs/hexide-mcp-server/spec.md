@@ -51,6 +51,16 @@ as its `value`, with `isReadOnly`. An editor whose document is a project file SH
 - **WHEN** a code window's editor is inspected
 - **THEN** its `value` is absent, and its file is read with `get_file_content`
 
+### Requirement: Inspection SHALL report the mouse pointer a control shows
+`inspect_element` SHALL give `pointer` for a control showing a pointer set on it or above it: a running program's
+MousePointer by number and name, the pointer drawn, where it is set, and `setBy`, which says whether it is the
+control's own value, one set over it as `Screen.MousePointer` sets it, or a style's. A pointer the runtime did not make
+SHALL be reported as not recorded, never guessed, and a control with none set SHALL have no `pointer`.
+
+#### Scenario: Screen.MousePointer over a control's own
+- **WHEN** a running form's code sets `Screen.MousePointer = 11` over a button whose own MousePointer is 2
+- **THEN** the button's `pointer` is 11, Hourglass, set by Override, and after `Screen.MousePointer = 0` it is 2, Cross, its own
+
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
@@ -231,6 +241,20 @@ in a tree is fragile in a way a direct call is not.
 #### Scenario: A tool that duplicates the generic mechanism
 - **WHEN** a proposed tool does something the generic mechanism already does
 - **THEN** it is declined in favour of the generic mechanism
+
+### Requirement: A reply field SHALL explain itself where it appears
+A reply field that needs explaining SHALL carry its explanation in the reply, beside the field, when the field
+appears. A tool's description SHALL name the field and the vocabulary it uses, and SHALL keep to what a caller needs
+before the first call. A tool description SHALL stay within 1900 characters, so that a merge adding both sides' text
+cannot take it past the 2048 a client delivers (#638, #2511).
+
+#### Scenario: A new reply field
+- **WHEN** a tool's reply gains a field whose meaning is not plain from its name and value
+- **THEN** the reply says what it means, and the description names the field without explaining it
+
+#### Scenario: A description past the budget
+- **WHEN** a change takes a tool or parameter description past 1900 characters
+- **THEN** the build fails, naming the tool, unless the tool is still listed as not yet brought within it
 
 ### Requirement: The server SHALL serve only requests that originated on this machine
 The server SHALL refuse any request whose `Host` header does not name a loopback address on the port it
@@ -640,7 +664,19 @@ to a disabled window or one under a modal dialog.
 
 #### Scenario: Minimizing a running form
 - **WHEN** `set_window_state` minimizes `window: "Form1"` and then restores it
-- **THEN** the form's Resize runs for each, as it does for its minimize and restore boxes, and the reply names `Form1`
+- **THEN** exactly one Resize runs for each, with the new state and settled client size, as for its caption buttons
+- **AND** Paint follows restoring from minimized, with no Activate, Deactivate, GotFocus or LostFocus
+- **AND** the reply names `Form1`
+
+#### Scenario: Maximizing and restoring a running form
+- **WHEN** `set_window_state` maximizes `window: "Form1"` and then restores it
+- **THEN** each change raises exactly one Resize with the final state and client size
+- **AND** Paint follows maximizing, but not restoring from maximized
+
+#### Scenario: Resizing a running form
+- **WHEN** a person drags a running form's border or corner with window contents shown while dragging
+- **THEN** each move raises one Resize, followed by Paint when the client grows
+- **AND** releasing the border raises neither event
 
 #### Scenario: A Fixed Dialog
 - **WHEN** `set_window_state` asks a Fixed Dialog form to minimize, or to take a new width

@@ -351,8 +351,8 @@ public class MenuPopupTests : WindowTestFixture
     [AvaloniaFact]
     public void A_menu_advertises_the_actions_it_accepts()
     {
-        // MenuItemAutomationPeer exposes no providers at all, so reporting the peer verbatim showed a menu
-        // as undrivable — and a token nobody sees is a token nobody tries. Discovery has to agree with
+        // MenuItemAutomationPeer exposes no invoke or expandCollapse provider, so reporting the peer verbatim showed a
+        // menu as undrivable — and a token nobody sees is a token nobody tries. Discovery has to agree with
         // what Interact will actually do, or the fix is unreachable through the documented workflow.
         var (window, _, file) = BuildMenuWindow();
         UiAutomationDriver.Interact(file, "expand", null);
@@ -364,6 +364,20 @@ public class MenuPopupTests : WindowTestFixture
         var leaf = Find(dump, "Open")!;
         leaf.Providers.Should().Contain("invoke");
         leaf.Providers.Should().NotContain("expandCollapse");
+    }
+
+    [AvaloniaFact]
+    public void A_checkable_menu_item_does_not_advertise_toggle()
+    {
+        // From Avalonia 12.0.5 the peer of a checkable item offers a toggle, but it only sets IsChecked: no Click, so
+        // neither a program's handler nor an IDE command runs. Toggle is refused on every menu item for that reason, so
+        // advertising it would promise a verb that only refuses.
+        var (window, _, file) = BuildMenuWindow();
+        file.Items.Add(new MenuItem { Header = "Minimap", ToggleType = MenuItemToggleType.CheckBox });
+        UiAutomationDriver.Interact(file, "expand", null);
+        var dump = UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: false);
+
+        Find(dump, "Minimap")!.Providers.Should().Contain("invoke").And.NotContain("toggle");
     }
 
     private static UiNode? Find(UiNode node, string name)

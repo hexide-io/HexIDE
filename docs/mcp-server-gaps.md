@@ -701,19 +701,6 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-## No tool says which mouse pointer a control shows
-
-**Symptom (2026-10-28, Windows, #2448's live check).** `inspect_element {"target":"Window","window":"Form1"}` on a running
-form whose program had set `Screen.MousePointer = vbHourglass`, as its caption confirmed, has no cursor field.
-`take_snapshot` captures no OS cursor, and `dump_visual_tree` carries nothing about it. So neither `Screen.MousePointer`,
-nor a control's own `MousePointer`, nor a TextBox's I-beam can be checked in the running IDE.
-
-**Workaround.** None in the running IDE. A headless Integration test can read each control's `Cursor`, as
-`ScreenObjectRuntimeTests` does, and the program can read its own `MousePointer` back.
-
-**Suggested fix.** Report the effective pointer in `inspect_element`: the standard cursor type it was made from, or
-custom, and whether it was set above the control's own value. [#2453](https://github.com/hexide-io/HexIDE/issues/2453).
-
 ## `match: "TextEditor"` does not find the Immediate window, though the description says it does
 
 **Symptom (2026-10-28, Windows, #2496's live check).** With the Immediate window shown and seven lines of a program's
