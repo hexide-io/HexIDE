@@ -18,6 +18,9 @@ public static class AvaloniaMethodsInteroperability
         if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                               || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
+        if (c is VBDTPicker && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                                || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"DTPicker {method} is not implemented (#1094)");
         if (c is VBMaskEdBox && Components.InBox.MaskedEdBoxComponentClass.Instance.Member(method) is not null)
             throw VBMaskEdBox.Refused(method);
         if (c is VBTimer)
