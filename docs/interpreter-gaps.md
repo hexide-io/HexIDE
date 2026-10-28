@@ -275,6 +275,15 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Partial
 
+- **RichTextBox document members (#1100)** — a minimal form runs with code-driven text, RTF, selection,
+  character formatting and paragraph alignment. Non-Null SelColor reads refuse because the measured unsigned
+  Long Variant subtype (19) has no Vb6Value representation; mixed colours read Null and colour assignments
+  work. Unmeasured RTF conversions refuse rather than invent font metadata or lose insertion formatting.
+  Saved RTF round-trips, typing/editing shortcuts and character drawing work. Box drawing now uses saved
+  background/border settings and greys disabled text/background; Enabled works at runtime, and
+  Appearance/BorderStyle reject writes with 383. Paragraph drawing, keyboard selection and other runtime
+  members remain deferred; `MISSING_LANGUAGE.md` lists each boundary.
+
 - ~~**ChDir / ChDrive**~~ — **FIXED 2026-08-03**, oracle-pinned. (Audit nit corrected: they never applied the
   side-effect — the string-unpack always failed — so both *always* threw. Now: ChDir coerces the arg to a path,
   mapping any failure to Path Not Found (76); ChDrive uses the first char as the drive letter — empty = no-op,

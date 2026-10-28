@@ -32,6 +32,7 @@ public static class AvaloniaMethodsInteroperability
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
         // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
         // is 438 late-bound (measured).
+        RichTextBoxMembers.RefuseMethod(c, method);
         if (c is VBSSTab && Components.InBox.SSTabComponentClass.Instance.Member(method) is { Implemented: false })
             throw new NotImplementedException($"SSTab {method} is not implemented");
         if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method)) is { } inBox)

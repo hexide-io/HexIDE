@@ -2202,6 +2202,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VBRichTextBox richTextBox)
+                {
+                    VBProps.RefuseIfRemoved(richTextBox);
+                    RichTextBoxMembers.TrySet(richTextBox, "TextRTF", value);
+                    return default;
+                }
                 if (oldLet.Value is ToolbarItem toolbarItem)
                 {
                     toolbarItem.SetDefault(value);
@@ -2491,6 +2497,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             UserControlMembers.Check(variable, memberIdentifier);
             if (UserControlMembers.TrySet(control, memberIdentifier, value))
+                return default;
+
+            if (RichTextBoxMembers.TrySet(control, memberIdentifier, value))
                 return default;
 
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
