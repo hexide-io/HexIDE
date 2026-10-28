@@ -13,7 +13,6 @@ date functions; graphics) should extend it the same way.
 - [A UserControl's focus and access keys](usercontrol-focus-and-keys.md) — #1631 part B, SP6 native and p-code, real keystrokes.
 - [A UserControl’s extender members at run time](usercontrol-extender-members.md) — #1631 part A, SP6 native and p-code; includes the supervisor’s handle decision.
 - [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
-- [Shell](shell.md) — #2522, SP6 native and p-code; process IDs, paths, styles and errors.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
 
 ---
