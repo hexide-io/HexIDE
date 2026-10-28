@@ -178,9 +178,19 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     public void SetContent(Control content) => Content = content;
 
+    private bool positioned;
+    internal bool CenterOnShow { get; set; }
+
     // A disabled form is shown without being activated, so the control that had the focus keeps it (measured, #1101).
+
     public void ShowForm()
     {
+        if (!positioned && CenterOnShow)
+        {
+            AvaloniaInterop.FormPosition.Center(this);
+            WindowStartupLocation = WindowStartupLocation.Manual;
+        }
+        positioned = true;
         ShowActivated = IsEnabled;
         Show();
     }
