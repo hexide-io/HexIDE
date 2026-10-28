@@ -713,3 +713,19 @@ nor a control's own `MousePointer`, nor a TextBox's I-beam can be checked in the
 
 **Suggested fix.** Report the effective pointer in `inspect_element`: the standard cursor type it was made from, or
 custom, and whether it was set above the control's own value. [#2453](https://github.com/hexide-io/HexIDE/issues/2453).
+
+## `match: "TextEditor"` does not find the Immediate window, though the description says it does
+
+**Symptom (2026-10-28, Windows, #2496's live check).** With the Immediate window shown and seven lines of a program's
+`Debug.Print` output in it, `dump_visual_tree {"window":"ide","match":"TextEditor"}` answered "Nothing matches
+'TextEditor'", and so did the same call scoped with `root` to the Immediate pane. `match: "Immediate"` with
+`interactiveOnly: false` found only the hidden toolbar button. The tool's description promises that `TextEditor` finds
+"the Immediate window's" editor. The window is an `ImmediateToolView` over an unnamed `TextArea`, and no node carries
+its text, so a caller cannot tell an empty window from one it cannot reach.
+
+**Workaround.** `inspect_element` on `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, the `ImmediateToolView`: its
+`dataContextMembers` give `Document` with the whole text as its value.
+
+**Suggested fix.** Give the editor a node `match: "TextEditor"` finds and `inspect_element` reads, or correct the
+description to name the route that works; better, a read of the Immediate window's text, the commonest check after a run.
+[#2513](https://github.com/hexide-io/HexIDE/issues/2513).
