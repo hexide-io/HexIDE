@@ -615,3 +615,26 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: Width controls sequential Print item wrapping
+
+The interpreter SHALL implement the `Width #` cases measured in
+[#2554](https://github.com/hexide-io/HexIDE/issues/2554): CInt conversion, widths 0–255,
+error 5 for 256 and -1, and error 52 for an unopened number. Zero SHALL remove the limit.
+
+#### Scenario: Items exceed a width of five
+- **WHEN** `Width #1, 5` precedes `Print #1, "ab"; "cd"; "ef"` on an Output file
+- **THEN** the file SHALL contain `abcd`, CRLF, `ef`, CRLF
+- **AND** an oversized item SHALL stay whole, starting a new line if the column is nonzero
+- **AND** numeric padding SHALL count toward the width
+
+#### Scenario: Position and statement boundaries
+- **WHEN** a comma moves beyond the width
+- **THEN** Print SHALL start a new line
+- **AND** a trailing semicolon SHALL preserve the column for the next Print
+- **AND** Write SHALL retain its existing unwrapped output
+
+#### Scenario: Other measured modes
+- **WHEN** Width is used on an open Binary or Input file
+- **THEN** it SHALL accept the measured width of five without error
+- **AND** no effect in those modes is specified by this measurement

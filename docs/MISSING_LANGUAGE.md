@@ -115,7 +115,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
+| Statements | 1 | 0 | 15 | 45 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
@@ -123,7 +123,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **124** | **452** | **20** | **587** | **1184** |
+| **Total** | **1** | **0** | **123** | **453** | **20** | **587** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -158,7 +158,7 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
+damage is concentrated in **statements** and the **in-box object model**: 14% of VB6's statements (15
 of 107) and 55% of the
 in-box surface (`App`, `Printer`, `Clipboard`; 68 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 124 names
+## Dies mid-run — 123 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -386,7 +386,6 @@ most of the in-box object model.
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `VB_PredeclaredId` | **Dies** | The attribute line itself never throws: a leading run parses as moduleAttributes, and a class header is kept out of Code by ModuleDefinition (then composed back for the interpreter by FormCodeText.WholeFile). The attribute gives no default class instance, so `Debug.Print C.Foo()` dies at the first use with Variable not defined (C). Forms receive their predeclared instance through VBLoader by another path; this gap affects classes only. | ModuleDefinition.cs, VB6.g4, VBLoader.cs |
-| `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `Erl` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
 | `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
@@ -399,7 +398,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 16 absent, 44 partial, 46 supported)
+### Statements — 107 names (1 silently wrong, 15 absent, 45 partial, 46 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -452,7 +451,7 @@ missing.
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
 | `SetAttr` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
-| `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
+| `Width #` | Partial | **[#2554](https://github.com/hexide-io/HexIDE/issues/2554):** measured CInt rounding and numeric String conversion, widths 0–255 (0 unlimited), error 5 for 256/-1 and 52 for an unopened number. Print wraps before items and comma zones, keeps oversized items whole and retains the column after a semicolon; Write does not wrap. Binary/Input accept Width; its effect there, Random mode and positioning beyond the measured Tab(4) case remain unmeasured. | StatementExecutor.cs, VbFiles.cs, VbPrint.cs |
 | `Write #` | Partial | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521):** writes as vb6.exe measured: strings quoted, with an inner quote doubled; numbers with no leading zero, fixed while that takes at most 15 digits (7 for a Single), a point under any locale; `#TRUE#`, `#NULL#`, `#2003-01-02 13:45:00#`; Empty as nothing; a comma for every `,` or `;`, and no line break after a trailing one. **Partial:** an object, array or user-defined type is refused, and two items with no separator between them. | StatementExecutor.cs, VbWrite.cs |
 | `Resume line` | Partial | `resumeStmt : RESUME (WS (NEXT \| ambiguousIdentifier))?` (VB6.g4). An identifier target becomes ResumeSignal(ResumeKind.Label) and the driver does `ResolveLabel(labels, r.Label!)`… **#877:** clears Err (measured). | StatementExecutor.cs |
 | `ChDir` | Partial | Implemented and oracle-pinned. VisitChDirStmt evaluates the argument, coerces to string, assigns Environment.CurrentDirectory, and maps… | StatementExecutor.cs |
