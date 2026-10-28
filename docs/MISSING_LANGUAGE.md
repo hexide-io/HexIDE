@@ -115,7 +115,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 0 | 16 | 44 | 0 | 46 | 107 |
+| Statements | 1 | 0 | 14 | 46 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 33 | 53 | 0 | 67 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
@@ -123,7 +123,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **124** | **452** | **20** | **587** | **1184** |
+| **Total** | **1** | **0** | **122** | **454** | **20** | **587** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -158,7 +158,7 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
+damage is concentrated in **statements** and the **in-box object model**: 13% of VB6's statements (14
 of 107) and 55% of the
 in-box surface (`App`, `Printer`, `Clipboard`; 68 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 124 names
+## Dies mid-run — 122 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -343,7 +343,6 @@ most of the in-box object model.
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
-| `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
@@ -383,7 +382,6 @@ most of the in-box object model.
 | `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `StrPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `VB_PredeclaredId` | **Dies** | The attribute line itself never throws: a leading run parses as moduleAttributes, and a class header is kept out of Code by ModuleDefinition (then composed back for the interpreter by FormCodeText.WholeFile). The attribute gives no default class instance, so `Debug.Print C.Foo()` dies at the first use with Variable not defined (C). Forms receive their predeclared instance through VBLoader by another path; this gap affects classes only. | ModuleDefinition.cs, VB6.g4, VBLoader.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
@@ -399,7 +397,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 16 absent, 44 partial, 46 supported)
+### Statements — 107 names (1 silently wrong, 14 absent, 46 partial, 46 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -430,7 +428,7 @@ missing.
 | `Input #` | Partial | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521):** each variable takes the next field, read for its type as vb6.exe reads it. A numeric variable reads a number, which a blank ends, and 0 where the field starts with none; a String reads the text to the comma; a Variant is typed by what the field holds (Integer, Long, Currency up to 4 places, Decimal beyond, Double for an exponent, `#TRUE#`, `#NULL#`, a `#date#`). A point is a point under any locale. At the end of the file it is 62, and a Variant is emptied first. It reads a Binary file too, where a Ctrl+Z is an ordinary byte, and on a Random file is 54 ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). **Partial:** only a plain variable is taken, as for `Line Input #`, and `#ERROR n#` into a Variant is refused, since HexIDE has no Error values. | StatementExecutor.cs, VbFiles.cs, VbInput.cs |
 | `Kill` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `Line Input #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** reads a line of an Input file in the ANSI code page, ending at CR or CR LF but not a lone LF, and stopping at Ctrl+Z; 62 past the end, with the variable unchanged (all measured). It reads a Binary file too, where a Ctrl+Z is an ordinary byte, and on a Random file is 54 ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). Into a plain variable only: an array element or a member is refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
-| `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
+| `Lock` | Partial | **[#2553](https://github.com/hexide-io/HexIDE/issues/2553):** whole-file, single-record, inclusive `start To end` and omitted-start `To end` ranges run. Binary positions are bytes; Random positions are records of `Len`; sequential ranges cover the whole file. Duplicate locks and non-exact unlocks raise 70, invalid ranges 63, unopened numbers 52; Close releases the handle’s locks. Other numbers’ Get/Put and sequential Line Input respect locks; the owner can read its own range. **Partial:** range conversions from types other than Byte, Integer or Long are unmeasured and refused as not implemented. Locks hold within this program only; other processes and Binary text reads are not covered by these measurements. | StatementExecutor.cs, VbFiles.Locks.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MkDir` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
@@ -451,7 +449,7 @@ missing.
 | `Seek (statement)` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** `Seek #n, position`, or with no `#`, moves the next read or write to that byte, as vb6.exe measured: below 1 is 63; past the end an Input file is at its end and an Output file's next Print fills the gap with NULs; on an Append file it writes over what is there. On a Binary file the byte, on a Random file the record, and EOF False after it ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | StatementExecutor.cs, VbFiles.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
 | `SetAttr` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
-| `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
+| `Unlock` | Partial | **[#2553](https://github.com/hexide-io/HexIDE/issues/2553):** whole-file, single-record, inclusive `start To end` and omitted-start `To end` ranges run. Binary positions are bytes; Random positions are records of `Len`; sequential ranges cover the whole file. Duplicate locks and non-exact unlocks raise 70, invalid ranges 63, unopened numbers 52; Close releases the handle’s locks. Other numbers’ Get/Put and sequential Line Input respect locks; the owner can read its own range. **Partial:** range conversions from types other than Byte, Integer or Long are unmeasured and refused as not implemented. Locks hold within this program only; other processes and Binary text reads are not covered by these measurements. | StatementExecutor.cs, VbFiles.Locks.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
 | `Write #` | Partial | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521):** writes as vb6.exe measured: strings quoted, with an inner quote doubled; numbers with no leading zero, fixed while that takes at most 15 digits (7 for a Single), a point under any locale; `#TRUE#`, `#NULL#`, `#2003-01-02 13:45:00#`; Empty as nothing; a comma for every `,` or `;`, and no line break after a trailing one. **Partial:** an object, array or user-defined type is refused, and two items with no separator between them. | StatementExecutor.cs, VbWrite.cs |
 | `Resume line` | Partial | `resumeStmt : RESUME (WS (NEXT \| ambiguousIdentifier))?` (VB6.g4). An identifier target becomes ResumeSignal(ResumeKind.Label) and the driver does `ResolveLabel(labels, r.Label!)`… **#877:** clears Err (measured). | StatementExecutor.cs |

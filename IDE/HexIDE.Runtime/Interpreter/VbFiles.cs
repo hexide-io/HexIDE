@@ -95,6 +95,7 @@ internal sealed partial class VbFiles
     internal sealed class OpenFile(string path, VbFileMode mode, bool locked)
     {
         public string Path { get; } = path;
+        public List<(long Start, long End)> Locks { get; } = [];
         public VbFileMode Mode { get; } = mode;
         public bool Locked { get; } = locked;
         public byte[] Input { get; init; } = [];
@@ -254,7 +255,10 @@ internal sealed partial class VbFiles
     private (byte[] Bytes, int Position, int EndByte) TextSource(OpenFile file)
     {
         if (file.Mode == VbFileMode.Input)
+        {
+            CheckLocks(file, 0, long.MaxValue);
             return (file.Input, file.Position, CtrlZ);
+        }
         if (file.Mode != VbFileMode.Binary)
             throw new VBRunTimeException(VBStandardError.BadFileMode);
         return (SnapshotOf(file), (int)Math.Min(file.Stream!.Position, int.MaxValue), -1);
