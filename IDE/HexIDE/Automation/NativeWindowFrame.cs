@@ -59,6 +59,37 @@ internal static class NativeWindowFrame
           + "its name as 'window', then retry includeFrame true."
         : "The window is hidden, so it has no frame on the screen. Show it, then retry includeFrame true.";
 
+    /// <summary>
+    /// The frame Windows draws for <paramref name="window"/>, in screen pixels: its rectangle less the invisible resize
+    /// borders, which <see cref="Window.Position"/> includes (#2454). Elsewhere, the position and frame size Avalonia
+    /// reports. Null for a window that is hidden or minimized, which has no frame on the screen.
+    /// </summary>
+    internal static PixelRect? VisibleFrame(Window window)
+    {
+        if (!window.IsVisible || window.WindowState == WindowState.Minimized)
+            return null;
+        var hwnd = Handle(window);
+        if (OperatingSystem.IsWindows() && hwnd != 0)
+            return DwmGetWindowAttribute(hwnd, 9, out var bounds, Marshal.SizeOf<NativeRect>()) == 0
+                   && ToPixelRect(bounds) is { Width: > 0, Height: > 0 } frame ? frame : null;
+        return window.FrameSize is { } size ? new PixelRect(window.Position, PixelSize.FromSize(size, window.DesktopScaling)) : null;
+    }
+
+    /// <summary>
+    /// The whole of <paramref name="window"/>'s rectangle, in screen pixels: on Windows its invisible resize borders
+    /// included, which is where <see cref="Window.Position"/> is (#2454). Elsewhere, as <see cref="VisibleFrame"/>. Null
+    /// for a window that is hidden or minimized.
+    /// </summary>
+    internal static PixelRect? OuterRect(Window window)
+    {
+        if (!window.IsVisible || window.WindowState == WindowState.Minimized)
+            return null;
+        var hwnd = Handle(window);
+        if (OperatingSystem.IsWindows() && hwnd != 0)
+            return GetWindowRect(hwnd, out var outer) && ToPixelRect(outer) is { Width: > 0, Height: > 0 } rect ? rect : null;
+        return VisibleFrame(window);
+    }
+
     internal static FrameImage? Capture(Window window, out string? error)
     {
         error = "Frame capture requires a Windows HWND; this host/window has none. Use includeFrame false for a client-area render.";
