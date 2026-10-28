@@ -2,6 +2,8 @@ namespace HexIDE.Lsp;
 
 public interface IWorkspaceArtifactService
 {
+    Task ImportAsync(LanguageServerRegistration server, Func<WorkspaceArtifactContext, CancellationToken, Task> import,
+        CancellationToken cancellationToken);
     Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken);
 }
 

@@ -13,6 +13,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// reasonable guess gets wrong.
 /// </param>
 /// <param name="Path">The folder containing the project file, with no trailing separator (VB6 keeps none).</param>
+/// <param name="ProjectName">The project Name, independently of the application Title (#1483).</param>
 public record AppInfo(
     string Title = "",
     string ExeName = "",
@@ -27,7 +28,8 @@ public record AppInfo(
     string Comments = "",
     bool CommonDialogReferenced = false,
     IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
-    string CommandLine = "")
+    string CommandLine = "",
+    string? ProjectName = null)
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -65,7 +67,8 @@ public record AppInfo(
             // The in-box control libraries the project references, whose constants then resolve (#1082).
             ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
-            CommandLine: PreSectionValue(project, "Command32") ?? "");
+            CommandLine: PreSectionValue(project, "Command32") ?? "",
+            ProjectName: project.Name);
     }
 
     /// <summary>

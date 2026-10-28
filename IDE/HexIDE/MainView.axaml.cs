@@ -19,6 +19,13 @@ public partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
+#if DEBUG
+        // The automation server's section (#2451), left of Ln/Col. Added here rather than in the markup so that it compiles
+        // out with the server, and a distributed build carries no hidden section.
+        var automation = new HexIDE.Automation.AutomationStatusSection(HexIDE.Automation.AutomationServerStatus.Current);
+        DockPanel.SetDock(automation, Avalonia.Controls.Dock.Right);
+        StatusBarPanel.Children.Insert(2, automation);
+#endif
     }
 
     private void AvaloniaOnWeb(object? sender, ExecutedRoutedEventArgs e)

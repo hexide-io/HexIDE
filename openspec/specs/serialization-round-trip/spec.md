@@ -208,6 +208,12 @@ wrong result rather than a late error, so such a form is refused when it is run,
 - **WHEN** a file the IDE would refuse to save is opened
 - **THEN** its editors are read-only and state why
 
+#### Scenario: An invisible UserControl has no complete recorded extents
+- **WHEN** a form holds an InvisibleAtRuntime UserControl missing `_ExtentX` or `_ExtentY`
+- **THEN** the designer opens read-only and the form records the missing-extents save-fidelity reason
+- **AND** dirty checks and other read-only serialization do not throw
+- **AND** saving is refused without changing the file or inventing extents
+
 #### Scenario: Running a project containing one
 - **WHEN** a project containing such a file is run, and the file holds neither a control the engine cannot create
   nor a data-bound control
@@ -674,7 +680,10 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 
 ### Requirement: Recognised project lines SHALL retain their read order
 
-The writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
+The writer SHALL preserve read line order on an unedited save. Once the References dialog
+has been accepted for the project in the session, even unchanged, it SHALL save `Type=`,
+then every `Reference=`, then read `Object=` lines, then members (#2274, SP6 IDE). Components added in the session SHALL
+follow the last `Form=` line (#1103). Within the remaining lines, the writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
 retain its source slot even when its path is rebased. Other lines SHALL take the next unclaimed slot of
 their key, so a renamed form stays in its slot. A line with no remaining slot SHALL follow its predecessor
 in the default writer sequence; unused slots SHALL be omitted. A project with no recorded slots SHALL use
@@ -685,7 +694,14 @@ being anchored to slots; adding or removing an item may therefore shift them.
 
 - **GIVEN** a project whose `Form=` line precedes `Reference=`, with an unknown line between them
 - **WHEN** the form is renamed and the project is saved
-- **THEN** the renamed `Form=` line retains its slot before the unknown line and the reference
+- **THEN** the renamed form retains its slot before the reference and the unknown line retains its hint
+
+#### Scenario: References OK without a change
+
+- **GIVEN** a project with references or read components after member lines
+- **WHEN** References is accepted without changing a selection and the project is saved
+- **THEN** references precede read components, followed by members
+- **AND** cancelling References on a freshly loaded project preserves its read order
 
 #### Scenario: A missing form precedes a loaded form
 
@@ -778,6 +794,45 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
 
+### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
+A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value
+in the `.pag`. A save SHALL omit StandardSize, including a carried line from a loaded file, because
+VB6 rejects that property name in a `.pag` (#1631, issuecomment-6426450412). The unmeasured Small and
+Large preset dimensions SHALL NOT be inferred from the StandardSize line.
+
+#### Scenario: Edit a PropertyPage help context
+- **WHEN** a PropertyPage loaded with HelpContextID 7 is edited and saved
+- **THEN** its saved HelpContextID reflects the edit
+
+#### Scenario: Save an invalid StandardSize file line
+- **WHEN** a loaded PropertyPage contains `StandardSize = 1 'Small` and is saved
+- **THEN** the `.pag` omits StandardSize and keeps its dimensions
+
+### Requirement: Reference paths SHALL follow the measured save rules
+
+The writer SHALL name a library on the project's drive relative to the saved project's folder,
+including system libraries. Other-drive and UNC paths SHALL remain absolute. Without registry
+resolution, HexIDE SHALL retain empty paths, diverging from VB6 for registered libraries.
+
+#### Scenario: A system library on the project drive
+
+- **GIVEN** an absolute reference path on the project's drive
+- **WHEN** the project is saved
+- **THEN** the reference names that library relative to the destination folder
+
+### Requirement: CommonDialog scalar saves follow the measured VB6 layout
+The serializer SHALL write MSComDlg.CommonDialog own scalar properties under their individual names in the
+measured order, omitting defaults, and SHALL preserve the saved controls' order. Font properties SHALL remain
+individual lines rather than a Font block. Missing lines SHALL retain the measured runtime defaults.
+
+#### Scenario: VB6's four CommonDialogs are saved again
+- **WHEN** the form in `corpus/inbox-controls/saved/commondialog/` is loaded and saved
+- **THEN** its bytes are unchanged, including CommonDialog4 preceding the three existing controls
+
+#### Scenario: Explicit defaults are read
+- **WHEN** a CommonDialog own scalar property is read at its measured default
+- **THEN** the writer omits that line
+
 ### Requirement: MSComctlLib ImageList picture persistence
 
 The serializer SHALL preserve the measured MSComctlLib.ImageList format: extender properties, extents, BackColor,
@@ -792,6 +847,23 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
 
+### Requirement: In-box corpus state consistency
+
+The corpus gate SHALL reject a control folder present in both `corpus/inbox-controls/pending/` and `saved/`,
+reporting both paths. It SHALL also reject byte-identical files at the same relative path in those states.
+It SHALL NOT compare files across different control folders or outside this corpus. README folder rows SHALL
+list each pending and saved control folder in its actual state.
+
+#### Scenario: A merge leaves a control in both states
+
+- **WHEN** both `pending/treeview/` and `saved/treeview/` exist
+- **THEN** the guard fails and names both paths
+
+#### Scenario: Different controls share a fixture
+
+- **WHEN** a pending Toolbar and a saved ImageList have identical companion bytes
+- **THEN** those shared bytes do not cause a duplicate-file failure
+
 ### Requirement: Reference locales SHALL use hexadecimal
 
 The project reader SHALL interpret a reference's LCID as hexadecimal, accepting either case. The writer
@@ -802,3 +874,16 @@ SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273)
 - **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
 - **THEN** their model values are 0, 9, 1033, 3082 and 3081
 - **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively
+
+### Requirement: ActiveX EXE saves add Retained at the measured location
+
+When saving `Type=OleExe` without a `Retained=` line, the writer SHALL insert `Retained=0`
+between adjacent `Unattended=0` and `ThreadPerObject=0` lines (#2459). It SHALL preserve an
+existing Retained line and SHALL leave other project types, missing neighbours and other orders
+unchanged because their insertion behaviour has not been measured.
+
+#### Scenario: The ActiveX Document Exe template lacks Retained
+
+- **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
+- **THEN** Retained=0 is inserted between those lines
+- **AND** the remaining lines retain their order
