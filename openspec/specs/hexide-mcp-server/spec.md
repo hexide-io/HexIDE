@@ -878,6 +878,20 @@ as waiting to run separately from handlers already started.
 - **AND** events with handlers queued behind it are named as waiting to run
 - **AND** events without handlers are omitted
 
+### Requirement: Run-control replies SHALL say what the program printed
+A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
+SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
+its note SHALL say how much, or that it wrote nothing. Output past 4000 characters SHALL keep its end, with the note
+saying how much was left out.
+
+#### Scenario: A program that prints as it loads
+- **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
+- **THEN** `printed` holds the two lines, and the note says Debug.Print wrote 2 lines
+
+#### Scenario: Nothing printed
+- **WHEN** a program prints nothing before `stop_project`
+- **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
 ### Requirement: Realized items SHALL be listed in item order
 The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items
 panel's own containers by their owning `ItemsControl` index. Children without an item index SHALL
