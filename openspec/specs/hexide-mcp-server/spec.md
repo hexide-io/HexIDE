@@ -488,11 +488,46 @@ SHALL report none for an IDE started without one.
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
 
+### Requirement: Native window frames are observable
+
+Window inspection SHALL report `nativeStyle` and `nativeExStyle` as unsigned 32-bit masks read from the
+Windows HWND, or a `nativeStyleNote` explaining why they cannot be read. These SHALL remain distinct from
+the Avalonia frame properties. Other controls SHALL have no frame section.
+
+#### Scenario: Inspecting a running form's window
+
+- **WHEN** a caller inspects the `Window` of a running form on Windows
+- **THEN** `nativeStyle` and `nativeExStyle` equal the window's `GWL_STYLE` and `GWL_EXSTYLE`
+
+### Requirement: A frame snapshot SHALL show the window whatever covers it
+
+The snapshot tool SHALL accept optional `includeFrame`, default false. When true on Windows, it SHALL
+capture the window as Windows renders it, frame included, even where another window covers it, draw its
+open popups over it, and report client-origin offsets in image pixels. Where Windows renders nothing, it SHALL
+copy the frame rectangle from the screen instead and say how much of it other windows cover. Unavailable
+captures SHALL return an actionable error without a client-only fallback.
+
+#### Scenario: Capturing a running form with its caption
+
+- **WHEN** a caller requests `includeFrame: true` for a visible Windows form fully on screen
+- **THEN** the PNG includes the frame and the reply reports the client origin within it
+- **AND** the same offsets and scale map inspected bounds into the full and inline images
+
+#### Scenario: Another window covers the form
+
+- **WHEN** another application's window covers a running form and a caller requests `includeFrame: true`
+- **THEN** the PNG shows the form and its frame, not the covering window
+
+#### Scenario: The host cannot capture the frame
+
+- **WHEN** the window has no Windows HWND, or is hidden or minimized
+- **THEN** frame capture returns an error explaining the limitation and what to do next
 
 ### Requirement: Snapshots identify the title and capture area
 
 The snapshot description and reply SHALL explain that the image captures the window's client area,
-without its title bar or frame, with open popups included unless the reply's note says otherwise.
+without its title bar or frame unless `includeFrame` asks for them, with open popups included unless the
+reply's note says otherwise.
 The reply SHALL report the captured window's actual title in `title`, including for the IDE's own
 window and an empty caption. It SHALL retain `activeDialog` with its previous meaning for compatibility.
 
@@ -624,7 +659,7 @@ cause when no such input came, and SHALL NOT count routed pointer events a tool 
 
 ### Requirement: Snapshot coordinates include popup overhang
 
-A snapshot SHALL include the window and its open native popups at their relative screen positions,
+By default, a snapshot SHALL include the client area and its open native popups at their relative screen positions,
 including popups extending left of or above the window. The reply SHALL report the window origin in
 full-image pixels as `windowOffsetX` and `windowOffsetY`, zero when no left or top overhang exists.
 Tool descriptions SHALL explain how to map inspected window-relative bounds into both returned images.

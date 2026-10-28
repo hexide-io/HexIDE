@@ -2184,7 +2184,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the window's client area, without its title bar or frame, as a PNG. 'captureArea' explains this in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why. The image is the compositor's, as on screen; should it give none within 5 s, a render target draws it and the 'note' says so.")]
+    [Description("Captures the window's client area, without its title bar or frame, as a PNG, or with 'includeFrame' the whole window as Windows renders it, even where another window covers it. 'captureArea' says which in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why. The image is the compositor's, as on screen; should it give none within 5 s, a render target draws it and the 'note' says so.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2193,6 +2193,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "'inlineWidth', 'inlineHeight' and 'inlineScale', its pixels per device-independent unit, describe it. "
                      + "Default false: an image costs a few thousand tokens of context.")]
         bool inline = false,
+        [Description("'includeFrame' true captures the whole window, title bar and frame included, as Windows renders it, "
+                     + "even where another window covers it, with its open popups drawn over it. Windows only; refused, with no "
+                     + "client-only fallback, for a window hidden or minimized. Should Windows render nothing, the frame is "
+                     + "copied from the screen and the 'note' says how much of it other windows cover, since that part shows "
+                     + "them. Default false renders the client area and its popups, even if occluded.")]
+        bool includeFrame = false,
         CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -2202,7 +2208,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // whether or not it is on top; see ForegroundWindow.Pick for which wins among several.
             var (active, label, error) = ResolveActiveWindow(window);
             if (active is null)
-                return new SnapshotResult(null, error, null);
+                return new SnapshotResult(null, error, null, CaptureArea: null);
 
             var activeDialog = label == "MainWindow" ? null : label;
 
@@ -2210,10 +2216,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
             // Drawn by the compositor, as the screen is: a render target above 100% scaling left out text drawn after a
-            // popped clip (#2293).
-            using var snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
+            // popped clip (#2293). With includeFrame, Windows draws the window, frame and all, even where another window covers
+            // it: a copy of the screen showed whatever was on top, with the reply of a clean capture (#2182).
+            HexIDE.Automation.SnapshotComposer.Snapshot? snapshot;
+            if (includeFrame)
+            {
+                (snapshot, var frameError) = await HexIDE.Automation.SnapshotComposer.CaptureFrameAsync(active);
+                if (snapshot is null)
+                    return new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null);
+            }
+            else
+                snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
+            using var captured = snapshot;
             if (snapshot is null)
-                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title);
+                return new SnapshotResult(null, "Window has no size", activeDialog, Title: active.Title, CaptureArea: null);
             var (bitmap, windowOffset, leftOut) = (snapshot.Image, snapshot.WindowOffset, snapshot.LeftOut);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
@@ -2224,8 +2240,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var result = new SnapshotResult(path, null, activeDialog,
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
                 WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y,
-                Note: string.Join(" ", new[] { LeftOutNote(leftOut), snapshot.Fallback }.OfType<string>()) is { Length: > 0 } note ? note : null,
+                Note: string.Join(" ", new[] { snapshot.Frame, LeftOutNote(leftOut), snapshot.Fallback }.OfType<string>()) is { Length: > 0 } note ? note : null,
                 Title: active.Title);
+            if (includeFrame)
+                result = result with { CaptureArea = FrameCaptureArea };
             if (!inline)
                 return result;
 
@@ -2255,6 +2273,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     /// <summary>The 'window' parameter as the tree tools describe it, in the parameter's own schema entry.</summary>
     // The reply's wait for a running program (#1232), shared by the tools that act on its forms.
+    // A frame capture's 'captureArea' (#1595, #2182).
+    private const string FrameCaptureArea = "The whole window, title bar and frame included, as Windows renders it, even "
+        + "where another window covers it; open popups are drawn over it unless the note says otherwise.";
+
     private const string ProgramWaitNote =
         "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for the program to finish what the "
         + "action set off; a DoEvents loop already running, or a Timer's, is waiting for input. If it cannot, a note in "
@@ -2502,7 +2524,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(Avalonia.Automation.ExpandCollapseState))]
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (true/false when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; on Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -3573,7 +3595,8 @@ internal record SnapshotResult(
     int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
     int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null,
     string? Title = null,
-    string CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
+    // What the image holds, so absent when there is none: a refusal said it held a client area it never captured.
+    string? CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
 
 internal record ProjectInfoResult(
     string? ProjectName,
