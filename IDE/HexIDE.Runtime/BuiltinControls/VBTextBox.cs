@@ -35,6 +35,9 @@ public class VBTextBox : TextBox
         ApplyLayout(false, 0);
     }
 
+    // The saved border selects the measured minimum size (#1029); rendering is unchanged.
+    internal int VbBorderStyle { get; init; } = 1;
+
     protected override void OnTextInput(TextInputEventArgs e)
     {
         if (e.Handled || string.IsNullOrEmpty(e.Text))

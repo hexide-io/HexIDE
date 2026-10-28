@@ -918,7 +918,7 @@ public class UiAutomationDriverTests
     // ── Tree nodes and the double-click gesture ──────────────────────────────────────────────────
     //
     // Both were unreachable until 2026-09-14 and are the reason the Project Explorer could be read in
-    // full and not driven at all. See docs/archive/mcp-server-gaps-closed.md.
+    // full and not driven at all. See docs/mcp-gaps/closed/the-project-explorer-could-be-read-in-full-and-not-driven-at.md.
 
     /// <summary>A TreeView with one selectable root and one child, shown so peers exist.</summary>
     private static (Window Window, TreeView Tree, TreeViewItem Root) BuildTreeWindow()

@@ -16,6 +16,16 @@ options {
         return base.NextToken();
     }
 
+    // Whether the character just before the current token ends a word: a letter, a digit or an underscore. Called
+    // only from the predicate at the right edge of IDENTIFIER_CONTINUATION, after the whole token has matched.
+    private bool WordEndsBeforeToken()
+    {
+        var before = TokenStartCharIndex - 1;
+        if (before < 0) return false;
+        var c = InputStream.LA(before - InputStream.Index);
+        return char.IsLetterOrDigit((char)c) || c == '_';
+    }
+
     // ANTLR counts only LF itself. Count a lone CR too, including in skipped continuations/comments.
     private sealed class PhysicalLineSimulator(VisualBasic6Lexer lexer)
         : LexerATNSimulator(lexer, _ATN, VisualBasic6Lexer.decisionToDFA, VisualBasic6Lexer.sharedContextCache)
@@ -555,10 +565,10 @@ fragment LINE_END: '\r' '\n'? | '\n';
 
 // A continuation between word fragments must separate names rather than concatenate them (#224).
 // Other continuations retain their existing handling, including KWSEP inside multi-word keywords.
+// Both checks sit at the RIGHT edge; the interpreter's grammar says why (#2676).
 IDENTIFIER_CONTINUATION
-   : {char.IsLetterOrDigit((char)InputStream.LA(-1)) || InputStream.LA(-1) == '_'}?
-     [ \t]+ '_' [ \t]* LINE_END [ \t]*
-     {char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
+   : [ \t]+ '_' [ \t]* LINE_END [ \t]*
+     {WordEndsBeforeToken() && char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
    ;
 
 // A whitespace RUN before the underscore, and any whitespace after it — mirrored from the interpreter's

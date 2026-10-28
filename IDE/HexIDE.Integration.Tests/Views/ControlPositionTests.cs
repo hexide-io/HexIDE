@@ -147,6 +147,64 @@ public class ControlPositionTests
         run.Printed.Should().Equal("a = 15 Single", "b = 15 Single", "c = 15 Single", "d = 20 Single");
     }
 
+    [AvaloniaTheory]
+    [InlineData("TextBox", "", 150, 285)]
+    [InlineData("TextBox", "MultiLine = -1", 150, 285)]
+    [InlineData("TextBox", "BorderStyle = 0", 75, 195)]
+    [InlineData("TextBox", "Arial", 240, 450)]
+    [InlineData("CommandButton", "", 75, 195)]
+    [InlineData("CommandButton", "Arial", 120, 330)]
+    [InlineData("CheckBox", "", 75, 195)]
+    [InlineData("OptionButton", "", 75, 195)]
+    [InlineData("ComboBox", "", 390, 0)]
+    [InlineData("ComboBox", "Arial", 390, 0)]
+    [InlineData("ListBox", "", 135, 255)]
+    [InlineData("ListBox", "IntegralHeight = 0", 135, 255)]
+    [InlineData("HScrollBar", "", 30, 30)]
+    [InlineData("VScrollBar", "", 30, 30)]
+    [InlineData("Frame", "", 15, 15)]
+    [InlineData("PictureBox", "", 15, 15)]
+    [InlineData("PictureBox", "BorderStyle = 0", 15, 15)]
+    [InlineData("Image", "", 15, 15)]
+    [InlineData("Shape", "", 15, 15)]
+    [InlineData("Label", "BorderStyle = 1", 15, 15)]
+    public void A_controls_measured_minimum_is_a_floor(string type, string variant, int width, int height)
+    {
+        // #1029: only the recorded font/border combinations, without extrapolating from host font metrics.
+        var properties = variant == "Arial"
+            ? "BeginProperty Font\nName = \"Arial\"\nSize = 14.25\nWeight = 400\nItalic = 0\nEndProperty"
+            : variant;
+        var controls = $"Begin VB.{type} C\nWidth = 1500\nHeight = 495\n{properties}\nEnd\n";
+        var body = "C.Width = 7\nS \"w\", C.Width\nC.Width = 0\nS \"zero\", C.Width\n"
+            + "C.Width = 100\nS \"above\", C.Width\n";
+        var expected = new List<string> { $"w = {width} Single", $"zero = {width} Single", $"above = {Math.Max(100, width)} Single" };
+        if (height == 0)
+        {
+            body += "On Error Resume Next\nC.Height = 7\nDebug.Print CStr(Err.Number)";
+            expected.Add("383");
+        }
+        else
+        {
+            body += "C.Height = 7\nS \"h\", C.Height\nC.Height = 0\nS \"hz\", C.Height\n"
+                + "C.Height = 100\nS \"ha\", C.Height";
+            expected.AddRange([$"h = {height} Single", $"hz = {height} Single", $"ha = {Math.Max(100, height)} Single"]);
+        }
+        var run = RunLoad(Form(TwipsForm, controls.ReplaceLineEndings("\r\n")), body);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaFact]
+    public void TextBox_Move_uses_the_same_measured_floor()
+    {
+        var run = RunLoad(Form(TwipsForm, TextBox),
+            "Text1.Move 120, 120, 7, 7\nS \"w\", Text1.Width\nS \"h\", Text1.Height");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("w = 150 Single", "h = 285 Single");
+    }
+
     [AvaloniaFact]
     public void A_position_past_a_Long_in_twips_is_Overflow()
     {
