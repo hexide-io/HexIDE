@@ -276,7 +276,7 @@ public partial class PropertiesToolViewModel : Tool
                 SuggestedFileName = property.Name + "." + extension,
                 DefaultExtension = extension,
             });
-            if (path != null) await File.WriteAllBytesAsync(path, payload);
+            if (path != null) AtomicFileWriter.WriteAllBytes(path, payload);
         }
         catch (Exception e)
         {

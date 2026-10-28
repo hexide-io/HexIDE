@@ -197,7 +197,7 @@ public class PrePass : VB6BaseVisitor<object?>
             && attribute.implicitCallStmt_InStmt().GetText() is var name
             && (name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
                 || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
-            && attribute.literal().Length == 1 && attribute.literal(0).GetText() == "0")
+            && attribute.signedLiteral().Length == 1 && attribute.signedLiteral(0).GetText() == "0")
         {
             DeclaresDefaultMember = true;
             return;
@@ -224,7 +224,7 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         foreach (var attribute in context.attributeStmt())
             if (attribute.implicitCallStmt_InStmt().GetText().Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
-                PredeclaredId = attribute.literal(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+                PredeclaredId = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
         return base.VisitModuleAttributes(context);
     }
 

@@ -60,6 +60,49 @@ when overriding the build output.
 
 ---
 
+## Project smoke checks (#2505, open/save lane)
+
+`ProjectCorpusSmokeTests` in `HexIDE.Tests` opens projects through the real `ProjectService` and saves
+scratch copies. It always includes `demo/`, `corpus/designer`, the member-attribute round-trip and
+`saved*` evidence directories, and `corpus/inbox-controls/saved`. `HEXIDE_ROUNDTRIP_CORPUS` adds
+semicolon-separated roots; a configured root that is missing fails the test. Project discovery is
+case-insensitive for `.vbp` extensions, including on Linux.
+
+Run from the repository root:
+
+```sh
+HEXIDE_FOREIGN_LSP_DOWNLOAD=0 pwsh scripts/test.ps1 IDE/HexIDE.Tests -- --filter-class 'HexIDE.Tests.Corpus.ProjectCorpusSmokeTests'
+```
+
+Each project gets its own scratch copy of its corpus root. The harness compares every copied file
+byte for byte after normalising only the original project's reference paths, detecting added and deleted
+files too. Same-drive reference paths become relative; other drives and unresolved paths stay as read
+([measured in #2274](vb6-fidelity-oracle/a-references-path-and-the-line-order-a-save-writes.md)).
+The harness uses the file's path, as HexIDE does today; it does not resolve registered libraries or
+substitute library identities. `Retained=` is untouched (#2459). Every other byte must match.
+File paths compare case-insensitively on Windows and macOS, ordinally on Linux. A reported save refusal is allowed, but never
+excuses changed bytes. The original corpus is untouched. Members outside the copied project's own
+directory are refused before saving; symbolic links are rejected. This conservative safety restriction
+can refuse projects with shared parent-directory modules that the IDE itself would save.
+
+The JSON report is `TestResults/hexide-project-smoke-report.json` beside the IDE test assembly, with
+one result per project: opened, identical/different/refused save, differing relative file paths, expected reference-path `Normalisations`, and
+any exception including its stack. Each result's `Evidence` path names a directory beside that report;
+for each differing file, `original/` and `saved/` hold its exact bytes before and after saving. A missing
+side means the file was added or deleted. Evidence from the preceding sweep is cleared before each run.
+The normal `HexIDE.Tests` suite runs this lane, including in CI, whose failure upload includes
+`TestResults`. Test diagnostics are developer-facing; no IDE strings change.
+
+The first Linux sweep opened 29 projects without a crash but changed five demo forms. The
+[line-by-line audit](project-smoke-save-audit-2505.md) records all 66 differing lines, original and saved:
+one trailing ASCII space was added to each block opener. The hand-authored demos now use the recorded
+VB6 block-opening whitespace, so the sweep requires byte identity apart from the measured reference-path normalisation above. The same differences
+were reproduced with CRLF inputs, which `.gitattributes` already enforces on these files on Linux too.
+Three evidence-writing regression cases cover changed, added and deleted files on Linux.
+
+Remaining: bounded startup execution through `HexIDE.Standalone`, Make coverage, and their per-project
+results. The open/save lane does not establish the full beta gate's run/make guarantee.
+
 ## Corpus coverage targets
 
 The corpus should cover the following axes. Track gaps in the table below.

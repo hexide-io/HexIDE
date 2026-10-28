@@ -2202,6 +2202,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VBRichTextBox richTextBox)
+                {
+                    VBProps.RefuseIfRemoved(richTextBox);
+                    RichTextBoxMembers.TrySet(richTextBox, "TextRTF", value);
+                    return default;
+                }
                 if (oldLet.Value is ToolbarItem toolbarItem)
                 {
                     toolbarItem.SetDefault(value);
@@ -2493,6 +2499,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (UserControlMembers.TrySet(control, memberIdentifier, value))
                 return default;
 
+            if (RichTextBoxMembers.TrySet(control, memberIdentifier, value))
+                return default;
+
             // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
             if ((StatusBarMembers.TrySet(control, memberIdentifier, value)
                  ?? ProgressBarMembers.TrySet(control, memberIdentifier, value)) is { } inBox)
@@ -2729,7 +2738,36 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitLsetStmt(VB6Parser.LsetStmtContext context)
     {
-        throw new NotImplementedException("Lset not implemented");
+        return await JustifyString(context.implicitCallStmt_InStmt(), context.valueStmt(), false);
+    }
+
+    private async Task<ControlFlow> JustifyString(VB6Parser.ImplicitCallStmt_InStmtContext target,
+        VB6Parser.ValueStmtContext source, bool right)
+    {
+        if (target.iCS_S_VariableOrProcedureCall() is not { } variable || variable.dictionaryCallStmt() is not null)
+            throw new NotImplementedException("LSet/RSet into this target is not implemented");
+        var name = variable.ambiguousIdentifier().GetText();
+        RefuseConstantTarget(name, VariableRequired);
+        var (found, oldValue) = await interpreter.ReadVariable(currentEnv, name);
+        if (!found || !currentEnv.TryGetVariableLocation(name, out var slot))
+            throw new NotImplementedException("LSet/RSet into an undeclared target is not implemented");
+        var declared = interpreter.ExecutionContext.State.DeclaredTypeOf(slot);
+        if (declared is not null && declared != Vb6Value.ValueType.String
+            || oldValue.Type != Vb6Value.ValueType.String && oldValue.Type != Vb6Value.ValueType.Integer)
+            throw new NotImplementedException("LSet/RSet for this target type is not implemented");
+        var value = await expressionExecutor.EvaluateScalar(source);
+        if (value.IsNull)
+            throw new VBRunTimeException(source, VBStandardError.InvalidUseOfNull);
+        if (value.Type != Vb6Value.ValueType.String && value.Type != Vb6Value.ValueType.Integer
+            && value.Type != Vb6Value.ValueType.Double && value.Type != Vb6Value.ValueType.Boolean
+            && value.Type != Vb6Value.ValueType.EmptyVariant)
+            throw new NotImplementedException("LSet/RSet conversion from this source type is not implemented");
+        var width = VbDisplay.ToText(oldValue).Length;
+        var text = VbDisplay.ToText(value);
+        // Both statements keep the leftmost characters when the value is too long (#2517).
+        var result = text.Length > width ? text[..width] : right ? text.PadLeft(width) : text.PadRight(width);
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, new Vb6Value(result));
+        return ControlFlow.Nothing;
     }
 
     // As in PrePass: every directive was applied before the parse (#1112), and a `#` line left is code to vb6.exe.
@@ -3052,7 +3090,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitRsetStmt(VB6Parser.RsetStmtContext context)
     {
-        throw new NotImplementedException("Rset not implemented");
+        return await JustifyString(context.implicitCallStmt_InStmt(), context.valueStmt(), true);
     }
 
     public override async Task<ControlFlow> VisitSavepictureStmt(VB6Parser.SavepictureStmtContext context)
@@ -3483,9 +3521,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 treeNode.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
                 return default;
             }
-            if (setLead && target.Value is VBToolbar && membersCall.iCS_S_MemberCall().Length == 1)
+            if (setLead && target.Value is VBToolbar toolbar && membersCall.iCS_S_MemberCall().Length == 1)
             {
                 var name = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+                if (name.ToLowerInvariant() is "imagelist" or "hotimagelist" or "disabledimagelist"
+                    && toolbar.TrySetProperty(name, value)) return default;
                 VBToolbar.RefusePending(name);
                 if (name.Equals("Buttons", StringComparison.OrdinalIgnoreCase)) throw ToolbarItems.Error(383);
             }

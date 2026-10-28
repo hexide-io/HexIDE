@@ -607,8 +607,8 @@ public partial class ProtocolInspectorToolViewModel : Document
             // cites the messages file by line number, so a separated pair is a broken one.
             var manifest = System.IO.Path.ChangeExtension(chosen, null) + ".manifest.json";
 
-            await System.IO.File.WriteAllTextAsync(chosen, export.Messages);
-            await System.IO.File.WriteAllTextAsync(manifest, export.Manifest);
+            AtomicFileWriter.WriteAllText(chosen, export.Messages);
+            AtomicFileWriter.WriteAllText(manifest, export.Manifest);
 
             ExportStatus = Format("Str.Tool.ProtocolInspector.Exported", export.Lines, chosen, manifest);
         }

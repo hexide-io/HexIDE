@@ -1,5 +1,5 @@
 VERSION 5.00
-Begin VB.Form frmFind
+Begin VB.Form frmFind 
    BorderStyle     =   3  'Fixed Dialog
    Caption         =   "Find"
    ClientHeight    =   1335
@@ -12,7 +12,7 @@ Begin VB.Form frmFind
    ScaleWidth      =   5415
    ShowInTaskbar   =   0   'False
    StartUpPosition =   1  'CenterOwner
-   Begin VB.CommandButton cmdCancel
+   Begin VB.CommandButton cmdCancel 
       Cancel          =   -1  'True
       Caption         =   "Cancel"
       Height          =   345
@@ -21,7 +21,7 @@ Begin VB.Form frmFind
       Top             =   570
       Width           =   1215
    End
-   Begin VB.CommandButton cmdFindNext
+   Begin VB.CommandButton cmdFindNext 
       Caption         =   "&Find Next"
       Default         =   -1  'True
       Enabled         =   0   'False
@@ -31,14 +31,14 @@ Begin VB.Form frmFind
       Top             =   120
       Width           =   1215
    End
-   Begin VB.Frame fraDirection
+   Begin VB.Frame fraDirection 
       Caption         =   "Direction"
       Height          =   615
       Left            =   2160
       TabIndex        =   3
       Top             =   600
       Width           =   1785
-      Begin VB.OptionButton optDown
+      Begin VB.OptionButton optDown 
          Caption         =   "&Down"
          Height          =   255
          Left            =   900
@@ -47,7 +47,7 @@ Begin VB.Form frmFind
          Value           =   -1  'True
          Width           =   795
       End
-      Begin VB.OptionButton optUp
+      Begin VB.OptionButton optUp 
          Caption         =   "&Up"
          Height          =   255
          Left            =   120
@@ -56,7 +56,7 @@ Begin VB.Form frmFind
          Width           =   675
       End
    End
-   Begin VB.CheckBox chkMatchCase
+   Begin VB.CheckBox chkMatchCase 
       Caption         =   "Match &case"
       Height          =   255
       Left            =   120
@@ -64,14 +64,14 @@ Begin VB.Form frmFind
       Top             =   870
       Width           =   1455
    End
-   Begin VB.TextBox txtFind
+   Begin VB.TextBox txtFind 
       Height          =   315
       Left            =   1080
       TabIndex        =   1
       Top             =   135
       Width           =   2865
    End
-   Begin VB.Label lblFind
+   Begin VB.Label lblFind 
       Caption         =   "Fi&nd what:"
       Height          =   255
       Left            =   120

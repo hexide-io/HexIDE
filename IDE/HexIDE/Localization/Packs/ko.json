@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "투명 픽셀에 사용하는 색입니다.",
     "Str.PropDesc.UseMaskColor": "마스크 색 사용 여부입니다.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "들여쓰기 안내선 표시",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "중첩 깊이에 따라 괄호 색상 지정",
+    "Str.Dialog.Print.Configuration": "매수: 1; 방향: 세로.",
+    "Str.Dialog.Print.Unavailable": "인쇄는 구현되지 않았습니다. 확인은 대화 상자 설정만 반환합니다.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

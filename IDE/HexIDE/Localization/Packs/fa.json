@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "رنگ پیکسل‌های شفاف.",
     "Str.PropDesc.UseMaskColor": "آیا رنگ ماسک استفاده شود.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "نمایش راهنماهای تورفتگی",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "رنگ‌آمیزی پرانتزها بر اساس عمق تو در تویی",
+    "Str.Dialog.Print.Configuration": "نسخه‌ها: ۱؛ جهت: عمودی.",
+    "Str.Dialog.Print.Unavailable": "چاپ پیاده‌سازی نشده است. تأیید فقط تنظیمات گفتگو را برمی‌گرداند.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

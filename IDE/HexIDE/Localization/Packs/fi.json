@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Läpinäkyvien pikselien väri.",
     "Str.PropDesc.UseMaskColor": "Käytetäänkö maskin väriä.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Näytä sisennysohjaimet",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
+    "Str.Dialog.Print.Configuration": "Kopioita: 1; suunta: pysty.",
+    "Str.Dialog.Print.Unavailable": "Tulostusta ei ole toteutettu. OK palauttaa vain valintaikkunan asetukset.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

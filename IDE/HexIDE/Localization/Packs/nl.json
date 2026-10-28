@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "De kleur voor transparante pixels.",
     "Str.PropDesc.UseMaskColor": "Of de maskerkleur wordt gebruikt.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Inspringhulplijnen tonen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
+    "Str.Dialog.Print.Configuration": "Exemplaren: 1; afdrukstand: staand.",
+    "Str.Dialog.Print.Unavailable": "Afdrukken is niet geïmplementeerd. OK geeft alleen de dialooginstellingen terug.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }
