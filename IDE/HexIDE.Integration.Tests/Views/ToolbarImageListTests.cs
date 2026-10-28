@@ -94,6 +94,31 @@ public class ToolbarImageListTests
         saved.frxContent.Should().Equal(companion);
     }
 
+    // The oracle's probe set all three lists from code. Only ImageList reached the Toolbar, and the others were error 91
+    // (#2334 live check).
+    [AvaloniaFact]
+    public async Task Hot_and_disabled_lists_are_set_from_code()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
+        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var source = Vb6TextFile.ReadAllText(path);
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, new Sink(),
+            FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        var loaded = (DockPanel)HexIDE.Runtime.VBLoader.SpawnComponents(form, context, environment);
+        var controls = loaded.Children.OfType<Canvas>().Single().Children;
+        var bar = controls.OfType<VBToolbar>().Single(b => HexIDE.Runtime.BuiltinControls.VBProps.GetName(b) == "Toolbar1");
+        var images = controls.OfType<VBImageList>().Single();
+        await ContainerRuntimeHarness.Run(context, environment, """
+            Set Toolbar1.HotImageList = ImageList1
+            Set Toolbar1.DisabledImageList = ImageList1
+            """);
+        bar.HotImageList.Should().BeSameAs(images);
+        bar.DisabledImageList.Should().BeSameAs(images);
+    }
+
     [AvaloniaFact]
     public void Defaults_and_invalid_bindings_match_the_probe()
     {
@@ -275,5 +300,37 @@ public class ToolbarImageListTests
         bar.TrySetProperty("ImageList", Vb6Value.Nothing);
         await images.Images.CallAsync("Clear", []);
         images.Images.Count.Should().Be(0);
+    }
+
+    // F5 on VB6's own save. Shown, the form attaches its Toolbars to the window, and their inherited font arrives as they
+    // attach; refreshing the buttons there stopped the form loading (#2334 live check).
+    [AvaloniaFact]
+    public void Vb6s_saved_form_runs_in_a_shown_window()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
+        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var source = Vb6TextFile.ReadAllText(path);
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, source, new Sink(),
+            FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
+        project.AddForm(form);
+        using var cancel = new System.Threading.CancellationTokenSource();
+        var context = System.Threading.ExecutionContext.Capture();
+        HexIDE.Runtime.VBFormRuntime? window = null;
+        try
+        {
+            var run = HexIDE.Runtime.VBLoader.RunForm(form, cancel.Token, out window);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            run.IsFaulted.Should().BeFalse(run.Exception?.ToString());
+            Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<VBToolbar>().Should().HaveCount(2);
+        }
+        finally
+        {
+            cancel.Cancel();
+            window?.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            if (context != null) System.Threading.ExecutionContext.Restore(context);
+        }
     }
 }

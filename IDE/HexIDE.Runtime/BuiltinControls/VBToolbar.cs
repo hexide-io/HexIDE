@@ -161,6 +161,9 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             if (ImageList is not null && visual is Button imageButton)
             {
                 var captionVisual = imageButton.Content as Control ?? new TextBlock { Text = displayCaption };
+                // Released before the face takes it: replacing the content afterwards would leave the caption in the
+                // face with no logical parent, which Avalonia refuses once the bar is in a shown form.
+                imageButton.Content = null;
                 var face = new Canvas();
                 face.SetValue(TextElement.FontFamilyProperty, FontFamily);
                 face.SetValue(TextElement.FontSizeProperty, FontSize);
