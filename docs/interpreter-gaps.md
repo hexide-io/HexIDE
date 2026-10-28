@@ -242,8 +242,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   fixed-length strings and array fields As New remain refused. Get/Put of UDT arrays and Types containing array
   fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
-- **`LSet` / `RSet`** (string-justify form) — read, measure, pad, write back; the shape already running for
-  `Mid`. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
+- **`LSet` / `RSet`** — named String variables and Variants holding a String or Integer justify their text
+  since #2517. Fixed-length String declarations, other target types, unmeasured source conversions and
+  member/indexed targets remain refused. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
   with spaces, `!key` works inside `With c`, and `c!key = 1` is 424 (all measured). On any other object it is still
   refused, since it is a call of that object's default member with the key as a String, and only the Collection's is
