@@ -17,8 +17,6 @@ worse than one that is obviously incomplete.
 > - **A member on a value that is not a control.** `Clipboard.SetText` and `Collection.Remove` raise a run-time
 >   error with no number, and `Err.Number` is left at 0. Tracked in
 >   [#257](https://github.com/hexide-io/HexIDE/issues/257).
-> - **A member VB6 has, raised as VB6's own error.** `App.LogEvent` and `App.StartLogging` raise 438, which reads
->   as though VB6 had no such member.
 > - **`For Each` over anything but an array,** a control array included, raises Type mismatch (13).
 > - **A `Class_Terminate` that raises while the failure unwinds** replaces it with its own error
 >   ([#767](https://github.com/hexide-io/HexIDE/issues/767)).
@@ -615,3 +613,24 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: App logging SHALL implement the measured file modes
+App.StartLogging and App.LogEvent SHALL implement the file output and mode/path values measured in
+[#2552](https://github.com/hexide-io/HexIDE/issues/2552). App.LogMode SHALL be a Long and App.LogPath a String;
+LogPath assignment SHALL reject the write as read-only. Default and NT logging SHALL deliberately write
+no operating-system event, while retaining the measured values. Unmeasured modes, conversions, encoding
+and file-failure semantics SHALL fail explicitly as not implemented.
+
+#### Scenario: File logging appends
+- **WHEN** a program selects mode 2 and logs a measured event type
+- **THEN** the file receives the measured padded severity, application path, integer thread id, message and CRLF
+- **AND** an existing file is appended to
+
+#### Scenario: Overwrite flag disables logging
+- **WHEN** a program selects mode 18 and logs an event
+- **THEN** LogMode reads Long 1 and the existing file remains unchanged
+
+#### Scenario: Default logging selects NT without a system side effect
+- **WHEN** a program logs an event without StartLogging
+- **THEN** LogMode changes from Long 1 to Long 3 and LogPath remains empty
+- **AND** no operating-system event is written

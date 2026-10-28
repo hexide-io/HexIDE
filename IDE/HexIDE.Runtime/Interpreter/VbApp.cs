@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
 namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
@@ -116,15 +121,88 @@ public record AppInfo(
 /// exe's, and <c>ProductName</c> is empty rather than following <c>Title</c>, because that is precisely
 /// what VB6 reports when no exe exists. Both were measured rather than assumed.</para>
 ///
-/// <para><c>Title</c> is writable at run time, as in VB6; everything else is read-only and a write is
-/// ignored rather than throwing, matching how the member-write path treats an unknown property.</para>
+/// <para><c>Title</c> is writable at run time. <c>LogPath</c> rejects writes as measured in #2552;
+/// other unimplemented writes retain the member-write path's existing behaviour.</para>
 /// </summary>
 public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 {
-    /// <summary>App has methods in VB6 (LogEvent, StartLogging); none are implemented, so every call is a
-    /// clean "member not found" rather than a silent no-op.</summary>
-    public void Call(string method, System.Collections.Generic.List<Vb6Value> args)
-        => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." + method);
+    private readonly VbFiles loggingFiles = new() { ProjectFolder = () => info.Path };
+    private long logMode = 1;
+    private string logPath = "";
+    private bool loggingStarted;
+
+    internal VbApp(AppInfo info, VbFiles files) : this(info) => loggingFiles = files;
+
+    // Measured native and p-code, #2552. NT logging is deliberately a no-op: registering an event source
+    // would change the developer's machine and require administrator rights (docs/interpreter-gaps.md).
+    public void Call(string method, List<Vb6Value> args)
+    {
+        switch (method.ToLowerInvariant())
+        {
+            case "startlogging":
+                if (args.Count != 2 || args[0].Type != Vb6Value.ValueType.String)
+                    throw new NotImplementedException("App.StartLogging argument conversion or omitted mode is unmeasured (#2552)");
+                var mode = LoggingNumber(args[1]);
+                if (mode is not (1 or 2 or 3 or 18))
+                    throw new NotImplementedException("App.StartLogging mode is unmeasured (#2552)");
+                var path = (string)args[0].Value!;
+                if (mode == 3 && path.Length != 0)
+                    throw new NotImplementedException("App.StartLogging NT with a nonempty path is unmeasured (#2552)");
+                logMode = mode == 18 ? 1 : mode;
+                if (mode == 2) logPath = path.Length == 0 ? "vbevents.log" : path;
+                else if (mode == 3) logPath = "";
+                loggingStarted = true;
+                return;
+            case "logevent":
+                LogEvent(args);
+                return;
+            default:
+                throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." + method);
+        }
+    }
+
+    private static long LoggingNumber(Vb6Value value)
+    {
+        if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
+            throw new NotImplementedException("App logging argument conversion is unmeasured (#2552)");
+        return Convert.ToInt64(value.Value);
+    }
+
+    private void LogEvent(List<Vb6Value> args)
+    {
+        if (args.Count is < 1 or > 2)
+            throw new NotImplementedException("App.LogEvent argument count is unmeasured (#2552)");
+        var type = args.Count == 1 ? 4 : LoggingNumber(args[1]);
+        var word = type switch
+        {
+            4 => "Information ",
+            2 => "Warning     ",
+            1 => "Error       ",
+            9 => throw new VBRunTimeException(VBStandardError.InvalidPropertyValue),
+            _ => throw new NotImplementedException("App.LogEvent type is unmeasured (#2552)"),
+        };
+        var message = args[0].Type == Vb6Value.ValueType.String
+            ? (string)args[0].Value!
+            : LoggingNumber(args[0]).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!loggingStarted)
+        {
+            logMode = 3;
+            loggingStarted = true;
+        }
+        if (logMode != 2) return;
+        var line = $"{word}Application {logPath}: Thread ID: {Environment.CurrentManagedThreadId} ,Logged: {message}\r\n";
+        foreach (var character in line)
+            if (character > 127)
+                throw new NotImplementedException("App.LogEvent non-ASCII file encoding is unmeasured (#2552)");
+        try
+        {
+            File.AppendAllText(loggingFiles.FullPath(logPath), line, Encoding.ASCII);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            throw new NotImplementedException("App.LogEvent file failure semantics are unmeasured (#2552)", error);
+        }
+    }
 
     private string title = info.Title;
 
@@ -144,6 +222,8 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
             case "title": value = title; return true;
             case "exename": value = info.ExeName; return true;
             case "path": value = info.Path; return true;
+            case "logmode": value = new Vb6Value(logMode); return true;
+            case "logpath": value = logPath; return true;
 
             // Empty by design, not by omission: the version resource lives in a compiled exe, and there
             // isn't one. VB6 under F5 returns empty here too.
@@ -167,6 +247,8 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
+        if (string.Equals(name, "LogPath", StringComparison.OrdinalIgnoreCase))
+            throw new VBCompileErrorException("Can't assign to read-only property");
         if (!string.Equals(name, "Title", System.StringComparison.OrdinalIgnoreCase))
             return false;
         title = VbDisplay.ToText(value);

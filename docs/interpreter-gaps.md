@@ -39,6 +39,19 @@ Instance fields and instance Statics still retain their storage after terminatio
 member accesses on terminated instances have been counted across the Runtime suite, Battleship and the #2067
 sweep, as the issue's design note requires. Replacing the module-environment clone is separate performance work.
 
+## App logging (#2552)
+
+File logging implements the [native and p-code measurements](https://github.com/hexide-io/HexIDE/issues/2552).
+Default and explicit NT logging deliberately write no event, on every platform, while exposing the measured
+mode/path. The supervisor's 2026-10-28 decision avoids registering a system-wide Windows event source with
+administrator rights on the developer's machine; no such facility exists off Windows.
+
+Unmeasured logging modes, omitted mode, conversions beyond String paths and Integer/Long mode/type/message
+arguments, event types other than 1/2/4/9, nonempty NT paths, non-ASCII file bytes and file-failure error
+semantics are explicitly refused with HexIDE's not-implemented error. LogPath after off/18 is unmeasured
+and stays unchanged. Relative paths follow the existing file policy (project folder, then ChDir), so an
+unsaved relative path is refused rather than written into the IDE's own working directory.
+
 ## Known host limitation
 
 - **Linux locale categories (#798):** the program uses one culture, captured from .NET's
