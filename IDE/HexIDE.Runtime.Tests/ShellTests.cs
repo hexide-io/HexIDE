@@ -26,6 +26,28 @@ public class ShellTests : BaseVBTestFixture
         AssertDebugLog([true]);
     }
 
+    // What Shell starts is recorded, so get_process_windows can read its windows and nothing else's (#2591).
+    [Fact]
+    public async Task RecordsTheProcessItStarted()
+    {
+        await Run($"Debug.Print Shell({Literal(Command)}, 6)");
+
+        var pid = (int)(double)debug[0].Value!;
+        ShellLaunches.All.Should().ContainSingle(l => l.ProcessId == pid)
+            .Which.Should().Match<ShellLaunches.Launch>(l => l.Command == Command && l.WindowStyle == 6);
+    }
+
+    [Fact]
+    public async Task RecordsNothingWhenItFails()
+    {
+        var before = ShellLaunches.All.Count;
+
+        await Run("On Error Resume Next\nShell \"nosuchprogram_x.exe\", 1\nDebug.Print Err.Number");
+
+        AssertDebugLog([new Vb6Value(53L)]);
+        ShellLaunches.All.Count.Should().Be(before);
+    }
+
     [Fact]
     public async Task ResultTypeName()
     {
