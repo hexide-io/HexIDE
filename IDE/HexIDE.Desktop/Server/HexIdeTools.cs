@@ -907,7 +907,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run. It also says how much Debug.Print wrote, which 'printed' holds.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -927,9 +927,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ran and ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ran and ended.") + RaisedNote(outcome)));
     }
 
 
@@ -977,7 +977,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "stop_project")]
-    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode.")]
+    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode, and how much Debug.Print wrote since the run began or a reply last reported it, which 'printed' holds.")]
     public async Task<MutateResult> StopProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -985,9 +985,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (!ctx.ProjectRunnerService.CanEndProject)
                 return new MutateResult(false, "No project is currently running");
             ctx.ProjectRunnerService.EndProject();
-            return new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
+            return WithPrinted(new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
                 ? "Stop requested; the program has not ended yet. get_debug_state says when it has."
-                : "Stopped; the IDE is back in design mode.");
+                : "Stopped; the IDE is back in design mode."));
         });
     }
 
@@ -1700,12 +1700,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
                 ? "Break requested, and no statement has run since: the program is waiting for an event, and pauses "
                   + "at the next statement that runs."
-                : "The program ended.") + RaisedNote(outcome));
+                : "The program ended.") + RaisedNote(outcome)));
     }
 
     [McpServerTool(Name = "continue_program")]
@@ -1722,9 +1722,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome)));
     }
 
     /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
@@ -1794,6 +1794,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     private string PausedAt(StoppedInfo at) => $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason}).";
 
+    /// <summary>A successful run, step, break or stop reply with what the program printed since its run began or a reply
+    /// last reported it, in 'printed', and its note saying how much or that there was none (#2531).</summary>
+    private static MutateResult WithPrinted(MutateResult result)
+    {
+        var (printed, note) = ProgramPrinted.Report(ProgramPrinted.Shared.Take());
+        return result with { Note = result.Note + note, Printed = printed };
+    }
+
     private static string RaisedNote(RunOutcome outcome) =>
         outcome.NewError is { } error ? $" It raised {error}; get_last_runtime_error has it." : "";
 
@@ -1810,12 +1818,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return refused;
 
-        return new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
                 ? $"Still running {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s after the step began: the statement has not "
                   + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
-                : "The program ended before it reached another statement.") + RaisedNote(outcome));
+                : "The program ended before it reached another statement.") + RaisedNote(outcome)));
     }
 
     [McpServerTool(Name = "step_into")]
@@ -1861,11 +1869,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (refused is not null)
             return Naming(refused, named);
 
-        return Naming(new MutateResult(true, null, (outcome.Stop is { } at
+        return WithPrinted(Naming(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
                 ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s. get_debug_state says when it is."
-                : $"The program ended without reaching {target}.") + RaisedNote(outcome)), named);
+                : $"The program ended without reaching {target}.") + RaisedNote(outcome)), named));
     }
 
     [McpServerTool(Name = "set_next_statement")]
@@ -3696,7 +3704,8 @@ internal record DiagnosticItem(
 /// </param>
 /// <param name="Document">The document's own name, as the IDE spells it rather than as the call spelled it.</param>
 internal record MutateResult(
-    bool Success, string? Error, string? Note = null, string? Project = null, string? Document = null);
+    bool Success, string? Error, string? Note = null, string? Project = null, string? Document = null,
+    string? Printed = null);
 
 /// <summary>
 /// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not
