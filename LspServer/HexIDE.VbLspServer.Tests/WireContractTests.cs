@@ -391,13 +391,16 @@ public class WireContractTests
         sig.GetProperty("activeParameter").GetInt32().Should().Be(1);
     }
 
+    // A list's last parameter takes every argument past it, so it stays active. Any other signature has no parameter
+    // for an extra argument, which VB6 refuses, so the argument's own index goes out and nothing is marked (#2599).
     [Theory]
     [InlineData("Array(1, 2, ", 0)]
     [InlineData("Choose(1, 2, 3, 4, ", 2)]
     [InlineData("Switch(True, 1, False, 2, ", 2)]
-    [InlineData("Mid(a, 1, 2, 3, ", 2)]
-    [InlineData("Len(a, b, ", 0)]
-    public async Task SignatureHelp_past_the_last_parameter_keeps_the_last_parameter_active(
+    [InlineData("Mid(a, 1, 2, ", 3)]
+    [InlineData("Mid(a, 1, 2, 3, ", 4)]
+    [InlineData("Len(a, b, ", 2)]
+    public async Task SignatureHelp_past_the_last_parameter_keeps_only_a_list_active(
         string call, int expectedParameter)
     {
         await using var h = await StartAsync();
