@@ -5799,6 +5799,10 @@ public record InteractOutcome(
     // Where a tip hover saw open was: x, y, width, height in the window's device-independent units from its top-left, as
     // inspect_element's boundingRect is (#1303). Absent from every other reply.
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    double[]? TipBounds = null);
+    double[]? TipBounds = null,
+    // What a running program wrote with Debug.Print while an action on its form ran, as the run and stop replies give it
+    // (#2531, #2657). Absent when nothing was printed, and from every reply not on a running program's form.
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? Printed = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);

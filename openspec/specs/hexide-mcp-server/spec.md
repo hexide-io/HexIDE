@@ -1147,8 +1147,9 @@ handlers it let finish.
 
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
-`break_program`, a step or `run_to_cursor` SHALL give in `printed` what the program wrote with `Debug.Print`
-since its run began or a reply last reported it, and its note SHALL say how much, or that it wrote nothing.
+`break_program`, a step or `run_to_cursor`, or from `interact`, `press_key` or `type_text` acting on a running
+program's form, SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last
+reported it, and its note SHALL say how much, or that it wrote nothing.
 The buffer SHALL reset when the runner claims a new run, before any interpreter code can execute,
 and SHALL NOT reset when that run becomes active or ends.
 Output past 4000 characters SHALL keep its end, with the note saying how much was left out. For an external debug session, `stop_project` SHALL instead state that external
@@ -1166,6 +1167,10 @@ session output is not captured by this tool and direct the caller to the Immedia
 #### Scenario: Nothing printed
 - **WHEN** a program prints nothing before `stop_project`
 - **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
+#### Scenario: A click on a running form
+- **WHEN** `interact` clicks a button whose `Click` handler prints a line
+- **THEN** the click's reply holds that line in `printed`, and a later `stop_project` does not report it again
 
 ### Requirement: Debug state SHALL describe the external session consistently
 During an external debug session and after it ends, until another run starts, `get_debug_state` SHALL

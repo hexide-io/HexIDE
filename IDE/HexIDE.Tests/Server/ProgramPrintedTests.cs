@@ -66,4 +66,30 @@ public class ProgramPrintedTests
         note.Should().Contain($"'printed' holds the last {ProgramPrinted.Limit} of their {taken.Length} characters")
             .And.Contain("the Immediate window holds them all");
     }
+
+    // A click on a running form says what its handlers printed, as a run does, rather than leaving the caller to find the
+    // Immediate window and diff it (#2657).
+    [Fact]
+    public void An_action_on_a_running_form_gives_what_was_printed_beside_what_it_did()
+    {
+        var clicked = new HexIDE.Automation.InteractOutcome(true, "pointer", "clicked the left button at (10, 10)", null);
+
+        var reply = HexIdeTools.WithPrinted(clicked, "Down\r\nUp\r\n");
+
+        reply.Printed.Should().Be("Down\r\nUp\r\n", "printed is the text as the program wrote it");
+        reply.Detail.Should().Be("clicked the left button at (10, 10); Debug.Print wrote 2 lines since the run began, or "
+                                 + "since the last reply that reported its output; they are in 'printed'.");
+    }
+
+    [Fact]
+    public void An_action_that_printed_nothing_says_so()
+    {
+        var pressed = new HexIDE.Automation.InteractOutcome(true, "keyboard", "pressed End", null);
+
+        var reply = HexIdeTools.WithPrinted(pressed, "");
+
+        reply.Printed.Should().BeNull();
+        reply.Detail.Should().EndWith("pressed End; Debug.Print wrote nothing since the run began, or since the last reply "
+                                      + "that reported its output.");
+    }
 }
