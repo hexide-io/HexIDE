@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Tức thời",
     "Str.Tool.Immediate.BreakModeOnly": "Chỉ có thể đánh giá ở chế độ ngắt.",
     "Str.Tool.Locals.Title": "Biến cục bộ",
+    "Str.Tool.LanguageServers.Output": "Đầu ra",
+    "Str.Tool.LanguageServers.OutputEmpty": "Chưa nhận được đầu ra.",
     "Str.Tool.LanguageServers.Title": "Máy chủ ngôn ngữ và gỡ lỗi",
     "Str.Tool.ProtocolInspector.Title": "Trình kiểm tra giao thức",
     "Str.Tool.ProtocolInspector.Server": "Máy chủ",

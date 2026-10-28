@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Exécution",
     "Str.Tool.Immediate.BreakModeOnly": "L'évaluation n'est disponible qu'en mode arrêt.",
     "Str.Tool.Locals.Title": "Variables locales",
+    "Str.Tool.LanguageServers.Output": "Sortie",
+    "Str.Tool.LanguageServers.OutputEmpty": "Aucune sortie reçue pour le moment.",
     "Str.Tool.LanguageServers.Title": "Serveurs de langage et de débogage",
     "Str.Tool.ProtocolInspector.Title": "Inspecteur de protocole",
     "Str.Tool.ProtocolInspector.Server": "Serveur",

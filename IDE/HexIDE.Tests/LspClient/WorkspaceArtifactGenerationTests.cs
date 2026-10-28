@@ -72,7 +72,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     [InlineData("provider", "IOException")]
     [InlineData("write", "not written")]
     [InlineData("foreign", "Leaving existing")]
-    public async Task RefusalReasonIsRecordedOnTheConnection(string reason, string detail)
+    public async Task ServerOutputRefusalReasonIsRecordedOnTheConnection(string reason, string detail)
     {
         await using var capture = new ConversationLog();
         using var service = new WorkspaceArtifactService(_workspace,
@@ -93,6 +93,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", TestContext.Current.CancellationToken);
         await capture.DrainAsync();
         launched.Should().BeTrue();
+        capture.Output.Text("probe").Should().Contain(detail);
         capture.Snapshot("probe").Should().Contain(e => e.Kind == ConversationEntryKind.Note
             && e.Direction == ConversationDirection.Local && e.Fault && e.Detail!.Contains(detail));
     }

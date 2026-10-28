@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Immediata",
     "Str.Tool.Immediate.BreakModeOnly": "La valutazione è disponibile solo in modalità di interruzione.",
     "Str.Tool.Locals.Title": "Variabili locali",
+    "Str.Tool.LanguageServers.Output": "Output",
+    "Str.Tool.LanguageServers.OutputEmpty": "Nessun output ancora ricevuto.",
     "Str.Tool.LanguageServers.Title": "Server di linguaggio e di debug",
     "Str.Tool.ProtocolInspector.Title": "Ispettore protocollo",
     "Str.Tool.ProtocolInspector.Server": "Server",

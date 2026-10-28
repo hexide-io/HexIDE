@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "직접 실행",
     "Str.Tool.Immediate.BreakModeOnly": "평가는 중단 모드에서만 사용할 수 있습니다.",
     "Str.Tool.Locals.Title": "지역",
+    "Str.Tool.LanguageServers.Output": "출력",
+    "Str.Tool.LanguageServers.OutputEmpty": "아직 수신된 출력이 없습니다.",
     "Str.Tool.LanguageServers.Title": "언어 및 디버그 서버",
     "Str.Tool.ProtocolInspector.Title": "프로토콜 검사기",
     "Str.Tool.ProtocolInspector.Server": "서버",

@@ -251,6 +251,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             if (_lastNote.TryGetValue(server.Id, out var last) && last == reason) return;
             _lastNote[server.Id] = reason;
         }
+        _capture?.Output.Append(server.Id, server.WorkspaceArtifact?.ProviderName ?? server.Id, reason);
         _capture?.Record(server.Id, ConversationDirection.Local, ConversationEntryKind.Note,
             null, null, 0, detail: reason, fault: fault);
     }

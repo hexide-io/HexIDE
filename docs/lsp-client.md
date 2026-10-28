@@ -112,6 +112,15 @@ type 5 needs `HEXIDE_LOG_LEVEL=Verbose`. The second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
 is the next one.
 
+**Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
+server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
+the notes a server returns from its project-import command (under that command's name) and HexIDE's
+workspace-generation notes arrive, including before the view opens. Log entries retain the
+wire type number (1 Error, 2 Warning, 3 Info, 4 Log, 5 Debug); unknown numbers are kept verbatim.
+This session-only buffer is independent of protocol-body arming and clearing. Each server keeps its
+latest 65,536 characters, with an ellipsis at the start when older output was discarded. Output is local,
+verbatim text; the pseudonymised Copy Report does not include it.
+
 The metamodel guard also checks the numeric values of the wire enums (`DiagnosticSeverity`,
 `MessageType`, `SymbolKind` and `CompletionItemKind`). Completion display kinds still declare only
 six of the 25 specification values; the guard explicitly defers the existing 19 omissions as a separate

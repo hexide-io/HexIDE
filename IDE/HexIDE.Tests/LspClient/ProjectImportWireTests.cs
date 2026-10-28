@@ -25,6 +25,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     private int _pulls;
     private readonly List<string> _notes = [];
     private readonly OutputLogger _output = new();
+    private readonly HexIDE.Conversations.ConversationLog _capture = new();
     private string _replyNotes = "[\"Imported project\"]";
 
     private JsonElement[] Frames(string method)
@@ -70,7 +71,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
-        var client = new VBLspClient(transport, _output, "vb6");
+        var client = new VBLspClient(transport, _output, "vb6", capture: _capture, connectionId: "probe");
         using var arguments = JsonDocument.Parse("[{\"uri\":\"{uri}\",\"text\":\"{text}\",\"overwrite\":true}]");
         var registration = new LanguageServerRegistration("probe", "Probe server", [".bas"], "vb6", () => client,
             WorkspaceArtifact: new("generated.json", "probe"), ProjectImport: new("probe.import", arguments.RootElement.Clone()));
@@ -137,6 +138,14 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         await StartAsync();
         _output.Messages.Should().Contain("[vb6 server] Imported project");
         _output.Messages.Should().NotContain(m => m.Contains("\"kind\""));
+    }
+
+    // #2388: the server's card in Language & Debug Servers shows its import notes, named for the command they answered.
+    [Fact]
+    public async Task ImportNotesReachTheServersOutputUnderTheImportCommand()
+    {
+        await StartAsync();
+        _capture.Output.Text("probe").Should().Contain("[probe.import] Imported project");
     }
 
     [Fact]
@@ -228,6 +237,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         if (_server is not null) await _server.DisposeAsync();
         _cts.Dispose();
         _write.Dispose();
+        await _capture.DisposeAsync();
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
 

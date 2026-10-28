@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Okamžité",
     "Str.Tool.Immediate.BreakModeOnly": "Vyhodnocení je dostupné pouze v režimu přerušení.",
     "Str.Tool.Locals.Title": "Místní",
+    "Str.Tool.LanguageServers.Output": "Výstup",
+    "Str.Tool.LanguageServers.OutputEmpty": "Zatím nebyl přijat žádný výstup.",
     "Str.Tool.LanguageServers.Title": "Jazykové a ladicí servery",
     "Str.Tool.ProtocolInspector.Title": "Inspektor protokolu",
     "Str.Tool.ProtocolInspector.Server": "Server",

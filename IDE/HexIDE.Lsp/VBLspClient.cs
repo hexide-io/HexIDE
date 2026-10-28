@@ -1807,7 +1807,7 @@ public sealed class VBLspClient : ILspClient
                 var textValue = note.ValueKind == JsonValueKind.Object && note.TryGetProperty("message", out var message)
                     ? message : note;
                 if (textValue.ValueKind != JsonValueKind.String) continue;
-                LogServerMessage(new LogMessageParams(LspMessageType.Info, textValue.GetString()!));
+                LogServerMessage(new LogMessageParams(LspMessageType.Info, textValue.GetString()!), spec.Command);
             }
         }
         if (!_serverRefreshesDiagnostics)
@@ -2009,6 +2009,8 @@ public sealed class VBLspClient : ILspClient
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
         // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
+        if (notice.Kind == TransportNoticeKind.StandardError && _connectionId is { } id)
+            _capture?.Output.Append(id, "stderr", notice.Text);
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
@@ -2045,9 +2047,12 @@ public sealed class VBLspClient : ILspClient
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
 
-    private void LogServerMessage(LogMessageParams p)
+    // Also kept for the server's card in Language & Debug Servers, under the source it came from (#2388).
+    private void LogServerMessage(LogMessageParams p, string source)
     {
         _logger.Log(LspNotificationReceiver.LevelOf(p.Type), "[{Language} server] {Message}", _languageId, p.Message);
+        if (_connectionId is { } id)
+            _capture?.Output.Append(id, source, p.Message);
         RaiseMessageLogged(p);
     }
 
@@ -2131,19 +2136,13 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
-        /// The server's own log output. Log is retained at Information; Debug goes to Trace.
-        ///
-        /// <para>
-        /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
-        /// can be voluble on it. Putting that in front of a user would trade one bad experience for
-        /// another. The log is where someone goes when features are missing, which is exactly the moment
-        /// this matters.
-        /// </para>
+        /// The server's own log output, also retained for the live per-server output view.
+        /// Log is retained at Information; Debug goes to Trace.
         /// </summary>
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnLogMessage(LogMessageParams p)
         {
-            _client.LogServerMessage(p);
+            _client.LogServerMessage(p, $"window/logMessage ({(int)p.Type})");
         }
 
         /// <summary>

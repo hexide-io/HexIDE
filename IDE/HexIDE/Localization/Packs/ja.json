@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "イミディエイト",
     "Str.Tool.Immediate.BreakModeOnly": "評価はブレークモードでのみ使用できます。",
     "Str.Tool.Locals.Title": "ローカル",
+    "Str.Tool.LanguageServers.Output": "出力",
+    "Str.Tool.LanguageServers.OutputEmpty": "出力はまだ受信されていません。",
     "Str.Tool.LanguageServers.Title": "言語サーバーとデバッグ サーバー",
     "Str.Tool.ProtocolInspector.Title": "プロトコル インスペクター",
     "Str.Tool.ProtocolInspector.Server": "サーバー",

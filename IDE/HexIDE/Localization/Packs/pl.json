@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Natychmiastowe",
     "Str.Tool.Immediate.BreakModeOnly": "Ewaluacja jest dostępna tylko w trybie przerwania.",
     "Str.Tool.Locals.Title": "Zmienne lokalne",
+    "Str.Tool.LanguageServers.Output": "Wyjście",
+    "Str.Tool.LanguageServers.OutputEmpty": "Nie odebrano jeszcze żadnych danych wyjściowych.",
     "Str.Tool.LanguageServers.Title": "Serwery językowe i debugowania",
     "Str.Tool.ProtocolInspector.Title": "Inspektor protokołu",
     "Str.Tool.ProtocolInspector.Server": "Serwer",

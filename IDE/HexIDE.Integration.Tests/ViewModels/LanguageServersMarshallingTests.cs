@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.Controls;
+using Avalonia.VisualTree;
 using HexIDE.Conversations;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -52,6 +54,33 @@ public class LanguageServersMarshallingTests
         var capture = new ConversationLog();
         return (new LanguageServersToolViewModel(
             registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser()), capture);
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task ServerOutputFromWorkerUpdatesExistingRow()
+    {
+        var (vm, capture) = Sut("bundled");
+        var row = vm.Groups.Single().Rows.Single();
+        var view = new LanguageServersToolView { DataContext = vm };
+        var window = new Window { Content = view, Width = 900, Height = 900 };
+        window.Show();
+        try
+        {
+            var output = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.IsReadOnly && t.AcceptsReturn);
+            var raised = new List<string?>();
+            row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            await System.Threading.Tasks.Task.Run(() => capture.Output.Append("bundled", "stderr", "startup"));
+            Dispatcher.UIThread.RunJobs();
+            raised.Should().Contain(nameof(LanguageServerRowViewModel.OutputText));
+            vm.Groups.Single().Rows.Single().Should().BeSameAs(row);
+            row.OutputText.Should().Contain("[stderr] startup");
+            output.Text.Should().Be(row.OutputText);
+        }
+        finally
+        {
+            window.Close();
+            await capture.DisposeAsync();
+        }
     }
 
     [AvaloniaFact]

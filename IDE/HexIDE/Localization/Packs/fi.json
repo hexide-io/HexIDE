@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Pikaikkuna",
     "Str.Tool.Immediate.BreakModeOnly": "Arviointi on käytettävissä vain keskeytystilassa.",
     "Str.Tool.Locals.Title": "Paikalliset",
+    "Str.Tool.LanguageServers.Output": "Tuloste",
+    "Str.Tool.LanguageServers.OutputEmpty": "Tulostetta ei ole vielä vastaanotettu.",
     "Str.Tool.LanguageServers.Title": "Kieli- ja virheenkorjauspalvelimet",
     "Str.Tool.ProtocolInspector.Title": "Protokollatarkastelija",
     "Str.Tool.ProtocolInspector.Server": "Palvelin",

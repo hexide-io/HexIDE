@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Безпосереднє",
     "Str.Tool.Immediate.BreakModeOnly": "Обчислення доступне лише в режимі призупинення.",
     "Str.Tool.Locals.Title": "Локальні",
+    "Str.Tool.LanguageServers.Output": "Вивід",
+    "Str.Tool.LanguageServers.OutputEmpty": "Вивід ще не отримано.",
     "Str.Tool.LanguageServers.Title": "Мовні сервери та сервери налагодження",
     "Str.Tool.ProtocolInspector.Title": "Інспектор протоколу",
     "Str.Tool.ProtocolInspector.Server": "Сервер",

@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Άμεσο",
     "Str.Tool.Immediate.BreakModeOnly": "Η αποτίμηση είναι διαθέσιμη μόνο σε λειτουργία διακοπής.",
     "Str.Tool.Locals.Title": "Τοπικές",
+    "Str.Tool.LanguageServers.Output": "Έξοδος",
+    "Str.Tool.LanguageServers.OutputEmpty": "Δεν έχει ληφθεί ακόμη έξοδος.",
     "Str.Tool.LanguageServers.Title": "Διακομιστές γλώσσας και εντοπισμού σφαλμάτων",
     "Str.Tool.ProtocolInspector.Title": "Επιθεωρητής πρωτοκόλλου",
     "Str.Tool.ProtocolInspector.Server": "Διακομιστής",

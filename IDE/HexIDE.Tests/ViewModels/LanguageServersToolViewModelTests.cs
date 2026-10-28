@@ -33,6 +33,17 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
+    [Fact]
+    public async Task ServerOutputReceivedBeforeOpeningSurvivesProtocolClear()
+    {
+        _capture.Output.Append("probe", "stderr", "startup");
+        await _capture.ClearAsync("probe");
+        var (vm, _) = Sut(Conn("probe", "vb6"));
+        vm.Groups.Single().Rows.Single().OutputText.Should().Contain("startup");
+        var (reopened, _) = Sut(Conn("probe", "vb6"));
+        reopened.Groups.Single().Rows.Single().OutputText.Should().Contain("startup");
+    }
+
     private const string FullCapabilities =
         """{"textDocumentSync":{"openClose":true,"change":1},"hoverProvider":true}""";
 

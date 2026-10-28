@@ -656,6 +656,8 @@
     "Str.Tool.Immediate.Title": "Langsung",
     "Str.Tool.Immediate.BreakModeOnly": "Evaluasi hanya tersedia dalam mode jeda.",
     "Str.Tool.Locals.Title": "Lokal",
+    "Str.Tool.LanguageServers.Output": "Keluaran",
+    "Str.Tool.LanguageServers.OutputEmpty": "Belum ada keluaran yang diterima.",
     "Str.Tool.LanguageServers.Title": "Server Bahasa dan Debug",
     "Str.Tool.ProtocolInspector.Title": "Inspektur Protokol",
     "Str.Tool.ProtocolInspector.Server": "Server",

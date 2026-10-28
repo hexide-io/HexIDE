@@ -655,6 +655,8 @@
     "Str.Tool.Immediate.Title": "Immediate",
     "Str.Tool.Immediate.BreakModeOnly": "Evaluation is only available in break mode.",
     "Str.Tool.Locals.Title": "Locals",
+    "Str.Tool.LanguageServers.Output": "Output",
+    "Str.Tool.LanguageServers.OutputEmpty": "No output received yet.",
     "Str.Tool.LanguageServers.Title": "Language & Debug Servers",
     "Str.Tool.ProtocolInspector.Title": "Protocol Inspector",
     "Str.Tool.ProtocolInspector.Server": "Server",
