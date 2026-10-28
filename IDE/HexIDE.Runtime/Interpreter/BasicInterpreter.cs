@@ -1462,9 +1462,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
             // The return slot is typed as the declaration says, so a failed store is raised inside the Function,
             // where its own handler traps it (measured, #1444).
+            var checkedArrayReturn = proc.CheckedArrayReturn;
             if (proc.IsFunction)
             {
-                ExecutionContext.AllocVariable(callee, proc.Name, SeedReturnValue(proc),
+                var seed = SeedReturnValue(proc);
+                if (proc.ReturnType.IsArray && seed.Value is VBArray { ElementType: var element } && element == Vb6Value.ValueType.Object)
+                    checkedArrayReturn = seed.Type;
+                ExecutionContext.AllocVariable(callee, proc.Name, seed,
                     proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? proc.ReturnType : null);
                 hasReturnSlot = true;
             }
@@ -1473,7 +1477,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
                 // A class's or a form's Statics are its instance's, and a standard module's are the run's (#1491).
                 var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
-                    proc.CheckedArrayReturn)
+                    checkedArrayReturn)
                 {
                     IsEntry = isEntry,
                     VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
@@ -1581,12 +1585,27 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         => proc.ReturnUdtTypeName is { } rn
             ? (Types.ContainsKey(rn) ? Vb6Value.NewUdt(NewUdt(rn))
                 : Enums.ContainsKey(rn) ? new Vb6Value(0L)
-                : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class ? Vb6Value.Nothing
+                : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class
+                    ? proc.ReturnType.IsArray ? ObjectArrayReturn(rn) : Vb6Value.Nothing
                 : new Vb6Value(proc.ReturnType))
             // An `As Object` return, DefObj's included, and an `As Collection` one start at Nothing too, so a Let into the
             // first before a Set is 91 (measured, #169). They started Empty, which took the value.
+            : proc.ReturnType.IsArray && proc.CheckedArrayReturn == new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
+                ? ObjectArrayReturn(proc.Declaration switch
+                {
+                    VB6Parser.FunctionStmtContext f when f.asTypeClause()?.type()?.baseType()?.COLLECTION() != null => "Collection",
+                    VB6Parser.PropertyGetStmtContext p when p.asTypeClause()?.type()?.baseType()?.COLLECTION() != null => "Collection",
+                    _ => null,
+                })
             : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
+
+    private static Vb6Value ObjectArrayReturn(string? declaredClass)
+    {
+        var value = new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.Object, true));
+        ((VBArray)value.Value!).DeclaredClass = declaredClass;
+        return value;
+    }
 
     /// <summary>Resolve a procedure name as seen from <paramref name="currentModule"/>: the current module's own
     /// procedures (any visibility) win first, then other standard modules' <c>Public</c> procedures — 2+ matches
