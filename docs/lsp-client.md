@@ -54,6 +54,12 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 
 ## The wire contract
 
+Optional members whose LSP 3.17 types exclude null are omitted when unset, including formatting's
+`trimTrailingWhitespace` and initialize's `capabilities.textDocument.foldingRange` (#2668).
+This is a per-property rule: initialize's `processId`, `rootUri` and `workspaceFolders` still allow
+explicit null, as do opaque `LSPAny` values. `OptionalMembersWireShapeTests` reads framed JSON through
+the production formatter and source-generated context to guard absence and preserve explicit values.
+
 **Sent by the client:**
 
 | Phase | Methods |
