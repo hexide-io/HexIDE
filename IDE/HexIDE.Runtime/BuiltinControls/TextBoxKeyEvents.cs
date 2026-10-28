@@ -43,7 +43,7 @@ internal static class TextBoxKeyEvents
         Deliver(box, ev, code, shift, _ => { });
     }
 
-    internal static void Deliver(VBTextBox box, EventClass ev, int code, int? shift, Action<int> completed)
+    internal static void Deliver(Control box, EventClass ev, int code, int? shift, Action<int> completed)
     {
         var root = box.FindLogicalAncestorOfType<IModuleExecutionRoot>();
         void Control(int value)

@@ -1,0 +1,126 @@
+{
+  "note": "Measured MSMASK32.OCX 6.00.8418 constants from corpus/inbox-controls/typelib/MSMASK32-constants.jsonl (#1098, #2489).",
+  "containers": {
+    "OLEDragConstants": {
+      "kind": "enum",
+      "members": {
+        "mskOLEDragManual": 0,
+        "mskOLEDragAutomatic": 1
+      }
+    },
+    "OLEDropConstants": {
+      "kind": "enum",
+      "members": {
+        "mskOLEDropNone": 0,
+        "mskOLEDropManual": 1,
+        "mskOLEDropAutomatic": 2
+      }
+    },
+    "DragOverConstants": {
+      "kind": "enum",
+      "members": {
+        "mskEnter": 0,
+        "mskLeave": 1,
+        "mskOver": 2
+      }
+    },
+    "ClipBoardConstants": {
+      "kind": "enum",
+      "members": {
+        "mskCFText": 1,
+        "mskCFBitmap": 2,
+        "mskCFMetafile": 3,
+        "mskCFDIB": 8,
+        "mskCFPalette": 9,
+        "mskCFEMetafile": 14,
+        "mskCFFiles": 15,
+        "mskCFRTF": -16639
+      }
+    },
+    "OLEDropEffectConstants": {
+      "kind": "enum",
+      "members": {
+        "mskOLEDropEffectNone": 0,
+        "mskOLEDropEffectCopy": 1,
+        "mskOLEDropEffectMove": 2,
+        "mskOLEDropEffectScroll": -2147483648
+      }
+    },
+    "ErrorConstants": {
+      "kind": "enum",
+      "members": {
+        "mskInvalidPropertyValue": 380,
+        "mskGetNotSupported": 394,
+        "mskSetNotSupported": 383,
+        "mskInvalidProcedureCall": 5,
+        "mskInvalidObjectUse": 425,
+        "mskWrongClipboardFormat": 461,
+        "mskDataObjectLocked": 672,
+        "mskExpectedAnArgument": 673,
+        "mskRecursiveOleDrag": 674,
+        "mskFormatNotByteArray": 675,
+        "mskDataNotSetForFormat": 676
+      }
+    },
+    "BorderStyleConstants": {
+      "kind": "enum",
+      "members": {
+        "mskNone": 0,
+        "mskFixedSingle": 1
+      }
+    },
+    "AppearanceConstants": {
+      "kind": "enum",
+      "members": {
+        "mskFlat": 0,
+        "mskThreeD": 1
+      }
+    },
+    "ClipModeConstants": {
+      "kind": "enum",
+      "members": {
+        "mskIncludeLiterals": 0,
+        "mskExcludeLiterals": 1
+      }
+    },
+    "MousePointerConstants": {
+      "kind": "enum",
+      "members": {
+        "mskDefault": 0,
+        "mskArrow": 1,
+        "mskCross": 2,
+        "mskIBeam": 3,
+        "mskIcon": 4,
+        "mskSize": 5,
+        "mskSizeNESW": 6,
+        "mskSizeNS": 7,
+        "mskSizeNWSE": 8,
+        "mskSizeEW": 9,
+        "mskUpArrow": 10,
+        "mskHourglass": 11,
+        "mskNoDrop": 12,
+        "mskArrowHourglass": 13,
+        "mskArrowQuestion": 14,
+        "mskSizeAll": 15,
+        "mskCustom": 99
+      }
+    },
+    "FormatConstants": {
+      "kind": "enum",
+      "members": {
+        "mskDefaultFormat": 0,
+        "mskZero": 1,
+        "mskFloatInteger": 2,
+        "mskPercent": 3,
+        "mskExponential": 4,
+        "mskc": 5,
+        "mskdddddd": 6,
+        "mskddmmyy": 7,
+        "mskddddd": 8,
+        "mskttttt": 9,
+        "mskhhmmAMPM": 10,
+        "mskhhmm": 11
+      }
+    }
+  }
+}

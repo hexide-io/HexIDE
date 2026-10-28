@@ -451,6 +451,7 @@ public class FormSerializer
         name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase) || name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)
         || name.Equals("_Version", StringComparison.OrdinalIgnoreCase)
         || (inBox is TabStripComponentClass && TabStripPersistence.OwnLine(name))
+        || (inBox is MaskedEdBoxComponentClass && MaskedEdBoxPersistence.OwnLine(name))
         || (inBox is StatusBarComponentClass && name.Equals("Panels", StringComparison.OrdinalIgnoreCase))
         || inBox is ImageListComponentClass && name.Equals("Images", StringComparison.OrdinalIgnoreCase)
         || inBox.CarriedOwnProperties.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -510,6 +511,11 @@ public class FormSerializer
         else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
 
+        if (inBox is MaskedEdBoxComponentClass)
+        {
+            MaskedEdBoxPersistence.Write(vb, instance);
+            return;
+        }
         if (inBox is SSTabComponentClass)
         {
             WriteSSTabProperties(vb, instance, citations);
