@@ -14,9 +14,9 @@ worse than one that is obviously incomplete.
 > fail clearly" is not fully met. In each of the cases below, something HexIDE lacks is raised as an error a
 > handler can trap, so under `On Error Resume Next` the statement is skipped and the program carries on:
 >
-> - **A member on a value that is not a control.** `Clipboard.SetText` and `Collection.Remove` raise a run-time
->   error with no number, and `Err.Number` is left at 0. Tracked in
->   [#257](https://github.com/hexide-io/HexIDE/issues/257).
+> - **Unmeasured member-call receiver kinds.** Some fall-throughs still raise a run-time error without a number.
+>   The measured non-object Variant, Nothing and Collection paths are covered by #257; a form member through
+>   Object likewise raises 438 when absent.
 > - **`For Each` over anything but an array,** a control array included, raises Type mismatch (13).
 > - **A `Class_Terminate` that raises while the failure unwinds** replaces it with its own error
 >   ([#767](https://github.com/hexide-io/HexIDE/issues/767)).
@@ -377,6 +377,11 @@ program that never fails.
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
 
+#### Scenario: A member on a non-object Variant
+- **WHEN** a member is called, read or assigned on a Variant holding Empty, Null, an Integer, a String or an array
+- **THEN** it SHALL raise trappable error 424 (Object required)
+- **AND** a Nothing receiver SHALL raise 91, while an unknown Collection member or a missing form member through Object SHALL raise 438
+
 #### Scenario: The line an error was raised on
 - **WHEN** an error is raised on line 20 of a numbered procedure or below it with no number between, or in a procedure
   it called there, and that procedure's handler reads `Erl`
@@ -386,7 +391,7 @@ program that never fails.
 #### Scenario: Diagnostic type names
 - **WHEN** an interpreter diagnostic formats a value's type
 - **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
-- **AND** missing-member diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
+- **AND** member-not-found diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
