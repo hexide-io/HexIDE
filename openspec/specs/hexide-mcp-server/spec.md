@@ -523,6 +523,28 @@ captures SHALL return an actionable error without a client-only fallback.
 - **WHEN** the window has no Windows HWND, or is hidden or minimized
 - **THEN** frame capture returns an error explaining the limitation and what to do next
 
+### Requirement: The status bar SHALL show that the automation server is listening
+While the automation server is listening, the main window's status bar SHALL show a section naming its port, followed
+by the session when the IDE was started for one, as `MCP :5140 · docs-pass`, and SHALL NOT show it before the port is
+bound. The section SHALL carry that text as its automation name, its strings SHALL be localised, and a build without the
+server SHALL contain no such section.
+
+#### Scenario: Telling sessions' IDEs apart
+- **WHEN** an IDE is started with `--server-port 5140 --session docs-pass`
+- **THEN** its status bar reads `MCP :5140 · docs-pass`, and one started without `--session` reads `MCP :5140`
+
+
+### Requirement: The status bar's automation section SHALL say what is driving the IDE
+Hovering over the section SHALL show the endpoint, whom it serves, the process ID and the build directory with the user's
+profile replaced, that the server answers this machine only with no authentication, the running call if any, the last
+call and its time, and the count of calls refused from other sessions with the session the last one named. A dot before
+the text SHALL be filled with the theme's highlight while a call runs, and SHALL stay filled across a burst of calls.
+
+#### Scenario: A call from another session
+- **WHEN** a call from another session is refused
+- **THEN** hovering over the section counts it and names the session it named, and it is not shown as the last call
+
+
 ### Requirement: Snapshots identify the title and capture area
 
 The snapshot description and reply SHALL explain that the image captures the window's client area,

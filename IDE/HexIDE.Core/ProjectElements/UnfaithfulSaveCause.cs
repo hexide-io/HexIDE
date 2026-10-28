@@ -32,4 +32,7 @@ public enum UnfaithfulSaveCause
     /// nothing points at them any more, which is a picture silently disappearing from a control.
     /// </summary>
     UnreproducibleBinaryContent = 1 << 1,
+
+    /// <summary>An invisible UserControl's size has no measured conversion to missing saved extents.</summary>
+    MissingUserControlExtents = 1 << 2,
 }
