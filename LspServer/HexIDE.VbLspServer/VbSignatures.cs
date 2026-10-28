@@ -7,7 +7,16 @@ namespace HexIDE.VbLspServer;
 
 internal static class VbSignatures
 {
-    internal sealed record SignatureEntry(string Label, string[] Parameters, string? Documentation = null);
+    /// <param name="ParamArray">The last parameter takes any number of arguments where the label doesn't say so, as
+    /// <c>Array(ArgList)</c>'s doesn't. A label ending its list in <c>...</c> says so itself.</param>
+    internal sealed record SignatureEntry(string Label, string[] Parameters, string? Documentation = null, bool ParamArray = false)
+    {
+        /// <summary>
+        /// Whether every argument past the last parameter is still that parameter, so signature help keeps it active
+        /// (#2599). Without a list, an extra argument is a mistake VB6 refuses, and no parameter is active for it.
+        /// </summary>
+        public bool LastIsList => ParamArray || Label.Contains("...", StringComparison.Ordinal);
+    }
 
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
@@ -226,7 +235,7 @@ internal static class VbSignatures
             ["Array"] =
             [
                 new SignatureEntry("Array(ArgList) As Variant", ["ArgList"],
-                    "Returns a Variant containing an array.")
+                    "Returns a Variant containing an array.", ParamArray: true)
             ],
             ["UBound"] =
             [
