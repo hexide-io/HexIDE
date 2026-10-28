@@ -21,6 +21,18 @@
 
 grammar VB6;
 
+@lexer::members {
+    // Whether the character just before the current token ends a word: a letter, a digit or an underscore. Called
+    // only from the predicate at the right edge of IDENTIFIER_CONTINUATION, after the whole token has matched.
+    private bool WordEndsBeforeToken()
+    {
+        var before = TokenStartCharIndex - 1;
+        if (before < 0) return false;
+        var c = InputStream.LA(before - InputStream.Index);
+        return char.IsLetterOrDigit((char)c) || c == '_';
+    }
+}
+
 // module ----------------------------------
 
 startRule
@@ -2391,10 +2403,12 @@ IDENTIFIER
 
 // A continuation between word fragments must separate names rather than concatenate them (#224).
 // Other continuations retain their existing handling, including KWSEP inside multi-word keywords.
+// Both checks sit at the RIGHT edge. ANTLR evaluates a predicate at a lexer rule's left edge at the start of
+// every token, and caches no DFA edge it computed through one, so the first check, once written there, made the
+// whole lexer about 350 times slower (#2676).
 IDENTIFIER_CONTINUATION
-   : {char.IsLetterOrDigit((char)InputStream.LA(-1)) || InputStream.LA(-1) == '_'}?
-     [ \t]+ '_' [ \t]* ('\r'? '\n' | '\r') [ \t]*
-     {char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
+   : [ \t]+ '_' [ \t]* ('\r'? '\n' | '\r') [ \t]*
+     {WordEndsBeforeToken() && char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
    ;
 
 // A whitespace RUN before the underscore, and any whitespace after it. This used to demand exactly one
