@@ -523,6 +523,7 @@ public class DockFactoryTests
 
         factory.RegisterAddinTool(root, tool);
 
+        tool.KeepSavedWidth.Should().BeTrue("a saved dock width must not be replaced by first-display sizing");
         var captured = factory.CaptureManifest(root).Tools.Single(t => t.Key == saved.Key);
         captured.Open.Should().BeTrue();
         captured.Region.Should().Be(region);
