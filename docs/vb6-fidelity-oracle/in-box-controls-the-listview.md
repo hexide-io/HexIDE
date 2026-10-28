@@ -332,6 +332,25 @@ the pointer rested when the program started.
 - The ListView's default edge is 3 pixels, where the TreeView's is 2: the ListView's defaults are BorderStyle 1 with
   Appearance 1, the 3D edge and a line inside it.
 
+#### The other two ListView edges (2026-10-28, #2730)
+
+**The probe:** the one above, with the two TreeViews replaced by ListViews, so four ListViews, each 2400 × 1500 twips.
+L3 had Appearance 1 and no BorderStyle line, which loads as 0, as "A block missing a line", under "The saved files" below, records. L4 had
+Appearance 0 and BorderStyle 1. L1 and L2 were as before, measured again in the same run. Built native and as p-code,
+which logged the same events. Each read back its own BorderStyle and Appearance as set; L3 read BorderStyle 0.
+
+| ListView | Edge, each side, from GetClientRect | Click 21,21 px in: X, Y | Click 40,30 px in: X, Y |
+|---|---|---|---|
+| L3, Appearance 1, BorderStyle 0 | **2 px** | **285, 285** | 570, 420 |
+| L4, Appearance 0, BorderStyle 1 | **1 px** | **300, 300** | 585, 435 |
+| L1, Appearance 1, BorderStyle 1: its defaults | 3 px | 270, 270 | 555, 405 |
+| L2, Appearance 0, BorderStyle 0 | none | 315, 315 | 600, 450 |
+
+- **With Appearance 1 and BorderStyle 0 the edge is 2 pixels**, the TreeView's default edge, and a click lands where it
+  does on a default TreeView. That is the combination both corpus ListView forms load as.
+- **The edge adds up**: 2 pixels for Appearance 1's 3D edge, 1 for BorderStyle 1's line, so 3 with both, 1 with the
+  line alone and none with neither.
+
 ### Label editing, in full (2026-10-27, #1085)
 
 **The probe:**
