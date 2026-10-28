@@ -145,9 +145,17 @@ internal static partial class ToolFailures
     }
 
     /// <summary>What a caller is told when its arguments could not be bound: which, and why, and that nothing was done.</summary>
-    internal static string Refusal(string tool, IEnumerable<string> problems) =>
-        $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", problems.Select(p => p.TrimEnd('.')))}. "
-        + "Its input schema names each parameter and its type.";
+    internal static string Refusal(string tool, IEnumerable<string> problems)
+    {
+        var named = problems.Select(p => p.TrimEnd('.')).ToList();
+        // A schema the client holds is older than the server's: pointing at it sends the caller back to the stale thing,
+        // and the same call from the same session sends the same text again (#2446).
+        var close = named.Any(p => p.Contains(ArgumentCheck.StaleSchemaMark, StringComparison.Ordinal))
+            ? "Retrying in this session sends the same text: its client keeps the schema it loaded, which this server has "
+              + "since changed. A new session loads the current schema and sends the value as it was written."
+            : "Its input schema names each parameter and its type.";
+        return $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", named)}. {close}";
+    }
 
     /// <summary>The problem a binding failure names, which never leaves the refusal saying nothing.</summary>
     internal static List<string> BindingProblems(Exception ex, IDictionary<string, JsonElement>? arguments,
