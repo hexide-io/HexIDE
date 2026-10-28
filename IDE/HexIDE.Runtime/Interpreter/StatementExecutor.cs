@@ -337,7 +337,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
             "Reading an object's default member calls into the program, which is not available in the Immediate window."),
-        VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
+        VbObject or VbErr or VbApp or VbScreen => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
 
@@ -809,6 +809,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBCompileErrorException($"{message} ({name})");
     }
 
+    // ReDim or Erase of a procedure's ParamArray is VB6's compile error "Invalid ParamArray use" (measured, #2462), raised here as
+    // the statement runs.
+    private void RefuseParamArray(string name)
+    {
+        if (currentEnv.TryGetVariableLocation(name, out var location) && interpreter.ExecutionContext.State.IsParamArray(location))
+            throw new VBCompileErrorException($"Invalid ParamArray use ({name})");
+    }
+
     public override async Task<ControlFlow> VisitEraseStmt(VB6Parser.EraseStmtContext context)
     {
         // `Erase a[, b, ...]` — a DYNAMIC array is freed (undimensioned: later LBound/UBound/index → Err 9), a FIXED
@@ -817,6 +825,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var name = vs.GetText();
             RefuseConstantTarget(name, "Expected array");
+            RefuseParamArray(name);
             Vb6Value v;
             if (vs is VB6Parser.VsICSContext field && await UdtArrayField(field.implicitCallStmt_InStmt()) is { } arrayField)
                 v = arrayField.Read();
@@ -2251,6 +2260,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 bool leadFound;
                 if (!interpreter.TryReadNow(currentEnv, identifier, out leadFound, out variable, out var leadNeed))
                     (leadFound, variable) = await interpreter.ReadVariableAfter(currentEnv, identifier, leadNeed!);
+                // `Screen.MousePointer = x`, where nothing the program declares is named Screen (#2431).
+                if (!leadFound && interpreter.UnclaimedLibraryObject(identifier) is { } libraryObject)
+                    (leadFound, variable) = (true, libraryObject);
                 if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
@@ -3490,6 +3502,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return default;
                 throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             }
+            // `Set s.ActiveForm = Nothing` is 382, naming the member, as a Let of it is (measured, #2431).
+            if (setLead && target.Value is VbScreen screen && membersCall.iCS_S_MemberCall().Length == 1)
+            {
+                screen.TrySetProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
+                return default;
+            }
             if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             if (membersCall.iCS_S_MemberCall().Length != 1)
@@ -3672,6 +3690,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var variableName = varOrProcCall?.ambiguousIdentifier().GetText() ?? fieldTarget!.Name;
             RefuseConstantTarget(variableName, "Expected array");
+            if (fieldTarget is null)
+                RefuseParamArray(variableName);
 
             Vb6Value value;
             if (fieldTarget is not null)
@@ -4901,6 +4921,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // halt stops; a condition notes its own first (ConditionMet).
     private bool Locate(Exception error, ParserRuleContext stmt)
     {
+        if (error is VBRunTimeException runtimeError)
+            runtimeError.VbSource ??= interpreter.ProjectName;
         var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
             ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
             : null;

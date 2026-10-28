@@ -847,6 +847,23 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
 
+### Requirement: In-box corpus state consistency
+
+The corpus gate SHALL reject a control folder present in both `corpus/inbox-controls/pending/` and `saved/`,
+reporting both paths. It SHALL also reject byte-identical files at the same relative path in those states.
+It SHALL NOT compare files across different control folders or outside this corpus. README folder rows SHALL
+list each pending and saved control folder in its actual state.
+
+#### Scenario: A merge leaves a control in both states
+
+- **WHEN** both `pending/treeview/` and `saved/treeview/` exist
+- **THEN** the guard fails and names both paths
+
+#### Scenario: Different controls share a fixture
+
+- **WHEN** a pending Toolbar and a saved ImageList have identical companion bytes
+- **THEN** those shared bytes do not cause a duplicate-file failure
+
 ### Requirement: Reference locales SHALL use hexadecimal
 
 The project reader SHALL interpret a reference's LCID as hexadecimal, accepting either case. The writer
@@ -857,3 +874,16 @@ SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273)
 - **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
 - **THEN** their model values are 0, 9, 1033, 3082 and 3081
 - **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively
+
+### Requirement: ActiveX EXE saves add Retained at the measured location
+
+When saving `Type=OleExe` without a `Retained=` line, the writer SHALL insert `Retained=0`
+between adjacent `Unattended=0` and `ThreadPerObject=0` lines (#2459). It SHALL preserve an
+existing Retained line and SHALL leave other project types, missing neighbours and other orders
+unchanged because their insertion behaviour has not been measured.
+
+#### Scenario: The ActiveX Document Exe template lacks Retained
+
+- **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
+- **THEN** Retained=0 is inserted between those lines
+- **AND** the remaining lines retain their order

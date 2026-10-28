@@ -820,6 +820,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public IVbSettingsStore Settings => VbSettingsStores.ForThisUser();
 
+        private HexIDE.Runtime.AvaloniaInterop.AvaloniaDisplay? display;
+        public IVbDisplay Display => display ??= new HexIDE.Runtime.AvaloniaInterop.AvaloniaDisplay(() =>
+            (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+                ?.MainWindow);
+
         /// <summary>
         /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
         /// with answer_next_file_dialog as it answers the IDE's.

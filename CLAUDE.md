@@ -282,6 +282,17 @@ looking for one. The duration correlation was real but incidental: a run that fa
 constructors finishes sooner because it does less work. Diagnosed properly on 2026-09-06 by reading a CI
 log instead of the note.
 
+**An Integration run that ends hundreds short and still says `Passed!` lost those tests to xunit errors,
+which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2486)). xunit records a
+test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
+error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
+read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
+`bash scripts/check-xunit-report.sh` on the file, which lands under the project's
+`bin/Debug/net10.0/TestResults/`. CI does both on every Integration step. The cause measured was
+Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
+fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
+fails loudly if one starts a test on a leftover context again.
+
 ## MCP Dev Loop
 
 ## Visual Verification — MANDATORY

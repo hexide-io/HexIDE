@@ -505,6 +505,9 @@ public sealed class LanguageServerConfigLoader
             entry.Id!, entry.WorkspaceArtifact, artifactProviders, out _, out var artifactProblems);
         problems.AddRange(artifactProblems);
 
+        ProjectImportSpecReader.TryRead(entry.Id!, entry.ProjectImport, out _, out var importProblems);
+        problems.AddRange(importProblems);
+
         if (entry.Enabled == false)
         {
             problems.Add(new LanguageServerConfigProblem(

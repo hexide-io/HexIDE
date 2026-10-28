@@ -992,7 +992,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. 'name' is what to pass as 'window' to reach the same window again.")]
+    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. 'name' is what to pass as 'window' to reach the same window again.")]
     public async Task<WindowStateResult> GetWindowStateAsync(
         [Description(WindowStateParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -1015,13 +1015,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var (target, _, error) = ResolveActiveWindow(string.IsNullOrWhiteSpace(window) ? "ide" : window, ideByDefault: true);
         if (target is null)
             return (null, null, error);
-        var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        return (target, target == main ? "ide"
-            : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
-            : DescribeWindow(target), null);
+        return (target, StateNameOf(target), null);
     }
 
-    private static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
+    // A window as the window-state tools name it, which is what a caller passes as 'window' to reach it again.
+    private static string StateNameOf(Avalonia.Controls.Window target)
+    {
+        var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        return target == main ? "ide"
+            : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
+            : DescribeWindow(target);
+    }
+
+    internal static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
     {
         var state = window.WindowState switch
         {
@@ -1031,8 +1037,29 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         };
         var pos  = window.Position;
         var size = window.ClientSize;
-        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name);
+        // The window's whole rectangle, the frame a person sees and the client area, all in device-independent pixels on
+        // the screen, beside the scale that turns them into screen pixels. x and y alone gave the platform's position in
+        // screen pixels, which on Windows includes an invisible resize border, and width and height gave the client in
+        // device-independent pixels, with nothing to say so or which edge each measured (#2454). They are kept, as
+        // set_window_state takes them.
+        var scale = window.DesktopScaling;
+        var outer = HexIDE.Automation.NativeWindowFrame.OuterRect(window) is { } o ? WindowRect.Of(o, scale) : null;
+        var frame = HexIDE.Automation.NativeWindowFrame.VisibleFrame(window) is { } f ? WindowRect.Of(f, scale) : null;
+        var client = window.IsVisible && window.WindowState != Avalonia.Controls.WindowState.Minimized
+            ? WindowRect.Of(window.PointToScreen(new Avalonia.Point(0, 0)), size, scale) : null;
+        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name,
+            Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits);
     }
+
+    /// <summary>What every get_window_state reply says of its numbers, since two of them are in one unit and two in another.</summary>
+    internal const string WindowStateUnits =
+        "x and y: the window's position as the platform reports it, in screen pixels, the top left of outer. width and "
+        + "height: the client area in device-independent pixels. set_window_state takes all four as these. outer, frame "
+        + "and client are in device-independent pixels on the screen (twips divided by 15); multiply by scale for screen "
+        + "pixels. outer is the window's whole rectangle, which on Windows includes an invisible resize border; frame is "
+        + "the window as drawn, title bar and border included; client is the area inside. None is given for a window "
+        + "that is hidden or minimized, and Windows puts a minimized window's x and y at -32000. outer and frame are "
+        + "also left out where the platform reports no frame.";
 
     /// <summary>
     /// Why a person couldn't make <paramref name="target"/> the state or size asked for: it has no minimize or maximize box,
@@ -1054,7 +1081,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     };
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
+    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. `x` and `y` are screen pixels and `width` and `height` the client area in device-independent pixels, as get_window_state reports them. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
@@ -2197,7 +2224,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "even where another window covers it, with its open popups drawn over it. Windows only; refused, with no "
                      + "client-only fallback, for a window hidden or minimized. Should Windows render nothing, the frame is "
                      + "copied from the screen and the 'note' says how much of it other windows cover, since that part shows "
-                     + "them. Default false renders the client area and its popups, even if occluded.")]
+                     + "them. Default false renders the client area and its popups, even if occluded, and refuses a minimized window, whose last frame is stale.")]
         bool includeFrame = false,
         CancellationToken ct = default)
     {
@@ -2225,6 +2252,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 if (snapshot is null)
                     return new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null);
             }
+            // A minimized window is refused as the frame capture refuses it: the compositor still held its last frame, which
+            // came back as a capture of the window as it is (#2416).
+            else if (active.WindowState == Avalonia.Controls.WindowState.Minimized)
+                return new SnapshotResult(null, HexIDE.Automation.SnapshotComposer.MinimizedRefusal(StateNameOf(active)),
+                    activeDialog, Title: active.Title, CaptureArea: null);
             else
                 snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
             using var captured = snapshot;
@@ -2524,7 +2556,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(Avalonia.Automation.ExpandCollapseState))]
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; on Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items, which 'items' gives: each one's text for select, off-screen ones too (a dropdown only while open); 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). On Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -3675,7 +3707,20 @@ internal record AddFileResult(
 
 /// <summary>A window's state, as <c>get_window_state</c> reports it. <c>Name</c> is what reaches it as 'window' again;
 /// <c>Error</c> says why no window was read.</summary>
-internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null);
+internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null,
+    double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null);
+
+/// <summary>A rectangle on the screen in device-independent pixels, to a tenth (#2454).</summary>
+internal record WindowRect(double X, double Y, double Width, double Height)
+{
+    public static WindowRect Of(Avalonia.PixelRect pixels, double scale) =>
+        new(Tenth(pixels.X / scale), Tenth(pixels.Y / scale), Tenth(pixels.Width / scale), Tenth(pixels.Height / scale));
+
+    public static WindowRect Of(Avalonia.PixelPoint origin, Avalonia.Size size, double scale) =>
+        new(Tenth(origin.X / scale), Tenth(origin.Y / scale), Tenth(size.Width), Tenth(size.Height));
+
+    private static double Tenth(double value) => Math.Round(value, 1);
+}
 
 /// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
 internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window, string? Note = null);

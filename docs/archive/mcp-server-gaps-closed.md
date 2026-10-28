@@ -9,6 +9,60 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## A dropdown's unrealized items couldn't be read: the dump saw ten of Options' 31 languages — **CLOSED** (#2450, 2026-10-28)
+
+**Symptom (2026-10-28, hexide-mcp, a first-contact check of #2444).** The Language dropdown on Options' Language page
+holds 31 items (`inspect_element` gave `itemCount` 31), but only the first ten had rows. `dump_visual_tree` with
+`interactiveOnly: false`, after an `expand`, listed Arabic through Finnish and stopped, and `match: "fr"` found
+nothing. `select` with `value: "French"` worked, by scrolling the list until French had a row, but nothing before
+that told the caller French was there or how it was spelled. The headless session reported: "I couldn't see that
+French exists beforehand."
+
+**Fixed (#2450).** `inspect_element` on a list, an open dropdown or a tab control gives `items`: each item's text as
+`select` matches it. A row that doesn't exist is brought into view to be read, as `select` does, and the list is put
+back where it was before anything is drawn. Items that don't show are left out, as `select` passes over them, and at
+most 200 are listed; `itemsNote` says what was left out. A closed dropdown has no rows to bring into view, and opening
+it is a person's action, not a read, so it gives no `items` and `itemsNote` says to expand it. Guarded by
+`InspectItemTextsTests`.
+
+**Live (2026-10-28, Windows, a headless `claude -p` told to work from the descriptions alone).** Asked to find
+every language the dropdown offers without selecting one, it inspected the closed dropdown and read `itemCount` 31
+and the `itemsNote` telling it to expand. It expanded, inspected again, and listed all 31, from "System default"
+to "Vietnamese", then collapsed it and cancelled the dialog. What it still tripped on was the two dropdowns having
+no accessible name, which is #2449.
+
+## `take_snapshot` of a minimized window returned its last frame as if current — **CLOSED** (#2416, 2026-10-28)
+
+**Symptom (2026-10-27, Windows, #1925's minimized check).** After `set_window_state {"state":"Minimized","window":"Form1"}`
+had run the form's Resize, `take_snapshot {"window":"Form1"}` returned a 450×300 image, with the usual client
+`captureArea`, whose label read `resize 1, activate 1, state 0`: the form before it minimized. Restored, it read
+`resize 3`. A minimized window draws no new frames, and the compositor capture (#2306) returns the last one.
+
+**Workaround.** Restore the window with `set_window_state` before capturing it, and treat a capture of a minimized
+window as stale.
+
+**Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
+`set_window_state`; or render it fresh and say so. Never present the last frame as current.
+
+**Fixed (#2416).** The default capture refuses a minimized window, as the frame capture does, and says how to
+restore it. A person can't see a minimized window's contents either, so nothing is rendered in its place. Guarded by
+`FrameCoverTests`, which pins the wording; headless can't minimize a window, so the refusal itself was checked live.
+
+**Live (2026-10-28, Windows at 150%, headless `claude -p` through the hexide tools).** A form whose Resize writes
+`resize N, state S` into a label:
+
+```
+set_window_state {"state":"Minimized","window":"Form1"}      → label: resize 2, state 1
+take_snapshot {"window":"Form1"}
+→ 'Form1' is minimized, so nothing of it is on the screen, and the last frame it drew before it was minimized would
+  read as current; nothing was captured. Restore it with set_window_state {"state":"Normal","window":"Form1"},
+  then capture it.
+set_window_state {"state":"Normal","window":"Form1"}         → label: resize 3, state 0
+take_snapshot {"window":"Form1"}                               → a 450×300 image reading "resize 3, state 0"
+```
+
+---
+
 ## `type_text` refused a running form's RichTextBox as having no text surface — **CLOSED** (#2460, 2026-10-28)
 
 **Symptom (2026-10-28, hexide-frm, live-checking #2456's RichTextBox).** `type_text(target: "Window/None[RichTextBox1]",
@@ -43,6 +97,46 @@ type_text {"target":"Window/None[RichTextBox1]","text":"x","window":"Form1"}
 
 Every key ran KeyPress and every insert ran Change, until MaxLength stopped the inserts after the fifth; whether that
 matches VB6's RichTextBox is #2456's to say, not this tool's.
+
+## `get_window_state` mixed screen and device-independent pixels, and didn't say which edge it measured — **CLOSED** (#2454, 2026-10-28)
+
+**Symptom (2026-10-28, hexide-int, Windows at 150%, #2448's live check).** The IDE, maximized, read
+`{"x":-11,"y":-11,"width":1280,"height":649}`. A running form placed at Left 7200, Top 3600 twips read
+`{"x":721,"y":325,"width":304,"height":200}`. `x` and `y` were the platform's position in screen pixels, which on
+Windows includes the invisible resize border (the -11). `width` and `height` were the client area in device-independent
+pixels. Nothing in the reply said either, so a caller could not tell whether a form's `y` of 325 against the 360 its
+Top implies was a placement defect or only what the number measured.
+
+**Fixed (#2454).** The four numbers are kept, as `set_window_state` takes them, and every reply now also carries:
+- `scale`;
+- `outer`, the window's whole rectangle, its invisible resize border included, which is where `x` and `y` are;
+- `frame`, the window as drawn;
+- `client`, the area inside;
+- `units`, which says all of this.
+
+The three rectangles are on the screen in device-independent pixels, twips divided by 15. Positions stay in screen
+pixels for `x` and `y` because they are what the platform and `set_window_state` use, and the only coordinates that
+hold across monitors of different scale. A hidden or minimized window has no rectangles. Guarded by
+`WindowStateUnitsTests`; Windows' own rectangles are read from the HWND, which a headless test has none of, so those
+were checked live.
+
+**Live (2026-10-28, Windows at 150%, headless `claude -p` through the hexide tools).** A form whose `Form_Load` runs
+`Me.Move 7200, 3600, 4800, 3600`:
+
+```
+get_window_state {"window":"Form1"}
+→ {"state":"Normal","x":4,"y":23,"width":304,"height":200,"name":"Form1","scale":1.5,
+   "outer":{"x":2.7,"y":15.3,"width":318.7,"height":238},"frame":{"x":8.7,"y":15.3,"width":306.7,"height":232},
+   "client":{"x":10,"y":45.3,"width":304,"height":200.7},"units":"…"}
+set_window_state {"state":"Normal","window":"Form1","x":720,"y":360}
+→ "outer":{"x":480,"y":240,…},"frame":{"x":486,"y":240,…},"client":{"x":487.3,"y":270,…}
+```
+
+The first reply shows the form at Windows' default place, not at 480, 240, while the program's own `Me.Left` and
+`Me.Top` read back 7200 and 3600. That is #852 (a form's Left and Top don't move the window at run time), whose
+oracle rows say a form's Left and Top are the outer window's position, so `outer` is the rectangle to compare with
+them. The reply now shows that defect instead of hiding it. The maximized IDE reads `outer` -7.3, -7.3 (the -11 in
+screen pixels) and `frame` 0, 0.
 
 ---
 
