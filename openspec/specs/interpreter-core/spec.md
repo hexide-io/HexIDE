@@ -849,6 +849,39 @@ refused as not implemented until measured (#2521).
 - **THEN** it converts as CInt, including numeric strings, rounding 1.6 to 2 and raising 94 for Null
 - **AND** attribute 0, 2 or 3 raises 5, and an unopened number with attribute 1 raises 52
 
+### Requirement: CVErr SHALL construct an Error Variant
+
+The runtime SHALL reproduce Error Variant construction, inspection, conversions, comparisons,
+display and refusals measured in [#2520](https://github.com/hexide-io/HexIDE/issues/2520)
+and [#2613](https://github.com/hexide-io/HexIDE/pull/2613). It SHALL report VarType 10
+and TypeName "Error". Missing SHALL remain a separate omitted-argument sentinel with its
+existing measured behaviour. Unmeasured Error conversions and declared stores SHALL refuse
+as not implemented.
+
+#### Scenario: Explicit conversion differs from an implicit store
+- **WHEN** a Variant holds CVErr(5)
+- **THEN** CLng returns Long 5 and CStr returns "Error 5"
+- **AND** assigning it to a Long or String raises error 13 without changing the destination
+
+#### Scenario: Constructing an Error value
+- **WHEN** CVErr receives 1.5 or 2.5
+- **THEN** it returns Error 2
+- **AND** CVErr(65536) raises error 5
+
+#### Scenario: The follow-up explicit conversions
+- **WHEN** a Variant holds CVErr(5)
+- **THEN** CBool, CByte, CSng and CCur return True, Byte 5, Single 5 and Currency 5
+- **AND** CDec and CDate raise error 13
+
+#### Scenario: An Error selector compared with a number
+- **WHEN** a Variant holding CVErr(5) reaches Case 5 under On Error Resume Next
+- **THEN** the comparison raises 13 and runs that Case's body, retaining Err.Number after End Select
+
+#### Scenario: Displaying an Error value
+- **WHEN** Print # or Write # receives CVErr(5)
+- **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
+- **AND** implicit string coercion still raises 13
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a

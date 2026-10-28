@@ -38,7 +38,9 @@ public static class VbDisplay
     public static string? ToTextOrNull(Vb6Value value) => value.Value is null ? null : ToText(value);
 
     /// <summary>The text VB6 makes of <paramref name="value"/>, in <paramref name="culture"/>.</summary>
-    public static string ToText(Vb6Value value, CultureInfo culture) => value.Value switch
+    public static string ToText(Vb6Value value, CultureInfo culture) => value.Type == Vb6Value.ValueType.Error
+        ? throw new VBRunTimeException(VBStandardError.TypeMismatch)
+        : value.Value switch
     {
         null => "",
         // An object stands for its default member: Err its Number, and one with none is 438 (ObjectAsValue). Its CLR

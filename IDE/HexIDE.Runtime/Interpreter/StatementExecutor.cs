@@ -1686,6 +1686,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // it is half of the measured rule.
             if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
                 return false;
+            if (value.Type == Vb6Value.ValueType.Error)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
             return VB6BuiltIns.CBool(value).Value is true;
         }
         catch (VBRunTimeException ex)
@@ -3189,6 +3191,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (subCond is VB6Parser.CaseCondExprIsContext caseIs)
         {
             var val = await expressionExecutor.EvaluateScalar(caseIs.valueStmt());
+            RefuseErrorAgainstOther(value, val);
             var op = caseIs.comparisonOperator();
             if (op.IS() != null || op.LIKE() != null)
                 throw new NotImplementedException("Operator " + op.GetText() + " not impleemented");
@@ -3210,11 +3213,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("Operator " + op.GetText() + " not impleemented");
         }
         if (subCond is VB6Parser.CaseCondExprValueContext caseCondExpr)
-            return CaseMatches(value, await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt()), caseCondExpr, text);
+        {
+            var val = await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt());
+            RefuseErrorAgainstOther(value, val);
+            return CaseMatches(value, val, caseCondExpr, text);
+        }
         if (subCond is VB6Parser.CaseCondExprToContext caseTo)
         {
             var from = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0));
             var to = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1));
+            RefuseErrorAgainstOther(value, from);
+            RefuseErrorAgainstOther(value, to);
             if (!Ruled(value, from) || !Ruled(value, to))
                 return value.TryCompareTo(from, text) is >= 0 && value.TryCompareTo(to, text) is <= 0;
             // Both bounds are converted before either is compared, so a bound that cannot convert raises even when the
@@ -3224,6 +3233,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return CompareCase(value, low, text) is >= 0 && CompareCase(value, high, text) is <= 0;
         }
         throw new NotImplementedException($"Unepexected Select-Case");
+    }
+
+    /// <summary>An Error value against a value of any other type, a number, a string, Null or Empty, as the selector or as the
+    /// Case value, in <c>Case x</c>, <c>Is &gt; x</c> or <c>x To y</c>, is 13, and under Resume Next the Case's body runs
+    /// (measured both ways round, native and p-code, #2520). Two Error values compare by their numbers.</summary>
+    private static void RefuseErrorAgainstOther(Vb6Value selector, Vb6Value caseValue)
+    {
+        if ((selector.Type == Vb6Value.ValueType.Error) != (caseValue.Type == Vb6Value.ValueType.Error))
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
     /// <summary>Run a case arm's body, which the grammar makes OPTIONAL.
@@ -3334,6 +3352,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue, bool text)
     {
+        if (selector.Type == Vb6Value.ValueType.Error && caseValue.Type == Vb6Value.ValueType.Error)
+            return selector.TryCompareTo(caseValue);
         var s = KindOf(selector);
         var c = KindOf(caseValue);
         if (s == CaseKind.Null || c == CaseKind.Null)
