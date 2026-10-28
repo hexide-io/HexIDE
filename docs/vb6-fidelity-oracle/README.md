@@ -725,3 +725,4 @@ added afterwards.
 - [Lock and Unlock (2026-10-28, #2553)](lock-and-unlock.md#lock-and-unlock-2026-10-28-2553)
 - [Width # (2026-10-28, #2554)](width.md#width--2026-10-28-2554)
 - [A class with VB_PredeclaredId = True (2026-10-28, #2555)](a-class-with-vb-predeclaredid-true.md#a-class-with-vb_predeclaredid--true-2026-10-28-2555)
+- [A label on a closing or middle line of a block (2026-10-28, #2529)](a-label-on-a-closing-or-middle-line-of-a-block.md#a-label-on-a-closing-or-middle-line-of-a-block-2026-10-28-2529)

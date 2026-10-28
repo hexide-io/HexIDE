@@ -107,6 +107,27 @@ public class TextBoxSelectionAfterInputTests
         box.Selection.Should().Be(expected);
     }
 
+    // The running TextBox key sequences measured in #2423.
+    [AvaloniaTheory]
+    [InlineData(Key.End, PhysicalKey.End, Key.Back, PhysicalKey.Backspace, "3 0", "2 0")]
+    [InlineData(Key.Home, PhysicalKey.Home, Key.Delete, PhysicalKey.Delete, "0 0", "0 0")]
+    public async Task Select_all_then_End_or_Home_collapses_the_selection_before_deleting(
+        Key move, PhysicalKey physicalMove, Key delete, PhysicalKey physicalDelete,
+        string movedSelection, string finalSelection)
+    {
+        using var box = await Open(false, "");
+        box.Type("kkk");
+        box.Press(Keys.SelectAll.First(), PhysicalKey.A);
+        box.Selection.Should().Be("0 3");
+
+        box.Press(new KeyGesture(move), physicalMove);
+
+        box.Selection.Should().Be(movedSelection);
+        box.Press(new KeyGesture(delete), physicalDelete);
+        box.Editor.Text.Should().Be("kk");
+        box.Selection.Should().Be(finalSelection);
+    }
+
     [AvaloniaFact]
     public async Task Typing_replaces_a_selection_from_code_and_leaves_the_caret_after_it()
     {

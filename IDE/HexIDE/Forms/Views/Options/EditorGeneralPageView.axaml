@@ -6,6 +6,14 @@
              mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
              x:DataType="vm:EditorGeneralPageViewModel"
              x:Class="HexIDE.Forms.Views.Options.EditorGeneralPageView">
+    <UserControl.Styles>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Increase}" />
+        </Style>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_DecreaseButton">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Decrease}" />
+        </Style>
+    </UserControl.Styles>
     <StackPanel Orientation="Vertical" Spacing="10" VerticalAlignment="Top">
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.CodeSettings.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">

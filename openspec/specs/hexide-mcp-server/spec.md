@@ -1027,7 +1027,7 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 
 #### Scenario: A click on a running form's button
 - **WHEN** `click` presses Command1, which logs its mouse events
-- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, MouseMove (Button 0), as a real pointer's left click on it runs them
 
 #### Scenario: A second click at the same point
 - **WHEN** `click` presses again where the last click left the pointer

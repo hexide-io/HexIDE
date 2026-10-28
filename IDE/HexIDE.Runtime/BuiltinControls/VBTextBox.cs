@@ -4,8 +4,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
-using Avalonia.Media;
 using Avalonia.Input;
+using Avalonia.Media;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
@@ -35,6 +35,9 @@ public class VBTextBox : TextBox
         ApplyLayout(false, 0);
     }
 
+    // The saved border selects the measured minimum size (#1029); rendering is unchanged.
+    internal int VbBorderStyle { get; init; } = 1;
+
     protected override void OnTextInput(TextInputEventArgs e)
     {
         if (e.Handled || string.IsNullOrEmpty(e.Text))
@@ -57,6 +60,16 @@ public class VBTextBox : TextBox
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (!MultiLine && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Home or Key.End)
+        {
+            // Avalonia's ClearSelection returns to the old anchor when End leaves CaretIndex unchanged (#2423).
+            var position = e.Key == Key.Home ? 0 : Text?.Length ?? 0;
+            SetCurrentValue(CaretIndexProperty, position);
+            SetCurrentValue(SelectionStartProperty, position);
+            SetCurrentValue(SelectionEndProperty, position);
+            e.Handled = true;
+            return;
+        }
         if (!e.Handled && (e.Key == Key.Back || e.Key == Key.A && e.KeyModifiers == KeyModifiers.Control))
         {
             e.Handled = true;
