@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
@@ -19,9 +20,30 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     public VBWindowContext Context => windowContext;
 
     public EventPump Events => windowContext.Events;
+
+    // Kept beyond window focus: inactive and hidden forms answer their last control (#2437, measured).
+    internal Control? ActiveControl { get; private set; }
+
+    internal static Control? FindControl(Control window, ILogical? focused)
+    {
+        Control? found = null;
+        for (var element = focused; element is not null; element = element.LogicalParent)
+        {
+            if (ReferenceEquals(element, window))
+                return found;
+            if (found is null && element is Control control && FormControls.TryOf(control, out _))
+                found = control;
+        }
+        return null;
+    }
     
     public VBFormRuntime()
     {
+        AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e is FocusChangedEventArgs moved && FindControl(this, moved.NewFocusedElement as ILogical) is { } control)
+                ActiveControl = control;
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
         windowContext = new VBWindowContext(new StandaloneStandardLib(this)) { Window = this };
         // Held by a modal form, the window takes no input of its own (#822): what reaches it is stopped on the way down, and
         // activating it brings the modal form forward instead.

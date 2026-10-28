@@ -1012,6 +1012,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
 
+### Requirement: A form remembers its active control
+
+A form's `ActiveControl` SHALL return its last focused control while active, inactive or hidden,
+and Nothing when loaded but never shown or when no control has taken focus. Reading an unloaded
+form's member SHALL load it again with no remembered control. Measured in
+[#2437](https://github.com/hexide-io/HexIDE/issues/2437), oracle measurement #2279.
+This first slice does not restore focus or raise GotFocus on reactivation; initial focus remains #2436.
+
+#### Scenario: A hidden form remembers focus
+- **WHEN** a control takes focus and its form is hidden
+- **THEN** the form's ActiveControl still returns that control
+
+#### Scenario: A form loads again
+- **WHEN** an unloaded form's ActiveControl is read
+- **THEN** the form loads again and returns Nothing
+
 ### Requirement: App logging SHALL implement the measured file modes
 App.StartLogging and App.LogEvent SHALL implement the file output and mode/path values measured in
 [#2552](https://github.com/hexide-io/HexIDE/issues/2552). App.LogMode SHALL be a Long and App.LogPath a String;
