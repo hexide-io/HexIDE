@@ -310,6 +310,7 @@ public sealed class VBLspClient : ILspClient
     /// replays any tracked documents. Used for the first connect and for every reconnect.</summary>
     private async Task ConnectAndInitializeAsync(CancellationToken cancellationToken)
     {
+        _serverRefreshesDiagnostics = false;
         // A FRESH formatter per connection: StreamJsonRpc formatters carry per-connection state and
         // cannot be reused across JsonRpc instances — reusing one silently breaks every reconnect.
         // It still carries the AOT-safe LspJsonContext config so serialization is identical each time.
@@ -604,6 +605,7 @@ public sealed class VBLspClient : ILspClient
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true,
+                    Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities()));
@@ -1787,6 +1789,35 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    private bool _serverRefreshesDiagnostics;
+
+    public async Task<JsonElement?> ImportProjectAsync(ProjectImportSpec spec, string uri, string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) throw new InvalidOperationException("The server is not initialized.");
+        if (!ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, spec.Command))
+            throw new InvalidOperationException($"The server does not advertise project-import command {spec.Command}.");
+        var result = await InvokeRequestAsync<JsonElement?>(_rpc, "workspace/executeCommand",
+            new ExecuteCommandParams(spec.Command, spec.ExpandArguments(uri, text)), cancellationToken);
+        if (result is { ValueKind: JsonValueKind.Object } reply && reply.TryGetProperty("notes", out var notes))
+        {
+            var messages = notes.ValueKind == JsonValueKind.Array ? notes.EnumerateArray().ToArray() : [notes];
+            foreach (var note in messages)
+            {
+                var textValue = note.ValueKind == JsonValueKind.Object && note.TryGetProperty("message", out var message)
+                    ? message : note;
+                if (textValue.ValueKind != JsonValueKind.String) continue;
+                LogServerMessage(new LogMessageParams(LspMessageType.Info, textValue.GetString()!), spec.Command);
+            }
+        }
+        if (!_serverRefreshesDiagnostics)
+        {
+            _pullResultIds.Clear();
+            foreach (var document in _openDocuments.Keys) PullDiagnosticsInBackground(document);
+        }
+        return result;
+    }
+
     public async Task<System.Text.Json.JsonElement?> ExecuteCommandAsync(
         string command,
         System.Text.Json.JsonElement[]? arguments = null,
@@ -2015,6 +2046,16 @@ public sealed class VBLspClient : ILspClient
     }
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
+
+    // Also kept for the server's card in Language & Debug Servers, under the source it came from (#2388).
+    private void LogServerMessage(LogMessageParams p, string source)
+    {
+        _logger.Log(LspNotificationReceiver.LevelOf(p.Type), "[{Language} server] {Message}", _languageId, p.Message);
+        if (_connectionId is { } id)
+            _capture?.Output.Append(id, source, p.Message);
+        RaiseMessageLogged(p);
+    }
+
     internal void RaiseMessageLogged(LogMessageParams p) => MessageLogged?.Invoke(this, p);
     internal void RaiseTraceReceived(LogTraceParams p) => TraceReceived?.Invoke(this, p);
 
@@ -2101,10 +2142,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnLogMessage(LogMessageParams p)
         {
-            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
-            if (_client._connectionId is { } id)
-                _client._capture?.Output.Append(id, $"window/logMessage ({(int)p.Type})", p.Message);
-            _client.RaiseMessageLogged(p);
+            _client.LogServerMessage(p, $"window/logMessage ({(int)p.Type})");
         }
 
         /// <summary>
@@ -2234,6 +2272,7 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("workspace/diagnostic/refresh")]
         public void OnDiagnosticRefresh()
         {
+            _client._serverRefreshesDiagnostics = true;
             _client._logger.LogDebug("The server asked for diagnostics to be refreshed; re-requesting.");
             _client._pullResultIds.Clear();
             foreach (var uri in _client._openDocuments.Keys)
@@ -2302,7 +2341,7 @@ public sealed class VBLspClient : ILspClient
         /// where something we cannot read belongs.
         /// </para>
         /// </remarks>
-        private static LogLevel LevelOf(LspMessageType type) => type switch
+        internal static LogLevel LevelOf(LspMessageType type) => type switch
         {
             LspMessageType.Error => LogLevel.Error,
             LspMessageType.Warning => LogLevel.Warning,

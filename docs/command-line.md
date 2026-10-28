@@ -102,6 +102,8 @@ from `HEXIDE_SESSION`. Any other call is answered with an error saying whose IDE
 run. Listing the tools still works, and so does `/health`, which reports the `session` beside the `pid`. Without the
 flag, a client that names no session is served, as before, and one that names a session is refused: it was meant for an
 IDE started for it. Two clients that both name none cannot be told apart, so this does not separate those.
+The status bar shows the port and the session, as `MCP :5140 · docs-pass`, so a person can tell several sessions' IDEs
+apart, and hovering over it shows the build directory, the last call and any calls refused from other sessions.
 A session's name is matched as plain ASCII: Claude Code sends the header in Latin-1, and the server refuses a header
 byte outside ASCII as a malformed request, which the client counts towards dropping its tools. Like `--user-data-dir`, it refuses to start with exit code 2 when given
 nothing after it, because starting would serve every session's client, which is what it was given to prevent. It is a

@@ -400,3 +400,33 @@ something already able to change the project's files.
 Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
 no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
 generated without a declaration, and core contains no backend schema.
+
+### Project-import declarations
+
+`projectImport` (#2363) is recognised as an object with a non-empty `command` and an `arguments` JSON
+array. For example:
+
+```json
+"projectImport": {
+  "command": "example.importProject",
+  "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
+}
+```
+
+The template model replaces string values equal to `{uri}` or `{text}`, including in nested objects
+and arrays. Other values and property names remain literal; `overwrite` above is a JSON boolean,
+not a placeholder. Inserted text is JSON-escaped and is never substituted a second time.
+
+After initialization, HexIDE calls the declared command for each loaded project, using its saved `.vbp`
+URI and the current in-memory project serialization. Membership, reference and modeled project-setting
+changes repeat the import after the same 300 ms debounce used for generated workspace files. The command
+must also appear in the server's advertised `executeCommandProvider.commands`. A declared import replaces
+that entry's `workspaceArtifact` generation, without asking for artefact-write consent.
+
+Reply `notes` appear in the server output. Failed imports, unavailable commands and projects without a
+saved path appear as configuration problems in Tools → Language Servers; the server remains available.
+After a successful import, open documents are pulled for diagnostics without previous result IDs, until
+that connection receives `workspace/diagnostic/refresh`; subsequent refreshes are then the server's job.
+Automatic transport reconnect re-imports only on the next project change; immediate imports currently
+cover registry startup and workspace-root replacement. Workspace-folder changes before imports are tracked in #2364. File-operation routing under #2248 is not
+present on this branch yet; importing does not make HexIDE an artefact writer.
