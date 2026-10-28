@@ -15,8 +15,6 @@ date functions; graphics) should extend it the same way.
 - [Key events](key-events.md) — #2325, real input, SP6 native and p-code.
 - [A Timer’s default Interval](timer-default-interval.md) — #2068, SP6 native and p-code.
 
-- [FormatDateTime](formatdatetime.md) — #2516, SP6 native and p-code, en-GB.
-
 ---
 
 ## The oracle
