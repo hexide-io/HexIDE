@@ -46,6 +46,24 @@ as not implemented.
 - **WHEN** `ObjPtr(5)` or `ObjPtr("a")` executes
 - **THEN** it SHALL raise run-time error 13 for VB6's compile-time Type mismatch
 
+### Requirement: ErrObject assignments and creation SHALL match measured VB6 errors
+
+A variable declared `As ErrObject` SHALL accept Err and Nothing. Assigning a Collection SHALL
+raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trappable run-time
+-2147221164, "Class not registered" (VB6 SP6 native/p-code measurements, #2627).
+
+#### Scenario: Refused Collection assignment
+
+- **GIVEN** `e As ErrObject` holds Err
+- **WHEN** `Set e = New Collection` executes under `On Error Resume Next`
+- **THEN** Err.Number is 13 and `e Is Err` remains True
+
+#### Scenario: ErrObject cannot be created
+
+- **GIVEN** `e As ErrObject` holds Nothing
+- **WHEN** `Set e = New ErrObject` executes under `On Error Resume Next`
+- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered", and e remains Nothing
+
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
 interpreter, and there SHALL NOT be a separate simplified engine for any of them.
