@@ -783,6 +783,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
 
+### Requirement: Shell SHALL launch programs with the measured argument and result contract
+`Shell` SHALL work as a function and a statement, launch asynchronously and return the process ID as
+Double. Explicit styles 0–4, 6 and 7 SHALL select the Windows startup show state; Unix hosts SHALL
+accept these styles without changing window state. WindowStyle SHALL convert through CInt.
+Empty paths and directories SHALL raise 5, missing programs 53 and Null arguments 94.
+Unmeasured non-string PathName conversions, successful launches with omitted WindowStyle, and other
+OS launch failures and unmeasured style values SHALL refuse explicitly as not implemented pending measurement (#2522).
+
+#### Scenario: A program launches a helper
+- **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
+- **THEN** the helper starts and the function returns its positive process ID as Double
+
+#### Scenario: The helper cannot be found
+- **WHEN** code calls `Shell("nosuchprogram_x.exe")`
+- **THEN** the runtime raises error 53
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
