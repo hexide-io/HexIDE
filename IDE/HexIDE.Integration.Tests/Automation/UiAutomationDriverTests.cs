@@ -1998,6 +1998,34 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #2737: a live, focused box drew the previous text after a write, though it held the new one. The write is now
+    // committed as TextBox's own text input commits a key, so its presenter holds the text and the caret at once. The
+    // stale drawing itself showed only in a real window; this pins the order's other effects.
+    [AvaloniaFact]
+    public void TypeText_IntoTextBox_OverASelection_IsOneChange_WithThePresenterInStep()
+    {
+        var box = new TextBox { Text = "find this" };
+        var window = Show(box);
+        try
+        {
+            box.Focus();
+            box.SelectionStart = 5;
+            box.SelectionEnd = 9;
+            var changes = 0;
+            // TextChanging is raised as the text changes; TextChanged is posted for after it is drawn.
+            box.TextChanging += (_, _) => changes++;
+
+            UiAutomationDriver.TypeText(box, "that").Success.Should().BeTrue();
+
+            box.Text.Should().Be("find that");
+            changes.Should().Be(1, "what is bound to the box sees one change");
+            (box.CaretIndex, box.SelectionStart, box.SelectionEnd).Should().Be((9, 9, 9));
+            var presenter = box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.TextPresenter>().Single();
+            (presenter.Text, presenter.CaretIndex).Should().Be(("find that", 9));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void TypeText_IntoCodeEditor_InsertsMultiLineIntoDocument()
     {
