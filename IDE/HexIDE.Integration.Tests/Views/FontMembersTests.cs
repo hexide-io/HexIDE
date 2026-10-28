@@ -529,7 +529,8 @@ public class FontMembersTests
     [AvaloniaTheory]
     [InlineData("HScrollBar")]
     [InlineData("VScrollBar")]
-    [InlineData("Timer")]
+    // A Timer's Font is one of its measured absent members (#801): the binding table doesn't resolve it, and the
+    // statement executor raises 438. TimerMemberTests owns that case.
     [InlineData("Shape")]
     [InlineData("Line")]
     [InlineData("Image")]
@@ -539,7 +540,6 @@ public class FontMembersTests
         {
             "HScrollBar" => new VBScrollBar { Orientation = Avalonia.Layout.Orientation.Horizontal },
             "VScrollBar" => new VBScrollBar { Orientation = Avalonia.Layout.Orientation.Vertical },
-            "Timer" => new VBTimer(),
             "Shape" => new VBShape(),
             "Line" => new VBLine(0, 0, 0, 0),
             _ => new VBImage(),
