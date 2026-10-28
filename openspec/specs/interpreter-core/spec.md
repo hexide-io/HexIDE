@@ -29,6 +29,28 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Read-only project resources
+
+The interpreter SHALL load the project's `ResFile32` file read-only when configured for a run,
+resolving its Windows-format path against the project folder. Its resource reader SHALL support
+ordinal and case-insensitive string type/name identifiers, DWORD-aligned headers and payloads,
+raw resource bytes and sixteen-slot counted UTF-16 string blocks. Missing, unreadable or malformed
+files SHALL supply no lookup results. A lookup matching more than one language SHALL refuse with
+not-implemented rather than select an unmeasured locale-dependent value (#2625).
+
+#### Scenario: A run reads the project's resource file
+
+- **WHEN** a saved project names `ResFile32="res\probe.res"`
+- **THEN** configuring the interpreter reads that file relative to the project folder
+- **AND** the run retains its own resource snapshot without keeping the file open
+
+#### Scenario: A string slot is empty
+
+- **WHEN** the counted string for an ID has length zero
+- **THEN** the reader reports no string for that ID
+
+The `LoadResString`, `LoadResData` and `LoadResPicture` intrinsic calls remain separate work (#2626).
+
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
 [#2622](https://github.com/hexide-io/HexIDE/issues/2622) (measuring PRs #2624 and #2628).
