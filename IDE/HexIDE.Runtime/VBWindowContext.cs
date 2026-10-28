@@ -587,6 +587,9 @@ public class VBWindowContext : IModuleExecutionRoot
         Raise(name, () => argList);
     }
 
+    public void ExecuteEventByRef(string name, IReadOnlyList<Vb6Value> args, int byRefIndex, Action<Vb6Value> completed) =>
+        Raise(name, () => args, byRefIndex: byRefIndex, completed: completed);
+
     /// <inheritdoc/>
     public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when)
     {
@@ -629,7 +632,8 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
-        EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null)
+        EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null,
+        int? byRefIndex = null, Action<Vb6Value>? completed = null)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
@@ -655,7 +659,23 @@ public class VBWindowContext : IModuleExecutionRoot
             {
                 if (!started)
                     await EnsureDeclarations();
-                await interpreter.RaiseFormEvent(form, name, args());
+                var values = args();
+                if (byRefIndex is not { } index)
+                    await interpreter.RaiseFormEvent(form, name, values);
+                else
+                {
+                    var state = ExecutionContext.State;
+                    var slot = state.Alloc(values![index]);
+                    try
+                    {
+                        var callArgs = new List<CallArg>();
+                        for (var i = 0; i < values.Count; i++)
+                            callArgs.Add(new CallArg(values[i], i == index ? slot : null));
+                        await interpreter.RaiseFormEvent(form, name, callArgs);
+                        completed!(state[slot]);
+                    }
+                    finally { state.Free(slot); }
+                }
             });
         }
 
@@ -669,6 +689,8 @@ public class VBWindowContext : IModuleExecutionRoot
         // One handler at a time: at once if nothing runs or the running handler's own code raised it, else in turn (#766).
         Events.Raise(key ?? name, Work, coalescing);
     }
+
+    internal Task DispatchInput(Func<Task> work) => Dispatch(work);
 
     // How a piece of a dispatch ended: it finished; it stopped on a run-time or compile error, which was reported and
     // leaves the run going (D22, D23); or the run is over, after a fault, a cancellation, or the debugger's Stop.

@@ -192,7 +192,7 @@ public static class ControlLibraries
         "MSCOMCT2.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
-            ["UpDown"] = 1093, ["DTPicker"] = 1081, ["MonthView"] = 1081, ["Animation"] = 1081, ["FlatScrollBar"] = 1081,
+            ["UpDown"] = 1093, ["DTPicker"] = 1081, ["MonthView"] = 1095, ["Animation"] = 1081, ["FlatScrollBar"] = 1081,
         }, null);
 
     /// <summary>MSMASK32.OCX: identity and constants measured in the MaskedEdBox oracle (#1098).</summary>

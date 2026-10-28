@@ -1626,6 +1626,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is BuiltinControls.VBStatusBar statusBar && MemberName(member).Equals("Panels", StringComparison.OrdinalIgnoreCase))
             return MemberArgs(member) is { } panelArgs
                 ? new Vb6Value(statusBar.Panels.Item(await EvaluateCallArgs(panelArgs))) : new Vb6Value(statusBar.Panels);
+        if (variable.Value is VBMonthView monthView && MemberName(member).Equals("VisibleDays", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is { } dayIndexes)
+        {
+            var indexes = await EvaluateCallArgs(dayIndexes);
+            if (indexes.Count != 1) throw VBMonthView.Pending("VisibleDays argument count");
+            return monthView.VisibleDay(indexes[0]);
+        }
         if (variable.Value is VBImageList && MemberName(member).ToLowerInvariant() is "name" or "tag" or "parent" or "object")
         {
             // These four are the invisible control's extender, answered by the shared control bindings.
@@ -2448,6 +2455,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
                 VBToolbar => "MSComctlLib",
+                VBMonthView => "MSComCtl2",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
                 VBUpDown => "MSComCtl2",

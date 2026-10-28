@@ -15,6 +15,12 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBMonthView monthView && (Components.InBox.MonthViewComponentClass.Instance.Member(method) is not null
+            || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+        {
+            monthView.Call(method, args.ToList());
+            return Vb6Value.Nothing;
+        }
         if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                               || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");

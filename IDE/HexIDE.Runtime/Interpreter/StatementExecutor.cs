@@ -2239,6 +2239,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VBMonthView monthView)
+                {
+                    monthView.TrySetProperty("Value", value);
+                    return default;
+                }
                 if (oldLet.Value is VBRichTextBox richTextBox)
                 {
                     VBProps.RefuseIfRemoved(richTextBox);
