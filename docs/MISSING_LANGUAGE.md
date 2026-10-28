@@ -121,9 +121,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
-| In-box objects | 0 | 0 | 71 | 21 | 0 | 31 | 123 |
+| In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **127** | **452** | **20** | **584** | **1184** |
+| **Total** | **1** | **0** | **124** | **452** | **20** | **587** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -159,8 +159,8 @@ visitor, not changing how the language is understood.
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
-of 107) and 58% of the
-in-box surface (`App`, `Printer`, `Clipboard`; 71 of 123) are unavailable. Both
+of 107) and 55% of the
+in-box surface (`App`, `Printer`, `Clipboard`; 68 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 127 names
+## Dies mid-run — 124 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -328,9 +328,6 @@ most of the in-box object model.
 | `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatPercent` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (FormatPercent)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `Forms` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
-| `Forms.Count` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Forms.Item` | **Dies** | Measured verbatim for the default-member form Forms(0).Caption: "Compile error: Sub or Function not defined (Forms)" - a parenthesised lead is routed to EvaluateProcedureOrArrayCall, which… | ExpressionExecutor.cs |
 | `FV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (FV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `GetObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetObject)". docs/interpreter-gaps.md pairs it with… | ExpressionExecutor.cs |
 | `GoSub` | **Dies** | throws `"GoSub not implemented"` — (goSubStmt, VB6.g4) and throws at run time. Verbatim: Measured. | StatementExecutor.cs |
@@ -912,7 +909,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (71 absent, 21 partial, 31 supported)
+### In-box objects — 123 names (68 absent, 21 partial, 34 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -980,9 +977,9 @@ missing.
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
-| `Forms` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
-| `Forms.Count` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Forms.Item` | **Dies** | Measured verbatim for the default-member form Forms(0).Caption: "Compile error: Sub or Function not defined (Forms)" - a parenthesised lead is routed to EvaluateProcedureOrArrayCall, which… | ExpressionExecutor.cs |
+| `Forms` | Supported | **[#2496](https://github.com/hexide-io/HexIDE/issues/2496):** reached wherever nothing the program declares is named Forms, as `Screen` is: the program's loaded forms in the order they loaded, a form held from its own Load to the end of its own Unload. `TypeName` is "Object", `v = Forms` is 450, and `Forms!Name` is 13, as it has no keys. For Each walks the forms held when it began, handing out one unloaded ahead of it, so `For Each f In Forms: Unload f` unloads every form, the form running it included (measured, oracle "The Forms collection"). A second instance made with `New Form2` isn't made yet (#822). | VbForms.cs, VBProgram.cs |
+| `Forms.Count` | Supported | **[#2496](https://github.com/hexide-io/HexIDE/issues/2496):** an Integer, the forms loaded; 0 in a program with no form (measured). | VbForms.cs |
+| `Forms.Item` | Supported | **[#2496](https://github.com/hexide-io/HexIDE/issues/2496):** `Forms(i)` and `Forms.Item(i)`, the form at position i from 0, the index converted as CInt converts: 2.5 is 2, `"1"` is 1 and 70000 is 6. Any other String, and Null, is 13, and a position out of range 9 (measured). `Unload Forms(i)` unloads it, so the reverse loop unloads every form, and the forward one raises 9 halfway, as VB6's does. | VbForms.cs, ExpressionExecutor.cs, StatementExecutor.cs |
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
