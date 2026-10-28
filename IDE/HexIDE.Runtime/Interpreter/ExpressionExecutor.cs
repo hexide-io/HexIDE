@@ -1750,6 +1750,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return richTextValue;
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
+        if (AvaloniaInterop.SliderMembers.TryGet(control, memberIdentifier, out var sliderValue) is { } slider)
+            return slider ? sliderValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
              ?? AvaloniaInterop.ProgressBarMembers.TryGet(control, memberIdentifier, out inBoxValue)) is { } inBox)
             return inBox ? inBoxValue : throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
@@ -2447,6 +2449,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBSlider => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",

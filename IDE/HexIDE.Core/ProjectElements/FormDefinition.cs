@@ -319,7 +319,8 @@ public partial class FormDefinition : INotifyPropertyChanged
         UnfaithfulSaveReason ??= developerReason;
     }
 
-    public bool CanSaveFaithfully => UnfaithfulSaveCauses == UnfaithfulSaveCause.None;
+    public bool CanSaveFaithfully => UnfaithfulSaveCauses == UnfaithfulSaveCause.None
+        && components.All(c => c.BaseClass.CanSaveFaithfully);
 
     /// <summary>
     /// The designer root's OUTER window rectangle, when the file declared one — held as the offset in

@@ -375,7 +375,7 @@ public class SerializationCorpusTests
         // Picture alone silenced the refusal while the save was still lossy, and the round-trip lane caught
         // it in the same run.
         //
-        // NONE, since #60. This used to say Web Browser was the floor: its six Pictures sit on an
+        // None remained after #60. This used to say Web Browser was the floor: its six Pictures sit on an
         // MSComctlLib.ImageList, an OCX, and hosting one was taken to be what reproducing it needed. It is not.
         // Carrying content HexIDE cannot interpret needs no understanding of it: the preserved block keeps its
         // lines and the records they cite, and the save rewrites those citations to wherever the records land.
@@ -393,18 +393,19 @@ public class SerializationCorpusTests
         //     cannot see a 2-byte List/ItemData record; and the blobs were collected in declaration order
         //     while the references were written alphabetically, so the two offsets came out swapped.
         //   Web Browser — the records its ImageList cites were dropped with the lines citing them (#60).
-        var expected = new Dictionary<string, UnfaithfulSaveCause>();
+        // Slider is deliberately read-only until designer edits can be saved (#1091).
+        // Use its full path: several other saved controls also have a Form1.frm.
+        var expected = new Dictionary<string, UnfaithfulSaveCause>
+        {
+            [Path.Join(FindUpwards(Path.Join("corpus", "inbox-controls"))!, "saved", "slider", "Form1.frm")] = UnfaithfulSaveCause.None,
+        };
 
         var files = CorpusFiles(".frm", ".ctl");
         if (files.Count == 0)
             throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
-        // Every name above is a VB6-authored file from the Template tree, which CI does not have — there
-        // the corpus falls back to demo/, whose files are HexIDE's own and gated by nothing. Comparing the
-        // full expected set on CI asserts the absence of files that were never there. So narrow the
-        // expectation to what is actually present: locally that is all eight, on CI it is none, and both
-        // are the same assertion rather than a skip that quietly stops checking anything.
-        var present = files.Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Additional corpus roots vary by machine; compare only expected files that are present.
+        var present = files.ToHashSet(StringComparer.OrdinalIgnoreCase);
         expected = expected.Where(e => present.Contains(e.Key)).ToDictionary(e => e.Key, e => e.Value);
 
         var actual = new Dictionary<string, UnfaithfulSaveCause>();
@@ -418,7 +419,7 @@ public class SerializationCorpusTests
             var owner = new ProjectDefinition(VBProjectType.EXE, "Corpus");
             var form = new FormDeserializer().Deserialize(owner, Vb6TextFile.ReadAllText(path), new Sink(), blobs);
             if (form is not null && !form.CanSaveFaithfully)
-                actual[Path.GetFileName(path)] = form.UnfaithfulSaveCauses;
+                actual[path] = form.UnfaithfulSaveCauses;
         }
 
         actual.Should().BeEquivalentTo(expected,
