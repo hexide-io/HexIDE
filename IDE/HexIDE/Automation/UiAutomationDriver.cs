@@ -3370,7 +3370,8 @@ public static class UiAutomationDriver
                     // presenter's text and caret, then the box's caret. Assigning Text, then the caret and selection, left a
                     // live, focused box drawing the previous text's glyphs until its text next changed, though it held the
                     // new text (#2737). Invalidating the presenter's TextRunCache cleared that and a fresh render did not, so
-                    // the cache held the old text's runs.
+                    // the cache held the old text's runs. Avalonia 12.0.4 and 12.0.5 do this to a focused box given its text
+                    // and then its caret; 12.1.0 on draws it either way, so after #868 this order is no longer needed.
                     textBox.SetCurrentValue(TextBox.TextProperty, typed);
                     textBox.ClearSelection();
                     if (textBox.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault() is { } presenter)
