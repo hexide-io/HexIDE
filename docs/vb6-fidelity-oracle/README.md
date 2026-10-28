@@ -703,3 +703,8 @@ added afterwards.
 - [In-box controls: the FlatScrollBar (2026-10-27, #1097)](in-box-controls-the-flatscrollbar.md#in-box-controls-the-flatscrollbar-2026-10-27-1097)
 - [In-box controls: the Animation (2026-10-27, #1096)](in-box-controls-the-animation.md#in-box-controls-the-animation-2026-10-27-1096)
 - [The Forms collection (2026-10-28, #2496)](the-forms-collection.md#the-forms-collection-2026-10-28-2496)
+- [App.HelpFile, App.StartMode, App.TaskVisible and IMEStatus (2026-10-28, #2551)](app-helpfile-app-startmode-app-taskvisible-and-imestatus.md#apphelpfile-appstartmode-apptaskvisible-and-imestatus-2026-10-28-2551)
+- [App's logging: StartLogging, LogEvent, LogMode and LogPath (2026-10-28, #2552)](app-s-logging-startlogging-logevent-logmode-and-logpath.md#apps-logging-startlogging-logevent-logmode-and-logpath-2026-10-28-2552)
+- [Lock and Unlock (2026-10-28, #2553)](lock-and-unlock.md#lock-and-unlock-2026-10-28-2553)
+- [Width # (2026-10-28, #2554)](width.md#width--2026-10-28-2554)
+- [A class with VB_PredeclaredId = True (2026-10-28, #2555)](a-class-with-vb-predeclaredid-true.md#a-class-with-vb_predeclaredid--true-2026-10-28-2555)
