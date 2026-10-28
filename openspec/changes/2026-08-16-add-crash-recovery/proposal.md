@@ -25,7 +25,7 @@ module until the project is saved. A path can't key it, and a fingerprint can't 
 - **It holds what a save would write for every unsaved document,** with or without a file, and the project file's own
   text. That covers forms, modules, classes, UserControls and property pages alike. A form's layout is included,
   with the controls the designer holds but hasn't yet committed to the model, and so is its binary companion. It is
-  written on a timer and after edits settle.
+  written within a few seconds of a change.
 - **A run that ended uncleanly is found at the next start:** its folder is still there and its process is gone.
 - **An exit that discards unsaved work without anyone deciding is not a clean one.** A terminate signal leaves that
   work recoverable. A forced close that automation asks for is the caller's decision, and is clean.

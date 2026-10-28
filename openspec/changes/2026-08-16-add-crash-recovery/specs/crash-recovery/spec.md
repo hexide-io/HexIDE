@@ -7,8 +7,8 @@ and when the project is opened for one that was.
 ## ADDED Requirements
 
 ### Requirement: Unsaved work SHALL be backed up without touching project files
-The IDE SHALL copy what a save would write for every unsaved document to a private store, on a timer and after edits
-settle: a form's layout as well as its code. It SHALL do so whether or not the document has a file, and whether or not
+The IDE SHALL copy what a save would write for every unsaved document to a private store, within a few seconds of a
+change: a form's layout as well as its code. It SHALL do so whether or not the document has a file, and whether or not
 its project has ever been saved. It SHALL NOT write to the project's own files other than by explicit save.
 
 A VB6 developer expects the file on disk to be what they last saved. A backup elsewhere keeps that true.

@@ -12,8 +12,10 @@
 
 ## 2. Detect and restore
 - [ ] 2.1 At start, find runs that ended uncleanly (folder present, process gone by id and start time), leaving the runs of IDEs still open alone.
+  Delete a run whose `run.json` names no capture, without asking: a kill before any edit leaves one, and so does the port-collision exit (code 3), which closes without the confirmed close that ends a run.
 - [ ] 2.2 Offer a never-saved project's work at start, restoring it as an unsaved project holding its documents. A project in a scratch folder the IDE made counts as never saved.
 - [ ] 2.3 Offer a saved project's work when it is opened, matched by path, or by its project file where nothing is at the old path; name where the work came from.
+  Offer nothing for a document whose backup equals its file on disk. A tick can land inside a load, after the project is added and before its baselines are taken, when every document reads unsaved. A file brought in with Add File also reads unsaved until #2644 is fixed.
 - [ ] 2.4 Warn where a file on disk changed after the backup, using the existing baseline.
 - [ ] 2.5 List every pending recovery under File, and delete a run's folder once it is restored or discarded.
 
