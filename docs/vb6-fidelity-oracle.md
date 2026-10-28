@@ -23,6 +23,3 @@ The #178 issue comments' measured whole-record copy and array behavior is record
 
 The #2325 comments’ measured keyboard input is recorded in
 [Key events](vb6-fidelity-oracle/key-events.md).
-
-The #2517 brief's measured String justification is recorded in
-[LSet and RSet into strings](vb6-fidelity-oracle/lset-rset-strings.md).
