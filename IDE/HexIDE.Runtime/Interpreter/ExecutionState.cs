@@ -180,6 +180,19 @@ public class ExecutionState
     /// <summary>Whether a slot is known to be a Variant (<see cref="MarkVariant"/>).</summary>
     public bool IsVariant(int location) => variantLocations.Contains(location);
 
+    private readonly HashSet<int> paramArrayLocations = new();
+
+    /// <summary>
+    /// Mark a slot as a procedure's ParamArray (#2462). VB6 refuses `ReDim` and `Erase` of one, and passing it whole to a ByRef
+    /// parameter, at compile time with "Invalid ParamArray use" (measured), which the walk raises as the statement runs. Kept
+    /// by slot, since VB6 decides it from the declaration: it still refuses them after `a = Array(7)` gave the name another
+    /// array.
+    /// </summary>
+    public void MarkParamArray(int location) => paramArrayLocations.Add(location);
+
+    /// <summary>Whether a slot is a procedure's ParamArray (<see cref="MarkParamArray"/>).</summary>
+    public bool IsParamArray(int location) => paramArrayLocations.Contains(location);
+
     // A ByRef parameter given a UDT field (#1451) or an array element (#1455): its slot reads and writes the target itself,
     // for as long as the call runs.
     private readonly Dictionary<int, IByRefTarget> refSlots = new();
@@ -219,6 +232,7 @@ public class ExecutionState
         variantLocations.Remove(location);
         declaredArrayLocations.Remove(location);
         fixedArrayLocations.Remove(location);
+        paramArrayLocations.Remove(location);
         constantLocations.Remove(location);
         readOnlyLocations.Remove(location);
         autoNews.Remove(location);
