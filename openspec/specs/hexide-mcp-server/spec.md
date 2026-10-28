@@ -38,6 +38,19 @@ that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it;
 - **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
 - **THEN** `items` gives all 31 texts, and `select` takes any of them as written
 
+### Requirement: The Immediate window's editor SHALL be found by match and read where it is shown
+`dump_visual_tree`'s `match` SHALL find the Immediate window's editor by its class, `TextEditor`, and by the window's
+name, under a path that is the same in every language. `inspect_element` on that editor SHALL report the window's text
+as its `value`, with `isReadOnly`. An editor whose document is a project file SHALL leave its text to `get_file_content`.
+
+#### Scenario: Reading a program's Debug.Print output
+- **WHEN** the Immediate window holds a run's output and `dump_visual_tree` is called with `match: "TextEditor"`
+- **THEN** the Immediate window's editor is among the matches, and `inspect_element` on it gives the output as `value`
+
+#### Scenario: A code window's editor
+- **WHEN** a code window's editor is inspected
+- **THEN** its `value` is absent, and its file is read with `get_file_content`
+
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider

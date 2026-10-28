@@ -688,9 +688,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public VbScreen Screen => screen ??= new VbScreen(this, stdLib);
 
-    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431).</summary>
+    private VbForms? formsCollection;
+
+    /// <summary>The program-global <c>Forms</c> (#2496), reached as <see cref="Screen"/> is.</summary>
+    public VbForms FormsCollection => formsCollection ??= new VbForms(this);
+
+    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431) and <c>Forms</c>
+    /// (#2496).</summary>
     internal Vb6Value? UnclaimedLibraryObject(string name) =>
-        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen) : (Vb6Value?)null;
+        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen)
+        : name.Equals("Forms", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(FormsCollection)
+        : (Vb6Value?)null;
 
     /// <summary>
     /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program

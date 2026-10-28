@@ -496,6 +496,36 @@ syntax errors for modules and expressions, and returning null for unparseable st
 - **WHEN** SLL cancels parsing a module or Immediate-window entry
 - **THEN** LL reparses from the first token with a fresh nesting guard and the original error policy
 
+### Requirement: Timer runtime member table
+
+The interpreter SHALL resolve Timer members through the measured table rather than shared visual-control
+bindings. Enabled, Index, Interval, Name, Parent and Tag SHALL resolve; Interval SHALL read as Long and
+Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 382 on writes. Measured
+absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
+except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
+
+Implementation gap (#801): TabIndex and ToolTipText reads currently use that compile error through Object references too,
+where the measured late-bound result is trappable 438.
+Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
+
+#### Scenario: Timer size is absent
+- **WHEN** code reads Timer1.Width or assigns o.Width with o holding a Timer
+- **THEN** error 438 is raised and can be trapped
+- **AND** the shared property bindings do not expose Width in the Timer's property listing
+
+#### Scenario: Locals omits unavailable Timer and scroll-bar properties
+- **WHEN** the debugger expands a Timer or scroll bar
+- **THEN** it SHALL omit the Timer's designer-only Left and Top and members outside its measured runtime table
+- **AND** it SHALL omit scroll-bar BackColor and ForeColor rather than displaying their refusal as error rows
+
+#### Scenario: Timer extender members remain absent
+- **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
+- **THEN** the missing-member compile error is raised rather than swallowed by the handler
+
+#### Scenario: Timer Interval arithmetic
+- **WHEN** a Timer with Interval 1000 is read and multiplied by 40
+- **THEN** Interval has type Long and the product is 40000
+
 ### Requirement: Procedure activation storage is reclaimed on exit
 The interpreter SHALL reclaim storage allocated by a procedure activation after its scope-exit reference
 releases, on normal return, early exit, error unwind and parameter-binding failure. Caller storage aliased
@@ -589,3 +619,28 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-obj
 #### Scenario: A write to a member a program cannot write
 - **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
 - **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
+
+### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
+`Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
+forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
+position from 0, converted as CInt converts, with no keys: any other String and Null SHALL raise 13, and a position out
+of range 9.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-collection.md`, #2496).
+
+#### Scenario: Closing every form from the main form's Unload
+- **WHEN** Form1's `Form_Unload` runs `For Each f In Forms: Unload f: Next` with Form2 and Form3 loaded
+- **THEN** Form2 and Form3 SHALL each raise QueryUnload and Unload, the `Unload f` that reaches Form1 SHALL do nothing,
+  and the run SHALL end once Form1's Unload has returned
+
+#### Scenario: Unloading by index from 0
+- **WHEN** a program with Form1, Form2 and Form3 loaded runs `For i = 0 To Forms.Count - 1: Unload Forms(i): Next`
+- **THEN** Form1 and Form3 SHALL unload, `Forms(2)` SHALL raise 9, and Form2 SHALL stay loaded
+
+#### Scenario: A form reloaded goes at the end
+- **WHEN** Form2, Form1 and Form3 have loaded in that order, and Form2 is unloaded and loaded again
+- **THEN** `Forms` SHALL hold Form1, Form3, Form2
+
+#### Scenario: For Each walks the forms held when it began
+- **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
+- **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
