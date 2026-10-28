@@ -169,7 +169,7 @@ internal static class LspRequestHandlers
             }
             w.WriteEndArray();
             w.WriteNumber("activeSignature", 0);
-            w.WriteNumber("activeParameter", activeParameter);
+            w.WriteNumber("activeParameter", Math.Min(activeParameter, Math.Max(0, entries[0].Parameters.Length - 1)));
             w.WriteEndObject();
         });
     }

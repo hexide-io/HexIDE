@@ -391,6 +391,23 @@ public class WireContractTests
         sig.GetProperty("activeParameter").GetInt32().Should().Be(1);
     }
 
+    [Theory]
+    [InlineData("Array(1, 2, ", 0)]
+    [InlineData("Choose(1, 2, 3, 4, ", 2)]
+    [InlineData("Switch(True, 1, False, 2, ", 2)]
+    [InlineData("Mid(a, 1, 2, 3, ", 2)]
+    [InlineData("Len(a, b, ", 0)]
+    public async Task SignatureHelp_past_the_last_parameter_keeps_the_last_parameter_active(
+        string call, int expectedParameter)
+    {
+        await using var h = await StartAsync();
+        var line = "x = " + call;
+        await OpenAsync(h, Uri, "Sub T()\n" + line + "\nEnd Sub\n");
+
+        var sig = await RequestAsync(h, "textDocument/signatureHelp", Pos(Uri, 1, line.Length));
+        sig.GetProperty("activeParameter").GetInt32().Should().Be(expectedParameter);
+    }
+
     [Fact]
     public async Task SignatureHelp_for_an_unknown_function_returns_null()
     {

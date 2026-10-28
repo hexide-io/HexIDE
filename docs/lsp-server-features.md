@@ -318,7 +318,8 @@ parameters → Variable. Filtered client-side as you type.
 
 89 VB6 built-ins are covered, spanning strings, type conversions, math, arrays, character/ASCII,
 date/time, inspection, I/O and object/misc. The active parameter tracks comma position through nested
-parentheses, and the document is flushed before the request so there is no race with the change debounce.
+parentheses, clamping at the selected signature’s last parameter even for extra arguments (#2599).
+The document is flushed before the request so there is no race with the change debounce.
 
 - ◐ Signatures are manually authored tables.
 - ■ User-defined procedure signatures are not shown. Matching a call site to its declaration is binding.
