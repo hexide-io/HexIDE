@@ -701,20 +701,6 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-## `take_snapshot` of a minimized window returns its last frame as if current
-
-**Symptom (2026-10-27, Windows, #1925's minimized check).** After `set_window_state {"state":"Minimized","window":"Form1"}`
-had run the form's Resize, `take_snapshot {"window":"Form1"}` returned a 450×300 image, with the usual client
-`captureArea`, whose label read `resize 1, activate 1, state 0`: the form before it minimized. Restored, it read
-`resize 3`. A minimized window draws no new frames, and the compositor capture (#2306) returns the last one.
-
-**Workaround.** Restore the window with `set_window_state` before capturing it, and treat a capture of a minimized
-window as stale.
-
-**Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
-`set_window_state`; or render it fresh and say so. Never present the last frame as current.
-[#2416](https://github.com/hexide-io/HexIDE/issues/2416).
-
 ## No tool says which mouse pointer a control shows
 
 **Symptom (2026-10-28, Windows, #2448's live check).** `inspect_element {"target":"Window","window":"Form1"}` on a running

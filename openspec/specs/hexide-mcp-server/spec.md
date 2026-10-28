@@ -555,6 +555,14 @@ the text SHALL be filled with the theme's highlight while a call runs, and SHALL
 - **THEN** hovering over the section counts it and names the session it named, and it is not shown as the last call
 
 
+### Requirement: A snapshot SHALL NOT present a minimized window's last frame as current
+The default capture SHALL refuse a minimized window, as the frame capture does, naming the window and how to restore
+it with `set_window_state`, and SHALL capture nothing in its place.
+
+#### Scenario: A form minimized after its Resize changed its label
+- **WHEN** a running form is minimized with `set_window_state` and `take_snapshot` is asked for it
+- **THEN** it is refused, naming the form and the `set_window_state` call that restores it, and no image is written
+
 ### Requirement: Snapshots identify the title and capture area
 
 The snapshot description and reply SHALL explain that the image captures the window's client area,
