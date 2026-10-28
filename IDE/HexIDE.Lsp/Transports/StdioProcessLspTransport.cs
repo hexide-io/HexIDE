@@ -30,6 +30,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
     private ChildProcessJob? _job;
     private readonly Lock _exitGate = new();
     private bool _exitReported;
+    private bool _disposing;
 
     /// <param name="serverInfo">
     /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
@@ -250,8 +251,13 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
-        lock (_exitGate) ReportExit();
-        Closed?.Invoke(this, EventArgs.Empty);
+        bool disposing;
+        lock (_exitGate)
+        {
+            ReportExit();
+            disposing = _disposing;
+        }
+        if (!disposing) Closed?.Invoke(this, EventArgs.Empty);
     }
 
     private void ReportExit()
@@ -262,7 +268,8 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // and ExitCode throws once the handle is gone.
         var code = ExitCode();
 
-        _logger.LogWarning("[{Server}] Language server process exited{Code}", _serverId, code is null ? "" : $" with code {code}");
+        _logger.Log(_disposing ? LogLevel.Information : LogLevel.Warning,
+            "[{Server}] Language server process exited{Code}", _serverId, code is null ? "" : $" with code {code}");
 
         // BEFORE Closed, which is what tears the connection down. An exit code that arrived after the
         // record had stopped accepting entries would be the one fact nobody could see.
@@ -276,7 +283,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
     /// The exit code, or null when the process cannot tell us.
     /// </summary>
     /// <remarks>
-    /// LSP gives an exit code a meaning — 0 when a shutdown preceded exit and 1 otherwise — which is how
+    /// LSP specifies 0 after shutdown and 1 otherwise; measured ruff returns 2 on refusal (#491). This is how
     /// hexide-io/HexIDE#312 was found. Nothing in the LSP client read one before this: the only thing in
     /// the tree that ever did was the debug proxy, which logged it to its own stderr and was removed in
     /// the same change that added this. It is wrapped because reading it races teardown: a disposed or
@@ -294,7 +301,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         var process = _process;
         if (process is null) return;
 
-        process.Exited -= OnProcessExited;
+        lock (_exitGate) _disposing = true;
         // Give a server that received exit time to finish before terminating a wedged wrapper and its children.
         try
         {
@@ -302,12 +309,23 @@ public sealed class StdioProcessLspTransport : ILspTransport
         }
         catch (TimeoutException)
         {
-            try { LaunchedServerGuard.Kill(process); } catch { /* already gone */ }
+            try
+            {
+                if (!process.HasExited)
+                {
+                    LaunchedServerGuard.Kill(process);
+                    _logger.LogInformation("[{Server}] Language server process killed after waiting {Timeout:g} for exit.",
+                        _serverId, LaunchedServerGuard.ExitTimeout);
+                    NoteChannel("process killed after waiting for exit");
+                }
+            }
+            catch { /* already gone */ }
             try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)); } catch { /* best effort */ }
         }
         lock (_exitGate)
         {
             if (process.HasExited) ReportExit();
+            process.Exited -= OnProcessExited;
             process.Dispose();
             _process = null;
         }

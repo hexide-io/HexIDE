@@ -35,7 +35,8 @@ public record AppInfo(
     IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
     string CommandLine = "",
     string? ProjectName = null,
-    bool HasProjectHelpFile = false)
+    bool HasProjectHelpFile = false,
+    string? ResourceFilePath = null)
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -75,7 +76,8 @@ public record AppInfo(
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
             CommandLine: PreSectionValue(project, "Command32") ?? "",
             ProjectName: project.Name,
-            HasProjectHelpFile: !string.IsNullOrEmpty(PreSectionValue(project, "HelpFile")));
+            HasProjectHelpFile: !string.IsNullOrEmpty(PreSectionValue(project, "HelpFile")),
+            ResourceFilePath: Win32Resources.PathFor(project));
     }
 
     /// <summary>

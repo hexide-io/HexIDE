@@ -42,6 +42,18 @@ public class ProjectSmokeHarnessTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Type=OleExe\r\nUnattended=0\r\nThreadPerObject=0\r\n", "Type=OleExe\r\nUnattended=0\r\nRetained=0\r\nThreadPerObject=0\r\n", 1)]
+    [InlineData("Type=OleExe\r\nUnattended=0\r\nRetained=1\r\nThreadPerObject=0\r\n", "Type=OleExe\r\nUnattended=0\r\nRetained=1\r\nThreadPerObject=0\r\n", 0)]
+    [InlineData("Type=Exe\r\nUnattended=0\r\nThreadPerObject=0\r\n", "Type=Exe\r\nUnattended=0\r\nThreadPerObject=0\r\n", 0)]
+    public void An_ActiveX_EXE_without_Retained_is_expected_to_gain_it_as_VB6s_save_adds_it(string source, string saved, int count)
+    {
+        var actual = ProjectSmokeHarness.ExpectedSave(System.Text.Encoding.Latin1.GetBytes(source), @"C:\corpus\project",
+            path => path, out var changes);
+        System.Text.Encoding.Latin1.GetString(actual).Should().Be(saved);
+        changes.Should().HaveCount(count);
+    }
+
+    [Theory]
     [InlineData(true, 0)]
     [InlineData(false, 2)]
     public async Task Member_names_use_the_host_path_comparison(bool insensitive, int count)
