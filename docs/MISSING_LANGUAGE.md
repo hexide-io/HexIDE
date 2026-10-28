@@ -121,9 +121,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
-| In-box objects | 0 | 0 | 65 | 23 | 0 | 35 | 123 |
+| In-box objects | 0 | 0 | 61 | 25 | 0 | 37 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **108** | **463** | **20** | **592** | **1184** |
+| **Total** | **1** | **0** | **104** | **465** | **20** | **594** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -159,8 +159,8 @@ visitor, not changing how the language is understood.
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 9% of VB6's statements (10
-of 107) and 53% of the
-in-box surface (`App`, `Printer`, `Clipboard`; 65 of 123) are unavailable. Both
+of 107) and 50% of the
+in-box surface (`App`, `Printer`, `Clipboard`; 61 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -259,7 +259,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 108 names
+## Dies mid-run — 104 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -286,10 +286,6 @@ most of the in-box object model.
 | `AmbientProperties.TextAlign` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UIDead` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UserMode` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
-| `App.LogEvent` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
-| `App.LogMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogMode in… | VbApp.cs |
-| `App.LogPath` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogPath in… | VbApp.cs |
-| `App.StartLogging` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
@@ -893,7 +889,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (65 absent, 23 partial, 35 supported)
+### In-box objects — 123 names (61 absent, 25 partial, 37 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -916,10 +912,10 @@ missing.
 | `AmbientProperties.UIDead` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `AmbientProperties.UserMode` | **Dies** | #1631 part B supplies Ambient inside a placed UserControl, but this member is explicitly unimplemented. Outside a UserControl there is still no Ambient/UserControl global. | VBUserControl.cs |
 | `App.HelpFile` | Partial | Empty String without a project help file; String assignments read back unchanged (#2551). Nonempty project HelpFile= and non-String conversions are refused as not implemented. | VbApp.cs |
-| `App.LogEvent` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
-| `App.LogMode` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogMode in… | VbApp.cs |
-| `App.LogPath` | **Dies** | the name is absent from VbApp.TryGetProperty's switch, so the read falls through to ExpressionExecutor.cs. Measured verbatim: "Compile error: Method or data member not found (LogPath in… | VbApp.cs |
-| `App.StartLogging` | **Dies** | VbApp.Call has no dispatch at all - VbApp.cs is: public void Call(string method, List<Vb6Value> args) => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." +… | VbApp.cs |
+| `App.LogEvent` | Partial | **[#2552](https://github.com/hexide-io/HexIDE/issues/2552):** appends the measured ASCII file lines, default Information, integer messages and type 9 error 380. Default/NT logging deliberately writes nothing (interpreter-gaps.md). Other types, conversions, non-ASCII encoding and file-failure semantics are explicitly not implemented. | VbApp.cs |
+| `App.LogMode` | Supported | **#2552:** Long 1 initially; 2 for file, 3 for NT or the first default LogEvent, 1 for off or mode 18, as measured. | VbApp.cs |
+| `App.LogPath` | Supported | **#2552:** String, empty initially and for empty-path NT; file path retained verbatim, empty file path becomes vbevents.log. Assignment is refused with the measured read-only compile error as the statement executes. | VbApp.cs |
+| `App.StartLogging` | Partial | **[#2552](https://github.com/hexide-io/HexIDE/issues/2552):** measured modes 1, 2, 3 and 18; 18 disables logging without overwriting. Empty file path becomes vbevents.log. Other modes, omitted mode, path/mode conversions and nonempty NT path are explicitly not implemented. Relative file paths use the interpreter directory policy; an unsaved relative path is refused. LogPath after off/18 is unmeasured and left unchanged. | VbApp.cs |
 | `App.StartMode` | Supported | Integer 0 (Standard EXE); assignment refuses with the measured read-only compile diagnostic as the statement executes (#2551). | VbApp.cs |
 | `App.TaskVisible` | Partial | Boolean True for a desktop run; Boolean assignments read back (#2551). Other conversions are refused as not implemented; no OS task-list integration. | VbApp.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
