@@ -2,8 +2,9 @@
 // Copyright (C) 2026 The HexIDE Authors
 // Per-URI document cache for the LSP server. Written only from the sequential notification handlers;
 // the parse runs off-thread (see UpdateDocumentAsync) but the SingleThreadScheduler awaits each handler
-// to completion, so cache access is never concurrent — no locking required.
+// to completion. Completion alone bypasses the worker and reads published declaration snapshots.
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace HexIDE.VbLspServer;
@@ -32,13 +33,14 @@ internal readonly record struct DocumentUpdate(List<LspDiagnostic> Diagnostics, 
 /// from these caches; the notification handlers write via <see cref="UpdateDocumentAsync"/> /
 /// <see cref="RemoveDocument"/>.
 /// </summary>
-internal sealed class DocumentStore
+internal class DocumentStore
 {
     public Dictionary<string, string> Source { get; } = new();
     public Dictionary<string, List<LspDiagnostic>> Diagnostics { get; } = new();
     public Dictionary<string, List<LspSymbol>> Symbols { get; } = new();
     public Dictionary<string, List<LspFoldingRange>> Foldings { get; } = new();
-    public Dictionary<string, IReadOnlyDictionary<string, VbDeclaration>> DeclaredTypes { get; } = new();
+    // Values are built completely before publication and never mutated afterwards.
+    public ConcurrentDictionary<string, IReadOnlyDictionary<string, VbDeclaration>> DeclaredTypes { get; } = new();
 
     // Each document's project, read from its .vbp, for conditional compilation (#1112).
     private readonly VbProjectArguments projects = new();
@@ -56,20 +58,20 @@ internal sealed class DocumentStore
     /// </summary>
     /// <param name="collectAnalysis">
     /// Whether to also report what the analysis did. False is the whole-of-history path and stays exactly
-    /// as it was: no report allocated, no clock read, the same provider call as before. A developer who
-    /// never turns tracing on pays nothing for its existence.
+    /// as it was: no report allocated, the same provider call as before. Debug timing logs do not depend
+    /// on protocol tracing.
     /// </param>
     public async Task<DocumentUpdate> UpdateDocumentAsync(string uri, string source, bool collectAnalysis = false)
     {
         Source[uri] = source;
+        // Keywords need no tree; keep any existing declarations while the new parse runs.
+        DeclaredTypes.TryAdd(uri, EmptyTypes);
         // The project that lists the document, for the arguments its #If reads (#1112).
         var compilation = projects.For(uri);
 
         if (!collectAnalysis)
         {
-            var plain = await VbDiagnosticsProvider
-                .TryGetDiagnosticsAndTreeWithin(source, VbDiagnosticsProvider.ParseBudget, compilation)
-                .ConfigureAwait(false);
+            var plain = await AnalyzeAsync(source, compilation).ConfigureAwait(false);
             if (plain is null)
                 return new DocumentUpdate(PriorDiagnostics(uri), null); // analysis pending — keep prior state
 
@@ -108,13 +110,17 @@ internal sealed class DocumentStore
             Symbols[uri].Count));
     }
 
+    protected virtual Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
+        AnalyzeAsync(string source, VbCompilationContext? compilation)
+        => VbDiagnosticsProvider.TryGetDiagnosticsAndTreeWithin(source, VbDiagnosticsProvider.ParseBudget, compilation);
+
     public void RemoveDocument(string uri)
     {
         Source.Remove(uri);
         Diagnostics.Remove(uri);
         Symbols.Remove(uri);
         Foldings.Remove(uri);
-        DeclaredTypes.Remove(uri);
+        DeclaredTypes.TryRemove(uri, out _);
     }
 
     private void Refresh(string uri, string source, List<LspDiagnostic> diagnostics,

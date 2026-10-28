@@ -124,8 +124,15 @@ public partial class VB6BuiltIns
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
-        // LoadPicture accepts only the measured file-path shape; its other conversions refuse there.
-        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)) return arg;
+        // LoadPicture and the financials accept only measured argument shapes; other conversions refuse there.
+        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "Pmt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "FV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "PV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "NPer", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "IPmt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "PPmt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "Rate", StringComparison.OrdinalIgnoreCase)) return arg;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
@@ -176,6 +183,7 @@ public partial class VB6BuiltIns
         RegisterStrings(d);
         RegisterConversion(d);
         RegisterMath(d);
+        RegisterFinancial(d);
         RegisterArray(d);
         RegisterInspection(d);
         d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);

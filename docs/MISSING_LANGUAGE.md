@@ -117,13 +117,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 9 | 50 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 24 | 58 | 0 | 71 | 153 |
+| Intrinsic functions | 0 | 0 | 17 | 65 | 0 | 71 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 1 | 2 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 58 | 27 | 0 | 38 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **1** | **96** | **469** | **20** | **597** | **1184** |
+| **Total** | **1** | **1** | **89** | **476** | **20** | **597** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -261,7 +261,7 @@ Worth noting what is *not* here: `#If` parsed fine and threw, an execution gap r
 
 |---|---|---|---|
 
-## Dies mid-run — 96 names
+## Dies mid-run — 89 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -315,13 +315,11 @@ most of the in-box object model.
 | `FormatCurrency` | **Dies** | Not registered by RegisterFormat (VB6BuiltIns.Format.cs); Format and FormatDateTime are registered, but FormatCurrency is not. `throw new… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatPercent` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (FormatPercent)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `FV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (FV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `GetObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetObject)". docs/interpreter-gaps.md pairs it with… | ExpressionExecutor.cs |
 | `GoSub` | **Dies** | throws `"GoSub not implemented"` — (goSubStmt, VB6.g4) and throws at run time. Verbatim: Measured. | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")`… | StatementExecutor.cs |
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), which HexIDE has not got ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
-| `IPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
@@ -330,14 +328,11 @@ most of the in-box object model.
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
-| `NPer` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPer)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `NPV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `ParentControls.ParentControlsType` | **Dies** | On a Variant holder, current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType)". The owning ParentControls type does not… | Exceptions.cs |
-| `Pmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Pmt)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `PPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `Printer` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `Printer.ColorMode` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.Duplex` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
@@ -352,8 +347,6 @@ most of the in-box object model.
 | `PropertyBag.WriteProperty` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method WriteProperty on <EmptyVariant>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `PropertyBag_VB5` | **Dies** | The name lexes as an ordinary IDENTIFIER (digits and `_` are both in LETTERORDIGIT, VB6.g4). Measured for `Dim p As PropertyBag_VB5` and for `Set p = New PropertyBag_VB5`:… | StatementExecutor.cs |
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
-| `PV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `Rate` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Rate)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
 | `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
@@ -524,7 +517,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (24 absent, 58 partial, 71 supported)
+### Intrinsic functions — 153 names (17 absent, 65 partial, 71 supported)
 
 
 **array** (3)
@@ -653,16 +646,16 @@ missing.
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `DDB` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial; the call resolves to no local array, no user procedure and no intrinsic, so ExpressionExecutor.cs throws… | VB6BuiltIns.cs |
-| `FV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (FV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `IPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
+| `FV` | Partial | **#2523:** measured positional future values, optional present value/Type, zero rate and zero periods; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date/nonnumeric/Null conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
+| `IPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
 | `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
-| `NPer` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPer)". Named in the deferral list at… | VB6BuiltIns.cs |
+| `NPer` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
 | `NPV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `Pmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Pmt)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `PPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
-| `PV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `Rate` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Rate)". Named in the deferral list at… | VB6BuiltIns.cs |
+| `Pmt` | Partial | **#2523:** measured positional payments, zero/negative rates, fractional periods, nonzero Type, numeric rate String and Null-rate error; Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date and other nonnumeric conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
+| `PPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
+| `PV` | Partial | **#2523:** measured positional present values, optional future value/Type and zero rate; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date/nonnumeric/Null conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
+| `Rate` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. Rate's iteration cap is not measured beyond 23. | VB6BuiltIns.Financial.cs |
 | `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `Abs` | Partial | Registered; Abs preserves the operand's subtype (byte/int/long/float/double, Currency vs Decimal kept distinct). Oracle rows: Abs(-4) = 4 Integer, Abs(-4.5) = 4.5 Double; pinned by… | VB6BuiltIns.Math.cs |
@@ -1423,3 +1416,15 @@ registration now uses the MSComDlg library record and a component class, without
 Color reads carry VarType 19 and the measured unsigned value; assigning integral -1 raises 6. Unmeasured
 assignment conversions retain the previous coercion. Dialog return semantics are part B;
 file persistence is part C (now measured).
+
+## MaskedEdBox foundation (outside the baseline inventory)
+
+The #1098 first slice uses [the measured MaskedEdBox oracle](vb6-fidelity-oracle/the-maskededbox-mask-text-and-keystrokes.md).
+The model is bound to MSMask.MaskEdBox for code-assigned text and selection reads. Keyboard insert/removal and navigation now bind to the model. The measured `##-##` SelText writes insert, drop refused characters, truncate overflow and reset SelStart to zero. Clipboard copy/cut honors ClipMode, and paste inserts, skips refused characters and cuts overflow in the measured rows; the measured saved form now round-trips, including duplicate OLE modes, an always-written PromptChar and the omission of Text. Saved own properties remain carried rather than runtime bindings.
+
+| Surface | Status | Detail |
+|---|---|---|
+| `MSMask` library constants | Supported | The measured library GUID/version and all 66 enum constants resolve through the existing referenced-library machinery. The table is derived from MSMASK32-constants.jsonl; enum qualification stays strict. |
+| `MaskEdBox` text model | Partial | Runtime component and interpreter binding: ASCII mask characters, Text assignments with PromptInclude on/off, ClipText, unformatted FormattedText, selection reads, ClipMode, measured 380s and Change on refused Text assignment. Default Text reads, code-set selection and the measured `##-##` SelText writes are bound; clipboard copy/cut uses ClipMode, and paste implements all ten measured rows (including a Change on wholly refused input and the single ValidationError on overflow); ASCII typing inserts up to the first prompt, Backspace and Delete pull across literals and close empty places, and refused input dispatches ValidationError. KeyDown/KeyPress/KeyUp follow the measured removal ordering; plain arrows/Home/End retain literal caret positions; the displayed prompts are independent of PromptInclude. |
+| `MaskEdBox` unfinished members | Dies | Runtime creation now works for a box without saved own properties. Format, Refresh/OLEDrag, default Text writes, focus/AutoTab effects, measured drawing, toolbox placement, own-property designer editing and runtime loading of saved own properties remain for subsequent slices. Persistence now normalizes the measured input to VB6’s save and preserves an unedited save; saved own properties still refuse explicitly at F5 and in the designer preview. MouseIcon persistence remains unmeasured and refuses saving, keeping that form read-only. The internal model also refuses replacing a mask with nonempty Text, changing PromptChar, non-ASCII input, signs assigned to a `9` place, negative MaxLength, unmeasured ClipMode values, unknown mask characters, clearing a mask and a trailing escape. |
+| `MaskEdBox` unmeasured surfaces | Dies | KeyCode/KeyAscii handler modifications and modified keyboard shortcuts other than clipboard gestures and navigation with an active selection refuse pending measurement/implementation. Native hWnd, HideSelection's visual effect, drag/drop and assignment conversions refuse through the runtime member table. Non-underscore prompt typing with AllowPrompt remains unavailable. SelText writes outside the measured `##-##` mask, starting on its literal, with prompt characters or non-ASCII text refuse; no-mask selection writes remain unmeasured. Clipboard selection outside `##-##`, an empty clipboard selection, cutting from the literal, paste for other masks, starting on the literal, non-text clipboards, prompt/non-ASCII clipboard text, AutoTab paste, and no-mask paste with a selection or MaxLength overflow refuse pending measurement/implementation. The existing model treats separator characters literally; their locale-sensitive behaviour remains unmeasured and unchanged. MaxLength readings for masks with case directives or escapes are not pinned and need measurement. Those MaxLength reads refuse, as do Long-to-Integer MaxLength narrowing and readings beyond Integer storage; the other measured members bind independently. |
