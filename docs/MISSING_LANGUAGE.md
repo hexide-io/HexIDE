@@ -1363,9 +1363,9 @@ These control members are outside the baseline inventory counts. The Timer table
 
 | Member | Status | Detail | Source |
 |---|---|---|---|
-| Timer runtime members | Partial | Enabled, Index, Interval (Long), Name, Parent and Tag resolve. Left/Top reads raise 393, writes 382. Measured absent members raise 438, including Move; TabIndex and ToolTipText reads retain the missing-member compile error required by the #801 review (also through Object references, whose measured 438 remains a gap). Tag keeps the existing conversion gap (#211). | TimerMembers.cs |
+| Timer runtime members | Partial | Enabled, Index, Interval (Long), Name, Parent and Tag resolve. Left/Top reads raise 393, writes 382; Locals omits these designer-only positions and absent members. Measured absent members raise 438, including Move; TabIndex and ToolTipText reads retain the missing-member compile error required by the #801 review (also through Object references, whose measured 438 remains a gap). Tag keeps the existing conversion gap (#211). | TimerMembers.cs |
 | Timer unmeasured members and Parent assignment | Dies | ForeColor, WhatsThisHelpID, drag members and other members outside the measured table refuse as not implemented. Assigning Parent and reading Parent outside a running form also refuse. No VB6 value or error is invented. | TimerMembers.cs |
-| HScrollBar / VScrollBar BackColor and ForeColor | Dies | Reads and writes refuse as not implemented: their absence and error numbers have not been measured for #801. | AvaloniaInteroperability.cs |
+| HScrollBar / VScrollBar BackColor and ForeColor | Dies | Reads and writes refuse as not implemented: their absence and error numbers have not been measured for #801. Locals omits these colours instead of showing refusal rows. | AvaloniaInteroperability.cs |
 
 ### MSComctlLib.Toolbar — runtime control model (#1088)
 

@@ -552,11 +552,10 @@ public static class AvaloniaInteroperability
 
     /// <summary>Enumerate the VB6 properties readable on a live control (name → current value), NAME-SORTED — the
     /// Locals property surface (P8/D7). A property is included only when a registered binding applies to this
-    /// control's type (the same rule <see cref="TryGet"/> uses); duplicates by name are collapsed.</summary>
+    /// control's runtime members; duplicates by name are collapsed.</summary>
     /// <remarks>
     /// A property whose read raises is listed with the raised error's own description and no value, rather than ending
-    /// the read. A Timer's Left and Top raise 393 when read, as VB6's do (#2069), so one Timer on a form
-    /// made expanding <c>Me</c> fail, in the Locals window and in get_locals alike (#2289).
+    /// the read (#2289). A Timer's designer positions and absent members aren't listed by VB6's Locals (#801).
     /// </remarks>
     public static IReadOnlyList<(string Name, Vb6Value Value, string? Error)> ReadProperties(Control c)
     {
@@ -564,6 +563,13 @@ public static class AvaloniaInteroperability
         foreach (var property in bindingsByProperty.Keys)
         {
             if (byName.ContainsKey(property.Name))
+                continue;
+            if (c is VBTimer && (!TimerMembers.HasProperty(property.Name)
+                                 || ReferenceEquals(property, VBProperties.LeftProperty)
+                                 || ReferenceEquals(property, VBProperties.TopProperty)))
+                continue;
+            if (c is VBScrollBar && (ReferenceEquals(property, VBProperties.BackColorProperty)
+                                    || ReferenceEquals(property, VBProperties.ForeColorProperty)))
                 continue;
             try
             {

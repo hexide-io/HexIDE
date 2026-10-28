@@ -470,6 +470,11 @@ Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implem
 - **THEN** error 438 is raised and can be trapped
 - **AND** the shared property bindings do not expose Width in the Timer's property listing
 
+#### Scenario: Locals omits unavailable Timer and scroll-bar properties
+- **WHEN** the debugger expands a Timer or scroll bar
+- **THEN** it SHALL omit the Timer's designer-only Left and Top and members outside its measured runtime table
+- **AND** it SHALL omit scroll-bar BackColor and ForeColor rather than displaying their refusal as error rows
+
 #### Scenario: Timer extender members remain absent
 - **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
 - **THEN** the missing-member compile error is raised rather than swallowed by the handler

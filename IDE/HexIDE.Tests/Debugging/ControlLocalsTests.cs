@@ -34,42 +34,33 @@ public class ControlLocalsTests
         props.Select(p => p.Name).Should().BeInAscendingOrder();
     }
 
-    // A Timer's Left and Top raise 393 when read, as VB6's do (#2069). Expanding the Timer threw that out of the whole
-    // expansion, so get_locals failed on any form holding one and the Locals window gave Timer1 no expander (#2289).
     [AvaloniaFact]
-    public void A_property_whose_read_raises_shows_the_error_and_the_rest_are_still_listed()
+    public void A_Timer_lists_only_its_runtime_properties()
     {
-        var timer = new VBTimer { Interval = 250 };
-        var node = DebugInspector.NodeFor("Timer1", new Vb6Value(timer), new ModuleExecutionContext());
+        var node = DebugInspector.NodeFor("Timer1", new Vb6Value(new VBTimer { Interval = 250 }), new ModuleExecutionContext());
 
         var props = node.Expand();
 
-        props.Select(p => p.Name).Should().BeInAscendingOrder().And.Contain(new[] { "Enabled", "Interval", "Left", "Top" });
-        foreach (var name in new[] { "Left", "Top" })
-        {
-            var raised = props.Single(p => p.Name == name);
-            raised.Value.Should().Be("<Get not supported at runtime>");
-            raised.TypeName.Should().BeEmpty();
-            raised.HasChildren.Should().BeFalse();
-        }
+        props.Select(p => p.Name).Should().BeInAscendingOrder().And.Contain(new[] { "Enabled", "Interval", "Tag" });
+        props.Select(p => p.Name).Should().NotContain(new[] { "Left", "Top", "Width", "Height", "Visible", "Font", "BackColor", "ForeColor", "MousePointer", "RightToLeft", "TabIndex", "ToolTipText" });
         props.Single(p => p.Name == "Interval").Value.Should().Be("250");
     }
 
     [AvaloniaFact]
-    public void ReadProperties_reports_a_raising_read_as_its_error_with_no_value()
+    public void ReadProperties_omits_a_Timers_designer_positions()
     {
         var props = AvaloniaInteroperability.ReadProperties(new VBTimer());
 
-        var left = props.Single(p => p.Name == "Left");
-        left.Error.Should().Be("Get not supported at runtime");
-        props.Where(p => p.Name is not ("Left" or "Top")).Should().OnlyContain(p => p.Error == null);
+        props.Select(p => p.Name).Should().NotContain(new[] { "Left", "Top" });
+        props.Should().OnlyContain(p => p.Error == null);
     }
 
-    // A program's read of a scroll bar's colour is refused (#801), but that refusal is the interpreter's, not the read
-    // Locals makes, so its properties all read.
     [AvaloniaFact]
     public void A_scroll_bar_reads_every_property_without_an_error()
     {
-        AvaloniaInteroperability.ReadProperties(new VBScrollBar()).Should().NotBeEmpty().And.OnlyContain(p => p.Error == null);
+        var props = AvaloniaInteroperability.ReadProperties(new VBScrollBar());
+
+        props.Should().NotBeEmpty().And.OnlyContain(p => p.Error == null);
+        props.Select(p => p.Name).Should().NotContain(new[] { "BackColor", "ForeColor" });
     }
 }
