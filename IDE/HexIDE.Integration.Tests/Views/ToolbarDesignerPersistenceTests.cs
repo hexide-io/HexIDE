@@ -20,11 +20,8 @@ public class ToolbarDesignerPersistenceTests
 
     private static string CorpusDirectory()
     {
-        for (var at = new DirectoryInfo(AppContext.BaseDirectory); at is not null; at = at.Parent)
-        {
-            var candidate = Path.Join(at.FullName, "corpus", "inbox-controls", "saved", "toolbar");
-            if (Directory.Exists(candidate)) return candidate;
-        }
+        var candidate = Path.Join(RepoTree.Root(), "corpus", "inbox-controls", "saved", "toolbar");
+        if (Directory.Exists(candidate)) return candidate;
         throw new DirectoryNotFoundException("The Toolbar corpus ships with the repository.");
     }
 

@@ -394,13 +394,8 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
     private static string? FindUpwards(string relative)
     {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Join(dir.FullName, relative);
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        return null;
+        var candidate = Path.Join(HexIDE.Tests.Infrastructure.RepoTree.Root(), relative);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     /// <summary>The lines of <paramref name="text"/> that the IDE's regions cover, 0-based.</summary>
