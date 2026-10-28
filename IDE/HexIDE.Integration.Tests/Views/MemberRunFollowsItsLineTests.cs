@@ -76,7 +76,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         "Attribute Go.VB_Description = \"Goes\"\r\n" +
         "End Sub\r\n";
 
-    private CodeEditorViewModel Open(string code)
+    private CodeEditorViewModel Open(string code, int tabWidth = 4)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -84,7 +84,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         eventBus.Subscribe<FormUnloadedEvent>(Arg.Any<Action<FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<DocumentSavedEvent>(Arg.Any<Action<DocumentSavedEvent>>()).Returns(Substitute.For<IDisposable>());
         var settings = Substitute.For<ISettingsService>();
-        settings.TabWidth.Returns(4);
+        settings.TabWidth.Returns(tabWidth);
         var lsp = Substitute.For<ILspClient>();
         lsp.IsRunning.Returns(false);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
@@ -234,6 +234,23 @@ public class MemberRunFollowsItsLineTests : IDisposable
         vm.MemberRunsNow.Single(r => r.Member?.Name == member);
 
     // ── The delta's scenario, and task 4.7's deletion case ──────────────────────────────────────────────────
+
+    [AvaloniaTheory]
+    [InlineData(2)]
+    [InlineData(8)]
+    public void AutoCloserUsesTheEditorsTabWidth(int tabWidth)
+    {
+        var vm = Open("    If True Then", tabWidth);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        PutCaret(editor, vm.Document.TextLength);
+
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Be(
+            before.ReplaceLineEndings("\n") + "\n" + new string(' ', 4 + tabWidth) + "\n    End If");
+        editor.TextArea.Caret.Column.Should().Be(5 + tabWidth);
+    }
 
     [AvaloniaFact]
     public void DeletingADescribedProcedure()
