@@ -18,11 +18,10 @@ The `.vbp` corpus comparison resolves each parsed `Reference=` path from its own
 using Windows path semantics (#2274). Absolute and relative spellings of the same library compare
 equally; every other byte, including the rest of the reference line, remains significant. VB6 saves
 a same-drive library relative, so a project moved from another drive need not retain its path spelling.
-Projects under the configured VB98 Template root (`VB6_TEMPLATES`, or the default install's
-`Template` folder) are classed as shipped templates, rather than VB6-saved files. For these only,
-the expected save moves `Reference=` lines before the first `Object=` line, keeping their relative
-order and every other byte (#2274's measured save order). New projects anywhere under that root
-receive the same check; files outside it retain the strict order comparison.
+Line order is compared strictly for every project, the VB98 Template tree included: a VB6 save
+with no edit keeps every line where it was read, and VB6's own saves of its templates showed it
+(#2274). Only confirming the References dialog regroups a save, and the corpus round trip never
+does.
 
 To run the corpus tests locally:
 

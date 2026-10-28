@@ -35,7 +35,7 @@ sibling folder, `other\Saved2.vbp`. Each saved file was read back.
   references. So VB6 consults the registry, and does not resolve the old path.
 
 HexIDE rebases `Designer=`, `ResFile32=` and `Path32=` with member lines, and writes reference paths
-under the later [#2274 save rules](reference-paths-and-save-order.md), and leaves `HelpFile=` as it was. Two differences from
+under the later [#2274 save rules](a-references-path-and-the-line-order-a-save-writes.md#a-save-with-no-edit-keeps-the-order-it-read-2026-10-28), and leaves `HelpFile=` as it was. Two differences from
 VB6 remain:
 - **A reference's path is the file's own, rebased.** HexIDE cannot read the registry on every host. Where the library
   has not moved, the path is the same one VB6 writes.
