@@ -29,3 +29,9 @@ The #2325 comments’ measured keyboard input is recorded in
 
 The #2474 measurements of declared arrays named with empty parentheses are recorded in
 [Whole-array parentheses](vb6-fidelity-oracle/whole-array-parentheses.md).
+
+The ParamArray forwarding measurement supplied by hexide-int in
+[#2474](https://github.com/hexide-io/HexIDE/issues/2474) and restated in
+[#2532](https://github.com/hexide-io/HexIDE/issues/2532) agrees in native and p-code:
+`T a()` inside a ParamArray procedure supplies one element containing a copy of the whole
+array to T's ParamArray. Writes through that nested array leave the caller's ParamArray unchanged.
