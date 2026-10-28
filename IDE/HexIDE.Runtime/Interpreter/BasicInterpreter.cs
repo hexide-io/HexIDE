@@ -47,6 +47,12 @@ public interface IBasicStandardLibrary
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
         throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
 
+    Task<bool> ShowPrintDialog() =>
+        throw new NotImplementedException("This host does not implement the print dialog (#2299)");
+
+    Task<int?> ShowColorDialog(int initial) =>
+        throw new NotImplementedException("This host does not implement the color dialog (#2299)");
+
     /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
     Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
         throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");

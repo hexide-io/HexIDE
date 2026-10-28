@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Saydam piksellerin rengi.",
     "Str.PropDesc.UseMaskColor": "Maske renginin kullanılıp kullanılmayacağı.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Girinti kılavuzlarını göster",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir",
+    "Str.Dialog.Print.Configuration": "Kopya: 1; yön: dikey.",
+    "Str.Dialog.Print.Unavailable": "Yazdırma uygulanmamıştır. Tamam yalnızca iletişim kutusu ayarlarını döndürür.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

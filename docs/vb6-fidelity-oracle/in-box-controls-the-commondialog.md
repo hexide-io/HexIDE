@@ -278,7 +278,7 @@ PrinterDefault, ToPage, Orientation
 ### In HexIDE
 
 ShowOpen, ShowSave and ShowFont run through the host (#1148). The scalar object-model slice of #1084
-adds the measured defaults and assignment checks; hDC reads remain refused because no native printer DC is owned.
+adds the measured defaults and assignment checks; initial hDC reads remain refused because no native printer DC is owned.
 The control now loads through the MSComDlg library record and its component class, with own file properties carried
 verbatim. Color reads preserve VarType 19 and the unsigned value; assigning -1 overflows. Unmeasured unsigned numeric
 conversions remain refused. Single-file Open/Save now add PathMustExist even on Cancel, set ExtensionDifferent for an extension differing from
@@ -287,8 +287,7 @@ when Open returns a path exceeding MaxFileSize. An unavailable selected filter o
 is refused. Save buffer errors, exact buffer-fit boundaries, extension casing and resetting an existing ExtensionDifferent bit remain
 unmeasured; their previous behavior is unchanged. Multi-select now passes every picked path through both hosts and formats the measured same-folder results above.
 Cross-folder selections and old-format paths with spaces are refused because their encoding is unmeasured.
-Action 1–6 now dispatches to the corresponding Show methods, awaiting their results; integral writes 0, 7, 8 and -1 raise 380. Non-integral assignment conversions remain refused. ShowHelp returns for the measured commands 0, 2 and 3; other commands are refused. ShowColor and ShowPrinter remain refused at their method entry points.
-The old native dialog appearance and uppercase CurDir side effect, the remaining dialogs and their return
-semantics remain outstanding. The measured CommonDialog save now round-trips byte for byte in the saved corpus lane;
+Action 1–6 now dispatches to the corresponding Show methods, awaiting their results; integral writes 0, 7, 8 and -1 raise 380. Non-integral assignment conversions remain refused. ShowHelp returns for the measured commands 0, 2 and 3; other commands are refused. ShowColor now uses a managed RGB chooser for Flags 0/1 (#2299). ShowPrinter uses a managed dialog for Flags 0, default page range/portrait and Copies 1 or 3, returning Copies 1, Orientation 1 and hDC 0 on acceptance. Both honour CancelError, including through Action 3/5. Other configurations, native DCs and actual printing remain refused or unavailable.
+The old native dialog appearance, uppercase CurDir side effect and font-effect writeback remain outstanding. The measured CommonDialog save now round-trips byte for byte in the saved corpus lane;
 explicit own-property defaults are omitted in the measured order, with six separate font lines and no Font block.
 ShowHelp does not start HelpPane.exe as Windows 10 does: the supervisor directed HexIDE to return without launching it (#1084).
