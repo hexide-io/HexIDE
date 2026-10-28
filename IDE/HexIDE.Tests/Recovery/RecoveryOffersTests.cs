@@ -458,6 +458,42 @@ public sealed class RecoveryOffersTests : IDisposable
     }
 
     [Fact]
+    public async Task A_saved_form_s_companion_comes_back_with_it()
+    {
+        var vbp = WriteProject(dir);
+        var first = await Opened(vbp);
+        first.Project.Forms[0].Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
+        Crash(first);
+
+        var second = new Session();
+        var offers = Offers(second);
+        answers.Enqueue(Restore);
+        await second.Service.OpenProject(vbp);
+        await offers.OfferForAsync(second.Project);
+
+        second.Project.Forms[0].Components[0].GetPropertyOrDefault(VBProperties.IconProperty)
+            .Should().Equal([1, 2, 3, 4], "the form's binary companion is backed up and read back with its text");
+        File.Exists(Path.Join(dir, "Form1.frx")).Should().BeFalse("only a save writes the companion");
+    }
+
+    [Fact]
+    public async Task A_never_saved_form_s_companion_comes_back_with_it()
+    {
+        var first = new Session();
+        var project = TestHelpers.CreateProjectWithForm("Scratch");
+        project.Forms[0].Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 5, 6, 7, 8 });
+        first.Loaded.Add(project);
+        Crash(first);
+
+        var second = new Session();
+        var offers = Offers(second);
+        answers.Enqueue(Restore);
+        (await offers.OfferAtStartAsync()).Should().BeTrue();
+
+        second.Project.Forms[0].Components[0].GetPropertyOrDefault(VBProperties.IconProperty).Should().Equal([5, 6, 7, 8]);
+    }
+
+    [Fact]
     public async Task A_backup_naming_a_folder_outside_the_temporary_directory_is_not_written_to()
     {
         var outside = Path.Join(Path.GetPathRoot(Path.GetFullPath(Path.GetTempPath())),
