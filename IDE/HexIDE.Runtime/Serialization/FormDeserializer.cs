@@ -101,14 +101,15 @@ public class FormDeserializer
 
     /// <summary>
     /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
-    /// (#1088) or an UpDown (#1093) that holds no controls and is no control array's element. Loading one warns of
-    /// nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed Toolbar or
-    /// UpDown is still refused at run time.
+    /// (#1088), an UpDown (#1093) or a DTPicker (#1094) that holds no controls and is no control array's element.
+    /// Loading one warns of nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed Toolbar or
+    /// UpDown or DTPicker is still refused at run time.
     /// </summary>
     public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
         type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
         || !holdsControls && !inArray
             && (type.Equals("MSComCtl2.UpDown", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("MSComCtl2.DTPicker", StringComparison.OrdinalIgnoreCase)
                 || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass);
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -642,8 +643,6 @@ public class FormDeserializer
             {
                 instance.SetProperty(Components.InBox.SSTabSavedState.Property,
                     new Components.InBox.SSTabSavedState(serializedComponent.Properties));
-                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
-                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
             }
 
             // A missing Font block takes a value copy of the form's font, never the container's (#2062).
@@ -655,6 +654,11 @@ public class FormDeserializer
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
+
+            if (instance.GetPropertyOrDefault(Components.InBox.SSTabSavedState.Property) is { } pages
+                && !pages.CanDesign(instance))
+                form.MarkUnfaithfulToSave(UnfaithfulSaveCause.SSTabPageMetadata,
+                    "SSTab page metadata cannot yet be regenerated after designer edits (#1090)");
         }
 
         LoadRecur(rootComponent, null, 1, 0);

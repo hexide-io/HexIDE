@@ -36,6 +36,10 @@ check 'openspec/AGENTS.md'                   build 'all of openspec/ is build-vi
 check 'docs/command-line.md'                 build 'CommandLineDocumentationTests reads it'
 check 'docs/lsp-client.md'                   build 'ProtocolCoverageDocTests reads it'
 check 'docs/MISSING_LANGUAGE.md'             build 'MissingLanguageDocTests reads it'
+check 'docs/mcp-server-gaps.md'              build 'McpGapsDocTests reads the index'
+check 'docs/mcp-gaps/open/2562.md'           build 'McpGapsDocTests reads every gap entry'
+check 'docs/mcp-gaps/closed/2513.md'         build 'McpGapsDocTests reads every gap entry'
+check 'docs/archive/mcp-server-gaps-closed.md' build 'McpGapsDocTests fails if the retired archive returns'
 check 'docs/lsp-server-features.md'          build 'listed in HexIDE.slnx'
 check 'docs/ROADMAP.md'                      build 'listed in HexIDE.slnx'
 

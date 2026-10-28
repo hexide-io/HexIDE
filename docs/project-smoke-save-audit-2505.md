@@ -161,10 +161,10 @@ is 4249). The skipped cases are 18 Windows-only checks and ten checks needing th
 of the three new evidence cases or the corpus sweep skipped. The Desktop Debug build finished with zero
 warnings and zero errors. Tree hygiene passed with nine existing, nonblocking warnings.
 
-## Remaining
+## Follow-on checks
 
 The normal open/save smoke lane can now enforce byte identity without exceptions for these demos. Exact
 before/after files are retained under the test report's `Evidence` directory for any future difference.
-Bounded startup through Standalone and Make reporting remain separate implementation work for #2505.
+The follow-on bounded startup and Make checks are described in [Project smoke checks](TEST_PROJECTS.md#project-smoke-checks-2505).
 No runtime result, native handle or unmeasured conversion is pinned by this change; language coverage and
 `MISSING_LANGUAGE.md` counts do not change. No IDE feature status changes in `MISSING_FEATURES.md`.

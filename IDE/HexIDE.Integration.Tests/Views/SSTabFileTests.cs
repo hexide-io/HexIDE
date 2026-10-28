@@ -176,8 +176,8 @@ public class SSTabFileTests : WindowTestFixture
         var records = FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source);
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "Probe"),
             source, new Sink(), records)!;
-        form.CanSaveFaithfully.Should().BeFalse();
-        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.SSTabPageMetadata);
+        form.CanSaveFaithfully.Should().BeTrue();
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.SSTabPageMetadata);
         var ctx = new ModuleExecutionContext();
         var env = new ExecutionEnvironment();
         var canvas = ((DockPanel)VBLoader.SpawnComponents(form, ctx, env)).Children.OfType<Canvas>().Single();

@@ -165,6 +165,31 @@ public class VBLoader
                 dialogs[block] = upDown;
             }
 
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            if (RuntimeControlBlock(block, "MSComCtl2.DTPicker") is { } pickerBlock)
+            {
+                var picker = (VBDTPicker)Components.InBox.DTPickerComponentClass.Instance.Instantiate(
+                    new ComponentInstance(Components.InBox.DTPickerComponentClass.Instance, pickerBlock.Name));
+                foreach (var (property, value) in pickerBlock.Properties)
+                {
+                    var pixels = Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) / 15;
+                    switch (property)
+                    {
+                        case "Left": Canvas.SetLeft(picker, pixels); break;
+                        case "Top": Canvas.SetTop(picker, pixels); break;
+                        case "Width": picker.Width = pixels; break;
+                        case "Height": picker.Height = pixels; break;
+                        case "TabIndex": Avalonia.Input.KeyboardNavigation.SetTabIndex(picker, Convert.ToInt32(value.Value)); break;
+                        default: throw new NotImplementedException("Loading DTPicker properties is not implemented until #1094 part C");
+                    }
+                }
+                VBProps.SetName(picker, pickerBlock.Name);
+                VBProps.SetRunTimeId(picker);
+                canvas.Children.Add(picker);
+                executionContext.AllocVariable(environment, pickerBlock.Name, new Vb6Value(picker));
+                dialogs[block] = picker;
+            }
+
         // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
         foreach (var (block, component) in toolbars)
         {
@@ -787,7 +812,8 @@ public class VBLoader
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
+            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null
+                && RuntimeControlBlock(block, "MSComCtl2.DTPicker") is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)
@@ -953,13 +979,14 @@ public class VBLoader
     /// anything runs.
     /// </summary>
     /// <param name="startupWindow">The startup form's window, or null for a program that starts at Sub Main.</param>
-    public static Task RunMadeProgram(ProjectDefinition project, CancellationToken token, out VBFormRuntime? startupWindow)
+    public static Task RunMadeProgram(ProjectDefinition project, CancellationToken token, out VBFormRuntime? startupWindow,
+        Debugging.IDebugController? debugController = null)
     {
         if (!project.StartsAtSubMain)
         {
             startupWindow = null;
             var form = project.StartupForm ?? throw new VBCompileErrorException(BasicInterpreter.NoStartupObject);
-            var run = RunForm(form, token, out var window);
+            var run = RunForm(form, token, out var window, debugController);
             startupWindow = window;
             return run;
         }
@@ -967,7 +994,7 @@ public class VBLoader
         // closed when the run ends so a box still open goes with it, as one over a form does.
         startupWindow = null;
         var owner = new Window();
-        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController: null, OpenWindow);
+        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController, OpenWindow);
         program.Interpreter.FindStartupSubMain();
         return RunThenClose(RunSubMain(program, token), owner);
 

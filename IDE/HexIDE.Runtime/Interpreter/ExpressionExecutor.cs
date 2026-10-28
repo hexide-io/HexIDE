@@ -102,7 +102,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return (left, right);
     }
 
-    public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context)
+    public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context, bool inclusiveComparison = false)
     {
         var (leftValue, rightValue) = await GetTwoValues(context);
         if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
@@ -149,6 +149,24 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (lr >= 0 && rr >= 0)
         {
             var target = lr >= rr ? leftValue.Type : rightValue.Type;
+            if (inclusiveComparison)
+            {
+                // #229: inclusive comparisons use the measured pair domain, not the widening ladder.
+                var pair = (Math.Min(lr, rr), Math.Max(lr, rr));
+                target = pair switch
+                {
+                    (3, 6) => Vb6Value.ValueType.Single,
+                    (2, 3) => Vb6Value.ValueType.Double,
+                    (4, 6) => Vb6Value.ValueType.Currency,
+                    (5, 6) => Vb6Value.ValueType.Decimal,
+                    _ => target
+                };
+                // Out-of-range comparisons still order without raising a conversion overflow.
+                if ((target == Vb6Value.ValueType.Currency || target == Vb6Value.ValueType.Decimal) &&
+                    (Math.Abs(AsDouble(leftValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue) ||
+                     Math.Abs(AsDouble(rightValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue)))
+                    target = Vb6Value.ValueType.Double;
+            }
             return (PromoteNumeric(leftValue, target), PromoteNumeric(rightValue, target));
         }
 
@@ -2216,12 +2234,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             : context.GT() != null ? Order.Greater
             : context.LEQ() != null ? Order.LessOrEqual
             : Order.GreaterOrEqual;
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt(),
+            context.LEQ() != null || context.GEQ() != null);
         // Two strings compare ordinally under Option Compare Binary (oracle-verified: "B" < "a", "10" < "9"), and as text
         // under Option Compare Text. A string-vs-number pair is left to the numeric path below (numeric string coerces; a
         // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
         if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
+        if (leftValue.Type == Vb6Value.ValueType.Boolean && rightValue.Type == Vb6Value.ValueType.Boolean)
+            return (Vb6Value)Holds(order, leftValue.Value is true ? -1 : 0, rightValue.Value is true ? -1 : 0);
+        if ((context.LEQ() != null || context.GEQ() != null) &&
+            leftValue.Value is decimal leftDecimal && rightValue.Value is decimal rightDecimal)
+            return (Vb6Value)Holds(order, leftDecimal, rightDecimal);
         if (leftValue.Type == Vb6Value.ValueType.Error && rightValue.Type == Vb6Value.ValueType.Error)
             return (Vb6Value)Holds(order, (ushort)leftValue.Value!, (ushort)rightValue.Value!);
         if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
@@ -2384,6 +2408,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         if (call is not null && interpreter.LibraryClassFor(call.GetText()) is { } libraryClass)
             return interpreter.AdoptNewTemp(interpreter.NewLibraryObject(libraryClass), stmtFrames);
+        if (call?.GetText().Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase) == true)
+            throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
         // `New Collection`, and `New VBA.Collection`, the library's own (#1471).
         if (call?.iCS_S_MembersCall() is { } qualified && IsCollectionType(qualified.GetText()))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);

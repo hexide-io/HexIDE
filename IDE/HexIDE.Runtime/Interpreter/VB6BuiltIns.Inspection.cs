@@ -78,6 +78,7 @@ public partial class VB6BuiltIns
     {
         ToolbarItems items => items.TypeName,
         ToolbarItem item => item.TypeName,
+        AvaloniaInterop.ControlFont => "Font",
         VbErr => "ErrObject",
         VbApp => "App",
         VbScreen => "Screen",

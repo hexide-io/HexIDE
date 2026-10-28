@@ -12,6 +12,22 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Optional non-nullable protocol members are omitted when unset
+The client SHALL omit unset optional members whose LSP types exclude null, using property-level
+serialization rules. It SHALL preserve explicit values and members whose protocol types permit null.
+
+#### Scenario: Default formatting options
+- **WHEN** the client sends formatting options without a trailing-whitespace preference
+- **THEN** `trimTrailingWhitespace` is absent from the options object
+
+#### Scenario: Unadvertised folding capability
+- **WHEN** the client initializes without a folding-range capability object
+- **THEN** `foldingRange` is absent from the text-document capabilities
+
+#### Scenario: Nullable initialize fields
+- **WHEN** initialize has no process ID, root URI or workspace folders
+- **THEN** those members may still carry explicit null
+
 ### Requirement: The IDE SHALL depend only on the language-service contract
 Editor and view-model code SHALL obtain every language feature — diagnostics, hover, completion, document
 symbols, folding, signature help, definition, document highlight, rename, formatting — through one
@@ -267,6 +283,10 @@ SHALL omit the `params` member. The stdio transport SHALL allow two seconds for 
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
 handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
 group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
+Both process-owning transports SHALL retain the process exit handler until disposal has recorded the
+exit, and SHALL record it once. During deliberate disposal, they SHALL log the exit code at information
+level with the server identity and SHALL log a timeout kill separately. Deliberate disposal SHALL NOT
+raise the transport's unexpected-close event.
 
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
@@ -287,6 +307,12 @@ the group are outside this guarantee.
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
+
+#### Scenario: A launched pipe server exits during disposal
+- **WHEN** a launched pipe server exits during its disposal grace period
+- **THEN** the conversation contains its numeric exit code once
+- **AND** an information log names the server and its exit code
+- **AND** no unexpected-close event is raised
 
 #### Scenario: The Windows IDE is killed without shutdown
 - **GIVEN** a launched stdio or pipe server has been assigned to the job and then spawned a child

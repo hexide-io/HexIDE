@@ -29,6 +29,28 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Read-only project resources
+
+The interpreter SHALL load the project's `ResFile32` file read-only when configured for a run,
+resolving its Windows-format path against the project folder. Its resource reader SHALL support
+ordinal and case-insensitive string type/name identifiers, DWORD-aligned headers and payloads,
+raw resource bytes and sixteen-slot counted UTF-16 string blocks. Missing, unreadable or malformed
+files SHALL supply no lookup results. A lookup matching more than one language SHALL refuse with
+not-implemented rather than select an unmeasured locale-dependent value (#2625).
+
+#### Scenario: A run reads the project's resource file
+
+- **WHEN** a saved project names `ResFile32="res\probe.res"`
+- **THEN** configuring the interpreter reads that file relative to the project folder
+- **AND** the run retains its own resource snapshot without keeping the file open
+
+#### Scenario: A string slot is empty
+
+- **WHEN** the counted string for an ID has length zero
+- **THEN** the reader reports no string for that ID
+
+The `LoadResString`, `LoadResData` and `LoadResPicture` intrinsic calls remain separate work (#2626).
+
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
 [#2622](https://github.com/hexide-io/HexIDE/issues/2622) (measuring PRs #2624 and #2628).
@@ -430,8 +452,7 @@ because nothing inside an uncreatable control is read.
 The interpreter SHALL execute the measured leading-colon and spaced-empty-statement forms from issue #223.
 It SHALL treat `If True Then:` with no statement on that line as an empty single-line If, allowing the next
 line to execute independently. Falling through a label immediately before `End If` SHALL close the block
-without calling the label as a procedure. Jumps to labels sharing a construct terminator remain deferred
-by the tree-walking execution limit.
+without calling the label as a procedure.
 
 #### Scenario: Leading empty statements
 - **WHEN** `:  :  : Debug.Print "A"` executes
@@ -444,6 +465,19 @@ by the tree-walking execution limit.
 #### Scenario: Fall through a labelled End If
 - **WHEN** a true If prints `T` and closes with `Fin: End If`, followed by a print of `AFTER`
 - **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`
+
+### Requirement: A jump to a closing line SHALL end the block it is in
+A line number or label MAY stand on the line that closes a block or opens its next part, other than a procedure's End
+(#2561). A jump to one from inside its construct SHALL end the block it is in as if that block had run to its end, so a
+loop goes round and an If, Select Case or With is done, as vb6.exe does, native and p-code alike (#2529).
+
+#### Scenario: Going round a loop from a labelled Next
+- **WHEN** a For loop from 1 to 3 jumps to `Skip: Next` when its counter is 2, and appends the counter otherwise
+- **THEN** it appends `13`, and the counter is 4 after the loop
+
+#### Scenario: Jumping to an Else line
+- **WHEN** a true If's Then part jumps to `30 Else`
+- **THEN** the Else part does not run, and the program goes on after End If
 
 ### Requirement: One Next SHALL close every loop it lists
 A Next that lists several counters, `Next j, i`, SHALL close one loop per name, innermost first, exactly as
@@ -759,6 +793,26 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
+### Requirement: Control Font references SHALL retain identity and share mutations
+
+For the built-in font-bearing controls with runtime implementations, Font SHALL expose an object whose
+TypeName is `Font`, whose default member is Name, and whose Size reads as Currency. `Set X.Font = Y.Font`
+SHALL share that reference and propagate supported mutations to every owning control. Independent form
+and control fonts SHALL start as distinct references. `Set Font = Nothing` SHALL raise 380 without
+replacing the font. Font access on scroll bars, Timer, Shape, Line and Image SHALL raise 438.
+Unmeasured object-member conversions and writes SHALL refuse as not implemented. Standalone StdFont,
+the file controls and Data, and Locals expansion remain outside this implementation slice (#934).
+
+#### Scenario: Two controls share one Font
+
+- **WHEN** `Set Text1.Font = Label1.Font` executes, followed by `Label1.Font.Size = 9`
+- **THEN** `Text1.FontSize` is 9 and `Text1.Font Is Label1.Font` is True
+
+#### Scenario: A Font cannot be replaced by Nothing
+
+- **WHEN** `Set Label1.Font = Nothing` executes
+- **THEN** error 380 is raised and the original Font reference remains assigned
+
 ### Requirement: A literal's sign SHALL be an operator
 The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
 apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
@@ -832,6 +886,37 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
+
+### Requirement: Measured intrinsic control minimum sizes
+
+Assignments to an existing intrinsic control's Width and Height SHALL apply the minimum sizes measured in the
+oracle's "A control's position at run time" (#1029), after conversion to whole twips. Move SHALL use the same
+floors. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
+font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
+The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
+remain outside this implementation.
+
+#### Scenario: The default TextBox is assigned a tiny size
+
+- **WHEN** a TextBox in MS Sans Serif 8.25 with its default border receives Width 7 and Height 7 on a twips form
+- **THEN** it reads Width 150 and Height 285, including through Move
+
+#### Scenario: A recorded font or border changes the minimum
+
+- **WHEN** a TextBox in Arial 14.25 with its default border receives Width 7 and Height 7
+- **THEN** it reads 240 and 450
+- **WHEN** a TextBox in MS Sans Serif 8.25 with BorderStyle 0 receives those sizes
+- **THEN** it reads 75 and 195
+- **WHEN** a CommandButton receives those sizes in MS Sans Serif 8.25 or Arial 14.25
+- **THEN** it reads 75 × 195 or 120 × 330 respectively
+
+#### Scenario: Other existing controls receive tiny sizes
+
+- **WHEN** Width 7 and Height 7 are assigned to a CheckBox or OptionButton, a ListBox, either scroll bar,
+  or a Frame, PictureBox, Image, Shape or Label
+- **THEN** their sizes read 75 × 195, 135 × 255, 30 × 30, or 15 × 15 respectively
+- **WHEN** a ComboBox is assigned Width 7 or Height 7
+- **THEN** its Width reads 390, and the Height assignment raises 383
 
 ### Requirement: The Screen object SHALL answer as VB6's does
 `Screen` SHALL be a program global. Its size SHALL be the primary screen in twips, 15 to a device-independent pixel.
@@ -1011,6 +1096,22 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: A form remembers its active control
+
+A form's `ActiveControl` SHALL return its last focused control while active, inactive or hidden,
+and Nothing when loaded but never shown or when no control has taken focus. Reading an unloaded
+form's member SHALL load it again with no remembered control. Measured in
+[#2437](https://github.com/hexide-io/HexIDE/issues/2437), oracle measurement #2279.
+This first slice does not restore focus or raise GotFocus on reactivation; initial focus remains #2436.
+
+#### Scenario: A hidden form remembers focus
+- **WHEN** a control takes focus and its form is hidden
+- **THEN** the form's ActiveControl still returns that control
+
+#### Scenario: A form loads again
+- **WHEN** an unloaded form's ActiveControl is read
+- **THEN** the form loads again and returns Nothing
 
 ### Requirement: App logging SHALL implement the measured file modes
 App.StartLogging and App.LogEvent SHALL implement the file output and mode/path values measured in

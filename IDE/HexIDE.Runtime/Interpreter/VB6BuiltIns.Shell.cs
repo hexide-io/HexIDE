@@ -58,6 +58,7 @@ public partial class VB6BuiltIns
             }
             ShellCloseHandle(process.Thread);
             ShellCloseHandle(process.Process);
+            ShellLaunches.Record((int)process.ProcessId, command, style.Value);
             return new Vb6Value((double)process.ProcessId);
         }
 
@@ -68,7 +69,8 @@ public partial class VB6BuiltIns
             {
                 UseShellExecute = false
             });
-            return new Vb6Value((double)process!.Id);
+            ShellLaunches.Record(process!.Id, command, style.Value);
+            return new Vb6Value((double)process.Id);
         }
         catch (Win32Exception e) when (e.NativeErrorCode == 2)
         {

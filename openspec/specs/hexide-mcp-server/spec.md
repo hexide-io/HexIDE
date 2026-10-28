@@ -708,6 +708,19 @@ automation name, or else its text, and SHALL list that name, never a type name, 
 - **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
 - **THEN** the item is reached, and a miss in that menu lists it by that name
 
+### Requirement: A Make from the menu SHALL say what it made, or why it made nothing
+When `invoke_menu_item` starts a Make, its reply SHALL wait for Make to end and SHALL name the program and project it
+wrote, with their sizes and whether the program wrote over a file. Otherwise it SHALL give why nothing was written, and
+whether a message box saying so is open. A Make waiting at a save dialog nothing answered SHALL be reported as that.
+
+#### Scenario: A Make with its answer armed
+- **WHEN** `answer_next_file_dialog` arms a program's path and `invoke_menu_item` runs File/Make
+- **THEN** the note names that path and its size, and the project written beside it
+
+#### Scenario: No standalone runner
+- **WHEN** a Debug build with no published runner runs File/Make
+- **THEN** the note says no program was made, names the folder the runner was looked for in, and says a box is open
+
 ### Requirement: hover SHALL report a tip by the text it shows
 `hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
 blocks in order. A tip with no text to read SHALL be reported as such, never by a type's name, and an open tip whose
@@ -914,6 +927,25 @@ as waiting to run separately from handlers already started.
 - **AND** events with handlers queued behind it are named as waiting to run
 - **AND** events without handlers are omitted
 
+### Requirement: A program Shell started SHALL have its windows readable, and no other process
+`get_process_windows` SHALL describe the top-level windows of a process a VB6 program run in the IDE started with
+`Shell`, and of the processes that one started, giving each one's state, visibility, bounds and whether it has the
+foreground. It SHALL refuse any other process, a reused process ID included, SHALL say why a reply has no window, and
+SHALL send nothing to any window.
+
+#### Scenario: A program started minimized
+- **WHEN** a program runs `pid = Shell("notepad.exe", 6)` and the caller passes that `pid`
+- **THEN** Notepad's window is reported as Minimized and visible, with the window style Shell was given
+
+#### Scenario: Another process
+- **WHEN** the caller passes the ID of a process `Shell` did not start
+- **THEN** the call is refused, naming the processes `Shell` did start
+
+#### Scenario: A launcher that hands off
+- **WHEN** the process `Shell` started has started the program and exited
+- **THEN** the program's windows are read through it, and a reply with no window says whether the process exited, has
+  no window yet, or its ID now names another process
+
 ### Requirement: Run-control replies SHALL say what the program printed
 A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
 SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
@@ -1027,7 +1059,7 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 
 #### Scenario: A click on a running form's button
 - **WHEN** `click` presses Command1, which logs its mouse events
-- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, MouseMove (Button 0), as a real pointer's left click on it runs them
 
 #### Scenario: A second click at the same point
 - **WHEN** `click` presses again where the last click left the pointer

@@ -565,7 +565,8 @@ public class ProjectService : IProjectService
     /// Rethrown rather than turned into false: a close-time save that carried on would unload the project and
     /// discard the edit the developer had just asked to keep.
     /// </remarks>
-    private async Task<T> WithSaveRefusals<T>(Func<Task<T>> operation, bool interactive = true)
+    private async Task<T> WithSaveRefusals<T>(Func<Task<T>> operation, bool interactive = true,
+        Action<string, bool>? refusing = null)
     {
         try
         {
@@ -575,6 +576,8 @@ public class ProjectService : IProjectService
         {
             Log.Warning("Cannot save {Document} in code page {CodePage}: it holds {CodePoint}",
                 refusal.Document, refusal.CodePage, refusal.CodePoint);
+            refusing?.Invoke($"{refusal.Document} holds {refusal.CodePoint}, which code page {refusal.CodePage} can't "
+                             + "hold, so nothing was written", interactive);
             // Says that nothing was written, rather than that one document was not: the operation checked every
             // file before writing any. The line is quoted because the character may not be in anything the
             // person just edited: a form is written whole, and a project file names its members by file.
@@ -590,6 +593,8 @@ public class ProjectService : IProjectService
         {
             Log.Warning("Not saving {Project}: its project file would leave out {Members}, which have no file",
                 refusal.Project, refusal.Members);
+            refusing?.Invoke($"{refusal.Project}'s project file would leave out {string.Join(", ", refusal.Members)}, "
+                             + "which have no file, so nothing was written", interactive);
             if (interactive)
                 await windowManager.MessageBox(
                     string.Format(localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten"),
@@ -600,12 +605,12 @@ public class ProjectService : IProjectService
     }
 
     /// <inheritdoc cref="WithSaveRefusals{T}"/>
-    private Task WithSaveRefusals(Func<Task> operation, bool interactive = true) =>
+    private Task WithSaveRefusals(Func<Task> operation, bool interactive = true, Action<string, bool>? refusing = null) =>
         WithSaveRefusals(async () =>
         {
             await operation();
             return true;
-        }, interactive);
+        }, interactive, refusing);
 
     // ── Saving: every file chosen and checked before any is written ─────────────────────────────────
 
@@ -1131,28 +1136,34 @@ public class ProjectService : IProjectService
 
     public async Task MakeProject(ProjectDefinition projectDefinition)
     {
+        // Begun before the first await, so an automation caller that ran the menu command knows a Make started (#2671).
+        var make = MakeOutcomes.Begin();
         try
         {
             // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
             // through the cancellation arm below. A form or the project file used to reach the fatal-error box
             // instead, with .NET's message in place of the document and the code page.
-            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition));
+            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition, make), refusing: make.NotMade);
         }
         catch (OperationCanceledException)
         {
+            // Every refusal said why already, so only a dismissed picker reaches this unexplained.
+            make.NotMade("the save dialog was cancelled, so nothing was written", false);
             throw;
         }
         catch (Exception e)
         {
+            make.NotMade($"Make failed: {e.Message}", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.Failed"), e.Message), icon: MessageBoxIcon.Error);
             throw;
         }
     }
 
-    private async Task MakeProjectInternal(ProjectDefinition projectDefinition)
+    private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make)
     {
         if (OperatingSystem.IsBrowser())
         {
+            make.NotMade("a program can't be made in the browser", true);
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.Browser"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
@@ -1168,6 +1179,7 @@ public class ProjectService : IProjectService
         if (projectDefinition.Forms.Cast<object>().Concat(projectDefinition.Modules).Where(RefusesUnfaithful).ToList()
             is { Count: > 0 })
         {
+            make.NotMade(Unfaithful(), true);
             await ReportRefusedSaves();
             throw new OperationCanceledException();
         }
@@ -1187,6 +1199,7 @@ public class ProjectService : IProjectService
             new Destination(projectDefinition, Path.Join(tempPath, projectDefinition.Name + ".vbp"))
         ]);
 
+        make.Reached(MakeOutcomes.Stage.AtPicker);
         var exePath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
             DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
@@ -1197,8 +1210,10 @@ public class ProjectService : IProjectService
         if (exePath == null)
             throw new OperationCanceledException();
 
+        make.Reached(MakeOutcomes.Stage.Writing);
         if (StandaloneRunnerName() is not { } runnerName)
         {
+            make.NotMade("HexIDE has no standalone runner for this platform, so nothing was written", true);
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
@@ -1207,10 +1222,20 @@ public class ProjectService : IProjectService
         var runner = new FileInfo(Path.Join(standaloneFolder, runnerName));
         if (!runner.Exists)
         {
+            // A Debug build has none until HexIDE.Standalone is published into it.
+            make.NotMade($"the standalone runner, {runnerName}, isn't in {standaloneFolder}, so nothing was written to "
+                         + $"{exePath}, which the save dialog gave", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.RuntimeNotFound"),
                 standaloneFolder, runnerName), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
+
+        // The picker only confirms the executable; the interpreter's archive is a separate output (#2504).
+        var archivePath = Path.ChangeExtension(exePath, "dll")!;
+        if (File.Exists(archivePath) && await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), archivePath),
+                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+            throw new OperationCanceledException();
 
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
 
@@ -1261,6 +1286,7 @@ public class ProjectService : IProjectService
             {
                 foreach (var name in refused)
                     RecordRefusal(name);
+                make.NotMade(Unfaithful(), true);
                 await ReportRefusedSaves();
                 throw new OperationCanceledException();
             }
@@ -1271,7 +1297,6 @@ public class ProjectService : IProjectService
             EncodePackageSources(projectDefinition);
 
             // This is not a .dll file, but it will look better :wink: :wink:
-            var archivePath = Path.ChangeExtension(exePath, "dll")!;
             AtomicFileWriter.Write(archivePath, stream => ZipFile.CreateFromDirectory(tempPath, stream));
         }
         finally
@@ -1290,8 +1315,14 @@ public class ProjectService : IProjectService
         // its own assemblies and the native libraries, so nothing else goes with it (#1971). It used to be the runner's
         // apphost and three native libraries, which ran only while the runner was compiled AOT; since #30 the apphost has
         // needed HexIDE.Standalone.dll beside it, and no made program started.
+        var replaced = File.Exists(exePath);
         AtomicFileWriter.Copy(runner.FullName, exePath);
+        make.Made(exePath, Path.ChangeExtension(exePath, "dll"), replaced);
     }
+
+    /// <summary>Why a Make refused the forms and modules banked for <see cref="ReportRefusedSaves"/>, for its outcome.</summary>
+    private string Unfaithful() =>
+        $"HexIDE can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
 
     /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
     internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;

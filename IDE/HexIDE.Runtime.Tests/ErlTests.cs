@@ -5,8 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// <c>Erl</c> (#2528): the line number at or above where the latest error was raised, in the procedure that trapped it and
 /// in source order, a Long, and 0 again wherever VB6 clears <c>Err</c> itself. The procedures are the probe's, and every line was logged by vb6.exe, native and
-/// p-code alike (the issue has both probes). E13's `Next` is unnumbered here, where the probe's was `30  Next`: a
-/// number on a closing line doesn't parse yet (#2529).
+/// p-code alike (the issue has both probes).
 /// </summary>
 public class ErlTests : BaseVBTestFixture
 {
@@ -118,7 +117,7 @@ public class ErlTests : BaseVBTestFixture
                 On Error GoTo h
             10  For i = 1 To 3
             20      If i = 2 Then x = 1 / 0
-                Next
+            30  Next
                 Exit Sub
             h:
                 Debug.Print "E13: Erl " & Erl & " i " & i

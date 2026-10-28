@@ -55,7 +55,9 @@ public class StdioProcessLoggingTests
                 await Task.Delay(25, TestContext.Current.CancellationToken);
         }
 
-        var records = logs.Where(l => l.Level == level).ToArray();
+        var records = logs.Where(l => l.Level == level &&
+            (level != LogLevel.Information || l.Message.Contains("Starting language server:", StringComparison.Ordinal)))
+            .ToArray();
         records.Should().HaveCount(2);
         for (var i = 0; i < records.Length; i++)
         {

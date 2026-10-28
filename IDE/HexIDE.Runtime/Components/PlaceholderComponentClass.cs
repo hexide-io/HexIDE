@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.Components;
 
@@ -21,6 +22,8 @@ public class PlaceholderComponentClass : ComponentBaseClass
     protected override Control InstantiateInternal(ComponentInstance instance) =>
         new Border
         {
+            [ControlFont.NotImplementedProperty] = _typeName.ToLowerInvariant() is
+                "vb.drivelistbox" or "vb.dirlistbox" or "vb.filelistbox" or "vb.data",
             Background = new SolidColorBrush(Color.Parse("#C0C0C0")),
             BorderBrush = new SolidColorBrush(Color.Parse("#808080")),
             BorderThickness = new Avalonia.Thickness(1),

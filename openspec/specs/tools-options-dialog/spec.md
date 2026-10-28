@@ -102,3 +102,24 @@ without access-key markers. The names SHALL follow changes to those labels.
 #### Scenario: Changing the label language
 - **WHEN** a numeric field's localized label changes
 - **THEN** its automation name changes too, including when the label has no access-key marker
+
+### Requirement: Options lists SHALL have localized accessible names
+The Language, Region, Theme and Keymap combo boxes SHALL expose accessible names from their visible
+localized labels, without access-key markers. Names SHALL update when the labels change language and
+SHALL remain available when a list is disabled or empty.
+
+#### Scenario: System default has no region
+- **WHEN** the Language page shows System default and the Region list is disabled and empty
+- **THEN** both lists still expose their localized Language and Region labels as accessible names
+
+#### Scenario: Changing the dialog language
+- **WHEN** a localized label changes while Options is open
+- **THEN** the corresponding list's accessible name changes with it
+
+### Requirement: Sticky-scroll depth spinner buttons SHALL have localized accessible names
+The Editor General page's sticky-scroll depth spinner buttons SHALL expose localized Increase and
+Decrease names rather than the type names of their arrow graphics.
+
+#### Scenario: Inspecting the depth spinner
+- **WHEN** the Editor General page is rendered
+- **THEN** the spinner buttons expose localized Increase and Decrease names, including while disabled

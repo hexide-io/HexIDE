@@ -12,7 +12,9 @@ namespace HexIDE.Tests.Corpus;
 internal sealed record ProjectSmokeResult(string Project, bool Opened, string Save, string[] Differences, Exception? Crash)
 {
     public string[] Normalisations { get; init; } = [];
-    public bool Failed => Crash is not null || Differences.Length != 0;
+    public SmokeStage Run { get; init; } = new("not completed");
+    public SmokeStage Make { get; init; } = new("not completed");
+    public bool Failed => Crash is not null || Differences.Length != 0 || Run.Failed || Make.Failed;
 }
 
 internal static class ProjectSmokeHarness
@@ -36,6 +38,14 @@ internal static class ProjectSmokeHarness
                 if (expected != path) changes.Add("Reference path: " + path + " -> " + expected);
                 return match.Groups[1].Value + expected + match.Groups[3].Value;
             });
+        // #2459: VB6's save of an ActiveX EXE that has no Retained= line adds Retained=0 between Unattended and
+        // ThreadPerObject (measured on the shipped template), and so does HexIDE's. Nothing else is expected to change.
+        const string unretained = "Unattended=0\r\nThreadPerObject=0\r\n";
+        if (Regex.IsMatch(text, @"(?m)^Type=OleExe\r?$") && !Regex.IsMatch(text, @"(?mi)^Retained=") && text.Contains(unretained))
+        {
+            text = text.Replace(unretained, "Unattended=0\r\nRetained=0\r\nThreadPerObject=0\r\n");
+            changes.Add("Retained=0 added to an ActiveX EXE that lacked it, as VB6's save adds it (#2459)");
+        }
         normalisations = changes.ToArray();
         return Encoding.Latin1.GetBytes(text);
     }
@@ -46,7 +56,8 @@ internal static class ProjectSmokeHarness
         .Select(Path.GetFullPath).Distinct(HostPathComparer).Order(StringComparer.Ordinal).ToArray();
 
     public static async Task<ProjectSmokeResult> Check(string root, string project,
-        Func<string, Task<Func<Task<string?>>>> open, string? evidenceDirectory = null, bool? caseInsensitivePaths = null, string? referenceDirectory = null)
+        Func<string, Task<Func<Task<string?>>>> open, string? evidenceDirectory = null, bool? caseInsensitivePaths = null, string? referenceDirectory = null,
+        Func<string, Task<SmokeStage>>? run = null, Func<string, Task<SmokeStage>>? make = null)
     {
         var comparer = caseInsensitivePaths is null ? HostPathComparer : PathComparer(caseInsensitivePaths.Value);
         var opened = false;
@@ -92,7 +103,18 @@ internal static class ProjectSmokeHarness
                     WriteEvidence("saved", after, difference);
                 }
             }
-            return new(project, true, refusal ?? (differences.Length == 0 ? "identical" : "different"), differences, null) { Normalisations = normalisations };
+            async Task<SmokeStage> Stage(Func<string, Task<SmokeStage>>? action)
+            {
+                if (action is null) return new("not completed");
+                try { return await action(Path.Join(scratch, relative)); }
+                catch (Exception exception) { return SmokeStage.FromException(exception); }
+            }
+            var runResult = await Stage(run);
+            var makeResult = await Stage(make);
+            return new(project, true, refusal ?? (differences.Length == 0 ? "identical" : "different"), differences, null)
+            {
+                Normalisations = normalisations, Run = runResult, Make = makeResult
+            };
         }
         catch (Exception exception)
         {
