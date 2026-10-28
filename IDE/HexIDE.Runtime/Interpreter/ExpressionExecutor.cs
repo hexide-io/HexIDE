@@ -225,7 +225,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return (leftValue, rightValue);
     }
 
-
     public override Task<object?> Visit(IParseTree tree)
     {
         // Flat operator chains pass the parser's nesting guard but still recurse through the evaluator.
@@ -648,7 +647,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var identifier = context.ambiguousIdentifier().GetText();
         return identifier;
     }
-
 
     // EXPRESSION
     /// <summary>
@@ -1701,6 +1699,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
+        if (variable.Value is VBMSFlexGrid grid)
+        {
+            VBProps.RefuseIfRemoved(grid);
+            return FlexGridMembers.Read(grid, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
+        }
+
         if (variable.Value is VBTreeView capacityTree && MemberName(member).Equals("GetVisibleCount", StringComparison.OrdinalIgnoreCase))
         {
             if ((await EvaluateCallArgs(MemberArgs(member))).Count != 0) throw new NotImplementedException();
@@ -2447,6 +2451,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBMSFlexGrid => "MSFlexGridLib",
+
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
@@ -2501,7 +2507,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         result = VbBitwise.Pack(op(leftBits, rightBits), VbBitwise.Combine(leftWidth, rightWidth));
         return true;
     }
-
 
     public override async Task<object?> VisitBlockStmt(VB6Parser.BlockStmtContext context)
     {

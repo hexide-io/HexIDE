@@ -598,6 +598,28 @@ public class VBWindowContext : IModuleExecutionRoot
     public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
         Raise(name, args, coalescing, when: when);
 
+    public async Task<int> CompareRowsAsync(string name, int row1, int row2, int cmp)
+    {
+        if (!Handles(name)) return cmp;
+        if (!started) await EnsureDeclarations();
+        var state = ExecutionContext.State;
+        var argument = new Vb6Value(cmp);
+        var result = state.Alloc(argument, Vb6Value.ValueType.Integer);
+        state.RefuseUntilAssigned(result, "MSFlexGrid.Compare initial Cmp is not implemented (#1099)");
+        await interpreter!.RaiseFormEvent(EnsureInstance(), name, new List<CallArg>
+        {
+            new(new Vb6Value(row1), null),
+            new(new Vb6Value(row2), null),
+            new(argument, result),
+        });
+        return state[result].Value switch
+        {
+            short n => n,
+            int n => n,
+            _ => throw new NotImplementedException("MSFlexGrid.Compare Cmp conversion is not implemented (#1099)"),
+        };
+    }
+
     /// <inheritdoc/>
     public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);
 
@@ -609,6 +631,10 @@ public class VBWindowContext : IModuleExecutionRoot
         var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
         Raise(name, () => argList, EventCoalescing.Timer, key);
     }
+
+    // Input the control cannot implement must use the run's fault boundary, even without an event handler (#1099).
+    internal void RefuseInput(NotImplementedException error) =>
+        Events.Raise("Input", async () => { await Report(() => Task.FromException(error)); });
 
     internal void ExecuteControlInput(string name, Func<Task> work)
     {

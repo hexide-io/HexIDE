@@ -784,6 +784,19 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
 
+### Requirement: MSFlexGrid saves retain their own property run
+
+The writer SHALL emit carried MSFlexGrid properties after the extents and version in the order recorded
+by the VB6 saved-file oracle, preserving their raw values, comments and Font block. These carried own
+properties SHALL remain unavailable for designer editing. A new toolbox grid SHALL write the measured
+bare block, including its extender TabIndex, without adding own default-property lines or a companion.
+
+#### Scenario: Editing a form with saved grids
+
+- **GIVEN** the VB6-authored MSFlexGrid fixture in `corpus/inbox-controls/saved/msflexgrid/`
+- **WHEN** the form is saved unchanged, or only its caption is edited
+- **THEN** each grid's block remains byte for byte identical and no companion is produced
+
 ### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
 A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value
 in the `.pag`. A save SHALL omit StandardSize, including a carried line from a loaded file, because
