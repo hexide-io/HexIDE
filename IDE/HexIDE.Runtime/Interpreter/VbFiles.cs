@@ -106,6 +106,7 @@ internal sealed partial class VbFiles
         public long AppendOrigin { get; set; }
         // The print column, counted from 0 at the start of a line: where a comma's next zone is measured from.
         public int Column { get; set; }
+        public int Width { get; set; }
         // A Binary or Random file's own handle, read and written in place, its position the file's.
         public FileStream? Stream { get; init; }
         // What this handle may do, and what it lets another handle on the file do (#1646).
@@ -495,6 +496,18 @@ internal sealed partial class VbFiles
         MoveText(file, p, past: false);
         return text.ToString();
     }
+
+    public void SetWidth(int number, int width)
+    {
+        var file = Get(number);
+        if (file.Mode == VbFileMode.Random)
+            throw new NotImplementedException("Width on a Random file is unmeasured (#2554)");
+        if (width is < 0 or > 255)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        file.Width = width;
+    }
+
+    public int PrintWidth(int number) => Writable(number).Width;
 
     /// <summary>The column the next character of <c>Print #</c> lands in, from 0.</summary>
     public int Column(int number) => Writable(number).Column;
